@@ -17,3 +17,174 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* License and version beside a credit: quiet metadata, read in passing. */
+.acknowledgements-terms {
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  white-space: nowrap;
+}
+
+.acknowledgements-version {
+  color: var(--text-tertiary);
+}
+
+.acknowledgements-lead {
+  margin: var(--space-2) 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+
+.acknowledgements-search {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+/* Each closure folds to one row, so the full list costs the page four lines
+   until someone asks for it. */
+.acknowledgements-closure-toggle {
+  width: 100%;
+  padding: var(--space-3) var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  text-align: left;
+  cursor: default;
+}
+
+.acknowledgements-closure-toggle:hover {
+  background: var(--settings-control-hover-surface);
+}
+
+.acknowledgements-closure-chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  transition: transform var(--duration-quick) var(--ease-default);
+}
+
+.acknowledgements-closure-toggle[aria-expanded="true"] .acknowledgements-closure-chevron {
+  transform: rotate(90deg);
+}
+
+.acknowledgements-closure-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.acknowledgements-closure-count {
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+}
+
+.acknowledgements-closure-title {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--type-label-weight);
+}
+
+.acknowledgements-packages {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.acknowledgements-package {
+  width: 100%;
+  padding: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-2) + var(--space-6));
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  text-align: left;
+  cursor: default;
+}
+
+.acknowledgements-results .acknowledgements-package {
+  padding-left: var(--space-2);
+}
+
+.acknowledgements-package:hover {
+  background: var(--settings-control-hover-surface);
+  color: var(--text-primary);
+}
+
+.acknowledgements-package-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acknowledgements-package-license {
+  margin-left: auto;
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+
+/* The notices read as the plain text file they are. */
+.modal.sheet-dialog.acknowledgements-notices {
+  gap: 0;
+}
+
+.acknowledgements-notices-body {
+  min-height: 0;
+  padding-top: var(--space-3);
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.acknowledgements-notices-meta {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+
+.acknowledgements-notices-group h3 {
+  margin: 0 0 var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--type-label-weight);
+}
+
+.acknowledgements-notices-group h4 {
+  margin: 0 0 var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--type-label-weight);
+}
+
+.acknowledgements-notices-text {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

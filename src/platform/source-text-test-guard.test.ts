@@ -38,6 +38,7 @@ const ALLOWED = new Set([
   "src/editor/spreadsheet/spreadsheet-yjs.test.ts", // the bundled tutorial workbook loads
   "src/editor/spreadsheet/spreadsheet-xlsx.test.ts", // the tutorial workbook exports to xlsx
   "src/editor/presentation/open-slide-skill.test.ts", // the embedded skill is Markdown for the agent
+  "src/settings/third-party-notices.test.ts", // the shipped THIRD_PARTY_NOTICES.md parses into Acknowledgements' list, with every credited package
 ]);
 
 const FS_IMPORT = /\bfrom\s+["'](?:node:)?fs(?:\/promises)?["']|\bimport\(\s*["'](?:node:)?fs(?:\/promises)?["']\s*\)/;

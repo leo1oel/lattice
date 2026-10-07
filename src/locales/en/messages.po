@@ -75,6 +75,11 @@ msgstr "{0} file"
 msgid "{0} files"
 msgstr "{0} files"
 
+#. placeholder {0}: rows.length
+#: src/settings/acknowledgements-settings.tsx
+msgid "{0} packages"
+msgstr "{0} packages"
+
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
 msgstr "{action} cancelled"
@@ -695,6 +700,10 @@ msgstr "Agent"
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Agent runtime"
+msgstr "Agent runtime"
+
 #: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
 msgstr "Agent settings…"
@@ -762,6 +771,10 @@ msgstr "All Functions…"
 msgid "All levels"
 msgstr "All levels"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "All third-party software"
+msgstr "All third-party software"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "All your projects are archived or trashed"
 msgstr "All your projects are archived or trashed"
@@ -818,6 +831,10 @@ msgstr "An update from Overleaf did not fit this document; it needs to be reload
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
 msgstr "Angle"
+
+#: src/settings/acknowledged-software.ts
+msgid "Animated interface icons, redrawn from Phosphor glyphs"
+msgstr "Animated interface icons, redrawn from Phosphor glyphs"
 
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
@@ -1168,6 +1185,10 @@ msgstr "Blue"
 msgid "Blue value"
 msgstr "Blue value"
 
+#: src/settings/acknowledged-software.ts
+msgid "Board typefaces"
+msgstr "Board typefaces"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "Body words"
@@ -1338,6 +1359,14 @@ msgstr "Bullet List"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bulleted list"
 msgstr "Bulleted list"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful."
+msgstr "By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful."
+
+#: src/settings/acknowledged-software.ts
+msgid "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
+msgstr "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
 
 #: src/project/citation-health.ts
 msgid "cached"
@@ -1832,6 +1861,10 @@ msgstr "Code block settings"
 msgid "Code block title"
 msgstr "Code block title"
 
+#: src/settings/acknowledged-software.ts
+msgid "Code highlighting"
+msgstr "Code highlighting"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
 msgstr "Collapsible"
@@ -2132,6 +2165,14 @@ msgstr "Copy path"
 msgid "Copyright"
 msgstr "Copyright"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Copyright notices of the packages under this text"
+msgstr "Copyright notices of the packages under this text"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Core components"
+msgstr "Core components"
+
 #: src/canvas/proofread-card.tsx
 msgid "Correct grammar, spelling and punctuation only"
 msgstr "Correct grammar, spelling and punctuation only"
@@ -2327,8 +2368,8 @@ msgstr "Creating project…"
 
 #. Search words for the Acknowledgements settings page, space-separated
 #: src/settings/settings-search-index.ts
-msgid "credits licenses fonts"
-msgstr "credits licenses fonts"
+msgid "credits licenses fonts open source libraries third-party notices"
+msgstr "credits licenses fonts open source libraries third-party notices"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
@@ -2574,6 +2615,10 @@ msgstr "Diagnostics"
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
+#: src/settings/acknowledged-software.ts
+msgid "Diagrams in Markdown"
+msgstr "Diagrams in Markdown"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond operator"
 msgstr "Diamond operator"
@@ -2586,6 +2631,10 @@ msgstr "Diamond suit"
 #: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
+
+#: src/settings/acknowledged-software.ts
+msgid "Diffs of changes and history"
+msgstr "Diffs of changes and history"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Discard and close"
@@ -2614,6 +2663,10 @@ msgstr "Dismiss notification"
 #: src/project/references-panel.tsx
 msgid "Dismiss references"
 msgstr "Dismiss references"
+
+#: src/settings/acknowledged-software.ts
+msgid "Display typeface"
+msgstr "Display typeface"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
@@ -2932,6 +2985,10 @@ msgstr "Editor shortcuts"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "Editor status"
+
+#: src/settings/acknowledged-software.ts
+msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
+msgstr "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 
 #: src/canvas/proofread-card.tsx
 msgid "Edits held back"
@@ -3436,6 +3493,10 @@ msgstr "Formulas"
 msgid "Fourth-level heading."
 msgstr "Fourth-level heading."
 
+#: src/settings/acknowledged-software.ts
+msgid "From the official conference author kits, bundled unmodified with their authors' credits"
+msgstr "From the official conference author kits, bundled unmodified with their authors' credits"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
@@ -3555,6 +3616,10 @@ msgstr "Going to Overleaf"
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/settings/acknowledged-software.ts
+msgid "Grammar checking"
+msgstr "Grammar checking"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -4117,8 +4182,12 @@ msgid "Integrations"
 msgstr "Integrations"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "Interface fonts"
-msgstr "Interface fonts"
+msgid "Interface"
+msgstr "Interface"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface icons"
+msgstr "Interface icons"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -4129,6 +4198,14 @@ msgstr "Interface language"
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface sounds, by Daniel Belyi"
+msgstr "Interface sounds, by Daniel Belyi"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface typeface, by Rasmus Andersson"
+msgstr "Interface typeface, by Rasmus Andersson"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
@@ -4376,6 +4453,14 @@ msgstr "Lattice couldn’t open this window"
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
+msgstr "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Lattice stands on the work of many open-source projects. Thank you to everyone who builds them."
+msgstr "Lattice stands on the work of many open-source projects. Thank you to everyone who builds them."
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice UI crashed"
@@ -4474,6 +4559,10 @@ msgstr "Lemma"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
 msgstr "Less than or equal"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "License text"
+msgstr "License text"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -4810,6 +4899,10 @@ msgstr "Math array"
 msgid "Math preview"
 msgstr "Math preview"
 
+#: src/settings/acknowledged-software.ts
+msgid "Math previews"
+msgstr "Math previews"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "Matrix"
@@ -5049,6 +5142,10 @@ msgstr "name@example.org"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Named operator"
 msgstr "Named operator"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Native app"
+msgstr "Native app"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Native color picker"
@@ -5290,6 +5387,10 @@ msgstr "No indent for this paragraph"
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
 msgstr "No independent metadata was available to verify a possible record. The reference may still be valid."
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "No license declared"
+msgstr "No license declared"
+
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
 msgstr "No logs at this level"
@@ -5515,6 +5616,11 @@ msgstr "Note"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "Nothing is sent or fetched until you resume"
+
+#. placeholder {0}: deferredQuery.trim()
+#: src/settings/acknowledgements-settings.tsx
+msgid "Nothing matches “{0}”."
+msgstr "Nothing matches “{0}”."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
@@ -5760,6 +5866,11 @@ msgstr "Open Slide sent an incomplete edit for {path}."
 msgid "Open source page — no downloadable full text found"
 msgstr "Open source page — no downloadable full text found"
 
+#. placeholder {0}: credit.name
+#: src/settings/acknowledgements-settings.tsx
+msgid "Open the {0} website"
+msgstr "Open the {0} website"
+
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "Open the document this suggestion is in first."
@@ -5845,6 +5956,10 @@ msgstr "Orange"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Ordered List"
 msgstr "Ordered List"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Origins and adapted work"
+msgstr "Origins and adapted work"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Other projects"
@@ -6221,6 +6336,10 @@ msgstr "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
 
+#: src/settings/acknowledged-software.ts
+msgid "PDF, TeX and bibliography icons in the file tree"
+msgstr "PDF, TeX and bibliography icons in the file tree"
+
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX engine"
@@ -6303,6 +6422,10 @@ msgstr "Polishing…"
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
 
+#: src/settings/acknowledged-software.ts
+msgid "Powers presentations"
+msgstr "Powers presentations"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "Precedes"
@@ -6350,6 +6473,10 @@ msgstr "Preprint check incomplete: {error}"
 #: src/papers/audit-messages.ts
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "Preprint check returned an incomplete or ambiguous result."
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Presentation runtime"
+msgstr "Presentation runtime"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Presets"
@@ -6626,6 +6753,10 @@ msgstr "Reading"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "Reading the file…"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Reading the third-party notices…"
+msgstr "Reading the third-party notices…"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -7429,6 +7560,10 @@ msgstr "Run-in paragraph heading"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
 
+#: src/settings/acknowledged-software.ts
+msgid "Runs the agent runtime"
+msgstr "Runs the agent runtime"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Sage"
@@ -7542,6 +7677,10 @@ msgstr "Search"
 msgid "Search alphaXiv and OpenAlex for related work"
 msgstr "Search alphaXiv and OpenAlex for related work"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Search by name or license"
+msgstr "Search by name or license"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
@@ -7585,6 +7724,10 @@ msgstr "Search PDF"
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "Search settings"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Search third-party software"
+msgstr "Search third-party software"
 
 #: src/project/project-find-dialog.tsx
 msgid "Search your files and saved papers."
@@ -7819,6 +7962,12 @@ msgstr "Show this in the editor"
 #: src/project/project-find-dialog.tsx
 msgid "Show:"
 msgstr "Show:"
+
+#. placeholder {0}: shown.length
+#. placeholder {1}: matches.length
+#: src/settings/acknowledgements-settings.tsx
+msgid "Showing {0} of {1} matches. Keep typing to narrow them."
+msgstr "Showing {0} of {1} matches. Keep typing to narrow them."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -8416,6 +8565,10 @@ msgstr "The agent is correcting grammar, spelling and punctuation. Math, citatio
 msgid "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
 msgstr "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
 
+#: src/settings/acknowledged-software.ts
+msgid "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
+msgstr "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
@@ -8435,6 +8588,14 @@ msgstr "The bibliography entry changed after the scan."
 #: src/papers/audit-messages.ts
 msgid "The bibliography entry no longer exists."
 msgstr "The bibliography entry no longer exists."
+
+#: src/settings/acknowledged-software.ts
+msgid "The board editor"
+msgstr "The board editor"
+
+#: src/settings/acknowledged-software.ts
+msgid "The board icon in the file tree"
+msgstr "The board icon in the file tree"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"
@@ -8456,10 +8617,18 @@ msgstr "the connection id needed to classify replayed updates is not available"
 msgid "The copy on Overleaf"
 msgstr "The copy on Overleaf"
 
+#: src/settings/acknowledged-software.ts
+msgid "The desktop app shell"
+msgstr "The desktop app shell"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "The desktop shows through the title bar and sidebars"
 msgstr "The desktop shows through the title bar and sidebars"
+
+#: src/settings/acknowledged-software.ts
+msgid "The dockable panel layout"
+msgstr "The dockable panel layout"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
@@ -8480,6 +8649,10 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/settings/acknowledged-software.ts
+msgid "The interface framework"
+msgstr "The interface framework"
 
 #: src/settings/literature-settings.tsx
 msgid "The key works. Testing doesn’t save it"
@@ -8529,6 +8702,10 @@ msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
 
+#: src/settings/acknowledged-software.ts
+msgid "The PDF viewer"
+msgstr "The PDF viewer"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "The previous Overleaf document could not be released. Syncing remains paused."
@@ -8536,6 +8713,10 @@ msgstr "The previous Overleaf document could not be released. Syncing remains pa
 #: src/App.tsx
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
+
+#: src/settings/acknowledged-software.ts
+msgid "The project file tree"
+msgstr "The project file tree"
 
 #: src/App.tsx
 msgid "The project or its permissions changed. Check references again."
@@ -8577,6 +8758,10 @@ msgstr "The required tools"
 msgid "The results did not identify a unique matching publication."
 msgstr "The results did not identify a unique matching publication."
 
+#: src/settings/acknowledged-software.ts
+msgid "The rich-text editor"
+msgstr "The rich-text editor"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."
 msgstr "The same seven stops, for a refresher."
@@ -8601,6 +8786,18 @@ msgstr "The selection already reads well."
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
+
+#: src/settings/acknowledged-software.ts
+msgid "The source editor"
+msgstr "The source editor"
+
+#: src/settings/acknowledged-software.ts
+msgid "The spreadsheet editor"
+msgstr "The spreadsheet editor"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "The third-party notices could not be read from the app bundle."
+msgstr "The third-party notices could not be read from the app bundle."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -8634,6 +8831,10 @@ msgstr "Theta"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
 msgstr "Third-level heading"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Third-party notices"
+msgstr "Third-party notices"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "This account cannot accept or reject suggestions here"
@@ -8727,6 +8928,10 @@ msgstr "This is not a native Open Slide deck."
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "This match information describes the retrieved record; you have edited its fields."
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps."
+msgstr "This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps."
 
 #: src/App.tsx
 msgid "This paper has no local reading or downloadable source."
@@ -8910,6 +9115,10 @@ msgstr "Type"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
 msgstr "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Type, icons and sound"
+msgstr "Type, icons and sound"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"

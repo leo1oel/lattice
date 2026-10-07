@@ -4,7 +4,6 @@
  * imported anywhere without pulling in the rest of the app.
  */
 
-import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import type { CanvasMode, DocumentViewMode, FileViewState, SettingsTab } from "../app-types";
 import {
   type ThemeAccent,
@@ -156,10 +155,8 @@ export const rememberGuidedTour = (outcome: "completed" | "skipped") => {
   if (outcome === "completed" || !hasFinishedGuidedTour()) persistSetting(GUIDED_TOUR_KEY, outcome);
 };
 
-// Acknowledgements exists only in builds that embed the licensed fonts.
 const SETTINGS_TABS: readonly SettingsTab[] = [
-  "appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs",
-  ...(fontLicenseUrl ? ["acknowledgements" as const] : []),
+  "appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
 ];
 
 /** Settings reopens on the page it was last left on. */

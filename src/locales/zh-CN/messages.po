@@ -75,6 +75,11 @@ msgstr "{0} 个文件"
 msgid "{0} files"
 msgstr "{0} 个文件"
 
+#. placeholder {0}: rows.length
+#: src/settings/acknowledgements-settings.tsx
+msgid "{0} packages"
+msgstr "{0} 个软件包"
+
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
 msgstr "{action}已取消"
@@ -695,6 +700,10 @@ msgstr "智能助手"
 msgid "Agent permissions: {label}"
 msgstr "智能助手权限：{label}"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Agent runtime"
+msgstr "智能体运行时"
+
 #: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
 msgstr "智能助手设置…"
@@ -762,6 +771,10 @@ msgstr "所有函数…"
 msgid "All levels"
 msgstr "所有级别"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "All third-party software"
+msgstr "全部第三方软件"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "All your projects are archived or trashed"
 msgstr "你的项目都已归档或移入回收站"
@@ -818,6 +831,10 @@ msgstr "来自 Overleaf 的更新与此文档不匹配，需要重新加载文�
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
 msgstr "角"
+
+#: src/settings/acknowledged-software.ts
+msgid "Animated interface icons, redrawn from Phosphor glyphs"
+msgstr "动画界面图标，依 Phosphor 字形重绘"
 
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
@@ -1168,6 +1185,10 @@ msgstr "蓝色"
 msgid "Blue value"
 msgstr "蓝色值"
 
+#: src/settings/acknowledged-software.ts
+msgid "Board typefaces"
+msgstr "白板字体"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "正文词数"
@@ -1338,6 +1359,14 @@ msgstr "无序列表"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bulleted list"
 msgstr "带项目符号的列表"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful."
+msgstr "由 Inkeep 开发，是 Lattice 早期可视化 Markdown 编辑器最初的基础。Lattice 后来已换用自己的引擎，但这个编辑器从那里起步，我们心怀感激。"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
+msgstr "由 Micka Touillaud 和 Sameer Singh 开发；若干界面控件改编自它们"
 
 #: src/project/citation-health.ts
 msgid "cached"
@@ -1832,6 +1861,10 @@ msgstr "代码块设置"
 msgid "Code block title"
 msgstr "代码块标题"
 
+#: src/settings/acknowledged-software.ts
+msgid "Code highlighting"
+msgstr "代码高亮"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
 msgstr "可折叠"
@@ -2132,6 +2165,14 @@ msgstr "复制路径"
 msgid "Copyright"
 msgstr "版权符号"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Copyright notices of the packages under this text"
+msgstr "采用此文本的软件包的版权声明"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Core components"
+msgstr "核心组件"
+
 #: src/canvas/proofread-card.tsx
 msgid "Correct grammar, spelling and punctuation only"
 msgstr "仅纠正语法、拼写和标点"
@@ -2327,8 +2368,8 @@ msgstr "正在创建项目…"
 
 #. Search words for the Acknowledgements settings page, space-separated
 #: src/settings/settings-search-index.ts
-msgid "credits licenses fonts"
-msgstr "致谢 鸣谢 许可 许可证 字体"
+msgid "credits licenses fonts open source libraries third-party notices"
+msgstr "致谢 许可证 字体 开源 库 第三方 声明 软件"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
@@ -2574,6 +2615,10 @@ msgstr "诊断"
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "根据 Mermaid 源码生成的图表——支持流程图、时序图、类图、状态图、ER 图、甘特图和饼图。"
 
+#: src/settings/acknowledged-software.ts
+msgid "Diagrams in Markdown"
+msgstr "Markdown 中的图表"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond operator"
 msgstr "菱形运算符"
@@ -2586,6 +2631,10 @@ msgstr "方块"
 #: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "{0} 的差异"
+
+#: src/settings/acknowledged-software.ts
+msgid "Diffs of changes and history"
+msgstr "更改与历史的差异对比"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Discard and close"
@@ -2614,6 +2663,10 @@ msgstr "关闭通知"
 #: src/project/references-panel.tsx
 msgid "Dismiss references"
 msgstr "关闭引用列表"
+
+#: src/settings/acknowledged-software.ts
+msgid "Display typeface"
+msgstr "标题字体"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
@@ -2932,6 +2985,10 @@ msgstr "编辑器快捷键"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
+
+#: src/settings/acknowledged-software.ts
+msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
+msgstr "编辑器字体，由 Ahmed Hatem 制作，基于 Renzhi Li 的 Iosevka"
 
 #: src/canvas/proofread-card.tsx
 msgid "Edits held back"
@@ -3436,6 +3493,10 @@ msgstr "公式"
 msgid "Fourth-level heading."
 msgstr "四级标题。"
 
+#: src/settings/acknowledged-software.ts
+msgid "From the official conference author kits, bundled unmodified with their authors' credits"
+msgstr "取自会议官方作者模板包，原样内置，保留作者署名"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
@@ -3555,6 +3616,10 @@ msgstr "发送到 Overleaf"
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/settings/acknowledged-software.ts
+msgid "Grammar checking"
+msgstr "语法检查"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -4117,8 +4182,12 @@ msgid "Integrations"
 msgstr "集成"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "Interface fonts"
-msgstr "界面字体"
+msgid "Interface"
+msgstr "界面"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface icons"
+msgstr "界面图标"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -4129,6 +4198,14 @@ msgstr "界面语言"
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "界面音效"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface sounds, by Daniel Belyi"
+msgstr "界面音效，由 Daniel Belyi 制作"
+
+#: src/settings/acknowledged-software.ts
+msgid "Interface typeface, by Rasmus Andersson"
+msgstr "界面字体，由 Rasmus Andersson 设计"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
@@ -4376,6 +4453,14 @@ msgstr "Lattice 无法打开此窗口"
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice 无法自动重新启动。请退出后手动重新打开。"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
+msgstr "Lattice 的界面、原生应用和内置运行时共包含 {total} 个开源软件包。选择一个即可阅读其许可证。"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Lattice stands on the work of many open-source projects. Thank you to everyone who builds them."
+msgstr "Lattice 建立在众多开源项目的成果之上。感谢每一位构建它们的人。"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice 界面崩溃"
@@ -4474,6 +4559,10 @@ msgstr "引理"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
 msgstr "小于或等于"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "License text"
+msgstr "许可证文本"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -4810,6 +4899,10 @@ msgstr "数学阵列"
 msgid "Math preview"
 msgstr "公式预览"
 
+#: src/settings/acknowledged-software.ts
+msgid "Math previews"
+msgstr "数学公式预览"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "矩阵"
@@ -5049,6 +5142,10 @@ msgstr "name@example.org"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Named operator"
 msgstr "命名算子"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Native app"
+msgstr "原生应用"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Native color picker"
@@ -5290,6 +5387,10 @@ msgstr "本段不缩进"
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
 msgstr "没有可用于验证可能记录的独立元数据。此参考文献仍可能有效。"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "No license declared"
+msgstr "未声明许可证"
+
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
 msgstr "此级别没有日志"
@@ -5515,6 +5616,11 @@ msgstr "说明"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "在你恢复同步之前不会发送或获取任何内容"
+
+#. placeholder {0}: deferredQuery.trim()
+#: src/settings/acknowledgements-settings.tsx
+msgid "Nothing matches “{0}”."
+msgstr "没有与“{0}”匹配的结果。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
@@ -5760,6 +5866,11 @@ msgstr "Open Slide 发送的 {path} 编辑内容不完整。"
 msgid "Open source page — no downloadable full text found"
 msgstr "打开来源页面 — 尚未找到可下载全文"
 
+#. placeholder {0}: credit.name
+#: src/settings/acknowledgements-settings.tsx
+msgid "Open the {0} website"
+msgstr "打开 {0} 网站"
+
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "请先打开此修订建议所在的文档。"
@@ -5845,6 +5956,10 @@ msgstr "橙色"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Ordered List"
 msgstr "有序列表"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Origins and adapted work"
+msgstr "起源与改编作品"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Other projects"
@@ -6221,6 +6336,10 @@ msgstr "PDF 仍在使用 Computer Modern。应为 NimbusRom/Times——请在“
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
 
+#: src/settings/acknowledged-software.ts
+msgid "PDF, TeX and bibliography icons in the file tree"
+msgstr "文件树中的 PDF、TeX 和参考文献图标"
+
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX 引擎"
@@ -6303,6 +6422,10 @@ msgstr "正在润色…"
 msgid "Pounds sterling"
 msgstr "英镑符号"
 
+#: src/settings/acknowledged-software.ts
+msgid "Powers presentations"
+msgstr "驱动演示文稿"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "先于"
@@ -6350,6 +6473,10 @@ msgstr "预印本检查未完成：{error}"
 #: src/papers/audit-messages.ts
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "预印本检查返回的结果不完整或不明确。"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Presentation runtime"
+msgstr "演示运行时"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Presets"
@@ -6626,6 +6753,10 @@ msgstr "阅读"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "正在读取文件…"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Reading the third-party notices…"
+msgstr "正在读取第三方声明…"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -7429,6 +7560,10 @@ msgstr "行内段落标题"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Lattice 固定版本文献工具所用的运行器"
 
+#: src/settings/acknowledged-software.ts
+msgid "Runs the agent runtime"
+msgstr "运行智能体运行时"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Sage"
@@ -7542,6 +7677,10 @@ msgstr "搜索"
 msgid "Search alphaXiv and OpenAlex for related work"
 msgstr "在 alphaXiv 和 OpenAlex 中搜索相关工作"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "Search by name or license"
+msgstr "按名称或许可证搜索"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
 msgstr "按项目或所有者搜索…"
@@ -7585,6 +7724,10 @@ msgstr "搜索 PDF"
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "搜索设置"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Search third-party software"
+msgstr "搜索第三方软件"
 
 #: src/project/project-find-dialog.tsx
 msgid "Search your files and saved papers."
@@ -7819,6 +7962,12 @@ msgstr "在编辑器中显示"
 #: src/project/project-find-dialog.tsx
 msgid "Show:"
 msgstr "显示："
+
+#. placeholder {0}: shown.length
+#. placeholder {1}: matches.length
+#: src/settings/acknowledgements-settings.tsx
+msgid "Showing {0} of {1} matches. Keep typing to narrow them."
+msgstr "显示 {1} 个匹配项中的 {0} 个。继续输入以缩小范围。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -8416,6 +8565,10 @@ msgstr "智能体正在纠正语法、拼写和标点。公式、引用、注释
 msgid "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
 msgstr "智能体正在改进行文流畅度与清晰度。公式、引用、注释和 LaTeX 命令必须保持原样；任何改动它们的修改都会被 Lattice 拦截。"
 
+#: src/settings/acknowledged-software.ts
+msgid "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
+msgstr "AI 助手背后的智能体运行时，由 T3 Tools Inc. 和 Emanuele Di Pietro 开发"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "智能助手服务不可用。"
@@ -8435,6 +8588,14 @@ msgstr "扫描后该参考文献条目已发生变化。"
 #: src/papers/audit-messages.ts
 msgid "The bibliography entry no longer exists."
 msgstr "该参考文献条目已不存在。"
+
+#: src/settings/acknowledged-software.ts
+msgid "The board editor"
+msgstr "白板编辑器"
+
+#: src/settings/acknowledged-software.ts
+msgid "The board icon in the file tree"
+msgstr "文件树中的白板图标"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"
@@ -8456,10 +8617,18 @@ msgstr "缺少用于区分重放更新的连接 ID"
 msgid "The copy on Overleaf"
 msgstr "Overleaf 上的副本"
 
+#: src/settings/acknowledged-software.ts
+msgid "The desktop app shell"
+msgstr "桌面应用外壳"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "The desktop shows through the title bar and sidebars"
 msgstr "标题栏和侧栏透出桌面"
+
+#: src/settings/acknowledged-software.ts
+msgid "The dockable panel layout"
+msgstr "可停靠的面板布局"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
@@ -8480,6 +8649,10 @@ msgstr "文件在保存期间发生了变化。请查看最新内容后再次保
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
+
+#: src/settings/acknowledged-software.ts
+msgid "The interface framework"
+msgstr "界面框架"
 
 #: src/settings/literature-settings.tsx
 msgid "The key works. Testing doesn’t save it"
@@ -8529,6 +8702,10 @@ msgstr "PDF 尚未从当前源码编译，Lattice 无法在其中找到这一行
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
 
+#: src/settings/acknowledged-software.ts
+msgid "The PDF viewer"
+msgstr "PDF 查看器"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "无法释放此前的 Overleaf 文档，同步仍处于暂停状态。"
@@ -8536,6 +8713,10 @@ msgstr "无法释放此前的 Overleaf 文档，同步仍处于暂停状态。"
 #: src/App.tsx
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "项目在 Open Slide 的编辑保存之前已关闭。"
+
+#: src/settings/acknowledged-software.ts
+msgid "The project file tree"
+msgstr "项目文件树"
 
 #: src/App.tsx
 msgid "The project or its permissions changed. Check references again."
@@ -8577,6 +8758,10 @@ msgstr "所需工具"
 msgid "The results did not identify a unique matching publication."
 msgstr "查询结果未能确定唯一匹配的发表版本。"
 
+#: src/settings/acknowledged-software.ts
+msgid "The rich-text editor"
+msgstr "富文本编辑器"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."
 msgstr "还是这七站，再温习一遍。"
@@ -8601,6 +8786,18 @@ msgstr "所选内容已经很好，无需润色。"
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
+
+#: src/settings/acknowledged-software.ts
+msgid "The source editor"
+msgstr "源码编辑器"
+
+#: src/settings/acknowledged-software.ts
+msgid "The spreadsheet editor"
+msgstr "电子表格编辑器"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "The third-party notices could not be read from the app bundle."
+msgstr "无法从应用包中读取第三方声明。"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -8634,6 +8831,10 @@ msgstr "西塔"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
 msgstr "三级标题"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Third-party notices"
+msgstr "第三方声明"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "This account cannot accept or reject suggestions here"
@@ -8727,6 +8928,10 @@ msgstr "这不是原生 Open Slide 演示文稿。"
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段。"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps."
+msgstr "这个软件包没有附带自己的许可证文本，因此这里无法转载。第三方声明将它列在署名缺口中。"
 
 #: src/App.tsx
 msgid "This paper has no local reading or downloadable source."
@@ -8910,6 +9115,10 @@ msgstr "类型"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
 msgstr "由钦奈的 Timeless Ventures Private Limited 设计的字体家族，依据 {license} 使用。请从 timeless.co 获取字体"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Type, icons and sound"
+msgstr "字体、图标与音效"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"

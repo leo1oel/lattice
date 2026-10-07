@@ -116,7 +116,8 @@ the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
 - The license travels with the app: the build emits the unmodified
   `LICENSE.pdf` as a hashed asset beside the fonts, and Settings › About ›
   Acknowledgements credits timeless.co and opens it in the app's PDF viewer.
-  A build without the fonts leaves the page out. The Timeless name credits the
+  A build without the fonts leaves that row out; the page itself, which credits
+  the open-source software Lattice ships, is in every build. The Timeless name credits the
   fonts only; it names no Lattice feature.
 - Roles: `--ui-font` is Timeless Sans in its Grotesk style (the variable
   font's default; at 10–13px it kept confusable pairs such as e/o, rn/m and
