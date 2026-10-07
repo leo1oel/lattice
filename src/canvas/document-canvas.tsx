@@ -68,7 +68,8 @@ import {
 } from "./canvas-lazy-editors";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { CommentComposer, type CommentDraft } from "./comment-composer";
-import { useProofread } from "./use-proofread";
+import { createProofreadBridge } from "./proofread-bridge";
+import { ProofreadLayer } from "./proofread-layer";
 import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
@@ -439,13 +440,7 @@ export function DocumentCanvas(props: {
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
   const commentComposerRef = useLatestRef(commentComposer);
-  const { start: startProofread, extension: proofreadExtension, card: proofreadCard } = useProofread({
-    projectRoot: props.projectRoot,
-    activeFile,
-    editorKey,
-    editable: props.editorEditable && isLatexSourcePath(activeFile),
-    viewRef: primaryViewRef,
-  });
+  const [proofread] = useState(createProofreadBridge);
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
@@ -694,7 +689,7 @@ export function DocumentCanvas(props: {
     }
     if (!props.editorEditable) return;
     if (action === "proofread") {
-      startProofread(view);
+      proofread.start(view);
       dismissSelectionToolbar();
       return;
     }
@@ -703,7 +698,7 @@ export function DocumentCanvas(props: {
     const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
     editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
     updateSelectionToolbar(view, owner.path);
-  }, [activeFile, dismissSelectionToolbar, props.editorEditable, startProofread, updateSelectionToolbar]);
+  }, [activeFile, dismissSelectionToolbar, proofread, props.editorEditable, updateSelectionToolbar]);
 
   /** Create a comment on `[from, to)` of `path`; false when that range holds nothing to anchor it. */
   const createComment = (path: string, source: string, from: number, to: number, body: string) => {
@@ -794,7 +789,7 @@ export function DocumentCanvas(props: {
       primaryTextLanguageExtensions,
       { getComments: () => commentsForActiveFileRef.current, getDraft: () => commentComposerRef.current },
       [
-        proofreadExtension,
+        proofread.extension,
         overleafCursorsExtension({ getCursors: () => latestRef.current.overleafPresenceCursors }),
         overleafTrackChangesExtension({
           getChanges: () => latestRef.current.overleafChanges,
@@ -1335,7 +1330,14 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
-          {proofreadCard}
+          <ProofreadLayer
+            bridge={proofread}
+            projectRoot={props.projectRoot}
+            activeFile={activeFile}
+            editorKey={editorKey}
+            editable={props.editorEditable && isLatexSourcePath(activeFile)}
+            viewRef={primaryViewRef}
+          />
           {commentComposer && (
             <CommentComposer
               draft={commentComposer}

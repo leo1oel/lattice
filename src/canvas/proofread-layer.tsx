@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { PROOFREAD_MAX_LENGTH, ProofreadFailure, proofreadWithAgent } from "../agent/agent-proofread";
-import { proofreadAnchor, proofreadExtension, setProofreadAnchorEffect } from "../editor/proofread-anchor";
+import { proofreadAnchor, setProofreadAnchorEffect } from "../editor/proofread-anchor";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import type { ProofreadBridge } from "./proofread-bridge";
 import { ProofreadCard, type ProofreadCardState } from "./proofread-card";
 
 /** One open proofread: the text it was asked about and the element its card renders into. */
@@ -21,8 +22,12 @@ type ProofreadSession = {
  * card opens under the selection while the agent works, shows its suggestion
  * as a diff, and accepting replaces the span it was asked about in one
  * undoable edit. One proofread at a time; a new one replaces it.
+ *
+ * Memoized and outside the canvas's own hooks: its props change only with
+ * the file or project, so the canvas's frequent renders skip it.
  */
-export function useProofread(options: {
+export const ProofreadLayer = memo(function ProofreadLayer(options: {
+  bridge: ProofreadBridge;
   projectRoot: string;
   activeFile: string;
   /** Changes whenever the editor is rebuilt, which drops the card's widget. */
@@ -31,7 +36,7 @@ export function useProofread(options: {
   viewRef: RefObject<EditorView | null>;
 }) {
   const { t } = useLingui();
-  const { viewRef } = options;
+  const { bridge, viewRef } = options;
   const [session, setSession] = useState<ProofreadSession | null>(null);
   const sessionRef = useLatestRef(session);
   const optionsRef = useLatestRef(options);
@@ -153,14 +158,9 @@ export function useProofread(options: {
   // A rebuilt editor (another file, a reload) has lost the card's widget.
   useEffect(() => close, [close, options.activeFile, options.editorKey, options.projectRoot]);
 
-  const handlers = useLatestRef({ start, accept, dismiss });
-  const extension = useMemo(() => proofreadExtension({
-    request: (view) => handlers.current.start(view),
-    accept: () => handlers.current.accept(),
-    dismiss: () => handlers.current.dismiss(),
-  }), [handlers]);
+  useLayoutEffect(() => bridge.connect({ request: start, accept, dismiss }), [accept, bridge, dismiss, start]);
 
-  const card = session && session.path === options.activeFile ? createPortal(
+  return session && session.path === options.activeFile ? createPortal(
     <ProofreadCard
       path={session.path}
       original={session.original}
@@ -172,6 +172,4 @@ export function useProofread(options: {
     />,
     session.host,
   ) : null;
-
-  return { extension, start, active: session !== null, card };
-}
+});

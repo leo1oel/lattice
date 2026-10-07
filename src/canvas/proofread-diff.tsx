@@ -16,7 +16,9 @@ const PROOFREAD_DIFF_CSS = `${PIERRE_UNSAFE_CSS}
   background: transparent !important;
 }
 [data-diff],
-[data-file] {
+[data-file],
+[data-error-wrapper] {
+  --diffs-bg: transparent !important;
   background: transparent !important;
 }
 `;
