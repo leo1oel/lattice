@@ -62,7 +62,7 @@ describe("planHeader", () => {
   });
 
   it("leaves a header that fits alone", () => {
-    expect(planHeader(fileTabs(4), 454)).toEqual({ labelled: 0, tools: null, tabMin: null, min: 452 });
+    expect(planHeader(fileTabs(4), 454)).toEqual({ labelled: 0, labels: [], tools: null, tabMin: null, min: 452 });
   });
 
   it("drops named tabs' labels before any tool gives way", () => {

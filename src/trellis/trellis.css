@@ -151,17 +151,22 @@
 .lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: var(--trellis-tab-min); }
 .lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
 /* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch
-   (fitHeader) shows each whole name or only its icon, disclosing names in tab
-   order as the panel widens. The name stays in the tab's tooltip. */
+   (fitHeader) shows each whole name or only its icon. The selected tab keeps
+   its name longest and the others give theirs up farthest from it first, so
+   the names follow the selection (planHeader). An icon-only tab keeps its
+   name in its tooltip and, still laid out at no width, in its accessible name.
+   The name closes to the measured width it opens to (--trellis-tab-label). */
 .lattice-trellis [data-trellis-part="tab"][data-atomic] { flex: none; min-width: 0; max-width: none; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-title"] { max-width: var(--trellis-tab-label, none); text-overflow: clip; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] { gap: 0; padding-inline: var(--space-4); }
+.lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > [data-trellis-part="tab-title"] { max-width: 0; opacity: 0; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > [data-trellis-part="tab-close"] { width: 0; min-width: 0; overflow: hidden; opacity: 0; visibility: hidden; }
 /* While a divider's rubber band squeezes a panel under its minimum, its tabs
    give way for the moment rather than scroll under the actions. */
 /* The Trellis patch sets each file tab's share of the squeeze inline. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-squeeze-tab: 0px; }
 .lattice-trellis [data-trellis-part="panel"][data-squeezed] [data-trellis-part="tab"]:not([data-atomic]) { min-width: max(0px, calc(var(--trellis-tab-min) - var(--trellis-squeeze-tab))); }
 .lattice-trellis [data-trellis-part="panel"][data-squeezed="atomic"] [data-trellis-part="tab"] { flex-shrink: 1; min-width: 0; overflow: hidden; }
-.lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > :is([data-trellis-part="tab-title"], [data-trellis-part="tab-close"]) { display: none; }
 /* A tab's trailing slot is the same width whatever it holds (close button,
    unsaved dot or nothing yet visible), so hovering, saving or selecting a tab
    never changes any tab's width. */
@@ -354,6 +359,12 @@
 .lattice-trellis [data-appearing] { animation: trellis-appear var(--motion-slow) both; }
 .lattice-trellis [data-trellis-part="tab"] { transition: background-color var(--motion-fast), color var(--motion-fast); }
 .lattice-trellis [data-trellis-part="tab"][data-sorting] { transition: transform var(--motion-moderate); }
+/* Names ease shut and open when the selection moves them or new room opens
+   one; the patch takes data-label-motion off when a narrowing panel closes
+   one, which goes at once so the strip never overflows mid-ease. */
+.lattice-trellis [data-trellis-part="tabbar"][data-label-motion] [data-trellis-part="tab"][data-atomic]:not([data-sorting], [data-dragging]) { transition: background-color var(--motion-fast), color var(--motion-fast), gap var(--motion-moderate), padding var(--motion-moderate); }
+.lattice-trellis [data-trellis-part="tabbar"][data-label-motion] [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-title"] { transition: max-width var(--motion-moderate), opacity var(--motion-moderate); }
+.lattice-trellis [data-trellis-part="tabbar"][data-label-motion] [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-close"] { transition: width var(--motion-moderate), visibility var(--motion-moderate), opacity var(--motion-fast), background-color var(--motion-fast), color var(--motion-fast); }
 .lattice-trellis [data-trellis-part="tab"][data-dragging] { transition: none; }
 .lattice-trellis :is([data-trellis-part="tab-close"], [data-trellis-part="panel-menu"]) { transition: opacity var(--motion-fast), background-color var(--motion-fast), color var(--motion-fast); }
 .lattice-trellis [data-trellis-part="divider"]::after,
