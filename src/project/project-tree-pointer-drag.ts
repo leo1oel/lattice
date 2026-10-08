@@ -31,21 +31,19 @@ export function afterNextPaint(): Promise<void> {
   });
 }
 
-function clearPointerDragAppearance(root: ShadowRoot | null | undefined) {
+/** Clear the marks `paintDropTarget` set. */
+export function clearDropTarget(root: ShadowRoot | null | undefined) {
   if (!root) return;
   if (root.host instanceof HTMLElement) {
-    delete root.host.dataset.latticePointerDragActive;
-    delete root.host.dataset.latticePointerDropRoot;
+    delete root.host.dataset.latticeDropActive;
+    delete root.host.dataset.latticeDropRoot;
   }
-  for (const row of root.querySelectorAll<HTMLElement>(
-    "[data-lattice-pointer-dragging], [data-lattice-pointer-drop-target], [data-lattice-pointer-drop-inside]",
-  )) {
-    delete row.dataset.latticePointerDragging;
-    delete row.dataset.latticePointerDropTarget;
-    delete row.dataset.latticePointerDropInside;
+  for (const row of root.querySelectorAll<HTMLElement>("[data-lattice-drop-target], [data-lattice-drop-inside]")) {
+    delete row.dataset.latticeDropTarget;
+    delete row.dataset.latticeDropInside;
   }
-  for (const segment of root.querySelectorAll<HTMLElement>("[data-lattice-pointer-flattened-drop-target]")) {
-    delete segment.dataset.latticePointerFlattenedDropTarget;
+  for (const segment of root.querySelectorAll<HTMLElement>("[data-lattice-flattened-drop-target]")) {
+    delete segment.dataset.latticeFlattenedDropTarget;
   }
 }
 
@@ -54,30 +52,54 @@ function clearPointerDragAppearance(root: ShadowRoot | null | undefined) {
  * a file row stands for the folder holding it, so lighting that row alone
  * reads as "into this file", and lighting only the folder's own row puts the
  * mark rows above the pointer. The folder's row is marked and every row shown
- * inside it is filled, as VS Code does; the project root washes the whole
+ * inside it is filled, as VS Code does; the project root ("") washes the whole
  * tree. Rows are matched by path because Pierre keys them by position: after
- * a scroll the same element can hold a different path.
+ * a scroll the same element can hold a different path. Null marks nothing but
+ * keeps the drag's styling on. A row drag and a Finder drop paint the same
+ * marks; only one is ever in flight.
  */
+export function paintDropTarget(root: ShadowRoot, directory: string | null) {
+  clearDropTarget(root);
+  if (root.host instanceof HTMLElement) {
+    root.host.dataset.latticeDropActive = "true";
+    if (directory === "") root.host.dataset.latticeDropRoot = "true";
+  }
+  if (!directory) return;
+  const directoryPath = toPierreDirectoryPath(directory);
+  for (const row of root.querySelectorAll<HTMLElement>("[data-item-path]")) {
+    const path = row.dataset.itemPath ?? "";
+    if (path === directoryPath) row.dataset.latticeDropTarget = "true";
+    else if (path.startsWith(directoryPath)) row.dataset.latticeDropInside = "true";
+  }
+  // A flattened row ("slides/native/") is marked as its last folder; only an
+  // earlier folder in it ("slides/") is marked on its own segment.
+  for (const segment of root.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]")) {
+    if (segment.dataset.itemFlattenedSubitem !== directoryPath) continue;
+    if (segment.closest<HTMLElement>("[data-item-path]")?.dataset.itemPath === directoryPath) continue;
+    segment.dataset.latticeFlattenedDropTarget = "true";
+  }
+}
+
+function clearPointerDragAppearance(root: ShadowRoot | null | undefined) {
+  if (!root) return;
+  clearDropTarget(root);
+  if (root.host instanceof HTMLElement) delete root.host.dataset.latticePointerDragActive;
+  for (const row of root.querySelectorAll<HTMLElement>("[data-lattice-pointer-dragging]")) {
+    delete row.dataset.latticePointerDragging;
+  }
+}
+
 function paintPointerDrag(
   root: ShadowRoot,
   draggedPaths: readonly string[],
   location: PointerTreeDropLocation | null,
 ) {
   clearPointerDragAppearance(root);
-  const directory = location ? dropTargetDirectory(location.target) : null;
-  const directoryPath = directory ? toPierreDirectoryPath(directory) : null;
-  if (root.host instanceof HTMLElement) {
-    root.host.dataset.latticePointerDragActive = "true";
-    if (directory === "") root.host.dataset.latticePointerDropRoot = "true";
-  }
+  paintDropTarget(root, location ? dropTargetDirectory(location.target) : null);
+  if (root.host instanceof HTMLElement) root.host.dataset.latticePointerDragActive = "true";
   for (const row of root.querySelectorAll<HTMLElement>("[data-item-path]")) {
-    const path = row.dataset.itemPath ?? "";
-    if (draggedPaths.includes(path)) row.dataset.latticePointerDragging = "true";
-    if (!directoryPath) continue;
-    if (path === directoryPath) row.dataset.latticePointerDropTarget = "true";
-    else if (path.startsWith(directoryPath)) row.dataset.latticePointerDropInside = "true";
+    if (draggedPaths.includes(row.dataset.itemPath ?? "")) row.dataset.latticePointerDragging = "true";
   }
-  if (location?.flattenedSegment) location.flattenedSegment.dataset.latticePointerFlattenedDropTarget = "true";
 }
 
 const PREVIEW_STRIPPED_ATTRIBUTES = [
@@ -189,7 +211,7 @@ type DragSession = {
  * Pierre renders the scrolled rows a task after the scroll event, so their
  * mutations re-aim as well. Returns the disposer.
  */
-function followTreeMotion(root: ShadowRoot, reaim: () => void): () => void {
+export function followTreeMotion(root: ShadowRoot, reaim: () => void): () => void {
   // Re-aiming hit-tests a point, which needs layout; without one (jsdom) the
   // pointer events alone aim.
   if (typeof root.elementFromPoint !== "function") return () => {};

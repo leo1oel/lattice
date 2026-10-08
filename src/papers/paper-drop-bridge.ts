@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PaperSummary } from "../app-types";
+import { nativeDragClientPoint } from "../app-utils";
 import { hasPaperDrag, PAPER_DRAG_TYPE, PAPER_NATIVE_DRAG, resolvePaperDrag, type NativePaperDrag, type PaperDrag } from "./paper-drag";
 
 export type PaperDropLibrary = { projectRoot: string; papers: PaperSummary[] };
@@ -17,9 +18,14 @@ const READING_SURFACES = String.raw`.lattice-trellis :is([data-trellis-part="sur
  * Routes a paper dragged from the Papers panel to wherever it lands: an
  * editor cites it, a reading surface opens it.
  */
-export function usePaperDropRouting(library: PaperDropLibrary, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
-  const latest = useRef({ library, onOpen, onError });
-  useLayoutEffect(() => { latest.current = { library, onOpen, onError }; });
+export function usePaperDropRouting(
+  library: PaperDropLibrary,
+  interfaceScale: number,
+  onOpen: (paper: PaperSummary) => void,
+  onError: (error: unknown) => void,
+) {
+  const latest = useRef({ library, interfaceScale, onOpen, onError });
+  useLayoutEffect(() => { latest.current = { library, interfaceScale, onOpen, onError }; });
   useEffect(() => {
     const owner = getCurrentWindow().label;
     // eslint-disable-next-line lingui/no-unlocalized-strings -- Tauri event target kind
@@ -59,9 +65,7 @@ export function usePaperDropRouting(library: PaperDropLibrary, onOpen: (paper: P
         dataTransfer.setData(PAPER_DRAG_TYPE, JSON.stringify(paper));
         const current = latest.current.library;
         if (!resolvePaperDrag(dataTransfer, current.projectRoot, current.papers)) return;
-        const scale = window.devicePixelRatio || 1;
-        const clientX = payload.position.x / scale;
-        const clientY = payload.position.y / scale;
+        const { x: clientX, y: clientY } = nativeDragClientPoint(payload.position, latest.current.interfaceScale);
         // Route through the same DOM drop handlers as a browser tab. CodeMirror
         // retains citation merging, selection, read-only and undo semantics.
         document.elementFromPoint(clientX, clientY)?.dispatchEvent(new DragEvent("drop", {
@@ -101,9 +105,11 @@ export function usePaperDropRouting(library: PaperDropLibrary, onOpen: (paper: P
 /** The native bridge stays outside the eager writing/startup graph. */
 export default function PaperDropBridge(props: {
   library: PaperDropLibrary;
+  /** The web view's zoom, which native drop positions must be divided by. */
+  interfaceScale: number;
   onOpen: (paper: PaperSummary) => void;
   onError: (error: unknown) => void;
 }) {
-  usePaperDropRouting(props.library, props.onOpen, props.onError);
+  usePaperDropRouting(props.library, props.interfaceScale, props.onOpen, props.onError);
   return null;
 }

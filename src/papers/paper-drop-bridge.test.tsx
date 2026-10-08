@@ -47,17 +47,17 @@ describe("paper drop bridge", () => {
     target.addEventListener("drop", received);
     const hitTest = vi.fn(() => target);
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: hitTest });
-    renderHook(() => usePaperDropRouting(state, vi.fn(), vi.fn()));
+    renderHook(() => usePaperDropRouting(state, 1.25, vi.fn(), vi.fn()));
     await waitFor(() => expect(native.listeners.has("native-drop")).toBe(true));
     const start = () => send("paper-native-drag", { id: "drag-1", paper: identity });
-    const enter = (paths: string[] = []) => send("native-drop", { type: "enter", paths, position: { x: 92, y: 158 } });
-    const drop = (paths: string[] = []) => send("native-drop", { type: "drop", paths, position: { x: 92, y: 158 } });
+    const enter = (paths: string[] = []) => send("native-drop", { type: "enter", paths, position: { x: 115, y: 197.5 } });
+    const drop = (paths: string[] = []) => send("native-drop", { type: "drop", paths, position: { x: 115, y: 197.5 } });
     start(); enter();
     // WebKit can deliver source dragend before Tauri forwards the target drop.
     send("paper-native-drag", { id: "drag-1", paper: null });
     drop();
     expect(received).toHaveBeenCalledOnce();
-    expect(hitTest).toHaveBeenLastCalledWith(46, 79);
+    expect(hitTest).toHaveBeenLastCalledWith(92, 158);
     const event = received.mock.calls[0][0] as DragEvent;
     expect(resolvePaperDrag(event.dataTransfer, state.projectRoot, state.papers)).toBe(state.papers[0]);
     drop(); // One native drop must never insert twice.
@@ -86,7 +86,7 @@ describe("paper drop bridge", () => {
 
   it("opens a dropped paper only on document panels and the titlebar", () => {
     const open = vi.fn();
-    renderHook(() => usePaperDropRouting(state, open, vi.fn()));
+    renderHook(() => usePaperDropRouting(state, 1, open, vi.fn()));
     document.body.innerHTML = `
       <div class="titlebar-main"></div>
       <div class="lattice-trellis">
@@ -119,7 +119,7 @@ describe("paper drop bridge", () => {
 
   it("opens through the latest library and releases its listeners on unmount", async () => {
     const open = vi.fn();
-    const hook = renderHook(({ library }) => usePaperDropRouting(library, open, vi.fn()), { initialProps: { library: state } });
+    const hook = renderHook(({ library }) => usePaperDropRouting(library, 1, open, vi.fn()), { initialProps: { library: state } });
     await waitFor(() => expect(native.listeners.has("native-drop")).toBe(true));
     const values = new Map<string, string>();
     const dataTransfer = {

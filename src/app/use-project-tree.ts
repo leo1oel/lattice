@@ -6,7 +6,8 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { OverleafLink, ProjectSnapshot } from "../app-types";
 import {
   absoluteProjectPath, applyProjectPathChanges, classifyExternalProjectDrop, confirmAction, dropAgentPanelAt,
-  dropCanvasAt, dropDirectoryAt, dropEditorAt, projectItemPath, remapProjectPath, toMessage, type ProjectPathChange,
+  dropCanvasAt, dropDirectoryAt, dropEditorAt, nativeDragClientPoint, projectItemPath, remapProjectPath, toMessage,
+  type ProjectPathChange,
 } from "../app-utils";
 import { buildAgentComposerFilesMessage, type AgentComposerFilePayload } from "../agent/agent-composer-files";
 import { waitForAgentCanvasAdapter } from "../agent/agent-canvas-tools";
@@ -111,6 +112,8 @@ export type ProjectTreeDeps = {
   /** Where the Agent's create-a-document tool finds this project's creator. */
   agentDocumentCreatorRef: { current: ((request: AgentProjectDocumentToolRequest) => Promise<string>) | null };
   trellis: TrellisController;
+  /** The web view's zoom, which Finder drop positions must be divided by. */
+  interfaceScale: number;
 };
 
 /**
@@ -322,10 +325,11 @@ export function useProjectTree(deps: ProjectTreeDeps) {
         }
         if (event.payload.type === "enter") nativeDragPathsRef.current = event.payload.paths;
         const dragPaths = event.payload.type === "over" ? nativeDragPathsRef.current : event.payload.paths;
-        const editorPosition = dropEditorAt(event.payload.position);
-        const canvasTarget = dropCanvasAt(event.payload.position);
-        const targetDirectory = dropDirectoryAt(event.payload.position);
-        const agentPanelTarget = dropAgentPanelAt(event.payload.position);
+        const point = nativeDragClientPoint(event.payload.position, depsRef.current.interfaceScale);
+        const editorPosition = dropEditorAt(point);
+        const canvasTarget = dropCanvasAt(point);
+        const targetDirectory = dropDirectoryAt(point);
+        const agentPanelTarget = dropAgentPanelAt(point);
         const dropKind = classifyExternalProjectDrop(dragPaths);
         const editorPath = activeFileRef.current;
         const insertsIntoEditor = Boolean(editorPosition && dropKind === "asset" && /\.(?:tex|md)$/i.test(editorPath ?? ""));

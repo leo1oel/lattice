@@ -259,10 +259,19 @@ function trimDirectoryPath(path: string): string {
   return path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
-/** Native drop positions arrive in device pixels; hit testing wants CSS pixels. */
-function toCssPoint(position: { x: number; y: number }): { x: number; y: number } {
-  const scale = window.devicePixelRatio || 1;
-  return { x: position.x / scale, y: position.y / scale };
+/**
+ * A native drag position (Tauri's `onDragDropEvent`) as a CSS client point.
+ * On macOS wry reports it in the web view's points from its top-left corner,
+ * though Tauri types it as a PhysicalPosition. devicePixelRatio is the
+ * display's backing scale times the zoom, so dividing by it halves the point
+ * on a Retina display. The page's CSS pixels are those points over the web
+ * view's zoom alone, which is the interface scale.
+ */
+export function nativeDragClientPoint(
+  position: { x: number; y: number },
+  interfaceScale: number,
+): { x: number; y: number } {
+  return { x: position.x / interfaceScale, y: position.y / interfaceScale };
 }
 
 /**
@@ -278,13 +287,12 @@ function treeHitDirectory(segment?: HTMLElement | null, row?: HTMLElement | null
 }
 
 /**
- * Resolve a native OS drop to the project directory it lands on, mirroring the
- * tree's own row-drag semantics: a folder row is that folder, a file row is
- * the file's parent, and the rest of the Project pane is the project root
- * (""). Null means the drop was not over the Project pane at all.
+ * Resolve a native OS drop at a CSS client point to the project directory it
+ * lands on, mirroring the tree's own row-drag semantics: a folder row is that
+ * folder, a file row is the file's parent, and the rest of the Project pane is
+ * the project root (""). Null means the drop was not over the Project pane at all.
  */
-export function dropDirectoryAt(position: { x: number; y: number }): string | null {
-  const point = toCssPoint(position);
+export function dropDirectoryAt(point: { x: number; y: number }): string | null {
   const element = deepestElementFromPoint(point.x, point.y);
   const explicitPath = closestAcrossShadow(element, "[data-drop-directory]")?.dataset.dropDirectory;
   if (explicitPath) return trimDirectoryPath(explicitPath);
@@ -320,14 +328,13 @@ function closestAt(point: { x: number; y: number }, selector: string): HTMLEleme
   return document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(selector) ?? null;
 }
 
-/** The CSS-pixel drop point when it lands on the source editor. */
-export function dropEditorAt(position: { x: number; y: number }): { x: number; y: number } | null {
-  const point = toCssPoint(position);
+/** The drop point when it lands on the source editor. */
+export function dropEditorAt(point: { x: number; y: number }): { x: number; y: number } | null {
   return closestAt(point, ".source-editor[data-editor-pane]") ? point : null;
 }
 
-export function dropCanvasAt(position: { x: number; y: number }): boolean {
-  return closestAt(toCssPoint(position), ".canvas-body") !== null;
+export function dropCanvasAt(point: { x: number; y: number }): boolean {
+  return closestAt(point, ".canvas-body") !== null;
 }
 
 /**
@@ -338,8 +345,8 @@ export function dropCanvasAt(position: { x: number; y: number }): boolean {
  * `data-ready` mirrors the embed handshake; before it completes the bridge
  * would drop the message on the floor, so treat the panel as absent then.
  */
-export function dropAgentPanelAt(position: { x: number; y: number }): boolean {
-  return closestAt(toCssPoint(position), ".synara-frame-shell")?.dataset.ready === "true";
+export function dropAgentPanelAt(point: { x: number; y: number }): boolean {
+  return closestAt(point, ".synara-frame-shell")?.dataset.ready === "true";
 }
 
 export type ProjectPathChange = { previousPath: string; nextPath: string };

@@ -822,7 +822,7 @@ function App() {
       } : current);
     },
     updateCanvasRequest, postAgentMessage: postSynaraMessage, agentDocumentCreatorRef: agentProjectDocumentCreatorRef,
-    trellis,
+    trellis, interfaceScale: appearance.interfaceScale,
   });
   const { openFileFromClick: openProjectFileFromClick, openAssetFromClick: openProjectAssetFromClick } = tree;
 
@@ -1773,6 +1773,7 @@ function App() {
       <Suspense fallback={null}>
         <PaperDropBridge
           library={{ projectRoot: project.root, papers }}
+          interfaceScale={appearance.interfaceScale}
           onOpen={readDraggedPaper}
           onError={(reason) => setError(toMessage(reason))}
         />

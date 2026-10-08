@@ -27,7 +27,9 @@ import { ProjectTreeHover } from "./project-tree-hover";
 import { settleTreePath, useInlineCreation, useNewEntryRequest, type EntryKind } from "./project-tree-inline-create";
 import type { NewEntryRequest } from "./project-new-entries";
 import { useProjectTreeMotion } from "./project-tree-motion";
-import { afterNextPaint, selectionIncluding, useProjectTreePointerDrag } from "./project-tree-pointer-drag";
+import {
+  afterNextPaint, clearDropTarget, followTreeMotion, paintDropTarget, selectionIncluding, useProjectTreePointerDrag,
+} from "./project-tree-pointer-drag";
 import { notifyCopied } from "../telemetry/app-notify";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
@@ -244,21 +246,22 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     });
   }, [expansionStorageKey, model, propsRef, treeRef]);
 
+  // Files dragged in from Finder light their target as a row drag does.
+  // AppKit keeps reporting a resting pointer, so useProjectTree re-aims after
+  // a scroll; here the marks only follow the rows Pierre re-renders.
   useEffect(() => {
-    const markNativeDropTarget = () => {
-      const root = model.getFileTreeContainer()?.shadowRoot;
-      if (!root) return;
-      for (const row of root.querySelectorAll<HTMLElement>("[data-lattice-native-drop-target]")) {
-        delete row.dataset.latticeNativeDropTarget;
-      }
-      if (!props.assetDropTarget) return;
-      const path = toPierreDirectoryPath(props.assetDropTarget);
-      for (const row of root.querySelectorAll<HTMLElement>("[data-item-type='folder'][data-item-path]")) {
-        if (row.dataset.itemPath === path) row.dataset.latticeNativeDropTarget = "true";
-      }
+    const directory = props.assetDropTarget;
+    const root = model.getFileTreeContainer()?.shadowRoot;
+    if (directory === null || !root) return;
+    const paint = () => paintDropTarget(root, directory);
+    paint();
+    const stopFollowing = followTreeMotion(root, paint);
+    const unsubscribe = model.subscribe(paint);
+    return () => {
+      stopFollowing();
+      unsubscribe();
+      clearDropTarget(root);
     };
-    markNativeDropTarget();
-    return model.subscribe(markNativeDropTarget);
   }, [model, props.assetDropTarget]);
 
   // A writing file or folder lands beside the selection, as a context-menu one

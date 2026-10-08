@@ -714,14 +714,14 @@ describe("project tree and projects", () => {
       expect(preview).toHaveAttribute("aria-hidden", "true");
       expect(preview?.style.transform).toContain("translate3d");
       expect(preview?.style.opacity).toBe("0.76");
-      expect(dropTarget("figures/")).toHaveAttribute("data-lattice-pointer-drop-target", "true");
+      expect(dropTarget("figures/")).toHaveAttribute("data-lattice-drop-target", "true");
     });
     fireEvent.pointerMove(notes, { clientX: 20, clientY: 35, ...pointer });
-    await waitFor(() => expect(dropTarget("notes/")).toHaveAttribute("data-lattice-pointer-drop-target", "true"));
+    await waitFor(() => expect(dropTarget("notes/")).toHaveAttribute("data-lattice-drop-target", "true"));
     fireEvent.pointerMove(target, { clientX: 20, clientY: 50, ...pointer });
-    await waitFor(() => expect(dropTarget("sections/")).toHaveAttribute("data-lattice-pointer-drop-target", "true"));
-    expect(dropTarget("figures/")).not.toHaveAttribute("data-lattice-pointer-drop-target");
-    expect(dropTarget("notes/")).not.toHaveAttribute("data-lattice-pointer-drop-target");
+    await waitFor(() => expect(dropTarget("sections/")).toHaveAttribute("data-lattice-drop-target", "true"));
+    expect(dropTarget("figures/")).not.toHaveAttribute("data-lattice-drop-target");
+    expect(dropTarget("notes/")).not.toHaveAttribute("data-lattice-drop-target");
     fireEvent.pointerUp(target, { clientX: 20, clientY: 50, ...pointer });
 
     await expectInvoked("move_project_entry", { path: "draft.tex", targetDirectory: "sections", projectRoot: ROOT });
@@ -757,7 +757,7 @@ describe("project tree and projects", () => {
     const pointer = { clientX: 20, clientY: 20, pointerId: 1, pointerType: "mouse" };
     fireEvent.pointerDown(source, { ...pointer, button: 0, clientX: 1, clientY: 1 });
     fireEvent.pointerMove(target, pointer);
-    expect(queryProjectTreeItem("references.bib")).not.toHaveAttribute("data-lattice-pointer-drop-target");
+    expect(queryProjectTreeItem("references.bib")).not.toHaveAttribute("data-lattice-drop-target");
     await act(async () => { fireEvent.pointerUp(queryProjectTreeItem("references.bib")!, pointer); });
     expect(invoke).not.toHaveBeenCalledWith("move_project_entry", expect.anything());
   });

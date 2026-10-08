@@ -670,7 +670,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   pointer-events: none;
   transition: opacity var(--motion-moderate);
 }
-.project-file-tree-surface:has(> .lattice-file-tree[data-lattice-pointer-drop-root="true"])::after { opacity: 1; }
+.project-file-tree-surface:has(> .lattice-file-tree[data-lattice-drop-root="true"])::after { opacity: 1; }
 /* A row's menu is drawn here rather than by Radix (Pierre asks for it from
    inside the tree), but it is the same menu as the one for the empty area
    around the rows: the item geometry, type and colours of menu-surface.ts. */
