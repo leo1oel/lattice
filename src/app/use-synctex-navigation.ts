@@ -5,7 +5,7 @@ import type { EditorPosition, PdfSyncResponse, SyncTexTarget } from "../app-type
 import { toMessage } from "../app-utils";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import type { TrellisController } from "../trellis/trellis-controller";
-import { setError, setWarning, showingErrors } from "./notify";
+import { showError, showWarning, showingErrors } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 
@@ -75,7 +75,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       const compiled = await ensureCompiled();
       if (!isCurrentRequest()) return;
       if (!compiled) {
-        setWarning(t`The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again.`);
+        showWarning(t`The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again.`);
         return;
       }
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
@@ -86,7 +86,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       if (!isCurrentRequest()) return;
       // A jump SyncTeX cannot make is a warning.
       if (!target) {
-        setWarning(t`This source line has no matching position in the PDF.`);
+        showWarning(t`This source line has no matching position in the PDF.`);
         return;
       }
       setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
@@ -95,8 +95,8 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     await locate().catch((reason: unknown) => {
       if (!isCurrentRequest()) return;
       const message = toMessage(reason);
-      if (message === "This bibliography entry is not included in the compiled PDF.") setWarning(message);
-      else setError(message);
+      if (message === "This bibliography entry is not included in the compiled PDF.") showWarning(message);
+      else showError(message);
     }).finally(() => {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     });

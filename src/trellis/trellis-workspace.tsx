@@ -36,7 +36,7 @@ import { popupMotionClassName } from "@/components/ui/popup-motion";
 import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
 import { confirmAction, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
-import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
+import { latexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
 import { resumeParkedEditor, retainParkedEditors } from "../editor/parked-editors";
@@ -279,7 +279,7 @@ function ToolView({ controller, kind }: { controller: TrellisController; kind: T
   );
 }
 
-const refuse = () => false;
+const refuseEdit = () => false;
 
 /**
  * A document that is not the active one, read-only and drawn the way it
@@ -323,7 +323,7 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
       EditorView.lineWrapping,
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
-      syntaxHighlighting(luxLatexHighlightStyle),
+      syntaxHighlighting(latexHighlightStyle),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } }),
       ...language,
@@ -451,9 +451,9 @@ function ReadOnlyMarkdown({ controller, path, text, sourceLines = false }: {
             optimizeForReading
             onLoadAsset={loadAsset ?? undefined}
             assetRevision={assetRevision}
-            onChangeMarkdown={refuse}
-            onUndo={refuse}
-            onRedo={refuse}
+            onChangeMarkdown={refuseEdit}
+            onUndo={refuseEdit}
+            onRedo={refuseEdit}
             synchronizeSourceScroll={sourceLines}
           />
         </Suspense>

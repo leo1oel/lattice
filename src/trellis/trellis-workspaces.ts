@@ -181,7 +181,7 @@ function isSavedLayout(value: unknown): value is { version: number; savedAt?: nu
  * "Workspace" arranged as the most recently saved of them, and each project's
  * layout rewritten to name it (keeping its own document as saved).
  */
-function migrate(storage: Storage): SavedLibrary {
+function migrateLegacyLayouts(storage: Storage): SavedLibrary {
   const id = newId();
   let latest: { savedAt: number; arrangement: LayoutDocument } | null = null;
   const found: Array<{ key: string; saved: Record<string, unknown> }> = [];
@@ -246,7 +246,7 @@ export class WorkspaceLibrary {
     let saved = this.read();
     try {
       if (!saved && localStorage.getItem(LIBRARY_KEY) === null) {
-        saved = migrate(localStorage);
+        saved = migrateLegacyLayouts(localStorage);
         this.saved = saved;
         this.persist();
       }

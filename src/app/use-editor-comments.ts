@@ -6,7 +6,7 @@ import { toMessage } from "../app-utils";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import { createEditorCommentReply, type EditorComment } from "../editor/comments/editor-comment-data";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { setError } from "./notify";
+import { showError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
 
@@ -56,7 +56,7 @@ export function useEditorComments({
     try {
       await invoke("save_editor_comments", { comments: next });
     } catch (reason) {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
     }
   }, []);
 
@@ -101,13 +101,13 @@ export function useEditorComments({
       return;
     }
     const thread = overleafCommentsRef.current.threads.find((item) => item.id === threadId);
-    void overleafCommentsRef.current.setResolved(threadId, !thread?.resolved).catch((reason) => setError(toMessage(reason)));
+    void overleafCommentsRef.current.setResolved(threadId, !thread?.resolved).catch((reason) => showError(toMessage(reason)));
   }, [overleafCommentsRef, update]);
 
   const reply = useCallback((commentId: string, body: string) => {
     const threadId = overleafThreadOf(commentId);
     if (threadId) {
-      void overleafCommentsRef.current.reply(threadId, body).catch((reason) => setError(toMessage(reason)));
+      void overleafCommentsRef.current.reply(threadId, body).catch((reason) => showError(toMessage(reason)));
       return;
     }
     // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
@@ -124,12 +124,12 @@ export function useEditorComments({
       return;
     }
     if (!overleafRealtime.liveFile || overleafRealtime.docId !== docId) {
-      setError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
+      showError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
       return;
     }
     void overleafComments
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
-      .catch((reason) => setError(toMessage(reason)));
+      .catch((reason) => showError(toMessage(reason)));
   }, [comments, overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, persist, project, t]);
 
   const openPanel = useCallback(() => {

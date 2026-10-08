@@ -41,7 +41,7 @@ function bibKeySpans(text: string): KeySpan[] {
 }
 
 /** Every repeat of a key after its first occurrence. */
-function duplicates(spans: KeySpan[], source: Source, message: (key: string) => string): Diagnostic[] {
+function duplicateKeyWarnings(spans: KeySpan[], source: Source, message: (key: string) => string): Diagnostic[] {
   const seen = new Set<string>();
   return spans.flatMap(({ from, to, key }) => {
     const repeat = seen.has(key);
@@ -119,8 +119,8 @@ export function structureDiagnostics(text: string): Diagnostic[] {
       const command = `\\begin{${open.name}}`;
       return error(open, i18n._(msg`Unclosed ${command}.`));
     }),
-    ...duplicates(labelSpans(source), "labels", (key) => i18n._(msg`Duplicate label “${key}”.`)),
-    ...duplicates(bibKeySpans(source), "bibliography", (key) => i18n._(msg`Duplicate bibliography key “${key}”.`)),
+    ...duplicateKeyWarnings(labelSpans(source), "labels", (key) => i18n._(msg`Duplicate label “${key}”.`)),
+    ...duplicateKeyWarnings(bibKeySpans(source), "bibliography", (key) => i18n._(msg`Duplicate bibliography key “${key}”.`)),
     ...unclosedMathDiagnostics(source),
   ];
 }

@@ -20,7 +20,7 @@ import { addAppLog } from "../telemetry/app-log-store";
 import { notifyError } from "../telemetry/app-notify";
 import { afterNextPaintOpportunity, useRefState } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { setError, setNotice, setWarning } from "./notify";
+import { showError, showNotice, showWarning } from "./notify";
 import type { EditorWriteResult } from "./open-slide-writes";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import { useFileViewStates } from "./use-file-view-states";
@@ -419,7 +419,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       invoke<string>("read_project_file", { path, projectRoot: expectedRoot }),
       options?.gate ?? Promise.resolve(true),
     ]).then(commitLoaded).catch((reason: unknown) => {
-      if (isLatestLoad()) setError(toMessage(reason));
+      if (isLatestLoad()) showError(toMessage(reason));
       return false;
     });
   }, [
@@ -453,7 +453,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         if (writtenSource !== content && sameFile && textRef.current === content) setTextLive(writtenSource);
         if (writeResult?.hadConflicts) {
           const path = primaryPath;
-          setWarning(t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }));
+          showWarning(t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }));
         }
         // The saved text is the base the next save merges against, so it must
         // be what the buffer grew from. When this save merged in an outside
@@ -586,7 +586,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         }
       };
       await refresh().catch((reason: unknown) => {
-        if (intentRef.current === loadGeneration) setError(toMessage(reason));
+        if (intentRef.current === loadGeneration) showError(toMessage(reason));
       });
       return;
     }
@@ -607,7 +607,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     const flushStartedAt = performance.now();
     const flushed = publishDeferredEdits(flushRef.current);
     if (flushed !== "published") {
-      if (flushed !== "refused" && intentRef.current === loadGeneration) setError(toMessage(flushed.error));
+      if (flushed !== "refused" && intentRef.current === loadGeneration) showError(toMessage(flushed.error));
       clearOpening();
       return;
     }
@@ -722,7 +722,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       if (flushAndCheckDirty(owner)) return null;
       setPaperBuffers(fullText, blog);
       setPaperView((current) => preferredPaperView(current, fullText, blog));
-      if (!fullText && blog) setNotice(t`Full paper text is unavailable; showing the overview instead.`);
+      if (!fullText && blog) showNotice(t`Full paper text is unavailable; showing the overview instead.`);
       setPaper(target);
       setAssetLive(null);
       setMode("pdf");
@@ -732,7 +732,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       });
       return { hasBlog: blog !== null, hasFullText: Boolean(fullText) };
     })().catch((reason: unknown) => {
-      if (isLatestLoad()) setError(toMessage(reason));
+      if (isLatestLoad()) showError(toMessage(reason));
       return null;
     }).finally(clearOpening);
     if (!opened) return false;
@@ -766,7 +766,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       return true;
     };
     return read().catch((reason: unknown) => {
-      if (isLatestLoad()) setError(toMessage(reason));
+      if (isLatestLoad()) showError(toMessage(reason));
       return false;
     });
   }, [captureProjectScope, closePaper, flushAndCheckDirty, renderedRef, save, setAssetLive, showTab]);

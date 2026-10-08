@@ -40,7 +40,7 @@ type Geometry = {
   header: boolean;
 };
 
-function measure(editor: Editor, layer: HTMLElement | null): Geometry | null {
+function measureTableGeometry(editor: Editor, layer: HTMLElement | null): Geometry | null {
   if (!layer || editor.isDestroyed || !editor.isEditable) return null;
   const { state, view } = editor;
   const context = tableContext(state);
@@ -78,7 +78,7 @@ function measure(editor: Editor, layer: HTMLElement | null): Geometry | null {
   };
 }
 
-const same = (left: Geometry | null, right: Geometry | null) => JSON.stringify(left) === JSON.stringify(right);
+const sameGeometry = (left: Geometry | null, right: Geometry | null) => JSON.stringify(left) === JSON.stringify(right);
 
 type Axis = "row" | "column";
 /** Where a dragged row or column would land: the boundary index, and the drop line relative to the layer. */
@@ -121,8 +121,8 @@ export function TableControls({ editor, layer, paperMode }: { editor: Editor; la
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const next = measure(editor, layer);
-        setGeometry((current) => (same(current, next) ? current : next));
+        const next = measureTableGeometry(editor, layer);
+        setGeometry((current) => (sameGeometry(current, next) ? current : next));
       });
     };
     update();

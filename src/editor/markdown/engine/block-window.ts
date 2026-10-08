@@ -147,7 +147,7 @@ class Sizes {
   of(node: PmNode): Size {
     const known = this.exact.get(node) ?? this.similar.get(similarKey(node)) ?? this.estimates.get(node);
     if (known) return known;
-    const estimated = estimate(node, this.metrics);
+    const estimated = estimateBlockSize(node, this.metrics);
     this.estimates.set(node, estimated);
     return estimated;
   }
@@ -195,7 +195,7 @@ function readMetrics(view: EditorView | null, viewport?: number): Metrics {
 const similarKey = (node: PmNode) => `${node.type.name}:${String(node.attrs.level ?? "")}:${node.nodeSize}`;
 
 /** A block's likely size before it has ever been drawn. */
-function estimate(node: PmNode, { fontSize, lineHeight, width }: Metrics): Size {
+function estimateBlockSize(node: PmNode, { fontSize, lineHeight, width }: Metrics): Size {
   const lines = (characters: number, em = 1) => Math.max(1, Math.ceil((characters * fontSize * em * 0.5) / Math.max(200, width)));
   const flow = fontSize * 0.85;
   switch (node.type.name) {
@@ -249,7 +249,7 @@ function anchorsOf(node: PmNode, inner: DecorationSource, sizes: Sizes): string[
 const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
 
 /** A top-level block not drawn: an empty box of its size, holding its anchors. */
-function placeholder(node: PmNode, inner: DecorationSource, view: EditorView, sizes: Sizes): NodeView {
+function placeholderView(node: PmNode, inner: DecorationSource, view: EditorView, sizes: Sizes): NodeView {
   const dom = document.createElement("div");
   dom.setAttribute(VIRTUAL_ATTRIBUTE, "");
   let current = node;
@@ -276,7 +276,7 @@ function placeholder(node: PmNode, inner: DecorationSource, view: EditorView, si
 }
 
 /** A drawn top-level block that gives way to a placeholder when the window leaves it. */
-function releasable(spec: Partial<NodeView>, node: PmNode, view: EditorView): NodeView {
+function releasableView(spec: Partial<NodeView>, node: PmNode, view: EditorView): NodeView {
   const own = spec.update?.bind(spec);
   let current = node;
   spec.update = (next, decorations, inner) => {
@@ -304,8 +304,8 @@ function windowedView(inner: NodeViewRenderer | null, sizes: Sizes): NodeViewRen
     const pos = layoutAvailable() ? getPos() : undefined;
     // A block inside another, or no layout to window by: exactly the node's own view (null: ProseMirror draws it).
     if (pos === undefined || !isTopLevel(view.state.doc, pos)) return drawn() as NodeView;
-    if (windowOf(view) && !isLive(decorations)) return placeholder(node, props.innerDecorations, view, sizes);
-    return releasable(drawn() ?? {}, node, view);
+    if (windowOf(view) && !isLive(decorations)) return placeholderView(node, props.innerDecorations, view, sizes);
+    return releasableView(drawn() ?? {}, node, view);
   };
 }
 
@@ -427,7 +427,7 @@ function allLive(doc: PmNode): DecorationSet {
 
 const samePins = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((pos, index) => pos === b[index]);
 
-function nextState(transaction: Transaction, value: WindowState, state: EditorState, sizes: Sizes): WindowState {
+function nextWindowState(transaction: Transaction, value: WindowState, state: EditorState, sizes: Sizes): WindowState {
   const { doc } = state;
   if (!layoutAvailable() || doc.childCount < MIN_BLOCKS) {
     if (value.window) return { window: null, pins: [], decorations: allLive(doc) };
@@ -460,7 +460,7 @@ function childAt(children: HTMLCollection, y: number): HTMLElement | null {
 }
 
 /** A drawn block's box, with the space it keeps from its neighbours as margins. */
-function measure(element: HTMLElement): Size {
+function measureBlock(element: HTMLElement): Size {
   const rect = element.getBoundingClientRect();
   const previous = element.previousElementSibling;
   const next = element.nextElementSibling;
@@ -620,7 +620,7 @@ class BlockWindowView {
     view.state.doc.nodesBetween(window.from, window.to, (node, pos) => {
       if ((pos >= next.from && pos < next.to) || pins.includes(pos)) return false;
       const element = view.nodeDOM(pos);
-      if (element instanceof HTMLElement && !element.hasAttribute(VIRTUAL_ATTRIBUTE)) sizes.remember(node, measure(element));
+      if (element instanceof HTMLElement && !element.hasAttribute(VIRTUAL_ATTRIBUTE)) sizes.remember(node, measureBlock(element));
       return false;
     });
   }
@@ -747,7 +747,7 @@ export function blockWindow(extensions: readonly AnyExtension[], options: BlockW
       key: blockWindowKey,
       state: {
         init: () => INACTIVE,
-        apply: (transaction, value, _previous, state) => nextState(transaction, value, state, sizes),
+        apply: (transaction, value, _previous, state) => nextWindowState(transaction, value, state, sizes),
       },
       props: {
         decorations: (state) => blockWindowKey.getState(state)?.decorations,

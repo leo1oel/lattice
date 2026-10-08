@@ -8,7 +8,7 @@ import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery } from "../papers/paper-source";
 import { subscribeTauriEvent } from "./effect-helpers";
-import { setError, setNotice } from "./notify";
+import { showError, showNotice } from "./notify";
 
 type ImportResult = {
   arxivId: string;
@@ -134,7 +134,7 @@ export function useReferenceImport({
       const cited = Boolean(result.citationKey);
       const title = result.title;
       const citationCommand = `\\cite{${result.citationKey}}`;
-      setNotice(result.cancelled
+      showNotice(result.cancelled
         ? result.citationKey
           ? result.paperPath
             ? t({ message: `Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.` })
@@ -156,7 +156,7 @@ export function useReferenceImport({
       return result;
     } catch (reason) {
       if (isTitleQuery(trimmed) && superseded()) return;
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       throw reason instanceof Error ? reason : new Error(toMessage(reason));
     } finally {
       inFlightRef.current = false;
@@ -170,7 +170,7 @@ export function useReferenceImport({
     const requestId = requestIdRef.current;
     if (!requestId) return;
     requestIdRef.current = null;
-    void invoke("cancel_reference_import", { requestId }).catch((reason) => setError(toMessage(reason)));
+    void invoke("cancel_reference_import", { requestId }).catch((reason) => showError(toMessage(reason)));
   }, []);
 
   const importFromInput = useCallback(async () => {
@@ -187,10 +187,10 @@ export function useReferenceImport({
       if (entry) showBibEntry("edit", entry);
       else {
         const citationCommand = `\\cite{${paper.citationKey}}`;
-        setError(t`Couldn't find a bibliography entry for ${citationCommand}.`);
+        showError(t`Couldn't find a bibliography entry for ${citationCommand}.`);
       }
     } catch (reason) {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
     }
   }, [showBibEntry, t]);
 

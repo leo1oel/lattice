@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { hasFinishedGuidedTour, rememberGuidedTour } from "../settings/app-settings";
+import { hasFinishedGuidedTour, recordGuidedTourOutcome } from "../settings/app-settings";
 import type { GuidedTourOutcome } from "./guided-tour";
 
 /**
@@ -19,7 +19,7 @@ export function useGuidedTour() {
   }, []);
   const end = useCallback(() => setTour(null), []);
   const finish = useCallback((outcome: GuidedTourOutcome) => {
-    rememberGuidedTour(outcome);
+    recordGuidedTourOutcome(outcome);
     setTour(null);
   }, []);
   return { tour, start, end, finish };

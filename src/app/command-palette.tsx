@@ -82,7 +82,7 @@ export type PaletteChoice =
   | { kind: "setting"; entry: SettingsSearchEntry };
 
 /** The best `limit` of `items` that score at least `floor`, with their scores. */
-function best(items: readonly PaletteItem[], score: (item: PaletteItem) => number, limit: number, floor = 1) {
+function topScoring(items: readonly PaletteItem[], score: (item: PaletteItem) => number, limit: number, floor = 1) {
   return items
     .map((item) => ({ item, score: score(item) }))
     .filter((entry) => entry.score >= floor)
@@ -165,10 +165,10 @@ export function CommandPalette(props: {
     return (query: string): PaletteItem[] => {
       if (!query) return [...leadingItems, ...everyCommand];
       return [
-        ...best(commandItems, (item) => scoreItem(item, query), LIMITS.command),
-        ...best(fileItems, (item) => (item.kind === "file" ? scorePath(item.path, query) : 0), LIMITS.file),
-        ...best(paperItems, (item) => scoreItem(item, query), LIMITS.paper, PROSE_FLOOR),
-        ...best(settingItems, (item) => scoreItem(item, query), LIMITS.setting, PROSE_FLOOR),
+        ...topScoring(commandItems, (item) => scoreItem(item, query), LIMITS.command),
+        ...topScoring(fileItems, (item) => (item.kind === "file" ? scorePath(item.path, query) : 0), LIMITS.file),
+        ...topScoring(paperItems, (item) => scoreItem(item, query), LIMITS.paper, PROSE_FLOOR),
+        ...topScoring(settingItems, (item) => scoreItem(item, query), LIMITS.setting, PROSE_FLOOR),
       ]
         .sort((left, right) => right.score - left.score || left.item.order - right.item.order)
         .map((entry) => entry.item);

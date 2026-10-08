@@ -15,7 +15,7 @@ import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
-import { setError, setNotice } from "./notify";
+import { showError, showNotice } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 
@@ -108,7 +108,7 @@ async function cleanAuxiliaryFiles(setCleaning: (cleaning: boolean) => void): Pr
     await invoke("clean_project");
     return true;
   } catch (reason) {
-    setError(toMessage(reason));
+    showError(toMessage(reason));
     return false;
   } finally {
     setCleaning(false);
@@ -313,7 +313,7 @@ export function useBuildPipeline({
     if (!projectRef.current?.manifest.rootDocuments.length && !activeLooksCompilable) {
       if (options?.consumeAgentAssociations) reportCompiles(takePendingCompiles(), null);
       if (options?.requested) {
-        setError(
+        showError(
           t`This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.`,
           t`Build`,
         );
@@ -534,12 +534,12 @@ export function useBuildPipeline({
 
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
-    await invoke<boolean>("abort_build").catch((reason) => setError(toMessage(reason)));
+    await invoke<boolean>("abort_build").catch((reason) => showError(toMessage(reason)));
   }, [buildingRef]);
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    if (await cleanAuxiliaryFiles(setCleaning)) setNotice(t`Build files cleaned`, t`Build`);
+    if (await cleanAuxiliaryFiles(setCleaning)) showNotice(t`Build files cleaned`, t`Build`);
   }, [building, cleaning, project, t]);
 
   const cleanAndRebuild = useCallback(async () => {

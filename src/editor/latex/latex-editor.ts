@@ -36,7 +36,7 @@ import { compactSearchPanel } from "./search-panel";
 
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 
-export const luxLatexHighlightStyle = HighlightStyle.define([
+export const latexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
   { tag: tags.operator, color: "var(--syntax-operator)" },
   { tag: [tags.heading, tags.function(tags.variableName), tags.macroName], color: "var(--syntax-function)", fontWeight: "500" },
@@ -215,7 +215,7 @@ export function textEditorExtensions(
       autocorrect: "off",
       autocapitalize: "off",
     }),
-    syntaxHighlighting(luxLatexHighlightStyle),
+    syntaxHighlighting(latexHighlightStyle),
     search({ top: true, scrollToMatch: centerMatch }),
     revealExtension(),
     compactSearchPanel(),

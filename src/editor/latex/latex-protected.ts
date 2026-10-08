@@ -134,7 +134,7 @@ export function protectedLatexSpans(source: string, until = source.length): Prot
       blank.lastIndex = index;
       index = blank.test(source) ? add(index, blank.lastIndex, "paragraph") : index + 1;
     } else if (char === "\\") {
-      index = command(source, index, add);
+      index = protectCommandAt(source, index, add);
     } else {
       index += 1;
     }
@@ -143,7 +143,7 @@ export function protectedLatexSpans(source: string, until = source.length): Prot
 }
 
 /** Protect the command, escape or math opener at `start`; the offset to continue from. */
-function command(source: string, start: number, add: (from: number, to: number, kind: ProtectedKind) => number): number {
+function protectCommandAt(source: string, start: number, add: (from: number, to: number, kind: ProtectedKind) => number): number {
   const next = source[start + 1];
   if (!isLetter(next)) {
     if (next === "(") return add(start, mathEnd(source, start + 2, "\\)"), "math");

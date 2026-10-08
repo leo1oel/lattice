@@ -45,11 +45,11 @@ async function fileInventory(root) {
   return [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
-function total(files) {
+function totalBytes(files) {
   return files?.reduce((sum, file) => sum + file.bytes, 0) ?? null;
 }
 
-function attributes(tag) {
+function parseTagAttributes(tag) {
   const result = new Map();
   const pattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
   for (const match of tag.matchAll(pattern)) {
@@ -66,7 +66,7 @@ export function eagerAssetUrls(html) {
   const css = new Set();
   for (const match of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
     const kind = match[1].toLowerCase();
-    const attrs = attributes(match[0]);
+    const attrs = parseTagAttributes(match[0]);
     if (kind === "script" && attrs.has("src")) js.add(attrs.get("src"));
     if (kind === "link") {
       const rel = (attrs.get("rel") ?? "").toLowerCase().split(/\s+/);
@@ -113,7 +113,7 @@ async function localAssetBytes(distRoot, urls, label) {
 }
 
 async function optionalTotal(target) {
-  return total(await fileInventory(target));
+  return totalBytes(await fileInventory(target));
 }
 
 async function optionalRuntimeManifest(runtime) {
@@ -144,10 +144,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
     .map((file) => ({ path: path.relative(canonicalRuntime, file.path).split(path.sep).join("/"), bytes: file.bytes })) ?? [];
 
   return {
-    distBytes: total(await fileInventory(dist)),
+    distBytes: totalBytes(await fileInventory(dist)),
     eagerJsBytes: await localAssetBytes(dist, eager.js, "JavaScript"),
     eagerCssBytes: await localAssetBytes(dist, eager.css, "CSS"),
-    synaraRuntimeBytes: total(runtimeFiles),
+    synaraRuntimeBytes: totalBytes(runtimeFiles),
     bundledNodeBytes: await optionalTotal(path.join(runtime, "bin/node")),
     synaraServerDistBytes: await optionalTotal(path.join(runtime, "server/dist")),
     runtimeNodeModulesBytes: await optionalTotal(path.join(runtime, "server/node_modules")),
@@ -252,7 +252,7 @@ function humanBytes(bytes) {
   return `${bytes.toLocaleString("en-US")} bytes`;
 }
 
-export function formatHuman(report) {
+export function formatSizeReport(report) {
   const lines = [
     ["Total dist", report.distBytes],
     ["Eager JS", report.eagerJsBytes],
@@ -285,7 +285,7 @@ async function main() {
     );
   } else {
     const report = await createAppSizeReport();
-    console.log(formatHuman(report));
+    console.log(formatSizeReport(report));
   }
 }
 

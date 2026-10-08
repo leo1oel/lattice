@@ -33,7 +33,7 @@ export type WideEvent = {
 const MAX_STRING = 400;
 const MAX_CAUSE = 240;
 
-function clean(value: string, limit: number): string {
+function redactAndTruncate(value: string, limit: number): string {
   const text = redactLogText(value);
   return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
@@ -46,7 +46,7 @@ export function startWideEvent(event: string, initial: Record<string, WideEventV
   let ended = false;
   const set: WideEvent["set"] = (values) => {
     for (const [key, value] of Object.entries(values)) {
-      if (value !== undefined) fields.set(key, typeof value === "string" ? clean(value, MAX_STRING) : value);
+      if (value !== undefined) fields.set(key, typeof value === "string" ? redactAndTruncate(value, MAX_STRING) : value);
     }
   };
   set(initial);
@@ -60,7 +60,7 @@ export function startWideEvent(event: string, initial: Record<string, WideEventV
       failed = true;
       const firstLine = toMessage(cause).split("\n").map((line) => line.trim()).find(Boolean) ?? "";
       fields.set("error_kind", kind);
-      fields.set("error_cause", clean(firstLine, MAX_CAUSE));
+      fields.set("error_cause", redactAndTruncate(firstLine, MAX_CAUSE));
       fields.set("error_fix", fix);
     },
     end: (outcome) => {

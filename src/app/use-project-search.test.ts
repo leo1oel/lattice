@@ -3,15 +3,15 @@ import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import type { ProjectFindHit } from "../project/project-find-dialog";
-import { setNotice } from "./notify";
+import { showNotice } from "./notify";
 import { useProjectSearch } from "./use-project-search";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("./notify", () => ({ setNotice: vi.fn() }));
+vi.mock("./notify", () => ({ showNotice: vi.fn() }));
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
-  vi.mocked(setNotice).mockReset();
+  vi.mocked(showNotice).mockReset();
 });
 
 const hit = (path: string) => ({ path, line: 1, text: path }) as unknown as ProjectFindHit;
@@ -86,7 +86,7 @@ it("writes unsaved edits before replacing, then reloads the project and reports 
   expect(invoke).toHaveBeenCalledWith("replace_in_project", { query: "x", replacement: "y", paths: null, matchCase: false, useRegex: false });
   expect(deps.afterReplace).toHaveBeenCalled();
   expect(view.result.current.replace).toMatchObject({ open: false, busy: false, preview: null });
-  expect(setNotice).toHaveBeenCalledWith("Replaced 3 occurrences in 2 files.");
+  expect(showNotice).toHaveBeenCalledWith("Replaced 3 occurrences in 2 files.");
 });
 
 it("replaces nothing when the unsaved edits cannot be written", async () => {

@@ -58,7 +58,7 @@ export function markdownTables(text) {
   return tables;
 }
 
-const format = (value, digits) => value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const formatFixed = (value, digits) => value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -98,7 +98,7 @@ async function checkMeasured(root, entry, table, where) {
       const chosen = runs.filter((run) => Object.entries(select).every(([key, value]) => run[key] === value));
       const expected = row.figures.map((name, figure) => {
         const values = chosen.map((run) => readFigure(run, name)).filter((value) => value !== null && value !== undefined);
-        return values.length ? format(median(values), digits[figure]) : "–";
+        return values.length ? formatFixed(median(values), digits[figure]) : "–";
       }).join("; ");
       if (cells[column] !== expected) {
         fail(`"${label}", column ${column + 2}: the document says ${cells[column]}, the raw runs give ${expected}`);

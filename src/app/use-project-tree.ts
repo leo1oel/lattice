@@ -20,7 +20,7 @@ import { logAction } from "../telemetry/app-notify";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { disposeWhenSettled } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { setError } from "./notify";
+import { showError } from "./notify";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLibrary } from "./use-project-library";
@@ -193,7 +193,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return createdPath;
     };
     return create().catch((reason: unknown) => {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       throw reason;
     });
   }, [allowViewState, depsRef, openFile, projectRoot]);
@@ -257,7 +257,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return imported;
     };
     return settle().catch((reason: unknown) => {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       return [];
     }).finally(() => {
       setAssetImporting(false);
@@ -352,7 +352,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
           // can read (figures and text sources alike) becomes an attachment.
           void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", { paths: event.payload.paths })
             .then((files) => depsRef.current.postAgentMessage(buildAgentComposerFilesMessage(files)))
-            .catch((error) => setError(toMessage(error)));
+            .catch((error) => showError(toMessage(error)));
         } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
           void importSources(event.payload.paths).then(async (paths) => {
             for (const path of paths) await openFile(path);
@@ -363,11 +363,11 @@ export function useProjectTree(deps: ProjectTreeDeps) {
           // without opening; editor/canvas drops import and open instead.
           void importFiles(event.payload.paths, targetDirectory);
         } else if (dropKind === "source") {
-          setError(t`Drop source files onto an editor or the Project pane`);
+          showError(t`Drop source files onto an editor or the Project pane`);
         } else if (dropKind === "mixed") {
-          setError(t`Drop source files and figures separately`);
+          showError(t`Drop source files and figures separately`);
         } else if (dropKind === "unsupported") {
-          setError(t`This file type can’t be opened in an editor`);
+          showError(t`This file type can’t be opened in an editor`);
         } else if (editorPosition && insertsIntoEditor) {
           void importAssets(event.payload.paths, "figures").then((paths) => {
             if (!paths.length) return;
@@ -380,7 +380,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
             for (const path of paths) await openAsset(path);
           });
         } else {
-          setError(t`Drop figures onto a TeX or Markdown editor, or the Project pane`);
+          showError(t`Drop figures onto a TeX or Markdown editor, or the Project pane`);
         }
       }))
       // Browser-based tests and previews do not expose native file paths.
@@ -399,7 +399,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return prepared;
     };
     return prepare().catch((reason: unknown) => {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       return null;
     });
   }, [depsRef, projectRoot]);
@@ -433,7 +433,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       }
       await depsRef.current.library.refreshHistory();
     };
-    await remove().catch((reason: unknown) => setError(toMessage(reason)));
+    await remove().catch((reason: unknown) => showError(toMessage(reason)));
   }, [depsRef, project, projectOperationGenerationRef, removeDocuments, t]);
 
   /** Everything that names a path follows a rename or move: the tree, open documents, Git decorations, derived state. */
@@ -457,7 +457,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return renamedPath;
     };
     return rename().catch(async (reason: unknown) => {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       await reconcileProjectTree().catch(() => undefined);
       throw reason;
     });
@@ -477,7 +477,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
     const move = async (): Promise<string[]> => {
       if (plannedChanges.some((change) => isMovableDocument(change.previousPath) && change.previousPath === originalPrimaryPath)) {
         if (!flush()) {
-          setError(t`Try again`);
+          showError(t`Try again`);
           return [];
         }
         // save() already reports the path and underlying write failure.
@@ -518,7 +518,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
           .map((change) => ({ previousPath: change.nextPath, nextPath: change.previousPath }))
         : [];
       applyPathChanges(rollbackChanges);
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       await reconcileProjectTree().catch(() => undefined);
       throw reason;
     }));
@@ -542,7 +542,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return path;
     };
     return store().catch((reason: unknown) => {
-      setError(toMessage(reason) || emptyMessage);
+      showError(toMessage(reason) || emptyMessage);
       return null;
     });
   }, [depsRef, projectRoot]);
@@ -565,7 +565,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
   /** The system clipboard's image becomes a figure in the open .tex file. */
   const pasteClipboardImage = useCallback(async () => {
     if (!project || !activeFileRef.current.endsWith(".tex")) {
-      setError(t`Open a .tex file before pasting a figure.`);
+      showError(t`Open a .tex file before pasting a figure.`);
       return;
     }
     const path = await importSystemClipboardImage("figures");
@@ -578,7 +578,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
     if (!project) return;
     await revealItemInDir(projectItemPath(project.root, relativePath)).catch((reason: unknown) => {
       const message = toMessage(reason);
-      setError(t`Could not show that item in Finder. ${message}`);
+      showError(t`Could not show that item in Finder. ${message}`);
     });
   }, [project, t]);
 

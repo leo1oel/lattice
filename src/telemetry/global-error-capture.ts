@@ -24,7 +24,7 @@ function formatArg(value: unknown): string {
   }
 }
 
-function report(level: "error" | "warning", title: string, detail: string) {
+function logCapturedProblem(level: "error" | "warning", title: string, detail: string) {
   if (handling) return;
   handling = true;
   try {
@@ -59,18 +59,18 @@ export function installGlobalErrorCapture(): void {
       return;
     }
     // eslint-disable-next-line lingui/no-unlocalized-strings -- English until a catalog is active
-    report("error", translateOr(msg`Unexpected error`, "Unexpected error"), event.error ? formatArg(event.error) : event.message);
+    logCapturedProblem("error", translateOr(msg`Unexpected error`, "Unexpected error"), event.error ? formatArg(event.error) : event.message);
   });
   window.addEventListener("unhandledrejection", (event) => {
     // eslint-disable-next-line lingui/no-unlocalized-strings -- English until a catalog is active
-    report("error", translateOr(msg`Unhandled promise rejection`, "Unhandled promise rejection"), formatArg(event.reason));
+    logCapturedProblem("error", translateOr(msg`Unhandled promise rejection`, "Unhandled promise rejection"), formatArg(event.reason));
   });
 
   for (const [method, level] of [["error", "error"], ["warn", "warning"]] as const) {
     const original = console[method].bind(console);
     console[method] = (...args: unknown[]) => {
       original(...args);
-      report(level, `console.${method}`, args.map(formatArg).join(" "));
+      logCapturedProblem(level, `console.${method}`, args.map(formatArg).join(" "));
     };
   }
 }

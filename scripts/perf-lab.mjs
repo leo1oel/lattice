@@ -165,7 +165,7 @@ function restoreState(lab) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const quiet = (command, args) => {
+const captureOrEmpty = (command, args) => {
   try {
     return capture(command, args);
   } catch {
@@ -174,12 +174,12 @@ const quiet = (command, args) => {
 };
 
 function portBusy(port) {
-  return quiet("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"]).trim() !== "";
+  return captureOrEmpty("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"]).trim() !== "";
 }
 
 // Lab apps under `root`: one task's directory, or LAB_ROOT for every task's.
-const labProcesses = (root) => quiet("pgrep", ["-U", LAB_USER, "-f", `${root}/.*${LAB_NAME}`]).trim();
-const labUserPids = () => new Set(quiet("ps", ["-U", LAB_USER, "-o", "pid="]).split("\n").map((pid) => pid.trim()).filter(Boolean));
+const labProcesses = (root) => captureOrEmpty("pgrep", ["-U", LAB_USER, "-f", `${root}/.*${LAB_NAME}`]).trim();
+const labUserPids = () => new Set(captureOrEmpty("ps", ["-U", LAB_USER, "-o", "pid="]).split("\n").map((pid) => pid.trim()).filter(Boolean));
 
 export function runPlan(options, runId, label) {
   if (options.plan) return { ...JSON.parse(options.plan), run: runId, label };
@@ -257,7 +257,7 @@ async function runOnce(lab, variantName, runId, options) {
       status = "done";
       break;
     }
-    if (Date.now() - started > 8000 && !quiet("pgrep", ["-U", LAB_USER, "-f", binary]).trim()) {
+    if (Date.now() - started > 8000 && !captureOrEmpty("pgrep", ["-U", LAB_USER, "-f", binary]).trim()) {
       status = "exited";
       break;
     }
@@ -297,9 +297,9 @@ function memoryReport(before) {
   const lines = [];
   for (const pid of labUserPids()) {
     if (before.has(pid)) continue;
-    const rss = quiet("ps", ["-o", "rss=", "-p", pid]).trim();
-    const command = quiet("ps", ["-o", "ppid=,args=", "-p", pid]).trim().slice(0, 300);
-    const footprint = quiet("sudo", ["-n", "-u", LAB_USER, "/usr/bin/footprint", "-p", pid]);
+    const rss = captureOrEmpty("ps", ["-o", "rss=", "-p", pid]).trim();
+    const command = captureOrEmpty("ps", ["-o", "ppid=,args=", "-p", pid]).trim().slice(0, 300);
+    const footprint = captureOrEmpty("sudo", ["-n", "-u", LAB_USER, "/usr/bin/footprint", "-p", pid]);
     const field = (name) => new RegExp(`${name}:\\s+(\\S+)\\s+(\\S+)`).exec(footprint)?.slice(1).join("") ?? "";
     lines.push([pid, rss, field("phys_footprint"), field("phys_footprint_peak"), command].join("\t"));
   }
@@ -308,9 +308,9 @@ function memoryReport(before) {
 
 async function stopLab(lab) {
   const pattern = join(lab.dir, LAB_NAME);
-  quiet("sudo", ["-n", "-u", LAB_USER, "/usr/bin/pkill", "-TERM", "-U", LAB_USER, "-f", pattern]);
+  captureOrEmpty("sudo", ["-n", "-u", LAB_USER, "/usr/bin/pkill", "-TERM", "-U", LAB_USER, "-f", pattern]);
   for (let attempt = 0; attempt < 6 && labProcesses(lab.dir); attempt += 1) await sleep(1000);
-  quiet("sudo", ["-n", "-u", LAB_USER, "/usr/bin/pkill", "-KILL", "-U", LAB_USER, "-f", pattern]);
+  captureOrEmpty("sudo", ["-n", "-u", LAB_USER, "/usr/bin/pkill", "-KILL", "-U", LAB_USER, "-f", pattern]);
   await sleep(1000);
 }
 
@@ -378,7 +378,7 @@ const ROWS = [
 ];
 const FRAME_MS = 1000 / 120;
 
-const dig = (value, path) => path.reduce((current, key) => (current && typeof current === "object" ? current[key] : undefined), value);
+const valueAtPath = (value, path) => path.reduce((current, key) => (current && typeof current === "object" ? current[key] : undefined), value);
 const median = (values) => {
   const numbers = values.filter((value) => typeof value === "number").sort((a, b) => a - b);
   if (!numbers.length) return null;
@@ -403,7 +403,7 @@ export function metric(result, [, scenario, path]) {
   const data = result.scenarios?.[scenario];
   // A drag that did not move the divider measured nothing.
   if (path[0] === "resize" && (data?.resizeMaxShiftPx ?? 0) < 200) return null;
-  return dig(data, path) ?? null;
+  return valueAtPath(data, path) ?? null;
 }
 
 export function verdict(kind, a, b, frames) {
@@ -429,7 +429,7 @@ function compare(lab, variantA, variantB, { runs: prefix = "", json }) {
       return { median: median(values), n: values.filter((value) => value !== null).length };
     });
     const frames = kind === "share"
-      ? median(sides[0].runs.map((result) => dig(result.scenarios?.[scenario], ["fling", "frames", "frames"])))
+      ? median(sides[0].runs.map((result) => valueAtPath(result.scenarios?.[scenario], ["fling", "frames", "frames"])))
       : null;
     return { row: label, kind, [variantA]: a.median, [variantB]: b.median, n: [a.n, b.n], verdict: verdict(kind, a.median, b.median, frames) };
   }).filter((row) => row.n[0] || row.n[1]);

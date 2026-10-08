@@ -17,8 +17,8 @@ import { clearTimer, restartTimer } from "./effect-helpers";
 export type AgentCompileAssociation = { threadId: string; turnId: string; checkpointRef: string };
 
 const entryKey = (entry: AgentCheckpointHistoryEntry) => `${entry.threadId}\u0000${entry.id}`;
-const buildsFrom = (path: string) => !path.startsWith(".research/") && !path.startsWith(".git/");
-const touchesBuild = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) => buildsFrom(file.path));
+const isBuildInputPath = (path: string) => !path.startsWith(".research/") && !path.startsWith(".git/");
+const touchesBuild = (entry: AgentCheckpointHistoryEntry) => entry.files.some((file) => isBuildInputPath(file.path));
 
 /**
  * Agent turns edit files on disk without passing through the editor, so the
@@ -121,7 +121,7 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
     // snapshot. It is disk work too, even when no new entry arrives.
     const restoredEntries = removedEntries.filter(touchesBuild);
     onExternalEdits.current([...new Set(
-      [...buildEntries, ...restoredEntries].flatMap((entry) => entry.files.map((file) => file.path)).filter(buildsFrom),
+      [...buildEntries, ...restoredEntries].flatMap((entry) => entry.files.map((file) => file.path)).filter(isBuildInputPath),
     )]);
     const restored = restoredEntries.length > 0;
     if (!restored && (!buildEntries.length || autoBuildModeRef.current !== "automatic")) return;

@@ -9,7 +9,7 @@ import { paperDocumentPath, type PaperView } from "./use-open-documents";
 export const loadDocumentCanvas = () => import("../canvas/document-canvas");
 const loadCanvasPrewarm = () => import("../canvas/canvas-prewarm");
 
-function measure(name: string, start: number, detail: object) {
+function recordPerformanceMeasure(name: string, start: number, detail: object) {
   try {
     performance.measure(name, { start, end: performance.now(), detail });
   } catch {
@@ -110,7 +110,7 @@ export function usePreviewPrewarm(
       if (!isCurrent() || projectRef.current?.root !== root) return false;
       // The editor keeps no parse cache across mounts, so the document itself is not read ahead.
       await warm.prewarmMarkdownPreviewDocument();
-      measure("lattice:markdown-prewarm", startedAt, { path });
+      recordPerformanceMeasure("lattice:markdown-prewarm", startedAt, { path });
       return isCurrent();
     });
   }, [projectRef, schedulePreviewPrewarm]);

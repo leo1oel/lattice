@@ -21,7 +21,7 @@ import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { LATTICE_RESTORE_AGENT_CHECKPOINT, type AgentGitWorkspaceView } from "../agent/synara-runtime";
 import { GitWorkspaceFrames } from "./git-workspace-frames";
-import { setError } from "./notify";
+import { showError } from "./notify";
 import { githubRepositoryUrl } from "./git-repository-url";
 import type { useSynaraHost } from "./use-synara-host";
 import type { ToolDrawers } from "./use-tool-drawers";
@@ -41,7 +41,7 @@ async function afterConfirming(question: string, change: () => Promise<void>) {
   try {
     await change();
   } catch (reason) {
-    setError(toMessage(reason));
+    showError(toMessage(reason));
   }
 }
 
@@ -169,7 +169,7 @@ export function AppHistoryDrawers({ tools, synara: {
                     type="button"
                     className="agent-git-workspace-repository"
                     onClick={() => {
-                      void openUrl(repositoryUrl).catch((reason) => setError(toMessage(reason)));
+                      void openUrl(repositoryUrl).catch((reason) => showError(toMessage(reason)));
                     }}
                   >
                     <span>GitHub</span>
