@@ -4,8 +4,9 @@
  * Pierre renders the tree into a shadow root and its own HTML5 drag is
  * disabled (see `PIERRE_TREE_CSS` in `project-tree-css.ts`), so dropping a
  * file is decided here: where the pointer is over the tree, and what moves
- * that implies. Both answers are pure — one reads a composed event path, the
- * other only strings — which is what keeps the rules that have no visible
+ * that implies. Both answers are narrow — one reads only what the engine
+ * hit-tested (an event's composed path, or the element at a point), the other
+ * only strings — which is what keeps the rules that have no visible
  * failure mode (a folder dropped into its own descendant, a drop that would
  * move nothing) checkable without driving a whole tree.
  */
@@ -37,7 +38,20 @@ export function pointerDropTarget(
   const element = event.composedPath().find(
     (target): target is Element => target instanceof Element && root.contains(target),
   );
-  if (!element) return null;
+  return element ? dropLocationAt(element) : null;
+}
+
+/**
+ * The drop location under a resting pointer. A wheel or trackpad scroll moves
+ * the rows beneath it and sends no pointer event, so this asks the engine what
+ * is at the point now.
+ */
+export function pointerDropTargetAt(root: ShadowRoot, x: number, y: number): PointerTreeDropLocation | null {
+  const element = root.elementFromPoint(x, y);
+  return element && root.contains(element) ? dropLocationAt(element) : null;
+}
+
+function dropLocationAt(element: Element): PointerTreeDropLocation | null {
   const row = element.closest<HTMLElement>("[data-type='item']");
   const hoveredPath = row?.dataset.itemPath || null;
   if (row && !hoveredPath) return null;

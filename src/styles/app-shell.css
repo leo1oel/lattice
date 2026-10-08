@@ -654,7 +654,23 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-padding-inline-override: 1px;
   --trees-scrollbar-thumb-override: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
-.project-file-tree-surface { position: relative; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
+.project-file-tree-surface { position: relative; isolation: isolate; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
+/* A drag aimed at the project root washes the whole tree, rows, sticky folder
+   headers and empty space alike. Drawn over the tree rather than as its
+   background, which the sticky headers must keep opaque; the z-index is local
+   to the surface and only clears the headers' own (4, Pierre's). */
+.project-file-tree-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--control-active-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--control-active) 27%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-moderate);
+}
+.project-file-tree-surface:has(> .lattice-file-tree[data-lattice-pointer-drop-root="true"])::after { opacity: 1; }
 /* A row's menu is drawn here rather than by Radix (Pierre asks for it from
    inside the tree), but it is the same menu as the one for the empty area
    around the rows: the item geometry, type and colours of menu-surface.ts. */

@@ -8,9 +8,12 @@ import { useEffect, useRef } from "react";
 import type { FileTreeDropTarget } from "@pierre/trees";
 import type { useFileTree } from "@pierre/trees/react";
 import {
+  dropTargetDirectory,
   normalizePointerDraggedPaths,
   pointerDropOperations,
   pointerDropTarget,
+  pointerDropTargetAt,
+  toPierreDirectoryPath,
   type PointerTreeDropLocation,
 } from "./navigator-drag";
 
@@ -30,16 +33,51 @@ export function afterNextPaint(): Promise<void> {
 
 function clearPointerDragAppearance(root: ShadowRoot | null | undefined) {
   if (!root) return;
-  if (root.host instanceof HTMLElement) delete root.host.dataset.latticePointerDragActive;
+  if (root.host instanceof HTMLElement) {
+    delete root.host.dataset.latticePointerDragActive;
+    delete root.host.dataset.latticePointerDropRoot;
+  }
   for (const row of root.querySelectorAll<HTMLElement>(
-    "[data-lattice-pointer-dragging], [data-lattice-pointer-drop-target]",
+    "[data-lattice-pointer-dragging], [data-lattice-pointer-drop-target], [data-lattice-pointer-drop-inside]",
   )) {
     delete row.dataset.latticePointerDragging;
     delete row.dataset.latticePointerDropTarget;
+    delete row.dataset.latticePointerDropInside;
   }
   for (const segment of root.querySelectorAll<HTMLElement>("[data-lattice-pointer-flattened-drop-target]")) {
     delete segment.dataset.latticePointerFlattenedDropTarget;
   }
+}
+
+/**
+ * Light the folder a drop would land in, never just the row under the pointer:
+ * a file row stands for the folder holding it, so lighting that row alone
+ * reads as "into this file", and lighting only the folder's own row puts the
+ * mark rows above the pointer. The folder's row is marked and every row shown
+ * inside it is filled, as VS Code does; the project root washes the whole
+ * tree. Rows are matched by path because Pierre keys them by position: after
+ * a scroll the same element can hold a different path.
+ */
+function paintPointerDrag(
+  root: ShadowRoot,
+  draggedPaths: readonly string[],
+  location: PointerTreeDropLocation | null,
+) {
+  clearPointerDragAppearance(root);
+  const directory = location ? dropTargetDirectory(location.target) : null;
+  const directoryPath = directory ? toPierreDirectoryPath(directory) : null;
+  if (root.host instanceof HTMLElement) {
+    root.host.dataset.latticePointerDragActive = "true";
+    if (directory === "") root.host.dataset.latticePointerDropRoot = "true";
+  }
+  for (const row of root.querySelectorAll<HTMLElement>("[data-item-path]")) {
+    const path = row.dataset.itemPath ?? "";
+    if (draggedPaths.includes(path)) row.dataset.latticePointerDragging = "true";
+    if (!directoryPath) continue;
+    if (path === directoryPath) row.dataset.latticePointerDropTarget = "true";
+    else if (path.startsWith(directoryPath)) row.dataset.latticePointerDropInside = "true";
+  }
+  if (location?.flattenedSegment) location.flattenedSegment.dataset.latticePointerFlattenedDropTarget = "true";
 }
 
 const PREVIEW_STRIPPED_ATTRIBUTES = [
@@ -138,9 +176,39 @@ type DragSession = {
   active: boolean;
   cancel: () => void;
   draggedPaths: readonly string[];
+  /** The latest pointer position, in client pixels. */
+  point: { x: number; y: number };
   preview: DragPreview | null;
   target: PointerTreeDropLocation | null;
 };
+
+/**
+ * Re-aims the drop whenever the rows move under a resting pointer: a wheel or
+ * trackpad scroll mid-drag sends no pointer event, so the target would stay
+ * the row the pointer last moved over and the mark would ride away with it.
+ * Pierre renders the scrolled rows a task after the scroll event, so their
+ * mutations re-aim as well. Returns the disposer.
+ */
+function followTreeMotion(root: ShadowRoot, reaim: () => void): () => void {
+  // Re-aiming hit-tests a point, which needs layout; without one (jsdom) the
+  // pointer events alone aim.
+  if (typeof root.elementFromPoint !== "function") return () => {};
+  let frame: number | null = null;
+  const schedule = () => {
+    frame ??= window.requestAnimationFrame(() => {
+      frame = null;
+      reaim();
+    });
+  };
+  const observer = new MutationObserver(schedule);
+  observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-item-path"] });
+  root.addEventListener("scroll", schedule, { capture: true, passive: true });
+  return () => {
+    observer.disconnect();
+    root.removeEventListener("scroll", schedule, { capture: true });
+    if (frame != null) window.cancelAnimationFrame(frame);
+  };
+}
 
 /**
  * Returns the row pointerdown entry point plus the capture handlers that keep
@@ -165,36 +233,35 @@ export function useProjectTreePointerDrag(
     }
     const { clientX: startX, clientY: startY, pointerId } = event;
     const treeRoot = () => model.getFileTreeContainer()?.shadowRoot;
+    let stopFollowing: (() => void) | null = null;
     const finish = () => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", finish);
       window.removeEventListener("blur", finish);
+      stopFollowing?.();
       clearPointerDragAppearance(treeRoot());
       session.preview?.finish();
       session.preview = null;
       if (sessionRef.current === session) sessionRef.current = null;
     };
-    const session: DragSession = { active: false, cancel: finish, draggedPaths: [], preview: null, target: null };
+    const session: DragSession = {
+      active: false, cancel: finish, draggedPaths: [], point: { x: startX, y: startY }, preview: null, target: null,
+    };
+    const aim = (root: ShadowRoot, location: PointerTreeDropLocation | null) => {
+      session.target = location && pointerDropOperations(session.draggedPaths, location.target).length > 0
+        ? location
+        : null;
+      paintPointerDrag(root, session.draggedPaths, session.target);
+    };
     const updateTarget = (pointerEvent: PointerEvent) => {
+      session.point = { x: pointerEvent.clientX, y: pointerEvent.clientY };
       const root = treeRoot();
       if (!root) {
         session.target = null;
         return;
       }
-      const location = pointerDropTarget(root, pointerEvent);
-      session.target = location && pointerDropOperations(session.draggedPaths, location.target).length > 0
-        ? location
-        : null;
-      clearPointerDragAppearance(root);
-      if (root.host instanceof HTMLElement) root.host.dataset.latticePointerDragActive = "true";
-      for (const row of root.querySelectorAll<HTMLElement>("[data-item-path]")) {
-        if (session.draggedPaths.includes(row.dataset.itemPath ?? "")) row.dataset.latticePointerDragging = "true";
-      }
-      if (session.target?.row) session.target.row.dataset.latticePointerDropTarget = "true";
-      if (session.target?.flattenedSegment) {
-        session.target.flattenedSegment.dataset.latticePointerFlattenedDropTarget = "true";
-      }
+      aim(root, pointerDropTarget(root, pointerEvent));
     };
     const onPointerMove = (pointerEvent: PointerEvent) => {
       if (pointerEvent.pointerId !== pointerId) return;
@@ -209,7 +276,13 @@ export function useProjectTreePointerDrag(
         session.draggedPaths = draggedPaths;
         model.focusPath(path);
         const root = treeRoot();
-        if (root) session.preview = createDragPreview(root, path, draggedPaths.length, startX, startY);
+        if (root) {
+          session.preview = createDragPreview(root, path, draggedPaths.length, startX, startY);
+          stopFollowing = followTreeMotion(root, () => {
+            const current = treeRoot();
+            if (current) aim(current, pointerDropTargetAt(current, session.point.x, session.point.y));
+          });
+        }
       }
       pointerEvent.preventDefault();
       session.preview?.moveTo(pointerEvent.clientX, pointerEvent.clientY);
