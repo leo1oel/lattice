@@ -21,8 +21,9 @@ import {
 } from "@danfessler/trellis-react";
 import type { LayoutNode, PanelNode } from "@danfessler/trellis";
 import "@danfessler/trellis/style.css";
-// Panel menus open at the pointer, with submenus and without the fluid hover
-// surface of the shared DropdownMenuContent, so they build on the primitive.
+// Panel menus open at the pointer and have submenus, so they build on the
+// primitive rather than the shared DropdownMenuContent; they take the same
+// surface, fluid hover included.
 // eslint-disable-next-line no-restricted-imports -- see above
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
@@ -32,6 +33,7 @@ import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } fro
 import { cn } from "@/lib/utils";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
+import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
 import { confirmAction, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
@@ -773,8 +775,9 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
               <MenuPrimitive.Portal>
                 <MenuPrimitive.SubContent
                   sideOffset={4}
-                  className={cn(floatingSurfaceClassName, menuViewportClassName, "min-w-[10rem]", popupMotionClassName)}
+                  className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[10rem]", popupMotionClassName)}
                 >
+                  <FluidHoverSurface />
                   <MenuEntries entries={entry.items} onRun={onRun} />
                 </MenuPrimitive.SubContent>
               </MenuPrimitive.Portal>
@@ -814,9 +817,10 @@ function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => 
           align={request.align}
           side="bottom"
           sideOffset={4}
-          className={cn(floatingSurfaceClassName, menuViewportClassName, "min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
+          className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >
+          <FluidHoverSurface />
           <MenuEntries entries={request.entries} onRun={onClose} />
         </MenuPrimitive.Content>
       </MenuPrimitive.Portal>
