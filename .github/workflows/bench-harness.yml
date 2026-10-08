@@ -20,6 +20,7 @@ on:
       - "scripts/perf-bench/**"
       - "scripts/perf-fixture.mjs"
       - "scripts/private-fonts.ts"
+      - "scripts/vitest-balanced-shards.ts"
       - "scripts/vitest-fs-cache-key.ts"
       - "tools/perf-bench/**"
       - "src/index.css"

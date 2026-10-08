@@ -4,6 +4,7 @@ import babel from "@rolldown/plugin-babel";
 import { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import { fsModuleCacheKey } from "./scripts/vitest-fs-cache-key.ts";
+import { BalancedShardSequencer } from "./scripts/vitest-balanced-shards.ts";
 import { privateFontsPlugin } from "./scripts/private-fonts.ts";
 
 export default defineConfig({
@@ -73,5 +74,8 @@ export default defineConfig({
     // Room for the slowest test to finish on a loaded machine rather than a
     // quiet one; the per-assertion wait is set alongside it in test-setup.ts.
     testTimeout: 20_000,
+    // `--shard` (CI's three test jobs) splits by estimated cost rather than
+    // file count, so the App suites do not pile onto one shard.
+    sequence: { sequencer: BalancedShardSequencer },
   },
 });

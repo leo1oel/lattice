@@ -5,11 +5,20 @@ on:
     branches: [main]
   pull_request:
 
-# The frontend work is split so the wall clock is the slowest single job rather
-# than the sum of every check. Vitest deliberately uses one worker per process
-# to keep the memory-heavy app/editor suites stable, so CI shards the test files
-# across three isolated runners. Sharding skips nothing — it only stops the
-# checks from queueing behind each other.
+# A push to a pull request makes the run for its previous head moot, so that
+# run is cancelled instead of holding runners — macOS ones especially, which
+# GitHub caps at five at a time per account — for a result nobody reads. Each
+# push to main keeps its run: there the group is the commit.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# The work is split so the wall clock is the slowest single job rather than the
+# sum of every check. Vitest deliberately uses one worker per process to keep
+# the memory-heavy app/editor suites stable, so CI shards the test files across
+# three isolated runners, and each benchmark engine deals its scenarios across
+# runners too. Sharding skips nothing — it only stops the checks from queueing
+# behind each other.
 jobs:
   # Pull requests that touch only documentation cannot change what any job
   # below checks, so those jobs skip instead of spending ~10 minutes proving
@@ -144,14 +153,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
-      - run: pnpm lint
-      - run: pnpm knip
-      # Locally part of the `lint` mise stage: every table in
-      # docs/performance.md is accounted for in
-      # docs/performance-data/manifest.json, and each benchmark table is
-      # recomputed from the raw runs it names.
-      - run: pnpm perf:evidence
-      - run: pnpm build
+      # These only read the checkout (the build writes nothing but dist/), so
+      # they run side by side on the runner's four cores, each with its own
+      # log, and the job fails at the end of the group if any of them failed.
+      - parallel:
+          - run: pnpm lint
+          - run: pnpm knip
+          # Locally part of the `lint` mise stage: every table in
+          # docs/performance.md is accounted for in
+          # docs/performance-data/manifest.json, and each benchmark table is
+          # recomputed from the raw runs it names.
+          - run: pnpm perf:evidence
+          - run: pnpm build
+          # `pnpm check` gained a `notices` stage that CI did not run, so a
+          # dependency added without regenerating THIRD_PARTY_NOTICES.md would
+          # only fail locally. Reads the installed trees plus `cargo metadata`;
+          # it does not build. The Synara sidecar is absent here, so its
+          # section is carried over rather than regenerated — the npm and
+          # crates closures are what this gate protects.
+          - name: Check the third-party notices are in sync
+            run: pnpm notices:check
       # Locally this is the `i18n-check` mise stage; it was the one stage of
       # `pnpm check` that CI never ran, so catalog drift passed here and only
       # failed on a contributor's machine.
@@ -159,20 +180,11 @@ jobs:
       # `pnpm i18n:check` re-extracts the catalogs and then asserts `git diff
       # --exit-code -- src/locales`, so it is only meaningful on a clean
       # checkout — which is exactly what actions/checkout gives us, and why this
-      # step must come after `pnpm build` rather than before: extraction and
-      # `lingui compile` rewrite files under `src/locales/`, and nothing may run
-      # against that rewritten tree.
+      # step must come after everything above rather than beside it:
+      # extraction and `lingui compile` rewrite files under `src/locales/`, and
+      # nothing may run against that rewritten tree.
       - name: Check the i18n catalogs are in sync
         run: pnpm i18n:check
-
-      # Same reasoning: `pnpm check` gained a `notices` stage that CI did not
-      # run, so a dependency added without regenerating THIRD_PARTY_NOTICES.md
-      # would only fail locally. Reads the installed trees plus `cargo
-      # metadata`; it does not build. The Synara sidecar is absent here, so its
-      # section is carried over rather than regenerated — the npm and crates
-      # closures are what this gate protects.
-      - name: Check the third-party notices are in sync
-        run: pnpm notices:check
 
   # Deterministic interaction benchmark (docs/performance.md, "Interaction
   # benchmark and CI gate"). It builds the app's bench page, drives typing, file
@@ -181,16 +193,43 @@ jobs:
   # scripts/perf-bench/budgets.json. Which counts are gated and which are
   # report-only (frame-timing-dependent) is documented there. No Tauri host is
   # involved; the page answers the app's IPC from an in-memory fixture project.
-  # `--layout` then checks geometry jsdom cannot (scripts/perf-bench/layout-checks.mjs).
-  perf-bench:
+  # `--layout` then checks geometry jsdom cannot (scripts/perf-bench/layout-checks.mjs)
+  # on the same build.
+  #
+  # The scenarios run one after another for minutes, so `--shard` deals them
+  # (then the layout checks) round-robin across runners; one added later lands
+  # in a shard without being named here. Each shard has a runner to itself:
+  # two browsers on one runner would put the frame-timing noise the ceilings
+  # leave room for back into the gated counts. A matrix job skipped for a
+  # documentation-only change reports one unexpanded name, which is harmless
+  # here because the `perf-bench` job below is the check that reports the
+  # result.
+  perf-bench-shard:
+    name: perf-bench (${{ matrix.shard }}/2)
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
-      - run: pnpm perf:bench --check
-      - run: pnpm perf:bench --layout
+      - run: pnpm perf:bench --check --layout --shard ${{ matrix.shard }}/2
+
+  # The one check that reports the Chromium benchmark, under the name it had
+  # before it was sharded.
+  perf-bench:
+    needs: [changes, perf-bench-shard]
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHARDS: ${{ needs.perf-bench-shard.result }}
+        run: |
+          echo "perf-bench shards: $SHARDS"
+          [ "$SHARDS" = success ]
 
   # The same scenarios in WebKit, the engine release builds render in, against
   # scripts/perf-bench/budgets-webkit.json. WebKit pays several times
@@ -198,16 +237,37 @@ jobs:
   # puts far more of the document in the DOM (or writes to it far more often)
   # costs WebKit users first. Playwright's macOS WebKit build is the closest
   # one to the system WKWebView a runner can drive headless.
-  perf-bench-webkit:
+  #
+  # WebKit runs each scenario at about 1.5× Chromium's time and was the
+  # slowest job in CI (about ten minutes), hence three shards rather than two.
+  # With `rust` that is four macOS runners per run, inside the five GitHub
+  # allows at once.
+  perf-bench-webkit-shard:
+    name: perf-bench-webkit (${{ matrix.shard }}/3)
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm exec playwright-core install webkit
-      - run: pnpm perf:bench --check --engine webkit
-      - run: pnpm perf:bench --layout --engine webkit
+      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/3
+
+  # The one check that reports the WebKit benchmark, under its old name.
+  perf-bench-webkit:
+    needs: [changes, perf-bench-webkit-shard]
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHARDS: ${{ needs.perf-bench-webkit-shard.result }}
+        run: |
+          echo "perf-bench-webkit shards: $SHARDS"
+          [ "$SHARDS" = success ]
 
   rust:
     needs: changes

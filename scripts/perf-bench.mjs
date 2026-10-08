@@ -28,6 +28,8 @@
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
  *   --only a,b      run only these scenarios (with --layout, these checks)
+ *   --shard K/N     run every N-th scenario (then layout check), starting
+ *                   at the K-th: CI splits one engine's run across N runners
  *   --runs N        runs per scenario; each gated count is its lowest across them (default 2)
  *   --json FILE     write every run, with the components that rendered and why
  *   --dev           use the Vite dev server: readable component names and
@@ -64,7 +66,8 @@
  * Layout checks (no benchmark):
  *   --layout        build the page and check the geometry in
  *                   scripts/perf-bench/layout-checks.mjs in the chosen engine;
- *                   exit 1 when one fails, with a screenshot of it
+ *                   exit 1 when one fails, with a screenshot of it. With
+ *                   --check, the benchmark runs first and both share one build
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
@@ -110,7 +113,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
+  const options = { runs: 2, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -121,6 +124,7 @@ function parseArgs(argv) {
     else if (arg === "--keep-open") options.keepOpen = true;
     else if (arg === "--runs") options.runs = Number(argv[++index]);
     else if (arg === "--only") options.only = argv[++index].split(",");
+    else if (arg === "--shard") options.shard = parseShard(argv[++index]);
     else if (arg === "--json") options.json = argv[++index];
     else if (arg === "--url") options.url = argv[++index];
     else if (arg === "--profile") options.profile = argv[++index];
@@ -138,6 +142,7 @@ function parseArgs(argv) {
   if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
   if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
   if (options.layout && (options.serve || options.smoke || options.url)) throw new Error("--layout serves its own page per check; it cannot take --serve, --smoke or --url");
+  if (options.shard && (options.serve || options.smoke)) throw new Error("--shard splits a benchmark or layout run; it cannot take --serve or --smoke");
   if (options.smoke && options.engine !== "chromium") throw new Error("--smoke loads the page in Chrome only");
   if (!["en", "zh-CN", "system"].includes(options.lang)) throw new Error("--lang takes en, zh-CN or system");
   if (options.url && argv.includes("--lang")) throw new Error("--url names its own page; put lang= in it instead of --lang");
@@ -145,6 +150,36 @@ function parseArgs(argv) {
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   return options;
+}
+
+function parseShard(value) {
+  const match = /^(\d+)\/(\d+)$/.exec(value ?? "");
+  const [index, count] = match ? [Number(match[1]), Number(match[2])] : [];
+  if (!match || index < 1 || index > count) throw new Error("--shard takes K/N with 1 <= K <= N, such as 2/3");
+  return { index, count };
+}
+
+/**
+ * The scenarios and layout checks this run covers. --layout alone runs only
+ * the checks; with --check they follow the benchmark on its build. --only
+ * picks by name, and --shard deals the combined list out round-robin, so a
+ * scenario or check added later lands in some shard without CI naming it.
+ */
+function selectWork(options) {
+  const named = (items) => (options.only ? items.filter((item) => options.only.includes(item.name)) : items);
+  const work = [
+    ...(options.layout && !options.check ? [] : named(SCENARIOS).map((scenario) => ({ scenario }))),
+    ...(options.layout ? named(LAYOUT_CHECKS).map((check) => ({ check })) : []),
+  ];
+  const kept = options.shard ? work.filter((_, index) => index % options.shard.count === options.shard.index - 1) : work;
+  if (!kept.length) {
+    const what = options.layout && !options.check ? "layout check" : options.layout ? "scenario or layout check" : "scenario";
+    throw new Error(`No ${what} matches${options.only ? ` ${options.only}` : ""}${options.shard ? ` in shard ${options.shard.index}/${options.shard.count}` : ""}`);
+  }
+  return {
+    scenarios: kept.flatMap((item) => item.scenario ?? []),
+    checks: kept.flatMap((item) => item.check ?? []),
+  };
 }
 
 function freePort() {
@@ -441,11 +476,8 @@ function launchBrowser(options) {
     }));
 }
 
-/** `--layout`: runs every layout check on a fresh page and exits 1 when one fails. */
-async function layout(options) {
-  const checks = options.only ? LAYOUT_CHECKS.filter((check) => options.only.includes(check.name)) : LAYOUT_CHECKS;
-  if (!checks.length) throw new Error(`No layout check matches ${options.only}`);
-  const vite = await startPage(options);
+/** `--layout`: runs each layout check on a fresh page and exits 1 when one fails. */
+async function layout(options, checks, vite) {
   const browser = await step(`starting ${options.engine}`, () => launchBrowser(options));
   try {
     for (const check of checks) {
@@ -469,10 +501,7 @@ async function layout(options) {
       }
     }
   } finally {
-    if (!options.keepOpen) {
-      await browser.close();
-      await vite.server.close();
-    }
+    if (!options.keepOpen) await browser.close();
   }
 }
 
@@ -565,10 +594,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.serve) return serve(options);
   if (options.smoke) return smoke(options);
-  if (options.layout) return layout(options);
-  const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
-  if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
+  const { scenarios, checks } = selectWork(options);
   const vite = options.url ? null : await startPage(options);
+  try {
+    if (scenarios.length) await benchmark(options, scenarios, vite);
+    if (checks.length) await layout(options, checks, vite);
+  } finally {
+    if (!options.keepOpen) await vite?.server.close();
+  }
+}
+
+/** Measures each scenario, prints the table and holds the counts to their ceilings. */
+async function benchmark(options, scenarios, vite) {
   const browser = await launchBrowser(options);
   const results = [];
   try {
@@ -621,10 +658,7 @@ async function main() {
       console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")} (across runs: ${across.map(([name, of]) => `${name} ${runs.map(of).join("/")}`).join(", ")})`);
     }
   } finally {
-    if (!options.keepOpen) {
-      await browser.close();
-      await vite?.server.close();
-    }
+    if (!options.keepOpen) await browser.close();
   }
 
   console.log(formatTable(results));
@@ -642,11 +676,11 @@ async function main() {
     results.map(({ scenario, result }) => ({ name: scenario.name, result })),
     mode,
   );
-  if (changed && !options.dev && !options.only) {
+  if (changed && !options.dev && !options.only && !options.shard) {
     writeFileSync(budgetsFile, `${JSON.stringify(budgets, null, 2)}\n`);
     console.log(`\nWrote ${path.relative(repo, budgetsFile)}.`);
   } else if (changed) {
-    console.log("\nCeilings are only written from a full production run (no --dev or --only).");
+    console.log("\nCeilings are only written from a full production run (no --dev, --only or --shard).");
   }
   if (slack.length) {
     console.log(`\nRoom to ratchet (pnpm perf:bench --ratchet lowers these ceilings):`);
