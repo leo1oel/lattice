@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useMemo, useRef } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowUpRight, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, X } from "lucide-react";
@@ -87,6 +87,22 @@ export function PaperLibrary(props: PaperLibraryProps) {
     : filteredPapers.length ? null
       : [t`No matching papers`, t`Press + to import it`];
 
+  // Tab walks every control of every paper; the arrows, Home and End move
+  // between papers, landing where a click on the row would.
+  const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[event.key];
+    if (step === undefined || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(":scope > .paper-row"));
+    const from = rows.findIndex((row) => row.contains(event.target as Node));
+    if (from < 0) return;
+    const to = Math.max(0, Math.min(rows.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rows.length - 1 : 0));
+    const target = rows[to].querySelector<HTMLElement>(".paper-open:not(:disabled)")
+      ?? rows[to].querySelector<HTMLElement>("button:not(:disabled)");
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  };
+
   return (
     <aside className="navigator">
       <div className="navigator-section papers-section">
@@ -140,7 +156,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
           contentClassName="paper-list-content"
         >
           {/* Only the papers are list items; the empty state and the count sit after the list. */}
-          <div role="list" aria-label={t`Papers`} className="paper-rows fluid-hover-surface">
+          <div role="list" aria-label={t`Papers`} className="paper-rows fluid-hover-surface" onKeyDown={movePaperFocus}>
             {/* Tab reaches each paper's own controls, which answer with the focus ring. */}
             <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {filteredPapers.map((paper, index) => {

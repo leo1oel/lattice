@@ -340,6 +340,29 @@ describe("PaperLibrary", () => {
     expect(invoke).toHaveBeenCalledOnce();
   });
 
+  it("moves between papers with the arrows, Home and End, from any of a row's controls", () => {
+    const web: PaperSummary = {
+      arxivId: "web-0123456789abcdef", url: "https://www.example.org/notes", title: "Notes", hasFullText: true, hasBlog: false,
+    };
+    renderLibrary({ papers: [attention, vit, web] });
+    const [first, second, third] = screen.getAllByRole("button", { name: /Attention|Image|Notes/ })
+      .filter((button) => button.classList.contains("paper-open"));
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    expect(second).toHaveFocus();
+    fireEvent.keyDown(second, { key: "End" });
+    expect(third).toHaveFocus();
+    fireEvent.keyDown(third, { key: "ArrowDown" });
+    expect(third).toHaveFocus();
+    // From a control inside the row, not only its open button.
+    const copy = within(second.closest<HTMLElement>(".paper-row")!).getByRole("button", { name: /Copy citation key/ });
+    copy.focus();
+    fireEvent.keyDown(copy, { key: "ArrowUp" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "Home" });
+    expect(first).toHaveFocus();
+  });
+
   it("adds only through the labeled + button", () => {
     const { props, search } = renderLibrary();
     expect(document.querySelector(".import-box .ui-search-field-icon")).not.toBeNull();
