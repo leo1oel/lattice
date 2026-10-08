@@ -20,13 +20,24 @@
   box-shadow: var(--elevation-dialog);
 }
 
-/* Floating: what stays up beside the work until it is dismissed. Toasts colour
- * their edge by severity (adaptive-feedback.css). */
-.compile-diagnostics,
-.app-toast {
+/* Floating: what stays up beside the work until it is dismissed. */
+.compile-diagnostics {
   background: var(--surface-elevated);
   box-shadow: var(--elevation-floating);
 }
+
+/* Toasts are floating cards of frosted glass: they pass over the document,
+ * and the page behind should stay legible through them. The edge takes the
+ * severity's tint, composed as the ladder prescribes. */
+.app-toast {
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  box-shadow: var(--elevation-floating);
+  backdrop-filter: blur(20px) saturate(1.6);
+}
+.app-toast.info { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-info) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
+.app-toast.success { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
+.app-toast.warning { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
+.app-toast.error { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
 
 /* Popovers: menus and the editor's tooltips, autocomplete and selection
  * toolbar. Radix menus, selects and popovers take the same level through

@@ -354,6 +354,8 @@ export type AppearanceSettings = {
   editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
   interfaceSounds: boolean;
+  /** The window corner or edge the notification stack stands in. */
+  toastPosition: ToastPosition;
   /** Title-bar tool buttons the writer chose to hide (Settings → Appearance). */
   hiddenTitlebarTools: TitlebarTool[];
   /** The surfaces' hue; styles/theme.css holds each preset. */
@@ -362,6 +364,10 @@ export type AppearanceSettings = {
   /** How much of the desktop shows through the window chrome (macOS only). */
   translucency: Translucency;
 };
+
+/** Where notifications stack. Top left is missing on purpose: the traffic lights live there. */
+export const TOAST_POSITIONS = ["top-right", "top-center", "bottom-right", "bottom-center"] as const;
+export type ToastPosition = typeof TOAST_POSITIONS[number];
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */
 const TITLEBAR_TOOLS = ["comments", "overleaf", "git", "history", "browser"] as const;
@@ -390,6 +396,7 @@ export function loadAppearance(): AppearanceSettings {
     editorKeymap: "default",
     editorSpellcheck: true,
     interfaceSounds: true,
+    toastPosition: "top-right",
     hiddenTitlebarTools: [],
     tint: "graphite",
     accent: "graphite",
@@ -414,6 +421,7 @@ export function loadAppearance(): AppearanceSettings {
       // non-English prose sees nothing from it.
       editorSpellcheck: value?.editorSpellcheck !== false,
       interfaceSounds: value?.interfaceSounds !== false,
+      toastPosition: oneOf(value?.toastPosition, TOAST_POSITIONS, defaults.toastPosition),
       hiddenTitlebarTools: Array.isArray(value?.hiddenTitlebarTools)
         ? TITLEBAR_TOOLS.filter((tool) => value.hiddenTitlebarTools?.includes(tool))
         : defaults.hiddenTitlebarTools,

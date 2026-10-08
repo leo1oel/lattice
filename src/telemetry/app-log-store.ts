@@ -3,6 +3,7 @@ import { msg } from "@lingui/core/macro";
 import { version } from "../../package.json";
 import { AppLogFileQueue, type LogLosses } from "./app-log-file-queue";
 import { translateOr } from "./early-i18n";
+import { playInterfaceSound } from "./interface-sounds";
 
 export type AppLogContext = {
   operation_id: string;
@@ -36,9 +37,17 @@ export type AppToastAction = {
   keepOpen?: boolean;
 };
 
+/**
+ * How far along the operation a toast reports is: a fraction from 0 to 1, or
+ * `"indeterminate"` while it cannot say. A toast with progress stays up until
+ * the operation settles it.
+ */
+export type AppToastProgress = number | "indeterminate";
+
 export type AppToastOptions = {
   copyText?: string;
   timeoutMs?: number;
+  progress?: AppToastProgress;
   primaryAction?: AppToastAction;
   secondaryAction?: AppToastAction;
   onDismiss?: () => void;
@@ -48,7 +57,7 @@ export type AppToastOptions = {
  * Everything one on-screen toast draws, in a single subscribed value.
  *
  * Nothing invalidates a plain module-map read during render, so a memoized
- * toast (`app-log.tsx` compiles with zero React Compiler bailouts) would keep
+ * toast (`toast-stack.tsx` compiles with zero React Compiler bailouts) would keep
  * its old buttons under a new title. Options carry click handlers, so they
  * cannot live on the persisted `AppLogEntry`; pairing them here keeps them out
  * of storage and still inside the subscription.
@@ -80,6 +89,11 @@ export function redactLogText(value: string): string {
     .replace(/((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|ticket|password|secret)["']?\s*[:=]\s*["']?)[^\s&"',;}]+/gi, "$1[redacted]")
     .replace(/(\/binary\/(?:uploads|downloads)\/)[^\s/?#"']+/gi, "$1[redacted]");
   /* eslint-enable lingui/no-unlocalized-strings */
+}
+
+/** Correlation ids belong in the app log, not in user-facing notification copy. */
+export function visibleToastDetail(detail: string): string {
+  return detail.replace(/(?:^|\n)#[0-9a-f]{6}$/i, "").trim();
 }
 
 function sanitizeContext(context?: AppLogContext): AppLogContext | undefined {
@@ -323,7 +337,16 @@ export function updateAppLog(
   };
   entries = [updated, ...entries.filter((entry) => entry.id !== id)].slice(0, MAX_ENTRIES);
   visibleToastIds = [id, ...visibleToastIds.filter((value) => value !== id)].slice(0, 4);
-  if (toastOptions) toastOptionsById.set(id, toastOptions);
+  if (toastOptions) {
+    // An operation the writer watched run to its end is the one moment a toast
+    // speaks: routine notifications stay silent (interface-sounds.ts), but a
+    // progress toast settling into success or failure gets the matching cue.
+    const wasRunning = toastOptionsById.get(id)?.progress !== undefined;
+    if (wasRunning && toastOptions.progress === undefined && (updated.level === "success" || updated.level === "error")) {
+      playInterfaceSound(updated.level);
+    }
+    toastOptionsById.set(id, toastOptions);
+  }
   persist();
   emit();
   forwardToFileLog(updated);
@@ -361,6 +384,21 @@ export function dismissAppToast(id: string, notify = true) {
   }
   emit();
   if (notify) options?.onDismiss?.();
+}
+
+/**
+ * Move the progress of the toast showing under `key`, without a log line.
+ *
+ * A download reports hundreds of chunks; each is a redraw of the bar, not an
+ * event worth a row in the log. The phase changes around it (started,
+ * installing, failed) still go through `addAppLog`/`updateAppLog`.
+ */
+export function updateAppToastProgress(key: string, progress: AppToastProgress) {
+  const id = entryIdByDedupeKey.get(key);
+  const options = id ? toastOptionsById.get(id) : undefined;
+  if (!id || !options || options.progress === progress) return;
+  toastOptionsById.set(id, { ...options, progress });
+  emit();
 }
 
 /**

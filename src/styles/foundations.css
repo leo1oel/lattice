@@ -388,7 +388,7 @@
    * so the backdrop only covers what sits below it. An interactive app-layer
    * surface above --z-modal-backdrop must hide itself while one is present:
    * `body:has(.modal-backdrop, .drawer-backdrop) .its-class { display: none; }`.
-   * The app updater and toasts deliberately stay clickable.
+   * Toasts, the app update among them, deliberately stay clickable.
    *
    * Surfaces that only compete with their own siblings inside a local stacking
    * context are deliberately absent: the PDF viewer's internal layers, the
@@ -415,7 +415,6 @@
      left in a component stylesheet reads like an app-level claim. */
   --z-spreadsheet-scrollbar: 101;
   --z-drag-ghost: 120;
-  --z-app-updater: 9999;
   --z-toast: 10000;
 
   /* Semantic color aliases preserve the neutral accent and follow both themes.

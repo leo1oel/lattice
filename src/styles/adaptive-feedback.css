@@ -45,36 +45,10 @@
   html .source-editor .cm-editor .cm-line.cm-reveal-flash, html .lx-md-editor .lx-reveal-flash { animation: none; background-color: var(--highlight-match-surface); }
   /* The tour's card arrives and its action mark checks itself without a flourish. */
   html .guided-tour-card, html .guided-tour-content, html .guided-tour-action[data-done] .guided-tour-action-mark { animation: none; }
+  /* An indeterminate toast bar holds a still segment instead of strobing. */
+  html .app-toast-progress[data-indeterminate] .app-toast-progress-fill { animation: none; transform: translateX(95%); }
 }
 
-.app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }
-.app-update-banner ~ .app-toast-stack { top: 128px; }
-/* One line, one axis: icon, message and dismiss share a centre. `start` used to
-   align all three to the top of a 24px row, which left a 16px line of text
-   sitting visibly above the dismiss button beside it. */
-.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: var(--radius-surface); }
-.app-toast.info { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-info) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
-.app-toast.success { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
-.app-toast.warning { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
-.app-toast.error { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
-/* Past one line, centring would float the icon and the dismiss button against
-   the middle of a paragraph. Pin both to the title's line box instead — the
-   same optical centring, measured against the first line rather than the card. */
-.app-toast.expanded { align-items: start; }
-.app-toast.expanded > svg { margin-top: calc((var(--type-body-compact-line-height) - 15px) / 2); }
-.app-toast.expanded > button { margin-top: calc((var(--type-body-compact-line-height) - var(--control-size-icon-compact)) / 2); }
-/* The icon carries the level; the text stays in the primary colour so a long
-   message is read as prose, not as an alarm. */
-.app-toast.info > svg { color: var(--status-info); }
-.app-toast.success > svg { color: var(--status-success); }
-.app-toast.warning > svg { color: var(--status-warning); }
-.app-toast.error > svg { color: var(--status-danger); }
-.app-toast > div { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.app-toast strong { display: -webkit-box; overflow: hidden; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--type-body-compact-weight); overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.app-toast > div > span { overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
-.app-toast.expanded > div > span { display: -webkit-box; max-height: calc(4 * var(--type-caption-line-height)); overflow-wrap: anywhere; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
-/* A toast's actions are compact Buttons, the step dense chrome uses. */
-.app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
 .app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); overflow-x: auto; flex: none; }
 .app-log-action-row, .app-log-query-row { display: flex; align-items: center; gap: var(--space-3); }
 .app-log-query-row { flex: 1 0 260px; min-width: 0; }

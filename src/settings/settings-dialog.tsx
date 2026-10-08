@@ -333,9 +333,21 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
         <SwitchField
           data-setting="interface-sounds"
           label={t`Interface sounds`}
-          description={t`When a build or Overleaf setup finishes`}
+          description={t`When a build or a task in progress finishes`}
           checked={props.appearance.interfaceSounds}
           onChange={(interfaceSounds) => patchAppearance(props, { interfaceSounds })}
+        />
+        <SelectRow
+          data-setting="toast-position"
+          label={t`Notification position`}
+          value={props.appearance.toastPosition}
+          options={{
+            "top-right": t`Top right`,
+            "top-center": t`Top center`,
+            "bottom-right": t`Bottom right`,
+            "bottom-center": t`Bottom center`,
+          }}
+          onChange={(toastPosition) => patchAppearance(props, { toastPosition })}
         />
       </SettingsGroup>
       <ThemeSettingsGroup {...props} />

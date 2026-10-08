@@ -66,7 +66,10 @@ export function parseSynaraNotificationMessage(
 }
 
 function hostNotificationTimeout(message: SynaraNotificationUpsert): number {
-  if (message.timeoutMs === 0) return 0;
+  // A loading notification is a running operation: Lattice draws it with an
+  // indeterminate bar and no clock, and Synara settles it — by upserting the
+  // outcome or by closing it, which is only followed for persistent ones.
+  if (message.timeoutMs === 0 || message.level === "loading") return 0;
   return message.level === "error" || message.primaryActionLabel || message.secondaryActionLabel ? 9_000 : 6_000;
 }
 
@@ -109,6 +112,7 @@ export function useSynaraNotificationBridge(options: {
       const secondaryAction = action(message.secondaryActionLabel, "secondary");
       const toastOptions: AppToastOptions = {
         timeoutMs: hostTimeoutMs,
+        ...(message.level === "loading" ? { progress: "indeterminate" as const } : {}),
         ...(message.copyText ? { copyText: message.copyText } : {}),
         ...(primaryAction ? { primaryAction } : {}),
         ...(secondaryAction ? { secondaryAction } : {}),

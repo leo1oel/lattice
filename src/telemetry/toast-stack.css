@@ -1,0 +1,181 @@
+/* The notification stack (toast-stack.tsx). Fill, edge and blur come from the
+   floating level in styles/surfaces.css; this file owns the stack's geometry
+   and motion.
+
+   Collapsed, the newest card stands in front and up to two older ones show a
+   sliver beneath it, each a little smaller, all at the front card's height so
+   the pile reads as one object. Hovering or focusing the stack fans it out
+   into a list at each card's natural height. Base UI supplies the numbers:
+   --toast-index (0 is the front), --toast-height, --toast-offset-y (the
+   heights in front of this card), --toast-frontmost-height, and the swipe
+   offsets. */
+
+.app-toast-viewport {
+  --toast-gap: var(--space-4);
+  --toast-peek: var(--space-4);
+  position: fixed;
+  z-index: var(--z-toast);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  outline: none;
+}
+/* 52px clears the 40px title bar with the same 12px the cards keep from the edge. */
+.app-toast-viewport[data-position^="top"] { top: 52px; }
+/* 44px at the bottom keeps the cards off the panels' status row. */
+.app-toast-viewport[data-position^="bottom"] { bottom: 44px; }
+.app-toast-viewport[data-position$="right"] { right: var(--space-8); }
+.app-toast-viewport[data-position$="center"] { right: 0; left: 0; margin-inline: auto; }
+
+.app-toast {
+  --toast-dir: 1;
+  /* Each card behind is 5% smaller, down to the third; a fourth waits unseen. */
+  --toast-scale: calc(1 - min(var(--toast-index), 3) * 0.05);
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  box-sizing: border-box;
+  height: var(--toast-frontmost-height, var(--toast-height));
+  border-radius: var(--radius-surface);
+  color: var(--text-primary);
+  z-index: calc(10 - var(--toast-index));
+  cursor: default;
+  user-select: none;
+  /* Scaled about the edge away from the stack's anchor, so a smaller card
+     still shows its full sliver past the one in front. */
+  transform-origin: 50% 100%;
+  transform:
+    translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) + var(--toast-dir) * var(--toast-index) * var(--toast-peek)))
+    scale(var(--toast-scale));
+  transition:
+    transform var(--motion-slow),
+    opacity var(--motion-moderate),
+    height var(--motion-moderate),
+    box-shadow var(--motion-fast);
+}
+[data-position^="bottom"] > .app-toast {
+  --toast-dir: -1;
+  top: auto;
+  bottom: 0;
+  transform-origin: 50% 0;
+}
+/* A card beyond the third sits behind the pile until the stack fans out. */
+.app-toast:not([data-expanded]) { opacity: calc(1 - max(0, var(--toast-index) - 2)); }
+/* Fanned out: every card at its own height, one gap apart. The ::after bridges
+   that gap so the pointer can travel between cards without collapsing them. */
+.app-toast[data-expanded] {
+  height: var(--toast-height);
+  transform:
+    translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) + var(--toast-dir) * (var(--toast-offset-y) + var(--toast-index) * var(--toast-gap))));
+}
+.app-toast::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: calc(var(--toast-gap) + 1px);
+}
+[data-position^="bottom"] > .app-toast::after { top: auto; bottom: 100%; }
+
+/* Arriving, a card drops in from the stack's edge; leaving, it lifts back out,
+   or carries on the way it was swiped. */
+.app-toast[data-starting-style] { opacity: 0; transform: translateY(calc(var(--toast-dir) * -100%)) scale(0.96); }
+.app-toast[data-ending-style] { opacity: 0; transform: translateY(calc(var(--toast-dir) * -40% + var(--toast-swipe-movement-y))) scale(0.96); }
+.app-toast[data-ending-style][data-swipe-direction="right"] { transform: translateX(calc(var(--toast-swipe-movement-x) + 110%)) translateY(var(--toast-swipe-movement-y)); }
+.app-toast[data-ending-style][data-swipe-direction="up"] { transform: translateY(calc(var(--toast-swipe-movement-y) - 120%)); }
+.app-toast[data-ending-style][data-swipe-direction="down"] { transform: translateY(calc(var(--toast-swipe-movement-y) + 120%)); }
+.app-toast[data-limited] { opacity: 0; }
+.app-toast:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* One line, one axis: icon, message and dismiss share a centre. Past one line,
+   centring would float the icon and the dismiss button against the middle of
+   a paragraph, so both pin to the title's line box instead. */
+.app-toast-content {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact);
+  align-items: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--space-5);
+  overflow: hidden;
+  transition: opacity var(--motion-fast);
+}
+/* Behind the front card only the sliver shows; the words would be noise. */
+.app-toast-content[data-behind]:not([data-expanded]) { opacity: 0; }
+.app-toast.multiline .app-toast-content { align-items: start; }
+.app-toast.multiline .app-toast-icon { margin-top: calc((var(--type-body-compact-line-height) - 15px) / 2); }
+.app-toast.multiline .app-toast-content > button { margin-top: calc((var(--type-body-compact-line-height) - var(--control-size-icon-compact)) / 2); }
+.app-toast-icon { display: flex; align-items: center; justify-content: center; height: 15px; }
+/* The icon carries the level; the text stays in the primary colour so a long
+   message is read as prose, not as an alarm. */
+.app-toast.info .app-toast-icon { color: var(--status-info); }
+.app-toast.success .app-toast-icon { color: var(--status-success); }
+.app-toast.warning .app-toast-icon { color: var(--status-warning); }
+.app-toast.error .app-toast-icon { color: var(--status-danger); }
+
+.app-toast-body { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.app-toast-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--type-body-compact-weight);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.app-toast-description {
+  display: -webkit-box;
+  margin: 0;
+  max-height: calc(4 * var(--type-caption-line-height));
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+/* A toast's actions are compact Buttons, the step dense chrome uses. */
+.app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+
+.app-toast-progress-row { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
+.app-toast-progress {
+  position: relative;
+  flex: 1 1 auto;
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  overflow: hidden;
+}
+.app-toast-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--control-active);
+  transition: width var(--motion-moderate);
+}
+/* Indeterminate: a short segment sweeps across until the work can say how far it is. */
+.app-toast-progress[data-indeterminate] .app-toast-progress-fill {
+  width: 35%;
+  animation: app-toast-sweep 1.4s ease-in-out infinite;
+}
+.app-toast-progress-value {
+  flex: none;
+  min-width: 4ch;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@keyframes app-toast-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}

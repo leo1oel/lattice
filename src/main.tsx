@@ -15,10 +15,9 @@ import "@fontsource/instrument-serif/400.css";
 // Timeless @font-face rules and font tokens when this build embeds them, else empty.
 import "virtual:lattice-private-fonts.css";
 import App from "./App";
-import { UpdaterProvider, UpdateBanner } from "./telemetry/app-updater";
-import "./telemetry/app-updater.css";
+import { UpdaterProvider } from "./telemetry/app-updater";
 import { RootErrorBoundary } from "./telemetry/root-error-boundary";
-import { AppToastStack } from "./telemetry/app-log";
+import { ToastStack } from "./telemetry/toast-stack";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
 import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
@@ -57,8 +56,7 @@ async function startApp() {
           <UpdaterProvider>
             <ConfirmActionProvider>
               <App />
-              <UpdateBanner />
-              <AppToastStack />
+              <ToastStack />
             </ConfirmActionProvider>
           </UpdaterProvider>
         </RootErrorBoundary>

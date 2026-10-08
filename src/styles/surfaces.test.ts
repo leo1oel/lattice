@@ -1,5 +1,5 @@
 // Vitest empties CSS imports, so read the files off disk.
-import { readdirSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
 const read = (file: string) => String(readFileSync(file, "utf8"))
@@ -14,6 +14,7 @@ const appCssFiles = [
 ]
 const appCss = appCssFiles.map(read).join("\n")
 const surfacesCss = read("src/styles/surfaces.css")
+const toastCss = read("src/telemetry/toast-stack.css")
 const foundations = read("src/styles/foundations.css")
 const menuSurface = read("src/components/ui/menu-surface.ts")
 const spreadsheetEditor = read("src/editor/spreadsheet/spreadsheet-editor.tsx")
@@ -252,16 +253,6 @@ describe("shared surface contracts", () => {
     ["removes the speech-bubble arrow from Univer tooltips", [
       'body > [role="tooltip"].univer-bg-gray-700 > div + div { display: none; }',
     ]],
-    // A single-line toast centres icon, message and dismiss against each other;
-    // `start` used to leave 16px of text riding above the 24px dismiss button.
-    // Past one line, they pin to the title's line box instead, so the icon does
-    // not drift to the middle of a paragraph — and that 16px has to be real.
-    ["puts a notification's icon, message and dismiss on one axis", [
-      /\.app-toast \{[^}]*align-items: center/,
-      ".app-toast.expanded { align-items: start; }",
-      /\.app-toast\.expanded > button \{ margin-top: calc\(\(var\(--type-body-compact-line-height\) - var\(--control-size-icon-compact\)\) \/ 2\)/,
-      /\.app-toast strong \{[^}]*line-height: var\(--type-body-compact-line-height\)/,
-    ]],
   ])("%s", (_name, has, lacks) => expectRules(appCss, has, lacks))
 
   it("keeps elevated menus and Settings free of hard outer frames, and menus on the app scrollbar", () => {
@@ -305,13 +296,38 @@ describe("shared surface contracts", () => {
     const banners = [".error-banner", ".warning-banner", ".notice-banner"]
     expectRules(appCss, [], banners)
     expectRules(surfacesCss, [], banners)
-    // The updater keeps its own component — it owns a progress bar and an
-    // Install button — but not its own shape.
-    expectRules(read("src/telemetry/app-updater.css"), [
-      /\.app-update-banner \{[^}]*width: 320px/,
-      /\.app-update-banner \{[^}]*border-radius: var\(--radius-surface\)/,
+    // The update banner was the last card beside the stack; toasts carry
+    // progress and actions now, so the update is a toast like the rest.
+    expect(existsSync("src/telemetry/app-updater.css")).toBe(false)
+    expectRules(appCss, [], [/\.app-update-banner/, /\.app-toast(?:-stack)?\s*[{.,]/])
+    expectRules(toastCss, [/\.app-toast \{[^}]*border-radius: var\(--radius-surface\)/, /\.app-toast-viewport \{[^}]*width: 320px/])
+  })
+
+  // A single-line toast centres icon, message and dismiss against each other;
+  // `start` used to leave 16px of text riding above the 24px dismiss button.
+  // Past one line, they pin to the title's line box instead, so the icon does
+  // not drift to the middle of a paragraph — and that 16px has to be real.
+  it("puts a notification's icon, message and dismiss on one axis", () => {
+    expectRules(toastCss, [
+      /\.app-toast-content \{[^}]*align-items: center/,
+      ".app-toast.multiline .app-toast-content { align-items: start; }",
+      /\.app-toast\.multiline \.app-toast-content > button \{ margin-top: calc\(\(var\(--type-body-compact-line-height\) - var\(--control-size-icon-compact\)\) \/ 2\)/,
+      /\.app-toast-title \{[^}]*line-height: var\(--type-body-compact-line-height\)/,
     ])
-    expectRules(appCss, [/\.app-toast \{[^}]*border-radius: var\(--radius-surface\)/, /\.app-toast-stack \{[^}]*width: 320px/])
+  })
+
+  // Collapsed, the cards behind the front one keep its height and show a
+  // sliver each; fanned out, each takes its own height one gap apart.
+  it("compresses the stack into a pile and fans it out from Base UI's measurements", () => {
+    expectRules(toastCss, [
+      /\.app-toast \{[^}]*height: var\(--toast-frontmost-height, var\(--toast-height\)\)/,
+      /\.app-toast \{[^}]*var\(--toast-index\) \* var\(--toast-peek\)/,
+      /\.app-toast\[data-expanded\] \{[^}]*height: var\(--toast-height\);[^}]*var\(--toast-offset-y\) \+ var\(--toast-index\) \* var\(--toast-gap\)/,
+      ".app-toast-content[data-behind]:not([data-expanded]) { opacity: 0; }",
+    ])
+    // Frosted, at the floating level, edge tinted by severity.
+    expect(surfacesCss).toMatch(/\.app-toast \{[^}]*backdrop-filter: blur\(20px\)/)
+    for (const level of ["info", "success", "warning", "error"]) expect(surfacesCss).toContain(`.app-toast.${level} { box-shadow: 0 0 0 1px`)
   })
 
   it("draws in-place messages through the shared inline component", () => {

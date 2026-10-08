@@ -323,7 +323,7 @@ takes a level from `foundations.css`.
 | Panel | `--elevation-panel` | `--surface-panel` | half a hairline | docked Trellis panels |
 | Raised | `--elevation-raised` | `--surface-elevated` | ring and a contact shadow | a plate lifted inside a surface: the chosen segment, zoom controls over a figure, a resize handle |
 | Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar, the PDF preview's loading status and notices |
-| Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts, the update banner, the build's diagnostics card, a dragged item |
+| Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts (frosted), the build's diagnostics card, a dragged item |
 | Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, the guided tour's card |
 
 - The ring (`--elevation-ring`) is the edge; a floating surface does not add a
@@ -493,10 +493,20 @@ all take it.
   tinted `danger` Button (`--status-danger-soft`, deeper on hover), never a red
   slab; a destructive alternative beside a safe default ("Don't save" beside
   Save) stays a quiet ghost in the danger colour. Cancel takes focus.
-- **Toasts and the update banner** are one floating card: 320px,
-  `--radius-surface`, a title in the body-compact role, detail in the caption
-  role, actions as compact Buttons and a compact `CloseButton`. Only the
-  edge's tint changes with severity.
+- **Every notification is a toast** (`app-notify.ts`, drawn by
+  `telemetry/toast-stack.tsx` on Base UI's Toast), the app update included: a
+  frosted floating card, 320px, `--radius-surface`, a title in the
+  body-compact role, detail in the caption role, the first action as a compact
+  primary Button and the rest compact secondary, and a compact `CloseButton`.
+  Only the edge's tint changes with severity. Toasts stack into a pile, the
+  newest in front with up to two slivers beneath, and fan out while the
+  pointer or keyboard focus (F6) is on them. The clock (6 s, 9 s for an
+  error) holds while the stack is hovered or focused and while the window is
+  in the background; swipe, Esc and × dismiss. A toast with `progress` (a
+  fraction, or `"indeterminate"`) shows a bar and no clock until its owner
+  settles it, moves through `updateAppToastProgress` without a log line per
+  step, and plays the success or error cue when it settles. Settings →
+  Appearance moves the stack to any corner but the traffic lights'.
 - **Asked for by name, always answered.** An action the writer invoked must
   show a result even when there is nothing to do: Install LaTeX tools opens the
   wizard when something is missing and otherwise says LaTeX is ready.

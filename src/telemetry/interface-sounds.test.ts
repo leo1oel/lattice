@@ -17,8 +17,8 @@ describe("interface sounds", () => {
   });
 
   it("maps app outcomes to restrained semantic cues", () => {
-    playInterfaceSound("build-succeeded");
-    playInterfaceSound("build-failed");
+    playInterfaceSound("success");
+    playInterfaceSound("error");
 
     expect(cuelume.play.mock.calls).toEqual([["ready"], ["error"]]);
   });
@@ -26,6 +26,6 @@ describe("interface sounds", () => {
   it("never lets unavailable audio break the completed operation", () => {
     cuelume.play.mockImplementationOnce(() => { throw new Error("AudioContext unavailable"); });
 
-    expect(() => playInterfaceSound("build-succeeded")).not.toThrow();
+    expect(() => playInterfaceSound("success")).not.toThrow();
   });
 });

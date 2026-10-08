@@ -1,16 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addAppLog,
   clearAppLogs,
-  dismissAppToast,
-  formatAppLogs,
-  updateAppLog,
-  useAppToastsSnapshot,
   type AppLogEntry,
 } from "./app-log-store";
-import { AppLogsSettings, AppToastStack } from "./app-log";
+import { AppLogsSettings } from "./app-log";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn() }));
@@ -25,14 +21,6 @@ function show(entry: LogInput) {
 
 /** A log-only entry: the Logs pane reads these without any toast on screen. */
 const record = (entry: Partial<LogInput>) => show({ level: "info", source: "Build", title: "Built", toast: false, ...entry });
-
-/** A bridged Synara notification whose Cancel is later swapped for Retry. */
-const updatingPi = (onClick: () => void): LogInput => ({
-  level: "info", source: "Synara settings", title: "Updating Pi…",
-  toastOptions: { timeoutMs: 0, primaryAction: { label: "Cancel", onClick } },
-});
-const failPiUpdate = (id: string, patch: Parameters<typeof updateAppLog>[1], onClick: () => void) =>
-  act(() => { updateAppLog(id, { level: "error", ...patch }, { timeoutMs: 0, primaryAction: { label: "Retry", onClick } }); });
 
 const searchLogs = (value: string) =>
   fireEvent.change(screen.getByRole("searchbox", { name: "Search logs" }), { target: { value } });
@@ -61,7 +49,7 @@ function openRuntimeExport() {
   return screen.getByRole("checkbox", { name: /Include app and Agent runtime logs/ });
 }
 
-describe("AppToastStack", () => {
+describe("AppLogsSettings", () => {
   beforeEach(() => {
     // Auto-cleanup only registers under `globals: true`, which this project
     // does not set, so each test unmounts the previous tree itself.
@@ -72,106 +60,6 @@ describe("AppToastStack", () => {
       if (command === "open_app_log_dir") return undefined;
       throw new Error(`Unexpected command: ${command}`);
     });
-  });
-
-  it("updates a bridged notification in place and keeps its actions", () => {
-    const onAction = vi.fn();
-    render(<AppToastStack />);
-    const entry = show(updatingPi(onAction));
-
-    expect(screen.getByText("Updating Pi…")).toBeInTheDocument();
-    failPiUpdate(entry.id, { title: "Could not update Pi", detail: "NotFound: ChildProcess.spawn (pi update)" }, onAction);
-
-    expect(screen.queryByText("Updating Pi…")).toBeNull();
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not update Pi");
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(onAction).toHaveBeenCalledOnce();
-  });
-
-  it("collapses a repeat into the toast already showing it, rewiring its buttons and not only its text", () => {
-    const showLog = vi.fn();
-    const retry = vi.fn();
-    const failure = { level: "error", source: "Build", title: "Build failed", dedupeKey: "build" } as const;
-    render(<AppToastStack />);
-    show({ ...failure, detail: "first", toastOptions: { timeoutMs: 0, primaryAction: { label: "Show log", onClick: showLog } } });
-    show({ ...failure, detail: "second" });
-    show({ ...failure, detail: "third\n#8c4c85", toastOptions: { timeoutMs: 0, primaryAction: { label: "Retry", onClick: retry } } });
-
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.getByRole("alert")).toHaveTextContent("third");
-    // Every occurrence still reaches the log — collapsing is a display rule,
-    // not a record of what happened. Action correlation ids stay in the log too,
-    // without being shown to the user.
-    expect(formatAppLogs()).toContain("third");
-    expect(screen.getByRole("alert")).not.toHaveTextContent("#8c4c85");
-    expect(formatAppLogs()).toContain("#8c4c85");
-    expect(screen.queryByRole("button", { name: "Show log" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(retry).toHaveBeenCalledOnce();
-    expect(showLog).not.toHaveBeenCalled();
-  });
-
-  // The store is what has to make the swap observable. A toast reading its
-  // actions out of a module map during render is correct only for as long as
-  // something else happens to re-render it: the id does not move when the
-  // actions are replaced, so any memo keyed on the entry keeps the old buttons.
-  it("moves the toast snapshot when only the actions change, and holds it still for an entry nobody is shown", () => {
-    const { result } = renderHook(() => useAppToastsSnapshot());
-    const entry = show(updatingPi(vi.fn()));
-    const first = result.current;
-    expect(first.map((toast) => toast.options?.primaryAction?.label)).toEqual(["Cancel"]);
-    record({ title: "Cached" });
-    expect(result.current).toBe(first);
-
-    failPiUpdate(entry.id, { title: "Could not update Pi" }, vi.fn());
-
-    expect(result.current[0].entry.id).toBe(entry.id);
-    expect(result.current).not.toBe(first);
-    expect(result.current[0].options?.primaryAction?.label).toBe("Retry");
-  });
-
-  it("refuses focus and makes a dismissed toast inert before its exit finishes", async () => {
-    render(<AppToastStack />);
-    show({ level: "warning", source: "PDF", title: "No matching position in the PDF." });
-
-    const toast = screen.getByRole("status");
-    // preventDefault on mousedown reports back as a `false` return, which is
-    // what keeps the editor's selection where the writer left it.
-    expect(fireEvent.mouseDown(toast)).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(toast).toHaveAttribute("inert");
-    expect(toast).toHaveAttribute("aria-hidden", "true");
-    await waitFor(() => expect(toast).not.toBeInTheDocument());
-  });
-
-  // An Undo or Resume is the answer to the toast, so the toast goes with it,
-  // without also reporting a dismissal. A toast with a choice left keeps open.
-  it("takes a toast down once its action runs, unless the action keeps it open", () => {
-    render(<AppToastStack />);
-    const undo = vi.fn();
-    const onDismiss = vi.fn();
-    show({ level: "info", source: "Comments", title: "Comment deleted", toastOptions: { primaryAction: { label: "Undo", onClick: undo }, onDismiss } });
-    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
-    expect(undo).toHaveBeenCalledOnce();
-    expect(onDismiss).not.toHaveBeenCalled();
-    expect(screen.queryByRole("status")).toBeNull();
-
-    const copy = vi.fn();
-    show({ level: "error", source: "Editor", title: "Draft kept", toastOptions: { timeoutMs: 0, primaryAction: { label: "Copy draft", onClick: copy, keepOpen: true } } });
-    fireEvent.click(screen.getByRole("button", { name: "Copy draft" }));
-    expect(copy).toHaveBeenCalledOnce();
-    expect(screen.getByRole("alert")).toHaveTextContent("Draft kept");
-  });
-
-  it("stops collapsing once the toast it was folding into is gone", () => {
-    const synced = { level: "info", source: "Overleaf", title: "Synced", dedupeKey: "sync" } as const;
-    render(<AppToastStack />);
-    const first = show(synced);
-    act(() => dismissAppToast(first.id));
-    show(synced);
-
-    expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 
   it("keeps aligned search and action rows without optional failure or slow filters", async () => {

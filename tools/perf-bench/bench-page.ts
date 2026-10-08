@@ -587,3 +587,10 @@ if (params.has("recents")) {
 if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);
 
 await import("../../src/main.tsx");
+
+// The notification API, for raising toasts from a driver (screenshots and QA of
+// the toast stack): `window.__latticeBench.notify.notifyError("Build", "…")`.
+// main.tsx already loaded it, so this adds nothing to what the page runs.
+Object.assign((window as unknown as { __latticeBench: object }).__latticeBench, {
+  notify: await import("../../src/telemetry/app-notify"),
+});
