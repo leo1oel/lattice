@@ -45,7 +45,7 @@ export function ProjectTreeHover({ getViewport }: { getViewport: () => HTMLEleme
     };
   }), [getViewport]);
   return viewport && !scrolling ? createPortal(
-    <FluidHoverSurface selector='button[data-type="item"]' preserveSelection />,
+    <FluidHoverSurface selector='button[data-type="item"]' preserveSelection follow={null} />,
     viewport,
   ) : null;
 }

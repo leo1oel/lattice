@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Transition } from "motion/react";
 import { FluidHoverHighlight } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
@@ -14,6 +14,7 @@ const selection = '.active, [aria-current="page"], [data-item-selected="true"]';
  * separator's margin (4px each side) or a section label still is.
  */
 const gapTolerance = 3;
+const navigationKeys = new Set(["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
 /** `useFluidHover`'s mark on the lit row. */
 const activeAttribute = "data-fluid-hover-active";
 /** The attributes a primitive marks its current row with (`follow`). */
@@ -35,20 +36,48 @@ const currentAttributes = ["data-highlighted", "aria-selected"];
  * ring instead (a tree, a sidebar) passes `follow={null}`: a key clears the
  * fill and leaves the ring alone.
  *
- * Memoised: its props are plain values, and it lives inside lists that
- * re-render far more often than their rows change.
+ * Until a hand comes to the list (the pointer moves over it, focus enters it,
+ * or, for a list with a current row, a key moves that row), it is a span and a
+ * listener: a list on screen from startup does not measure and observe rows
+ * nobody is pointing at. The event that wakes it is played back to it. It is
+ * memoised, as its props are plain values and its lists re-render often.
  */
-export const FluidHoverSurface = memo(function FluidHoverSurface({
-  selector = menuItems,
-  follow = "[data-highlighted]",
-  preserveSelection = false,
-  transition,
-}: {
+export const FluidHoverSurface = memo(function FluidHoverSurface(props: SurfaceProps) {
+  const [wake, setWake] = useState<Event | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const listensForKeys = props.follow !== null;
+  useLayoutEffect(() => {
+    const container = anchorRef.current?.parentElement;
+    if (wake || !container) return;
+    const listening = new AbortController();
+    const { signal } = listening;
+    const wakeOn = (event: Event) => setWake((current) => current ?? event);
+    container.addEventListener("pointermove", wakeOn, { signal });
+    container.addEventListener("focusin", wakeOn, { signal });
+    // Only a key that moves the current row: Escape closing a picker, or the
+    // query being typed, leaves its own current row in place.
+    if (listensForKeys) container.ownerDocument.addEventListener("keydown", (event) => {
+      if (navigationKeys.has(event.key)) wakeOn(event);
+    }, { capture: true, signal });
+    return () => listening.abort();
+  }, [wake, listensForKeys]);
+  return wake ? <AwakeSurface {...props} wake={wake} /> : <span hidden aria-hidden="true" ref={anchorRef} />;
+});
+
+type SurfaceProps = {
   selector?: string;
   follow?: string | null;
   preserveSelection?: boolean;
   transition?: Transition;
-}) {
+};
+
+function AwakeSurface({
+  selector = menuItems,
+  follow = "[data-highlighted]",
+  preserveSelection = false,
+  transition,
+  wake,
+}: SurfaceProps & { wake: Event }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const hover = useFluidHover(containerRef, { gapClick: false });
   const { registerItem, setActiveIndex, sessionRef, remeasure } = hover;
@@ -167,6 +196,9 @@ export const FluidHoverSurface = memo(function FluidHoverSurface({
     };
     syncItems();
     followCurrent();
+    // The event that woke the surface happened before it listened.
+    if (wake.type === "pointermove") move(wake as PointerEvent);
+    else if (wake.type === "keydown") key();
     // Filtering, asynchronous items and force-mounted popups can change the
     // collection without mounting this bridge again. Ignore our own attributes
     // and the animated overlay's style writes to avoid observer feedback.
@@ -211,6 +243,8 @@ export const FluidHoverSurface = memo(function FluidHoverSurface({
       listening.abort();
       release();
     };
+    // The surface wakes once; the event stays the one it woke on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerItem, remeasure, selector, follow, preserveSelection, sessionRef, setActiveIndex]);
 
   useEffect(() => {
@@ -224,4 +258,4 @@ export const FluidHoverSurface = memo(function FluidHoverSurface({
     <span hidden aria-hidden="true" ref={attach} />
     <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" transition={transition} />
   </>;
-});
+}

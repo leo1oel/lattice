@@ -114,6 +114,7 @@ describe("ProjectFindDialog", () => {
     expect(b).toHaveAttribute("data-highlighted");
     const reveal = vi.spyOn(Element.prototype, "scrollIntoView");
     fireEvent.keyDown(input(), { key: "ArrowDown" });
+    act(() => vi.advanceTimersByTime(20));
     expect(reveal).toHaveBeenCalledWith({ block: "nearest" });
     expect(reveal.mock.contexts.at(-1)).toBe(c);
     fireEvent.keyDown(input(), { key: "Enter" });

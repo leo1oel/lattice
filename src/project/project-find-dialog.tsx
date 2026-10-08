@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
@@ -30,6 +30,29 @@ const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const folderOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 /** The snippet with each query term marked, so the eye lands on why it matched. */
+/**
+ * As in the pickers, only a pointer that really moved takes the current hit:
+ * the list scrolling under a resting pointer sends a move with the same
+ * coordinates. Kept per list element rather than in state, since the dialog
+ * stays mounted (and renders with the app) while it is closed.
+ */
+const lastPointer = new WeakMap<Element, { x: number; y: number }>();
+function pointerMoved(event: ReactMouseEvent<HTMLElement>) {
+  const list = event.currentTarget.closest(".project-find-hits") ?? event.currentTarget;
+  const last = lastPointer.get(list);
+  if (last && last.x === event.clientX && last.y === event.clientY) return false;
+  lastPointer.set(list, { x: event.clientX, y: event.clientY });
+  return true;
+}
+
+/** A hit the keys reach is scrolled into view once it has rendered. */
+function revealCurrentHit(from: Element) {
+  const dialog = from.closest(".project-find");
+  requestAnimationFrame(() => {
+    dialog?.querySelector(".project-replace-hit[data-highlighted]")?.scrollIntoView({ block: "nearest" });
+  });
+}
+
 function markTerms(text: string, query: string) {
   const terms = [...new Set(query.toLocaleLowerCase().split(/\s+/).filter((term) => term.length > 1))];
   if (!terms.length) return text;
@@ -53,11 +76,6 @@ export function ProjectFindDialog(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
-  // As in the pickers: only a pointer that really moved takes the current
-  // hit, and a hit the keys reach is scrolled into view.
-  const pointerRef = useRef({ x: -1, y: -1 });
-  const revealRef = useRef(false);
   const { compositionProps, isComposing } = useCompositionGuard();
   // Kept out of the debounce effect's deps so a new callback identity does not
   // restart the timer mid-typing.
@@ -73,12 +91,6 @@ export function ProjectFindDialog(props: {
     setSeenResetKey(resetKey);
     setActiveIndex(0);
   }
-
-  useEffect(() => {
-    if (!revealRef.current) return;
-    revealRef.current = false;
-    resultsRef.current?.querySelector(".project-replace-hit[data-highlighted]")?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex]);
 
   // The kept query comes back selected: Enter repeats it, typing replaces it.
   // Selected when the input mounts, not in an effect on `open`: the dialog's
@@ -162,9 +174,7 @@ export function ProjectFindDialog(props: {
                 className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
                 data-highlighted={offset + index === activeIndex ? "" : undefined}
                 onMouseMove={(event) => {
-                  const last = pointerRef.current;
-                  if (event.clientX === last.x && event.clientY === last.y) return;
-                  pointerRef.current = { x: event.clientX, y: event.clientY };
+                  if (!pointerMoved(event)) return;
                   if (offset + index !== activeIndex) setActiveIndex(offset + index);
                 }}
                 aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
@@ -224,11 +234,9 @@ export function ProjectFindDialog(props: {
           const count = selectableHits.length;
           switch (event.key) {
             case "ArrowDown":
-              revealRef.current = true;
               setActiveIndex((index) => Math.min(index + 1, Math.max(count - 1, 0)));
               break;
             case "ArrowUp":
-              revealRef.current = true;
               setActiveIndex((index) => Math.max(index - 1, 0));
               break;
             case "Enter":
@@ -239,7 +247,6 @@ export function ProjectFindDialog(props: {
               // F3 / Shift-F3 step through the hits, opening each one.
               if (showResults && count) {
                 const next = (activeIndex + (event.shiftKey ? count - 1 : 1)) % count;
-                revealRef.current = true;
                 setActiveIndex(next);
                 openHit(next);
               }
@@ -248,6 +255,7 @@ export function ProjectFindDialog(props: {
               return;
           }
           event.preventDefault();
+          revealCurrentHit(event.currentTarget);
         }}
       />
       {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
@@ -276,7 +284,7 @@ export function ProjectFindDialog(props: {
           {!trimmedQuery ? null : props.error ? t`Search failed.` : searching ? t`Searching…` : resultSummary}
         </div>
       </div>
-      <div className="project-replace-preview" ref={resultsRef}>
+      <div className="project-replace-preview">
         {!trimmedQuery && (
           <EmptyState
             align="start"

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowUpRight, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, X } from "lucide-react";
@@ -87,7 +87,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
     : filteredPapers.length ? null
       : [t`No matching papers`, t`Press + to import it`];
 
-  const [hoverReady, setHoverReady] = useState(false);
   // Tab walks every control of every paper; the arrows, Home and End move
   // between papers, landing where a click on the row would.
   const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -162,13 +161,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
             aria-label={t`Papers`}
             className="paper-rows fluid-hover-surface"
             onKeyDown={movePaperFocus}
-            onPointerEnter={() => setHoverReady(true)}
           >
-            {/* Tab reaches each paper's own controls, which answer with the
-                focus ring. The hover mounts when the pointer first comes, so
-                startup does not pay for it; the row's own :hover covers the
-                frame before it measures. */}
-            {hoverReady && <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />}
+            {/* Tab reaches each paper's own controls, which answer with the focus ring. */}
+            <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {filteredPapers.map((paper, index) => {
               const fetchState = props.paperFetchStates[paperKey(paper)];
               const readable = paper.hasFullText || paper.hasBlog;

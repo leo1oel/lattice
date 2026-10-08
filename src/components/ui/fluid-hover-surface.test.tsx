@@ -53,7 +53,7 @@ describe("FluidHoverSurface", () => {
     </div>);
     const first = screen.getByRole("option", { name: "First" });
     const second = screen.getByRole("option", { name: "Second" });
-    first.focus();
+    act(() => first.focus());
     move(first);
     await waitFor(() => expect(container.querySelector('[data-slot="fluid-hover-highlight"]')).not.toBeNull());
     const fill = container.querySelector('[data-slot="fluid-hover-highlight"]');
@@ -178,7 +178,7 @@ describe("FluidHoverSurface", () => {
     expect(third).not.toHaveAttribute("data-fluid-hover-active");
   });
 
-  it("opens on a picker's current row and follows the selector it is given", async () => {
+  it("wakes on a key onto a picker's current row and follows the selector it is given", async () => {
     function Picker({ active }: { active: number }) {
       return <div className="fluid-hover-surface" role="listbox">
         <FluidHoverSurface follow='[aria-selected="true"]' />
@@ -189,7 +189,12 @@ describe("FluidHoverSurface", () => {
     }
     const { rerender } = render(<Picker active={0} />);
     const [first, second] = screen.getAllByRole("option");
-    expect(first).toHaveAttribute("data-fluid-hover-active");
+    // Asleep until a key moves the current row: the row's own fill shows it,
+    // and typing or Escape does not wake it.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(first).not.toHaveAttribute("data-fluid-hover-active");
+    expect(first).not.toHaveAttribute("data-fluid-hover-item");
     fireEvent.keyDown(document, { key: "ArrowDown" });
     rerender(<Picker active={1} />);
     await act(async () => { await Promise.resolve(); });
@@ -219,5 +224,20 @@ describe("FluidHoverSurface", () => {
     expect(first).toHaveAttribute("data-fluid-hover-active");
     at(70);
     expect(surface.querySelector("[data-fluid-hover-active]")).toBeNull();
+  });
+
+  it("sleeps until a hand comes, then plays back the move that woke it", () => {
+    const { container } = render(<div className="fluid-hover-surface">
+      <FluidHoverSurface selector=".row" follow={null} />
+      <div className="row">First</div>
+    </div>);
+    const row = screen.getByText("First");
+    expect(row).not.toHaveAttribute("data-fluid-hover-item");
+    // A list without a current row does not wake on a key elsewhere.
+    fireEvent.keyDown(document, { key: "a" });
+    expect(row).not.toHaveAttribute("data-fluid-hover-item");
+    move(row);
+    expect(row).toHaveAttribute("data-fluid-hover-item");
+    expect(container.firstElementChild).toHaveAttribute("data-fluid-hover-active-index", "0");
   });
 });

@@ -227,7 +227,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
         />
         <div className="settings-body">
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
-            <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection transition={spring.moderate} />
+            <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection follow={null} transition={spring.moderate} />
             <SettingsSearch
               inputRef={searchRef}
               autoFocus={!replacesShell}

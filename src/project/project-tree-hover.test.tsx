@@ -51,9 +51,10 @@ it("keeps stationary hover, suspends through wheel and inertial scroll, then res
   expect(scroller).toHaveAttribute("data-tree-scrolling");
   act(() => vi.advanceTimersByTime(50));
   expect(scroller).not.toHaveAttribute("data-tree-scrolling");
-  expect(first).toHaveAttribute("data-fluid-hover-item");
+  // The hover comes back asleep, and the next real move wakes it on that row.
   expect(first).not.toHaveAttribute("data-fluid-hover-active");
   move();
+  expect(first).toHaveAttribute("data-fluid-hover-item");
   expect(first).toHaveAttribute("data-fluid-hover-active");
   expect(selected).toHaveAttribute("data-item-selected", "true");
 });
