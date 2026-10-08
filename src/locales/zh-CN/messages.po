@@ -4434,7 +4434,7 @@ msgstr "用本机的"
 
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
-msgstr "保留后，这些引用会显示为“?”"
+msgstr "保留后，这些引用会显示为“？”"
 
 #: src/papers/audit-messages.ts
 msgid "Kept as a preprint because pubstate is explicitly preprint."

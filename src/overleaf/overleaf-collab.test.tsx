@@ -72,18 +72,18 @@ describe("Overleaf collaboration drawer localization", () => {
     await activateAppLocale("zh-CN");
     const { rerender } = render(drawer("comments"));
 
-    expect(screen.getByText("Overleaf 协作")).toBeInTheDocument();
+    expect(screen.getByText("协作")).toBeInTheDocument();
     const tabs = screen.getByRole("tablist", { name: "Overleaf 协作视图" });
     expect(within(tabs).getByRole("tab", { name: "评论" })).toBeInTheDocument();
-    expect(within(tabs).getByRole("tab", { name: "更改" })).toBeInTheDocument();
+    expect(within(tabs).getByRole("tab", { name: "修订" })).toBeInTheDocument();
     expect(within(tabs).getByRole("tab", { name: "聊天" })).toBeInTheDocument();
-    expect(screen.getByText("没有未解决的评论")).toBeInTheDocument();
+    expect(screen.getByText("没有待处理的批注")).toBeInTheDocument();
 
     rerender(drawer("changes"));
-    expect(screen.getByText("此文档中没有修订建议")).toBeInTheDocument();
+    expect(screen.getByText("这份文档没有修订建议")).toBeInTheDocument();
 
     rerender(drawer("chat"));
     expect(screen.getByText(/还没有消息/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("给协作者发送消息…")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("给协作者发消息…")).toBeInTheDocument();
   });
 });

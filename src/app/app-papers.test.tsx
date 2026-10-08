@@ -288,7 +288,7 @@ describe("papers", () => {
       },
       cancel_reference_import: true,
     });
-    fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文)$/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文库)$/ }));
     const box = await screen.findByRole("searchbox", { name: /^(Search or import papers|搜索或导入论文)$/ });
     fireEvent.change(box, { target: { value: "10.1080/02643298708252038" } });
     fireEvent.click(screen.getByRole("button", { name: /^(Add paper|添加论文)$/ }));
@@ -308,11 +308,11 @@ describe("papers", () => {
     } else {
       await expectNotification(committed
         ? fullText
-          ? /收到取消请求时，《A new paper》及其全文已导入完成。可使用 \\cite\{new2026\} 引用。/
-          : /已取消导入。《A new paper》仍保留在参考文献中，可使用 \\cite\{new2026\} 引用；已停止获取全文。/
+          ? /取消前“A new paper”已导入完成，用 \\cite\{new2026\} 引用/
+          : /已取消导入。“A new paper”仍在文献中，用 \\cite\{new2026\} 引用；不再获取全文/
         : fullText
-          ? /已取消论文导入，参考文献未修改；已下载的全文仍可使用。/
-          : /已取消论文导入，未作任何修改。/);
+          ? /已取消导入，文献未改动；下好的全文仍可用/
+          : /已取消导入，没有改动/);
     }
     expect(box).toHaveValue("10.1080/02643298708252038");
   });

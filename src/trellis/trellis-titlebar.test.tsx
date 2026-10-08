@@ -341,7 +341,7 @@ describe("the Panels menu", () => {
   // way back from a maximized panel, so it must say what it will do.
   it.each([
     ["en", "Panels", "Maximize focused panel", "Restore the layout"],
-    ["zh-CN", "面板", "最大化当前面板", "恢复布局"],
+    ["zh-CN", "面板", "放大面板", "取消放大"],
   ] as const)("names and runs Maximize or Restore by the framing (%s)", async (locale, panelsName, maximize, restore) => {
     await activateAppLocale(locale);
     const controller = new TrellisController();
@@ -781,13 +781,13 @@ describe("named workspaces in the titlebar", () => {
     const { controller, library } = withWorkspaces();
     library.add("Review", null);
     render(<LayoutSwitch controller={controller} compact />);
-    const trigger = screen.getByRole("button", { name: "工作区：工作区" });
+    const trigger = screen.getByRole("button", { name: "布局：布局" });
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
     const menu = within(await screen.findByRole("menu"));
     expect(menu.getByRole("menuitem", { name: "左移" })).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(menu.getByRole("menuitem", { name: "右移" }));
-    expect(library.list().map((entry) => entry.name)).toEqual(["Review", "工作区"]);
-    expect(announced()).toHaveTextContent("已将“工作区”移到第 2 位，共 2 个");
+    expect(library.list().map((entry) => entry.name)).toEqual(["Review", "布局"]);
+    expect(announced()).toHaveTextContent("“布局”已移到第 2 位（共 2 个）");
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 

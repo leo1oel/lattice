@@ -329,8 +329,8 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "外观" })).toBeInTheDocument();
     expect(screen.getByText("仅源码编辑器")).toBeInTheDocument();
     expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
-    fireEvent.click(screen.getByRole("button", { name: "关闭设置" }));
-    expect(await screen.findByRole("heading", { name: "让研究写作有据可循" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(await screen.findByRole("heading", { name: "让论文写作有据可依" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
   });
 

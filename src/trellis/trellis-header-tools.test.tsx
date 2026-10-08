@@ -245,7 +245,7 @@ describe("the bench's Build button selector", () => {
     expect(container.querySelector(BUILD_BUTTON)).toBeNull();
     act(() => controller.app.set({ activeKey: tex.key }));
     const button = container.querySelector(BUILD_BUTTON);
-    expect(button).toHaveAccessibleName(locale === "en" ? "Build" : "构建");
+    expect(button).toHaveAccessibleName(locale === "en" ? "Build" : "编译");
     expect(button?.closest("[inert]")).toBeNull();
   });
 });

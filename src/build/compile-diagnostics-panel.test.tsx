@@ -33,9 +33,9 @@ describe("batch repair controls", () => {
     }
     try {
       render(<RepairPanel />);
-      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "全部修正" })); });
-      expect(screen.getByRole("status")).toHaveTextContent("修正尚未启动：此项目中有其他 Agent 任务正在运行或等待你的回应。请打开 Agent，完成或停止该任务后，再点击「全部修正」。");
-      expect(screen.getByRole("button", { name: "全部修正" })).toBeEnabled();
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "一键修复" })); });
+      expect(screen.getByRole("status")).toHaveTextContent("AI 助手正忙，请先结束它的任务再点“一键修复”");
+      expect(screen.getByRole("button", { name: "一键修复" })).toBeEnabled();
       expect(screen.queryByText("The workspace already has an active writer.")).not.toBeInTheDocument();
     } finally {
       cleanup();
