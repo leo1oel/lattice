@@ -9,9 +9,9 @@ let mounts = 0;
  * nothing stays mounted to play an exit; instead, once React has removed the
  * overlay's own elements, they go back where they were as a picture: the same
  * nodes, so a typed field, a scroll position and a canvas look exactly as they
- * did, but inert, hidden from assistive technology and from pointer, with no
- * role, and marked `data-leaving` for the stylesheet's exit animation. They
- * are removed when it ends.
+ * did, but inert (out of the focus order and the accessibility tree), with no
+ * role, and marked `data-leaving` for the stylesheet's exit animation, which
+ * also turns the pointer away. They are removed when it ends.
  *
  * It stays a plain disappearance where an exit would mislead or cost:
  * - another overlay mounted in the same commit (a tool replacing its loading
@@ -34,15 +34,22 @@ export function useExitPicture(refs: readonly RefObject<HTMLElement | null>[]) {
         // Still in the document: StrictMode replaying the effect, not a close.
         if (places.some(({ node, parent }) => node.isConnected || !parent?.isConnected)) return;
         if (places.some(({ node }) => node.querySelector("iframe"))) return;
+        // The overlay's elements are siblings (a portal's), so they go back together.
+        if (places.some(({ parent }) => parent !== places[0].parent)) return;
         if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-        for (const { node, parent, next } of places) {
+        // Marked while detached and put back in one insertion per parent, so
+        // the picture costs the document as few mutations as it can: `inert`
+        // already takes it out of the accessibility tree and the focus order,
+        // and without its role nothing reads it as an open dialog.
+        for (const { node } of places) {
           node.inert = true;
-          node.setAttribute("aria-hidden", "true");
           node.removeAttribute("role");
-          node.removeAttribute("aria-modal");
           node.setAttribute("data-leaving", "");
-          parent!.insertBefore(node, next?.parentNode === parent ? next : null);
         }
+        const anchor = places.at(-1)!;
+        const picture = document.createDocumentFragment();
+        for (const { node } of places) picture.append(node);
+        anchor.parent!.insertBefore(picture, anchor.next?.parentNode === anchor.parent ? anchor.next : null);
         const remove = () => places.forEach(({ node }) => node.remove());
         const animations = places.flatMap(({ node }) => node.getAnimations?.() ?? []);
         if (!animations.length) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { Transition } from "motion/react";
 import { FluidHoverHighlight } from "./fluid-hover-highlight";
 import { useFluidHover } from "./use-fluid-hover";
@@ -34,8 +34,11 @@ const currentAttributes = ["data-highlighted", "aria-selected"];
  * Whichever hand moved last owns it. A list whose keyboard answer is the focus
  * ring instead (a tree, a sidebar) passes `follow={null}`: a key clears the
  * fill and leaves the ring alone.
+ *
+ * Memoised: its props are plain values, and it lives inside lists that
+ * re-render far more often than their rows change.
  */
-export function FluidHoverSurface({
+export const FluidHoverSurface = memo(function FluidHoverSurface({
   selector = menuItems,
   follow = "[data-highlighted]",
   preserveSelection = false,
@@ -221,4 +224,4 @@ export function FluidHoverSurface({
     <span hidden aria-hidden="true" ref={attach} />
     <FluidHoverHighlight hover={hover} className="fluid-hover-highlight" transition={transition} />
   </>;
-}
+});

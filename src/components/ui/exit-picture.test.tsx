@@ -29,15 +29,15 @@ function animate() {
   return () => act(async () => { finish(); await finished; });
 }
 
-it("puts the closed overlay back, inert and out of the accessibility tree, until its exit ends", async () => {
+it("puts the closed overlay back, inert and without its role, until its exit ends", async () => {
   const finish = animate();
   render(<Harness />);
   const overlay = screen.getByRole("dialog", { name: "First" });
   await act(async () => { fireEvent.click(screen.getByText("Close")); });
   expect(overlay).toBeInTheDocument();
   expect(overlay).toHaveAttribute("data-leaving");
-  expect(overlay).toHaveAttribute("aria-hidden", "true");
   expect(overlay.inert).toBe(true);
+  expect(overlay).not.toHaveAttribute("role");
   expect(screen.queryByRole("dialog")).toBeNull();
   await finish();
   expect(overlay).not.toBeInTheDocument();
