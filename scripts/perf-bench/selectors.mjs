@@ -1,7 +1,7 @@
 /**
  * The app's elements the benchmark and the smoke check wait on and click.
  * Class names, never accessible names: those are translated (the Build button
- * is 构建 in zh-CN), and `--serve` prints URLs that take `lang=zh-CN|system`,
+ * is 编译 in zh-CN), and `--serve` prints URLs that take `lang=zh-CN|system`,
  * so a selector on a label would fail a healthy app in Chinese.
  * src/trellis/trellis-header-tools.test.tsx pins these against the real
  * header in every language.

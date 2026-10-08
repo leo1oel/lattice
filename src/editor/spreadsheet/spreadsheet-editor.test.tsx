@@ -358,7 +358,7 @@ describe("SpreadsheetEditor", () => {
       type: 1,
       selections: ["SUMIF", "SUM", "AVERAGE", "IF", "COUNT", "MAX", "MIN"].map((name) => ({ label: { name }, value: name })),
     });
-    expect(formulas["lattice.spreadsheet.formulas.all"].menuItemFactory()).toMatchObject({ title: "所有函数…", type: 0 });
+    expect(formulas["lattice.spreadsheet.formulas.all"].menuItemFactory()).toMatchObject({ title: "全部函数…", type: 0 });
     const exportMenu = univerMock.menus.filter(({ item }) => item.id === "lattice.spreadsheet.export-xlsx").at(-1);
     expect(exportMenu).toMatchObject({
       item: { title: "导出 Excel", tooltip: "导出 Excel", icon: "ExportIcon", order: Number.MAX_SAFE_INTEGER },
@@ -368,7 +368,7 @@ describe("SpreadsheetEditor", () => {
 
     await waitFor(() => expect(tauriMock.invoke).toHaveBeenCalled());
     expect(tauriMock.save).toHaveBeenCalledWith(expect.objectContaining({
-      title: "导出 Excel 工作簿",
+      title: "导出 Excel",
       defaultPath: "results.xlsx",
       filters: [{ name: "Excel 工作簿", extensions: ["xlsx"] }],
     }));
@@ -454,8 +454,8 @@ describe("SpreadsheetEditor", () => {
     {
       locale: "zh-CN" as const,
       univer: { title: "删除工作表", children: "确认删除此工作表，删除后将不可找回，确定要删除吗？", confirmText: "确认", cancelText: "取消" },
-      dialog: "要删除工作表吗？",
-      description: "该工作表及其所有内容都将被删除，且无法恢复",
+      dialog: "删除工作表？",
+      description: "这张工作表的内容会全部删除，无法恢复",
       cancel: "取消",
       confirm: "删除",
     },

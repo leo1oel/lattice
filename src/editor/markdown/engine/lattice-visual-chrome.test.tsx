@@ -66,7 +66,7 @@ function caret(editor: Editor, position: number, head = position) {
 async function openSlash(editor: Editor, query = "") {
   caret(editor, editor.state.doc.content.size - 1);
   type(editor, `/${query}`);
-  return screen.findByRole("listbox", { name: /Slash commands|斜杠命令/ });
+  return screen.findByRole("listbox", { name: /Slash commands|插入菜单/ });
 }
 
 afterEach(async () => {
@@ -105,12 +105,12 @@ describe("slash menu (R-CHR-1, §12)", () => {
     await activateAppLocale("zh-CN");
     const menu = await openSlash(renderEditor("").editor);
     expect(within(menu).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "一级标题", "二级标题", "三级标题", "四级标题", "五级标题", "六级标题", "无序列表", "有序列表", "任务列表", "引文",
-      "代码块", "表格", "分隔线", "脚注", "表情符号", "行内公式", "链接", "提示框", "折叠面板", "数学", "Mermaid 图表", "图片",
+      "一级标题", "二级标题", "三级标题", "四级标题", "五级标题", "六级标题", "圆点列表", "编号列表", "待办清单", "引用块",
+      "代码块", "表格", "分隔线", "脚注", "表情", "句中公式", "链接", "提示框", "折叠块", "公式", "流程图", "图片",
     ]);
-    for (const group of ["基础块", "插入", "组件", "媒体"]) expect(within(menu).getByText(group)).toBeInTheDocument();
+    for (const group of ["基础", "插入", "组件", "图片和媒体"]) expect(within(menu).getByText(group)).toBeInTheDocument();
     fireEvent.mouseEnter(within(menu).getByRole("option", { name: "二级标题" }));
-    await waitFor(() => expect(document.querySelector(".lx-md-menu-preview")).toHaveTextContent("用于次级章节的中标题。"));
+    await waitFor(() => expect(document.querySelector(".lx-md-menu-preview")).toHaveTextContent("中标题"));
   });
 
   it("shares one active option between hover and arrows, and drops the combobox relationships with no match", async () => {
@@ -235,10 +235,10 @@ describe("selection toolbar (R-CHR-2, R-FMT-1)", () => {
     const { editor, onChange } = renderEditor("中文格式测试");
     caret(editor, 1, 3);
     expect(await screen.findByRole("toolbar", { name: "格式" })).toBeInTheDocument();
-    for (const name of ["块类型", "粗体", "斜体", "下划线", "删除线", "行内代码", "高亮", "插入链接", "将所选文字转换为脚注", "将所选文字转换为行内公式"]) {
+    for (const name of ["段落样式", "加粗", "斜体", "下划线", "删除线", "代码", "高亮", "插入链接", "改成脚注", "改成公式"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
-    fireEvent.click(screen.getByRole("button", { name: "粗体" }));
+    fireEvent.click(screen.getByRole("button", { name: "加粗" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("**中文**格式测试", "中文格式测试"));
   });
 

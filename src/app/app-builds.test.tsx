@@ -559,11 +559,11 @@ describe("builds and the PDF reader", () => {
         "LaTeX Error: File `newtxmath.sty' not found.\n",
       ),
     });
-    const diagnostics = await screen.findByLabelText("编译诊断");
+    const diagnostics = await screen.findByLabelText("编译问题");
     fireEvent.click(within(diagnostics).getByRole("button", { name: "安装" }));
     await expectInvoked("start_tex_dependency_install",
       expect.objectContaining({ missingFile: "newtxmath.sty", onProgress: expect.anything() }));
-    expect(screen.getByRole("dialog", { name: "安装缺失的软件包" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "安装组件" })).toBeInTheDocument();
     act(() => {
       tauriCoreApi.channel?.onmessage?.({ stage: "installing-dependency", progress: 0.64 });
     });
@@ -571,8 +571,8 @@ describe("builds and the PDF reader", () => {
     const buildCallsBeforeInstall = invokeCalls("build_project").length;
     await act(async () => install.resolve());
     await waitFor(() => expect(invokeCalls("build_project").length).toBeGreaterThan(buildCallsBeforeInstall));
-    expect(screen.queryByRole("dialog", { name: "安装缺失的软件包" })).not.toBeInTheDocument();
-    expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 配置] LaTeX 软件包已安装");
+    expect(screen.queryByRole("dialog", { name: "安装组件" })).not.toBeInTheDocument();
+    expect(formatAppLogs()).toContain("[SUCCESS] [LaTeX 设置] LaTeX 组件已安装");
   });
 
   it("does not open TeX setup when latexmk reports a missing project style", async () => {

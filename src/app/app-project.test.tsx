@@ -1331,8 +1331,8 @@ describe("project tree and projects", () => {
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex", 5_000));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveAccessibleName("要从此项目中删除“notes.tex”吗？");
-    expect(dialog).toHaveAccessibleDescription("此操作无法撤销");
+    expect(dialog).toHaveAccessibleName("删除“notes.tex”？");
+    expect(dialog).toHaveAccessibleDescription("删除后无法恢复");
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument();
   });
 
@@ -1348,13 +1348,13 @@ describe("project tree and projects", () => {
         blockers: cited ? [{ kind: "citation", symbol: paper.citationKey, role: "reference", path: "main.tex", line: 7 }] : [],
       }),
     }, { confirmations: true });
-    fireEvent.click(await screen.findByRole("tab", { name: "论文" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "论文库" }));
     fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
 
-    const dialogName = "要从参考文献中移除“Attention Is All You Need”吗？";
+    const dialogName = "从文献中删除“Attention Is All You Need”？";
     const dialog = await screen.findByRole("dialog", { name: dialogName });
-    expect(dialog).toHaveAccessibleDescription("已下载的论文文件将会保留");
-    expect(screen.getByRole("button", { name: "移除条目" })).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleDescription("已下载的论文会保留");
+    expect(screen.getByRole("button", { name: "删除文献" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -1362,9 +1362,9 @@ describe("project tree and projects", () => {
     cited = true;
     fireEvent.click(await screen.findByTitle("移除 Attention Is All You Need"));
     expect(await screen.findByRole("dialog", { name: dialogName })).toHaveAccessibleDescription(
-      "此条目在 1 处被引用。 第一处位于 main.tex:7。 保留引用命令会使这些引用无法解析。 已下载的论文文件将会保留",
+      "这条文献被引用了 1 次 第一处：main.tex:7 保留后，这些引用会显示为“？” 已下载的论文会保留",
     );
-    expect(screen.getByRole("button", { name: "同时移除引用" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "引用也删" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保留引用" })).toBeInTheDocument();
   });
 

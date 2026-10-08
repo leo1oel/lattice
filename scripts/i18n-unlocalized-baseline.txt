@@ -1,6 +1,7 @@
-# Catalog messages whose zh-CN text may stay as the English source, because it
-# reads the same in every language: product and service names, file formats,
-# and sample input. One exact source message per line. Everything else in the
+# Catalog messages whose zh-CN text may contain no Chinese, because it reads the
+# same in every language: product and service names (including zh-CN's own
+# choice of one, such as Git for "Source control"), file formats, and sample
+# input. One exact source message per line. Everything else in the
 # zh-CN catalog must be translated into Chinese (see check-i18n-coverage.mjs);
 # remove a line as soon as its message leaves the catalog.
 Crossref
@@ -14,8 +15,11 @@ name@example.org
 OpenAlex
 Overleaf
 PDF
+Pull requests
 Retraction Watch
 Semantic Scholar
-Skills
+Source control
+Synara source control
 Unpaywall
 URL
+{current} of {count}

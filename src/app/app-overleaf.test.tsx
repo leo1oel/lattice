@@ -354,11 +354,11 @@ describe("Overleaf sync", () => {
     }, { syncMode: "live", confirmations: true });
     await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
     fireEvent.click(await findOverleafSyncButton());
-    const dialog = await screen.findByRole("dialog", { name: "从 Overleaf 项目中删除 1 个文件？" }, { timeout: 15_000 });
+    const dialog = await screen.findByRole("dialog", { name: "从 Overleaf 删除 1 个文件？" }, { timeout: 15_000 });
     expect(dialog).toHaveAccessibleDescription(
-      "results.lattice-sheet.bak 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它",
+      "results.lattice-sheet.bak 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着",
     );
-    fireEvent.click(screen.getByRole("button", { name: "同时在 Overleaf 上删除" }));
+    fireEvent.click(screen.getByRole("button", { name: "Overleaf 上也删" }));
     await expectInvoked("overleaf_delete_entity", { projectRoot: "/tmp/lattice-overleaf-paper", kind: "file", entityId: "backup-file" });
     await expectNotification(/已从 Overleaf 删除 1 个文件/);
   });

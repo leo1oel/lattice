@@ -28,7 +28,7 @@ function renderFind(overrides: Partial<FindProps> = {}) {
     ...overrides,
   };
   const view = render(<ProjectFindDialog {...props} />);
-  const input = () => screen.getByRole("searchbox", { name: /^(?:Find in project|在项目中查找)$/ });
+  const input = () => screen.getByRole("searchbox", { name: /^(?:Find in project|全局搜索)$/ });
   return {
     ...view,
     props,
@@ -58,9 +58,9 @@ describe("ProjectFindDialog", () => {
     renderFind();
     expect(screen.getByText("Find in project")).toBeInTheDocument();
     await act(() => activateAppLocale("zh-CN"));
-    expect(screen.getByText("在项目中查找")).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "在项目中查找" })).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "在项目中查找" })).toBeInTheDocument();
+    expect(screen.getByText("全局搜索")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "全局搜索" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "全局搜索" })).toBeInTheDocument();
     expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
   });
 
@@ -72,16 +72,16 @@ describe("ProjectFindDialog", () => {
       hits: [fileHit("main.tex", 3), fileHit("intro.tex", 8), { kind: "paper", path: "p", title: "Attention", snippet: "", line: null }],
     });
     expect(screen.getByPlaceholderText("搜索…")).toBeInTheDocument();
-    expect(screen.getByText("搜索你的文件和已保存的论文。")).toBeInTheDocument();
+    expect(screen.getByText("搜索文件和论文库")).toBeInTheDocument();
     expect(screen.getByText("显示：")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "关闭 在项目中查找" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "关闭 全局搜索" })).toBeInTheDocument();
     search("image");
-    expect(screen.getByText("2 个结果 · 1 篇论文")).toBeInTheDocument();
+    expect(screen.getByText("2 处 · 1 篇论文")).toBeInTheDocument();
     rerenderWith({ hits: [] });
     search("zzq");
-    expect(screen.getByText("未找到“zzq”的结果")).toBeInTheDocument();
-    expect(screen.getByText("试试更短的短语或换个关键词")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "清除搜索" })).toHaveLength(2);
+    expect(screen.getByText("没找到“zzq”")).toBeInTheDocument();
+    expect(screen.getByText("换个更短或不同的词试试")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "清空" })).toHaveLength(2);
   });
 
   it("lists file hits by name, folder and line beside paper hits, and opens the selected file line", () => {
@@ -178,7 +178,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getAllByRole("button", { name: `Open paper result: ${vit}` })).toHaveLength(4);
 
     await act(() => activateAppLocale("zh-CN"));
-    expect(screen.getByRole("status")).toHaveTextContent("3 个结果 · 2 篇论文");
+    expect(screen.getByRole("status")).toHaveTextContent("3 处 · 2 篇论文");
   });
 
   it("opens paper results by click and keyboard", () => {

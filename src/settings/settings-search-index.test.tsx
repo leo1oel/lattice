@@ -36,17 +36,17 @@ describe("settings search", () => {
   });
 
   it.each([
-    ["音效", ["interface-sounds"]],
+    ["提示音", ["interface-sounds"]],
     ["声音", ["interface-sounds"]],
-    ["拼写", ["spellcheck"]],
+    ["拼写", ["spellcheck", "project-dictionary"]],
     ["快捷键", ["editor-keymap"]],
-    ["词典", ["project-dictionary"]],
+    ["词库", ["project-dictionary"]],
     ["latexmkrc", ["compile-engine"]],
     ["仅源码编辑器", ["editor-font-size"]],
     ["都没有名字", ["author-name"]],
-    ["评论署名为", ["author-name"]],
-    ["添加术语", ["project-dictionary"]],
-    ["应接受", ["project-dictionary"]],
+    ["评论署名", ["author-name"]],
+    ["可添加", ["project-dictionary"]],
+    ["不标红", ["project-dictionary"]],
   ])("finds %j in Chinese", async (query, ids) => {
     await act(() => activateAppLocale("zh-CN"));
     expect(search(query)).toEqual(ids);

@@ -358,7 +358,7 @@ describe("connection ownership", () => {
     ));
 
     await act(async () => activateAppLocale("zh-CN"));
-    await waitFor(() => expect(result.current.detail).toBe("Overleaf 不支持实时编辑此文件，将改用常规同步。"));
+    await waitFor(() => expect(result.current.detail).toBe("此文件不支持实时协作，改用普通同步"));
     // Only the words change; the connection is the one already open.
     expect(invokeCalls("overleaf_rt_connect")).toHaveLength(1);
     expect(invokeCalls("overleaf_rt_disconnect")).toEqual([]);
@@ -394,7 +394,7 @@ describe("connection ownership", () => {
     remoteText.mockReturnValue(false);
     emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: [{ p: 0, i: "remote " }], source: "peer" });
     await waitFor(() => expect(result.current.detail)
-      .toBe("此文件在实时编辑之外发生了变化。已保留本地修改，常规 Overleaf 同步将协调这些变化。"));
+      .toBe("此文件在别处被改过，已保留本机修改，同步时会对齐"));
   });
 
   it("uses an explicit global disconnect when live mode is disabled without a root", async () => {

@@ -455,12 +455,12 @@ describe("PDFSlick viewer integration", () => {
     pdf.state.loadError = new Error("Invalid PDF structure.");
     const view = renderPdf({ loadErrorHint: "请尝试重新构建项目" });
 
-    await waitFor(() => expect(view.getByRole("alert")).toHaveTextContent("PDF 无法加载"));
+    await waitFor(() => expect(view.getByRole("alert")).toHaveTextContent("PDF 打不开"));
     // The caller's advice (the compiled preview's is to build again) follows the title.
     expect(view.getByText("请尝试重新构建项目")).toBeInTheDocument();
     expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("Invalid PDF structure.");
     expect(view.queryByText(/^Invalid PDF structure/, { selector: "p" })).toBeNull();
-    expect(formatAppLogs()).toContain("[PDF] PDF 无法加载\nInvalid PDF structure.");
+    expect(formatAppLogs()).toContain("[PDF] PDF 打不开\nInvalid PDF structure.");
   });
 
   it("shows real network progress and the first-page rendering stage", async () => {
