@@ -211,6 +211,22 @@ const LIBRARY_PAPERS = [
 ];
 
 /**
+ * What Discover literature finds: alphaXiv hits (year and votes, no authors)
+ * ahead of OpenAlex works (authors, citation counts, DOIs), as the backend
+ * merges them. Fictional apart from the first.
+ */
+const LITERATURE_HITS = [
+  { source: "alphaxiv", arxivId: "1706.03762", title: "Attention Is All You Need", year: 2017, authors: [], votes: 412,
+    snippet: "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely." },
+  { source: "alphaxiv", arxivId: "2410.05258", title: "Differential Attention for Long-Context Retrieval with Sparse Multimodal Supervision", year: 2024, authors: [], votes: 87 },
+  { source: "alphaxiv", arxivId: "2502.07890", title: "Scaling Laws for Sparse Mixture-of-Experts Decoders", year: 2025, authors: [], votes: 9 },
+  { source: "openalex", title: "Effective Approaches to Attention-based Neural Machine Translation", year: 2015,
+    authors: ["Minh-Thang Luong", "Hieu Pham", "Christopher D. Manning"], citedByCount: 9214, doi: "10.18653/v1/d15-1166", landingUrl: "https://doi.org/10.18653/v1/d15-1166" },
+  { source: "openalex", title: "A Survey of Attention in Long-Form Document Understanding for the Proceedings of the International Symposium on Scholarly Communication", year: 2023,
+    authors: ["Ada Example", "Grace Sample", "Kim Placeholder", "Lee Instance"], citedByCount: 31, doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4" },
+];
+
+/**
  * `?doctor=ready` answers the TeX toolchain check with everything installed
  * and `?doctor=missing` with no TeX at all, for looking at Install LaTeX
  * tools' answer and the setup wizard.
@@ -423,6 +439,8 @@ function answer(command: string, args: Args): unknown {
     case "list_papers":
       if (libraryPapers) return LIBRARY_PAPERS;
       return params.has("papers") ? BENCH_PAPERS.map((paper) => ({ ...paper, hasBlog: !fullTextOnly })) : [];
+    case "search_literature":
+      return { hits: (args?.page ?? 0) === 0 ? LITERATURE_HITS : [], hasMore: false };
     case "read_paper":
       return `## Abstract\n\n${"Paper content. ".repeat(40)}`;
     case "read_paper_blog_local":

@@ -275,142 +275,58 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .literature-drawer { width: min(480px, 100%); }
 .literature-search {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: var(--space-4) var(--drawer-section-gap);
+  gap: var(--space-4);
   margin: var(--drawer-content-inset) 0 var(--drawer-section-gap);
 }
-.literature-search .ui-search-field {
-  grid-column: 1 / -1;
-}
-.literature-search button[type="submit"] {
-  height: var(--control-height-compact);
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-icon);
-  border: 1px solid var(--border-strong);
-  background: var(--text-primary);
-  color: var(--surface-app);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--type-caption-size);
-  font-weight: 600;
-}
-.literature-search button[type="submit"]:disabled { opacity: .45; }
-.literature-results { display: flex; flex-direction: column; gap: var(--space-4); }
-.literature-result {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-panel);
-}
-.lit-source {
-  display: inline-block;
-  margin-bottom: 5px;
-  font-size: var(--type-micro-size);
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  padding: var(--space-1) 7px;
-  border-radius: var(--radius-pill);
-  color: var(--text-secondary);
-  background: var(--control-active-soft);
-}
-.lit-source-alphaxiv { color: var(--control-active); }
-.literature-result-body strong {
-  display: block;
-  font-size: var(--type-body-compact-size);
-  line-height: 1.35;
-  color: var(--text-primary);
-}
-.lit-snippet {
-  margin: 5px 0 0;
-  padding-left: var(--space-4);
-  border-left: 2px solid var(--border-subtle);
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.literature-result-body p {
-  margin: var(--space-2) 0 0;
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: 1.35;
-}
-.literature-result-ids {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-.literature-result-ids em {
-  font-style: normal;
-  font-size: var(--type-micro-size);
-  color: var(--text-tertiary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--border-subtle);
-}
-.literature-result-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-}
-.literature-result-actions button,
-.literature-result-actions a {
-  height: var(--control-height-compact);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-icon);
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-panel-raised);
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-inline-tight);
-  font-size: var(--type-caption-size);
-  text-decoration: none;
-}
-.literature-result-actions button:hover:not(:disabled),
-.literature-result-actions a:hover {
-  color: var(--control-active);
-  border-color: var(--control-active-border);
-}
+.literature-search .literature-search-submit { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
+.literature-search .literature-search-submit:hover:not(:disabled) { background: var(--control-active-soft); }
+.literature-search .literature-search-submit:disabled { color: var(--text-tertiary); opacity: .6; }
+.literature-precise { padding-inline: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); }
+/* A result reads as a Papers row (app-shell.css): the title in the reading
+   face, who and when beneath it, hairlines between rows and the tree's hover
+   fill. Where it came from, its votes or citations and its id wait in the
+   tooltip, so the row needs no more width than a Papers row does. */
+.literature-results { --fluid-hover-fill: var(--navigation-tree-hover-surface); position: relative; display: flex; flex-direction: column; }
+.literature-result { --literature-row-surface: transparent; position: relative; padding: var(--space-5) var(--space-4); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--literature-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.literature-result + .literature-result { margin-top: var(--space-1); }
+.literature-result + .literature-result::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--space-4); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
+.literature-result:is(:hover, :focus-within)::before, .literature-result:is(:hover, :focus-within) + .literature-result::before { opacity: 0; transition-duration: var(--duration-fast); }
+.literature-result:is(:hover, :focus-within) { --literature-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
+.literature-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.literature-meta { position: relative; height: var(--type-tree-line-height); min-width: 0; margin-top: var(--space-2); display: flex; align-items: center; }
+.literature-byline { min-width: 0; display: flex; align-items: center; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); white-space: nowrap; }
+.literature-byline > span:not(.literature-imported) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.literature-byline > span:first-child:not(:last-child) { color: var(--text-secondary); }
+.literature-byline > span + span:not(.literature-imported) { flex: none; font-variant-numeric: tabular-nums; }
+.literature-byline > span + span:not(.literature-imported)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
+.literature-imported { margin-inline-start: var(--space-3); flex: none; display: grid; place-items: center; color: var(--status-success); }
+.literature-imported > svg { stroke-width: 1.75; }
+/* The actions wait out of sight but in the tab order; hovered or focused,
+   they come in over the end of the byline on a backing that matches the row.
+   The box stands taller than its backing so the mask keeps their focus ring. */
+.literature-result-actions { position: absolute; inset-block: calc(-1 * var(--space-3)); inset-inline-end: calc(-1 * var(--space-2)); padding-inline-start: var(--space-8); display: flex; align-items: center; background-image: linear-gradient(var(--literature-row-surface), var(--literature-row-surface)), linear-gradient(var(--surface-sidebar), var(--surface-sidebar)); background-position: center; background-size: 100% 22px; background-repeat: no-repeat; -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--motion-fast-exit); }
+.literature-result:is(:hover, :focus-within) .literature-result-actions { opacity: 1; pointer-events: auto; transition-duration: var(--duration-fast); }
+.literature-result-actions :is(button, a) { width: 22px; height: 22px; padding: 0; border-radius: var(--radius-compact); display: grid; place-items: center; background: transparent; color: var(--text-tertiary); }
+.literature-result-actions :is(button, a) > svg { stroke-width: 1.5; }
+.literature-result-actions :is(button, a):hover:not(:disabled) { background: var(--control-active-soft); color: var(--control-active); }
+.literature-snippet { margin: var(--space-2) 0 0; color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-tree-size); font-style: italic; line-height: var(--type-tree-line-height); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Scrolling near the end loads more on its own; the button is for the
+   keyboard and stays as quiet as the Papers count. */
 .lit-load-more {
-  margin: var(--space-2) 0 var(--space-1);
+  margin: var(--space-4) 0 var(--space-2);
   width: 100%;
-  height: var(--control-height-default);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-control);
+  height: var(--control-height-compact);
+  border-radius: var(--radius-icon);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
   font-size: var(--type-caption-size);
-  cursor: pointer;
 }
-.lit-load-more:hover:not(:disabled) { color: var(--control-active); border-color: var(--control-active-border); }
-.lit-load-more:disabled { cursor: default; opacity: 0.7; }
-.lit-imported {
-  height: var(--control-height-compact);
-  padding: 0 var(--pad-inline-control);
-  border-radius: var(--radius-icon);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-inline-tight);
-  font-size: var(--type-caption-size);
-  color: var(--status-success);
-  border: 1px solid color-mix(in srgb, var(--status-success) 40%, var(--border-subtle));
-  background: color-mix(in srgb, var(--status-success) 12%, transparent);
-}
+.lit-load-more:hover:not(:disabled) { background: var(--navigation-tree-hover-surface); color: var(--text-secondary); }
+.lit-load-more:disabled { opacity: 0.7; }
 .pdf-mark-item {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);

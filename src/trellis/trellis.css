@@ -25,10 +25,10 @@
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="file"], [data-type="pdf"])) {
   --lattice-panel-surface: var(--editor-bg);
 }
-.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="agent"])) {
+.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"])) {
   --lattice-panel-surface: var(--surface-sidebar);
 }
-.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"])) {
+.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"])) {
   --lattice-panel-surface: var(--surface-input);
 }
 /* An unfocused panel's edge is half a hairline: the surfaces already separate
@@ -40,18 +40,19 @@
 }
 .lattice-trellis [data-trellis-part="surface"] { background: var(--surface-app); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="file"], [data-type="pdf"]) { background: var(--editor-bg); }
-.lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="agent"]) { background: var(--surface-sidebar); }
-.lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"]) { background: var(--surface-sidebar); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
 
 /* A translucent window (theme.css, `data-glass`) frosts Project, Papers and
    the editors. The panel paints one sheet of --surface-navigator from the tab
    strip down, which is the strip; the selected tab and the body (the surface)
    lay the same second coat over it, so the tab runs into the body as it does
    on the opaque palette and the strip sits the same step under both. Project
-   and Papers lift by a white veil, an editor by its own thinned ground.
+   and Papers (and Literature beside it) lift by a white veil, an editor by
+   its own thinned ground.
    Everything inside a body lets its coat through: a third layer would read as
    a band. Every other panel stays on its opaque surface. */
-:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="file"])) {
+:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="file"])) {
   --lattice-panel-surface: var(--surface-navigator);
   --lattice-tabstrip: transparent;
   --trellis-tab-active: var(--surface-navigator-lift);
@@ -59,9 +60,9 @@
 :root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected][data-type="file"]) {
   --trellis-tab-active: var(--surface-editor-glass);
 }
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"]) { background: var(--surface-navigator-lift); }
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"]) { background: var(--surface-navigator-lift); }
 :root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] { background: var(--surface-editor-glass); }
-:root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator) { background: transparent; }
+:root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator, .trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .literature-drawer) { background: transparent; }
 :root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
 /* The source editor and the Markdown preview each stack several grounds; the
    gutter keeps its numbers' color, mixed from the opaque ground. A file view
@@ -411,6 +412,14 @@
 .trellis-docked-drawer > .drawer-header:not(:has([data-slot="panel-header-actions"])),
 .trellis-docked-drawer > .drawer-header:has([data-slot="panel-header-actions"] > .ui-icon-button:only-child > .lucide-x) { display: none; }
 .trellis-docked-drawer > .drawer-header { justify-content: flex-end; }
+/* Literature opens beside Papers, in the sidebar, so it takes the sidebar's
+   ground and Papers' insets rather than a tool panel's. */
+.trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .trellis-docked-drawer.literature-drawer { background: var(--surface-sidebar); }
+.trellis-tool-host > .trellis-docked-drawer.literature-drawer { padding: 7px var(--space-6) var(--space-5); }
+/* The search stays put over the results, as Papers' does. A frosted window
+   lets it scroll away instead: an opaque band would break the frost. */
+.trellis-docked-drawer.literature-drawer > .literature-search { position: sticky; z-index: 2; top: -7px; margin: -7px 0 var(--space-1); padding: 7px 0 var(--space-5); background: var(--surface-sidebar); }
+:root[data-glass] .trellis-docked-drawer.literature-drawer > .literature-search { position: static; background: transparent; }
 
 /* ---------------------------------------------------------------- empty and sleeping states */
 .trellis-empty {

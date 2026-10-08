@@ -78,6 +78,11 @@ msgstr "{0} 个文件"
 msgid "{0} packages"
 msgstr "{0} 个软件包"
 
+#. placeholder {0}: work.votes
+#: src/papers/literature-discovery-panel.tsx
+msgid "{0} votes"
+msgstr "{0} 票"
+
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
 msgstr "{action}已取消"
@@ -595,7 +600,6 @@ msgstr "致谢"
 msgid "Acute accent example"
 msgstr "锐音符示例"
 
-#: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "添加"
@@ -603,6 +607,14 @@ msgstr "添加"
 #: src/editor/harper-spellcheck.ts
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "把“{projectWord}”加入项目词库"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Add {title} to Papers"
+msgstr "把 {title} 加入论文库"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Add a bibliography entry for {title}"
+msgstr "为 {title} 添加文献"
 
 #: src/editor/editor-keymap.ts
 msgid "Add a cursor above or below"
@@ -1078,10 +1090,6 @@ msgstr "贝塔"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beth"
 msgstr "贝特"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Bib"
-msgstr "文献"
 
 #: src/papers/audit-messages.ts
 msgid "bibcite returned invalid upgrade JSON."
@@ -4043,10 +4051,6 @@ msgstr "导入 ZIP"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Important"
 msgstr "重要"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Imported"
-msgstr "已导入"
 
 #: src/app/use-reference-import.ts
 msgid "Imported “{title}” — cite it with {citationCommand}."
@@ -7712,6 +7716,10 @@ msgstr "恢复会改动 Overleaf 上的版本，之后同步即可拿回"
 #: src/agent/synara-loading-surface.tsx
 msgid "Restoring the conversation surface…"
 msgstr "正在恢复对话…"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Results"
+msgstr "结果"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume"
