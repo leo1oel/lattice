@@ -7,9 +7,15 @@
  * Concentric corners: the surface is 11px and the viewport pads by 5px, so
  * items inherit the derived 6px radius. Icons sit next to regular-weight
  * labels, so they carry a 1.5 stroke rather than Lucide's default 2.
+ *
+ * A long name wraps anywhere rather than widening the surface past its cap
+ * (surfaces.css's long-content contract). `anywhere`, not the dialogs'
+ * `break-word`: a menu row is a flex row, and only `anywhere` lets its label
+ * shrink below the name's width. Each primitive caps its own width at
+ * `--menu-max-width` or the room Radix reports.
  */
 export const floatingSurfaceClassName =
-  "z-50 [--surface-radius:calc(var(--radius-icon)+var(--gap-inline-tight))] [--surface-inset:var(--gap-inline-tight)] [--nested-radius:calc(var(--surface-radius)-var(--surface-inset))] rounded-[var(--surface-radius)] bg-popover text-popover-foreground [box-shadow:var(--elevation-popover)] outline-hidden";
+  "z-50 [--surface-radius:calc(var(--radius-icon)+var(--gap-inline-tight))] [--surface-inset:var(--gap-inline-tight)] [--nested-radius:calc(var(--surface-radius)-var(--surface-inset))] rounded-[var(--surface-radius)] wrap-anywhere bg-popover text-popover-foreground [box-shadow:var(--elevation-popover)] outline-hidden";
 
 // Long menus share the same hover-revealed native scrollbar as other app
 // surfaces. The transparent track always reserves its narrow gutter, so menu

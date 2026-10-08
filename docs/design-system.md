@@ -493,6 +493,16 @@ all take it.
   tinted `danger` Button (`--status-danger-soft`, deeper on hover), never a red
   slab; a destructive alternative beside a safe default ("Don't save" beside
   Save) stays a quiet ghost in the danger colour. Cancel takes focus.
+- **Long names stay inside the box.** A file name, path, title, citation key,
+  URL or error can be one unbroken run longer than any dialog. Every dialog,
+  sheet, toast, popover and drawer breaks such a run at its edge
+  (`surfaces.css`'s long-content contract, `overflow-wrap: break-word`), and
+  a flex or grid child holding user content takes `min-width: 0` so it can
+  shrink to its track. Menus, selects, popovers and tooltips wrap anywhere
+  (`menu-surface.ts`, the tooltip) and stop at `--menu-max-width` or the room
+  left in the window. A surface keeps its width: it never grows or scrolls
+  sideways to fit a name. A label that should stay on one line opts out with
+  `truncate` and shows the full name in a tooltip or `title`.
 - **Every notification is a toast** (`app-notify.ts`, drawn by
   `telemetry/toast-stack.tsx` on Base UI's Toast), the app update included: a
   frosted floating card, 320px, `--radius-surface`, a title in the
