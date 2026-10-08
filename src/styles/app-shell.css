@@ -637,7 +637,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-selected-fg-override: var(--navigation-text-strong);
   --trees-focus-ring-color-override: var(--navigation-focus-ring);
   --trees-selected-focused-border-color-override: transparent;
-  --trees-focus-ring-width-override: 1px;
+  --trees-focus-ring-width-override: var(--focus-ring-width);
   --trees-input-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --trees-search-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --trees-search-fg-override: var(--navigation-text-strong);

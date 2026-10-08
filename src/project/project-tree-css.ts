@@ -122,9 +122,11 @@ button[data-type="item"][data-item-focused="true"]::before {
   outline-color: transparent;
 }
 
+/* The product's one ring, drawn inside the row: rows touch, and the
+   virtualized scroller clips anything outside them. */
 button[data-type="item"]:focus-visible::before {
-  outline: 1px solid var(--navigation-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--navigation-focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
 }
 
 button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {

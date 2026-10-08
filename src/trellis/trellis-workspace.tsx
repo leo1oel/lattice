@@ -840,7 +840,7 @@ const TOKENS: Record<string, string> = {
   "--trellis-menu-hover": "var(--chrome-hover-surface)",
   "--trellis-radius": "var(--radius-surface)",
   "--trellis-tab-radius": "var(--radius-chrome)",
-  "--trellis-tabbar-height": "var(--tab-strip-height-chrome)",
+  "--trellis-tabbar-height": "var(--tab-strip-height)",
   "--trellis-gap": "var(--space-3)",
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS box-shadow value
   "--trellis-focus-ring": "0 0 0 var(--focus-ring-width) var(--focus-ring)",

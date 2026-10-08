@@ -299,10 +299,14 @@ A description, subtitle, or explainer paragraph appears only when it says someth
 - Rows use 32px compact, 40px data, or 44px store height.
 - Radius roles are 4px compact, 6px icon/item, 7px chrome, 8px control,
   9px panel, 10px surface, 14px dialog, and pill.
-- The titlebar is 40px and hosts the traffic lights, project switcher, and the
-  compact tab variant; the sidebar navigation header matches that height.
-- Editor tabs are 36px in the standalone strip and 28px inside the titlebar,
-  through the shared `--tab-*` contract.
+- The titlebar is 40px and hosts the traffic lights, the project switcher and
+  the panel controls; the sidebar navigation header matches that height.
+- Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
+  the compact control height. A tab's trailing slot (its close button or
+  unsaved dot) is one width whatever it holds, so hovering, saving or
+  selecting never resizes a tab; squeezed below its natural width, an
+  unselected tab's empty slot gives its room to the title first. The selected
+  tab stays in view whenever the strip has to scroll.
 
 ## Elevation
 
