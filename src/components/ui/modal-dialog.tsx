@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode } from "react";
 import { FocusScope } from "@radix-ui/react-focus-scope";
 import { Dialog } from "radix-ui";
+import { useExitPicture } from "./exit-picture";
 
 /**
  * A dialog over the app: focus stays inside, Escape closes it, and a click on
@@ -83,6 +84,8 @@ export function ModalDialog(props: {
     }
   };
   const backdropRef = useRef<HTMLDivElement>(null);
+  // Closing unmounts the dialog; its scrim and card leave on the slow tier's exit.
+  useExitPicture([backdropRef, contentRef]);
   // Only a press on this dialog's own backdrop is an outside click. Everything
   // else outside the content sits above the backdrop: the window-drag strip,
   // toasts (a failure raised *by* this dialog must stay readable and
