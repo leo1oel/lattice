@@ -465,7 +465,7 @@ the primitive standardizes density without changing those semantics.
   failed build's log opens at TeX's first error (else the end, where latexmk
   says why it stopped), and Copy log takes all of it.
 - **Empty states offer the way forward.** An empty region says what would be
-  there and offers the next step, with its shortcut drawn by `Keycaps`. The
+  there and offers the next step, with its shortcut taken from the command table. The
   welcome screen lists a few recent projects under its actions and, when launch
   could not reopen the last one, names it with an inline warning instead of
   silently landing there.

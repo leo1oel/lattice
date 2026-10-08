@@ -113,9 +113,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
   const [movingWorkspace, setMovingWorkspace] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
-  /** The last project, when launch could not reopen it, and why: the welcome screen says so. */
-  const [unopenedProject, setUnopenedProject] = useState<UnopenedProject | null>(null);
+  // The projects to go back to, and the last one when launch could not
+  // reopen it (with why), which the welcome screen names. One state rather
+  // than two: every startup render of App pays for each hook here.
+  const [recents, setRecents] = useState<{ projects: RecentProject[]; unopened: UnopenedProject | null }>(
+    () => ({ projects: loadRecentProjects(), unopened: null }),
+  );
   const autoTutorialAttemptedRef = useRef(false);
 
   // `name: null` is the untouched default, resolved per render so it follows the interface language.
@@ -178,7 +181,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   }, [beginProjectTransition, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
-    setRecentProjects(rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }));
+    setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));
   }, []);
 
   const enterProject = useCallback(async (
@@ -376,7 +379,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         // Folder gone, or on a drive that is not mounted: stay on the welcome
         // screen, which names it. It stays in the recent list, so the next
         // launch tries again.
-        setUnopenedProject({ ...lastProject, reason: toMessage(reason) });
+        const unopened = { ...lastProject, reason: toMessage(reason) };
+        setRecents((current) => ({ ...current, unopened }));
       }
     })();
   }, [
@@ -455,11 +459,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       // Only the project itself failing means the entry is worth dropping; a
       // window that could not be created says nothing about the project.
       if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
-        setRecentProjects(forgetRecentProject(path));
+        setRecents((current) => ({ ...current, projects: forgetRecentProject(path) }));
       }
       return;
     }
-    await switchProject(t`Switching project…`, path, () => setRecentProjects(forgetRecentProject(path)));
+    await switchProject(t`Switching project…`, path, () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) })));
   }, [openProjectWindow, project?.root, switchProject, t]);
 
   // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
@@ -517,7 +521,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   }, [browserHosted, cancelProjectTransition, startProjectTransition]);
 
   return {
-    busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
     movingWorkspace,
