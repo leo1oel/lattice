@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BookMarked, ChevronDown, ChevronRight, ChevronUp, PenLine } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
@@ -88,6 +88,9 @@ export function BibEntryDialog(props: {
   const [insertCite, setInsertCite] = useState(!editing);
   const [resolveQuery, setResolveQuery] = useState(props.initialResolveQuery ?? "");
   const [venueOpen, setVenueOpen] = useState(false);
+  // The suggestion the arrows (or the pointer) last lit; Enter takes it.
+  const [venueActive, setVenueActive] = useState<number | null>(null);
+  const venueListId = useId();
   const [candidates, setCandidates] = useState<ResolvedCitationDraft[]>(seed?.candidates ?? []);
   const [evidence, setEvidence] = useState<ResolvedCitationDraft["evidence"]>(seed?.evidence);
   const [extraFields, setExtraFields] = useState<Record<string, string> | undefined>(seed?.extraFields);
@@ -143,6 +146,28 @@ export function BibEntryDialog(props: {
     const article = choice.entryType === "article";
     setFields((current) => ({ ...current, journal: article ? choice.name : "", booktitle: article ? "" : choice.name }));
     setVenueOpen(false);
+    setVenueActive(null);
+  };
+  const venueListOpen = venueOpen && venueMatches.length > 0;
+  const onVenueKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    const count = venueMatches.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!count) return;
+      event.preventDefault();
+      setVenueOpen(true);
+      setVenueActive((current) => event.key === "ArrowDown"
+        ? current === null ? 0 : (current + 1) % count
+        : current === null ? count - 1 : (current - 1 + count) % count);
+    } else if (event.key === "Enter" && venueListOpen && venueActive !== null && venueMatches[venueActive]) {
+      event.preventDefault();
+      chooseVenue(venueMatches[venueActive]);
+    } else if (event.key === "Escape" && venueListOpen) {
+      // The dialog leaves Escape to an open suggestion list (see ModalDialog).
+      event.preventDefault();
+      setVenueOpen(false);
+      setVenueActive(null);
+    }
   };
 
   const stepYear = (delta: number) => {
@@ -327,22 +352,32 @@ export function BibEntryDialog(props: {
               <div className="venue-combobox">
                 <SearchField
                   aria-label={t`Venue`}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={venueListOpen}
+                  aria-controls={venueListOpen ? venueListId : undefined}
+                  aria-activedescendant={venueListOpen && venueActive !== null ? `${venueListId}-${venueActive}` : undefined}
                   value={venue}
                   placeholder={t`NeurIPS, CVPR, Nature, …`}
-                  onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); }}
-                  onClear={() => { setField(venueField, ""); setVenueOpen(true); }}
+                  onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); setVenueActive(null); }}
+                  onClear={() => { setField(venueField, ""); setVenueOpen(true); setVenueActive(null); }}
                   onFocus={() => setVenueOpen(true)}
-                  onBlur={() => setVenueOpen(false)}
+                  onBlur={() => { setVenueOpen(false); setVenueActive(null); }}
+                  onKeyDown={onVenueKeyDown}
                 />
-                {venueOpen && venueMatches.length > 0 && (
-                  <div className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
+                {venueListOpen && (
+                  <div id={venueListId} className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
                     <FluidHoverSurface />
-                    {venueMatches.map((item) => (
+                    {venueMatches.map((item, index) => (
                       <button
                         key={item.name}
+                        id={`${venueListId}-${index}`}
                         type="button"
                         role="option"
+                        tabIndex={-1}
                         aria-selected={item.name === venue}
+                        data-highlighted={index === venueActive ? "" : undefined}
+                        onMouseMove={() => { if (index !== venueActive) setVenueActive(index); }}
                         onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
                       >
                         <span>{item.name}</span>

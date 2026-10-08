@@ -299,8 +299,8 @@ input[type="search"]:focus-visible {
 .venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .venue-menu button em { flex: none; font-style: normal; font-size: var(--type-micro-size); letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
 .venue-menu { --fluid-hover-fill: var(--control-active-soft); }
-.venue-menu button:hover, .venue-menu button[aria-selected="true"] { background: var(--control-active-soft); color: var(--control-active); }
-.venue-menu button:hover em, .venue-menu button[aria-selected="true"] em { color: var(--control-active); }
+.venue-menu button:is(:hover, [data-highlighted], [aria-selected="true"]) { background: var(--control-active-soft); color: var(--control-active); }
+.venue-menu button:is(:hover, [data-highlighted], [aria-selected="true"]) em { color: var(--control-active); }
 .year-stepper { position: relative; display: flex; }
 .year-stepper input { width: 100%; padding-right: 26px; }
 .year-stepper-buttons { position: absolute; top: 0; right: 0; bottom: 0; width: 22px; display: flex; flex-direction: column; }

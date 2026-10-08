@@ -82,6 +82,11 @@ export function ModalDialog(props: {
     if (props.closeDisabled || event.isComposing || event.keyCode === 229 || composingRef.current) {
       event.preventDefault();
     }
+    // An open suggestion list in the dialog takes Escape first and closes
+    // itself; the next Escape closes the dialog.
+    if (event.target instanceof Element && event.target.closest('[role="combobox"][aria-expanded="true"]')) {
+      event.preventDefault();
+    }
   };
   const backdropRef = useRef<HTMLDivElement>(null);
   // Closing unmounts the dialog; its scrim and card leave on the slow tier's exit.
