@@ -49,7 +49,7 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..e7c76ad3f5abd6fb5062d0b2e265c812
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e752ca1938 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..2bdf52fbe1a24b2b249dbb0824f2f9b3fff04aef 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -447,8 +447,10 @@ function restorePanel(doc, panelId, fallbackLayer) {
@@ -544,7 +544,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4778,154 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4778,159 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -595,18 +595,23 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
 +    atomic.forEach(({ tab }, i) => setAttr(tab.el, "data-icon-only", before[i] ? "" : null));
 +    // The other tabs' natural widths: unshrunk, each up to its CSS maximum.
 +    const loose = tabs.filter(({ tab }) => !tab.el.hasAttribute("data-atomic"));
++    // A tab's floor is the tab without its title (and the gap before it),
++    // read unshrunk too: squeezed, Lattice CSS lets an unselected tab's empty
++    // close slot give way first, which is not a floor it keeps on hover.
 +    loose.forEach(({ tab }) => { tab.el.style.flexShrink = "0"; });
 +    const natural = new Map(loose.map(({ viewId, tab }) => [viewId, tab.el.getBoundingClientRect().width]));
++    const floors = new Map(loose.map(({ viewId, tab }) => [
++      viewId,
++      tab.el.getBoundingClientRect().width - tab.title.getBoundingClientRect().width - (parseFloat(getComputedStyle(tab.el).columnGap) || 0)
++    ]));
 +    loose.forEach(({ tab }) => { tab.el.style.flexShrink = ""; });
 +    const list = getComputedStyle(dom.tablist);
 +    const padding = (parseFloat(list.paddingLeft) || 0) + (parseFloat(list.paddingRight) || 0);
 +    const items = tabs.map(({ viewId, tab }) => {
 +      const i = atomic.findIndex((a) => a.viewId === viewId);
 +      if (i >= 0) return { viewId, atomic: true, full: full[i], compact: compact[i] };
-+      // A tab's floor is the tab without its title (and the gap before it).
 +      const style = getComputedStyle(tab.el);
-+      const floor = tab.el.getBoundingClientRect().width - tab.title.getBoundingClientRect().width - (parseFloat(style.columnGap) || 0);
-+      return { viewId, atomic: false, min: parseFloat(style.minWidth) || 0, floor: Math.ceil(floor), natural: Math.ceil(natural.get(viewId)) };
++      return { viewId, atomic: false, min: parseFloat(style.minWidth) || 0, floor: Math.ceil(floors.get(viewId)), natural: Math.ceil(natural.get(viewId)) };
 +    });
 +    // Everything in the bar but the tabs (actions, menu, gaps, paddings), in
 +    // each state of the action row.
@@ -700,7 +705,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +4940,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +4945,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -836,7 +841,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5169,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5174,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -848,7 +853,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
      };
      return snapshot;
    }
-@@ -4902,7 +5280,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5285,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -857,7 +862,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..59ac04f873b92209ce20609ee0b5e8e7
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5425,7 @@ export {
+@@ -5047,6 +5430,7 @@ export {
    formatCombo,
    layout,
    layoutRects,
