@@ -477,8 +477,8 @@ all take it.
   costs nothing until it is used.
 - A list whose keyboard answer is the focus ring (a tree, a sidebar, the
   Papers rows) passes `follow={null}`: a key clears the fill and leaves the
-  ring alone, and never wakes it. The Papers list moves focus between papers with the arrows,
-  Home and End; Tab still walks every control.
+  ring alone, and never wakes it. The Papers list moves focus between papers
+  with the arrows, Home and End; Tab still walks every control.
 
 ## Dialogs, notifications and empty states
 
