@@ -102,8 +102,10 @@
   color: var(--text-secondary);
 }
 
+/* The destructive answer to a confirmation: tinted rather than filled, so it
+   leads the row in either theme without a red slab in the dark one. */
 .ui-button--danger {
-  background: transparent;
+  background: var(--status-danger-soft);
   color: var(--status-danger);
 }
 
@@ -124,7 +126,7 @@
 }
 
 .ui-button--danger:hover:not(:disabled) {
-  background: var(--status-danger-soft);
+  background: var(--status-danger-soft-hover);
 }
 
 /* Shared visual language for dense selectors. Interaction semantics stay with

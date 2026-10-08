@@ -86,8 +86,14 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     destructiveDescription: t`This action cannot be undone.`,
     continueDescription: t`Please confirm that you want to continue.`,
   });
+  // The destructive confirmation leads its row, tinted; a destructive
+  // alternative beside a safe one ("Don't save" beside Save) stays quiet.
   const dangerButton = (answer: ConfirmActionChoice, label: string) => (
-    <DestructiveButton className={buttonClassName({ variant: "danger" })} iconSize={13} onClick={() => settle(answer)}>
+    <DestructiveButton
+      className={buttonClassName({ variant: answer === "confirm" ? "danger" : "ghost", className: "confirm-action-danger" })}
+      iconSize={13}
+      onClick={() => settle(answer)}
+    >
       {label}
     </DestructiveButton>
   );
@@ -107,8 +113,8 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
             data-destructive={copy.destructive}
             data-has-alternative={Boolean(current.options.alternativeLabel)}
           >
-            <div className="confirm-action-icon" aria-hidden="true">
-              {copy.destructive ? <Trash2 size={19} /> : <CircleAlert size={19} />}
+            <div className="modal-icon" data-tone={copy.destructive ? "danger" : undefined} aria-hidden="true">
+              {copy.destructive ? <Trash2 size={18} /> : <CircleAlert size={18} />}
             </div>
             <h2>{copy.title}</h2>
             <p id={descriptionId}>{copy.description}</p>

@@ -10,6 +10,7 @@ import {
   forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
 } from "../settings/app-settings";
 import type { CreateProjectForm } from "./app-project-dialogs";
+import type { UnopenedProject } from "../project/project-dialogs";
 import { setError, setNotice } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
@@ -113,6 +114,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const [movingWorkspace, setMovingWorkspace] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
+  /** The last project, when launch could not reopen it, and why: the welcome screen says so. */
+  const [unopenedProject, setUnopenedProject] = useState<UnopenedProject | null>(null);
   const autoTutorialAttemptedRef = useRef(false);
 
   // `name: null` is the untouched default, resolved per render so it follows the interface language.
@@ -352,7 +355,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     void (async () => {
       const initialProject = await initialProjectProbe.promise;
       if (initialProject !== "empty") return;
-      const mostRecent = loadRecentProjects()[0]?.path;
+      const lastProject = loadRecentProjects()[0];
+      const mostRecent = lastProject?.path;
       if (!mostRecent) {
         if (!hasSeenTutorial() && !autoTutorialAttemptedRef.current) {
           void openTutorialProject();
@@ -367,9 +371,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         // fully entered.
         await enterProject(snapshot, { deferInitialBuild: true });
         void runBuild(false, { immediatePreview: true });
-      } catch {
+      } catch (reason) {
         cancelProjectTransition();
-        // Folder gone — stay on the welcome screen.
+        // Folder gone, or on a drive that is not mounted: stay on the welcome
+        // screen, which names it. It stays in the recent list, so the next
+        // launch tries again.
+        setUnopenedProject({ ...lastProject, reason: toMessage(reason) });
       }
     })();
   }, [
@@ -510,7 +517,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   }, [browserHosted, cancelProjectTransition, startProjectTransition]);
 
   return {
-    busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
     movingWorkspace,

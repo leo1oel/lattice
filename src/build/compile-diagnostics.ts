@@ -160,3 +160,14 @@ export function diagnosticLocationLabel(diagnostic: CompileDiagnostic): string {
   if (line) return i18n._(msg`line ${line}`);
   return i18n._(msg`Build log`);
 }
+
+/**
+ * Where a failed build's log should open: TeX's first error, else the first
+ * LaTeX or package error, else the end, where latexmk says why it stopped.
+ * Builds run with -file-line-error, so most errors read `./main.tex:4: …`;
+ * one raised before TeX knows its line (a missing package) keeps `! …`.
+ */
+export function failedLogAnchor(log: string): number {
+  const error = /^(?:! |[^\s:][^:\n]*:\d+: )/m.exec(log) ?? /^.*\b(?:LaTeX|Package \S+) Error\b/m.exec(log);
+  return error ? error.index : log.length;
+}

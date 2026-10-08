@@ -6,7 +6,6 @@ import { ImagePlus } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { buttonClassName } from "../../components/ui/button-styles";
 import { Input } from "../../components/ui/input";
-import { PanelHeader } from "../../components/ui/panel-header";
 import { MotionButton } from "../../components/ui/motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
 import { ModalDialog } from "../../components/ui/modal-dialog";
@@ -42,13 +41,8 @@ export function FigureInsertDialog(props: {
           insert();
         }}
       >
-        <div className="modal-icon"><ImagePlus size={19} /></div>
-        <PanelHeader
-          className="drawer-header"
-          style={{ padding: 0, border: 0, marginBottom: 8 }}
-          title={t`Insert figure`}
-          onClose={props.onClose}
-        />
+        <div className="modal-icon"><ImagePlus size={18} /></div>
+        <h2>{t`Insert figure`}</h2>
         <p>{count === 1 ? props.paths[0] : t`${count} figures`}</p>
         {FIELDS.map(([key, name, placeholder], index) => (
           <label key={key}>

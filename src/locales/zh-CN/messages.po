@@ -2191,6 +2191,10 @@ msgstr "复制错误信息"
 msgid "Copy JSON"
 msgstr "复制 JSON"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Copy log"
+msgstr "复制日志"
+
 #: src/telemetry/app-log.tsx
 msgid "Copy notification command"
 msgstr "复制通知中的命令"
@@ -2198,6 +2202,10 @@ msgstr "复制通知中的命令"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Copy the whole build log"
+msgstr "复制完整的构建日志"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
@@ -2356,6 +2364,10 @@ msgstr "无法检查更新"
 msgid "Couldn’t check the connection. Still linked to {linkedHost}"
 msgstr "无法检查连接，仍关联到 {linkedHost}"
 
+#: src/app/use-tex-setup.ts
+msgid "Couldn’t check the LaTeX tools"
+msgstr "无法检查 LaTeX 工具"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Couldn’t copy the details. Expand Technical details and copy them manually."
 msgstr "无法复制详情。请展开“技术详情”并手动复制。"
@@ -2387,6 +2399,14 @@ msgstr "无法连接到该服务"
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "无法读取钥匙串，请重新打开设置再试"
+
+#: src/project/project-dialogs.tsx
+msgid "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
+msgstr "无法重新打开“{unopenedName}”：{unopenedReason}"
+
+#: src/project/project-dialogs.tsx
+msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
+msgstr "无法重新打开“{unopenedName}”，它的文件夹可能已被移动或重命名"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -3228,6 +3248,10 @@ msgstr "所有面板都已关闭"
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
 msgstr "所有位置均已决定"
+
+#: src/app/use-tex-setup.ts
+msgid "Every tool Lattice needs is installed"
+msgstr "Lattice 所需的工具均已安装"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
@@ -4546,6 +4570,10 @@ msgstr "LaTeX 命令"
 #: src/app/use-build-pipeline.ts
 msgid "LaTeX compilation failed."
 msgstr "LaTeX 编译失败。"
+
+#: src/app/use-tex-setup.ts
+msgid "LaTeX is ready to build"
+msgstr "LaTeX 已可以构建"
 
 #: src/build/tex-dependency-installer.tsx
 msgid "LaTeX package installation progress"

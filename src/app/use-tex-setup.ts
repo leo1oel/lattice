@@ -5,7 +5,7 @@ import type { DoctorReport } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
 import { isRequiredSetupMissing, type TexDependencyInstallProgress } from "../build/tex-setup";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useRefState, whenIdle } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 
@@ -50,7 +50,7 @@ export function useTexSetup(rebuild: () => void) {
     };
   }, []);
 
-  const runDoctor = useCallback(async (options?: { openWizardIfMissing?: boolean }) => {
+  const runDoctor = useCallback(async (options?: { openWizardIfMissing?: boolean; reportFailure?: boolean }) => {
     const generation = ++doctorGenerationRef.current;
     setDoctorBusy(true);
     setDoctorNotice("");
@@ -61,17 +61,28 @@ export function useTexSetup(rebuild: () => void) {
       if (options?.openWizardIfMissing && isRequiredSetupMissing(report)) setWizardOpen(true);
       return report;
     } catch (reason) {
-      if (generation === doctorGenerationRef.current) setDoctorNotice(toMessage(reason));
+      if (generation === doctorGenerationRef.current) {
+        setDoctorNotice(toMessage(reason));
+        if (options?.reportFailure) notifyError(t`LaTeX setup`, t`Couldn’t check the LaTeX tools`, { detail: toMessage(reason) });
+      }
       return null;
     } finally {
       if (generation === doctorGenerationRef.current) setDoctorBusy(false);
     }
-  }, []);
+  }, [t]);
 
-  const openWizard = useCallback(() => {
-    if (!doctorReport) void runDoctor({ openWizardIfMissing: true });
-    else if (isRequiredSetupMissing(doctorReport)) setWizardOpen(true);
-  }, [doctorReport, runDoctor]);
+  // Asked for by name (the welcome screen, the palette, Settings), so it
+  // always looks again — tools may have arrived since the launch check — and
+  // always answers: the wizard when something is missing, a toast when
+  // nothing is. A report that already knows something is missing opens the
+  // wizard at once and rechecks under it.
+  const openWizard = useCallback(async () => {
+    if (isRequiredSetupMissing(doctorReport)) setWizardOpen(true);
+    const report = await runDoctor({ openWizardIfMissing: true, reportFailure: true });
+    if (report && !isRequiredSetupMissing(report)) {
+      notifySuccess(t`LaTeX setup`, t`LaTeX is ready to build`, { detail: t`Every tool Lattice needs is installed` });
+    }
+  }, [doctorReport, runDoctor, t]);
 
   /** A build found no TeX toolchain: drop the stale report and show setup. */
   const openForMissingTex = useCallback(() => {

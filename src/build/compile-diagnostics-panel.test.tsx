@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
 import { installPdfTextLayerSelection } from "../pdf/pdf-text-layer-selection";
 import { CompileDiagnosticsPanel } from "./compile-diagnostics-panel";
+import { failedLogAnchor } from "./compile-diagnostics";
 import { useCompileRepair } from "./use-compile-repair";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -142,6 +143,24 @@ describe("build output layout", () => {
       .toEqual(["chapters/ch01.tex:40 Undefined control sequence", "chapters/ch01.tex:12 Overfull hbox"]);
     fireEvent.click(screen.getByRole("button", { name: "main.tex:4 There were undefined references." }));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ file: "main.tex", line: 4 }));
+  });
+
+  it("opens a failed build's log at TeX's error, with the whole log a click from the clipboard", () => {
+    // Lines as latexmk -file-line-error writes them.
+    const failedLog = "This is pdfTeX\n(./main.tex\nLaTeX Warning: Reference undefined\n./main.tex:4: Undefined control sequence.\nl.4 \\undefinedmacro\n"
+      + "./main.tex:4:  ==> Fatal error occurred, no output PDF file produced!\nLatexmk: Errors, so I did not complete making targets";
+    expect(failedLogAnchor(failedLog)).toBe(failedLog.indexOf("./main.tex:4: Undefined"));
+    expect(failedLogAnchor("(./main.tex\n! LaTeX Error: File `doesnotexist.sty' not found.\n./main.tex:3: Emergency stop.")).toBe(12);
+    expect(failedLogAnchor("(./main.tex\nPackage biblatex Error: Missing backend")).toBe(12);
+    // Without an error line, latexmk's own ending says why the run stopped.
+    expect(failedLogAnchor("(./main.tex\nLatexmk: Errors, so I did not complete making targets")).toBe(65);
+
+    render(<CompileDiagnosticsPanel {...props} expanded log={failedLog} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Log" }));
+    expect(screen.getByRole("textbox", { name: "Raw build log" })).toHaveValue(failedLog);
+    expect(screen.getByRole("button", { name: "Copy the whole build log" })).toHaveTextContent("Copy log");
+    fireEvent.click(screen.getByRole("tab", { name: "Messages" }));
+    expect(screen.queryByRole("button", { name: "Copy the whole build log" })).not.toBeInTheDocument();
   });
 
   it("docks below the page and remembers the choice for the next build", () => {

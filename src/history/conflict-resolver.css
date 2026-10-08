@@ -16,22 +16,16 @@
   align-items: flex-start;
   gap: var(--space-6);
 }
-.conflict-resolver-head .modal-icon {
-  flex: none;
-  color: var(--status-warning);
-  background: color-mix(in srgb, var(--status-warning) 14%, transparent);
-}
 .conflict-resolver-head h2 {
   margin: 0 0 var(--space-2);
-  font-size: var(--type-title-size);
   overflow-wrap: anywhere;
 }
 .conflict-resolver-head p {
   margin: 0;
   max-width: 72ch;
   color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: 1.55;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
 }
 
 /* Appearance is owned by `.ui-inline-message`; the tinted plate is local, so

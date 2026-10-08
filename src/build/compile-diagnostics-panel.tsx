@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDown, ChevronUp, CircleAlert, CircleHelp, LoaderCircle, PanelBottom, PictureInPicture2, Square, WandSparkles, ScrollText } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
+import { buttonClassName } from "../components/ui/button-styles";
 import { CloseButton, IconButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
 import {
@@ -10,6 +11,7 @@ import {
   diagnosticSeverity,
   groupDiagnosticsByFile,
   missingTexDependencyFile,
+  failedLogAnchor,
   sortDiagnostics,
   summarizeDiagnostics,
   type CompileDiagnostic,
@@ -50,6 +52,64 @@ function useDockedPreference() {
 function SeverityIcon({ level }: { level: string }) {
   // Errors and warnings share the glyph; the status colour carries severity.
   return diagnosticSeverity(level) === "info" ? <CircleHelp size={15} /> : <CircleAlert size={15} />;
+}
+
+/**
+ * The raw log, opened where a failed build went wrong rather than at TeX's
+ * banner. A wrapped line has no fixed height, so the distance to the error is
+ * measured on an invisible copy of the field holding the text before it.
+ */
+function CompileLog({ log, failed, label }: { log: string; failed: boolean; label: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const field = ref.current;
+    if (!field || !failed) return;
+    const anchor = failedLogAnchor(log);
+    if (anchor === 0) return;
+    if (anchor >= log.length) {
+      field.scrollTop = field.scrollHeight;
+      return;
+    }
+    const probe = field.cloneNode() as HTMLTextAreaElement;
+    // Up to the newline before the error, so the copy ends on the line above it.
+    probe.value = log.slice(0, anchor - 1);
+    probe.setAttribute("aria-hidden", "true");
+    probe.tabIndex = -1;
+    Object.assign(probe.style, {
+      position: "absolute", visibility: "hidden", pointerEvents: "none",
+      width: `${field.offsetWidth}px`, height: "0", minHeight: "0", maxHeight: "none", fieldSizing: "fixed",
+    });
+    field.parentElement?.append(probe);
+    const style = getComputedStyle(field);
+    // One line of what came before stays in view above the error.
+    const context = parseFloat(style.lineHeight) || 0;
+    field.scrollTop = Math.max(0, probe.scrollHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - context);
+    probe.remove();
+  }, [failed, log]);
+  return (
+    // A read-only field, not a <pre>: this panel sits directly above the PDF
+    // toolbar and text layer, and a selection that starts in a <pre> keeps
+    // going. Dragging past the bottom, or Edit → Select All, copied the log
+    // followed by "1 / 29", "%" and the stale PDF's text. A field keeps every
+    // selection inside the log.
+    <textarea
+      ref={ref}
+      className="compile-log"
+      aria-label={label}
+      readOnly
+      spellCheck={false}
+      value={log}
+      onKeyDown={(event) => {
+        // The PDF text layer's capture listener cancels Command-A for
+        // read-only fields; select the log itself instead.
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+          && event.key.toLowerCase() === "a") {
+          event.preventDefault();
+          event.currentTarget.select();
+        }
+      }}
+    />
+  );
 }
 
 export function CompileDiagnosticsPanel(props: {
@@ -118,17 +178,26 @@ export function CompileDiagnosticsPanel(props: {
       )}
       {props.expanded && (
         <div className="compile-diagnostics-body">
-          {(diagnostics.length > 0 && hasLog) && (
-            <SegmentedControl
-              value={tab}
-              onChange={setTab}
-              ariaLabel={t`Build output`}
-              className="compile-diagnostics-tabs"
-              items={[
-                { value: "diagnostics", label: t`Messages` },
-                { value: "log", label: <><ScrollText size={12} /> <Trans>Log</Trans></> },
-              ]}
-            />
+          {hasLog && (diagnostics.length > 0 || tab === "log") && (
+            <div className="compile-diagnostics-switch">
+              {diagnostics.length > 0 && (
+                <SegmentedControl
+                  value={tab}
+                  onChange={setTab}
+                  ariaLabel={t`Build output`}
+                  className="compile-diagnostics-tabs"
+                  items={[
+                    { value: "diagnostics", label: t`Messages` },
+                    { value: "log", label: <><ScrollText size={12} /> <Trans>Log</Trans></> },
+                  ]}
+                />
+              )}
+              {(tab === "log" || !diagnostics.length) && (
+                <CopyButton className={buttonClassName({ variant: "ghost", size: "compact", className: "compile-log-copy" })} text={props.log} iconSize={12} title={t`Copy the whole build log`}>
+                  <Trans>Copy log</Trans>
+                </CopyButton>
+              )}
+            </div>
           )}
           {(tab === "diagnostics" || !hasLog) && diagnostics.length > 0 && (
             <ul className="compile-diagnostics-list">
@@ -181,28 +250,8 @@ export function CompileDiagnosticsPanel(props: {
               ))}
             </ul>
           )}
-          {/* A read-only field, not a <pre>: this panel sits directly above
-              the PDF toolbar and text layer, and a selection that starts in
-              a <pre> keeps going. Dragging past the bottom, or Edit → Select
-              All, copied the log followed by "1 / 29", "%" and the stale
-              PDF's text. A field keeps every selection inside the log. */}
           {(tab === "log" || !diagnostics.length) && hasLog && (
-            <textarea
-              className="compile-log"
-              aria-label={t`Raw build log`}
-              readOnly
-              spellCheck={false}
-              value={props.log}
-              onKeyDown={(event) => {
-                // The PDF text layer's capture listener cancels Command-A for
-                // read-only fields; select the log itself instead.
-                if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
-                  && event.key.toLowerCase() === "a") {
-                  event.preventDefault();
-                  event.currentTarget.select();
-                }
-              }}
-            />
+            <CompileLog log={props.log} failed={!props.success} label={t`Raw build log`} />
           )}
           {!props.success && !diagnostics.length && !hasLog && (
             <EmptyState align="start" density="compact" description={t`Build failed without a captured log`} />

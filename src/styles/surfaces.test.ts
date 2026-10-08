@@ -309,9 +309,9 @@ describe("shared surface contracts", () => {
     // Install button — but not its own shape.
     expectRules(read("src/telemetry/app-updater.css"), [
       /\.app-update-banner \{[^}]*width: 320px/,
-      /\.app-update-banner \{[^}]*border-radius: 11px/,
+      /\.app-update-banner \{[^}]*border-radius: var\(--radius-surface\)/,
     ])
-    expectRules(appCss, [/\.app-toast \{[^}]*border-radius: 11px/, /\.app-toast-stack \{[^}]*width: 320px/])
+    expectRules(appCss, [/\.app-toast \{[^}]*border-radius: var\(--radius-surface\)/, /\.app-toast-stack \{[^}]*width: 320px/])
   })
 
   it("draws in-place messages through the shared inline component", () => {

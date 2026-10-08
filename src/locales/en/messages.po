@@ -2191,6 +2191,10 @@ msgstr "Copy error message"
 msgid "Copy JSON"
 msgstr "Copy JSON"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Copy log"
+msgstr "Copy log"
+
 #: src/telemetry/app-log.tsx
 msgid "Copy notification command"
 msgstr "Copy notification command"
@@ -2198,6 +2202,10 @@ msgstr "Copy notification command"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "Copy path"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Copy the whole build log"
+msgstr "Copy the whole build log"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
@@ -2356,6 +2364,10 @@ msgstr "Couldn’t check for updates"
 msgid "Couldn’t check the connection. Still linked to {linkedHost}"
 msgstr "Couldn’t check the connection. Still linked to {linkedHost}"
 
+#: src/app/use-tex-setup.ts
+msgid "Couldn’t check the LaTeX tools"
+msgstr "Couldn’t check the LaTeX tools"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Couldn’t copy the details. Expand Technical details and copy them manually."
 msgstr "Couldn’t copy the details. Expand Technical details and copy them manually."
@@ -2387,6 +2399,14 @@ msgstr "Couldn’t reach the service"
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "Couldn’t read the keychain. Reopen Settings to retry"
+
+#: src/project/project-dialogs.tsx
+msgid "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
+msgstr "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
+
+#: src/project/project-dialogs.tsx
+msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
+msgstr "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -3228,6 +3248,10 @@ msgstr "Every panel is closed"
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
 msgstr "Every spot decided"
+
+#: src/app/use-tex-setup.ts
+msgid "Every tool Lattice needs is installed"
+msgstr "Every tool Lattice needs is installed"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
@@ -4546,6 +4570,10 @@ msgstr "LaTeX commands"
 #: src/app/use-build-pipeline.ts
 msgid "LaTeX compilation failed."
 msgstr "LaTeX compilation failed."
+
+#: src/app/use-tex-setup.ts
+msgid "LaTeX is ready to build"
+msgstr "LaTeX is ready to build"
 
 #: src/build/tex-dependency-installer.tsx
 msgid "LaTeX package installation progress"
