@@ -13,8 +13,11 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-function move(element: Element, pointerType = "mouse") {
-  const event = new MouseEvent("pointermove", { bubbles: true });
+// Each call is a real move: the surface ignores a pointermove that repeats the
+// last coordinates, which is what a list scrolling under a resting pointer sends.
+let pointerX = 0;
+function move(element: Element, pointerType = "mouse", clientX = ++pointerX) {
+  const event = new MouseEvent("pointermove", { bubbles: true, clientX });
   Object.defineProperty(event, "pointerType", { value: pointerType });
   fireEvent(element, event);
 }
@@ -35,7 +38,7 @@ describe("FluidHoverSurface", () => {
     await act(async () => { file.setAttribute("data-item-path", "new.tex"); });
     expect(file).not.toHaveAttribute("data-fluid-hover-active");
     move(file);
-    const drag = new MouseEvent("pointermove", { bubbles: true, buttons: 1 });
+    const drag = new MouseEvent("pointermove", { bubbles: true, buttons: 1, clientX: ++pointerX });
     Object.defineProperty(drag, "pointerType", { value: "mouse" });
     fireEvent(file, drag);
     expect(file).not.toHaveAttribute("data-fluid-hover-active");
@@ -64,8 +67,9 @@ describe("FluidHoverSurface", () => {
     expect(onClick).not.toHaveBeenCalled();
     fireEvent.click(second);
     expect(onClick).toHaveBeenCalledTimes(1);
+    // Nothing is current after the key: the fill goes, the primitive's focus stays.
     fireEvent.keyDown(document, { key: "ArrowDown" });
-    expect(second).not.toHaveAttribute("data-fluid-hover-active");
+    await waitFor(() => expect(second).not.toHaveAttribute("data-fluid-hover-active"));
   });
 
   it("starts a new fill across a separator, ignores touch, disabled and destructive rows, clears on scroll", async () => {
@@ -137,5 +141,59 @@ describe("FluidHoverSurface", () => {
     expect(picture).toHaveAttribute("data-fluid-hover-item");
     move(picture);
     expect(container.firstElementChild).toHaveAttribute("data-fluid-hover-active-index", "1");
+  });
+
+  it("slides the same fill to the row the keyboard makes current, until the pointer really moves", async () => {
+    function Menu({ current }: { current: string | null }) {
+      return <div className="fluid-hover-surface">
+        <FluidHoverSurface />
+        {["First", "Second", "Third"].map((label) => (
+          <button key={label} role="menuitem" data-highlighted={label === current ? "" : undefined}>{label}</button>
+        ))}
+      </div>;
+    }
+    const { container, rerender } = render(<Menu current={null} />);
+    const [first, second, third] = screen.getAllByRole("menuitem");
+    move(first);
+    await waitFor(() => expect(container.querySelector('[data-slot="fluid-hover-highlight"]')).not.toBeNull());
+    const fill = container.querySelector('[data-slot="fluid-hover-highlight"]');
+    // Radix moves `data-highlighted` in its own key handler, after the surface heard the key.
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    rerender(<Menu current="Second" />);
+    await act(async () => { await Promise.resolve(); });
+    expect(second).toHaveAttribute("data-fluid-hover-active");
+    expect(first).not.toHaveAttribute("data-fluid-hover-active");
+    expect(container.querySelector('[data-slot="fluid-hover-highlight"]')).toBe(fill);
+    // The list scrolling under a resting pointer neither moves nor drops it.
+    move(first, "mouse", pointerX);
+    fireEvent.scroll(container.firstElementChild!);
+    expect(second).toHaveAttribute("data-fluid-hover-active");
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    rerender(<Menu current="Third" />);
+    await act(async () => { await Promise.resolve(); });
+    expect(third).toHaveAttribute("data-fluid-hover-active");
+    // A real move hands it back to the pointer.
+    move(first);
+    expect(first).toHaveAttribute("data-fluid-hover-active");
+    expect(third).not.toHaveAttribute("data-fluid-hover-active");
+  });
+
+  it("opens on a picker's current row and follows the selector it is given", async () => {
+    function Picker({ active }: { active: number }) {
+      return <div className="fluid-hover-surface" role="listbox">
+        <FluidHoverSurface follow='[aria-selected="true"]' />
+        {["First", "Second"].map((label, index) => (
+          <button key={label} role="option" aria-selected={index === active}>{label}</button>
+        ))}
+      </div>;
+    }
+    const { rerender } = render(<Picker active={0} />);
+    const [first, second] = screen.getAllByRole("option");
+    expect(first).toHaveAttribute("data-fluid-hover-active");
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    rerender(<Picker active={1} />);
+    await act(async () => { await Promise.resolve(); });
+    expect(second).toHaveAttribute("data-fluid-hover-active");
+    expect(first).not.toHaveAttribute("data-fluid-hover-active");
   });
 });

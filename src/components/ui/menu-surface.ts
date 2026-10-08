@@ -13,9 +13,11 @@ export const floatingSurfaceClassName =
 
 // Long menus share the same hover-revealed native scrollbar as other app
 // surfaces. The transparent track always reserves its narrow gutter, so menu
-// labels do not jump when the thumb appears.
+// labels do not jump when the thumb appears. The fluid hover fill takes the
+// items' own `focus:bg-accent`, so a row the pointer lights and one the arrow
+// keys reach are the same colour under every accent.
 export const menuViewportClassName =
-  "overflow-x-hidden overflow-y-auto p-[var(--surface-inset)]";
+  "overflow-x-hidden overflow-y-auto p-[var(--surface-inset)] [--fluid-hover-fill:var(--control-active-soft)]";
 
 export const menuItemClassName =
   "relative flex cursor-default items-center gap-2.5 rounded-[var(--nested-radius,var(--radius-icon))] px-2.5 py-1.5 text-[length:var(--type-body-size)] leading-[var(--type-body-line-height)] font-normal outline-hidden select-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-fast)] focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:[stroke-width:1.5] [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!";

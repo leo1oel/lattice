@@ -22,6 +22,7 @@
 .document-outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: min(372px, 57vh); overflow: auto; }
 .document-outline-list ul { list-style: none; margin: 0; padding: 0 0 0 var(--space-3); }
 .document-outline-list button { width: 100%; min-height: 26px; border: 0; border-radius: var(--radius-compact); padding: var(--space-2) 7px; background: transparent; color: var(--text-primary); display: flex; align-items: center; gap: var(--space-3); text-align: left; font-size: var(--type-micro-size); }
+.document-outline-popover { --fluid-hover-fill: var(--control-active-soft); }
 .document-outline-list button:hover, .document-outline-list button.active { background: var(--control-active-soft); color: var(--control-active); }
 .document-outline-list button.active { font-weight: 650; }
 .document-outline-list button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
