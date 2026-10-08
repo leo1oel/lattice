@@ -14,6 +14,7 @@ const selection = '.active, [aria-current="page"], [data-item-selected="true"]';
  * separator's margin (4px each side) or a section label still is.
  */
 const gapTolerance = 3;
+// eslint-disable-next-line lingui/no-unlocalized-strings -- KeyboardEvent.key names
 const navigationKeys = new Set(["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
 /** `useFluidHover`'s mark on the lit row. */
 const activeAttribute = "data-fluid-hover-active";
