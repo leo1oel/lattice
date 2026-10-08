@@ -316,7 +316,7 @@ takes a level from `foundations.css`.
 | Page | — | `--surface-app`, the window | none | the window, the welcome page |
 | Panel | `--elevation-panel` | `--surface-panel` | half a hairline | docked Trellis panels |
 | Raised | `--elevation-raised` | `--surface-elevated` | ring and a contact shadow | a plate lifted inside a surface: the chosen segment, zoom controls over a figure, a resize handle |
-| Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar |
+| Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar, the PDF preview's loading status and notices |
 | Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts, the update banner, the build's diagnostics card, a dragged item |
 | Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, the guided tour's card |
 
@@ -478,9 +478,11 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   or `renderKeycaps` where a list draws many), a quiet cap per key; inline in
   a menu it stays text.
 - Shortcuts are never typed out by hand next to a command. The palette draws
-  a command's keys from the command table, and the shortcut sheet (⌘?, or
-  Keyboard shortcuts in the palette) lists every key from the keymaps that
-  bind them, grouped by where they work, so a moved key moves everywhere.
+  a command's keys from the command table, a tooltip takes them as `Tip`'s
+  `shortcut` (quiet text after the label, outside the accessible name), and
+  the shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists every
+  key from the keymaps that bind them, grouped by where they work, so a moved
+  key moves everywhere.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a
   second theme: the open documents fill the window in one panel without
   their tab bar, the PDF beside them if the writer last asked for it, and the

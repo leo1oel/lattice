@@ -43,6 +43,9 @@ import {
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { EmptyState } from "../components/ui/empty-state";
+import { comboText } from "../app/key-combos";
+import { REVEAL_IN_PDF_KEY } from "./pdf-keys";
 import { PdfCitationHover, type PdfCitationProps } from "./pdf-citation-hover";
 import { SearchField } from "../components/ui/search-field";
 import { MotionButton } from "../components/ui/motion";
@@ -87,11 +90,12 @@ function focusPdfSurface(event: ReactPointerEvent<HTMLDivElement>) {
 /** Toolbar toggles must not take focus from the field or editor the reader is using. */
 const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
 
-function ToolbarButton({ label, icon, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & {
+function ToolbarButton({ label, shortcut, icon, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
+  shortcut?: string;
   icon: ReactNode;
 }) {
-  return <Tip label={label}><button type="button" {...props}>{icon}</button></Tip>;
+  return <Tip label={label} shortcut={shortcut}><button type="button" {...props}>{icon}</button></Tip>;
 }
 
 /**
@@ -318,6 +322,7 @@ export function PdfPreview({
   showSave = true,
   saveLabel,
   timeoutMessage,
+  loadErrorHint,
   outline,
   toolbarStart,
   toolbarEnd,
@@ -343,6 +348,8 @@ export function PdfPreview({
   showSave?: boolean;
   saveLabel?: string;
   timeoutMessage?: string;
+  /** What to try when the PDF cannot be read, under the error, such as building again for a compiled PDF. */
+  loadErrorHint?: string;
   outline?: ReactNode;
   /** Context-specific actions rendered before the page controls. */
   toolbarStart?: ReactNode;
@@ -445,7 +452,7 @@ export function PdfPreview({
               {outline}
               <SearchField
                 aria-label={t`Search PDF`}
-                containerClassName="pdf-search disabled"
+                containerClassName="pdf-search"
                 controlSize="compact"
                 placeholder={t`Find in PDF`}
                 disabled
@@ -456,8 +463,7 @@ export function PdfPreview({
           </div>
         </div>
         <div className="pdf-placeholder">
-          <EmptyIllustration kind="preview" />
-          <p>{t`Build the project to preview the paper`}</p>
+          <EmptyState icon={<EmptyIllustration kind="preview" />} description={t`Build the project to preview the paper`} />
         </div>
       </div>
     );
@@ -498,7 +504,7 @@ export function PdfPreview({
   const otherFit = shownFit === "width" ? fitHeight : fitWidth;
   const pageCount = numPages ?? "–";
   const { query, matches } = search;
-  const revealLabel = t`Reveal cursor in PDF (⌘⇧J)`;
+  const revealLabel = t`Reveal cursor in PDF`;
   // What the menu shows for a fold, read only while folded: zooming leaves a
   // fit and each edit makes a new SyncTeX callback, and an unfolded menu must
   // not re-render for either.
@@ -612,7 +618,7 @@ export function PdfPreview({
             <i className="pdf-fit-divider pdf-overflow" aria-hidden="true" />
             {onForwardSync && (
               <>
-                <ToolbarButton label={revealLabel} className="pdf-search-fold"
+                <ToolbarButton label={revealLabel} shortcut={comboText({ mod: true, ...REVEAL_IN_PDF_KEY })} className="pdf-search-fold"
                   icon={locatingPdf ? <InfinityLoader size={14} /> : <LocateFixed size={14} />}
                   disabled={!canForwardSync || locatingPdf} onMouseDown={keepFocus} onClick={onForwardSync} />
                 <i className="pdf-fit-divider pdf-search-fold" aria-hidden="true" />
@@ -665,11 +671,15 @@ export function PdfPreview({
         {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
         {pdfError && !hasActiveViewer
           ? (
-            <div className="pdf-placeholder">
-              <CircleAlert size={24} />
-              <p>{pdfError}</p>
-              {pdfErrorDetail ? <p>{t`Try building the project again.`}</p> : null}
-              {pdfErrorDetail ? <small className="pdf-placeholder-detail">{pdfErrorDetail}</small> : null}
+            // A load failure names itself and quotes PDF.js; a timeout is its own advice.
+            <div className="pdf-placeholder" role="alert">
+              <EmptyState
+                className="pdf-load-error"
+                icon={<CircleAlert size={20} />}
+                title={pdfErrorDetail ? pdfError : undefined}
+                description={pdfErrorDetail ? loadErrorHint : pdfError}
+                actions={pdfErrorDetail ? <small className="pdf-placeholder-detail">{pdfErrorDetail}</small> : null}
+              />
             </div>
           )
           : null}

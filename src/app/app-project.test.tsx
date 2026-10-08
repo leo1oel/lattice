@@ -1268,7 +1268,7 @@ describe("project tree and projects", () => {
       synctex_view: () => new Promise((resolve) => syncResolvers.push(resolve)),
     });
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();
-    fireEvent.click(await screen.findByTitle("Show outline"));
+    fireEvent.click(await screen.findByRole("button", { name: "Show document outline" }));
     expect(await screen.findByLabelText("Document outline")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Background/i })).toBeInTheDocument();
     expect(screen.queryByText("sections/introduction.tex")).not.toBeInTheDocument();
@@ -1291,7 +1291,7 @@ describe("project tree and projects", () => {
     await act(async () => { await Promise.resolve(); });
     expect(randomUUID).toHaveBeenCalledTimes(idsBeforeStaleResponse);
 
-    fireEvent.click(await screen.findByTitle("Show outline"));
+    fireEvent.click(await screen.findByRole("button", { name: "Show document outline" }));
     fireEvent.click(await screen.findByRole("button", { name: /Results/i }));
     await waitFor(() => expect(syncResolvers).toHaveLength(2));
     await waitFor(() => expect(caretLine()).toBe(5));

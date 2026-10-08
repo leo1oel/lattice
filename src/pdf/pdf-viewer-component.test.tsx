@@ -453,10 +453,11 @@ describe("PDFSlick viewer integration", () => {
     clearAppLogs();
     await activateAppLocale("zh-CN");
     pdf.state.loadError = new Error("Invalid PDF structure.");
-    const view = renderPdf();
+    const view = renderPdf({ loadErrorHint: "请尝试重新构建项目" });
 
-    expect(await view.findByText("PDF 无法加载")).toBeInTheDocument();
-    expect(view.getByText("请尝试重新构建项目。")).toBeInTheDocument();
+    await waitFor(() => expect(view.getByRole("alert")).toHaveTextContent("PDF 无法加载"));
+    // The caller's advice (the compiled preview's is to build again) follows the title.
+    expect(view.getByText("请尝试重新构建项目")).toBeInTheDocument();
     expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("Invalid PDF structure.");
     expect(view.queryByText(/^Invalid PDF structure/, { selector: "p" })).toBeNull();
     expect(formatAppLogs()).toContain("[PDF] PDF 无法加载\nInvalid PDF structure.");
@@ -905,7 +906,7 @@ describe("PDFSlick viewer integration", () => {
       await waitFor(() => expect(observed.get(frame)?.size).toBe(1));
       act(() => observed.get(frame)?.forEach((notify) => notify()));
       expect(toolbar).toHaveAttribute("data-search-fold", "1");
-      for (const name of ["Reveal cursor in PDF (⌘⇧J)", "Fit page to width"]) {
+      for (const name of ["Reveal cursor in PDF", "Fit page to width"]) {
         expect(view.getByRole("button", { name })).toHaveClass("pdf-search-fold");
       }
 
@@ -913,7 +914,7 @@ describe("PDFSlick viewer integration", () => {
       const menu = await view.findByRole("menu");
       expect(within(menu).getByRole("menuitemcheckbox", { name: "Fit page to width" })).toHaveAttribute("aria-checked", "true");
       expect(within(menu).getByRole("menuitemcheckbox", { name: "Fit page to height" })).toHaveAttribute("aria-checked", "false");
-      fireEvent.click(within(menu).getByRole("menuitem", { name: "Reveal cursor in PDF (⌘⇧J)" }));
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Reveal cursor in PDF" }));
       expect(onForwardSync).toHaveBeenCalledOnce();
       await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
 

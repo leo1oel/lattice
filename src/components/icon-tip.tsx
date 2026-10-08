@@ -8,6 +8,8 @@ function hasTextChild(node: ReactNode): boolean {
 
 type TipProps = {
   label: ReactNode;
+  /** The action's key combination as `comboText` writes it, drawn quietly after the label. */
+  shortcut?: string;
   side?: "top" | "bottom" | "left" | "right";
   children: ReactElement;
 };
@@ -23,12 +25,12 @@ type TipProps = {
  *
  * Pass a falsy `label` to render the child untouched.
  */
-export function Tip({ label, side = "bottom", children }: TipProps) {
+export function Tip({ label, shortcut, side = "bottom", children }: TipProps) {
   if (!label) return children;
-  return <LabeledTip label={label} side={side}>{children}</LabeledTip>;
+  return <LabeledTip label={label} shortcut={shortcut} side={side}>{children}</LabeledTip>;
 }
 
-function LabeledTip({ label, side, children }: TipProps) {
+function LabeledTip({ label, shortcut, side, children }: TipProps) {
   // A menu or popover trigger reports its open popup through aria-expanded.
   // The tooltip sits on a higher layer than menus, so it stays shut while the
   // popup is open — hovering back onto the trigger would otherwise lay it over
@@ -67,6 +69,7 @@ function LabeledTip({ label, side, children }: TipProps) {
         <TooltipTrigger ref={triggerRef} asChild>{trigger}</TooltipTrigger>
         <TooltipContent side={side} sideOffset={6} className="font-medium">
           {label}
+          {shortcut && <span className="ui-tooltip-shortcut">{shortcut}</span>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

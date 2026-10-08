@@ -193,7 +193,7 @@ describe("design token contract", () => {
 
   it("draws keyboard focus exactly once", () => {
     const globalRing =
-      /:where\(button:not\(\.project-title\):not\(\.overleaf-toolbar-menu-button\), a, select, \[role="button"\], \[tabindex\]:not\(\.ProseMirror\):not\(\[tabindex="-1"\]\):not\(\[role="menuitem"\]\)\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
+      /:where\(button:not\(\.project-title\):not\(\.overleaf-toolbar-menu-button\), a, select, summary, \[role="button"\], \[tabindex\]:not\(\.ProseMirror\):not\(\[tabindex="-1"\]\):not\(\[role="menuitem"\]\)\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
     expect(appCss).toMatch(globalRing)
     expect(appCss).not.toMatch(/\[tabindex\]\):focus-visible/)
     expect(appCss).toMatch(/\.project-title:hover, \.project-title:focus-visible, \.project-title\[aria-expanded="true"\] \{ background: var\(--chrome-hover-surface\); \}/)

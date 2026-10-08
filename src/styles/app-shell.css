@@ -49,10 +49,10 @@ input[type="search"]:focus-visible {
  * row or modal context. Text entry is excluded because a field already answers
  * with its own border treatment (see the
  * `--field-control-*` contract), and doubling the two reads as an error state. */
-:where(button, a, input, textarea, select, [role="button"], [tabindex]):focus {
+:where(button, a, input, textarea, select, summary, [role="button"], [tabindex]):focus {
   outline: none;
 }
-:where(button:not(.project-title):not(.overleaf-toolbar-menu-button), a, select, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
+:where(button:not(.project-title):not(.overleaf-toolbar-menu-button), a, select, summary, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -454,17 +454,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   display: grid;
   gap: var(--space-1);
 }
+/* Set as EmptyState sets its title and description, so a starting or failed
+   Agent reads like every other empty panel. */
 .synara-loading-copy strong {
   color: var(--text-primary);
   font-size: var(--type-body-compact-size);
-  font-weight: 600;
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--weight-semibold);
 }
 .synara-loading-copy > span {
-  overflow: hidden;
   color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
-  line-height: 1.35;
-  text-overflow: ellipsis;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 /* Side by side when they fit; stacked at one shared width when they don't. */
 .synara-failure-actions {
@@ -479,14 +480,16 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .synara-failure-note {
   margin: calc(var(--space-3) * -1) 0 0;
   color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 /* The exact runtime message, folded: a writer who needs it is one keypress
    away, and everyone else sees a calm headline instead of a log excerpt. */
 .synara-failure-details {
   width: min(100%, 320px);
   color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 .synara-failure-details > summary {
   width: max-content;
@@ -498,6 +501,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   gap: var(--gap-tight);
   list-style: none;
   cursor: pointer;
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .synara-failure-details > summary::-webkit-details-marker { display: none; }
 .synara-failure-details > summary:hover { color: var(--text-secondary); background: var(--tone-hover-surface); }

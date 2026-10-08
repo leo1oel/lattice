@@ -647,6 +647,15 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   .ui-tooltip-content { pointer-events: none; }
 }
 
+/* A tooltip's shortcut (Tip's `shortcut`) is text, as in a menu: quieter
+   than the label it follows, and never wrapped away from it. */
+.ui-tooltip-shortcut {
+  margin-left: var(--space-4);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
+}
+
 /* A key combination as keycaps (keycaps.tsx): one cap per key, quiet enough
    to sit beside a label or inside a ghost button. */
 .ui-keycaps {

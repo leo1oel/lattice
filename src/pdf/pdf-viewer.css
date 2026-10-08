@@ -9,8 +9,9 @@
    restyled each page box of the PDF (82 fps against 123 with this frame). */
 .pdf-toolbar-frame { flex: none; container: pdf-toolbar / inline-size; }
 .pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
-.pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
+.pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; transition: color var(--motion-fast), background-color var(--motion-fast); }
 .pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); }
+.pdf-toolbar button:active:not(:disabled) { background: var(--control-pressed-surface); }
 .pdf-find-controls { min-width: 0; grid-column: 2; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: var(--space-2); }
 /* `outline` can be a React component that ultimately renders null. Base the
    extra track on the actual button in the DOM, not the truthiness of that
@@ -35,7 +36,6 @@
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; background: var(--border-strong); }
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
 .pdf-search { min-width: 0; padding-right: var(--space-2); }
-.pdf-search.disabled { opacity: .52; }
 /* A stand-in for the match controls stays mounted while the field is empty so the panel's
    minimum width can reserve their room before the first keystroke. */
 .pdf-search-idle .ui-search-field-trailing { display: none; }
@@ -44,7 +44,9 @@
 .pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .pdf-viewer-host { position: absolute; inset: 0; overflow: hidden; }
-.pdf-notice { position: absolute; top: var(--space-4); left: 50%; transform: translateX(-50%); z-index: 10; max-width: calc(100% - var(--space-8)); margin: 0; padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); color: var(--text-secondary); font-size: var(--type-micro-size); }
+/* The notice and the loading status are one kind of thing, a short status
+   over the pages: the same popover plate, at the same size. */
+.pdf-notice { position: absolute; top: var(--space-4); left: 50%; transform: translateX(-50%); z-index: 10; max-width: calc(100% - var(--space-8)); margin: 0; padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 /* The breathing room around the pages is a transparent border, not padding, and
    that is load-bearing. PDF.js derives its `page-width` / `page-fit` scale from
    `container.clientWidth`, which includes padding but excludes a border, and
@@ -102,8 +104,13 @@
 .pdf-text-layer .highlight.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
 .pdf-text-layer .pdf-source-quote-highlight { background: var(--highlight-match-current-surface); color: transparent; outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; }
 .pdf-zoom-controls button { position: relative; }
-.pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s ease-out forwards; }
-.pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
+/* A forward-SyncTeX mark holds while the eye finds it, then leaves on the
+   slow exit: 1.6s in all, the editor's reveal flash for a jump the other way.
+   The hold is a delay, not a duration, so reduced motion (whose clamp
+   shortens durations only) keeps the mark for the same moment and drops only
+   the fade. */
+.pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight-out var(--motion-slow-exit) 1.44s forwards; }
+.pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: var(--control-height-compact); max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); z-index: 10; }
 /* The first load's page-shaped skeleton (pdf-loading.tsx), centered behind the
    status. It is a raised card in each theme rather than paper-colored: a bright
    page that is not the paper yet would glare in the dark theme. A sheen crosses
@@ -166,6 +173,6 @@
    hands off to the toolbar's own field for typing. */
 .pdf-overflow-zoom { display: flex; align-items: center; gap: var(--gap-hairline); padding: var(--gap-hairline) 0 var(--gap-hairline) var(--space-5); }
 .pdf-overflow-zoom-label { flex: 1; color: var(--text-secondary); font-size: var(--type-body-size); }
-.pdf-overflow-zoom [data-slot="dropdown-menu-item"] { justify-content: center; min-width: var(--space-16); height: 28px; padding: 0 var(--space-3); }
+.pdf-overflow-zoom [data-slot="dropdown-menu-item"] { justify-content: center; min-width: var(--space-16); height: var(--control-height-compact); padding: 0 var(--space-3); }
 .pdf-overflow-zoom .pdf-overflow-zoom-value { min-width: 52px; font-variant-numeric: tabular-nums; }
-@keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes synctex-highlight-out { to { opacity: 0; } }
