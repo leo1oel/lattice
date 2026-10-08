@@ -31,7 +31,7 @@ function DropdownMenuContent({
           floatingSurfaceClassName,
           menuViewportClassName,
           "fluid-hover-surface",
-          "max-h-(--radix-dropdown-menu-content-available-height) min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin)",
+          "max-h-(--radix-dropdown-menu-content-available-height) max-w-[min(var(--menu-max-width),var(--radix-dropdown-menu-content-available-width))] min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin)",
           popupMotionClassName,
           className
         )}

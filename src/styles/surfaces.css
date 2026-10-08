@@ -53,6 +53,39 @@
   box-shadow: var(--elevation-popover);
 }
 
+/*
+ * Long content. File names, paths, paper titles, citation keys, URLs and
+ * error text are often one unbroken run wider than the surface showing it, so
+ * every surface that holds user content breaks such a run at its edge instead
+ * of letting it escape the card or widen it.
+ *
+ * `break-word` rather than `anywhere`: it breaks only a run that would
+ * overflow its line and leaves min-content sizes alone, so the surface's own
+ * labels lay out exactly as before ("Acknowledgements" in Settings' sidebar
+ * would otherwise split once its column is squeezed). A flex or grid child
+ * that holds user content therefore needs `min-width: 0` (or `wrap-anywhere`)
+ * to shrink to its track, as InlineMessage's copy has. A label kept to one
+ * line opts out with `truncate` and names itself in full in a tooltip or
+ * `title`. Radix menus, selects, popovers and tooltips size to their content
+ * up to a cap, so they wrap anywhere instead (menu-surface.ts, tooltip.tsx).
+ */
+.modal-dialog-content,
+.welcome-recents,
+.root-error-card,
+.compile-diagnostics,
+.app-toast,
+.resizable-drawer,
+.editor-comment-popover,
+.source-editor .cm-tooltip,
+.file-tree-context-menu,
+.venue-menu,
+.texlab-hover-card,
+.citation-hover-card,
+.reference-hover-card,
+.proofread-card {
+  overflow-wrap: break-word;
+}
+
 /* Raised: a plate resting on its surface, such as the welcome dialog's mark. */
 .brand-mark {
   background: var(--surface-elevated);

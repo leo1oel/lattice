@@ -227,10 +227,10 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .welcome-more-action:hover { background: var(--border-subtle); color: var(--text-primary); }
 /* The projects to go back to, and why the last one did not open. A quiet
    list under the actions: a name to read, its folder after it. */
-.welcome-recents { width: min(360px, 100%); margin-top: var(--space-16); display: grid; gap: var(--space-3); text-align: start; }
+.welcome-recents { width: min(360px, 100%); margin-top: var(--space-16); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); text-align: start; }
 .welcome-unopened { margin-bottom: var(--space-4); padding-inline: var(--space-4); }
 .welcome-recents-title { margin: 0; padding-inline: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
-.welcome-recent-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+.welcome-recent-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
 .welcome-recent {
   width: 100%;
   min-height: var(--row-height-compact);
@@ -298,7 +298,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* The anatomy every small dialog shares: an optional mark, a title, one line
    of copy, the fields, and the action row. Fields stand 12px apart; a title
    followed straight by a field keeps the copy's distance from it. */
-.modal { width: 390px; border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
+.modal { width: min(390px, calc(100vw - 40px)); border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
@@ -321,7 +321,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .modal > :is(label, .venue-picker) + :is(label, .venue-picker) { margin-top: var(--space-6); }
 .modal .field-error { margin: var(--space-3) 0 0; color: var(--status-danger); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .modal .field-error + .modal-actions { margin-top: var(--space-8); }
-.rename-modal { width: 420px; }
+.rename-modal { width: min(420px, calc(100vw - 40px)); }
 /* Forms and tools that used to slide in from the right edge, now centered
    dialogs (sheet-dialog.tsx). They share Settings' size (--dialog-large-*) and
    keep the drawers' inset and title row; the title row and the action row stay

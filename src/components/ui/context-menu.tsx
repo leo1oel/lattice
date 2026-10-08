@@ -25,7 +25,7 @@ function ContextMenuContent({
           floatingSurfaceClassName,
           menuViewportClassName,
           "fluid-hover-surface",
-          "max-h-(--radix-context-menu-content-available-height) min-w-[9rem] origin-(--radix-context-menu-content-transform-origin)",
+          "max-h-(--radix-context-menu-content-available-height) max-w-[min(var(--menu-max-width),var(--radix-context-menu-content-available-width))] min-w-[9rem] origin-(--radix-context-menu-content-transform-origin)",
           popupMotionClassName,
           className
         )}

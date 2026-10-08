@@ -331,6 +331,9 @@
      compact width. A window smaller than the dialog keeps a margin around it. */
   --dialog-large-width: min(860px, calc(100vw - 40px));
   --dialog-large-height: min(640px, calc(100dvh - 40px));
+  /* The widest a menu or tooltip grows for a long name (a workspace, project
+     or file) before wrapping or truncating it (menu-surface.ts, tooltip.tsx). */
+  --menu-max-width: 22rem;
   /* Settings layout contract. A settings page is an unframed column: page
      heading, then groups whose own heading carries the only rule, then rows of
      copy on the left and one control on the right.
