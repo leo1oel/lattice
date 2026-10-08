@@ -1444,6 +1444,7 @@ export function DocumentCanvas(props: {
             canForwardSync={props.canForwardSync}
             locatingPdf={props.locatingPdf}
             onForwardSync={props.onForwardSync}
+            loadErrorHint={t`Try building the project again`}
             // Under Trellis a reverse jump always has a file panel to land in.
             onSource={props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}

@@ -57,7 +57,7 @@ export function DocumentOutline(props: {
     <Popover open={props.open} onOpenChange={(open) => props.onOpenChange(open)}>
       <Tip label={t`Show outline`}>
         <PopoverTrigger asChild>
-          <button type="button" className="pdf-outline-trigger" aria-label={t`Show document outline`} title={t`Show outline`}>
+          <button type="button" className="pdf-outline-trigger" aria-label={t`Show document outline`}>
             <ListTree size={14} />
           </button>
         </PopoverTrigger>

@@ -7716,12 +7716,9 @@ msgid "Return to {writingName}"
 msgstr "Return to {writingName}"
 
 #: src/app/use-trellis-bridge.ts
+#: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF"
 msgstr "Reveal cursor in PDF"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Reveal cursor in PDF (⌘⇧J)"
-msgstr "Reveal cursor in PDF (⌘⇧J)"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Reverse turnstile"
@@ -9452,9 +9449,9 @@ msgstr "Try a shorter phrase or different terms"
 msgid "Try again"
 msgstr "Try again"
 
-#: src/pdf/pdf-viewer.tsx
-msgid "Try building the project again."
-msgstr "Try building the project again."
+#: src/canvas/document-canvas.tsx
+msgid "Try building the project again"
+msgstr "Try building the project again"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx

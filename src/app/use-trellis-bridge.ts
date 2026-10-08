@@ -8,6 +8,8 @@ import type { MenuEntry } from "@danfessler/trellis";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
+import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
+import { comboText } from "./key-combos";
 import { setNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
 import { documentKind, paperDocumentPath, readPaperDocuments, type OpenDocuments } from "./use-open-documents";
@@ -139,7 +141,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         if (kind === "agent") return [{ id: "agent-settings", label: t`Agent settings…`, run: () => openSettings("agent") }];
         return [
           { id: "build", label: t`Build project`, shortcut: "⌘S", run: () => void compileAndShowPdf(false, true) },
-          { id: "reveal", label: t`Reveal cursor in PDF`, shortcut: "⌘⇧J", run: () => void revealSourceInPdf() },
+          { id: "reveal", label: t`Reveal cursor in PDF`, shortcut: comboText({ mod: true, ...REVEAL_IN_PDF_KEY }), run: () => void revealSourceInPdf() },
         ];
       },
       quickOpen: () => setSearchDialog("quick-open"),

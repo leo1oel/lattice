@@ -35,6 +35,13 @@ it("describes its trigger on hover", async () => {
   expect(await view.findByRole("tooltip")).toHaveTextContent("Zoom in");
 });
 
+it("follows its label with the trigger's shortcut, which the accessible name leaves out", async () => {
+  const view = render(<Tip label="Reveal cursor in PDF" shortcut="⌘⇧J"><button type="button" /></Tip>);
+  const trigger = view.getByRole("button", { name: "Reveal cursor in PDF" });
+  hover(trigger);
+  expect(await view.findByRole("tooltip")).toHaveTextContent("Reveal cursor in PDF⌘⇧J");
+});
+
 it("stays shut over its trigger's open menu, and closes when the menu opens under it", async () => {
   const onOpenChange = (open: boolean) => view.rerender(<MenuWithTip open={open} onOpenChange={onOpenChange} />);
   const view = render(<MenuWithTip open={false} onOpenChange={onOpenChange} />);
