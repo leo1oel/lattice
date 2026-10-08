@@ -17,6 +17,7 @@ import {
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
+import { configureToastPosition } from "./telemetry/toast-position";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
@@ -505,9 +506,12 @@ function App() {
   const projectGit = useProjectTreeWatch(projectState, true);
   const { setGitStatus } = projectGit;
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
+  // How notifications sound and where they stand. One effect for both: each
+  // hook App runs at startup is on the startup render budget.
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
-  }, [appearance.interfaceSounds]);
+    configureToastPosition(appearance.toastPosition);
+  }, [appearance.interfaceSounds, appearance.toastPosition]);
   useWindowMinimumSize(appearance.interfaceScale, trellis.layoutMinWidth);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);

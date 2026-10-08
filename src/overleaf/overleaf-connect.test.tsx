@@ -4,7 +4,7 @@ import { confirm } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
-import { AppToastStack } from "../telemetry/app-log";
+import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import type { OverleafLink, OverleafProject, OverleafStatus } from "../app-types";
 import { invokeCalls, mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
@@ -382,12 +382,12 @@ describe("Overleaf picker dialog", () => {
 
   it("still reports a real failure and keeps the dialog open", async () => {
     mockConnectedPicker({ overleaf_clone_project: () => { throw new Error("Could not reach Overleaf."); } });
-    render(<AppToastStack />);
+    render(<ToastStack />);
     const { onClose, onBeforeClone, onCloneCancelled } = renderPicker();
     await openFirstProject();
     // The modal repeats transfer errors inline so its focus trap does not
     // hide the failure from assistive technology.
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Could not reach Overleaf/));
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent(/Could not reach Overleaf/));
     expect(onBeforeClone).toHaveBeenCalledOnce();
     expect(onCloneCancelled).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();

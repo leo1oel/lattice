@@ -1,8 +1,8 @@
 /**
  * The single entry point for anything the user is told.
  *
- * Every notification in Lattice renders as one surface — the top-right toast
- * stack in `app-log.tsx` — and every notification is recorded, because the only
+ * Every notification in Lattice renders as one surface — the toast stack in
+ * `toast-stack.tsx` — and every notification is recorded, because the only
  * way to raise one is to go through here, and here always writes to the app log
  * (in-app list + rotating `lattice.log` on disk). Notifications that appeared
  * without a log line were the reason support reports could not be traced.
@@ -21,6 +21,7 @@ import {
   type AppLogContext,
   type AppLogLevel,
   type AppToastAction,
+  type AppToastProgress,
 } from "./app-log-store";
 import { msg } from "@lingui/core/macro";
 import { toMessage } from "../app-utils";
@@ -30,8 +31,14 @@ export type NotifyOptions = {
   detail?: string;
   /** Text the toast's Copy button puts on the clipboard. Errors get one for free. */
   copyText?: string;
-  /** 0 keeps the toast until it is dismissed. Defaults by level in `AppToast`. */
+  /** 0 keeps the toast until it is dismissed. Defaults by level in `toast-stack.tsx`. */
   timeoutMs?: number;
+  /**
+   * A running operation: a fraction from 0 to 1, or `"indeterminate"`. The
+   * toast has no clock until a later notification under the same `dedupeKey`
+   * settles it; move it in between with `updateAppToastProgress`.
+   */
+  progress?: AppToastProgress;
   primaryAction?: AppToastAction;
   secondaryAction?: AppToastAction;
   onDismiss?: () => void;
@@ -71,6 +78,9 @@ function notify(level: AppLogLevel, source: string, title: string, options: Acti
   const { toast, dedupeKey = toastKey(source, title), detail: _detail, ...toastOptions } = { ...options, copyText };
   return addAppLog({ level, source, title, detail, context, toast, dedupeKey, toastOptions }).id;
 }
+
+/** Move a running toast's bar between the notifications that start and settle it. */
+export { updateAppToastProgress } from "./app-log-store";
 
 const notifier = (level: AppLogLevel) => (source: string, title: string, options?: NotifyOptions) =>
   notify(level, source, title, options);

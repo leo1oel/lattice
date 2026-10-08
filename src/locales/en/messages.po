@@ -787,10 +787,6 @@ msgstr "All your projects are archived or trashed"
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
-#: src/telemetry/app-updater.tsx
-msgid "Almost done"
-msgstr "Almost done"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "Alpha"
@@ -1247,6 +1243,16 @@ msgstr "Both sides edited different parts, so the two sets of edits join"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bottom / false"
 msgstr "Bottom / false"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Bottom center"
+msgstr "Bottom center"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Bottom right"
+msgstr "Bottom right"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Bottom table rule"
@@ -2150,7 +2156,7 @@ msgid "Copied"
 msgstr "Copied"
 
 #: src/components/copy-button.tsx
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Copy"
 msgstr "Copy"
 
@@ -2195,7 +2201,7 @@ msgstr "Copy JSON"
 msgid "Copy log"
 msgstr "Copy log"
 
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Copy notification command"
 msgstr "Copy notification command"
 
@@ -2706,7 +2712,6 @@ msgid "Discover literature"
 msgstr "Discover literature"
 
 #: src/canvas/proofread-card.tsx
-#: src/telemetry/app-updater.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -2714,7 +2719,7 @@ msgstr "Dismiss"
 msgid "Dismiss diagnostics"
 msgstr "Dismiss diagnostics"
 
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Dismiss notification"
 msgstr "Dismiss notification"
 
@@ -5850,6 +5855,15 @@ msgid "Nothing to show"
 msgstr "Nothing to show"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Notification position"
+msgstr "Notification position"
+
+#: src/telemetry/toast-stack.tsx
+msgid "Notifications"
+msgstr "Notifications"
+
+#: src/settings/settings-dialog.tsx
 msgid "Notify me (manual)"
 msgstr "Notify me (manual)"
 
@@ -6648,10 +6662,6 @@ msgstr "Plain text"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
-
-#: src/telemetry/app-updater.tsx
-msgid "Please try again later"
-msgstr "Please try again later"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
@@ -9403,6 +9413,11 @@ msgstr "to"
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
 
+#. Search words for the Notification position setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "toast notification"
+msgstr "toast notification"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Today"
 msgstr "Today"
@@ -9432,6 +9447,16 @@ msgstr "Tools"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Top / true"
 msgstr "Top / true"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Top center"
+msgstr "Top center"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Top right"
+msgstr "Top right"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Top table rule"
@@ -9701,10 +9726,6 @@ msgid "Update comment…"
 msgstr "Update comment…"
 
 #: src/telemetry/app-updater.tsx
-msgid "Update failed"
-msgstr "Update failed"
-
-#: src/telemetry/app-updater.tsx
 msgid "Update now"
 msgstr "Update now"
 
@@ -9845,6 +9866,10 @@ msgstr "Version"
 msgid "Version {0} is ready to install"
 msgstr "Version {0} is ready to install"
 
+#: src/telemetry/app-updater.tsx
+msgid "Version {version}"
+msgstr "Version {version}"
+
 #: src/history/versions-timeline.tsx
 msgid "Version history is unavailable: {error}"
 msgstr "Version history is unavailable: {error}"
@@ -9976,8 +10001,8 @@ msgstr "Welcome to Lattice"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "When a build or Overleaf setup finishes"
-msgstr "When a build or Overleaf setup finishes"
+msgid "When a build or a task in progress finishes"
+msgstr "When a build or a task in progress finishes"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts

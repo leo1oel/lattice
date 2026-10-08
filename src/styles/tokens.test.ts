@@ -112,6 +112,8 @@ const EXTERNAL_PREFIXES = [
   "--scroll-area-thumb-",
   // Shiki dual themes write the dark-variant tokens as inline styles on spans.
   "--shiki-",
+  // Base UI's Toast writes each card's index, heights, offset and swipe inline.
+  "--toast-",
 ]
 
 describe("design token contract", () => {

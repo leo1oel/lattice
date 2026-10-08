@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppToastStack } from "../telemetry/app-log";
+import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import { mountSynaraFrames, postFromFrame, postUntrusted, SYNARA_TEST_ORIGIN } from "./synara-frame-test-utils";
 import {
@@ -27,7 +27,8 @@ function mountBridge() {
     origin: SYNARA_TEST_ORIGIN,
     source: "Synara settings",
   }));
-  return { ...frames, unmount: hook.unmount, toasts: render(<AppToastStack />).container };
+  render(<ToastStack />);
+  return { ...frames, unmount: hook.unmount };
 }
 
 describe("Synara notification messages", () => {
@@ -50,28 +51,40 @@ describe("Synara notification messages", () => {
 
   it("shows only trusted iframe messages in the app toast stack and returns dismissals", async () => {
     const frames = mountBridge();
-    const { frameWindow, toasts, unmount } = frames;
+    const { frameWindow, unmount } = frames;
     const postMessage = vi.spyOn(frameWindow, "postMessage");
     // The same payload from the wrong source or origin is ignored.
     postUntrusted(frames, { ...piUpdateFailure, id: "untrusted", title: "Should not render", detail: "", timeoutMs: 0 });
     expect(screen.queryByText("Should not render")).toBeNull();
 
     postFromFrame(frameWindow, piUpdateFailure);
-    expect(toasts.querySelector(".app-toast-stack")).toHaveTextContent("Could not update Pi");
+    const toast = document.querySelector<HTMLElement>("[data-app-toast]")!;
+    expect(toast).toHaveTextContent("Could not update Pi");
+    // An urgent toast is announced through Base UI's alert region.
     expect(screen.getByRole("alert")).toHaveTextContent("NotFound: ChildProcess.spawn (pi update)");
 
     postFromFrame(frameWindow, { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id: "pi-update" });
-    expect(screen.getByText("Could not update Pi")).toBeInTheDocument();
+    expect(toast).toBeInTheDocument();
 
-    const toast = screen.getByRole("alert");
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification", hidden: true }));
     expect(postMessage).toHaveBeenCalledWith(
       { type: "lattice:embedded-notification-action", id: "pi-update", action: "dismiss" },
       SYNARA_TEST_ORIGIN,
     );
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(toast).toHaveAttribute("inert");
-    await waitFor(() => expect(screen.queryByText("Could not update Pi")).toBeNull());
+    await waitFor(() => expect(toast).not.toBeInTheDocument());
+    expect(screen.queryByText("Could not update Pi")).toBeNull();
+    unmount();
+  });
+
+  it("draws a loading notification as running work and follows Synara closing it", async () => {
+    const { frameWindow, unmount } = mountBridge();
+    postFromFrame(frameWindow, { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "upsert", id: "pi-loading", level: "loading", title: "Installing Pi…", detail: "", timeoutMs: 5000 });
+
+    const loading = [...document.querySelectorAll<HTMLElement>("[data-app-toast]")].find((element) => element.textContent?.includes("Installing Pi…"))!;
+    expect(loading.querySelector("[role=progressbar]")).not.toHaveAttribute("aria-valuenow");
+    // Unlike a finite notification, a running one goes when Synara says it is done.
+    postFromFrame(frameWindow, { type: SYNARA_EMBEDDED_NOTIFICATION, operation: "dismiss", id: "pi-loading" });
+    await waitFor(() => expect(screen.queryByText("Installing Pi…")).toBeNull());
     unmount();
   });
 });

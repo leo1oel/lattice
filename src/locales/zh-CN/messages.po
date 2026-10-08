@@ -784,10 +784,6 @@ msgstr "项目都已归档或删除"
 msgid "Allow external commands"
 msgstr "外部程序"
 
-#: src/telemetry/app-updater.tsx
-msgid "Almost done"
-msgstr "快好了"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "阿尔法"
@@ -1244,6 +1240,16 @@ msgstr "两边改的地方不同，会自动合在一起"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bottom / false"
 msgstr "底元 / 假"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Bottom center"
+msgstr "底部居中"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Bottom right"
+msgstr "右下角"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Bottom table rule"
@@ -2147,7 +2153,7 @@ msgid "Copied"
 msgstr "已复制"
 
 #: src/components/copy-button.tsx
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Copy"
 msgstr "复制"
 
@@ -2192,7 +2198,7 @@ msgstr "复制 JSON"
 msgid "Copy log"
 msgstr "复制日志"
 
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Copy notification command"
 msgstr "复制命令"
 
@@ -2703,7 +2709,6 @@ msgid "Discover literature"
 msgstr "找文献"
 
 #: src/canvas/proofread-card.tsx
-#: src/telemetry/app-updater.tsx
 msgid "Dismiss"
 msgstr "关闭"
 
@@ -2711,7 +2716,7 @@ msgstr "关闭"
 msgid "Dismiss diagnostics"
 msgstr "关闭"
 
-#: src/telemetry/app-log.tsx
+#: src/telemetry/toast-stack.tsx
 msgid "Dismiss notification"
 msgstr "关闭通知"
 
@@ -5847,6 +5852,15 @@ msgid "Nothing to show"
 msgstr "没有内容"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Notification position"
+msgstr "通知位置"
+
+#: src/telemetry/toast-stack.tsx
+msgid "Notifications"
+msgstr "通知"
+
+#: src/settings/settings-dialog.tsx
 msgid "Notify me (manual)"
 msgstr "提醒我（手动装）"
 
@@ -6645,10 +6659,6 @@ msgstr "纯文本"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Please confirm that you want to continue."
 msgstr "请确认要继续"
-
-#: src/telemetry/app-updater.tsx
-msgid "Please try again later"
-msgstr "请稍后再试"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
@@ -9396,6 +9406,11 @@ msgstr "至"
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
 
+#. Search words for the Notification position setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "toast notification"
+msgstr "通知 提示 toast"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Today"
 msgstr "今天"
@@ -9425,6 +9440,16 @@ msgstr "工具"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Top / true"
 msgstr "顶元 / 真"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Top center"
+msgstr "顶部居中"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Top right"
+msgstr "右上角"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Top table rule"
@@ -9694,10 +9719,6 @@ msgid "Update comment…"
 msgstr "修改批注…"
 
 #: src/telemetry/app-updater.tsx
-msgid "Update failed"
-msgstr "更新失败"
-
-#: src/telemetry/app-updater.tsx
 msgid "Update now"
 msgstr "立即更新"
 
@@ -9836,6 +9857,10 @@ msgstr "版本"
 msgid "Version {0} is ready to install"
 msgstr "新版本 {0} 可安装"
 
+#: src/telemetry/app-updater.tsx
+msgid "Version {version}"
+msgstr "版本 {version}"
+
 #: src/history/versions-timeline.tsx
 msgid "Version history is unavailable: {error}"
 msgstr "版本记录不可用：{error}"
@@ -9967,8 +9992,8 @@ msgstr "欢迎使用 Lattice"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "When a build or Overleaf setup finishes"
-msgstr "编译或 Overleaf 设置完成时"
+msgid "When a build or a task in progress finishes"
+msgstr "编译或进行中的任务完成时"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts

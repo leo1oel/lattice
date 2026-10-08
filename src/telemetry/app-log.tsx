@@ -1,38 +1,27 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
-import { spring, springExit } from "../components/ui/motion-values";
 import { invoke } from "@tauri-apps/api/core";
-import { CheckCircle2, ChevronRight, CircleAlert, Download, FolderOpen, Info } from "lucide-react";
+import { ChevronRight, Download, FolderOpen } from "lucide-react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { CloseButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
 import { Button } from "../components/ui/button";
-import { buttonClassName } from "../components/ui/button-styles";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup } from "../components/ui/settings-row";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
 import { SettingsSelect } from "../settings/settings-controls";
-import { CopyButton } from "../components/copy-button";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { createAppLogExport } from "./app-log-export";
 import {
   clearAppLogs,
-  dismissAppToast,
   formatAppLogs,
   useAppLogSnapshot,
-  useAppToastsSnapshot,
+  visibleToastDetail,
   type AppLogEntry,
   type AppLogLevel,
-  type AppToastOptions,
 } from "./app-log-store";
 
-// One silhouette for every level: a warning triangle among three circles was
-// the only thing breaking the stack's rhythm, and severity already reads from
-// the status colour. Warning and error share the glyph on purpose.
-const LOG_ICON = { info: Info, success: CheckCircle2, warning: CircleAlert, error: CircleAlert };
 /** The terse level column; the full name is its tooltip. */
 const LOG_LEVEL = { info: msg`INFO`, success: msg`OK`, warning: msg`WARN`, error: msg`ERROR` };
 const LOG_LEVELS = ["info", "success", "warning", "error"] as const;
@@ -53,11 +42,6 @@ function useStatusLabel() {
   const { t } = useLingui();
   return (status: string, fallback = t`Unknown`) =>
     Object.hasOwn(STATUS_LABELS, status) ? t(STATUS_LABELS[status as LogStatus]) : fallback;
-}
-
-/** Correlation ids belong in the app log, not in user-facing notification copy. */
-function visibleToastDetail(detail: string): string {
-  return detail.replace(/(?:^|\n)#[0-9a-f]{6}$/i, "").trim();
 }
 
 /** The one-line head shared by a single entry and a whole operation. */
@@ -206,93 +190,6 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
         </div>
       </div>
     </ModalDialog>
-  );
-}
-
-// Options arrive as a prop rather than being read from the store during render:
-// an in-place update (`updateAppLog`, or a `dedupeKey` repeat) keeps the entry
-// id and swaps the actions, so a memo keyed on anything derived from the id
-// alone never invalidates. See `AppToastView` in app-log-store.ts.
-function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOptions }) {
-  const { t } = useLingui();
-  const reduceMotion = useReducedMotion();
-  const present = useIsPresent();
-  const Icon = LOG_ICON[entry.level];
-  const detail = visibleToastDetail(entry.detail);
-  const timeoutMs = options?.timeoutMs ?? (entry.level === "error" ? 9_000 : 6_000);
-  useEffect(() => {
-    if (timeoutMs === 0) return;
-    const timer = window.setTimeout(() => dismissAppToast(entry.id), Math.max(1_000, timeoutMs));
-    return () => window.clearTimeout(timer);
-    // entry.timestamp: a deduped repeat refreshes the entry in place (same id),
-    // and the toast should stay visible for a full window after the refresh.
-  }, [entry.id, entry.timestamp, timeoutMs]);
-  const actions = [options?.primaryAction, options?.secondaryAction].flatMap((action) => action ? [action] : []);
-  const hasActions = Boolean(options?.copyText) || actions.length > 0;
-  // Messages migrated off the old one-line banners arrive as a title with no
-  // detail, so length has to be judged across both — a 200-character title
-  // clipped to one line is the failure this replaced.
-  const expanded = detail.length > 72 || entry.title.length > 72 || hasActions;
-  return (
-    <motion.div
-      className={`app-toast ${entry.level}${expanded ? " expanded" : ""}`}
-      role={entry.level === "error" ? "alert" : "status"}
-      aria-hidden={!present || undefined}
-      inert={!present || undefined}
-      initial={{ opacity: 0, y: reduceMotion ? 0 : -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: reduceMotion ? 0 : -4, transition: springExit.moderate }}
-      transition={spring.moderate}
-      data-app-toast=""
-      // Notifications arrive while someone is writing. Taking the caret out of
-      // the editor to dismiss one — and losing the selection with it — is worse
-      // than the interruption itself, so the whole card refuses focus on press
-      // and lets the click through to the button underneath.
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      <Icon size={15} />
-      <div>
-        <strong>{entry.title}</strong>
-        {detail && <span title={detail}>{detail}</span>}
-        {hasActions && (
-          <div className="app-toast-actions">
-            {options?.copyText && (
-              <CopyButton className={buttonClassName({ size: "compact" })} text={options.copyText} title={t`Copy notification command`}>
-                {t`Copy`}
-              </CopyButton>
-            )}
-            {actions.map((action, index) => (
-              <button
-                key={index}
-                type="button"
-                className={buttonClassName({ size: "compact" })}
-                onClick={() => {
-                  void action.onClick();
-                  // The action was the answer, so it is not also reported as a dismissal.
-                  if (!action.keepOpen) dismissAppToast(entry.id, false);
-                }}
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <CloseButton label={t`Dismiss notification`} size="compact" onClick={() => dismissAppToast(entry.id)} />
-    </motion.div>
-  );
-}
-
-export function AppToastStack() {
-  const toasts = useAppToastsSnapshot();
-  return (
-    <div className="app-toast-stack">
-      <AnimatePresence>
-        {toasts.map(({ entry, options }) => (
-          <AppToast key={entry.id} entry={entry} options={options} />
-        ))}
-      </AnimatePresence>
-    </div>
   );
 }
 

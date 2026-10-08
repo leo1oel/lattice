@@ -106,7 +106,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/agent/` | 30 | 12 | 3,204 | The Synara sidecar bridge: `synara-runtime.ts` (URL + message parsers), `agent-host-context.ts`, and the `agent-*` tool bridges (canvas, spreadsheet, paper library, composer files), which share validation and reply plumbing through `agent-protocol.ts`. |
 | `src/project/` | 35 | 9 | 4,648 | The sidebar panels: the file tree (`project-file-tree.tsx` + `project-tree-*`) and the paper library (`paper-library.tsx`, `paper-library-search.ts`, `citation-health.ts`); project-wide search and replace, quick-open, TODO scavenger, project dialogs, asset preview, the symbol-references panel, the manuscript checklist. |
 | `src/editor/latex/` | 22 | 9 | 2,552 | The CM6 LaTeX extension set and its parts (completions and their fallback vocabulary, diagnostics, hover cards, environments, edits, symbols), outline, selection toolbar, math regions/preview, project text helpers (`latex-text.ts`: labels, macros, KaTeX macro extraction, `\appendix` location), the search-panel relabelling. |
-| `src/telemetry/` | 21 | 10 | 3,113 | Everything the app says about itself: the log store and log panel, toast notifications, the updater banner, global error capture, the root error boundary, interface sounds. |
+| `src/telemetry/` | 21 | 10 | 3,113 | Everything the app says about itself: the log store and log panel, the toast stack (`toast-stack.tsx`, on Base UI), the updater, global error capture, the root error boundary, interface sounds. |
 | `src/history/` | 14 | 5 | 2,608 | Version history and diffs: the history drawer, the versions timeline, `file-diff-view.tsx` and `pierre-diff.ts` (`@pierre/diffs` + shiki), conflict markers and the conflict resolver. |
 | `src/editor/insert/` | 7 | 2 | 587 | Putting things into a document: the figure and table generators, clipboard images. |
 | `src/styles/` | 10 | 2 | 525 | 8 CSS files (the token scale, palette, app shell, workspace) plus the two tests that enforce them (`tokens`, `surfaces`). |
@@ -150,7 +150,7 @@ rather than a fact:
   and compile repair).
 - **`interface-sounds.ts` in `telemetry/`** is the audio channel of the same
   notification layer as `app-notify.ts`, not instrumentation. The directory is
-  "what the app says about itself", which also covers the updater banner.
+  "what the app says about itself", which also covers the updater and its toast.
 - **Yjs remains only for the spreadsheet**: `editor/spreadsheet/spreadsheet-yjs.ts`
   is its local Y.Doc model, not collaboration plumbing.
 - **`reference-preview.ts` is in `project/`, not `pdf/`.** It renders a project

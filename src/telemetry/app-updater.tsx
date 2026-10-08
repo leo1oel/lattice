@@ -1,5 +1,5 @@
 // In-app auto-update for Lattice, built on tauri-plugin-updater: one
-// <UpdaterProvider> (main.tsx) shared by the corner <UpdateBanner> and Settings.
+// <UpdaterProvider> (main.tsx) shared by Settings and the update's toast.
 //
 // Update packages are verified with the updater's own minisign key, which is
 // separate from Apple code signing (releases are additionally signed and
@@ -16,16 +16,18 @@ import {
   type ReactNode,
 } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { InfinityLoader } from "../components/ui/activity-icons";
-import { Button } from "../components/ui/button";
-import { CloseButton } from "../components/ui/icon-button";
 import { toMessage } from "../app-utils";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
 import { i18n } from "../i18n";
 import { loadChoice, persistSetting } from "../settings/app-settings";
-import { addAppLog } from "./app-log-store";
+import {
+  addAppLog,
+  dismissAppToastByDedupeKey,
+  updateAppToastProgress,
+  type AppLogLevel,
+  type AppToastOptions,
+} from "./app-log-store";
 
 type UpdateMode = "auto" | "manual";
 type UpdatePhase = "idle" | "checking" | "up-to-date" | "available" | "downloading" | "installing" | "ready" | "error";
@@ -92,7 +94,7 @@ export type UpdaterApi = UpdaterState & {
   check: (silent?: boolean) => Promise<void>;
   /** Download + install the pending update, then restart. Safe to call once. */
   install: () => Promise<void>;
-  /** Hide the "available" banner without installing. */
+  /** Put the offered update (or a failed one) away without installing. */
   dismiss: () => void;
 };
 
@@ -101,6 +103,18 @@ const FAILURE_TITLES: Record<UpdateErrorKind, MessageDescriptor> = {
   check: msg`Couldn’t check for Lattice updates`,
   install: msg`Lattice update failed`,
 };
+
+/**
+ * Every phase of one update is the same toast, updated in place: the offer
+ * becomes the download's progress bar, then "Installing…", then either the
+ * restart or the failure. The phases are log entries (each is something that
+ * happened); the download's per-chunk progress only moves the bar.
+ */
+const UPDATE_TOAST = "app-update";
+
+function showUpdateToast(level: AppLogLevel, title: string, detail: string, toastOptions: AppToastOptions) {
+  addAppLog({ level, source: i18n._(msg`App updater`), title, detail, dedupeKey: UPDATE_TOAST, toastOptions });
+}
 
 function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true): UpdaterApi {
   const [mode, setModeState] = useState<UpdateMode>(getUpdateMode);
@@ -119,11 +133,31 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const patch = useCallback((next: Partial<UpdaterState>) => {
     setState((current) => ({ ...current, ...next }));
   }, []);
+  /**
+   * Put the update away, and let checking resume.
+   *
+   * `check` returns early while `pendingRef` holds an update, so a dismissed
+   * update has to be released here or no later check — the six-hourly one or
+   * the button in Settings — could notice a release for the rest of the
+   * session. Dismissing the failure toast lands here too.
+   */
+  const dismiss = useCallback(() => {
+    pendingRef.current = null;
+    installFailedRef.current = false;
+    patch({ phase: "idle", error: null, errorKind: null });
+    dismissAppToastByDedupeKey(UPDATE_TOAST);
+  }, [patch]);
   const fail = useCallback((errorKind: UpdateErrorKind, reason: unknown) => {
     const detail = toMessage(reason);
     patch({ phase: "error", error: detail, errorKind });
-    addAppLog({ level: "error", source: i18n._(msg`App updater`), title: i18n._(FAILURE_TITLES[errorKind]), detail, toast: false });
-  }, [patch]);
+    // A failed check has nothing to show over the editor: it only happens when
+    // someone pressed "Check for updates" in Settings, which reports the
+    // outcome in the row they pressed. Only an install that was under way
+    // turns its toast into the failure.
+    const title = i18n._(FAILURE_TITLES[errorKind]);
+    if (errorKind === "install") showUpdateToast("error", title, detail, { timeoutMs: 0, onDismiss: dismiss });
+    else addAppLog({ level: "error", source: i18n._(msg`App updater`), title, detail, toast: false });
+  }, [dismiss, patch]);
 
   const install = useCallback(async () => {
     const update = pendingRef.current;
@@ -131,20 +165,31 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
     installingRef.current = true;
     installFailedRef.current = false;
     patch({ phase: "downloading", progress: 0 });
+    const { version } = update;
+    const versionLine = i18n._(msg`Version ${version}`);
+    // Closing a running update's toast only hides it; the update carries on.
+    showUpdateToast("info", i18n._(msg`Downloading update…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
     let total = 0;
     let received = 0;
     try {
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") {
           total = event.data?.contentLength ?? 0;
+          if (total > 0) updateAppToastProgress(UPDATE_TOAST, 0);
         } else if (event.event === "Progress") {
           received += event.data.chunkLength;
-          if (total > 0) patch({ progress: Math.min(1, received / total) });
+          if (total > 0) {
+            const progress = Math.min(1, received / total);
+            patch({ progress });
+            updateAppToastProgress(UPDATE_TOAST, progress);
+          }
         } else if (event.event === "Finished") {
           patch({ phase: "installing", progress: 1 });
+          showUpdateToast("info", i18n._(msg`Installing…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
         }
       });
       patch({ phase: "ready" });
+      showUpdateToast("info", i18n._(msg`Restarting…`), versionLine, { timeoutMs: 0, progress: "indeterminate" });
       // The workspace may run in the WKWebView window or in a browser tab that
       // reaches Tauri through a hidden bridge WebView. The process plugin only
       // requests an event-loop restart; if that request stalls, the newly
@@ -169,9 +214,9 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   }, [install]);
 
   const check = useCallback(async (silent = true) => {
-    // A held update is what stops a second banner for one already offered —
+    // A held update is what stops a second offer for one already offered —
     // but only while it is still installable. Once its install has failed the
-    // banner is a failure banner, and holding the check hostage to it means
+    // toast is a failure, and holding the check hostage to it means
     // the next release is never noticed for the rest of the session.
     if (installingRef.current) return;
     if (pendingRef.current && !installFailedRef.current) return;
@@ -184,6 +229,15 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         installFailedRef.current = false;
         patch({ phase: "available", version: update.version, error: null, errorKind: null });
         if (modeRef.current === "auto") void install();
+        else {
+          const { version } = update;
+          showUpdateToast("info", i18n._(msg`New version ${version}`), i18n._(msg`Ready to install`), {
+            timeoutMs: 0,
+            // The toast stays to carry the download that this starts.
+            primaryAction: { label: i18n._(msg`Update now`), onClick: () => void install(), keepOpen: true },
+            onDismiss: dismiss,
+          });
+        }
       } else if (!silent) {
         patch({ phase: "up-to-date" });
       }
@@ -192,21 +246,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
       // the user explicitly pressed "Check for updates".
       if (!silent) fail("check", reason);
     }
-  }, [fail, install, modeRef, patch]);
-
-  /**
-   * Put the banner away, and let checking resume.
-   *
-   * `check` returns early while `pendingRef` holds an update, so a dismissed
-   * update has to be released here or no later check — the six-hourly one or
-   * the button in Settings — could notice a release for the rest of the
-   * session. The same × also clears a failure banner.
-   */
-  const dismiss = useCallback(() => {
-    pendingRef.current = null;
-    installFailedRef.current = false;
-    patch({ phase: "idle", error: null, errorKind: null });
-  }, [patch]);
+  }, [dismiss, fail, install, modeRef, patch]);
 
   useEffect(() => {
     if (!autoCheck) return;
@@ -218,7 +258,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   return { ...state, mode, setMode, check, install, dismiss };
 }
 
-// ---- Context so the banner and the Settings toggle share one updater ----
+// ---- Context so the update toast and the Settings toggle share one updater ----
 
 const UpdaterContext = createContext<UpdaterApi | null>(null);
 
@@ -240,69 +280,4 @@ const DISCONNECTED_UPDATER: UpdaterApi = {
 
 export function useUpdater(): UpdaterApi {
   return useContext(UpdaterContext) ?? DISCONNECTED_UPDATER;
-}
-
-// ---- UI ----
-
-/** The top-right corner card for an update being offered, installed, or failed. */
-export function UpdateBanner() {
-  const { t } = useLingui();
-  const { phase, version, progress, error, errorKind, install, dismiss } = useUpdater();
-
-  // A failed check has nothing to report here: it only happens when someone
-  // pressed "Check for updates" in Settings, which reports the outcome in the
-  // row they pressed (and it is in the app log either way). The corner banner
-  // is for an update that was actually being installed, so a check that could
-  // not reach the server must not raise "Update failed" over the editor.
-  const failedInstall = phase === "error" && errorKind !== "check";
-  // Progress phases stack the bar under the title so the title never gets
-  // squeezed onto a second line / truncated beside the bar.
-  const stacked = phase === "downloading" || phase === "installing";
-  if (!(phase === "available" || stacked || phase === "ready" || failedInstall)) return null;
-
-  const pct = Math.round(progress * 100);
-  const dismissButton = <CloseButton label={t`Dismiss`} size="compact" onClick={dismiss} />;
-
-  return (
-    <div className={`app-update-banner top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
-      {phase === "available" && (
-        <>
-          <div className="app-update-text"><strong><Trans>New version {version}</Trans></strong><span><Trans>Ready to install</Trans></span></div>
-          <Button variant="primary" size="compact" onClick={() => void install()}>
-            <Trans>Update now</Trans>
-          </Button>
-          {dismissButton}
-        </>
-      )}
-
-      {stacked && (
-        <>
-          <div className="app-update-text">
-            <strong className="app-update-active-title">
-              <InfinityLoader size={14} />
-              {phase === "installing" ? t`Installing…` : t`Downloading update…`}
-            </strong>
-            <span>{phase === "downloading" ? `${pct}%` : t`Almost done`}</span>
-          </div>
-          <div className="app-update-progress"><div className="app-update-progress-fill" style={{ width: `${pct}%` }} /></div>
-        </>
-      )}
-
-      {phase === "ready" && (
-        <div className="app-update-text">
-          <strong className="app-update-active-title"><InfinityLoader size={14} /> <Trans>Restarting…</Trans></strong>
-        </div>
-      )}
-
-      {failedInstall && (
-        <>
-          <div className="app-update-text">
-            <strong><Trans>Update failed</Trans></strong>
-            <span title={error ?? undefined}>{error ?? t`Please try again later`}</span>
-          </div>
-          {dismissButton}
-        </>
-      )}
-    </div>
-  );
 }

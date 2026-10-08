@@ -312,7 +312,7 @@ describe("builds and the PDF reader", () => {
     interfaceSounds.play.mockClear();
     fireEvent.click(buildButton());
     await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
-    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
+    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("success"));
     // Identical PDF bytes must not thrash pdf.js — keep the same document + zoom.
     expect(vi.mocked(getDocument)).toHaveBeenCalledTimes(1);
     expect(zoomInput).toHaveValue(String(zoomBefore + 10));
@@ -429,7 +429,7 @@ describe("builds and the PDF reader", () => {
     const buildsBeforeManualRequest = invokeCalls("build_project").length;
     fireEvent.click(buildButton());
     await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(buildsBeforeManualRequest + 1));
-    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("build-succeeded"));
+    await waitFor(() => expect(interfaceSounds.play).toHaveBeenCalledWith("success"));
     expect(visibleToasts("Build")).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");

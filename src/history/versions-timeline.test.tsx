@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { VersionsTimeline } from "./versions-timeline";
-import { AppToastStack } from "../telemetry/app-log";
+import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { GitLogEntry } from "../app-types";
 import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
@@ -135,7 +135,7 @@ describe("VersionsTimeline", () => {
     mockGitLog({ git_auto_commit: "ccc333" });
     // Outcomes are toasts now, so the shared stack has to be on screen for the
     // assertion below to mean what it did when the panel printed them inline.
-    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><AppToastStack /></>);
+    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
 
     fireEvent.click(await screen.findByRole("button", { name: /Save version/ }));
     fireEvent.change(screen.getByLabelText("Version label"), { target: { value: "Before rebuttal" } });
@@ -166,7 +166,7 @@ describe("VersionsTimeline", () => {
     const onVersionsChanged = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
     mockGitLog({ git_restore_project: "ddd444" });
     vi.mocked(confirm).mockResolvedValue(true);
-    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><AppToastStack /></>);
+    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
     const restore = within(await expandFirstEntry()).getByRole("button", { name: /Restore project to this version/ });
     fireEvent.click(restore);
 

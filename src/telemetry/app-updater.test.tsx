@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addAppLog } from "./app-log-store";
-import { UpdateBanner, UpdaterProvider, useUpdater, type DownloadEvent, type UpdaterApi } from "./app-updater";
+import { addAppLog, clearAppLogs } from "./app-log-store";
+import { UpdaterProvider, useUpdater, type DownloadEvent, type UpdaterApi } from "./app-updater";
+import { ToastStack } from "./toast-stack";
 
 /**
  * The updater reaches Tauri through `import()` at call time, so the seam the
@@ -31,13 +32,16 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: plugins.relaunch }));
 
-// Stubbed rather than spied: the updater's contract here is "record it, never
-// toast it", and a real entry would leak into the shared log store between
-// tests. What the store does with an entry is app-log-store.test.ts's business.
-vi.mock("./app-log-store", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./app-log-store")>()),
-  addAppLog: vi.fn(),
-}));
+// Spied through to the real store, which is cleared before each test, so the
+// update's toast renders in the stack and each test can still read exactly
+// what the updater recorded.
+const realStore = vi.hoisted(() => ({ addAppLog: null as unknown as typeof import("./app-log-store").addAppLog }));
+vi.mock("./app-log-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./app-log-store")>();
+  realStore.addAppLog = actual.addAppLog;
+  return { ...actual, addAppLog: vi.fn(actual.addAppLog) };
+});
+vi.mock("./interface-sounds", () => ({ playInterfaceSound: vi.fn(), configureInterfaceSounds: vi.fn() }));
 
 /**
  * Private to app-updater.tsx, pinned here on purpose: renaming the key silently
@@ -99,16 +103,19 @@ async function startPausedInstall() {
   return { download, update, result };
 }
 
-/** The banner plus a handle on the same provider the banner is reading. */
-function renderBanner() {
+/** The toast stack plus a handle on the same provider the update toast comes from. */
+function renderToasts() {
   const api: { current: UpdaterApi } = { current: null as unknown as UpdaterApi };
   function Probe() {
     api.current = useUpdater();
     return null;
   }
-  render(<UpdaterProvider autoCheck={false}><Probe /><UpdateBanner /></UpdaterProvider>);
+  render(<UpdaterProvider autoCheck={false}><Probe /><ToastStack /></UpdaterProvider>);
   return api;
 }
+
+/** The update's toast, if one is on screen (one leaving is not). */
+const updateToast = () => document.querySelector<HTMLElement>("[data-app-toast]:not([data-ending-style])");
 
 // Auto-cleanup only registers under `globals: true`, which this project does
 // not set. Unmounting matters here beyond leaked DOM: a mounted provider owns a
@@ -121,7 +128,8 @@ beforeEach(() => {
   plugins.check.mockReset().mockResolvedValue(null);
   plugins.invoke.mockReset().mockResolvedValue(undefined);
   plugins.relaunch.mockReset().mockResolvedValue(undefined);
-  vi.mocked(addAppLog).mockReset();
+  clearAppLogs();
+  vi.mocked(addAppLog).mockReset().mockImplementation(realStore.addAppLog);
 });
 
 describe("useUpdater / check", () => {
@@ -288,7 +296,7 @@ describe("useUpdater / install", () => {
     expect(result.current.error).toBe("signature mismatch");
     expect(result.current.errorKind).toBe("install");
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
-      level: "error", source: "App updater", title: "Lattice update failed", toast: false,
+      level: "error", source: "App updater", title: "Lattice update failed", detail: "signature mismatch", dedupeKey: "app-update",
     }));
     expect(plugins.invoke).not.toHaveBeenCalled();
 
@@ -407,55 +415,64 @@ describe("useUpdater / dismiss", () => {
   });
 });
 
-describe("UpdateBanner", () => {
+describe("the update toast", () => {
   it.each([
     ["an up-to-date check", () => {}, "up-to-date"],
     // The only way to reach a non-silent check is the Settings button, and that
-    // row reports the outcome itself. Painting "Update failed" in the corner
+    // row reports the outcome itself. Raising "Update failed" in the corner
     // announces an install that never started.
     ["a failed check", () => { plugins.check.mockRejectedValue(new Error("network unreachable")); }, "error"],
   ])("stays out of the way after %s", async (_, arrange, phase) => {
     arrange();
-    const api = renderBanner();
-    expect(screen.queryByRole("status")).toBeNull();
+    const api = renderToasts();
 
     await run(() => api.current.check(false));
 
     expect(api.current.phase).toBe(phase);
-    expect(screen.queryByText("Update failed")).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(updateToast()).toBeNull();
   });
 
-  it("offers the update, installs it, and shows progress", async () => {
+  it("offers the update, then carries its download, install and restart in the same toast", async () => {
     const download = pausedDownload();
     offerUpdate({ downloadAndInstall: download.downloadAndInstall });
-    const api = renderBanner();
+    const api = renderToasts();
     await run(() => api.current.check());
 
-    expect(screen.getByText("New version 0.1.230")).toBeInTheDocument();
+    const offer = updateToast()!;
+    expect(offer).toHaveTextContent("New version 0.1.230");
+    expect(offer).toHaveTextContent("Ready to install");
     fireEvent.click(screen.getByRole("button", { name: "Update now" }));
 
-    await waitFor(() => expect(screen.getByText("Downloading update…")).toBeInTheDocument());
+    await waitFor(() => expect(updateToast()).toHaveTextContent("Downloading update…"));
+    expect(updateToast()).toBe(offer);
+    expect(screen.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
     download.emit({ event: "Started", data: { contentLength: 400 } });
     download.emit({ event: "Progress", data: { chunkLength: 100 } });
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
     expect(screen.getByText("25%")).toBeInTheDocument();
+    // The bar moves without a log line per chunk: the phases are the record.
+    expect(vi.mocked(addAppLog).mock.calls.map(([entry]) => entry.title)).toEqual(["New version 0.1.230", "Downloading update…"]);
 
     download.emit({ event: "Finished" });
-    expect(screen.getByText("Installing…")).toBeInTheDocument();
+    expect(updateToast()).toHaveTextContent("Installing…");
+    await act(async () => download.finish());
+    await waitFor(() => expect(updateToast()).toHaveTextContent("Restarting…"));
+    expect(updateToast()).toBe(offer);
   });
 
-  it.each([["offer", false], ["failure", true]])("dismisses the %s from the banner", async (_, installFails) => {
+  it.each([["offer", false], ["failure", true]])("puts the update away when its %s is dismissed", async (_, installFails) => {
     offerUpdate(installFails ? failingInstall() : undefined);
-    const api = renderBanner();
+    const api = renderToasts();
     await run(() => api.current.check());
     if (installFails) {
       await run(() => api.current.install());
-      expect(screen.getByText("Update failed")).toBeInTheDocument();
+      expect(updateToast()).toHaveTextContent("Lattice update failed");
+      expect(updateToast()).toHaveTextContent("disk full");
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification", hidden: true }));
 
-    expect(screen.queryByRole("status")).toBeNull();
+    await waitFor(() => expect(updateToast()).toBeNull());
     expect(api.current.phase).toBe("idle");
     expect(api.current.error).toBeNull();
   });

@@ -349,7 +349,7 @@ export function useBuildPipeline({
     // Background failures must not steal the caret while an edit is unfinished.
     let shouldNavigateToError = options?.sound === true;
     let shouldConsumeAgentAssociations = options?.consumeAgentAssociations === true;
-    let completionSound: "build-succeeded" | "build-failed" | null = null;
+    let completionSound: "success" | "error" | null = null;
     // Nothing is queued while no build runs (`force` is only set behind the lock), so this clears flags alone.
     Object.assign(queue, IDLE_QUEUE);
     try {
@@ -465,7 +465,7 @@ export function useBuildPipeline({
             // install action. Keep the action trace without showing it twice.
             toast: false,
           });
-          completionSound = "build-failed";
+          completionSound = "error";
           // A raw latexmk log contains its own name and uses "not found" for
           // every missing project file. Only parsed tool diagnostics may open
           // system setup; the full log is evidence for diagnostics and logs,
@@ -477,7 +477,7 @@ export function useBuildPipeline({
           trace.clear();
           const seconds = (result.durationMs / 1000).toFixed(1);
           trace.finish("success", t`Build succeeded in ${seconds}s`);
-          completionSound = "build-succeeded";
+          completionSound = "success";
         }
       } while (takeQueuedBuild());
     } catch (reason) {
@@ -485,7 +485,7 @@ export function useBuildPipeline({
         compiledRef.current = null;
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
         setOutcome({ status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now() });
-        completionSound = "build-failed";
+        completionSound = "error";
         if (isMissingTexBuildError(toMessage(reason))) onMissingTex();
       }
     } finally {
