@@ -354,8 +354,8 @@ async function openBeside(second: string) {
   return { controller, ws, readAsset, viewOf };
 }
 
-describe("an inactive document on screen", () => {
-  // jsdom has no layout: give the workspace host a window's box (as the App suites do), so its panels are on screen.
+/** jsdom has no layout: give the workspace host a window's box (as the App suites do), so its panels are on screen. */
+function withWindowBox() {
   const natives = (["clientWidth", "clientHeight"] as const).map((axis) => [axis, Object.getOwnPropertyDescriptor(Element.prototype, axis)!] as const);
   beforeEach(() => {
     for (const [axis, native] of natives) {
@@ -368,6 +368,10 @@ describe("an inactive document on screen", () => {
   afterEach(() => {
     for (const [axis, native] of natives) Object.defineProperty(Element.prototype, axis, native);
   });
+}
+
+describe("an inactive document on screen", () => {
+  withWindowBox();
 
   // Beta r20: "Why do tabs go to sleep even when they remain open?"
   it("stays drawn beside the active document, and with that document's panel hidden", async () => {
@@ -480,5 +484,36 @@ describe("an inactive document on screen", () => {
     expect(document.activeElement).not.toBe(frame);
     await pause();
     expect(activate).not.toHaveBeenCalled();
+  });
+});
+
+describe("a titlebar panel toggle", () => {
+  withWindowBox();
+
+  /** The tab group holding `view`, by its tabs in order, and the selected one. */
+  function groupOf(doc: LayoutDocument, view: string) {
+    let found: { views: string[]; selected: string } | null = null;
+    const walk = (node: LayoutNode | null | undefined) => {
+      if (!node || found) return;
+      if (node.kind === "panel") {
+        if (node.views.includes(view)) found = { views: [...node.views], selected: node.selected };
+      } else if (node.kind === "stage") walk(node.child);
+      else node.children.forEach(walk);
+    };
+    walk(doc.root);
+    return found;
+  }
+
+  // The Project panel came back after the Agent tab beside it, where the
+  // header's first (named) tab read "Agent" over the file tree.
+  it("brings a hidden tab back to its place in its group, selected", async () => {
+    const { controller, ws } = await open("/a", ["main.tex"]);
+    expect(groupOf(ws.getDocument(), "project")).toEqual({ views: ["project", "agent"], selected: "project" });
+    act(() => controller.togglePanel("project"));
+    expect(controller.panelState("project")).toBe("hidden");
+    expect(groupOf(ws.getDocument(), "agent")).toEqual({ views: ["agent"], selected: "agent" });
+    act(() => controller.togglePanel("project"));
+    expect(controller.panelState("project")).toBe("shown");
+    expect(groupOf(ws.getDocument(), "project")).toEqual({ views: ["project", "agent"], selected: "project" });
   });
 });
