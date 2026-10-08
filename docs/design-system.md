@@ -471,9 +471,13 @@ all take it.
 - **Selection and danger stay native.** With `preserveSelection`, the selected
   row keeps its own fill and the highlight steps off it; disabled and
   destructive rows are never lit.
+- **It sleeps until a hand comes.** A surface is a span and a listener until
+  the pointer moves over its list, focus enters it, or a key moves its current
+  row; the event that woke it is played back. A list on screen from startup
+  costs nothing until it is used.
 - A list whose keyboard answer is the focus ring (a tree, a sidebar, the
   Papers rows) passes `follow={null}`: a key clears the fill and leaves the
-  ring alone. The Papers list moves focus between papers with the arrows,
+  ring alone, and never wakes it. The Papers list moves focus between papers with the arrows,
   Home and End; Tab still walks every control.
 
 ## Dialogs, notifications and empty states
