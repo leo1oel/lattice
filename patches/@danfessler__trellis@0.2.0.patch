@@ -49,7 +49,7 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..e7c76ad3f5abd6fb5062d0b2e265c812
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23f9ca6275 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..c24528d83d2f45c8a1bc12255b80886816cc945d 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -447,8 +447,10 @@ function restorePanel(doc, panelId, fallbackLayer) {
@@ -326,7 +326,29 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
        } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
        if (dom.tablist.children[index] !== tab.el)
          dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
-@@ -3262,7 +3386,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3248,12 +3372,17 @@ function createWorkspace(host, initialOptions) {
+       setAttr(record.shell, "aria-labelledby", tab.el.id);
+     });
+   }
++  // Lattice patch: measured against the strip itself (offsetLeft counts from
++  // whatever positioned ancestor the tab has), and clear of the strip's 16px
++  // edge fade (Lattice CSS) rather than 8px into it.
+   function revealTab(list, tab) {
+     if (list.scrollWidth <= list.clientWidth) return;
+-    const left = tab.offsetLeft - list.offsetLeft;
+-    if (left < list.scrollLeft) list.scrollLeft = left - 8;
+-    else if (left + tab.offsetWidth > list.scrollLeft + list.clientWidth)
+-      list.scrollLeft = left + tab.offsetWidth - list.clientWidth + 8;
++    const margin = 16;
++    const left = tab.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft;
++    const width = tab.getBoundingClientRect().width;
++    if (left - margin < list.scrollLeft) list.scrollLeft = left - margin;
++    else if (left + width + margin > list.scrollLeft + list.clientWidth)
++      list.scrollLeft = left + width + margin - list.clientWidth;
+   }
+   function updateTabs() {
+     for (const [panelId, dom] of panelDoms) {
+@@ -3262,7 +3391,13 @@ function createWorkspace(host, initialOptions) {
        for (const [viewId, tab] of dom.tabs) {
          const selected = panel.selected === viewId;
          const title = titleOf(viewId);
@@ -341,7 +363,17 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
          const badge = badges.get(viewId);
          const dot = badge === true;
          const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
-@@ -3278,11 +3408,14 @@ function createWorkspace(host, initialOptions) {
+@@ -3273,16 +3408,23 @@ function createWorkspace(host, initialOptions) {
+         setAttr(tab.el, "data-type", doc.views[viewId]?.type ?? null);
+         setAttr(tab.el, "aria-selected", String(selected));
+         setAttr(tab.el, "tabindex", selected ? "0" : "-1");
+-        if (selected && !tab.el.hasAttribute("data-selected")) revealTab(dom.tablist, tab.el);
++        if (selected && !tab.el.hasAttribute("data-selected")) {
++          revealTab(dom.tablist, tab.el);
++          // Lattice patch: again once fitHeader has sized the tabs for it.
++          dom.revealPending = true;
++        }
+         setAttr(tab.el, "data-selected", selected ? "" : null);
          setAttr(tab.el, "data-focused", focusedView === viewId ? "" : null);
          const closable = typeOf(viewId).closable !== false;
          setAttr(tab.close, "hidden", closable ? null : "");
@@ -358,7 +390,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
            if (record.controller.state.title !== title) record.controller.update({ title });
          }
        }
-@@ -3301,7 +3434,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3301,7 +3443,7 @@ function createWorkspace(host, initialOptions) {
      invalidate();
    }
    function sync() {
@@ -367,7 +399,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
      const live2 = new Set(viewIds(doc));
      for (const v of lifted()?.views ?? []) live2.add(v);
      for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
-@@ -3360,7 +3493,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3360,7 +3502,7 @@ function createWorkspace(host, initialOptions) {
              role: "separator",
              tabindex: "0",
              "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
@@ -376,7 +408,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
            });
            el2.dataset.split = node.id;
            el2.dataset.index = String(i);
-@@ -3660,8 +3793,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3660,8 +3802,8 @@ function createWorkspace(host, initialOptions) {
          el.dataset.lines = lines;
        }
        const count = leafIds(e.node).length;
@@ -387,7 +419,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
        const r = inset(toScreen(e.rect), pad());
        const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
        setStyle(el, "display", onscreen ? "" : "none");
-@@ -3740,6 +3873,15 @@ function createWorkspace(host, initialOptions) {
+@@ -3740,6 +3882,15 @@ function createWorkspace(host, initialOptions) {
        setStyle(dom.el, "zIndex", String(z));
        setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
        place(dom.el, r, round);
@@ -403,7 +435,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
        const float2 = doc.floating.find((f) => f.panel.id === panelId);
        const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
        setStyle(dom.el, "clipPath", clip);
-@@ -3866,7 +4008,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3866,7 +4017,7 @@ function createWorkspace(host, initialOptions) {
      const min = minSizeOf(controller.id);
      const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
      const safe = scaleAt(body);
@@ -412,7 +444,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
      setStyle(shell, "zIndex", String(z));
      setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
      setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
-@@ -3922,7 +4064,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3922,7 +4073,8 @@ function createWorkspace(host, initialOptions) {
      for (const el of dividerEls.values()) {
        const split = effectiveSplit(el.dataset.split);
        const e = split && entries.get(split.id);
@@ -422,7 +454,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
          setStyle(el, "display", "none");
          continue;
        }
-@@ -4229,7 +4372,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4229,7 +4381,7 @@ function createWorkspace(host, initialOptions) {
          });
        commit({
          ...detached,
@@ -431,7 +463,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
        });
        return;
      }
-@@ -4383,16 +4526,16 @@ function createWorkspace(host, initialOptions) {
+@@ -4383,16 +4535,16 @@ function createWorkspace(host, initialOptions) {
      if (navigationMode() && region !== "floating")
        items.push({
          id: "maximize",
@@ -451,7 +483,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
          run: () => dock(
            panelId,
            findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
-@@ -4401,7 +4544,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4401,7 +4553,7 @@ function createWorkspace(host, initialOptions) {
      } else if (floatingLayer() && allowed(panel.views, "floating")) {
        items.push({
          id: "float",
@@ -460,7 +492,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
          run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
        });
      }
-@@ -4421,19 +4564,19 @@ function createWorkspace(host, initialOptions) {
+@@ -4421,19 +4573,19 @@ function createWorkspace(host, initialOptions) {
        moves.push(
          {
            id: "split-right",
@@ -484,7 +516,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
        run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
      });
      const closable = panel.views.filter((v) => typeOf(v).closable !== false);
-@@ -4442,14 +4585,14 @@ function createWorkspace(host, initialOptions) {
+@@ -4442,14 +4594,14 @@ function createWorkspace(host, initialOptions) {
        if (typeOf(panel.selected).closable !== false)
          items.push({
            id: "close",
@@ -501,7 +533,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4768,143 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4777,154 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -588,6 +620,17 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
 +      const tab = dom.tabs.get(item.viewId);
 +      if (tab) setAttr(tab.el, "data-icon-only", i < labelled ? null : "");
 +    });
++    // The selected tab stays in view when the strip's room or the tabs'
++    // sizes change (a window or panel resize, a tab opened beside it), not
++    // only when it is selected; a strip the writer scrolled is left alone
++    // until then.
++    const fit = `${Math.round(width)}|${tools}|${tabMin}|${labelled}`;
++    if (dom.revealPending || dom.fit !== fit) {
++      dom.revealPending = false;
++      dom.fit = fit;
++      const selected = dom.tabs.get(panel.selected);
++      if (selected) revealTab(dom.tablist, selected.el);
++    }
 +    if (dom.headerMin === void 0 || Math.abs(min - dom.headerMin) > 0.5) {
 +      dom.headerMin = min;
 +      entries = layoutDoc();
@@ -646,7 +689,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +4919,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +4939,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -782,7 +825,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5148,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5168,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -794,7 +837,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
      };
      return snapshot;
    }
-@@ -4902,7 +5259,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5279,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -803,7 +846,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..eb494ba12ebf4b556cb1e39b54659d23
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5404,7 @@ export {
+@@ -5047,6 +5424,7 @@ export {
    formatCombo,
    layout,
    layoutRects,
