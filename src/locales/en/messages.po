@@ -80,6 +80,11 @@ msgstr "{0} files"
 msgid "{0} packages"
 msgstr "{0} packages"
 
+#. placeholder {0}: work.votes
+#: src/papers/literature-discovery-panel.tsx
+msgid "{0} votes"
+msgstr "{0} votes"
+
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
 msgstr "{action} cancelled"
@@ -598,7 +603,6 @@ msgstr "Acknowledgements"
 msgid "Acute accent example"
 msgstr "Acute accent example"
 
-#: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "Add"
@@ -606,6 +610,14 @@ msgstr "Add"
 #: src/editor/harper-spellcheck.ts
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Add {title} to Papers"
+msgstr "Add {title} to Papers"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Add a bibliography entry for {title}"
+msgstr "Add a bibliography entry for {title}"
 
 #: src/editor/editor-keymap.ts
 msgid "Add a cursor above or below"
@@ -1081,10 +1093,6 @@ msgstr "Beta"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beth"
 msgstr "Beth"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Bib"
-msgstr "Bib"
 
 #: src/papers/audit-messages.ts
 msgid "bibcite returned invalid upgrade JSON."
@@ -4046,10 +4054,6 @@ msgstr "Import ZIP"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Important"
 msgstr "Important"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Imported"
-msgstr "Imported"
 
 #: src/app/use-reference-import.ts
 msgid "Imported “{title}” — cite it with {citationCommand}."
@@ -7717,6 +7721,10 @@ msgstr "Restoring changes Overleaf’s copy. Sync afterwards to bring it here"
 #: src/agent/synara-loading-surface.tsx
 msgid "Restoring the conversation surface…"
 msgstr "Restoring the conversation surface…"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Results"
+msgstr "Results"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume"

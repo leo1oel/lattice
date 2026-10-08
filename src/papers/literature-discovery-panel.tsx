@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { BookOpen, Check, ExternalLink, Quote, Search } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Plus, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { baseArxivId } from "./arxiv-id";
@@ -10,6 +10,7 @@ import { notifySuccess } from "../telemetry/app-notify";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { EmptyState } from "../components/ui/empty-state";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -53,20 +54,25 @@ function hitKey(work: LiteratureHit): string {
 }
 
 /**
- * The byline under a result. The two prose fragments are passed in rather than
- * translated here: this runs per row, outside any component, so it has no
- * access to the active catalog of its own.
+ * The byline under a result: who and when, as a Papers row has it. The prose
+ * fragment is passed in rather than translated here: this runs per row,
+ * outside any component, so it has no access to the active catalog of its own.
  */
-function hitMeta(work: LiteratureHit, prose: { etAl: string; cites: string }): string {
-  if (work.source === "alphaxiv") {
-    return [work.year ? String(work.year) : null, work.votes != null ? `▲ ${work.votes}` : null]
-      .filter(Boolean)
-      .join(" · ");
-  }
+function hitByline(work: LiteratureHit, etAl: string): string[] {
+  const authors = work.authors.slice(0, 2).join(", ") + (work.authors.length > 2 ? etAl : "");
+  return [authors, work.year ? String(work.year) : ""].filter(Boolean);
+}
+
+/**
+ * What a result's tooltip adds: where it came from, how it ranks there
+ * (alphaXiv votes, OpenAlex citations) and its identifier. The row itself
+ * leaves these out, so a narrow panel keeps its width for the title.
+ */
+function hitDetails(work: LiteratureHit, prose: { votes: string; cites: string }): string {
   return [
-    work.authors.slice(0, 3).join(", ") + (work.authors.length > 3 ? prose.etAl : ""),
-    work.year ? String(work.year) : null,
-    work.citedByCount != null ? prose.cites : null,
+    work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex",
+    work.votes != null ? prose.votes : work.citedByCount != null ? prose.cites : null,
+    work.arxivId ? `arXiv:${work.arxivId}` : work.doi,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -204,12 +210,18 @@ export function LiteratureDiscoveryPanel(props: {
       >
         <SearchField
           aria-label={t`Search literature`}
+          aria-busy={loading}
+          controlSize="compact"
           placeholder={t`Attention Is All You Need, diffusion, …`}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onClear={() => setQuery("")}
           autoFocus
-          showIcon={false}
+          trailing={(
+            <button type="submit" className="literature-search-submit" disabled={loading || !query.trim()} title={t`Search`} aria-label={t`Search`}>
+              {loading ? <InfinityLoader size={14} /> : <ArrowRight size={14} />}
+            </button>
+          )}
         />
         <CheckboxField
           className="literature-precise"
@@ -217,68 +229,77 @@ export function LiteratureDiscoveryPanel(props: {
           label={t`Title/abstract only`}
           onChange={(event) => setPrecise(event.target.checked)}
         />
-        <button type="submit" disabled={loading || !query.trim()}>
-          {loading ? <InfinityLoader size={14} /> : <Search size={14} />}
-          {t`Search`}
-        </button>
       </form>
       {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
       {notice ? <InlineMessage level="info">{notice}</InlineMessage> : null}
-      <div className="literature-results">
+      <div role="list" aria-label={t`Results`} className="literature-results fluid-hover-surface">
+        <FluidHoverSurface selector=".literature-result" follow={null} />
         {results.slice(0, visible).map((work) => {
           const key = hitKey(work);
+          const imported = isImported(work.arxivId);
+          const details = hitDetails(work, {
+            votes: t`${work.votes} votes`,
+            cites: t`${work.citedByCount} cites`,
+          });
+          const byline = hitByline(work, t` et al.`);
+          const landing = work.landingUrl || (work.doi ? `https://doi.org/${work.doi}` : null);
           return (
-            <article className="literature-result" key={key}>
-              <div className="literature-result-body">
-                <span className={`lit-source lit-source-${work.source}`}>
-                  {work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex"}
-                </span>
-                <strong>{work.title}</strong>
-                <p>{hitMeta(work, { etAl: t` et al.`, cites: t`${work.citedByCount} cites` })}</p>
-                {work.snippet ? <p className="lit-snippet">{work.snippet}</p> : null}
-                <div className="literature-result-ids">
-                  {work.arxivId ? <em>arXiv:{work.arxivId}</em> : null}
-                  {work.doi ? <em>{work.doi}</em> : null}
-                </div>
-              </div>
-              <div className="literature-result-actions">
-                {!work.arxivId ? null : isImported(work.arxivId) ? (
-                  <span className="lit-imported" title={t`Already in Papers`}>
-                    <Check size={13} /> {t`Imported`}
-                  </span>
-                ) : (
+            <div role="listitem" className="literature-result" key={key} title={details}>
+              <strong className="literature-title">{work.title}</strong>
+              {/* Like a Papers row: the byline at rest; hovered or focused, the
+                  actions come in over its end, so they never take the title's
+                  width or change the row's height. */}
+              <div className="literature-meta">
+                <small className="literature-byline">
+                  {byline.map((part, index) => <span key={index}>{part}</span>)}
+                  {imported && (
+                    <span className="literature-imported" role="img" title={t`Already in Papers`} aria-label={t`Already in Papers`}>
+                      <Check size={12} aria-hidden="true" />
+                    </span>
+                  )}
+                </small>
+                <div className="literature-result-actions">
+                  {work.arxivId && !imported && (
+                    <button
+                      type="button"
+                      disabled={busyId === key}
+                      title={t`Add bibliography entry and cache the arXiv paper`}
+                      aria-label={t({ message: `Add ${{ title: work.title }} to Papers` })}
+                      onClick={() => importArxiv(work, key)}
+                    >
+                      {busyId === key ? <InfinityLoader size={12} /> : <Plus size={13} />}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    disabled={busyId === key}
-                    title={t`Add bibliography entry and cache the arXiv paper`}
-                    onClick={() => importArxiv(work, key)}
+                    title={t`Resolve into bibliography entry`}
+                    aria-label={t({ message: `Add a bibliography entry for ${{ title: work.title }}` })}
+                    onClick={() => props.onAddBib(work.doi || work.title)}
                   >
-                    {busyId === key ? <InfinityLoader size={13} /> : <BookOpen size={13} />}
-                    {t`Add`}
+                    <Quote size={12} />
                   </button>
-                )}
-                <button type="button" title={t`Resolve into bibliography entry`} onClick={() => props.onAddBib(work.doi || work.title)}>
-                  <Quote size={13} /> {t`Bib`}
-                </button>
-                {work.landingUrl || work.doi ? (
-                  <a href={work.landingUrl || `https://doi.org/${work.doi}`} target="_blank" rel="noreferrer" title={t`Open landing page`}>
-                    <ExternalLink size={13} />
-                  </a>
-                ) : null}
+                  {landing && (
+                    <a href={landing} target="_blank" rel="noreferrer" title={t`Open landing page`} aria-label={t`Open landing page`}>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
               </div>
-            </article>
+              {work.snippet ? <p className="literature-snippet">{work.snippet}</p> : null}
+              <span className="sr-only">{details}</span>
+            </div>
           );
         })}
-        {(visible < results.length || hasMore) && (
-          <button type="button" className="lit-load-more" disabled={loadingMore} onClick={() => void loadMore()}>
-            {loadingMore ? <InfinityLoader size={13} /> : null}
-            {loadingMore ? t`Loading…` : t`Load more`}
-          </button>
-        )}
-        {!loading && !results.length && !error && !notice && (
-          <EmptyState icon={<EmptyIllustration kind="papers" />} description={t`Search alphaXiv and OpenAlex for related work`} />
-        )}
       </div>
+      {(visible < results.length || hasMore) && (
+        <button type="button" className="lit-load-more" disabled={loadingMore} onClick={() => void loadMore()}>
+          {loadingMore ? <InfinityLoader size={13} /> : null}
+          {loadingMore ? t`Loading…` : t`Load more`}
+        </button>
+      )}
+      {!loading && !results.length && !error && !notice && (
+        <EmptyState icon={<EmptyIllustration kind="papers" />} description={t`Search alphaXiv and OpenAlex for related work`} />
+      )}
     </ResizableDrawer>
   );
 }

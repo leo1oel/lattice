@@ -692,14 +692,15 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* A paper is a short stack: its title and a byline of who and when, then any
    flags (citation only, a citation-health notice).
-   Surfaces follow the Project tree's (hover < open); the row's surface is a
+   Surfaces and the 8px text inset follow the Project tree's (hover < open,
+   text over its icons); the row's surface is a
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
-.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); --paper-row-padding-inline: var(--space-4); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
 .paper-row + .paper-row { margin-top: var(--space-1); }
 /* Hairlines part the rows at rest, under the text; a lit row needs none on
    either side. */
-.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
+.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding-inline); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
 .paper-rows { --fluid-hover-fill: var(--navigation-tree-hover-surface); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
