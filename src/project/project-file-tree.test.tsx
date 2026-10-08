@@ -129,6 +129,18 @@ describe("ProjectFileTree", () => {
     await hiddenFilesToggle(false);
   });
 
+  // A long name lost its extension's dot to the ellipsis ("supplementary-ma… tex").
+  it("keeps the dot with the extension a long name keeps when truncated, and a dotfile's with its name", async () => {
+    const long = "supplementary-material-appendix.tex";
+    renderTree({ files: [...files, textFile(long), textFile(".latexmkrc")] });
+    const segments = async (path: string) => Array.from(
+      (await findTreeItem(path)).querySelectorAll('[data-truncate-segment-priority] [data-truncate-content="visible"]'),
+      (segment) => segment.textContent,
+    );
+    expect(await segments(long)).toEqual(["supplementary-material-appendix", ".tex"]);
+    expect(await segments(".latexmkrc")).toEqual([".", "latexmkrc"]);
+  });
+
   it("ignores a hidden tree response from the previous project", async () => {
     localStorage.setItem("lattice:show-hidden-files", "true");
     let resolveOld!: (files: FileNode[]) => void;

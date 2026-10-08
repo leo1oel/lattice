@@ -316,10 +316,9 @@
   /* A narrow window gives that room to the panel controls instead. */
   --titlebar-project-title-max-width-compact: 200px;
 
-  /* Editor tab strip contract. The strip has two variants that share every
-     state role: the standalone strip below a toolbar, and the compact chrome
-     variant hosted in the titlebar. */
-  --tab-strip-height-chrome: 34px;
+  /* Every panel's tab strip (trellis.css); its tabs stand on the compact
+     control height. */
+  --tab-strip-height: 34px;
   --tab-dirty-dot-size: 5px;
 
   --badge-height: 20px;

@@ -753,7 +753,6 @@ msgstr "Align right"
 msgid "Alignment"
 msgstr "Alignment"
 
-#: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
@@ -7349,6 +7348,7 @@ msgstr "Replace"
 msgid "Replace {replacementCount}"
 msgstr "Replace {replacementCount}"
 
+#: src/editor/latex/search-panel.ts
 #: src/project/project-replace-dialog.tsx
 msgid "Replace all"
 msgstr "Replace all"
@@ -8055,6 +8055,7 @@ msgstr "Select {0}"
 msgid "Select {color}"
 msgstr "Select {color}"
 
+#: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
 msgstr "Select all"

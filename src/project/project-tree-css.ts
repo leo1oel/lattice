@@ -122,9 +122,11 @@ button[data-type="item"][data-item-focused="true"]::before {
   outline-color: transparent;
 }
 
+/* The product's one ring, drawn inside the row: rows touch, and the
+   virtualized scroller clips anything outside them. */
 button[data-type="item"]:focus-visible::before {
-  outline: 1px solid var(--navigation-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--navigation-focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
 }
 
 button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {
@@ -275,9 +277,12 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
   box-shadow: none;
 }
 
+/* The name stays where it was when editing starts: the field's padding and
+   border sit outside the text's left edge. */
 [data-item-rename-input] {
   height: 20px;
-  padding: 0 5px;
+  margin-inline-start: calc(-1 * (var(--space-2) + var(--field-control-border-width)));
+  padding: 0 var(--space-2);
   border: var(--field-control-border-width) solid var(--field-control-interactive-border-color);
   border-radius: var(--radius-compact);
   outline: none;

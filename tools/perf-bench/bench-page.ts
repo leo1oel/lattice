@@ -75,6 +75,36 @@ function kindOf(path: string): string {
   return "text";
 }
 
+/** Folders created in the page; any other folder exists through the files in it. */
+const folders = new Set<string>();
+
+/** Create and rename in the tree, so new, long and deeply nested names can be looked at. */
+function createEntry(args: Args): string {
+  const path = pathArg(args);
+  if (current.files.has(path) || folders.has(path)) throw new Error(`${path} already exists.`);
+  if (args?.kind === "folder") folders.add(path);
+  else current.files.set(path, "");
+  return path;
+}
+
+function renameEntry(args: Args): string {
+  const path = pathArg(args);
+  const name = String(args?.newName ?? "");
+  const slash = path.lastIndexOf("/");
+  const next = slash < 0 ? name : `${path.slice(0, slash)}/${name}`;
+  const moved = (key: string) => (key === path ? next : key.startsWith(`${path}/`) ? next + key.slice(path.length) : key);
+  for (const [key, content] of [...current.files]) {
+    if (moved(key) === key) continue;
+    current.files.delete(key);
+    current.files.set(moved(key), content);
+  }
+  for (const key of [...folders]) {
+    folders.delete(key);
+    folders.add(moved(key));
+  }
+  return next;
+}
+
 function fileTree(): FileNode[] {
   const root: FileNode = { name: "", path: "", kind: "directory", contentKind: "directory", children: [] };
   const directories = new Map<string, FileNode>([["", root]]);
@@ -89,6 +119,7 @@ function fileTree(): FileNode[] {
     directories.set(path, node);
     return node;
   };
+  for (const path of folders) directory(path);
   for (const [path, content] of current.files) {
     const slash = path.lastIndexOf("/");
     directory(slash < 0 ? "" : path.slice(0, slash)).children.push({
@@ -377,6 +408,10 @@ function answer(command: string, args: Args): unknown {
     case "agent_text_task":
       return textTask(args);
     case "synara_ensure_ready":
+    case "create_project_entry":
+      return createEntry(args);
+    case "rename_project_entry":
+      return renameEntry(args);
     case "run_doctor":
       // The agent runtime and the TeX toolchain check are outside the bench;
       // the app treats a failure as an environment that does not expose them.

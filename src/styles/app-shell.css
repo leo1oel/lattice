@@ -637,7 +637,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-selected-fg-override: var(--navigation-text-strong);
   --trees-focus-ring-color-override: var(--navigation-focus-ring);
   --trees-selected-focused-border-color-override: transparent;
-  --trees-focus-ring-width-override: 1px;
+  --trees-focus-ring-width-override: var(--focus-ring-width);
   --trees-input-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --trees-search-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --trees-search-fg-override: var(--navigation-text-strong);
@@ -650,18 +650,22 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-scrollbar-thumb-override: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
 .project-file-tree-surface { position: relative; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
+/* A row's menu is drawn here rather than by Radix (Pierre asks for it from
+   inside the tree), but it is the same menu as the one for the empty area
+   around the rows: the item geometry, type and colours of menu-surface.ts. */
 .file-tree-context-menu {
   min-width: 176px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
-/* 9 outer + 5 pad → 4 item (concentric). Icons sit beside regular-weight labels. */
-.file-tree-context-menu > button { width: 100%; height: 30px; padding: 0 var(--space-4); border-radius: var(--radius-compact); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
-.file-tree-context-menu > button > svg { stroke-width: 1.5; }
-.file-tree-context-menu > button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
+.file-tree-context-menu > button { width: 100%; padding: var(--space-3) var(--space-5); border-radius: var(--nested-radius); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-5); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--type-body-weight); text-align: left; }
+.file-tree-context-menu > button > svg { flex: none; stroke-width: 1.5; color: var(--text-secondary); }
+.file-tree-context-menu > button:hover:not(:disabled) { background: var(--control-hover-surface); }
+.file-tree-context-menu > button:disabled { opacity: .5; }
 body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: none; }
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
+.file-tree-context-menu > button.destructive > svg { color: inherit; }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* A paper is a short stack: its title and a byline of who and when, then any

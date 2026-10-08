@@ -46,7 +46,7 @@ import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
 import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
-import { commandCombo, paletteEntries, useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { commandCombo, commandShortcutText, paletteEntries, useAppCommands, type AppCommand } from "./app/use-app-commands";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
 import { CommandPalette } from "./app/command-palette";
@@ -1484,6 +1484,7 @@ function App() {
     synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     requestNewEntry, reportPdfSelection: (text, place) => agentContext.reportSelection("pdf", text, place),
+    shortcut: (id) => commandShortcutText(commands, id),
   });
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
