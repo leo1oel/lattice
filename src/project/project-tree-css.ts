@@ -197,12 +197,6 @@ button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {
   display: none;
 }
 
-button[data-type="item"][data-lattice-native-drop-target="true"] {
-  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
-  color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 18%, transparent);
-}
-
 [data-item-drag-target="true"] {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 18%, transparent);
 }
@@ -210,21 +204,21 @@ button[data-type="item"][data-lattice-native-drop-target="true"] {
 /* Pierre stops hit-testing rows while the list scrolls. A drag must keep
    aiming through a mid-drag scroll, and a release then must not fall through
    to the empty tree (the project root). */
-:host([data-lattice-pointer-drag-active="true"]) [data-file-tree-virtualized-list="true"][data-is-scrolling],
-:host([data-lattice-pointer-drag-active="true"]) [data-is-scrolling] [data-type="item"][data-file-tree-sticky-row="true"] {
+:host([data-lattice-drop-active="true"]) [data-file-tree-virtualized-list="true"][data-is-scrolling],
+:host([data-lattice-drop-active="true"]) [data-is-scrolling] [data-type="item"][data-file-tree-sticky-row="true"] {
   pointer-events: auto;
 }
 
-/* The folder a drop lands in: its row is marked and the rows shown inside it
-   are filled (paintPointerDrag). The project root's wash is drawn over the
-   whole tree from outside it (app-shell.css). Scoped to the drag so the marks
-   outrank the hover fill, which Chromium keeps moving under a dragging
-   pointer. */
-:host([data-lattice-pointer-drag-active="true"]) button[data-type="item"][data-lattice-pointer-drop-inside="true"] {
+/* The folder a drop lands in, for a row drag or a Finder drop alike: its row
+   is marked and the rows shown inside it are filled (paintDropTarget). The
+   project root's wash is drawn over the whole tree from outside it
+   (app-shell.css). Scoped to the drag so the marks outrank the hover fill,
+   which Chromium keeps moving under a dragging pointer. */
+:host([data-lattice-drop-active="true"]) button[data-type="item"][data-lattice-drop-inside="true"] {
   background: var(--control-active-soft);
 }
 
-:host([data-lattice-pointer-drag-active="true"]) button[data-type="item"][data-lattice-pointer-drop-target="true"] {
+:host([data-lattice-drop-active="true"]) button[data-type="item"][data-lattice-drop-target="true"] {
   background: var(--control-active-soft);
   color: var(--text-primary);
   box-shadow:
@@ -232,7 +226,7 @@ button[data-type="item"][data-lattice-native-drop-target="true"] {
     var(--elevation-raised-shadow);
 }
 
-[data-item-flattened-subitem][data-lattice-pointer-flattened-drop-target="true"] {
+[data-item-flattened-subitem][data-lattice-flattened-drop-target="true"] {
   border-radius: 4px;
   background: var(--control-active-soft);
 }
