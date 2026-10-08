@@ -1,5 +1,22 @@
+diff --git a/dist/components/OverflowText.js b/dist/components/OverflowText.js
+index 5d554e8e5038d021fa5157b0879a0754f6c27339..e3dca02036da45844d19b3f832fbe909ac4868ab 100644
+--- a/dist/components/OverflowText.js
++++ b/dist/components/OverflowText.js
+@@ -23,7 +23,11 @@ const splitExtension = (contents) => {
+ 	const extensionIndex = contents.lastIndexOf(".") + 1;
+ 	const isTooLong = contents.length - extensionIndex > 10;
+ 	const splitIndex = extensionIndex >= 1 && !isTooLong ? extensionIndex : centerSplitIndex(contents);
+-	return [contents.slice(0, splitIndex), contents.slice(splitIndex)];
++	// Lattice patch: the dot stays with the extension it begins, so a long
++	// name truncates to "supplementary-ma….tex" rather than "supplementary-ma… tex".
++	// A dotfile (".latexmkrc") keeps its leading dot in the first part.
++	const keepDot = splitIndex === extensionIndex && extensionIndex > 1 ? 1 : 0;
++	return [contents.slice(0, splitIndex - keepDot), contents.slice(splitIndex - keepDot)];
+ };
+ const splitLeafPath = (contents) => {
+ 	if (contents.length < 4) return [contents, ""];
 diff --git a/dist/model/FileTreeController.js b/dist/model/FileTreeController.js
-index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..885179c0adb93d280db7b72469b3b26e7229a7cb 100644
+index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..ce3f101fc8401dd89c5c77b3335c959a88b621e9 100644
 --- a/dist/model/FileTreeController.js
 +++ b/dist/model/FileTreeController.js
 @@ -943,7 +943,7 @@ var FileTreeController = class FileTreeController {
@@ -21,7 +38,7 @@ index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..885179c0adb93d280db7b72469b3b26e
  		const expandedPaths = this.#searchMode === "expand-matches" ? new Set(this.#searchPreviousExpandedPaths ?? []) : /* @__PURE__ */ new Set();
  		for (const matchingPath of matchingPaths) {
 diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
-index 7d3b818c43a7621ab9170da32b180232ed3c9472..a8d6da706dff96a9a677a9f81113d2cfa6f6f453 100644
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..947012a2c49e93d10fcec98e86fd691de63d04a4 100644
 --- a/dist/render/FileTreeView.js
 +++ b/dist/render/FileTreeView.js
 @@ -527,6 +527,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire

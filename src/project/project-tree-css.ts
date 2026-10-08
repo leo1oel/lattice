@@ -275,9 +275,12 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
   box-shadow: none;
 }
 
+/* The name stays where it was when editing starts: the field's padding and
+   border sit outside the text's left edge. */
 [data-item-rename-input] {
   height: 20px;
-  padding: 0 5px;
+  margin-inline-start: calc(-1 * (var(--space-2) + var(--field-control-border-width)));
+  padding: 0 var(--space-2);
   border: var(--field-control-border-width) solid var(--field-control-interactive-border-color);
   border-radius: var(--radius-compact);
   outline: none;
