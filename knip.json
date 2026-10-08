@@ -42,10 +42,6 @@
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
   // binary; it is a package script in that workspace.
   "ignoreBinaries": ["mise", "typecheck"],
-  // For agents' throwaway browser drivers (docs/driving-the-app.md), so they
-  // import it normally instead of digging it out of an npx cache. Nothing in
-  // the repo imports it.
-  "ignoreDependencies": ["playwright-core"],
   // Scoped to the findings that are actionable and currently near zero, so a
   // red `pnpm knip` means something. Export-level analysis is excluded on
   // purpose: it reports first-party symbols that are exported but used only

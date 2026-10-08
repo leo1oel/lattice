@@ -217,7 +217,6 @@
   [data-slot="select-trigger"],
   [data-slot="input"],
   [data-slot="textarea"],
-  [data-slot="input-control"],
   [data-slot="button"]
 ) {
   width: var(--settings-control-width);
@@ -539,14 +538,6 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   background: var(--segmented-selected-surface);
   box-shadow: var(--segmented-selected-shadow);
   color: var(--text-primary);
-}
-
-.ui-segmented--accent .sliding-tab.active {
-  color: var(--control-active);
-}
-
-.ui-segmented--accent .sliding-tab-pill {
-  background: var(--control-active-soft);
 }
 
 .ui-icon-button:disabled,

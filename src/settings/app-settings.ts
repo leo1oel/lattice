@@ -31,7 +31,7 @@ const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
-export const GUIDED_TOUR_KEY = "lattice.guided-tour.v1";
+const GUIDED_TOUR_KEY = "lattice.guided-tour.v1";
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
 const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
@@ -366,7 +366,7 @@ export type AppearanceSettings = {
 };
 
 /** Where notifications stack. Top left is missing on purpose: the traffic lights live there. */
-export const TOAST_POSITIONS = ["top-right", "top-center", "bottom-right", "bottom-center"] as const;
+const TOAST_POSITIONS = ["top-right", "top-center", "bottom-right", "bottom-center"] as const;
 export type ToastPosition = typeof TOAST_POSITIONS[number];
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */

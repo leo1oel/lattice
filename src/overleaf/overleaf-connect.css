@@ -144,7 +144,6 @@
   gap: var(--space-6);
 }
 .overleaf-picker-lede p { margin: 0; }
-.overleaf-picker-intro { color: var(--text-secondary); font-size: var(--type-caption-size); }
 /* The signed-in account, as a quiet chip with a live dot. */
 .overleaf-picker-account {
   min-width: 0;

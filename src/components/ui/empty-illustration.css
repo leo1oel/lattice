@@ -23,7 +23,6 @@
 .empty-illustration-knot[data-thread="weft"] { fill: var(--mark-weft); opacity: 1; }
 .empty-illustration-knot[data-thread="warp"] { fill: var(--mark-warp); opacity: 1; }
 .empty-illustration-now { fill: var(--surface-panel-raised); stroke: var(--mark-weft); stroke-width: 1.75; opacity: 1; }
-.empty-illustration-missing { fill: none; stroke: var(--mark-weft); stroke-width: 1.25; stroke-dasharray: 1.6 1.4; }
 
 /* Arrival: each line draws itself in its turn, then the knots land. The
    resting style is the finished drawing, so with motion reduced the drawing
@@ -35,8 +34,7 @@
   animation-delay: calc(var(--draw-order) * 90ms);
 }
 .empty-illustration-dashed,
-.empty-illustration-knot,
-.empty-illustration-missing {
+.empty-illustration-knot {
   transform-box: fill-box;
   transform-origin: center;
   animation: empty-illustration-land var(--motion-moderate) both;

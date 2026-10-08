@@ -266,14 +266,11 @@
   /* Host navigation contract. These semantic values preserve the current
      sidebar geometry while keeping its states independent from component
      selectors and third-party tree implementation details. */
-  --navigation-header-height: 40px;
   --navigation-action-size: var(--control-height-compact);
   --navigation-search-height: var(--search-control-height);
   --navigation-search-font-size: var(--type-body-compact-size);
   --navigation-search-line-height: var(--type-project-tree-line-height);
   --navigation-search-font-weight: var(--type-body-weight);
-  --navigation-tab-hover-surface: color-mix(in srgb, var(--border-subtle) 35%, transparent);
-  --navigation-tab-selected-surface: color-mix(in srgb, var(--border-subtle) 65%, transparent);
   --navigation-action-hover-surface: var(--chrome-hover-surface);
   --navigation-tree-hover-surface: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --navigation-tree-selected-surface: color-mix(in srgb, var(--text-primary) 8%, transparent);
@@ -542,7 +539,6 @@
   --tone-surface: color-mix(in srgb, currentColor 10%, transparent);
   --tone-hover-surface: color-mix(in srgb, currentColor 8%, transparent);
   --tone-border: color-mix(in srgb, currentColor 14%, transparent);
-  --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
 }
 /* The spring tiers as sampled curves. Generated values: tokens.test.ts says
    what they must be when a tier in motion-values.ts changes. */

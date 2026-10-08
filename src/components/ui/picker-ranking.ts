@@ -6,7 +6,7 @@
  * it follows the previous one. Zero when the characters do not all appear.
  * Spaces only separate the parts, so "note 12" finds notes/note-012.md.
  */
-export function subsequenceScore(hay: string, needle: string): number {
+function subsequenceScore(hay: string, needle: string): number {
   let score = 0;
   let index = 0;
   for (const character of needle.replace(/\s+/g, "")) {

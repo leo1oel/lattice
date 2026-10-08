@@ -13,7 +13,7 @@ import {
 export type ProofreadEdit = { id: number; from: number; to: number; insert: string };
 
 /** An edit that would have altered protected LaTeX, and so is never offered. */
-export type HeldProofreadEdit = ProofreadEdit & { kind: ProtectedKind };
+type HeldProofreadEdit = ProofreadEdit & { kind: ProtectedKind };
 
 /** A suggestion split into the edits the writer may choose from and the ones held back. */
 export type ProofreadReview = { edits: ProofreadEdit[]; held: HeldProofreadEdit[] };

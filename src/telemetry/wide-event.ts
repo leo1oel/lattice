@@ -17,7 +17,7 @@ import { redactLogText, writeLogFileLine } from "./app-log-store";
 import { toMessage } from "../app-utils";
 
 export type WideEventValue = string | number | boolean;
-export type WideEventOutcome = "success" | "error" | "cancelled";
+type WideEventOutcome = "success" | "error" | "cancelled";
 
 export type WideEvent = {
   /** Set fields; `undefined` leaves a field out. */

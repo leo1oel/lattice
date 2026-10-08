@@ -99,7 +99,6 @@ input[type="search"]:focus-visible {
 .titlebar-main > .canvas-toolbar .canvas-actions { min-width: max-content; width: max-content; flex: none; overflow: visible; }
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes icon-swap { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
 
 .compile-diagnostics { box-shadow: 0 0 0 1px var(--border-subtle), var(--elevation-floating-shadow); position: absolute; z-index: var(--z-diagnostics); top: 46px; right: var(--space-4); width: min(440px, calc(100% - 16px)); border-radius: var(--radius-panel); color: var(--text-secondary); overflow: hidden; }
 .compile-diagnostics.error .compile-diagnostics-toggle > svg:first-child { color: var(--status-danger); }
@@ -376,9 +375,6 @@ input[type="search"]:focus-visible {
 .workspace { flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-sidebar); }
 .workspace > * { min-width: 0; }
 .navigator { min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); }
-/* Keep the iframe and file tree at their real width while the grid closes its
-   clipping column. Reopening does not remount the assistant or squeeze rows. */
-@keyframes sidebar-pane-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 .panel-resizer { position: relative; z-index: 2; width: 1px; min-width: 1px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; transition: background var(--motion-fast), box-shadow var(--motion-fast); }
 .panel-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .panel-resizer:hover, .panel-resizer:focus-visible, body.resizing-panels .panel-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }

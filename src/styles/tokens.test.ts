@@ -154,7 +154,6 @@ describe("design token contract", () => {
 
   it("shares one height across the navigation controls", () => {
     expect(foundations).toMatch(/--navigation-action-size: var\(--control-height-compact\)/)
-    expect(foundations).toMatch(/--navigation-header-height: 40px/)
     expect(foundations).toMatch(/--titlebar-height: 40px/)
   })
 

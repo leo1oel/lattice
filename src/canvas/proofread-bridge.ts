@@ -4,7 +4,7 @@ import type { ProofreadMode } from "../agent/agent-proofread";
 import { proofreadExtension, type ProofreadKeyHandlers } from "../editor/proofread-anchor";
 
 /** The layer's handlers: the keys', with a request that may ask for Polish. */
-export type ProofreadHandlers = Omit<ProofreadKeyHandlers, "request"> & {
+type ProofreadHandlers = Omit<ProofreadKeyHandlers, "request"> & {
   request: (view: EditorView, mode?: ProofreadMode) => boolean;
 };
 

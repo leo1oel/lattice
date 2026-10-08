@@ -31,8 +31,8 @@ import { type Plugin, searchForWorkspaceRoot } from "vite";
 
 export const PRIVATE_FONTS_ENV = "LATTICE_PRIVATE_FONTS_DIR";
 export const PRIVATE_FONTS_REQUIRED_ENV = "LATTICE_PRIVATE_FONTS_REQUIRED";
-export const PRIVATE_FONTS_MODULE = "virtual:lattice-private-fonts.css";
-export const PRIVATE_FONTS_LICENSE_MODULE = "virtual:lattice-private-fonts-license";
+const PRIVATE_FONTS_MODULE = "virtual:lattice-private-fonts.css";
+const PRIVATE_FONTS_LICENSE_MODULE = "virtual:lattice-private-fonts-license";
 // A path-like id that ends in .css, so Vite's CSS pipeline (url() rewriting,
 // asset emission, bundling into the app stylesheet) handles it like a file.
 const RESOLVED_MODULE = "/__lattice-private-fonts.css";
@@ -157,7 +157,7 @@ export function privateFontsStylesheet(embedded: boolean): string {
  * as a hashed asset of the app (never inlined, so the shipped copy stays
  * byte-identical), or null when the build has no fonts.
  */
-export function privateFontsLicenseModule(embedded: boolean): string {
+function privateFontsLicenseModule(embedded: boolean): string {
   return embedded
     ? `export { default as fontLicenseUrl } from "${FONT_ALIAS}/${LICENSE_FILE}?url&no-inline";\n`
     : "export const fontLicenseUrl = null;\n";

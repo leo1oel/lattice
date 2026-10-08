@@ -148,7 +148,7 @@ never the one below.
 | --- | --- | --- | --- |
 | Palette | `src/styles/theme.css` `:root` and `[data-theme="dark"]` | the only raw colors in the product | `--line: rgba(28, 28, 31, 0.09)` |
 | Semantic roles | `src/styles/foundations.css` | what a value means, per theme | `--border-subtle: var(--line)` |
-| Component contracts | `foundations.css`, grouped per family | the geometry and states one family shares | `--navigation-action-size`, `--tab-selected-surface` |
+| Component contracts | `foundations.css`, grouped per family | the geometry and states one family shares | `--navigation-action-size`, `--navigation-tree-selected-surface` |
 
 Rules that follow from this:
 

@@ -328,7 +328,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   return (
     <div
       ref={trackRef}
-      className="ui-segmented ui-segmented--compact ui-segmented--neutral trellis-presets"
+      className="ui-segmented ui-segmented--compact trellis-presets"
       onKeyDown={onTrackKeyDown}
       onFocus={onTrackFocus}
       onBlur={onTrackBlur}

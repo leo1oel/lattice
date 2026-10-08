@@ -1005,12 +1005,8 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   -webkit-box-decoration-break: clone;
 }
 
-/* Visual editor popups: keep them on the same typography, compact-control
-   geometry, neutral surfaces, and scrollbar language as the Project/PDF tools. */
-[data-suggestion-popup] {
-  font-family: var(--ui-font);
-}
-
+/* The visual editor's emoji picker: keep it on the same typography,
+   compact-control geometry and neutral surfaces as the Project/PDF tools. */
 [data-testid="emoji-picker-popover"] {
   z-index: var(--z-radix-popper);
   overflow: hidden;
@@ -1027,54 +1023,6 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   background: var(--search-control-background);
   font-family: var(--ui-font);
   font-size: var(--type-caption-size);
-}
-
-[data-testid="emoji-picker-anchor"] {
-  position: fixed;
-  z-index: var(--z-radix-popper);
-  pointer-events: none;
-}
-
-/* Same reason as theme.css: these would disable the pseudo-element rules below. */
-@supports not selector(::-webkit-scrollbar) {
-  [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport] {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-  }
-
-  [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover {
-    scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
-  }
-}
-
-[data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-[data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  background-clip: content-box;
-}
-[data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
-  background-clip: content-box;
-}
-[data-wiki-link] { color: var(--control-active); cursor: pointer; }
-[data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
-[data-testid="block-type-selector"] {
-  height: var(--control-height-compact);
-  min-height: var(--control-height-compact);
-  padding-inline: var(--pad-inline-control-tight);
-  gap: var(--space-2);
-  border: 0;
-  border-radius: var(--radius-icon);
-  background: transparent;
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  transform: none;
 }
 .visual-node-source-error { color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.45; }
 @media (forced-colors: active) {

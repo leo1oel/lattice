@@ -3,7 +3,7 @@ import { i18n } from "../i18n";
 import type { DiagnosticCounts } from "./compile-diagnostics";
 
 /** "1 error · 2 warnings · 1 note", leaving out what the build did not report. */
-export function diagnosticCountsText(counts: DiagnosticCounts): string {
+function diagnosticCountsText(counts: DiagnosticCounts): string {
   const { error: errors, warning: warnings, info: notes } = counts;
   return [
     errors ? errors === 1 ? i18n._(msg`${errors} error`) : i18n._(msg`${errors} errors`) : "",
