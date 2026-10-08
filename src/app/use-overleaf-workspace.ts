@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDelete, type OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
-import { setError, setNotice, setWarning } from "./notify";
+import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
@@ -322,10 +322,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       const url = new URL(`/project/${encodeURIComponent(overleafLink.projectId)}`, overleafLink.host);
       void openUrl(url.toString()).catch((reason) => {
         const message = toMessage(reason);
-        setError(t`Could not open the project on Overleaf: ${message}`);
+        showError(t`Could not open the project on Overleaf: ${message}`);
       });
     } catch {
-      setError(t`Could not open the project because its Overleaf host is invalid.`);
+      showError(t`Could not open the project because its Overleaf host is invalid.`);
     }
   }, [overleafLink, t]);
 
@@ -364,12 +364,12 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       try {
         await invoke("overleaf_delete_entity", { projectRoot, kind: entry.entity.kind, entityId: entry.entity.id });
       } catch (reason) {
-        if (stillCurrent()) setError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
+        if (stillCurrent()) showError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
         return;
       }
     }
     if (stillCurrent() && !automatic) {
-      setNotice(known.length === 1
+      showNotice(known.length === 1
         ? t`Removed one file from Overleaf`
         : t({ message: `Removed ${known.length} files from Overleaf` }), "Overleaf");
     }
@@ -429,14 +429,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // absence is only discovered from the other side.
       if (result.skippedLarge?.length) {
         const files = result.skippedLarge.join(", ");
-        setWarning(t`Too large for Overleaf, so left on this machine: ${files}.`, "Overleaf");
+        showWarning(t`Too large for Overleaf, so left on this machine: ${files}.`, "Overleaf");
       }
       // A download that would have emptied or gutted files nobody changed
       // on Overleaf. Say so once: the files simply stay, and the reason is
       // that Overleaf's own history does not confirm the change.
       if (result.refusedIncoming?.length) {
         const files = result.refusedIncoming.join(", ");
-        setWarning(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`, "Overleaf");
+        showWarning(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`, "Overleaf");
       }
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
@@ -467,7 +467,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           marked.length ? t`Couldn’t merge ${markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.` : "",
           whole.length ? t`${wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.` : "",
         ].filter(Boolean);
-        if (parts.length) setError(parts.join(" "));
+        if (parts.length) showError(parts.join(" "));
         // Only worth opening for a file that actually has markers in it.
         if (marked[0]) setConflictPath(marked[0].path);
       }
@@ -694,7 +694,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
     onRemoteText: (text, context) => applyOverleafRemoteText(deps, text, context),
-    onNotice: (message) => setNotice(message),
+    onNotice: (message) => showNotice(message),
     onNeedsSync: (paths) => {
       for (const path of paths) externalChangesRef.current.set(path, Symbol());
       setExternalChangeGeneration((generation) => generation + 1);
@@ -808,8 +808,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     if (path) void openProjectFile(path, { line: (peer.row ?? 0) + 1 });
     else if (peer.name) {
       const name = peer.name;
-      setNotice(t`${name} is not in a file right now.`);
-    } else setNotice(t`This collaborator is not in a file right now.`);
+      showNotice(t`${name} is not in a file right now.`);
+    } else showNotice(t`This collaborator is not in a file right now.`);
   }, [overleafDocPaths, openProjectFile, t]);
 
   /** Carets to draw, which is only ever the document being edited live. */
@@ -880,7 +880,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const detail = overleafRealtime.detail;
     if (overleafRealtime.status !== "error" || !detail || overleafRealtimeNotified.current === detail) return;
     overleafRealtimeNotified.current = detail;
-    setNotice(t`Live editing with Overleaf could not start (${detail}). Your project still syncs every few seconds.`);
+    showNotice(t`Live editing with Overleaf could not start (${detail}). Your project still syncs every few seconds.`);
   }, [overleafRealtime.detail, overleafRealtime.status, t]);
 
   // Live mode also pushes, keyed off *saves*: autosave clears the dirty flag

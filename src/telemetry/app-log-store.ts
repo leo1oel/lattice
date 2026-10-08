@@ -153,7 +153,7 @@ function syncVisibleToasts() {
   if (!unchanged) visibleToasts = next;
 }
 
-function emit() {
+function emitChange() {
   syncVisibleToasts();
   for (const listener of listeners) listener();
 }
@@ -161,7 +161,7 @@ function emit() {
 let persistWarningIssued = false;
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
-function persist() {
+function schedulePersistence() {
   // Coalesce a burst without postponing persistence indefinitely. In-memory
   // subscribers and disk delivery remain immediate; only the snapshot waits.
   persistTimer ??= setTimeout(flushPersistence, 100);
@@ -179,7 +179,7 @@ function flushPersistence() {
     if (persistWarningIssued) return;
     persistWarningIssued = true;
     // Defer so this entry is added after the current mutation finishes; its
-    // own persist() failure is suppressed by the flag above.
+    // own persistence failure is suppressed by the flag above.
     /* eslint-disable lingui/no-unlocalized-strings -- English until a catalog is active */
     queueMicrotask(() => addAppLog({
       level: "warning",
@@ -229,8 +229,8 @@ function reportFileLoss(losses: LogLosses): string {
       if (!pendingLossEntry) return;
       entries = [pendingLossEntry, ...entries.filter((item) => item.id !== lossEntryId)].slice(0, MAX_ENTRIES);
       pendingLossEntry = undefined;
-      persist();
-      emit();
+      schedulePersistence();
+      emitChange();
     });
   }
   pendingLossEntry = entry;
@@ -310,8 +310,8 @@ export function addAppLog(input: {
       dedupeKeyByEntryId.set(entry.id, input.dedupeKey);
     }
   }
-  persist();
-  emit();
+  schedulePersistence();
+  emitChange();
   forwardToFileLog(entry);
   return entry;
 }
@@ -347,8 +347,8 @@ export function updateAppLog(
     }
     toastOptionsById.set(id, toastOptions);
   }
-  persist();
-  emit();
+  schedulePersistence();
+  emitChange();
   forwardToFileLog(updated);
   return updated;
 }
@@ -359,9 +359,9 @@ export function clearAppLogs() {
   toastOptionsById.clear();
   entryIdByDedupeKey.clear();
   dedupeKeyByEntryId.clear();
-  persist();
+  schedulePersistence();
   flushPersistence();
-  emit();
+  emitChange();
 }
 
 export function formatAppLogs(value = entries): string {
@@ -382,7 +382,7 @@ export function dismissAppToast(id: string, notify = true) {
     // Only if it still points here: a later toast may already own the key.
     if (entryIdByDedupeKey.get(dedupeKey) === id) entryIdByDedupeKey.delete(dedupeKey);
   }
-  emit();
+  emitChange();
   if (notify) options?.onDismiss?.();
 }
 
@@ -398,7 +398,7 @@ export function updateAppToastProgress(key: string, progress: AppToastProgress) 
   const options = id ? toastOptionsById.get(id) : undefined;
   if (!id || !options || options.progress === progress) return;
   toastOptionsById.set(id, { ...options, progress });
-  emit();
+  emitChange();
 }
 
 /**

@@ -533,7 +533,7 @@ function licenseAlternatives(expression) {
  * copyleft, an SSPL or a proprietary dependency is a real finding, and a
  * "SEE LICENSE IN ..." field means the terms are whatever that file says.
  */
-function classify(entry) {
+function classifyLicense(entry) {
   const declared = entry.declared;
   if (!declared) return { severity: "unknown", label: "no license field" };
   const value = declared.toLowerCase();
@@ -595,7 +595,7 @@ const isCopyrightLine = (line) => COPYRIGHT_LINE.test(undecorate(line));
  * reproduction of the text plus the list of notices — which is what the license
  * actually requires and roughly a tenth of the bytes.
  */
-function bodyKey(text) {
+function licenseBodyKey(text) {
   const stripped = text
     .split("\n")
     .filter((line) => !isCopyrightLine(line))
@@ -623,7 +623,7 @@ function groupTexts(entries) {
   const groups = new Map();
   for (const entry of entries) {
     for (const text of entry.texts) {
-      const key = bodyKey(text.text);
+      const key = licenseBodyKey(text.text);
       let group = groups.get(key);
       if (!group) {
         group = { key, text: text.text, fileName: text.name, packages: [], copyrights: new Set(), declared: [], declaredBy: new Map() };
@@ -773,7 +773,7 @@ const FINDINGS_INTRO = [
 
 function renderFindings(all, { heading = "##", scope = "all closures", note = "" } = {}) {
   const flagged = all
-    .map((entry) => ({ entry, verdict: classify(entry) }))
+    .map((entry) => ({ entry, verdict: classifyLicense(entry) }))
     // `unknown` is already in the unresolved section.
     .filter(({ verdict }) => verdict.severity !== "permissive" && verdict.severity !== "unknown")
     .sort(

@@ -133,7 +133,7 @@ import {
 import { logAction } from "./telemetry/app-notify";
 // setError / setWarning / setNotice are the toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
-import { setError, setWarning, showingErrors } from "./app/notify";
+import { showError, showWarning, showingErrors } from "./app/notify";
 import "./App.css";
 
 type RemoveReferenceResult = {
@@ -313,7 +313,7 @@ function App() {
       }
       return true;
     } catch (reason) {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       return false;
     }
   }, [projectRef, setProject]);
@@ -593,7 +593,7 @@ function App() {
     if (written.text !== undefined) accept(mutation.path, written.text);
     if (written.hadConflicts) {
       const path = mutation.path;
-      setWarning(t`Open Slide and another editor changed the same lines in ${path}; Lattice kept both with conflict markers.`);
+      showWarning(t`Open Slide and another editor changed the same lines in ${path}; Lattice kept both with conflict markers.`);
     }
     const snapshot = await refreshProject();
     await refreshHistory();
@@ -636,7 +636,7 @@ function App() {
       activeFile,
     );
     if (!path) {
-      setError(diagnostic.message);
+      showError(diagnostic.message);
       return;
     }
     await showingErrors(async () => {
@@ -739,7 +739,7 @@ function App() {
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
     if (!canDownloadPaper(paper)) {
-      if (paper.url) await openUrl(paper.url).catch((reason: unknown) => setError(toMessage(reason)));
+      if (paper.url) await openUrl(paper.url).catch((reason: unknown) => showError(toMessage(reason)));
       return;
     }
     // Reserve the navigation when the user asks, not after a potentially slow
@@ -773,14 +773,14 @@ function App() {
     };
     await fetchAndOpen().catch((reason: unknown) => {
       clearFetchState();
-      if (opening.isCurrent()) setError(toMessage(reason));
+      if (opening.isCurrent()) showError(toMessage(reason));
     }).finally(clearImportStage);
   }, [claim, clearImportStage, openPaper, refreshProject]);
 
   const readDraggedPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
     else if (paper.arxivId || paper.url) void fetchAndOpenPaper(paper);
-    else setError(t`This paper has no local reading or downloadable source.`);
+    else showError(t`This paper has no local reading or downloadable source.`);
   };
 
   useEffect(() => () => {
@@ -942,7 +942,7 @@ function App() {
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
     if (!paper.citationKey) {
-      setError(t`This bibliography entry has no citation key to remove.`);
+      showError(t`This bibliography entry has no citation key to remove.`);
       return;
     }
     const projectRoot = project?.root;
@@ -1007,7 +1007,7 @@ function App() {
         const first = result.blockers[0];
         const citationCommand = `\\cite{${paper.citationKey}}`;
         const blocker = first ? `${first.path}:${first.line}` : "";
-        setError(first
+        showError(first
           ? t`The bibliography changed while removing ${citationCommand} (${blocker}). Try again.`
           : t`Could not remove ${citationCommand}.`);
         return;
@@ -1031,7 +1031,7 @@ function App() {
           transactionId: result.transactionId, projectRoot,
         }).then(() => true, () => false);
         if (operationIsCurrent()) {
-          setError(reverted
+          showError(reverted
             ? t`${conflictPath} changed while the reference was being removed. Nothing was removed; try again.`
             : t`${conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History.`);
           await refreshProject();
@@ -1050,7 +1050,7 @@ function App() {
       await refreshProject();
       await refreshHistory();
     } catch (reason) {
-      setError(toMessage(reason));
+      showError(toMessage(reason));
     }
   }, [
     accept, activeFile, activeFileRef, activePaper, flush, leavePaper, markDiskVersion, project,
@@ -1224,7 +1224,7 @@ function App() {
     const path = activeFile;
     const text = source;
     if (!path.endsWith(".tex")) {
-      setError(t`Open a .tex file before formatting.`, t`Format`);
+      showError(t`Open a .tex file before formatting.`, t`Format`);
       return;
     }
     const trace = logAction(t`Format`, t`Format document`, path);
@@ -1528,7 +1528,7 @@ function App() {
     onRenameEntry: tree.renameEntry,
     onMoveEntries: tree.moveEntries,
     onCopyEntries: tree.copyEntries,
-    onError: setError,
+    onError: showError,
     onReveal: tree.revealItem,
     onImportAssets: tree.chooseAssets,
     onPasteImage: (targetDirectory: string) => void tree.importSystemClipboardImage(targetDirectory),
@@ -1623,7 +1623,7 @@ function App() {
       onViewMarkdownSource={() => chooseMode("split")}
       onOpenSlideMutation={applyOpenSlideMutation}
       onOpenSlideContext={setOpenSlideContext}
-      onOpenSlideError={setError}
+      onOpenSlideError={showError}
       pdfUrl={pdfUrl}
       pdfBytes={buildPipeline.displayedPdfBytesRef.current}
       pdfTop={(!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
@@ -1661,7 +1661,7 @@ function App() {
         const paper = readablePaperCited(key);
         const url = citationUrl(key);
         if (paper) void openPaper(paper);
-        else if (url) void openUrl(url).catch((reason) => setError(toMessage(reason)));
+        else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
       }}
       citationKeys={citationKeys}
       citations={citations}
@@ -1775,7 +1775,7 @@ function App() {
           library={{ projectRoot: project.root, papers }}
           interfaceScale={appearance.interfaceScale}
           onOpen={readDraggedPaper}
-          onError={(reason) => setError(toMessage(reason))}
+          onError={(reason) => showError(toMessage(reason))}
         />
       </Suspense>
       <AppTitlebar

@@ -39,7 +39,7 @@ for (const [phrase, macro] of Object.entries(EXTRA_ALIASES)) {
   aliasesByMacro.get(macro).push(phrase);
 }
 
-const norm = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const normalizeVenueName = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 let category = "journal";
 const byName = new Map();
@@ -61,7 +61,7 @@ for (const line of stringsText.split("\n")) {
 }
 
 const venues = [...byName.values()]
-  .map((v) => ({ name: v.name, entryType: v.entryType, search: norm(v.parts.join(" ")) }))
+  .map((v) => ({ name: v.name, entryType: v.entryType, search: normalizeVenueName(v.parts.join(" ")) }))
   .sort((a, b) => a.name.localeCompare(b.name));
 
 // One venue per line keeps the snapshot compact and its diffs one line per venue.

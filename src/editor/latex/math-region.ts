@@ -40,7 +40,7 @@ function findDelimited(text: string, position: number, [open, close, display]: D
 }
 
 /** True when `text[from, to)` holds only spaces and tabs (and a CR). */
-function blank(text: string, from: number, to: number): boolean {
+function isBlankSpan(text: string, from: number, to: number): boolean {
   for (let index = from; index < to; index += 1) {
     const code = text.charCodeAt(index);
     if (code !== 32 && code !== 9 && code !== 13) return false;
@@ -58,16 +58,16 @@ function paragraphAround(text: string, position: number): [number, number] {
   let from = position > 0 ? text.lastIndexOf("\n", position - 1) + 1 : 0;
   let to = text.indexOf("\n", position);
   if (to < 0) to = text.length;
-  if (blank(text, from, to)) return [from, to];
+  if (isBlankSpan(text, from, to)) return [from, to];
   while (from > 0) {
     const previous = text.lastIndexOf("\n", from - 2) + 1;
-    if (blank(text, previous, from - 1)) break;
+    if (isBlankSpan(text, previous, from - 1)) break;
     from = previous;
   }
   while (to < text.length) {
     let next = text.indexOf("\n", to + 1);
     if (next < 0) next = text.length;
-    if (blank(text, to + 1, next)) break;
+    if (isBlankSpan(text, to + 1, next)) break;
     to = next;
   }
   return [from, to];
@@ -88,15 +88,15 @@ export function mathRegionAt(text: string, position: number): MathRegion | null 
 export function mathRegionInDocument(doc: Text, position: number): MathRegion | null {
   let first = doc.lineAt(position);
   let last = first;
-  if (!blank(first.text, 0, first.length)) {
+  if (!isBlankSpan(first.text, 0, first.length)) {
     while (first.number > 1) {
       const previous = doc.line(first.number - 1);
-      if (blank(previous.text, 0, previous.length)) break;
+      if (isBlankSpan(previous.text, 0, previous.length)) break;
       first = previous;
     }
     while (last.number < doc.lines) {
       const next = doc.line(last.number + 1);
-      if (blank(next.text, 0, next.length)) break;
+      if (isBlankSpan(next.text, 0, next.length)) break;
       last = next;
     }
   }

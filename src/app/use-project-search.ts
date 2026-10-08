@@ -6,7 +6,7 @@ import { toMessage } from "../app-utils";
 import type { ProjectFindHit } from "../project/project-find-dialog";
 import type { ReplaceOptions, ReplacePreviewResult } from "../project/project-replace-dialog";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { setNotice } from "./notify";
+import { showNotice } from "./notify";
 
 type FindState = { open: boolean; busy: boolean; error: string | null; hits: ProjectFindHit[] };
 type ReplaceState = { open: boolean; busy: boolean; error: string | null; preview: ReplacePreviewResult | null };
@@ -93,7 +93,7 @@ export function useProjectSearch(deps: {
     setReplace({ open: false, preview: null });
     const replacements = result.replacements;
     const files = result.filesChanged.length;
-    setNotice(!replacements
+    showNotice(!replacements
       ? t`No matches found.`
       : replacements === 1
         ? t`Replaced ${replacements} occurrence in ${files} file.`

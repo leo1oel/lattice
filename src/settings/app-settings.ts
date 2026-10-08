@@ -151,7 +151,7 @@ export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 export const hasFinishedGuidedTour = () => safely(() => localStorage.getItem(GUIDED_TOUR_KEY) === "completed", false);
 
 /** A finished tour stays finished: skipping a replay does not forget it. */
-export const rememberGuidedTour = (outcome: "completed" | "skipped") => {
+export const recordGuidedTourOutcome = (outcome: "completed" | "skipped") => {
   if (outcome === "completed" || !hasFinishedGuidedTour()) persistSetting(GUIDED_TOUR_KEY, outcome);
 };
 

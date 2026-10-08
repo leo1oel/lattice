@@ -90,11 +90,11 @@ function syncQuietly(): void {
   });
 }
 
-const currentKey = () => `${i18n.locale}|${loadAppearance().interfaceLanguage}`;
+const currentLocaleKey = () => `${i18n.locale}|${loadAppearance().interfaceLanguage}`;
 
 // The last locale and preference sent while the sync is installed; `null`
 // when it is not.
-let sent: string | null = null;
+let lastSentLocaleKey: string | null = null;
 
 /**
  * Resend when the locale or the saved preference moved since the last send.
@@ -102,10 +102,10 @@ let sent: string | null = null;
  * same locale changes only the preference, so no catalog change reports it.
  */
 export function syncNativeLocaleIfChanged(): void {
-  if (sent === null) return;
-  const key = currentKey();
-  if (key === sent) return;
-  sent = key;
+  if (lastSentLocaleKey === null) return;
+  const key = currentLocaleKey();
+  if (key === lastSentLocaleKey) return;
+  lastSentLocaleKey = key;
   syncQuietly();
 }
 
@@ -117,7 +117,7 @@ export function syncNativeLocaleIfChanged(): void {
 export function installNativeLocaleSync(): () => void {
   // Lingui also reports catalog loads as changes; only a new locale or
   // preference needs a rebuild.
-  sent = currentKey();
+  lastSentLocaleKey = currentLocaleKey();
   syncQuietly();
   const stopLocale = i18n.on("change", syncNativeLocaleIfChanged);
   let stopFocus = () => {};
@@ -132,7 +132,7 @@ export function installNativeLocaleSync(): () => void {
     }
   }
   return () => {
-    sent = null;
+    lastSentLocaleKey = null;
     stopLocale();
     stopFocus();
   };

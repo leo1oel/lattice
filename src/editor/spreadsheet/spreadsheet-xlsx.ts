@@ -29,7 +29,7 @@ function resolveStyle(style: unknown, styles: SpreadsheetWorkbookData["styles"])
   return isRecord(style) ? style as UniverStyle : undefined;
 }
 
-function color(value: unknown): Partial<ExcelJS.Color> | undefined {
+function excelColor(value: unknown): Partial<ExcelJS.Color> | undefined {
   const rgb = isRecord(value) && "rgb" in value ? value.rgb : value;
   if (typeof rgb !== "string") return undefined;
   const hex = rgb.match(/^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i)?.[1];
@@ -52,7 +52,7 @@ function decorationEnabled(value: unknown): boolean {
 function excelBorder(value: UniverBorder | null | undefined): Partial<ExcelJS.Border> | undefined {
   const style = typeof value?.s === "number" ? BORDER_STYLES[value.s] : undefined;
   if (!style) return undefined;
-  const borderColor = color(value?.cl);
+  const borderColor = excelColor(value?.cl);
   return { style, ...(borderColor ? { color: borderColor } : {}) };
 }
 
@@ -70,10 +70,10 @@ function applyStyle(cell: ExcelJS.Cell, style: UniverStyle): void {
     italic: style.it === 1,
     underline: decorationEnabled(style.ul),
     strike: decorationEnabled(style.st),
-    color: color(style.cl),
+    color: excelColor(style.cl),
   });
   if (font) cell.font = font as ExcelJS.Font;
-  const background = color(style.bg);
+  const background = excelColor(style.bg);
   if (background) cell.fill = { type: "pattern", pattern: "solid", fgColor: background };
   const border = style.bd && present({
     top: excelBorder(style.bd.t),
@@ -144,7 +144,7 @@ export async function spreadsheetWorkbookToXlsx(source: SpreadsheetWorkbookData)
   for (const sheet of source.sheetOrder.map((id) => source.sheets[id]).filter(Boolean)) {
     const worksheet = target.addWorksheet(sheet.name, {
       state: sheet.hidden === 1 ? "hidden" : "visible",
-      properties: { tabColor: color(sheet.tabColor) },
+      properties: { tabColor: excelColor(sheet.tabColor) },
     });
     populateSheet(worksheet, source, sheet);
   }

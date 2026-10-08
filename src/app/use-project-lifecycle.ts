@@ -11,7 +11,7 @@ import {
 } from "../settings/app-settings";
 import type { CreateProjectForm } from "./app-project-dialogs";
 import type { UnopenedProject } from "../project/project-dialogs";
-import { setError, setNotice } from "./notify";
+import { showError, showNotice } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-library";
@@ -164,7 +164,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (syncingRef.current) {
       const settled = settledRef.current;
       if (settled) {
-        setNotice(t`Finishing Overleaf sync, then switching…`, "Overleaf");
+        showNotice(t`Finishing Overleaf sync, then switching…`, "Overleaf");
         await settleWithin(settled);
       }
     }
@@ -172,11 +172,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
     const saved = await saveEveryEdit({ flush, save, flushWholeFiles: flushWholeFilesRef.current, hasUnsavedEdits });
-    if (saved === "composing") setNotice(t`Finish the current text composition, then switch projects again.`);
-    if (saved === "changed") setNotice(t`The document changed while saving. Save it, then switch projects again.`);
+    if (saved === "composing") showNotice(t`Finish the current text composition, then switch projects again.`);
+    if (saved === "changed") showNotice(t`The document changed while saving. Save it, then switch projects again.`);
     if (saved !== "saved") return false;
     if (beginProjectTransition()) return true;
-    setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
+    showNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
   }, [beginProjectTransition, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
 
@@ -245,7 +245,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     return invoke("open_project_window", { path })
       .then(() => null, (reason: unknown) => {
         const message = toMessage(reason);
-        setError(message);
+        showError(message);
         return message;
       })
       .finally(() => setBusyLabel(null));
@@ -271,7 +271,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     })().catch((reason: unknown) => {
       if (openHere) cancelProjectTransition();
       if (onError) onError(reason);
-      else setError(toMessage(reason));
+      else showError(toMessage(reason));
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
 
@@ -285,7 +285,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     })().catch((reason: unknown) => {
       cancelProjectTransition();
       onError?.();
-      setError(toMessage(reason));
+      showError(toMessage(reason));
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
 
@@ -331,7 +331,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return true;
     })().catch((reason: unknown) => {
       cancelProjectTransition();
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       return failed();
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, chooseMode, depsRef, enterProject, save, startProjectTransition, t]);
@@ -401,7 +401,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       })
       .catch((reason) => {
         initialProjectProbe.resolve("failed");
-        if (active) setError(toMessage(reason));
+        if (active) showError(toMessage(reason));
       });
     return () => {
       active = false;
@@ -440,7 +440,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     await (async () => {
       if (!(await save())) return;
       await invoke("export_project_zip", { zipPath });
-    })().catch((reason: unknown) => setError(toMessage(reason))).finally(() => setBusyLabel(null));
+    })().catch((reason: unknown) => showError(toMessage(reason))).finally(() => setBusyLabel(null));
   }, [project, save, t]);
 
   const chooseRecentProject = useCallback(async (path: string) => {
@@ -502,7 +502,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       if (browserRuntimeDetached()) return;
       cancelProjectTransition();
       setMovingWorkspace(false);
-      if (failure !== null) setError(toMessage(failure));
+      if (failure !== null) showError(toMessage(failure));
       return;
     }
     // A native window closes, and the tab starts relaying only once it
@@ -514,7 +514,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     } catch (reason) {
       cancelProjectTransition();
       setMovingWorkspace(false);
-      setError(toMessage(reason));
+      showError(toMessage(reason));
       return;
     }
     await getCurrentWindow().close();

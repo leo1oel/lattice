@@ -8,7 +8,7 @@ import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget, graphicsHoverTarget, referenceHoverTarget, resolveProjectPath } from "./latex-symbols";
 import { referenceKindLabel } from "./latex-text";
 
-function hoverCard(className: string, view: EditorView, minWidth: number): HTMLDivElement {
+function createHoverCard(className: string, view: EditorView, minWidth: number): HTMLDivElement {
   const dom = element("div", className);
   dom.style.maxWidth = `${Math.max(minWidth, view.dom.clientWidth - 16)}px`;
   return dom;
@@ -30,7 +30,7 @@ export function citationTooltips(live: () => LatexEditorLiveData) {
       end: target.to,
       above: true,
       create() {
-        const dom = hoverCard("citation-hover-card", view, 160);
+        const dom = createHoverCard("citation-hover-card", view, 160);
         const heading = citation.title || citation.key;
         let title: HTMLElement = element("strong", "", heading);
         if (data.canOpenCitation?.(citation.key)) {
@@ -89,7 +89,7 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
       above: true,
       create() {
         let destroyed = false;
-        const dom = hoverCard("reference-hover-card", view, 180);
+        const dom = createHoverCard("reference-hover-card", view, 180);
         const { imagePath } = reference;
         if (imagePath && loadImage) dom.append(figurePreview(imagePath, reference.title || reference.label, loadImage, () => destroyed));
         dom.append(
@@ -122,7 +122,7 @@ export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (pa
       above: true,
       create() {
         let destroyed = false;
-        const dom = hoverCard("reference-hover-card", view, 180);
+        const dom = createHoverCard("reference-hover-card", view, 180);
         dom.append(figurePreview(resolved, resolved, loadImage, () => destroyed), element("em", "", resolved));
         return { dom, destroy: () => { destroyed = true; } };
       },

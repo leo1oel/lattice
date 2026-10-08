@@ -31,7 +31,7 @@ function touch(cache: Map<string, ProjectImageResource>, key: string, resource: 
   return true;
 }
 
-function trim(cache: Map<string, ProjectImageResource>) {
+function trimCache(cache: Map<string, ProjectImageResource>) {
   let characters = 0;
   for (const resource of cache.values()) characters += resource.dataUrl?.length ?? 0;
   for (const [key, resource] of cache) {
@@ -57,7 +57,7 @@ function projectImageResource(loadAsset: AssetLoader, projectPath: string, revis
     consumers: 0,
     promise: loadAsset(projectPath).then((dataUrl) => {
       resource.dataUrl = dataUrl;
-      if (touch(cache, key, resource)) trim(cache);
+      if (touch(cache, key, resource)) trimCache(cache);
       return dataUrl;
     }).catch((error) => {
       if (cache.get(key) === resource) cache.delete(key);
@@ -126,7 +126,7 @@ export function useProjectImage(src: string | undefined, enabled = true): Projec
         if (released) return;
         released = true;
         resource.consumers = Math.max(0, resource.consumers - 1);
-        if (resource.consumers === 0 && cache.get(key) === resource) trim(cache);
+        if (resource.consumers === 0 && cache.get(key) === resource) trimCache(cache);
       };
       const retryOrGiveUp = () => {
         if (!active) return;

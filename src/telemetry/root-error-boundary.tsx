@@ -11,7 +11,7 @@ import { translateOr } from "./early-i18n";
  * before any catalog is active.
  */
 /* eslint-disable lingui/no-unlocalized-strings -- English fallback for the recovery page */
-const COPY = {
+const FALLBACK_TEXT = {
   heading: [msg`Lattice couldn’t open this window`, "Lattice couldn’t open this window"],
   body: [
     msg`Your project files are safe`,
@@ -34,8 +34,8 @@ const COPY = {
 } satisfies Record<string, [MessageDescriptor, string]>;
 /* eslint-enable lingui/no-unlocalized-strings */
 
-function copy(key: keyof typeof COPY): string {
-  const [descriptor, english] = COPY[key];
+function fallbackText(key: keyof typeof FALLBACK_TEXT): string {
+  const [descriptor, english] = FALLBACK_TEXT[key];
   return translateOr(descriptor, english);
 }
 
@@ -80,28 +80,28 @@ export function RootErrorFallback({
       setActionError(failure);
     }
   };
-  const restart = () => attempt(onRestart, copy("restart-failed"));
+  const restart = () => attempt(onRestart, fallbackText("restart-failed"));
   const copyDetails = () => attempt(async () => {
     await onCopyDetails(details);
     setCopied(true);
-  }, copy("copy-failed"));
+  }, fallbackText("copy-failed"));
 
   return (
     <main className="root-error-page">
       <section className="root-error-card" role="alert" aria-labelledby="root-error-title">
-        <h1 id="root-error-title">{copy("heading")}</h1>
-        <p>{copy("body")}</p>
+        <h1 id="root-error-title">{fallbackText("heading")}</h1>
+        <p>{fallbackText("body")}</p>
         <div className="root-error-actions">
           <Button variant="primary" onClick={() => void restart()}>
-            {copy("restart")}
+            {fallbackText("restart")}
           </Button>
           <Button onClick={() => void copyDetails()}>
-            {copied ? copy("copied") : copy("copy")}
+            {copied ? fallbackText("copied") : fallbackText("copy")}
           </Button>
         </div>
         {actionError && <p className="root-error-action-error" role="alert">{actionError}</p>}
         <details className="root-error-details">
-          <summary>{copy("details")}</summary>
+          <summary>{fallbackText("details")}</summary>
           <pre>{details}</pre>
         </details>
       </section>
@@ -121,8 +121,8 @@ export class RootErrorBoundary extends Component<{ children: ReactNode }, { erro
     // capture already wraps) so the crash lands in the on-disk log file.
     addAppLog({
       level: "error",
-      source: copy("crash-source"),
-      title: copy("crash-title"),
+      source: fallbackText("crash-source"),
+      title: fallbackText("crash-title"),
       detail: `${error.stack ?? error.message}\n${info.componentStack ?? ""}`,
       toast: false,
     });

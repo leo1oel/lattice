@@ -45,7 +45,7 @@ const DEFAULT_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 
 // Storage failures fall back to manual, and a choice that cannot be saved still
 // applies for this session.
-const getUpdateMode = () => loadChoice<UpdateMode>(MODE_KEY, ["auto"], "manual");
+const loadUpdateMode = () => loadChoice<UpdateMode>(MODE_KEY, ["auto"], "manual");
 
 /** Minimal shape of the object returned by `@tauri-apps/plugin-updater`'s check(). */
 type TauriUpdate = {
@@ -117,7 +117,7 @@ function showUpdateToast(level: AppLogLevel, title: string, detail: string, toas
 }
 
 function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true): UpdaterApi {
-  const [mode, setModeState] = useState<UpdateMode>(getUpdateMode);
+  const [mode, setModeState] = useState<UpdateMode>(loadUpdateMode);
   const [state, setState] = useState<UpdaterState>(IDLE);
   const pendingRef = useRef<TauriUpdate | null>(null);
   const installingRef = useRef(false);

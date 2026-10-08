@@ -61,7 +61,7 @@ const TASKS: Record<ProofreadMode, (path: string) => string[]> = {
 };
 
 /** What both modes keep: the author's meaning and voice, and every LaTeX construct. */
-const preserving = (mode: ProofreadMode) => [
+const preservationRules = (mode: ProofreadMode) => [
   "",
   "Preserve the author's meaning, voice, tone, and scientific terminology.",
   "Preserve claims, uncertainty and hedging, negation, causal/comparative language,",
@@ -105,7 +105,7 @@ const preserving = (mode: ProofreadMode) => [
  */
 export function proofreadPrompt(excerpt: string, path: string, mode: ProofreadMode = "proofread"): string {
   // eslint-disable-next-line lingui/no-unlocalized-strings -- model input, not interface copy
-  return [...TASKS[mode](path), ...preserving(mode), "<excerpt>", excerpt, "</excerpt>"].join("\n");
+  return [...TASKS[mode](path), ...preservationRules(mode), "<excerpt>", excerpt, "</excerpt>"].join("\n");
 }
 
 /**

@@ -28,13 +28,13 @@ export function clearLinkPreviews() {
   pending.clear();
 }
 
-function remember(url: string, metadata: LinkMetadata) {
+function rememberPreview(url: string, metadata: LinkMetadata) {
   successes.delete(url);
   successes.set(url, metadata);
   while (successes.size > PREVIEW_CACHE_LIMIT) successes.delete(successes.keys().next().value!);
 }
 
-function valid(value: unknown): LinkMetadata | null {
+function validMetadata(value: unknown): LinkMetadata | null {
   const answer = value as { ok?: unknown; metadata?: Partial<LinkMetadata> } | null;
   if (!answer || answer.ok !== true || !answer.metadata || typeof answer.metadata.domain !== "string" || !answer.metadata.domain) return null;
   return answer.metadata as LinkMetadata;
@@ -44,15 +44,15 @@ function valid(value: unknown): LinkMetadata | null {
 export function loadLinkPreview(url: string, signal?: AbortSignal): Promise<LinkMetadata | null> {
   const cached = successes.get(url);
   if (cached) {
-    remember(url, cached);
+    rememberPreview(url, cached);
     return Promise.resolve(cached);
   }
   let request = pending.get(url);
   if (!request) {
     request = invoke<unknown>("link_preview", { url })
       .then((value) => {
-        const metadata = valid(value);
-        if (metadata) remember(url, metadata);
+        const metadata = validMetadata(value);
+        if (metadata) rememberPreview(url, metadata);
         return metadata;
       })
       .catch(() => null)

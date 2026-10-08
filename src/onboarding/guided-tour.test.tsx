@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { msg } from "@lingui/core/macro";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hasFinishedGuidedTour, rememberGuidedTour } from "../settings/app-settings";
+import { hasFinishedGuidedTour, recordGuidedTourOutcome } from "../settings/app-settings";
 import GuidedTour from "./guided-tour";
 import { placeCard } from "./guided-tour-placement";
 import { TOUR_STEPS, type TourContext, type TourStep } from "./guided-tour-steps";
@@ -209,10 +209,10 @@ describe("the Agent stop", () => {
 describe("guided tour progress", () => {
   it("remembers a finished tour, and a skipped replay does not forget it", () => {
     expect(hasFinishedGuidedTour()).toBe(false);
-    rememberGuidedTour("skipped");
+    recordGuidedTourOutcome("skipped");
     expect(hasFinishedGuidedTour()).toBe(false);
-    rememberGuidedTour("completed");
-    rememberGuidedTour("skipped");
+    recordGuidedTourOutcome("completed");
+    recordGuidedTourOutcome("skipped");
     expect(hasFinishedGuidedTour()).toBe(true);
   });
 });

@@ -112,7 +112,7 @@ export type ActionLog = {
   clear: () => void;
 };
 
-function tagged(id: string, detail?: string): string {
+function withTraceTag(id: string, detail?: string): string {
   return [detail?.trim(), `#${id.replace(/-/g, "").slice(0, 6)}`].filter(Boolean).join("\n");
 }
 
@@ -149,7 +149,7 @@ export function logAction(source: string, action: string, detail?: string, opera
   const outcomeKey = toastKey(source, action);
   const logOnly = (level: AppLogLevel, title: string, entryDetail: string, entryContext: AppLogContext) =>
     addAppLog({ level, source, title, detail: entryDetail, context: entryContext, toast: false });
-  logOnly("info", `▶ ${action}`, tagged(id, detail), context("started"));
+  logOnly("info", `▶ ${action}`, withTraceTag(id, detail), context("started"));
   return {
     id,
     enrich: (values) => { metrics = { ...metrics, ...values }; },
@@ -160,15 +160,15 @@ export function logAction(source: string, action: string, detail?: string, opera
       const outcomeTitle = outcome === "error" ? i18n._(msg`${action} error`)
         : outcome === "success" ? i18n._(msg`${action} success`)
           : i18n._(msg`${action} cancelled`);
-      logOnly(level, title ?? outcomeTitle, tagged(id), terminal(outcome));
+      logOnly(level, title ?? outcomeTitle, withTraceTag(id), terminal(outcome));
     },
-    note: (message, noteDetail) => { logOnly("info", message, tagged(id, noteDetail), context("progress")); },
+    note: (message, noteDetail) => { logOnly("info", message, withTraceTag(id, noteDetail), context("progress")); },
     ok: (title, options) => {
       if (completed) return;
       completed = true;
       notify("success", source, title, {
         ...options,
-        detail: tagged(id, options?.detail),
+        detail: withTraceTag(id, options?.detail),
         dedupeKey: options?.dedupeKey ?? outcomeKey,
       }, terminal("success"));
     },
@@ -179,7 +179,7 @@ export function logAction(source: string, action: string, detail?: string, opera
       const failedTitle = i18n._(msg`${action} failed`);
       notify("error", source, failedTitle, {
         ...options,
-        detail: tagged(id, options?.detail ?? message),
+        detail: withTraceTag(id, options?.detail ?? message),
         copyText: options?.copyText ?? `${failedTitle}\n${message}`,
         dedupeKey: options?.dedupeKey ?? outcomeKey,
       // eslint-disable-next-line lingui/no-unlocalized-strings -- error_type is a JavaScript error class name

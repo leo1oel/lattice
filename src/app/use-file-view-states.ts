@@ -3,7 +3,7 @@ import type { FileViewState, ProjectSnapshot } from "../app-types";
 import { loadFileViewStates, persistFileViewStates } from "../settings/app-settings";
 import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
 
-const within = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
+const isPathWithin = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
 /**
  * Where the writer last was in each file (cursor, scroll, Open Slide page),
@@ -40,7 +40,7 @@ export function useFileViewStates(
   const invalidate = useCallback(() => setEpoch(epochRef.current + 1), [epochRef, setEpoch]);
 
   const remember = useCallback((path: string, update: Partial<FileViewState>) => {
-    if (!path || epoch !== epochRef.current || removedRef.current.some((removed) => within(path, removed))
+    if (!path || epoch !== epochRef.current || removedRef.current.some((removed) => isPathWithin(path, removed))
       || !projectRoot || projectRef.current?.root !== projectRoot) return;
     const next = { ...statesRef.current.get(path), ...update };
     // Reinsert a touched file at the newest end of the LRU.

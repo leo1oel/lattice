@@ -10,7 +10,7 @@ import type { TrellisBridge, TrellisController } from "../trellis/trellis-contro
 import type { SearchDialog } from "./app-search-dialogs";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import { comboText } from "./key-combos";
-import { setNotice } from "./notify";
+import { showNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
 import { documentKind, paperDocumentPath, readPaperDocuments, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
@@ -112,7 +112,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         synara.mountFrame();
         synara.notifyPanelOpened();
       },
-      notify: (message) => setNotice(message),
+      notify: (message) => showNotice(message),
       panelMenu: (kind) => {
         if (kind === "project") {
           // The + menu's entries, then the header's other action.

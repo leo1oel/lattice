@@ -14,7 +14,7 @@ import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
-import { setError } from "./notify";
+import { showError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
@@ -152,7 +152,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
               clearPageBudget: pageBudget == null,
             }).then(
               (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
-              (reason) => setError(toMessage(reason)),
+              (reason) => showError(toMessage(reason)),
             );
           }}
         />

@@ -60,7 +60,7 @@ function removeHighlights(marks: HTMLElement[]) {
   }
 }
 
-const inDocument = (page: number, numPages: number | null) => page >= 1 && page <= (numPages ?? 0);
+const isPageInDocument = (page: number, numPages: number | null) => page >= 1 && page <= (numPages ?? 0);
 
 /** True the first time this ref sees `id`: each target navigates and scrolls once. */
 function firstTime(seen: { current: string | null }, id: string) {
@@ -94,7 +94,7 @@ export function usePdfSourceTargets(recordRef: ActiveViewerRef, {
   useEffect(() => {
     const record = recordRef.current;
     const target = syncTarget;
-    if (!record || !target || !inDocument(target.page, numPages)) return;
+    if (!record || !target || !isPageInDocument(target.page, numPages)) return;
     // Reloads and scale changes need a new highlight, not a replay of an old jump.
     if (firstTime(syncJumpRef, target.id)) record.slick.gotoPage(target.page);
     let highlight: HTMLDivElement | null = null;
@@ -132,7 +132,7 @@ export function usePdfSourceTargets(recordRef: ActiveViewerRef, {
   useEffect(() => {
     const record = recordRef.current;
     const quote = sourceQuote;
-    if (!record || !quote || !inDocument(quote.page, numPages)) return;
+    if (!record || !quote || !isPageInDocument(quote.page, numPages)) return;
     // A quote target is an explicit navigation request. It runs after viewer
     // promotion so it overrides restoration of the saved scroll position.
     if (firstTime(quoteJumpRef, quote.id)) record.slick.gotoPage(quote.page);
