@@ -753,7 +753,6 @@ msgstr "右对齐"
 msgid "Alignment"
 msgstr "对齐"
 
-#: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
@@ -7349,6 +7348,7 @@ msgstr "替换"
 msgid "Replace {replacementCount}"
 msgstr "替换 {replacementCount} 处"
 
+#: src/editor/latex/search-panel.ts
 #: src/project/project-replace-dialog.tsx
 msgid "Replace all"
 msgstr "全部替换"
@@ -8055,6 +8055,7 @@ msgstr "选择 {0}"
 msgid "Select {color}"
 msgstr "选择 {color}"
 
+#: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
 msgstr "全选"

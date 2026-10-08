@@ -632,12 +632,14 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-editor .cm-panels { z-index: var(--z-editor-overlay); background: var(--surface-panel-raised); border-color: var(--border-subtle); color: var(--text-secondary); }
 .source-editor .cm-panels.cm-panels-top { border-bottom: 1px solid var(--border-subtle); }
 .source-editor .cm-panels.cm-panels-bottom { border-top: 1px solid var(--border-subtle); }
-/* Fixed find row + replace row; ignore CodeMirror's opportunistic wrapping. */
+/* Two rows: the query with its navigation and options, then the replacement
+   with its two actions. The ::after break between them is a full-width flex
+   item, so CodeMirror's own markup order (and its <br>) never decides where
+   a row ends; a narrow editor still wraps within a row rather than scrolling,
+   since a fixed grid let the controls squeeze the query field to nothing. */
 .source-editor .cm-panel.cm-search {
   position: relative;
   padding: 7px 42px 7px var(--space-5);
-  /* Wraps rather than scrolls: a fixed grid let the controls squeeze the query
-     field to nothing in a narrow editor. */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -648,6 +650,20 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   font-size: var(--type-caption-size);
 }
 .source-editor .cm-panel.cm-search > br { display: none; }
+.source-editor .cm-panel.cm-search::after { content: ""; order: 1; flex-basis: 100%; height: 0; margin-block-end: calc(-1 * var(--space-3)); }
+.source-editor .cm-panel.cm-search > :is(input[name="replace"], button[name="replace"], button[name="replaceAll"]) { order: 2; }
+/* With room for both rows whole, they share one grid: the two fields end at
+   one edge, Replace spans the count and arrows and Replace all the rest, so
+   both rows end at one edge too. The query row's eight controls fill the
+   eight columns in markup order. */
+.source-editor .cm-panels { container: editor-panels / inline-size; }
+@container editor-panels (min-width: 520px) {
+  .source-editor .cm-panel.cm-search { display: grid; grid-template-columns: minmax(0, 1fr) repeat(7, auto); }
+  .source-editor .cm-panel.cm-search::after { content: none; }
+  .source-editor .cm-panel.cm-search input.cm-textfield { min-width: 0; }
+  .source-editor .cm-panel.cm-search > button[name="replace"] { grid-column: span 3; }
+  .source-editor .cm-panel.cm-search > button[name="replaceAll"] { grid-column: span 4; }
+}
 .source-editor .cm-panel.cm-search input.cm-textfield {
   height: var(--search-control-height-compact);
   min-width: 0;

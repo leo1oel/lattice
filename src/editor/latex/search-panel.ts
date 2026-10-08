@@ -17,9 +17,10 @@ import { element } from "../dom-utils";
 // eslint-disable-next-line lingui/no-unlocalized-strings -- symbols editors use in every locale
 const SEARCH_SYMBOLS: Record<string, string> = { next: "↓", previous: "↑", "match case": "Aa", regexp: ".*", "by word": "W" };
 const SEARCH_WORDS: Record<string, MessageDescriptor> = {
-  all: msg`All`,
+  // The two "all" actions sit on different rows, so each names what it does.
+  all: msg`Select all`,
   replace: msg`Replace`,
-  "replace all": msg`All`,
+  "replace all": msg`Replace all`,
   Find: msg`Find`,
   Replace: msg`Replace`,
   "current match": msg`current match`,
