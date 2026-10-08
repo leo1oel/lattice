@@ -531,19 +531,17 @@ export function PdfPreview({
             <div className="pdf-page-controls">
               <ToolbarButton label={t`Previous page`} icon={<ChevronLeft size={14} />}
                 disabled={pageNumber <= 1} onClick={() => stepPage(-1)} />
-              <Tip label={t`Enter a page number`}>
-                <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`}>
-                  <input
-                    aria-label={t`PDF page number`}
-                    inputMode="numeric"
-                    style={{ width: pageInput.editing ? `${Math.max(1, pageInput.draft.length)}ch` : undefined }}
-                    {...pageInput.inputProps}
-                  />
-                  {pageInput.editing
-                    ? <span className="pdf-page-total">/ {pageCount}</span>
-                    : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {pageCount}</span>}
-                </label>
-              </Tip>
+              <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`} title={t`Enter a page number`}>
+                <input
+                  aria-label={t`PDF page number`}
+                  inputMode="numeric"
+                  style={{ width: pageInput.editing ? `${Math.max(1, pageInput.draft.length)}ch` : undefined }}
+                  {...pageInput.inputProps}
+                />
+                {pageInput.editing
+                  ? <span className="pdf-page-total">/ {pageCount}</span>
+                  : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {pageCount}</span>}
+              </label>
               <ToolbarButton label={t`Next page`} icon={<ChevronRight size={14} />}
                 disabled={!numPages || pageNumber >= numPages} onClick={() => stepPage(1)} />
             </div>
@@ -599,20 +597,22 @@ export function PdfPreview({
           <div className="pdf-zoom-controls">
             <ToolbarButton label={t`Zoom out`} icon={<ZoomOut size={14} />} className="pdf-overflow"
               disabled={scale <= PDF_MIN_SCALE} onClick={() => stepZoom(-1)} />
-            <Tip label={t`Enter a zoom percentage or scroll to zoom`}>
-              <label ref={zoomLabelRef} className="pdf-zoom-value pdf-overflow">
-                <input
-                  aria-label={t`PDF zoom percentage`}
-                  inputMode="decimal"
-                  {...zoomInput.inputProps}
-                  onBlur={() => {
-                    zoomInput.inputProps.onBlur();
-                    setZoomEntry(false);
-                  }}
-                />
-                <span>%</span>
-              </label>
-            </Tip>
+            <label
+              ref={zoomLabelRef}
+              className="pdf-zoom-value pdf-overflow"
+              title={t`Enter a zoom percentage or scroll to zoom`}
+            >
+              <input
+                aria-label={t`PDF zoom percentage`}
+                inputMode="decimal"
+                {...zoomInput.inputProps}
+                onBlur={() => {
+                  zoomInput.inputProps.onBlur();
+                  setZoomEntry(false);
+                }}
+              />
+              <span>%</span>
+            </label>
             <ToolbarButton label={t`Zoom in`} icon={<ZoomIn size={14} />} className="pdf-overflow"
               disabled={scale >= PDF_MAX_SCALE} onClick={() => stepZoom(1)} />
             <i className="pdf-fit-divider pdf-overflow" aria-hidden="true" />
