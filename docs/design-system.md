@@ -169,7 +169,9 @@ Keyboard focus is one ring for the whole product. Its selector lives in
 `--focus-ring-offset` live in `src/styles/foundations.css`.
 Components do not add a second ring. The native `:focus` halo stays suppressed,
 and text entry is deliberately excluded from the ring because a field already
-answers with the border treatment in its `--field-control-*` contract.
+answers with the border treatment in its `--field-control-*` contract. Menu
+items (Radix's, and the buttons of the project tree's row menu) answer with
+their row fill instead, which the fluid hover draws.
 
 ## Interactive states
 
@@ -381,6 +383,7 @@ the research workspace and those embedded surfaces.
 | Ordinary scrolling | `ScrollArea` | orientation and exceptional layout classes |
 | Keyboard shortcut hint | `Keycaps`, or `renderKeycaps` in a long list (one cap per key) | the keys, from the binding through `key-combos.ts` rather than typed out |
 | Keyboard-driven list (quick open, pickers, the command palette) | `PickerDialog` / `SearchPickerDialog`, ranked by `picker-ranking.ts` | items, their icon, detail and shortcut, and what choosing one does |
+| Hover highlight in a list or menu | `FluidHoverSurface` in a `fluid-hover-surface` container | the row selector, which row is current (`follow`), its fill (`--fluid-hover-fill`) |
 
 `PanelHeader` deliberately does not own outer height, padding, or borders.
 Those may differ between a drawer, modal, and embedded panel. It does own title
@@ -440,6 +443,39 @@ the primitive standardizes density without changing those semantics.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 
+### Fluid hover
+
+A list or menu lights one row at a time, with one fill that travels between
+rows rather than a background that blinks from one to the next
+(`FluidHoverSurface`, after Fluid Functionalism's Fluid Hover). Menus, selects,
+context menus, the Trellis panel menus, the pickers and the command palette,
+Find in project, the venue suggestions, the project tree and its row menu, the
+Papers list, the TODO list, the document outline and the Settings navigation
+all take it.
+
+- **One fill for both hands.** The pointer moves it to the row under it; the
+  keyboard moves it to the list's own current row, named by `follow`:
+  Radix's `data-highlighted` by default, `[aria-selected="true"]` in a picker
+  listbox, `:focus` in a menu of plain buttons. Whichever hand moved last owns
+  it, and only a pointer that really moved takes it back, never a list
+  scrolling under a resting one. Where the pointer also picks the current row
+  (a picker, Find in project, the venue suggestions), there is never a second
+  highlight: Enter takes what is lit.
+- **Its colour is the row's own.** A list sets `--fluid-hover-fill` to the
+  fill its current row would have (`--control-active-soft` in menus and
+  pickers, so they follow the accent), and the lit row's own background steps
+  aside while the fill is on it.
+- **No dead zones, no false travel.** A hairline gap between rows (the Papers
+  dividers) keeps the nearest row lit; a separator or a section label starts a
+  fresh fade on the far side instead of a slide through it.
+- **Selection and danger stay native.** With `preserveSelection`, the selected
+  row keeps its own fill and the highlight steps off it; disabled and
+  destructive rows are never lit.
+- A list whose keyboard answer is the focus ring (a tree, a sidebar, the
+  Papers rows) passes `follow={null}`: a key clears the fill and leaves the
+  ring alone. The Papers list moves focus between papers with the arrows,
+  Home and End; Tab still walks every control.
+
 ## Dialogs, notifications and empty states
 
 - **A small dialog has one anatomy** (`.modal` in `dialogs.css`): an optional
@@ -497,6 +533,16 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   `element.animate()` call, a library's own transition) takes
   `animationTiming(tier)`. The one physics spring is `MAGNET_SPRING`, which
   follows the pointer rather than making a timed change.
+- **A dialog leaves as well as arrives.** A closed dialog unmounts with its
+  owner, so `useExitPicture` puts its scrim and card back as an inert picture
+  that plays the slow tier's exit (`data-leaving`), then removes it. It leaves
+  at once when another dialog takes its place in the same commit, when it
+  holds an iframe (which would reload), and under reduced motion.
+- **The Trellis workspace runs on the tiers** (`trellis.css`): a panel arrives
+  on the slow tier, tabs make way for a dragged one on the moderate tier, and
+  tab fills, close buttons, divider grips and drop slots fade on the fast one.
+  A closed panel leaves at once, since its neighbours take its room in the
+  same frame.
 - **Two moments sit off the tiers:** `--motion-draw` (560ms, a stroke drawing
   itself or an icon turning once) and `--motion-flourish` (720ms, a ripple or
   burst). Ambient loops time themselves.
