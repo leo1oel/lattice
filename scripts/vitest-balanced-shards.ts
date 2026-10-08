@@ -10,13 +10,15 @@ import { BaseSequencer, type TestSpecification } from "vitest/node";
  * ignores how long a file takes: the App integration suites (the files that
  * import `src/app/app-test-utils.tsx` and mount the whole app) are a handful
  * of files but over half of the suite's test time, and the hash put most of
- * them on one shard — 134 s, 249 s and 297 s of work in CI.
+ * them on one shard.
  *
- * Here every file is weighed by its size, an App suite three times over
- * (each of its tests mounts the app), and the files are dealt heaviest first
- * to the lightest shard. On the same CI timings that is 206 s, 237 s and
- * 238 s; an exact split by measured time would be 227 s each. Size is only a
- * proxy, but it moves with the suites without a timing file to regenerate.
+ * Here every file is weighed by its size, an App suite four times over (each
+ * of its tests mounts the app), plus a floor for the environment and setup
+ * every file pays, and the files are dealt heaviest first to the lightest
+ * shard. Replayed on three CI runs' per-file timings, the slowest shard's work
+ * drops from 322–333 s to 255–269 s, within 9 s of an exact split. Size is
+ * only a proxy, but it moves with the suites without a timing file to
+ * regenerate.
  *
  * Every shard computes the whole split and keeps its own part, so the split
  * must depend on nothing but the file list and contents: ties fall back to
@@ -40,8 +42,8 @@ export class BalancedShardSequencer extends BaseSequencer {
   }
 }
 
-/** A file's estimated cost: its size, plus a floor for the per-file environment setup. */
+/** A file's estimated cost, in weighted bytes of source. */
 function weightOf(file: string): number {
   const source = readFileSync(file, "utf8");
-  return 2_000 + source.length * (source.includes("app-test-utils") ? 3 : 1);
+  return 5_000 + source.length * (source.includes("app-test-utils") ? 4 : 1);
 }

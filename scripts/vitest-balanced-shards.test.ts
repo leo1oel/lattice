@@ -54,7 +54,7 @@ describe("BalancedShardSequencer", () => {
   it("weighs a suite that mounts the app above a plain file of the same size", async () => {
     const { root, specs } = suite(files);
     const split = await shards(root, specs, 3);
-    // At 30 kB the App suite counts as 90 kB, about a third of the whole, so
+    // At 30 kB the App suite counts as 120 kB, over a third of the whole, so
     // it fills a shard alone; weighed by size only, it would share one.
     expect(split.find((shard) => shard.includes("src/app/app-big.test.tsx"))).toEqual(["src/app/app-big.test.tsx"]);
   });
