@@ -576,7 +576,7 @@ shards, split by estimated cost (`scripts/vitest-balanced-shards.ts`). A sixth j
 `perf-bench`, runs the interaction benchmark and its browser layout checks
 (`pnpm perf:bench --check --layout`), and a seventh, `perf-bench-webkit`, runs
 both in WebKit (`--engine webkit`); each reports the result of its engine's
-`--shard` jobs (`perf-bench (k/2)`, `perf-bench-webkit (k/3)`). Both are
+`--shard` jobs (`perf-bench (k/2)`, `perf-bench-webkit (k/2)`). Both are
 `mise run perf-bench` locally, which `check` leaves out; see
 [`performance.md`](performance.md).
 

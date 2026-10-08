@@ -238,24 +238,25 @@ jobs:
   # costs WebKit users first. Playwright's macOS WebKit build is the closest
   # one to the system WKWebView a runner can drive headless.
   #
-  # WebKit runs each scenario at about 1.5× Chromium's time and was the
-  # slowest job in CI (about ten minutes), hence three shards rather than two.
-  # With `rust` that is four macOS runners per run, inside the five GitHub
-  # allows at once.
+  # Two shards, not more: GitHub runs at most five macOS jobs at once across
+  # the account, and every lane's run needs them. With `rust` this is three
+  # per run (it was two). A third shard finished about a minute sooner but held a
+  # fourth runner, and then a second lane's run queued for its `rust` job;
+  # each shard also pays ~100 s of setup and page build whatever its share.
   perf-bench-webkit-shard:
-    name: perf-bench-webkit (${{ matrix.shard }}/3)
+    name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm exec playwright-core install webkit
-      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/3
+      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/2
 
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:
