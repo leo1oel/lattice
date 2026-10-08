@@ -156,8 +156,8 @@
    the names follow the selection (planHeader). An icon-only tab keeps its
    name in its tooltip and, still laid out at no width, in its accessible name.
    The name closes to the measured width it opens to (--trellis-tab-label). */
-.lattice-trellis [data-trellis-part="tab"][data-atomic] { flex: none; min-width: 0; max-width: none; }
-.lattice-trellis [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-title"] { max-width: var(--trellis-tab-label, none); text-overflow: clip; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic] { --trellis-tab-label: none; flex: none; min-width: 0; max-width: none; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-title"] { max-width: var(--trellis-tab-label); text-overflow: clip; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] { gap: 0; padding-inline: var(--space-4); }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > [data-trellis-part="tab-title"] { max-width: 0; opacity: 0; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > [data-trellis-part="tab-close"] { width: 0; min-width: 0; overflow: hidden; opacity: 0; visibility: hidden; }
