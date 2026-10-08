@@ -20,6 +20,7 @@ import { citationHealthLabel, citationHealthParts, citationHealthTitle } from ".
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
 import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 type PaperFetchState = "loading" | "success";
 
@@ -139,7 +140,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
           contentClassName="paper-list-content"
         >
           {/* Only the papers are list items; the empty state and the count sit after the list. */}
-          <div role="list" aria-label={t`Papers`} className="paper-rows">
+          <div role="list" aria-label={t`Papers`} className="paper-rows fluid-hover-surface">
+            {/* Tab reaches each paper's own controls, which answer with the focus ring. */}
+            <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {filteredPapers.map((paper, index) => {
               const fetchState = props.paperFetchStates[paperKey(paper)];
               const readable = paper.hasFullText || paper.hasBlog;

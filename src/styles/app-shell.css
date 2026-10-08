@@ -686,6 +686,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    either side. */
 .paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
+.paper-rows { --fluid-hover-fill: var(--navigation-tree-hover-surface); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
 .paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
 /* The button is the whole row under its text, so its ring is the row's;

@@ -8,6 +8,12 @@ const menuItems = '[role="menuitem"], [role="menuitemradio"], [role="menuitemche
 const boundary = '[role="separator"], [data-slot$="-label"], [cmdk-group-heading], .settings-nav-group-label';
 const unavailable = ':disabled, [data-disabled]:not([data-disabled="false"]), [aria-disabled="true"], [data-variant="destructive"], .destructive';
 const selection = '.active, [aria-current="page"], [data-item-selected="true"]';
+/**
+ * How far past a row's edge the pointer still lights it: the hairline gap
+ * between two rows (a Papers divider) is no dead zone, while a menu
+ * separator's margin (4px each side) or a section label still is.
+ */
+const gapTolerance = 3;
 /** `useFluidHover`'s mark on the lit row. */
 const activeAttribute = "data-fluid-hover-active";
 /** The attributes a primitive marks its current row with (`follow`). */
@@ -126,7 +132,21 @@ export function FluidHoverSurface({
         clear();
         return;
       }
-      moveTo(event.target instanceof Element ? event.target.closest<HTMLElement>(selector) : null);
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>(selector) : null;
+      moveTo(target ?? nearestRow(event.clientY));
+    };
+    const nearestRow = (y: number) => {
+      let nearest: HTMLElement | null = null;
+      let distance = gapTolerance;
+      for (const item of items) {
+        const { top, bottom } = item.getBoundingClientRect();
+        const away = y < top ? top - y : y > bottom ? y - bottom : 0;
+        if (away <= distance) {
+          nearest = item;
+          distance = away;
+        }
+      }
+      return nearest;
     };
     let keyTimer: ReturnType<typeof setTimeout> | undefined;
     const key = () => {

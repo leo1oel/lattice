@@ -196,4 +196,28 @@ describe("FluidHoverSurface", () => {
     expect(second).toHaveAttribute("data-fluid-hover-active");
     expect(first).not.toHaveAttribute("data-fluid-hover-active");
   });
+
+  it("keeps the nearest row lit across a hairline gap, but not across a separator's margin", () => {
+    const { container } = render(<div className="fluid-hover-surface">
+      <FluidHoverSurface selector=".row" follow={null} />
+      <div className="row">First</div>
+      <div className="row">Second</div>
+    </div>);
+    const surface = container.firstElementChild!;
+    const [first, second] = Array.from(surface.querySelectorAll<HTMLElement>(".row"));
+    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 160, 27));
+    vi.spyOn(second, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 29, 160, 27));
+    const at = (clientY: number) => {
+      const event = new MouseEvent("pointermove", { bubbles: true, clientX: ++pointerX, clientY });
+      Object.defineProperty(event, "pointerType", { value: "mouse" });
+      fireEvent(surface, event);
+    };
+    move(first);
+    at(28.5);
+    expect(second).toHaveAttribute("data-fluid-hover-active");
+    at(27.5);
+    expect(first).toHaveAttribute("data-fluid-hover-active");
+    at(70);
+    expect(surface.querySelector("[data-fluid-hover-active]")).toBeNull();
+  });
 });
