@@ -9,7 +9,7 @@ import type { ThemeAccent, ThemeTint, Translucency } from "../settings/theme-cus
  * whenever any of it changes, and in answer to LATTICE_HOST_THEME_REQUEST.
  * An embed that predates it ignores it.
  */
-export const LATTICE_HOST_THEME = "lattice:host-theme";
+const LATTICE_HOST_THEME = "lattice:host-theme";
 export const LATTICE_HOST_THEME_REQUEST = "lattice:request-host-theme";
 
 /**
@@ -17,7 +17,7 @@ export const LATTICE_HOST_THEME_REQUEST = "lattice:request-host-theme";
  * for a translucent mix), ready to set as a custom property. The names
  * follow the roles Synara's `applyEmbedTheme` already fills.
  */
-export interface AgentHostThemeColors {
+interface AgentHostThemeColors {
   /** The agent panel's own surface (the `chrome` embed surface). */
   chrome: string;
   /** Right-hand drawers and the Settings dialog (the `drawer` embed surface). */

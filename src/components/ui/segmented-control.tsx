@@ -9,7 +9,6 @@ export function SegmentedControl<Value extends string>({
   items,
   ariaLabel,
   size = "compact",
-  tone = "neutral",
   className,
   tabClassName,
 }: {
@@ -18,7 +17,6 @@ export function SegmentedControl<Value extends string>({
   items: SegmentedControlItem<Value>[];
   ariaLabel: string;
   size?: "compact" | "default";
-  tone?: "neutral" | "accent";
   className?: string;
   tabClassName?: string;
 }) {
@@ -31,7 +29,6 @@ export function SegmentedControl<Value extends string>({
       className={[
         "ui-segmented",
         `ui-segmented--${size}`,
-        `ui-segmented--${tone}`,
         className,
       ].filter(Boolean).join(" ")}
       tabClassName={["ui-segmented-tab", tabClassName].filter(Boolean).join(" ")}

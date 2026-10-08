@@ -6,7 +6,6 @@ export type SettingsSectionHeaderProps = Omit<ComponentPropsWithoutRef<"div">, "
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  headingId?: string;
 };
 
 /**
@@ -19,7 +18,6 @@ export function SettingsSectionHeader({
   actions,
   className,
   description,
-  headingId,
   title,
   ...props
 }: SettingsSectionHeaderProps) {
@@ -30,7 +28,7 @@ export function SettingsSectionHeader({
       {...props}
     >
       <div className="ui-settings-section-header-copy">
-        <h2 id={headingId} className="ui-settings-section-header-title">
+        <h2 className="ui-settings-section-header-title">
           {title}
         </h2>
         {description && (

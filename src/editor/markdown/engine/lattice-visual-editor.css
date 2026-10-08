@@ -14,7 +14,6 @@
   --lx-md-font-size: var(--type-typeset-size);
   --lx-md-line-height: 1.7;
   --lx-md-flow: 0.85em;
-  --lx-md-soft-surface: color-mix(in srgb, var(--text-primary) 4%, transparent);
   --lx-md-code-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
   position: relative;
   min-height: 100%;

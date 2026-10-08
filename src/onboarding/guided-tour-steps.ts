@@ -14,7 +14,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import type { TrellisController, TrellisSingleton } from "../trellis/trellis-controller";
 
 /** The sample's manuscript (src-tauri/templates/tutorial/main.tex). */
-export const TOUR_MANUSCRIPT = "main.tex";
+const TOUR_MANUSCRIPT = "main.tex";
 
 export type TourContext = {
   controller: TrellisController;
@@ -48,7 +48,7 @@ export function snapshotOf(controller: TrellisController): TourSnapshot {
 }
 
 /** A rect is worth pointing at only when enough of it is on screen. */
-export function visibleRect(rect: DOMRect | null | undefined): DOMRect | null {
+function visibleRect(rect: DOMRect | null | undefined): DOMRect | null {
   if (!rect || rect.width < 24 || rect.height < 16) return null;
   if (rect.right < 8 || rect.bottom < 8 || rect.left > window.innerWidth - 8 || rect.top > window.innerHeight - 8) return null;
   return rect;

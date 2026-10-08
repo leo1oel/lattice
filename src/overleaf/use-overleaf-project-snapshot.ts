@@ -17,7 +17,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 /** Updates a project's snapshot; returning it unchanged skips the re-render. */
-export type OverleafSnapshotUpdate<T> = (update: (current: T) => T) => void;
+type OverleafSnapshotUpdate<T> = (update: (current: T) => T) => void;
 
 export type OverleafProjectSession<T> = {
   readonly projectRoot: string;
