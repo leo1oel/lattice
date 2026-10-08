@@ -146,10 +146,10 @@
   gap: var(--space-1);
 }
 
+/* The project tree's row menu, on menu-surface.ts's geometry. */
 .file-tree-context-menu {
-  /* Slightly roomier than the combobox menus so action labels breathe. */
-  --surface-radius: var(--radius-panel);
-  --surface-inset: 5px;
+  --surface-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
+  --surface-inset: var(--gap-inline-tight);
   padding: var(--surface-inset);
   border-radius: var(--surface-radius);
 }

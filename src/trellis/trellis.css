@@ -166,6 +166,12 @@
    unsaved dot or nothing yet visible), so hovering, saving or selecting a tab
    never changes any tab's width. */
 .lattice-trellis [data-trellis-part="tab"][data-badge="dot"] [data-trellis-part="tab-badge"] { margin: 0 calc((var(--toolbar-icon-width) - var(--tab-dirty-dot-size)) / 2); }
+/* That slot counts in a tab's natural width only. Squeezed below it (many
+   tabs in a narrow panel), an unselected tab's slot holds nothing visible, so
+   it gives its room to the title before the title gives any: "ch01.tex"
+   rather than "c…". Hovering brings the close button back by narrowing the
+   title inside the same tab, never the tab. */
+.lattice-trellis [data-trellis-part="tab"]:not([data-selected], :hover) > [data-trellis-part="tab-close"] { flex-shrink: 1000; min-width: 0; overflow: hidden; }
 /* Past the 480px cap the strip scrolls; a fade on the clipped side reads as
    "more tabs" instead of a tab cut off by the actions. The scroll timeline is
    inactive (no fade) while everything fits. */
