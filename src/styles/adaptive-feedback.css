@@ -52,7 +52,7 @@
 /* One line, one axis: icon, message and dismiss share a centre. `start` used to
    align all three to the top of a 24px row, which left a 16px line of text
    sitting visibly above the dismiss button beside it. */
-.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: 11px; }
+.app-toast { pointer-events: auto; display: grid; grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact); align-items: center; gap: var(--space-4); padding: var(--space-5); border-radius: var(--radius-surface); }
 .app-toast.info { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-info) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
 .app-toast.success { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
 .app-toast.warning { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
@@ -70,14 +70,11 @@
 .app-toast.warning > svg { color: var(--status-warning); }
 .app-toast.error > svg { color: var(--status-danger); }
 .app-toast > div { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.app-toast strong { display: -webkit-box; overflow: hidden; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: 650; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.app-toast > div > span { overflow: hidden; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
-.app-toast.expanded > div > span { display: -webkit-box; max-height: 5.6em; overflow-wrap: anywhere; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
-.app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--gap-inline-tight); margin-top: var(--space-3); }
-.app-toast-action { min-height: 24px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--pad-inline-control-tight); border: 1px solid var(--border-strong); border-radius: var(--radius-icon); background: var(--surface-app); color: var(--text-primary); font-size: var(--type-micro-size); font-weight: 500; }
-.app-toast-action:hover { background: var(--border-subtle); }
-.app-toast > button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); }
-.app-toast > button:hover { background: var(--border-subtle); color: var(--text-primary); }
+.app-toast strong { display: -webkit-box; overflow: hidden; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--type-body-compact-weight); overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.app-toast > div > span { overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
+.app-toast.expanded > div > span { display: -webkit-box; max-height: calc(4 * var(--type-caption-line-height)); overflow-wrap: anywhere; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+/* A toast's actions are compact Buttons, the step dense chrome uses. */
+.app-toast-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
 .app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); overflow-x: auto; flex: none; }
 .app-log-action-row, .app-log-query-row { display: flex; align-items: center; gap: var(--space-3); }
 .app-log-query-row { flex: 1 0 260px; min-width: 0; }

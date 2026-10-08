@@ -5,6 +5,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { getDocument } from "pdfjs-dist";
 import { describe, expect, it, vi } from "vitest";
 import { referenceAssetPreviewDataUrl } from "../project/reference-preview";
+import { getAppLogEntry, getVisibleAppToastIds } from "../telemetry/app-log-store";
 
 describe("welcome screen", () => {
   it("renders the first page of a PDF figure for reference hover previews", async () => {
@@ -65,6 +66,46 @@ describe("welcome screen", () => {
     localStorage.setItem("lattice.guided-tour.v1", "completed");
     await chooseProjectMenuItem("Guided tutorial");
     expect(await screen.findByRole("dialog", { name: "Welcome back" })).toBeInTheDocument();
+  });
+
+  it("names a last project launch could not reopen and offers the others to go back to", async () => {
+    const second = projectSnapshot({ root: "/Users/writer/Papers/second", name: "Second paper" });
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([
+      { name: "Moved paper", path: "/Users/writer/Moved/paper" },
+      { name: "Second paper", path: second.root },
+    ]));
+    renderApp({
+      ...projectCommands(null),
+      open_project: (args) => {
+        if ((args as { path: string }).path === second.root) return second;
+        throw new Error("No such file or directory (os error 2)");
+      },
+    });
+    expect(await screen.findByText("Couldn’t reopen “Moved paper”. Its folder may have been moved or renamed")).toBeInTheDocument();
+    const recents = screen.getByRole("region", { name: "Recent projects" });
+    expect(within(recents).queryByRole("button", { name: /Moved paper/ })).not.toBeInTheDocument();
+    const reopen = within(recents).getByRole("button", { name: /Second paper/ });
+    expect(reopen).toHaveTextContent("~/Papers");
+    fireEvent.click(reopen);
+    await expectInvoked("open_project", { path: second.root });
+  });
+
+  it("gives the backend's reason when the last project failed for something other than a missing folder", async () => {
+    localStorage.setItem("lattice.recent-projects.v1", JSON.stringify([{ name: "Open elsewhere", path: "/Users/writer/Papers/open" }]));
+    renderApp({
+      ...projectCommands(null),
+      open_project: () => { throw new Error("This project is already open in another Lattice window"); },
+    });
+    expect(await screen.findByText("Couldn’t reopen “Open elsewhere”: This project is already open in another Lattice window")).toBeInTheDocument();
+  });
+
+  it("answers Install LaTeX tools when nothing is missing, instead of doing nothing", async () => {
+    const ready = { ok: true, summary: "ready", checks: ["latexmk", "pdflatex", "synctex", "bibtex", "conference-fonts", "uv", "uvx"]
+      .map((name) => ({ name, detail: "ok", ok: true })) };
+    renderApp({ initial_project: null, run_doctor: ready });
+    fireEvent.click(screen.getByRole("button", { name: "Install LaTeX tools" }));
+    await waitFor(() => expect(getVisibleAppToastIds().map((id) => getAppLogEntry(id)?.title)).toContain("LaTeX is ready to build"));
+    expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
   });
 
   it("opens the project creation dialog", () => {

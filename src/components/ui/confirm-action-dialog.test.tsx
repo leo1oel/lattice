@@ -67,6 +67,10 @@ describe("ConfirmActionProvider", () => {
     const dialog = await screen.findByRole("dialog", { name: "Remove this bibliography entry?" });
     expect(dialog).toHaveAccessibleDescription("It is cited in two places");
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    // The destructive answer leads the row; a destructive alternative stays quiet beside it.
+    expect(screen.getByRole("button", { name: "Remove citations too" })).toHaveClass("ui-button--danger");
+    expect(screen.getByRole("button", { name: "Keep citations" })).toHaveClass("ui-button--ghost", "confirm-action-danger");
+    expect(dialog.querySelector(".modal-icon")).toHaveAttribute("data-tone", "danger");
     fireEvent.click(screen.getByRole("button", { name: "Keep citations" }));
 
     await waitFor(() => expect(screen.getByText("alternative")).toBeInTheDocument());

@@ -674,7 +674,7 @@ function App() {
 
   const { tour: guidedTour, start: startGuidedTour, end: endGuidedTour, finish: finishGuidedTour } = useGuidedTour();
   const {
-    busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
     openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
@@ -1114,7 +1114,7 @@ function App() {
         doctorBusy={texSetup.doctorBusy}
         doctorNotice={texSetup.doctorNotice}
         onRunDoctor={() => { void texSetup.runDoctor(); }}
-        onOpenTexSetup={texSetup.openWizard}
+        onOpenTexSetup={() => void texSetup.openWizard()}
         onCleanProject={() => { void cleanProject(); }}
         cleaning={cleaning}
         building={building}
@@ -1558,8 +1558,11 @@ function App() {
           onOpen={chooseExisting}
           onImportZip={() => void importOverleafZip()}
           onOpenTutorial={() => void openTutorialProject()}
+          recentProjects={recentProjects}
+          unopenedProject={unopenedProject}
+          onRecent={(path) => void chooseRecentProject(path)}
           onSettings={() => openSettings()}
-          onInstallTex={texSetup.openWizard}
+          onInstallTex={() => void texSetup.openWizard()}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
         {renderCommandPalette()}

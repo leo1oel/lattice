@@ -17,6 +17,8 @@ import {
 } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { Button } from "../components/ui/button";
+import { CloseButton } from "../components/ui/icon-button";
 import { toMessage } from "../app-utils";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
@@ -259,16 +261,16 @@ export function UpdateBanner() {
   if (!(phase === "available" || stacked || phase === "ready" || failedInstall)) return null;
 
   const pct = Math.round(progress * 100);
-  const dismissButton = <button type="button" className="app-update-dismiss" aria-label={t`Dismiss`} onClick={dismiss}>×</button>;
+  const dismissButton = <CloseButton label={t`Dismiss`} size="compact" onClick={dismiss} />;
 
   return (
     <div className={`app-update-banner top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
           <div className="app-update-text"><strong><Trans>New version {version}</Trans></strong><span><Trans>Ready to install</Trans></span></div>
-          <button type="button" className="app-update-primary" onClick={() => void install()}>
+          <Button variant="primary" size="compact" onClick={() => void install()}>
             <Trans>Update now</Trans>
-          </button>
+          </Button>
           {dismissButton}
         </>
       )}

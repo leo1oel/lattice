@@ -13,7 +13,25 @@ import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { LatticeMark } from "../components/ui/lattice-mark";
+import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
+
+/** A recent project launch could not reopen, with the backend's reason. */
+export type UnopenedProject = RecentProject & { reason: string };
+
+/** The backend's errors for a folder that is not there any more (project::classify_open_error's not_found). */
+function isMissingFolder(reason: string) {
+  return /no such file|not a folder/i.test(reason);
+}
+
+/** The welcome screen lists a few projects to reopen; the switcher in a project goes deeper. */
+const MAX_WELCOME_RECENTS = 4;
+
+/** Where a project lives, as a writer reads it: its parent folder, home written as ~. */
+function parentFolderLabel(path: string) {
+  const parent = path.replace(/\/+$/, "").replace(/\/[^/]*$/, "") || "/";
+  return parent.replace(/^\/Users\/[^/]+(?=\/|$)/, "~");
+}
 
 export function Welcome(props: {
   busyLabel: string | null;
@@ -29,11 +47,21 @@ export function Welcome(props: {
   onOpen: () => void;
   onImportZip: () => void;
   onOpenTutorial: () => void;
+  /** Projects to reopen; `unopenedProject` is the one launch could not. */
+  recentProjects: RecentProject[];
+  unopenedProject: UnopenedProject | null;
+  onRecent: (path: string) => void;
   onSettings: () => void;
   onInstallTex: () => void;
   onOpenOverleaf?: () => void;
 }) {
   const { t } = useLingui();
+  const recents = props.recentProjects
+    .filter((item) => item.path !== props.unopenedProject?.path)
+    .slice(0, MAX_WELCOME_RECENTS);
+  const unopened = props.unopenedProject;
+  const unopenedName = unopened?.name;
+  const unopenedReason = unopened?.reason ?? "";
   return (
     <div className="welcome-screen">
       <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
@@ -81,6 +109,39 @@ export function Welcome(props: {
             <Wrench size={15} /> {t`Install LaTeX tools`}
           </button>
         </div>
+        {(unopenedName || recents.length > 0) && (
+          <section className="welcome-recents" aria-label={t`Recent projects`}>
+            {unopenedName && (
+              <InlineMessage level="warning" className="welcome-unopened">
+                {isMissingFolder(unopenedReason)
+                  ? t`Couldn’t reopen “${unopenedName}”. Its folder may have been moved or renamed`
+                  : t`Couldn’t reopen “${unopenedName}”: ${unopenedReason}`}
+              </InlineMessage>
+            )}
+            {recents.length > 0 && (
+              <>
+                <h2 className="welcome-recents-title">{t`Recent projects`}</h2>
+                <ul className="welcome-recent-list">
+                  {recents.map((item) => (
+                    <li key={item.path}>
+                      <button
+                        type="button"
+                        className="welcome-recent"
+                        title={item.path}
+                        disabled={Boolean(props.busyLabel)}
+                        onClick={() => props.onRecent(item.path)}
+                      >
+                        <Folder size={15} aria-hidden="true" />
+                        <span className="welcome-recent-name">{item.name}</span>
+                        <span className="welcome-recent-place">{parentFolderLabel(item.path)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
         {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
       </div>
       {props.createOpen && (
@@ -118,7 +179,7 @@ export function CreateProjectDialog(props: {
   return (
     <ModalDialog label={t`Create a research project`} onClose={props.onClose}>
       <div className="modal create-project-modal">
-        <div className="modal-icon"><FileText size={20} /></div>
+        <div className="modal-icon"><FileText size={18} /></div>
         <h2>{t`Create a research project`}</h2>
         <label>
           {t`Project name`}
@@ -185,7 +246,7 @@ export function RenameDialog(props: {
   return (
     <ModalDialog label={title} onClose={props.onClose} closeDisabled={busy}>
       <div className="modal rename-modal">
-        <div className="modal-icon"><Pencil size={19} /></div>
+        <div className="modal-icon"><Pencil size={18} /></div>
         <h2>{title}</h2>
         <p>{copy}</p>
         <label>

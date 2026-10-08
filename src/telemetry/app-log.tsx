@@ -8,6 +8,7 @@ import { useLingui } from "@lingui/react/macro";
 import { CloseButton } from "../components/ui/icon-button";
 import { EmptyState } from "../components/ui/empty-state";
 import { Button } from "../components/ui/button";
+import { buttonClassName } from "../components/ui/button-styles";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup } from "../components/ui/settings-row";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -256,7 +257,7 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
         {hasActions && (
           <div className="app-toast-actions">
             {options?.copyText && (
-              <CopyButton className="app-toast-action" text={options.copyText} title={t`Copy notification command`}>
+              <CopyButton className={buttonClassName({ size: "compact" })} text={options.copyText} title={t`Copy notification command`}>
                 {t`Copy`}
               </CopyButton>
             )}
@@ -264,7 +265,7 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
               <button
                 key={index}
                 type="button"
-                className="app-toast-action"
+                className={buttonClassName({ size: "compact" })}
                 onClick={() => {
                   void action.onClick();
                   // The action was the answer, so it is not also reported as a dismissal.

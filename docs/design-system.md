@@ -440,6 +440,36 @@ the primitive standardizes density without changing those semantics.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 
+## Dialogs, notifications and empty states
+
+- **A small dialog has one anatomy** (`.modal` in `dialogs.css`): an optional
+  36px mark (`.modal-icon`, the accent, or `data-tone="danger"` /
+  `"warning"` for what the dialog asks), the title role, one line of copy in
+  the body role, fields labelled in the caption role at medium weight and
+  standing 12px apart, and the action row 24px below. It closes on Escape, a
+  backdrop click and its Cancel; it draws no X. A tool too large for that
+  shape is a `SheetDialog`, whose title row is a `PanelHeader`.
+- **Destructive answers.** The confirmation that destroys leads its row as the
+  tinted `danger` Button (`--status-danger-soft`, deeper on hover), never a red
+  slab; a destructive alternative beside a safe default ("Don't save" beside
+  Save) stays a quiet ghost in the danger colour. Cancel takes focus.
+- **Toasts and the update banner** are one floating card: 320px,
+  `--radius-surface`, a title in the body-compact role, detail in the caption
+  role, actions as compact Buttons and a compact `CloseButton`. Only the
+  edge's tint changes with severity.
+- **Asked for by name, always answered.** An action the writer invoked must
+  show a result even when there is nothing to do: Install LaTeX tools opens the
+  wizard when something is missing and otherwise says LaTeX is ready.
+- **Build feedback stays in place.** The Build button carries the running and
+  finished state; the diagnostics card holds the messages and the raw log. A
+  failed build's log opens at TeX's first error (else the end, where latexmk
+  says why it stopped), and Copy log takes all of it.
+- **Empty states offer the way forward.** An empty region says what would be
+  there and offers the next step, with its shortcut taken from the command table. The
+  welcome screen lists a few recent projects under its actions and, when launch
+  could not reopen the last one, names it with an inline warning instead of
+  silently landing there.
+
 ## Motion
 
 One motion system: Fluid Functionalism's three spring tiers, the same in CSS

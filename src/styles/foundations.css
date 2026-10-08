@@ -531,6 +531,7 @@
   --mark-glint: var(--brand-glint);
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+  --status-danger-soft-hover: color-mix(in srgb, var(--danger) 18%, transparent);
 
   /* Tone-relative surfaces.
    *

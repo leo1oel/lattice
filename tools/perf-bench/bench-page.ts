@@ -17,7 +17,7 @@ import type { FileNode, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
-  APPEARANCE_KEY, BUILD_PREFERENCES_KEY, THEME_PREFERENCE_KEY, TUTORIAL_SEEN_KEY, type InterfaceLanguage, type ThemePreference,
+  APPEARANCE_KEY, BUILD_PREFERENCES_KEY, RECENT_PROJECTS_KEY, THEME_PREFERENCE_KEY, TUTORIAL_SEEN_KEY, type InterfaceLanguage, type ThemePreference,
 } from "../../src/settings/app-settings";
 import {
   THEME_TINTS, normalizeAccent, type ThemeTint, type Translucency,
@@ -210,6 +210,20 @@ const LIBRARY_PAPERS = [
   },
 ];
 
+/**
+ * `?doctor=ready` answers the TeX toolchain check with everything installed
+ * and `?doctor=missing` with no TeX at all, for looking at Install LaTeX
+ * tools' answer and the setup wizard.
+ */
+const doctorReport = (() => {
+  const doctor = params.get("doctor");
+  if (doctor !== "ready" && doctor !== "missing") return null;
+  const tex = ["latexmk", "synctex", "bibtex", "pdflatex", "conference-fonts"];
+  const checks = [...tex, "uv", "uvx"].map((name) => ({ name, detail: "", ok: doctor === "ready" || !tex.includes(name) }));
+  return { ok: doctor === "ready", summary: "", checks };
+})();
+/** Where `?recents=1`'s moved project used to be: opening anything under it fails. */
+const MOVED_PROJECT_ROOT = "/Users/writer/Moved";
 const fullTextOnly = params.get("papers") === "fulltext";
 const libraryPapers = params.get("papers") === "library";
 
@@ -230,13 +244,21 @@ function buildResult() {
   return {
     success: outcome !== "failed",
     hasPdf: true,
-    log: fixture.buildLog,
+    log: outcome === "failed" ? failedBuildLog() : fixture.buildLog,
     durationMs: 1_234,
     diagnostics: outcome === "clean" ? []
       : outcome === "failed" ? [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 6 }]
         : warnings,
     rootDocument: "main.tex",
   };
+}
+
+/** The fixture's log with TeX's error two thirds of the way down, where a real one stops the run. */
+function failedBuildLog() {
+  const lines = fixture.buildLog.split("\n");
+  const at = Math.floor(lines.length * 2 / 3);
+  lines.splice(at, 0, "./main.tex:6: Undefined control sequence.", "l.6 \\include{chapters/ch02}", "                         ");
+  return lines.join("\n");
 }
 
 /**
@@ -334,6 +356,8 @@ function answer(command: string, args: Args): unknown {
     case "initial_project":
       return params.has("welcome") ? null : snapshot();
     case "open_project":
+      if (String(args?.path ?? "").startsWith(MOVED_PROJECT_ROOT)) throw new Error("No such file or directory (os error 2)");
+      return snapshot();
     case "refresh_project":
     case "list_project_tree_with_hidden":
       return snapshot();
@@ -413,8 +437,10 @@ function answer(command: string, args: Args): unknown {
     case "rename_project_entry":
       return renameEntry(args);
     case "run_doctor":
-      // The agent runtime and the TeX toolchain check are outside the bench;
-      // the app treats a failure as an environment that does not expose them.
+      // The TeX toolchain check is outside the bench unless `?doctor=` asks
+      // for a report; the app treats a failure as an environment that does
+      // not expose it.
+      if (doctorReport) return doctorReport;
       throw new Error(`${command} is not part of the performance bench.`);
     default:
       if (command.startsWith("list_")) return [];
@@ -545,6 +571,17 @@ if (!params.has("keepStorage")) {
   }
   const appearance = stored && typeof stored === "object" ? stored : {};
   localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang, ...themeChoices }));
+}
+// `?recents=1` gives the welcome screen (`?welcome=1`) projects to reopen. The
+// newest one's folder is gone, so launch cannot reopen it and the welcome
+// screen says so, as after a writer moved the folder.
+if (params.has("recents")) {
+  localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([
+    { name: "Thesis draft", path: `${MOVED_PROJECT_ROOT}/thesis-draft` },
+    { name: "Sparse attention", path: "/Users/writer/Papers/sparse-attention" },
+    { name: "NeurIPS rebuttal", path: "/Users/writer/Papers/2026/neurips-rebuttal" },
+    { name: "Reading notes", path: "/Users/writer/Documents/reading-notes" },
+  ]));
 }
 // Stored raw, not as JSON (loadThemePreference).
 if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);

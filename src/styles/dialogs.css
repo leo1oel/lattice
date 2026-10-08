@@ -60,7 +60,6 @@
   margin: 0 0 var(--space-8);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-control);
-  line-height: 1.45;
   white-space: pre-wrap;
 }
 @keyframes tex-setup-progress-shimmer {
@@ -192,7 +191,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* Only the welcome composition enters; busy updates and project contents do not. */
 .welcome-content > :not(.busy-label) { animation: welcome-rise var(--motion-slow) both; }
 .welcome-content > .welcome-actions,
-.welcome-content > .welcome-more { animation-delay: 60ms; }
+.welcome-content > .welcome-more,
+.welcome-content > .welcome-recents { animation-delay: 60ms; }
 @keyframes welcome-rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -223,6 +223,35 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   white-space: nowrap;
 }
 .welcome-more-action:hover { background: var(--border-subtle); color: var(--text-primary); }
+/* The projects to go back to, and why the last one did not open. A quiet
+   list under the actions: a name to read, its folder after it. */
+.welcome-recents { width: min(360px, 100%); margin-top: var(--space-16); display: grid; gap: var(--space-3); text-align: start; }
+.welcome-unopened { margin-bottom: var(--space-4); padding-inline: var(--space-4); }
+.welcome-recents-title { margin: 0; padding-inline: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.welcome-recent-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+.welcome-recent {
+  width: 100%;
+  min-height: var(--row-height-compact);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-compact-line-height);
+  text-align: start;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+.welcome-recent:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.welcome-recent:active:not(:disabled) { background: var(--control-pressed-surface); }
+.welcome-recent > svg { flex: none; color: var(--text-tertiary); }
+.welcome-recent-name { min-width: 0; flex: 0 1 auto; overflow: hidden; color: var(--text-primary); font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.welcome-recent-place { min-width: 0; flex: 1 1 0; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-caption-size); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+/* A short window keeps the actions and drops the list rather than clipping the title. */
+@media (max-height: 620px) { .welcome-recent-list, .welcome-recents-title { display: none; } }
 .busy-label { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
@@ -255,20 +284,31 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    another dialog, so both stack above it. */
 .tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }
 .tex-setup-backdrop + .modal-dialog-content, .confirm-action-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
+/* The anatomy every small dialog shares: an optional mark, a title, one line
+   of copy, the fields, and the action row. Fields stand 12px apart; a title
+   followed straight by a field keeps the copy's distance from it. */
 .modal { width: 390px; border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
-.modal.create-project-modal h2 { margin-bottom: var(--space-8); }
-.venue-picker { margin: var(--space-8) 0 0; display: grid; gap: var(--space-3); }
-.venue-picker-label { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
+.venue-picker { display: grid; gap: var(--space-3); }
+.venue-picker-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .venue-picker-content { min-width: var(--radix-select-trigger-width); }
-.venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 500; line-height: var(--type-micro-line-height); }
-.modal-icon { width: 36px; height: 36px; border-radius: var(--radius-surface); display: grid; place-items: center; color: var(--control-active); background: var(--control-active-soft); }
-.modal h2 { margin: var(--space-8) 0 7px; font-size: var(--type-title-size); text-wrap: balance; }
-.modal > p { margin: 0 0 var(--space-10); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.55; }
-.modal label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
-.modal .field-error { margin: 7px 0 0; color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.4; }
+.venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* One mark for every dialog: the accent by default, or the tone of what the
+   dialog asks (a deletion, a conflict). */
+.modal-icon { width: 36px; height: 36px; flex: none; border-radius: var(--radius-surface); display: grid; place-items: center; color: var(--control-active); background: var(--control-active-soft); }
+.modal-icon[data-tone="danger"] { color: var(--status-danger); background: var(--status-danger-soft); }
+.modal-icon[data-tone="warning"] { color: var(--status-warning); background: var(--status-warning-soft); }
+.modal h2 { margin: var(--space-8) 0 var(--space-2); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
+.modal > h2:first-child { margin-top: 0; }
+/* `:where` keeps this at one class, so an InlineMessage (also a <p>) and a
+   field error keep their own type. */
+.modal > p:where(:not(.ui-inline-message)) { margin: 0 0 var(--space-10); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); text-wrap: pretty; }
+.modal > h2 + :not(p) { margin-top: var(--space-8); }
+.modal label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.modal > :is(label, .venue-picker) + :is(label, .venue-picker) { margin-top: var(--space-6); }
+.modal .field-error { margin: var(--space-3) 0 0; color: var(--status-danger); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .modal .field-error + .modal-actions { margin-top: var(--space-8); }
 .rename-modal { width: 420px; }
 /* Forms and tools that used to slide in from the right edge, now centered
@@ -468,23 +508,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .settings-section input[type="range"] { width: 100%; accent-color: var(--control-active); }
 .settings-inline { margin-top: var(--space-6); }
 .settings-api-actions { margin-top: var(--space-8); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-4); }
-.modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: var(--space-4); }
+.modal-actions { margin-top: var(--space-12); display: flex; justify-content: flex-end; gap: var(--space-4); }
 .destructive-button-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; transform-origin: 50% 70%; }
 .confirm-action-modal { width: min(410px, calc(100vw - 40px)); }
-.confirm-action-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--control-active);
-  background: var(--control-active-soft);
-}
-.confirm-action-modal[data-destructive="true"] .confirm-action-icon {
-  color: var(--status-danger);
-  background: color-mix(in srgb, var(--status-danger) 11%, transparent);
-}
 .confirm-action-modal > p { max-width: 340px; }
+.confirm-action-modal .ui-button--ghost.confirm-action-danger { color: var(--status-danger); }
+.confirm-action-modal .ui-button--ghost.confirm-action-danger:hover:not(:disabled) { background: var(--status-danger-soft); color: var(--status-danger); }
 /* The shortcut sheet (shortcut-sheet.tsx): the groups flow in two columns
    that fold to one on a narrow window, and scroll under the filter. */
 .modal.sheet-dialog.shortcut-sheet { overflow: hidden; }
