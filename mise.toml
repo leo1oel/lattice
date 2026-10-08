@@ -206,7 +206,7 @@ sources = [
 # and its counts are meant to be read on an otherwise idle machine.
 [tasks.perf-bench]
 description = "Interaction benchmark: fail when a gated count exceeds its ceiling in scripts/perf-bench/budgets.json (Chromium) or budgets-webkit.json (WebKit), or a layout check fails in either engine"
-run = ["pnpm perf:bench --check", "pnpm perf:bench --check --engine webkit", "pnpm perf:bench --layout", "pnpm perf:bench --layout --engine webkit"]
+run = ["pnpm perf:bench --check --layout", "pnpm perf:bench --check --layout --engine webkit"]
 
 # The Open Slide presentation server is another nested pnpm project, staged
 # into the app by scripts/prepare-presentation-runtime.mjs. Its tests run on

@@ -80,7 +80,10 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `pnpm perf:bench` measures and prints a table. `--check` also exits 1 when a
   gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
   `mise run perf-bench` locally).
-- `--only a,b` limits scenarios (with `--layout`, checks). `--runs N` repeats each scenario and gates
+- `--only a,b` limits scenarios (with `--layout`, checks). `--shard K/N` deals
+  the scenarios, then the layout checks, round-robin and runs the K-th share;
+  CI splits each engine's run across runners with it. Neither writes ceilings.
+  `--runs N` repeats each scenario and gates
   each count at its fewest across the runs, because noise only ever adds work
   and each count's noise is its own. The report-only counts shown are those of
   the run with the fewest gated counts in total, and do not affect the choice.
@@ -102,10 +105,11 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   a change that grows the DOM is caught in the engine users run. WebKit has no
   style or layout counters: its `recalcs` and `layouts` are blank and CPU
   profiles are Chromium-only.
-- `--layout` runs no benchmark: it checks geometry jsdom cannot lay out
+- `--layout` checks geometry jsdom cannot lay out
   (`scripts/perf-bench/layout-checks.mjs`), each check on a fresh page at its
-  own viewport and query, and exits 1 with a screenshot when one fails. CI runs
-  it in both engines after `--check`. `paper-header-long-doi` opens a Paper
+  own viewport and query, and exits 1 with a screenshot when one fails. Alone it
+  runs no benchmark; with `--check` it runs after the benchmark on the same
+  build, which is how CI runs it in both engines. `paper-header-long-doi` opens a Paper
   with a very long DOI in a ~500px reader header and fails when the PDF action
   overlaps the source link or takes a click on its arrow.
   `reading-field-focus-after-shrink` shrinks the window under the Reading
