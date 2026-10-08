@@ -67,7 +67,9 @@
 }
 
 .todo-drawer { width: min(460px, 100%); }
-.todo-hits { max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); }
+/* The scroller hosts the fluid hover, so the list inside it does not scroll. */
+.todo-hits { --nested-radius: var(--radius-control); max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); overflow: auto; }
+.todo-hits > .project-replace-hits { max-height: none; overflow: visible; }
 .todo-kind { color: var(--control-active); }
 .todo-kind.fixme, .todo-kind.xxx { color: var(--status-danger); }
 .status-todos {

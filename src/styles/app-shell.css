@@ -340,8 +340,11 @@ input[type="search"]:focus-visible {
    the matched text. */
 :is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
 :is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
-:is(.project-find, .todo-drawer) .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
-:is(.project-find, .todo-drawer) .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+/* Find's current hit is the one highlight, which the pointer moves as well
+   as the keys; the TODO list has no current hit, only the pointer's. */
+.project-find-hits { --nested-radius: var(--radius-control); --fluid-hover-fill: var(--control-active-soft); }
+.project-find .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+.todo-drawer .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
 .project-find-hit-icon { grid-row: 1; display: inline-flex; align-items: center; color: var(--text-tertiary); }
 :is(.project-find, .todo-drawer) .project-replace-hit-preview { grid-column: 2; }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }

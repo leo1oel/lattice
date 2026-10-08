@@ -9,6 +9,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { fileIcon } from "../trellis/trellis-icons";
 import { useCompositionGuard } from "./use-composition-guard";
@@ -52,6 +53,11 @@ export function ProjectFindDialog(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  // As in the pickers: only a pointer that really moved takes the current
+  // hit, and a hit the keys reach is scrolled into view.
+  const pointerRef = useRef({ x: -1, y: -1 });
+  const revealRef = useRef(false);
   const { compositionProps, isComposing } = useCompositionGuard();
   // Kept out of the debounce effect's deps so a new callback identity does not
   // restart the timer mid-typing.
@@ -67,6 +73,12 @@ export function ProjectFindDialog(props: {
     setSeenResetKey(resetKey);
     setActiveIndex(0);
   }
+
+  useEffect(() => {
+    if (!revealRef.current) return;
+    revealRef.current = false;
+    resultsRef.current?.querySelector(".project-replace-hit[data-highlighted]")?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
 
   // The kept query comes back selected: Enter repeats it, typing replaces it.
   // Selected when the input mounts, not in an effect on `open`: the dialog's
@@ -137,7 +149,8 @@ export function ProjectFindDialog(props: {
     inputRef.current?.focus();
   };
   const renderHits = (hits: ProjectFindHit[], offset: number) => (
-    <ScrollArea className="project-find-results">
+    <ScrollArea className="project-find-results" contentClassName="project-find-hits fluid-hover-surface">
+      <FluidHoverSurface selector=".project-replace-hit" />
       <ul className="project-replace-hits">
         {hits.map((hit, index) => {
           const paper = hit.kind === "paper";
@@ -147,6 +160,13 @@ export function ProjectFindDialog(props: {
               <button
                 type="button"
                 className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
+                data-highlighted={offset + index === activeIndex ? "" : undefined}
+                onMouseMove={(event) => {
+                  const last = pointerRef.current;
+                  if (event.clientX === last.x && event.clientY === last.y) return;
+                  pointerRef.current = { x: event.clientX, y: event.clientY };
+                  if (offset + index !== activeIndex) setActiveIndex(offset + index);
+                }}
                 aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
                 title={paper ? undefined : `${hit.path}${hit.line ? `:${hit.line}` : ""}`}
                 onClick={() => {
@@ -204,9 +224,11 @@ export function ProjectFindDialog(props: {
           const count = selectableHits.length;
           switch (event.key) {
             case "ArrowDown":
+              revealRef.current = true;
               setActiveIndex((index) => Math.min(index + 1, Math.max(count - 1, 0)));
               break;
             case "ArrowUp":
+              revealRef.current = true;
               setActiveIndex((index) => Math.max(index - 1, 0));
               break;
             case "Enter":
@@ -217,6 +239,7 @@ export function ProjectFindDialog(props: {
               // F3 / Shift-F3 step through the hits, opening each one.
               if (showResults && count) {
                 const next = (activeIndex + (event.shiftKey ? count - 1 : 1)) % count;
+                revealRef.current = true;
                 setActiveIndex(next);
                 openHit(next);
               }
@@ -253,7 +276,7 @@ export function ProjectFindDialog(props: {
           {!trimmedQuery ? null : props.error ? t`Search failed.` : searching ? t`Searching…` : resultSummary}
         </div>
       </div>
-      <div className="project-replace-preview">
+      <div className="project-replace-preview" ref={resultsRef}>
         {!trimmedQuery && (
           <EmptyState
             align="start"
