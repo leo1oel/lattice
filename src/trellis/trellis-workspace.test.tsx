@@ -344,6 +344,7 @@ async function openBeside(second: string) {
     agentShown: () => {},
     openTool: () => {},
     panelMenu: () => [],
+    shortcut: () => null,
   } as unknown as Parameters<TrellisController["setBridge"]>[0]);
   const openTabs = ["main.tex", second];
   controller.app.set({ projectRoot: "/a", activeKey: "main.tex", openTabs, tabsReady: true });
