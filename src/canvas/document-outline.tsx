@@ -69,7 +69,7 @@ export function DocumentOutline(props: {
           event.preventDefault();
         }}
       >
-        <FluidHoverSurface selector=".document-outline-list button" preserveSelection />
+        <FluidHoverSurface selector=".document-outline-list button" preserveSelection follow={null} />
         <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
           ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={select} />

@@ -193,10 +193,12 @@ describe("design token contract", () => {
 
   it("draws keyboard focus exactly once", () => {
     const globalRing =
-      /:where\(button:not\(\.project-title\):not\(\.overleaf-toolbar-menu-button\), a, select, summary, \[role="button"\], \[tabindex\]:not\(\.ProseMirror\):not\(\[tabindex="-1"\]\):not\(\[role="menuitem"\]\)\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
+      /:where\(button:not\(\.project-title\):not\(\.overleaf-toolbar-menu-button\):not\(\[role\^="menuitem"\]\), a, select, summary, \[role="button"\], \[tabindex\]:not\(\.ProseMirror\):not\(\[tabindex="-1"\]\):not\(\[role="menuitem"\]\)\):focus-visible \{\s*outline: var\(--focus-ring-width\) solid var\(--focus-ring\);\s*outline-offset: var\(--focus-ring-offset\);/
     expect(appCss).toMatch(globalRing)
     expect(appCss).not.toMatch(/\[tabindex\]\):focus-visible/)
     expect(appCss).toMatch(/\.project-title:hover, \.project-title:focus-visible, \.project-title\[aria-expanded="true"\] \{ background: var\(--chrome-hover-surface\); \}/)
+    // The project tree's own row menu is made of buttons; like Radix's items, they answer with the row fill.
+    expect(appCss).toMatch(/\.file-tree-context-menu > button:is\(:hover, :focus-visible\):not\(:disabled\) \{ background/)
     expect(appCss).toMatch(/\.canvas-actions \.overleaf-toolbar-menu-button:focus-visible \{ background: var\(--chrome-hover-surface\); color: var\(--text-primary\); \}/)
 
     // No control may cancel the ring or re-implement it as a shadow. Text entry

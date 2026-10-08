@@ -67,7 +67,9 @@
 }
 
 .todo-drawer { width: min(460px, 100%); }
-.todo-hits { max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); }
+/* The scroller hosts the fluid hover, so the list inside it does not scroll. */
+.todo-hits { --nested-radius: var(--radius-control); max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); overflow: auto; }
+.todo-hits > .project-replace-hits { max-height: none; overflow: visible; }
 .todo-kind { color: var(--control-active); }
 .todo-kind.fixme, .todo-kind.xxx { color: var(--status-danger); }
 .status-todos {
@@ -258,10 +260,13 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .modal-dialog-content { position: fixed; top: 50%; left: 50%; z-index: var(--z-modal); width: max-content; transform: translate(-50%, -50%); }
 /* Dialogs arrive: the scrim fades in while the card rises a few pixels and
    settles. `translate` and `scale` are their own properties, so they compose
-   with the centring transform above instead of replacing it. Dialogs unmount
-   on close, so there is no exit to mirror. */
+   with the centring transform above instead of replacing it. A closed dialog
+   leaves as a picture of itself (`useExitPicture`, `data-leaving`): a quicker
+   tween back the way it came, so the close reads as final. */
 .modal-backdrop { animation: modal-scrim-in var(--motion-slow) both; }
 .modal-dialog-content { animation: modal-rise var(--motion-slow) both; }
+.modal-backdrop[data-leaving] { animation: modal-scrim-out var(--motion-slow-exit) both; pointer-events: none; }
+.modal-dialog-content[data-leaving] { animation: modal-sink var(--motion-slow-exit) both; pointer-events: none; }
 @keyframes modal-scrim-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -269,6 +274,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 @keyframes modal-rise {
   from { opacity: 0; translate: 0 var(--space-3); scale: .98; }
   to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes modal-scrim-out {
+  to { opacity: 0; }
+}
+@keyframes modal-sink {
+  to { opacity: 0; translate: 0 var(--space-2); scale: .98; }
 }
 /* A lazy tool's loading shell (app/tool-loading-shell.tsx) holds the tool's
    place at its size. Settings that takes its shell's place is already on
@@ -278,8 +289,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .tool-loading-shell-message { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* A shell outstaying its tool (useLoadingShell's minimum time) lies over it. */
 .modal-dialog-content.tool-loading-shell-card { z-index: calc(var(--z-modal) + 1); }
-.modal-backdrop.settings-replaces-shell,
-.modal-backdrop.settings-replaces-shell ~ .modal-dialog-content:has(> .settings-modal) { animation: none; }
+.modal-backdrop.settings-replaces-shell:not([data-leaving]),
+.modal-backdrop.settings-replaces-shell ~ .modal-dialog-content:not([data-leaving]):has(> .settings-modal) { animation: none; }
 /* The install guide (launched from Settings) and confirmations open over
    another dialog, so both stack above it. */
 .tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }

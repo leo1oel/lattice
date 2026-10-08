@@ -155,7 +155,7 @@ export function LatexSelectionToolbar(props: {
               <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu fluid-hover-surface">
-              <FluidHoverSurface selector=".heading-menu > button" />
+              <FluidHoverSurface selector=".heading-menu > button" follow={null} />
               {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
             </PopoverContent>
           </Popover>

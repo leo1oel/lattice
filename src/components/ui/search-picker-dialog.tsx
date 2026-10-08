@@ -131,7 +131,7 @@ export function PickerDialog<T>(props: {
           />
         </div>
         <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox">
-          <FluidHoverSurface />
+          <FluidHoverSurface follow='[aria-selected="true"]' />
           {results.map((item, index) => {
             const group = sectioned ? groupOf?.(item) : undefined;
             return (

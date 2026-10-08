@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
@@ -9,6 +9,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { fileIcon } from "../trellis/trellis-icons";
 import { useCompositionGuard } from "./use-composition-guard";
@@ -29,6 +30,29 @@ const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 const folderOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 /** The snippet with each query term marked, so the eye lands on why it matched. */
+/**
+ * As in the pickers, only a pointer that really moved takes the current hit:
+ * the list scrolling under a resting pointer sends a move with the same
+ * coordinates. Kept per list element rather than in state, since the dialog
+ * stays mounted (and renders with the app) while it is closed.
+ */
+const lastPointer = new WeakMap<Element, { x: number; y: number }>();
+function pointerMoved(event: ReactMouseEvent<HTMLElement>) {
+  const list = event.currentTarget.closest(".project-find-hits") ?? event.currentTarget;
+  const last = lastPointer.get(list);
+  if (last && last.x === event.clientX && last.y === event.clientY) return false;
+  lastPointer.set(list, { x: event.clientX, y: event.clientY });
+  return true;
+}
+
+/** A hit the keys reach is scrolled into view once it has rendered. */
+function revealCurrentHit(from: Element) {
+  const dialog = from.closest(".project-find");
+  requestAnimationFrame(() => {
+    dialog?.querySelector(".project-replace-hit[data-highlighted]")?.scrollIntoView({ block: "nearest" });
+  });
+}
+
 function markTerms(text: string, query: string) {
   const terms = [...new Set(query.toLocaleLowerCase().split(/\s+/).filter((term) => term.length > 1))];
   if (!terms.length) return text;
@@ -137,7 +161,8 @@ export function ProjectFindDialog(props: {
     inputRef.current?.focus();
   };
   const renderHits = (hits: ProjectFindHit[], offset: number) => (
-    <ScrollArea className="project-find-results">
+    <ScrollArea className="project-find-results" contentClassName="project-find-hits fluid-hover-surface">
+      <FluidHoverSurface selector=".project-replace-hit" />
       <ul className="project-replace-hits">
         {hits.map((hit, index) => {
           const paper = hit.kind === "paper";
@@ -147,6 +172,11 @@ export function ProjectFindDialog(props: {
               <button
                 type="button"
                 className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
+                data-highlighted={offset + index === activeIndex ? "" : undefined}
+                onMouseMove={(event) => {
+                  if (!pointerMoved(event)) return;
+                  if (offset + index !== activeIndex) setActiveIndex(offset + index);
+                }}
                 aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
                 title={paper ? undefined : `${hit.path}${hit.line ? `:${hit.line}` : ""}`}
                 onClick={() => {
@@ -225,6 +255,7 @@ export function ProjectFindDialog(props: {
               return;
           }
           event.preventDefault();
+          revealCurrentHit(event.currentTarget);
         }}
       />
       {props.error && <p className="dialog-error" role="alert">{props.error}</p>}

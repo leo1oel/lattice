@@ -4,6 +4,8 @@
   isolation: isolate;
 }
 
+/* A list paints the fill in its own current-row colour (`--fluid-hover-fill`),
+   so a row lit by the pointer and one lit by the keyboard look the same. */
 .fluid-hover-highlight {
   position: absolute;
   top: 0;
@@ -11,7 +13,7 @@
   pointer-events: none;
   z-index: -1;
   border-radius: var(--nested-radius, var(--radius-icon));
-  background: var(--control-hover-surface);
+  background: var(--fluid-hover-fill, var(--control-hover-surface));
 }
 
 /* Only replace the hovered row's fill once a measured overlay is available.

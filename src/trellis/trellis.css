@@ -344,6 +344,24 @@
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-label { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 
+/* ---------------------------------------------------------------- motion
+   Trellis brings its own durations and ease; the workspace runs on the app's
+   tiers instead. A panel arriving is a large surface (slow); tabs sliding
+   aside for a dragged one travel (moderate); a tab's fill, a close button, a
+   divider's grip and a drop slot fade (fast). A panel that closes leaves at
+   once: its neighbours take its room in the same frame, and an exit would
+   draw over them. The library's reduced-motion rules stand. */
+.lattice-trellis [data-appearing] { animation: trellis-appear var(--motion-slow) both; }
+.lattice-trellis [data-trellis-part="tab"] { transition: background-color var(--motion-fast), color var(--motion-fast); }
+.lattice-trellis [data-trellis-part="tab"][data-sorting] { transition: transform var(--motion-moderate); }
+.lattice-trellis [data-trellis-part="tab"][data-dragging] { transition: none; }
+.lattice-trellis :is([data-trellis-part="tab-close"], [data-trellis-part="panel-menu"]) { transition: opacity var(--motion-fast), background-color var(--motion-fast), color var(--motion-fast); }
+.lattice-trellis [data-trellis-part="divider"]::after,
+.lattice-trellis [data-trellis-part="drop-slot"] { transition: opacity var(--motion-fast); }
+/* The grip still waits a beat under a passing pointer, as Trellis's own does. */
+.lattice-trellis [data-trellis-part="divider"]:hover::after { transition-delay: 150ms; }
+.lattice-trellis [data-trellis-part="divider"]:is([data-active], :focus-visible)::after { transition-delay: 0ms; }
+
 /* ---------------------------------------------------------------- dividers */
 .lattice-trellis [data-trellis-part="divider"]::after { background: color-mix(in srgb, var(--control-active) 55%, transparent); border-radius: var(--radius-pill); }
 .lattice-trellis [data-trellis-part="divider"][data-axis="x"]::after { left: calc(50% - 1px); width: var(--space-1); }

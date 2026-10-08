@@ -285,3 +285,30 @@ describe("BibEntryDialog entry paths", () => {
     expect(preview.closest("details")).toHaveAttribute("open");
   });
 });
+
+describe("BibEntryDialog venue suggestions", () => {
+  it("reaches the suggestions with the arrows, takes one with Enter and closes them with Escape first", () => {
+    const onClose = vi.fn();
+    renderDialog({ mode: "edit", initialDraft: resolved({ journal: "" }), onClose });
+    const venue = screen.getByRole("combobox", { name: "Venue" });
+    venue.focus();
+    fireEvent.change(venue, { target: { value: "neur" } });
+    expect(venue).toHaveAttribute("aria-expanded", "true");
+    const options = screen.getAllByRole("option");
+    fireEvent.keyDown(venue, { key: "ArrowDown" });
+    expect(venue).toHaveAttribute("aria-activedescendant", options[0].id);
+    expect(options[0]).toHaveAttribute("data-highlighted");
+    fireEvent.keyDown(venue, { key: "ArrowUp" });
+    expect(venue).toHaveAttribute("aria-activedescendant", options.at(-1)!.id);
+    fireEvent.keyDown(venue, { key: "ArrowDown" });
+    const chosen = options[0].querySelector("span")!.textContent!;
+    fireEvent.keyDown(venue, { key: "Enter" });
+    expect(venue).toHaveValue(chosen);
+    expect(venue).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.change(venue, { target: { value: "neur" } });
+    fireEvent.keyDown(venue, { key: "Escape" });
+    expect(venue).toHaveAttribute("aria-expanded", "false");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

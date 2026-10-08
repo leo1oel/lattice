@@ -40,8 +40,8 @@ input[type="search"]:focus-visible {
  * That halo is suppressed.
  *
  * Keyboard focus is different: it must always be visible, so `:focus-visible`
- * draws one product ring for controls in the Tab order. Radix menu items expose
- * focus through their active-row fill, while the project switcher and the
+ * draws one product ring for controls in the Tab order. Menu items, Radix's and
+ * the project tree's own row menu, expose focus through their active-row fill, while the project switcher and the
  * Overleaf split-menu trigger use a chrome fill. Outlining those composite
  * controls can leave a stray black frame when WebKit restores focus after app
  * activation. Radix also temporarily focuses dialog surfaces with
@@ -52,7 +52,7 @@ input[type="search"]:focus-visible {
 :where(button, a, input, textarea, select, summary, [role="button"], [tabindex]):focus {
   outline: none;
 }
-:where(button:not(.project-title):not(.overleaf-toolbar-menu-button), a, select, summary, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
+:where(button:not(.project-title):not(.overleaf-toolbar-menu-button):not([role^="menuitem"]), a, select, summary, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -209,7 +209,11 @@ input[type="search"]:focus-visible {
 .quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-body-compact-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
-.quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
+/* The pointer moves the current row too (on a real move), so `.active` is the
+   only highlight; a :hover fill would light a second row under a resting
+   pointer while the arrows move on. */
+.quick-open-list { --fluid-hover-fill: var(--control-active-soft); }
+.quick-open-list button.active { background: var(--control-active-soft); color: var(--control-active); }
 .quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* One heading per section, quiet enough that the rows stay the thing to read. */
 .quick-open-list .picker-section { padding: var(--space-4) var(--space-5) var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
@@ -294,8 +298,9 @@ input[type="search"]:focus-visible {
 .venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 28px; border: 0; border-radius: var(--nested-radius); background: transparent; color: var(--text-primary); padding: 5px var(--space-4); text-align: left; font: var(--type-caption-size)/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
 .venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .venue-menu button em { flex: none; font-style: normal; font-size: var(--type-micro-size); letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
-.venue-menu button:hover, .venue-menu button[aria-selected="true"] { background: var(--control-active-soft); color: var(--control-active); }
-.venue-menu button:hover em, .venue-menu button[aria-selected="true"] em { color: var(--control-active); }
+.venue-menu { --fluid-hover-fill: var(--control-active-soft); }
+.venue-menu button:is(:hover, [data-highlighted], [aria-selected="true"]) { background: var(--control-active-soft); color: var(--control-active); }
+.venue-menu button:is(:hover, [data-highlighted], [aria-selected="true"]) em { color: var(--control-active); }
 .year-stepper { position: relative; display: flex; }
 .year-stepper input { width: 100%; padding-right: 26px; }
 .year-stepper-buttons { position: absolute; top: 0; right: 0; bottom: 0; width: 22px; display: flex; flex-direction: column; }
@@ -335,8 +340,11 @@ input[type="search"]:focus-visible {
    the matched text. */
 :is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
 :is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
-:is(.project-find, .todo-drawer) .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
-:is(.project-find, .todo-drawer) .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+/* Find's current hit is the one highlight, which the pointer moves as well
+   as the keys; the TODO list has no current hit, only the pointer's. */
+.project-find-hits { --nested-radius: var(--radius-control); --fluid-hover-fill: var(--control-active-soft); }
+.project-find .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+.todo-drawer .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
 .project-find-hit-icon { grid-row: 1; display: inline-flex; align-items: center; color: var(--text-tertiary); }
 :is(.project-find, .todo-drawer) .project-replace-hit-preview { grid-column: 2; }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
@@ -655,17 +663,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
    inside the tree), but it is the same menu as the one for the empty area
    around the rows: the item geometry, type and colours of menu-surface.ts. */
 .file-tree-context-menu {
+  --fluid-hover-fill: var(--control-active-soft);
   min-width: 176px;
   color: var(--text-primary);
 }
 .file-tree-context-menu > button { width: 100%; padding: var(--space-3) var(--space-5); border-radius: var(--nested-radius); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-5); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--type-body-weight); text-align: left; }
 .file-tree-context-menu > button > svg { flex: none; stroke-width: 1.5; color: var(--text-secondary); }
-.file-tree-context-menu > button:hover:not(:disabled) { background: var(--control-hover-surface); }
+.file-tree-context-menu > button:is(:hover, :focus-visible):not(:disabled) { background: var(--control-active-soft); color: var(--control-active); }
 .file-tree-context-menu > button:disabled { opacity: .5; }
 body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: none; }
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
-.file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
+.file-tree-context-menu > button.destructive:is(:hover, :focus-visible):not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
@@ -680,6 +689,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    either side. */
 .paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
+.paper-rows { --fluid-hover-fill: var(--navigation-tree-hover-surface); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
 .paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
 /* The button is the whole row under its text, so its ring is the row's;

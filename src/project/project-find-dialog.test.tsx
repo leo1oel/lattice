@@ -100,6 +100,27 @@ describe("ProjectFindDialog", () => {
     expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
   });
 
+  it("keeps one current hit, which a real pointer move takes and the arrows scroll into view", () => {
+    const { props, input, search } = renderFind({ hits: [fileHit("a.tex", 1), fileHit("b.tex", 2), fileHit("c.tex", 3)] });
+    search("x");
+    const [a, b, c] = ["a.tex:1", "b.tex:2", "c.tex:3"].map((title) => screen.getByTitle(title));
+    expect(a).toHaveAttribute("data-highlighted");
+    fireEvent.mouseMove(c, { clientX: 10, clientY: 10 });
+    expect(c).toHaveAttribute("data-highlighted");
+    expect(a).not.toHaveAttribute("data-highlighted");
+    // The list scrolling under a resting pointer is not a move.
+    fireEvent.keyDown(input(), { key: "ArrowUp" });
+    fireEvent.mouseMove(c, { clientX: 10, clientY: 10 });
+    expect(b).toHaveAttribute("data-highlighted");
+    const reveal = vi.spyOn(Element.prototype, "scrollIntoView");
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    act(() => vi.advanceTimersByTime(20));
+    expect(reveal).toHaveBeenCalledWith({ block: "nearest" });
+    expect(reveal.mock.contexts.at(-1)).toBe(c);
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(props.onOpenHit).toHaveBeenCalledWith("c.tex", 3);
+  });
+
   it("shows a useful zero-result state and clears back to the search field", () => {
     const { props, input } = renderFind();
 
