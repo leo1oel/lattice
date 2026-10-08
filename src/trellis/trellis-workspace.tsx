@@ -707,6 +707,12 @@ function useFileTabIcon(controller: TrellisController, viewId: string, key: stri
   return iconHost ? createPortal(fileIcon(key, kind), iconHost) : null;
 }
 
+/** Quick open's keys beside its button, from the command table rather than typed out. */
+function QuickOpenKeys({ controller }: { controller: TrellisController }) {
+  const keys = controller.bridge?.shortcut("quick-open");
+  return keys ? <kbd>{keys}</kbd> : null;
+}
+
 /** A document panel with no document in it: the next one opened lands here. */
 function SlotView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
@@ -715,7 +721,7 @@ function SlotView({ controller }: { controller: TrellisController }) {
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />
         {t`Quick open`}
-        <kbd>⌘P</kbd>
+        <QuickOpenKeys controller={controller} />
       </button>
     </EmptyState>
   );
@@ -732,7 +738,7 @@ function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />
         {t`Quick open`}
-        <kbd>⌘P</kbd>
+        <QuickOpenKeys controller={controller} />
       </button>
       <button type="button" className="trellis-empty-button" onClick={() => void controller.resetLayout()}>
         <FolderTree size={13} />
@@ -1473,7 +1479,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         >
           <FileView controller={controller} />
         </ViewType>
-        <ViewType id="slot" title={t`Empty`} minSize={MIN_SIZE.file} scaling={false}>
+        {/* Its tab carries the empty state's icon, as every other tab carries one. */}
+        <ViewType id="slot" title={t`Empty`} icon={<FileText size={14} />} minSize={MIN_SIZE.file} scaling={false}>
           <SlotView controller={controller} />
         </ViewType>
         {TOOL_KINDS.map((kind) => (

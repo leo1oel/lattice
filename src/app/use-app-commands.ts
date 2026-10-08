@@ -47,6 +47,13 @@ export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "mod">)
   return command.key ? { key: command.key, mod: command.mod !== false, shift: command.shift } : null;
 }
 
+/** A command's keys as one string ("⌘P"), for a hint beside another control that runs it. */
+export function commandShortcutText(commands: readonly AppCommand[], id: string): string | null {
+  const command = commands.find((entry) => entry.id === id);
+  const keys = command && commandKeys(command);
+  return keys ? keys.join("") : null;
+}
+
 /** The keycaps the palette draws beside `command`: its key's, else the `shortcut` bound elsewhere. */
 export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "mod" | "shortcut">): string[] | null {
   const combo = commandCombo(command) ?? command.shortcut;

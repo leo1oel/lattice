@@ -103,6 +103,8 @@ export type TrellisBridge = {
   /** Actions a panel offers in its menu (and, when there is room, as tab-bar icons). */
   panelMenu: (kind: "project" | "papers" | "agent" | "pdf") => MenuEntry[];
   quickOpen: () => void;
+  /** An app command's keys ("⌘P") as App's command table binds them, for a hint beside a control that runs it. */
+  shortcut: (command: string) => string | null;
   /** Build the project for `key` (made the active document first), and bring the PDF panel up. */
   build: (key: string, options?: { clean?: boolean; beside?: string }) => void;
   stopBuild: () => void;

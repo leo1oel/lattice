@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, renderHook } from "@testing-library/react";
-import { commandKeys, paletteEntries, useAppCommands, type AppCommand } from "./use-app-commands";
+import { commandKeys, commandShortcutText, paletteEntries, useAppCommands, type AppCommand } from "./use-app-commands";
 
 describe("app commands", () => {
   it("lists the labelled commands it can run, each with keycaps from its own key or the one bound elsewhere", () => {
@@ -45,5 +45,16 @@ describe("app commands", () => {
     fireEvent.keyDown(window, { key: "/", metaKey: true, shiftKey: true });
     fireEvent.keyDown(window, { key: "/", metaKey: true });
     expect(run.sheet).toHaveBeenCalledTimes(2);
+  });
+
+  it("writes a command's keys as one string for a hint elsewhere, and nothing for a command without keys", () => {
+    const run = () => {};
+    const commands: AppCommand[] = [
+      { id: "quick-open", label: "Quick open file", key: "p", run },
+      { id: "reset", label: "Reset layout", run },
+    ];
+    expect(commandShortcutText(commands, "quick-open")).toBe("⌘P");
+    expect(commandShortcutText(commands, "reset")).toBeNull();
+    expect(commandShortcutText(commands, "missing")).toBeNull();
   });
 });

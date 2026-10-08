@@ -44,6 +44,7 @@ export type TrellisBridgeApp = {
   setBibliographyAuditOpen: Dispatch<SetStateAction<boolean>>;
   requestNewEntry: (type: NewEntryType) => void;
   reportPdfSelection: TrellisBridge["pdfTextSelect"];
+  shortcut: TrellisBridge["shortcut"];
 };
 
 /**
@@ -56,7 +57,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
     synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    requestNewEntry, reportPdfSelection,
+    requestNewEntry, reportPdfSelection, shortcut,
   } = app;
   const {
     file: activeFile, text: source, paper: activePaper, asset: activeAsset, mode: canvasMode, paperView, activeTab,
@@ -140,11 +141,13 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         }
         if (kind === "agent") return [{ id: "agent-settings", label: t`Agent settings…`, run: () => openSettings("agent") }];
         return [
-          { id: "build", label: t`Build project`, shortcut: "⌘S", run: () => void compileAndShowPdf(false, true) },
+          // ⌘S saves and then builds; Build project has no key of its own.
+          { id: "build", label: t`Build project`, shortcut: shortcut("save") ?? undefined, run: () => void compileAndShowPdf(false, true) },
           { id: "reveal", label: t`Reveal cursor in PDF`, shortcut: comboText({ mod: true, ...REVEAL_IN_PDF_KEY }), run: () => void revealSourceInPdf() },
         ];
       },
       quickOpen: () => setSearchDialog("quick-open"),
+      shortcut,
       build: (key, options) => {
         void (async () => {
           // The build follows the active document (it may be a root of its own), so the panel's file goes first.
