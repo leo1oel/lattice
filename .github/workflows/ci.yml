@@ -240,9 +240,10 @@ jobs:
   #
   # Two shards, not more: GitHub runs at most five macOS jobs at once across
   # the account, and every lane's run needs them. With `rust` this is three
-  # per run (it was two). A third shard finished about a minute sooner but held a
-  # fourth runner, and then a second lane's run queued for its `rust` job;
-  # each shard also pays ~100 s of setup and page build whatever its share.
+  # per run (it was two). A third shard finished about a minute sooner, but
+  # with four macOS jobs per run, `rust` queued for five minutes behind other
+  # lanes; and each shard pays ~100 s of setup and page build whatever its
+  # share.
   perf-bench-webkit-shard:
     name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
