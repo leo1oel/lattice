@@ -7,6 +7,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { privateFontsPlugin } from "./scripts/private-fonts.ts";
+import { reactCompilerSuppressionRules } from "./scripts/react-compiler-suppressions.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -144,14 +145,7 @@ export default defineConfig(() => ({
     // the compiler sees ordinary React rather than macro-generated components.
     babel({
       presets: [
-        reactCompilerPreset({
-          target: "19",
-          // The compiler skips a function whose hooks lint is disabled inside
-          // it. Oxlint runs eslint-plugin-react-hooks under the
-          // `react-hooks-js` name (see .oxlintrc.json), so the disable comments
-          // use that name; scripts/react-compiler-report.mjs passes the same list.
-          eslintSuppressionRules: ["react-hooks-js/exhaustive-deps", "react-hooks-js/rules-of-hooks"],
-        }),
+        reactCompilerPreset({ target: "19", eslintSuppressionRules: reactCompilerSuppressionRules }),
         linguiTransformerBabelPreset(),
       ],
     }),

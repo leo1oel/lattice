@@ -10,5 +10,5 @@
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true
   },
-  "include": ["vite.config.ts", "scripts/private-fonts.ts"]
+  "include": ["vite.config.ts", "scripts/private-fonts.ts", "scripts/react-compiler-suppressions.ts"]
 }
