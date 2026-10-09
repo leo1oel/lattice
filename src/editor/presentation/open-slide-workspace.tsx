@@ -14,12 +14,16 @@ import {
   advanceOpenSlideEventCursor,
   consumeOpenSlideEvents,
   openSlideEventCursor,
+  registerOpenSlideRefresh,
   type OpenSlideContext,
   type OpenSlideMutation,
   type OpenSlideSyncOperation,
 } from "./open-slide-bridge";
 import { onProjectFilesChanged } from "../../project/project-files-changed";
 import "./open-slide-workspace.css";
+
+/** How long a refresh for the agent's preview waits for the editor and disk to agree: two disk polls. */
+const SOURCE_SETTLE_MS = 5_000;
 
 /** The parts of the `presentation_ensure_ready` payload this view reads. */
 type PresentationRuntimeInfo = {
@@ -190,7 +194,7 @@ export function OpenSlideWorkspace({
   useEffect(() => {
     if (!active || !runtime || detached) return;
     const controller = new AbortController();
-    let refreshing = false;
+    let refreshing: Promise<void> | null = null;
     let refreshQueued = false;
     let refreshTimer: number | null = null;
     const scheduleRefresh = () => {
@@ -212,18 +216,22 @@ export function OpenSlideWorkspace({
         return;
       }
       refreshQueued = false;
-      refreshing = true;
+      refreshing = (async () => {
+        try {
+          await invoke("presentation_refresh_native_workspace", { projectRoot });
+          if (controller.signal.aborted) return;
+          // The filesystem refresh includes the active entry, whose disk mirror
+          // can lag its Yjs document briefly. Reassert the canonical editor bytes
+          // last so a peer edit can never be replaced by that stale mirror.
+          await syncSource(runtime, path, latest.current.source, controller.signal);
+        } catch (reason) {
+          reportUnlessAborted(controller.signal, latest)(reason);
+        }
+      })();
       try {
-        await invoke("presentation_refresh_native_workspace", { projectRoot });
-        if (controller.signal.aborted) return;
-        // The filesystem refresh includes the active entry, whose disk mirror
-        // can lag its Yjs document briefly. Reassert the canonical editor bytes
-        // last so a peer edit can never be replaced by that stale mirror.
-        await syncSource(runtime, path, latest.current.source, controller.signal);
-      } catch (reason) {
-        reportUnlessAborted(controller.signal, latest)(reason);
+        await refreshing;
       } finally {
-        refreshing = false;
+        refreshing = null;
         if (refreshQueued) {
           refreshQueued = false;
           scheduleRefresh();
@@ -231,6 +239,22 @@ export function OpenSlideWorkspace({
       }
     };
     requestNativeRefreshRef.current = scheduleRefresh;
+    // The agent's page preview needs the files on disk now, not after the
+    // debounce. The refresh reasserts this deck's editor bytes, which take a
+    // write made behind them (the agent's) only on the editor's next disk poll
+    // and reach disk themselves only on autosave, so first wait, briefly, for
+    // the two to agree. A refresh already running may have read the disk
+    // before the caller's change, so another runs once that one settles.
+    const stopSharingRefresh = registerOpenSlideRefresh(projectRoot, async () => {
+      const deadline = Date.now() + SOURCE_SETTLE_MS;
+      while (Date.now() < deadline && !controller.signal.aborted) {
+        const disk = await invoke<string>("read_project_file", { path, projectRoot }).catch(() => null);
+        if (disk === null || disk === latest.current.source) break;
+        await new Promise((resolve) => window.setTimeout(resolve, 100));
+      }
+      await refreshing;
+      await refresh();
+    });
     // Native project writes already flow through the filesystem watcher. A
     // two-second poll previously rehashed every slide and asset forever,
     // contending with the WebView and Vite while a deck was open.
@@ -240,6 +264,7 @@ export function OpenSlideWorkspace({
     return () => {
       controller.abort();
       stopListening();
+      stopSharingRefresh();
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       requestNativeRefreshRef.current = () => undefined;
     };

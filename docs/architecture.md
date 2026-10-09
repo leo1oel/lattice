@@ -144,6 +144,7 @@ file:
 | `src/agent/agent-paper-library.ts:3-4` | `lattice:paper-library`, `lattice:request-paper-library` |
 | `src/agent/agent-canvas-tools.ts:9` | `lattice:canvas-tool-result` |
 | `src/agent/agent-spreadsheet-tools.ts:23` | `lattice:spreadsheet-tool-result` |
+| `src/agent/agent-presentation-tools.ts:16-18` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
 | `src/agent/agent-composer-files.ts:1` | `lattice:composer-files` |
 | `src/app/use-synara-host.ts:22-25` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
 | `src/settings/synara-settings-pane.tsx:77` | `lattice:set-settings-section` |
