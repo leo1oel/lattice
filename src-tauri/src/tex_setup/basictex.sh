@@ -4,6 +4,7 @@ SOURCE_PACKAGE=__SOURCE_PACKAGE__
 EXPECTED_SHA256=__EXPECTED_SHA256__
 INSTALL_BASE=__INSTALL_BASE__
 TEXBIN="/Library/TeX/texbin"
+TLMGR="${TEXBIN}/tlmgr"
 PACKAGE="${ROOT}/BasicTeX.pkg"
 
 EXPECTED_TEXMFROOT="/usr/local/texlive/2026basic"
@@ -55,55 +56,12 @@ if [[ "${INSTALL_BASE}" == "1" ]]; then
   /usr/sbin/installer -pkg "${PACKAGE}" -target /
 fi
 
-if [[ ! -x "${TEXBIN}/tlmgr" ]]; then
-  echo "BasicTeX installed, but ${TEXBIN}/tlmgr is missing."
+if [[ ! -x "${TLMGR}" ]]; then
+  echo "BasicTeX installed, but ${TLMGR} is missing."
   false
 fi
 
 repair_basictex_permissions
-
-# mirror.ctan.org can redirect to a mirror that is unreachable from the
-# current network. Preserve a repository the user configured, then try two
-# direct CTAN mirrors that are reachable from mainland China. --repository is
-# per-command, so a fallback does not permanently rewrite their TeX setup.
-TEX_REPOSITORIES=(
-  ""
-  "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet"
-  "https://mirrors.ustc.edu.cn/CTAN/systems/texlive/tlnet"
-)
-TEX_REPOSITORY=""
-tlmgr_with_fallback() {
-  local repository
-  local label
-  local candidates=()
-
-  if [[ -n "${TEX_REPOSITORY}" ]]; then
-    candidates+=("${TEX_REPOSITORY}")
-  fi
-  for repository in "${TEX_REPOSITORIES[@]}"; do
-    if [[ -z "${TEX_REPOSITORY}" || "${repository}" != "${TEX_REPOSITORY}" ]]; then
-      candidates+=("${repository}")
-    fi
-  done
-
-  for repository in "${candidates[@]}"; do
-    if [[ -n "${repository}" ]]; then
-      if "${TEXBIN}/tlmgr" --repository "${repository}" "$@"; then
-        TEX_REPOSITORY="${repository}"
-        return 0
-      fi
-      label="${repository}"
-    else
-      if "${TEXBIN}/tlmgr" "$@"; then
-        TEX_REPOSITORY=""
-        return 0
-      fi
-      label="the configured TeX Live repository"
-    fi
-    echo "TeX Live repository unavailable: ${label}"
-  done
-  return 1
-}
 
 CURRENT_STEP="Updating the TeX Live package manager"
 status installing-packages
@@ -125,12 +83,7 @@ tlmgr_with_fallback install \
   times \
   psnfss \
   cmap \
-  csquotes 2>&1 | while IFS= read -r line; do
-    printf '%s\n' "${line}"
-    if [[ "${line}" =~ ^\[([0-9]+)/([0-9]+), ]]; then
-      status "installing-packages ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
-    fi
-  done
+  csquotes 2>&1 | relay_progress installing-packages
 
 if [[ -x "${TEXBIN}/updmap-sys" ]]; then
   CURRENT_STEP="Refreshing the TeX font maps"

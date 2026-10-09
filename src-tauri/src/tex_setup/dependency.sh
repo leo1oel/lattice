@@ -2,21 +2,17 @@
 # provides a missing file.
 TLMGR=__TLMGR_PATH__
 PACKAGE=__PACKAGE_NAME__
-REPOSITORY=__REPOSITORY__
+# The repository the package was found in; "" is the configured one.
+TEX_REPOSITORY=__REPOSITORY__
 
-tlmgr_install() {
-  if [[ -n "${REPOSITORY}" ]]; then
-    "${TLMGR}" --repository "${REPOSITORY}" install "${PACKAGE}"
-  else
-    "${TLMGR}" install "${PACKAGE}"
-  fi
-}
+# The log stays protected, but the TeX files tlmgr writes must be readable and
+# executable by the signed-in user who runs Lattice.
+umask 022
 
-CURRENT_STEP="Installing TeX Live package ${PACKAGE}"
+# While the repository holds a newer tlmgr, tlmgr refuses every install until
+# it updates itself; when it is current this changes nothing.
+CURRENT_STEP="Updating the TeX Live package manager"
 status installing-dependency
-tlmgr_install 2>&1 | while IFS= read -r line; do
-  printf '%s\n' "${line}"
-  if [[ "${line}" =~ ^\[([0-9]+)/([0-9]+), ]]; then
-    status "installing-dependency ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
-  fi
-done
+tlmgr_with_fallback update --self
+CURRENT_STEP="Installing TeX Live package ${PACKAGE}"
+tlmgr_with_fallback install "${PACKAGE}" 2>&1 | relay_progress installing-dependency

@@ -4,7 +4,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { DoctorReport } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
-import { isRequiredSetupMissing, type TexDependencyInstallProgress } from "../build/tex-setup";
+import { isRequiredSetupMissing, texDependencyInstallFailure, type TexDependencyInstallProgress } from "../build/tex-setup";
 import { logAction, notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useRefState, whenIdle } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -117,8 +117,10 @@ export function useTexSetup(rebuild: () => void) {
         rebuildRef.current();
       })
       .catch((reason) => {
-        update({ installing: false, error: toMessage(reason) });
-        trace.fail(reason);
+        const error = toMessage(reason);
+        const { summary, detail } = texDependencyInstallFailure(error);
+        update({ installing: false, error });
+        trace.fail(reason, { detail: [summary, detail].filter(Boolean).join("\n") });
       });
   }, [installRef, publishInstall, rebuildRef, t]);
 

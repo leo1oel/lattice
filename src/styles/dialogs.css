@@ -62,6 +62,44 @@
   border-radius: var(--radius-control);
   white-space: pre-wrap;
 }
+/* tlmgr's own words, folded under the plain-language summary. */
+.tex-setup-error-details {
+  margin: calc(var(--space-6) * -1) 0 var(--space-8);
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.tex-setup-error-details > summary {
+  width: max-content;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-compact);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-tight);
+  list-style: none;
+  cursor: pointer;
+  transition: color var(--motion-fast), background-color var(--motion-fast);
+}
+.tex-setup-error-details > summary::-webkit-details-marker { display: none; }
+.tex-setup-error-details > summary:hover { color: var(--text-secondary); background: var(--tone-hover-surface); }
+.tex-setup-error-details > summary > svg { transition: transform var(--motion-fast); }
+.tex-setup-error-details[open] > summary > svg { transform: rotate(90deg); }
+.tex-setup-error-details > pre {
+  max-height: 132px;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-4) var(--space-5);
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chrome);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: var(--type-micro-size);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
 @keyframes tex-setup-progress-shimmer {
   to { transform: translateX(100%); }
 }
