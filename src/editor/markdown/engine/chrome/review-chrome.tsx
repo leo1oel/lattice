@@ -239,7 +239,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     editor.view.dispatch(setCommentDraft(editor.state.tr, { from: whole ? 0 : selection.from, to: whole ? editor.state.doc.content.size : selection.to }));
     const anchored = anchorDraft(editor, host, null);
     // Opening the composer from a request is this effect's whole job.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks-js/set-state-in-effect
     setBody("");
     if ("error" in anchored) {
       setError(anchored.error ?? null);

@@ -251,7 +251,7 @@ export function BibliographyAudit(props: {
       return () => { disposed = true; };
     }
     // Opening only reconciles local snapshots; remote checks remain explicit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [props.open]);
 
   // `applying` is the row being written, or -1 while accepting all updates.

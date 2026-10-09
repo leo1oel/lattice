@@ -801,7 +801,7 @@ export function DocumentCanvas(props: {
         }),
       ],
     ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps -- intentional stability
     [activeFile, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
@@ -1362,7 +1362,7 @@ export function DocumentCanvas(props: {
           {commentComposer && (
             <CommentComposer
               draft={commentComposer}
-              // eslint-disable-next-line react-hooks/refs -- the view the draft was opened in, fixed while it is open
+              // eslint-disable-next-line react-hooks-js/refs -- the view the draft was opened in, fixed while it is open
               view={commentComposerViewRef.current}
               anchorKey={`${activeFile}\n${editorKey}`}
               onBodyChange={(body) => setCommentComposer((current) => current ? { ...current, body } : current)}

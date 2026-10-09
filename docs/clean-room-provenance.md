@@ -35,7 +35,7 @@ The rules are recorded in full in [`visual-editor-spec.md`](visual-editor-spec.m
   - The engine uses its own `lx-md-` CSS, written from Lattice's design tokens.
 - Every engine file carries the header "Clean implementation for Lattice; spec: docs/visual-editor-spec.md".
 - The only contact with the old editor was a black-box differential harness ([#55](https://github.com/leo1oel/lattice/pull/55)), deleted with it in [#59](https://github.com/leo1oel/lattice/pull/59). It compared what each editor showed and saved on the same corpus.
-- `src/platform/clean-room-guard.test.ts` and an ESLint `no-restricted-imports` rule fail if Open Knowledge paths, packages or imports return.
+- `src/platform/clean-room-guard.test.ts` and an Oxlint `no-restricted-imports` rule fail if Open Knowledge paths, packages or imports return.
 
 ## Similarity scan
 

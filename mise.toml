@@ -34,7 +34,7 @@ sources = [
   "src/locales/**/*.po",
   "scripts/check-i18n-coverage.mjs",
   "scripts/i18n-unlocalized-baseline.txt",
-  "eslint.config.js",
+  ".oxlintrc.json",
 ]
 
 # knip rides along: it reads the same trees plus scripts/, and keeps unused
@@ -42,7 +42,7 @@ sources = [
 # perf:evidence, which recomputes docs/performance.md's benchmark tables from
 # their retained runs (scripts/check-perf-evidence.mjs).
 [tasks.lint]
-description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), knip, and the benchmark-table evidence check"
+description = "Oxlint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), knip, and the benchmark-table evidence check"
 run = ["pnpm lint", "pnpm knip", "pnpm perf:evidence"]
 sources = [
   "src/**",
@@ -52,7 +52,7 @@ sources = [
   "tools/**",
   "scripts/**",
   "knip.json",
-  "eslint.config.js",
+  ".oxlintrc.json",
   "tsconfig.json",
   "package.json",
   "pnpm-lock.yaml",

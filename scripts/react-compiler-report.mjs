@@ -53,6 +53,9 @@ export function compileErrors(relative) {
     // build never shows it.
     plugins: [linguiMacro, [reactCompiler, {
       target: "19",
+      // As in vite.config.ts: the lint disable comments that make the
+      // compiler skip a function name the rules `react-hooks-js/…`.
+      eslintSuppressionRules: ["react-hooks-js/exhaustive-deps", "react-hooks-js/rules-of-hooks"],
       logger: { logEvent: (_filename, event) => events.push(event) },
     }]],
     code: false,

@@ -1,4 +1,4 @@
-import { RuleTester } from "eslint";
+import { RuleTester } from "oxlint/plugins-dev";
 import { describe, it } from "vitest";
 import { awaitChangedAlert } from "./eslint-await-changed-alert.mjs";
 
@@ -6,7 +6,7 @@ RuleTester.describe = describe;
 RuleTester.it = it;
 RuleTester.itOnly = it.only;
 
-const tester = new RuleTester({ languageOptions: { ecmaVersion: "latest", sourceType: "module" } });
+const tester = new RuleTester({ languageOptions: { sourceType: "module" } });
 const error = { messageId: "awaitChangedAlert" };
 
 tester.run("lattice/await-changed-alert", awaitChangedAlert, {

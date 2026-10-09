@@ -54,7 +54,7 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
     clearTimer(buildTimerRef);
   }, []);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- another project's threads must not survive the switch
+    // eslint-disable-next-line react-hooks-js/set-state-in-effect -- another project's threads must not survive the switch
     setHistoryByThread({});
     setActiveThreadId(null);
   }, [project?.root]);

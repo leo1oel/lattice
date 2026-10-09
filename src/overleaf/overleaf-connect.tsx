@@ -398,7 +398,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
 
   return (
     <div className="settings-section">
-      {/* eslint-disable-next-line no-restricted-syntax -- product name */}
+      {/* eslint-disable-next-line lattice/visible-attribute-text -- product name */}
       <SettingsSectionHeader title="Overleaf" />
       <SettingsGroup title={t`Connection`} data-setting="overleaf-connection">
         {loading && !loadError && (

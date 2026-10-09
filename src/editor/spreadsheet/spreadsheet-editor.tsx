@@ -193,7 +193,7 @@ export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
     }
   // The canvas remounts this editor per path; external source changes are
   // reconciled by the mounted surface rather than replacing the Y.Doc identity.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [path]);
   useEffect(() => () => localState.doc?.destroy(), [localState.doc]);
 

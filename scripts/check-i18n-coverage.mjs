@@ -1,7 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ESLint } from "eslint";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const allowlistPath = path.join(root, "scripts/i18n-unlocalized-baseline.txt");
@@ -9,11 +9,17 @@ const catalogPath = path.join(root, "src/locales/zh-CN/messages.po");
 const ruleId = "lingui/no-unlocalized-strings";
 const failures = [];
 
-// 1. Strings that bypass Lingui are caught by ESLint (`pnpm lint`), which runs
+// 1. Strings that bypass Lingui are caught by Oxlint (`pnpm lint`), which runs
 // `lingui/no-unlocalized-strings` as an error over all shipping code. Guard the
 // guard: a config edit that narrows the rule's `files` or downgrades it would
-// silently let English back into the zh-CN interface.
-const eslint = new ESLint({ cwd: root });
+// silently let English back into the zh-CN interface. Oxlint prints its
+// resolved config but not per file, so this applies the overrides in order,
+// as Oxlint does: a later matching override replaces an earlier setting.
+const config = JSON.parse(execFileSync(path.join(root, "node_modules/.bin/oxlint"), ["--print-config"], {
+  cwd: root,
+  encoding: "utf8",
+}));
+const matches = (file, globs) => (globs ?? []).some((glob) => path.matchesGlob(file, glob));
 const shippingFiles = (await readdir(path.join(root, "src"), { recursive: true }))
   .map((file) => path.posix.join("src", file.split(path.sep).join("/")))
   .filter((file) => /\.tsx?$/.test(file)
@@ -21,9 +27,14 @@ const shippingFiles = (await readdir(path.join(root, "src"), { recursive: true }
     && file !== "src/platform/test-setup.ts"
     && !file.startsWith("src/locales/"));
 for (const file of shippingFiles) {
-  const config = await eslint.calculateConfigForFile(path.join(root, file));
-  const severity = [config?.rules?.[ruleId]].flat()[0];
-  if (severity !== 2 && severity !== "error") {
+  let severity = config.rules?.[ruleId];
+  for (const override of config.overrides ?? []) {
+    if (matches(file, override.files) && !matches(file, override.excludeFiles) && override.rules?.[ruleId] !== undefined) {
+      severity = override.rules[ruleId];
+    }
+  }
+  severity = [severity].flat()[0];
+  if (severity !== "deny" && severity !== "error" && severity !== 2) {
     failures.push(`${file}: ${ruleId} is not enforced as an error`);
   }
 }

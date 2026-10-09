@@ -245,7 +245,7 @@ function AwakeSurface({
       release();
     };
     // The surface wakes once; the event stays the one it woke on.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [registerItem, remeasure, selector, follow, preserveSelection, sessionRef, setActiveIndex]);
 
   useEffect(() => {

@@ -145,6 +145,7 @@ describe("parked editors", () => {
     const { lines } = doc;
     const parkedPlace = () => {
       const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS)?.scrollTo;
+      // eslint-disable-next-line no-unsafe-optional-chaining -- a missing value fails the test either way
       const { range, yMargin } = scrollTo?.value as { range: { head: number }; yMargin: number };
       return { line: doc.lineAt(range.head).number, into: -yMargin };
     };
@@ -208,6 +209,7 @@ describe("parked editors", () => {
     expect(view.state.doc.toString()).toBe(onDisk);
     // The same line at the top, as far into it, and the caret after the typing.
     const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS)?.scrollTo;
+    // eslint-disable-next-line no-unsafe-optional-chaining -- a missing value fails the test either way
     const { range, yMargin } = scrollTo?.value as { range: { head: number }; yMargin: number };
     expect(view.state.doc.lineAt(range.head).text).toBe(topLine);
     expect(yMargin).toBe(-7);
@@ -249,6 +251,7 @@ describe("parked editors", () => {
     tab.layout.hidden = true;
     editor.show("other.tex");
     const parked = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS);
+    // eslint-disable-next-line no-unsafe-optional-chaining -- a missing value fails the test either way
     const { range, yMargin } = parked?.scrollTo?.value as { range: { head: number }; yMargin: number };
     expect(parked!.state.doc.lineAt(range.head).text).toBe(topLine);
     expect(yMargin).toBe(-7);

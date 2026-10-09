@@ -192,7 +192,7 @@ integration behind engine-agnostic interfaces. Phase 3 made the engine the
 default and then removed the vendored editor, its vendoring scripts and locks,
 and the quarantined differential harness. The engine is now the only visual
 editor. `src/platform/clean-room-guard.test.ts` and a `no-restricted-imports`
-rule in `eslint.config.js` keep Open Knowledge code from coming back.
+rule in `.oxlintrc.json` keep Open Knowledge code from coming back.
 
 | Area | Met now | Still to come |
 | --- | --- | --- |

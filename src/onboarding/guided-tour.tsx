@@ -176,7 +176,7 @@ export default function GuidedTour({ onClose, steps = TOUR_STEPS, replay = false
   // A rect found for the stop before is not this one's.
   const rect = found.step === step.id ? found.rect : null;
   const spot = rect ? spotlightOf(rect, viewport) : null;
-  const placement = useMemo(() => placeCard(spot, cardSize, viewport), [spot?.left, spot?.top, spot?.width, spot?.height, cardSize, viewport]); // eslint-disable-line react-hooks/exhaustive-deps
+  const placement = useMemo(() => placeCard(spot, cardSize, viewport), [spot?.left, spot?.top, spot?.width, spot?.height, cardSize, viewport]); // eslint-disable-line react-hooks-js/exhaustive-deps
   const isWelcome = index === 0;
   const isLast = index === steps.length - 1;
   const actionDone = done.has(step.id);

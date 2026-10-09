@@ -60,6 +60,6 @@ export function useExitPicture(refs: readonly RefObject<HTMLElement | null>[]) {
       });
     };
     // The refs are the overlay's own elements, fixed for its life.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, []);
 }
