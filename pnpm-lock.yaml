@@ -19,7 +19,7 @@ overrides:
 
 patchedDependencies:
   '@danfessler/trellis@0.2.0':
-    hash: 3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887
+    hash: 3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b
     path: patches/@danfessler__trellis@0.2.0.patch
   '@pdfslick/core@4.0.2':
     hash: 0740691c589802b800572e1b564fcd5c050ff8792b099bddefc53a6dcc2e701d
@@ -76,10 +76,10 @@ importers:
         version: 6.43.8
       '@danfessler/trellis':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887)
+        version: 0.2.0(patch_hash=3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b)
       '@danfessler/trellis-react':
         specifier: 0.2.0
-        version: 0.2.0(@danfessler/trellis@0.2.0(patch_hash=3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 0.2.0(@danfessler/trellis@0.2.0(patch_hash=3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
@@ -6181,13 +6181,13 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
-  '@danfessler/trellis-react@0.2.0(@danfessler/trellis@0.2.0(patch_hash=3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@danfessler/trellis-react@0.2.0(@danfessler/trellis@0.2.0(patch_hash=3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@danfessler/trellis': 0.2.0(patch_hash=3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887)
+      '@danfessler/trellis': 0.2.0(patch_hash=3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@danfessler/trellis@0.2.0(patch_hash=3c3019284d49415f1b8de3e08b67e45d72f1615e2a392345b80d5d9dbe863887)': {}
+  '@danfessler/trellis@0.2.0(patch_hash=3e505d55a327c9e8a0c1fe206a0c18bf09f8f96559ffa009b1fbe46da32fd89b)': {}
 
   '@emnapi/core@1.11.2':
     dependencies:
