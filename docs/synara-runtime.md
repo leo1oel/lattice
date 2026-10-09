@@ -80,18 +80,18 @@ The read-only `read_editor_comments` tool uses the authenticated host relay to q
 Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
 Neither the context nor the tool mutates comments.
 
-The fork as a whole is **not** small. Measured on 2026-10-06 against upstream
-`v1.0.0` (`a83a6248b1f66541d7233f206ce450f72f80da5f`), the current integration changes
-**530 files, +45,365 / −5,179 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-08 against upstream
+`v1.0.1` (`f44ce959bdeedf5e2dfe117d362ef4e08386b3c3`), the current integration changes
+**624 files, +60,298 / −6,976 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.0 HEAD
+git diff --shortstat v1.0.1 HEAD
 ```
 
-The current pin is the upstream **1.0.0 stable release**, merged with the complete previous
-`amp/lattice-v1.0.0-beta.1-sync` history. Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.1 stable release**, merged with the complete previous
+`amp/lattice-v1.0.0-sync` history. Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -176,7 +176,8 @@ The previous fork's sent-message anchoring and wide-chat navigation fixes remain
 Lattice uses the Stable feature boundary on both the server and embedded web surface.
 Upstream otherwise treats a loopback HTTP host without a Synara desktop bundle identity as a standalone host and enables Beta-only features.
 OMP remains unavailable in Lattice, and the embedded UI does not show the Beta welcome or installation surfaces.
-Synara 1.0.0 moved Inbox and Auto-fix CI into Stable, so Lattice's embedded pull-request controls now offer upstream's opt-in Auto-fix CI watcher; Groups and Tasks remain Beta-only.
+Synara 1.0.0 moved Inbox and Auto-fix CI into Stable, so Lattice's embedded pull-request controls now offer upstream's opt-in Auto-fix CI watcher.
+Synara 1.0.1 moved Tasks into Stable as well; it lives in the standalone sidebar and Inbox, which Lattice does not embed. Groups remain Beta-only.
 Standalone Synara retains its upstream flavor behavior, and the Computer Use boundary above remains unchanged.
 
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
