@@ -1640,13 +1640,12 @@ else navigator.serviceWorker.getRegistrations()
  */
 function previewTarget(slideId, searchParams) {
   if (!PRESENTATION_ID_RE.test(slideId)) return null;
-  const query = new URLSearchParams();
+  const target = new URL(`/s/${slideId}/preview`, "http://127.0.0.1");
   for (const name of ["p", "step"]) {
     const value = searchParams.get(name);
-    if (value !== null) query.set(name, value);
+    if (value !== null) target.searchParams.set(name, value);
   }
-  const search = query.toString();
-  return `/s/${slideId}/preview${search ? `?${search}` : ""}`;
+  return `${target.pathname}${target.search}`;
 }
 
 export function createOpenSlideSessionScript(sessionToken, preferences = {}) {
