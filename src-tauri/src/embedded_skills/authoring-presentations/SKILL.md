@@ -209,12 +209,15 @@ Use whichever browser tool your session already has.
 Without one, a Chromium browser's headless mode needs nothing installed (Microsoft Edge takes the same flags at `/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge`):
 
 ```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
-  --window-size=1920,1080 --hide-scrollbars --virtual-time-budget=10000 \
-  --screenshot=/tmp/<deck-id>-p3.png "<previewUrl with p=3>"
+browser="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+shot=/tmp/<deck-id>-p3.png
+"$browser" --headless --user-data-dir="$(mktemp -d)" --window-size=1920,1080 --hide-scrollbars \
+  --virtual-time-budget=10000 --screenshot="$shot" "<previewUrl with p=3>" >/dev/null 2>&1 &
+for _ in $(seq 30); do [ -s "$shot" ] && break; sleep 1; done; kill $! 2>/dev/null
 ```
 
-Replace `--screenshot=…` with `--dump-dom` to read the page's `data-osd-preview` state when a screenshot looks blank.
+Some browsers keep running after writing the file, so the loop bounds the wait.
+Replace `--screenshot="$shot"` with `--dump-dom`, redirecting its output to a file, to read the page's `data-osd-preview` state and error message.
 When the host context has no `previewUrl`, the URL is refused, or no browser can reach it, skip the visual check and say so in your hand-off; ask before installing a browser or Playwright.
 Previewing never moves the user's current page or inspector selection.
 
