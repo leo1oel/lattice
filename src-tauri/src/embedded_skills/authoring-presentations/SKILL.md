@@ -193,6 +193,31 @@ For repeated cards, tiles, logos, or diagram nodes, define one helper component 
 Do not render inspector-editable repeated visuals by mapping a data array because every rendered instance would share one source location.
 Ordinary literal `<li>` elements are already independent and do not need a helper component.
 
+## Preview pages visually
+
+After creating or editing pages, look at them: the vertical-budget math catches overflow, but not clashing colors, awkward wraps, or a broken image.
+While the deck is open in Lattice, `presentation.previewUrl` in the host context opens the current page alone, without editor chrome, through Open Slide's preview route.
+
+1. Take `previewUrl` from the latest host context; it expires when the presentation runtime stops or restarts.
+   Set its `p` parameter to the 1-based page number you want, replace the deck id in its path to preview another deck in this project, and add `step=<n>` to show only the first `n` `Step`s of a stepped page.
+2. Open it in a browser with a 1920 × 1080 viewport so the page renders at native size.
+3. Wait for `[data-osd-preview="ready"]`, which appears once fonts, images, and entry animations have settled.
+   `[data-osd-preview="error"]` instead means the deck id is unknown, the page is out of range, the page threw while rendering, or something did not settle within 10 seconds; `[data-osd-preview-error]` holds the message, so fix that cause first.
+4. Screenshot it into a temporary directory outside the project, view the image, and fix what looks off.
+
+Use whichever browser tool your session already has.
+Without one, a Chromium browser's headless mode needs nothing installed (Microsoft Edge takes the same flags at `/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge`):
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+  --window-size=1920,1080 --hide-scrollbars --virtual-time-budget=10000 \
+  --screenshot=/tmp/<deck-id>-p3.png "<previewUrl with p=3>"
+```
+
+Replace `--screenshot=…` with `--dump-dom` to read the page's `data-osd-preview` state when a screenshot looks blank.
+When the host context has no `previewUrl`, the URL is refused, or no browser can reach it, skip the visual check and say so in your hand-off; ask before installing a browser or Playwright.
+Previewing never moves the user's current page or inspector selection.
+
 ## Validate before finishing
 
 - Confirm that `slides/<deck-id>/index.tsx` default-exports a non-empty `Page[]`.
@@ -201,6 +226,7 @@ Ordinary literal `<li>` elements are already independent and do not need a helpe
 - Confirm that every imported asset exists under the deck's `assets/` directory or the project-root `assets/` directory.
 - Confirm that no dependency, unrelated deck, alternate slide source, or generated export was added.
 - Re-read the changed page and the exports after editing.
+- When a `previewUrl` is available, preview every page you touched and fix what looked off.
 - Never claim to have visually inspected, presented, or exported the deck unless the corresponding app action or tool was actually used.
 
 Open Slide provides live editing, thumbnails, comments, asset management, design controls, presenter view, fullscreen navigation, speaker notes, and HTML or PDF export inside Lattice.

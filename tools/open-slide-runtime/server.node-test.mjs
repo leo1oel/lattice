@@ -270,10 +270,12 @@ test("recovers only an unambiguous inspector instance after comment HMR", async 
 
 test("keeps the Open Slide title in bounds and shows connection status only as a warning", async () => {
   const { source, transformed } = await patchCore(transformOpenSlideToolbar, "src/app/routes/slide.tsx");
-  assert.match(transformed, /min-w-0 justify-center px-2 md:flex-1/);
+  // Since 2.1.0 upstream lays the toolbar out on a grid whose title column
+  // shrinks, and names the icon-only Present button itself.
+  assert.match(transformed, /grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
   assert.doesNotMatch(transformed, /md:absolute|md:inset-x-0/);
   assert.match(transformed, /<div data-lattice-present className="inline-flex items-stretch">/);
-  assert.match(transformed, /aria-label=\{t\.slide\.present\}\s+onClick=\{\(\) => setPlayMode/);
+  assert.equal(transformed.match(/aria-label=\{t\.slide\.present\}/g)?.length, 1);
   assert.match(transformed, /<AgentConnectionWarning \/>/);
   assert.match(transformed, /if \(connected\) return null/);
   assert.match(transformed, /t\.slide\.agentDisconnected/);

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
 
-const VERSION = "2.0.1";
+const VERSION = "2.1.0";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;
@@ -344,9 +344,7 @@ export function transformOpenSlideSelection(source, id) {
 export function transformOpenSlideToolbar(source, id) {
   const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/routes/slide.tsx")) return null;
-  const viewportCentered = "pointer-events-none relative flex min-w-0 justify-center px-2 md:absolute md:inset-x-0";
   const presentGroup = '<div className="inline-flex items-stretch">';
-  const presentClick = "onClick={() => setPlayMode(isMobile ? 'window' : 'fullscreen')}";
   const badgeCall = "{import.meta.env.DEV && <AgentConnectedBadge />}";
   const badgeStart = "function AgentConnectedBadge() {";
   const badgeEnd = "function SelectionReporter() {";
@@ -367,31 +365,15 @@ export function transformOpenSlideToolbar(source, id) {
   return null;
 }`;
   requireContract(source, [
-    viewportCentered,
     presentGroup,
-    presentClick,
     badgeCall,
     badgeStart,
     badgeEnd,
     selectionReporter,
   ], "toolbar layout");
-  // Open Slide's absolute md+ title can overlap both toolbar groups when a
-  // deck is hosted in a narrow Lattice pane. Keep its mobile behavior, then
-  // let the title consume and truncate within the real remaining space.
   let transformed = source.replace(
-    viewportCentered,
-    "pointer-events-none relative flex min-w-0 justify-center px-2 md:flex-1",
-  );
-  transformed = transformed.replace(
     presentGroup,
     '<div data-lattice-present className="inline-flex items-stretch">',
-  );
-  // Below md the Present button shows only its icon (the label is
-  // `hidden md:inline`), and a deck pane is usually that narrow: name it.
-  transformed = transformed.replace(
-    presentClick,
-    `aria-label={t.slide.present}
-                    ${presentClick}`,
   );
   transformed = transformed.replace(
     badgeCall,
@@ -900,7 +882,7 @@ function ResizableHomeSidebar({ children }: { children: ReactNode }) {
   }
 
   if (modulePath.endsWith("/@open-slide/core/src/app/components/sidebar/sidebar.tsx")) {
-    remove("import logo from '@/assets/open-slide.png';\n");
+    remove("import logo from '@/assets/open-slide.svg';\n");
     remove("import { COMMAND_MENU_SHORTCUT } from '../command/command-menu';\n");
     remove("import { SidebarFooter } from './sidebar-footer';\n");
     remove("  onOpenCommandMenu,\n");
@@ -1248,7 +1230,11 @@ function bearer(req) {
   return req.headers.authorization?.replace(/^Bearer /, "") || "";
 }
 
-export function createMutationQueue(root, controlToken) {
+/**
+ * `previewUrl(slideId, pageNumber)` names the agent-facing preview entry for a
+ * page; the current-page context carries it when the runtime supplies one.
+ */
+export function createMutationQueue(root, controlToken, { previewUrl = null } = {}) {
   const clients = new Set();
   const pending = new Map();
   const echoes = new Map();
@@ -1464,6 +1450,7 @@ export function createMutationQueue(root, controlToken) {
       next.pendingComments = comments;
     }
     if (!next.slideId) return;
+    if (previewUrl) next.previewUrl = previewUrl(next.slideId, next.pageNumber);
     currentSlide = next;
     broadcast({
       type: "context",
@@ -1646,6 +1633,22 @@ else navigator.serviceWorker.getRegistrations()
 </script></body></html>`;
 }
 
+/**
+ * Where `/__lattice/preview/<slideId>` sends a browser: Open Slide's dev-only,
+ * chrome-less page route. Only the page and step selectors pass through, so the
+ * entry can open nothing but a preview.
+ */
+function previewTarget(slideId, searchParams) {
+  if (!PRESENTATION_ID_RE.test(slideId)) return null;
+  const query = new URLSearchParams();
+  for (const name of ["p", "step"]) {
+    const value = searchParams.get(name);
+    if (value !== null) query.set(name, value);
+  }
+  const search = query.toString();
+  return `/s/${slideId}/preview${search ? `?${search}` : ""}`;
+}
+
 export function createOpenSlideSessionScript(sessionToken, preferences = {}) {
   return `(() => {
   const sessionToken = ${scriptJson(sessionToken)};
@@ -1680,7 +1683,18 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
   if (!cacheDir) throw new Error("Managed Vite cache root is required");
   await fs.mkdir(cacheDir, { recursive: true });
   const sessionToken = randomBytes(32).toString("base64url");
-  const queue = createMutationQueue(root, controlToken);
+  let server;
+  // The agent screenshots this URL after it edits a page. It reuses the
+  // session token rather than minting a narrower one: every HTML page this
+  // origin serves already embeds that token, and the agent edits the deck's
+  // files directly, so the token grants it nothing it does not already have.
+  const previewUrl = (slideId, pageNumber) => {
+    const url = new URL(`/__lattice/preview/${slideId}`, `http://127.0.0.1:${server.address().port}`);
+    url.searchParams.set("token", sessionToken);
+    url.searchParams.set("p", String(pageNumber));
+    return url.href;
+  };
+  const queue = createMutationQueue(root, controlToken, { previewUrl });
   const access = createAccessPolicy();
   await queue.seed();
   let receivedHostSync = false;
@@ -1722,7 +1736,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
     }, TRANSFORM_IDLE_MS);
     transformIdleTimer.unref();
   };
-  const server = http.createServer(async (req, res) => {
+  server = http.createServer(async (req, res) => {
     const host = req.headers.host || "";
     if (!/^127\.0\.0\.1:\d+$/.test(host)) { res.writeHead(403).end(); return; }
     scheduleTransformIdle();
@@ -1745,6 +1759,21 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         safeBootstrapTarget(url.searchParams.get("next")),
         sessionPreferences,
       ));
+      return;
+    }
+    const previewEntry = /^\/__lattice\/preview\/([^/]+)$/.exec(url.pathname);
+    if (previewEntry && req.method === "GET" && equalSecret(url.searchParams.get("token"), sessionToken)) {
+      const target = previewTarget(previewEntry[1], url.searchParams);
+      if (!target) { res.writeHead(404).end(); return; }
+      // An outside browser (the agent's) enters the same way Lattice's iframe
+      // does, but leaves the iframe's appearance preferences alone.
+      sessionActivated = true;
+      res.writeHead(200, {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8",
+        "referrer-policy": "origin",
+        "x-content-type-options": "nosniff",
+      }).end(createBootstrapDocument(target));
       return;
     }
     if (url.pathname.startsWith("/__lattice/") && req.method === "OPTIONS") {

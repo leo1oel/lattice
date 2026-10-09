@@ -19,7 +19,7 @@ use std::time::Duration;
 use tauri::Manager;
 use walkdir::{DirEntry, WalkDir};
 
-const VERSION: &str = "2.0.1";
+const VERSION: &str = "2.1.0";
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 /// The only project paths mirrored into the Open Slide workspace.
