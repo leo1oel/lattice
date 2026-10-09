@@ -453,7 +453,7 @@ fn run_privileged_installer(
     }
     Err(match install {
         Privileged::BasicTex => install_error(&stderr),
-        Privileged::Dependency(missing_file) => dependency_install_error(&stderr, missing_file),
+        Privileged::Dependency(_) => dependency_install_error(&stderr),
     })
 }
 

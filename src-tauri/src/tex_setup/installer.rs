@@ -105,8 +105,10 @@ pub(super) fn installer_stage_progress(stage: &str) -> Option<f64> {
 }
 
 /// The installer's own words from an `osascript` failure: without the
-/// AppleScript prefix and exit code, at most eight lines.
+/// AppleScript prefix and exit code, at most eight lines. `do shell script`
+/// ends the script's lines with carriage returns.
 fn install_error_detail(stderr: &str) -> String {
+    let stderr = stderr.replace("\r\n", "\n").replace('\r', "\n");
     let raw_detail = stderr.trim();
     let detail =
         raw_detail.split_once("execution error:").map_or(raw_detail, |(_, detail)| detail).trim();
@@ -143,19 +145,63 @@ pub(super) fn install_error(stderr: &str) -> String {
     }
 }
 
-pub(super) fn dependency_install_error(stderr: &str, missing_file: &str) -> String {
+/// Why a missing-package install failed: a first line the app translates
+/// (`DEPENDENCY_INSTALL_CANCELLED` or a `DEPENDENCY_INSTALL_FAILURES` summary),
+/// then the installer's own words.
+pub(super) fn dependency_install_error(stderr: &str) -> String {
     if cancelled_authorization(stderr) {
-        return format!(
-            "Administrator approval is required to install the package for {missing_file}."
-        );
+        return DEPENDENCY_INSTALL_CANCELLED.into();
     }
     let detail = install_error_detail(stderr);
+    let lowercase = detail.to_lowercase();
+    let summary = DEPENDENCY_INSTALL_FAILURES
+        .iter()
+        .find(|(signs, _)| signs.iter().any(|sign| lowercase.contains(sign)))
+        .map_or(DEPENDENCY_INSTALL_FAILED, |(_, summary)| summary);
     if detail.is_empty() {
-        format!("Could not install the package for {missing_file}. Please try again.")
+        summary.into()
     } else {
-        format!("Could not install the package for {missing_file}.\n{detail}")
+        format!("{summary}\n{detail}")
     }
 }
+
+const DEPENDENCY_INSTALL_CANCELLED: &str =
+    "Administrator approval was cancelled, so nothing was installed.";
+/// What tlmgr's output (lowercased) says about a failure, first match wins,
+/// and its summary. A missing package or an outdated tlmgr is checked before
+/// the network because every failed repository attempt is logged, whatever
+/// the cause.
+const DEPENDENCY_INSTALL_FAILURES: [(&[&str], &str); 6] = [
+    (
+        &["no space left"],
+        "There is not enough disk space to install the package. Free up some space, then try again.",
+    ),
+    (
+        &["permission denied", "operation not permitted", "read-only file system"],
+        "Lattice could not write to the TeX installation folder.",
+    ),
+    (
+        &["is older than remote repository"],
+        "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.",
+    ),
+    (&["not present in repository"], "The package repository does not have this package."),
+    (
+        &[
+            "could not get texlive.tlpdb",
+            "cannot contact",
+            "could not resolve host",
+            "connection",
+            "timed out",
+            "unable to download",
+        ],
+        "Could not reach the TeX Live package repository. Check the network connection, then try again.",
+    ),
+    (
+        &["tlmgr itself needs to be updated", "updating the tex live package manager failed"],
+        "TeX Live's package manager needs an update, and the update did not finish.",
+    ),
+];
+const DEPENDENCY_INSTALL_FAILED: &str = "TeX Live's package manager could not install the package.";
 
 /// The TeX Live release in `tlmgr --version` output.
 pub(super) fn tex_live_year(version_output: &str) -> Option<i32> {
@@ -294,7 +340,7 @@ mod tests {
         for expected in [
             "status installing-base",
             "status installing-packages",
-            "installing-packages ${BASH_REMATCH[1]}",
+            "relay_progress installing-packages",
             "shasum -a 256",
             "/bin/mkdir -m 711",
             "mirrors.tuna.tsinghua.edu.cn/CTAN",
@@ -335,13 +381,13 @@ mod tests {
         assert!(scripts[0].contains("SOURCE_PACKAGE='/tmp/Ada'\"'\"'s/BasicTeX.pkg'\n"));
         assert!(scripts[0].contains(&format!("EXPECTED_SHA256={}\n", BASIC_TEX.sha256)));
         assert!(scripts[0].contains("privileged BasicTeX installer folder."));
-        assert!(scripts[1].contains("REPOSITORY=''\n"));
+        assert!(scripts[1].contains("TEX_REPOSITORY=''\n"));
         assert!(scripts[1].contains("CURRENT_STEP=\"Preparing the LaTeX package installation\""));
         assert!(BASIC_SCRIPT.starts_with("#!/bin/bash\n"));
         for expected in [
             "status installing-dependency",
-            "--repository \"${REPOSITORY}\"",
-            "\"${TLMGR}\" install \"${PACKAGE}\"",
+            "tlmgr_with_fallback update --self",
+            "tlmgr_with_fallback install \"${PACKAGE}\" 2>&1 | relay_progress installing-dependency",
         ] {
             assert!(DEPENDENCY_SCRIPT.contains(expected), "{expected}");
         }

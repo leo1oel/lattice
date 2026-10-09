@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Wrench } from "lucide-react";
+import { ChevronRight, Wrench } from "lucide-react";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import type { TexDependencyInstallProgress, TexInstallProgress } from "./tex-setup";
@@ -25,7 +25,7 @@ function useStageCopy(): Record<TexInstallStage, readonly [stage: string, detail
 }
 
 /** Shared layout of the LaTeX install dialogs: copy, native install progress, error, and actions. */
-export function TexInstallDialog({ label, title, description, closeDisabled, onClose, progress, error, children }: {
+export function TexInstallDialog({ label, title, description, closeDisabled, onClose, progress, error, errorDetail, children }: {
   label: string;
   title: string;
   description: ReactNode;
@@ -34,8 +34,11 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
   /** `label` is the accessible name of the progress bar. */
   progress: { label: string; percent: number; stage: TexInstallStage } | null;
   error: string | null;
+  /** The installer's own words behind `error`, folded under it. */
+  errorDetail?: string;
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
   const [stage, detail] = useStageCopy()[progress?.stage ?? "complete"];
   return (
     <ModalDialog label={label} onClose={onClose} closeDisabled={closeDisabled} backdropClassName="tex-setup-backdrop">
@@ -62,6 +65,15 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
           </div>
         )}
         {error && <InlineMessage level="error" className="tex-setup-status">{error}</InlineMessage>}
+        {error && errorDetail && (
+          <details className="tex-setup-error-details">
+            <summary>
+              <ChevronRight size={12} aria-hidden="true" />
+              {t({ message: "Details", context: "error disclosure" })}
+            </summary>
+            <pre>{errorDetail}</pre>
+          </details>
+        )}
         {children}
       </div>
     </ModalDialog>

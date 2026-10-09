@@ -700,6 +700,10 @@ msgstr "Added “{title}” to the bibliography. No full text to open."
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 
+#: src/build/tex-setup.ts
+msgid "Administrator approval was cancelled, so nothing was installed."
+msgstr "Administrator approval was cancelled, so nothing was installed."
+
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2305,6 +2309,10 @@ msgstr "Could not polish"
 msgid "Could not proofread"
 msgstr "Could not proofread"
 
+#: src/build/tex-setup.ts
+msgid "Could not reach the TeX Live package repository. Check the network connection, then try again."
+msgstr "Could not reach the TeX Live package repository. Check the network connection, then try again."
+
 #: src/build/tex-doctor-messages.ts
 msgid "Could not read {path}: {error}"
 msgstr "Could not read {path}: {error}"
@@ -2668,6 +2676,7 @@ msgid "Details"
 msgstr "Details"
 
 #: src/agent/synara-loading-surface.tsx
+#: src/build/tex-install-dialog.tsx
 msgctxt "error disclosure"
 msgid "Details"
 msgstr "Details"
@@ -4623,6 +4632,10 @@ msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
+
+#: src/build/tex-setup.ts
+msgid "Lattice could not write to the TeX installation folder."
+msgstr "Lattice could not write to the TeX installation folder."
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
@@ -8888,6 +8901,14 @@ msgstr "Test connection"
 msgid "TeX doctor"
 msgstr "TeX doctor"
 
+#: src/build/tex-setup.ts
+msgid "TeX Live’s package manager could not install the package."
+msgstr "TeX Live’s package manager could not install the package."
+
+#: src/build/tex-setup.ts
+msgid "TeX Live’s package manager needs an update, and the update did not finish."
+msgstr "TeX Live’s package manager needs an update, and the update did not finish."
+
 #: src/build/tex-doctor-messages.ts
 msgid "TeXcount body word counts (optional status bar)"
 msgstr "TeXcount body word counts (optional status bar)"
@@ -9077,6 +9098,10 @@ msgstr "the Overleaf project connection is no longer active"
 msgid "The Overleaf project connection is no longer active."
 msgstr "The Overleaf project connection is no longer active."
 
+#: src/build/tex-setup.ts
+msgid "The package repository does not have this package."
+msgstr "The package repository does not have this package."
+
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
@@ -9207,6 +9232,10 @@ msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "There exists"
+
+#: src/build/tex-setup.ts
+msgid "There is not enough disk space to install the package. Free up some space, then try again."
+msgstr "There is not enough disk space to install the package. Free up some space, then try again."
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "These comments stay in Lattice and are not sent to Overleaf."
@@ -9358,6 +9387,10 @@ msgstr "This source line has no matching position in the PDF."
 #: src/papers/bibliography-audit.tsx
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "This source record is shown for comparison only. It was not verified and cannot be applied."
+
+#: src/build/tex-setup.ts
+msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
+msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."

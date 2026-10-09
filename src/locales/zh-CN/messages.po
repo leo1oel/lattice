@@ -697,6 +697,10 @@ msgstr "已添加“{title}”，没有全文"
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "已添加“{title}”，全文下载失败：{fetchNote}"
 
+#: src/build/tex-setup.ts
+msgid "Administrator approval was cancelled, so nothing was installed."
+msgstr "已取消管理员授权，未安装任何内容。"
+
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2302,6 +2306,10 @@ msgstr "润色失败"
 msgid "Could not proofread"
 msgstr "校对失败"
 
+#: src/build/tex-setup.ts
+msgid "Could not reach the TeX Live package repository. Check the network connection, then try again."
+msgstr "无法连接 TeX Live 组件仓库。请检查网络连接后重试。"
+
 #: src/build/tex-doctor-messages.ts
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
@@ -2665,6 +2673,7 @@ msgid "Details"
 msgstr "详情"
 
 #: src/agent/synara-loading-surface.tsx
+#: src/build/tex-install-dialog.tsx
 msgctxt "error disclosure"
 msgid "Details"
 msgstr "详情"
@@ -4620,6 +4629,10 @@ msgstr "{path} 暂停同步，正在确认 Overleaf 是否已收到（{detail}�
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}）"
+
+#: src/build/tex-setup.ts
+msgid "Lattice could not write to the TeX installation folder."
+msgstr "Lattice 无法写入 TeX 安装文件夹。"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t open this window"
@@ -8881,6 +8894,14 @@ msgstr "测试连接"
 msgid "TeX doctor"
 msgstr "TeX 检查"
 
+#: src/build/tex-setup.ts
+msgid "TeX Live’s package manager could not install the package."
+msgstr "TeX Live 组件管理器未能安装此组件。"
+
+#: src/build/tex-setup.ts
+msgid "TeX Live’s package manager needs an update, and the update did not finish."
+msgstr "TeX Live 组件管理器需要更新，但更新未能完成。"
+
 #: src/build/tex-doctor-messages.ts
 msgid "TeXcount body word counts (optional status bar)"
 msgstr "TeXcount 正文词数统计（可选，显示在状态栏）"
@@ -9070,6 +9091,10 @@ msgstr "与 Overleaf 项目的连接已失效"
 msgid "The Overleaf project connection is no longer active."
 msgstr "与 Overleaf 的连接已断开"
 
+#: src/build/tex-setup.ts
+msgid "The package repository does not have this package."
+msgstr "组件仓库中没有此组件。"
+
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
 msgstr "PDF 还不是最新的，先修好编译错误再试"
@@ -9200,6 +9225,10 @@ msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "存在"
+
+#: src/build/tex-setup.ts
+msgid "There is not enough disk space to install the package. Free up some space, then try again."
+msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重试。"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "These comments stay in Lattice and are not sent to Overleaf."
@@ -9351,6 +9380,10 @@ msgstr "这一行在 PDF 里找不到对应位置"
 #: src/papers/bibliography-audit.tsx
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "仅供对比，未确认，不能采用"
+
+#: src/build/tex-setup.ts
+msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
+msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
 
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."

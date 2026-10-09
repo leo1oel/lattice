@@ -1,3 +1,6 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
+
 type DoctorCheckLike = { name: string; detail: string; ok: boolean };
 export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorCheckLike[] };
 
@@ -49,4 +52,37 @@ export function isMissingTexBuildError(message: string): boolean {
   const lower = message.toLowerCase();
   // eslint-disable-next-line lingui/no-unlocalized-strings -- markers matched in backend error text
   return ["could not start latexmk", "mactex or tex live", "the latex tool"].some((marker) => lower.includes(marker));
+}
+
+/*
+ * The first lines `dependency_install_error` (src-tauri/src/tex_setup/installer.rs)
+ * gives a failed package install, in the interface language. Keys are the
+ * backend's exact English and must change with it.
+ */
+/* eslint-disable lingui/no-unlocalized-strings -- keys are backend error text */
+const TEX_DEPENDENCY_FAILURES = new Map([
+  ["Administrator approval was cancelled, so nothing was installed.",
+    msg`Administrator approval was cancelled, so nothing was installed.`],
+  ["There is not enough disk space to install the package. Free up some space, then try again.",
+    msg`There is not enough disk space to install the package. Free up some space, then try again.`],
+  ["Lattice could not write to the TeX installation folder.",
+    msg`Lattice could not write to the TeX installation folder.`],
+  ["This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.",
+    msg`This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.`],
+  ["The package repository does not have this package.",
+    msg`The package repository does not have this package.`],
+  ["Could not reach the TeX Live package repository. Check the network connection, then try again.",
+    msg`Could not reach the TeX Live package repository. Check the network connection, then try again.`],
+  ["TeX Live's package manager needs an update, and the update did not finish.",
+    msg`TeX Live’s package manager needs an update, and the update did not finish.`],
+  ["TeX Live's package manager could not install the package.",
+    msg`TeX Live’s package manager could not install the package.`],
+]);
+/* eslint-enable lingui/no-unlocalized-strings */
+
+/** A failed package install's message as a translated summary and tlmgr's own words. */
+export function texDependencyInstallFailure(message: string): { summary: string; detail: string } {
+  const [first = "", ...rest] = message.split("\n");
+  const known = TEX_DEPENDENCY_FAILURES.get(first);
+  return { summary: known ? i18n._(known) : first, detail: rest.join("\n").trim() };
 }

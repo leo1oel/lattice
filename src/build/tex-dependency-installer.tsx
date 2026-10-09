@@ -3,7 +3,7 @@ import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { MotionButton } from "../components/ui/motion";
 import { TexInstallDialog } from "./tex-install-dialog";
-import type { TexDependencyInstallProgress } from "./tex-setup";
+import { texDependencyInstallFailure, type TexDependencyInstallProgress } from "./tex-setup";
 
 export type TexDependencyInstallStatus = {
   missingFile: string;
@@ -20,6 +20,7 @@ export function TexDependencyInstaller(props: {
   const { t } = useLingui();
   const status = props.status;
   if (!status) return null;
+  const failure = status.error ? texDependencyInstallFailure(status.error) : null;
   return (
     <TexInstallDialog
       label={t`Install missing package`}
@@ -32,7 +33,8 @@ export function TexDependencyInstaller(props: {
         percent: Math.round(Math.min(1, Math.max(0, status.progress.progress)) * 100),
         stage: status.progress.stage,
       }}
-      error={status.error}
+      error={failure?.summary ?? null}
+      errorDetail={failure?.detail}
     >
       {!status.installing && status.error && (
         <div className="modal-actions">
