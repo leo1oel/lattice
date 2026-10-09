@@ -64,6 +64,23 @@ export function __resetOpenSlideEventCursorsForTests(): void {
   eventCursors.clear();
 }
 
+// The active deck's refresh of the runtime from disk, per project. It defers
+// to Open Slide's unsaved inspector edits and reasserts the editor's bytes
+// (see OpenSlideWorkspace), so anything else that needs the runtime to show
+// the project's current files refreshes through it while a deck is active.
+const activeRefreshes = new Map<string, () => Promise<void>>();
+
+export function registerOpenSlideRefresh(projectRoot: string, refresh: () => Promise<void>): () => void {
+  activeRefreshes.set(projectRoot, refresh);
+  return () => {
+    if (activeRefreshes.get(projectRoot) === refresh) activeRefreshes.delete(projectRoot);
+  };
+}
+
+export function activeOpenSlideRefresh(projectRoot: string): (() => Promise<void>) | null {
+  return activeRefreshes.get(projectRoot) ?? null;
+}
+
 /** Feed each server-sent event in `stream` to `onEvent`, in order, until the stream ends. */
 export async function consumeOpenSlideEvents(
   stream: ReadableStream<Uint8Array>,

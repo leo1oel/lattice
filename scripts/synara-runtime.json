@@ -2,7 +2,7 @@
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
   "branch": "amp/lattice-v1.0.1-sync",
-  "revision": "b5b4550d0dd4f06081e6f8c9cf8b1f7e7003ee81",
+  "revision": "a487cd88ae0a10ced35755c6f1522828830df2c7",
   "sourceDirectory": "../synara-v101-sync",
   "nodeVersion": "24.20.0"
 }

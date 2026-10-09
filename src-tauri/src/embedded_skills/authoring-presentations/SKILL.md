@@ -196,15 +196,15 @@ Ordinary literal `<li>` elements are already independent and do not need a helpe
 ## Preview pages visually
 
 After creating or editing pages, look at them: the vertical-budget math catches overflow, but not clashing colors, awkward wraps, or a broken image.
-While the deck is open in Lattice, `presentation.previewUrl` in the host context opens the current page alone, without editor chrome, through Open Slide's preview route.
 
-1. Take `previewUrl` from the latest host context; it expires when the presentation runtime stops or restarts.
-   Set its `p` parameter to the 1-based page number you want, replace the deck id in its path to preview another deck in this project, and add `step=<n>` to show only the first `n` `Step`s of a stepped page.
-2. Open it in a browser with a 1920 × 1080 viewport so the page renders at native size.
-3. Wait for `[data-osd-preview="ready"]`, which appears once fonts, images, and entry animations have settled.
-   `[data-osd-preview="error"]` instead means the deck id is unknown, the page is out of range, the page threw while rendering, or something did not settle within 10 seconds; `[data-osd-preview-error]` holds the message, so fix that cause first.
-4. Screenshot it into a temporary directory outside the project, view the image, and fix what looks off.
+Call `preview_presentation_page` with the deck id (the `<deck>` in `slides/<deck>/index.tsx`) and the 1-based `page`; add `step=<n>` to show only the first `n` `Step`s of a stepped page.
+Lattice renders that page from the files on disk, without editor chrome, and returns it as a 1920 × 1080 image, so pixel positions match the slide canvas.
+It needs no browser or open deck, and never moves the user's current page or inspector selection.
+An error names its cause: `presentation_deck_not_found`, `presentation_page_out_of_range` (its message gives the deck's page range), or `presentation_preview_failed` with Open Slide's message when the page threw while rendering or did not settle; fix that cause first.
 
+When the tool is unavailable, the latest host context's `presentation.previewUrl` opens the current page through Open Slide's preview route instead; it expires when the presentation runtime stops or restarts.
+Set its `p` parameter to the page you want, replace the deck id in its path to preview another deck in this project, and add `step=<n>` as above.
+Open it with a 1920 × 1080 viewport and screenshot it once `[data-osd-preview="ready"]` appears; `[data-osd-preview="error"]` instead holds the message in `[data-osd-preview-error]`.
 Use whichever browser tool your session already has.
 Without one, a Chromium browser's headless mode needs nothing installed (Microsoft Edge takes the same flags at `/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge`):
 
@@ -218,8 +218,7 @@ for _ in $(seq 30); do [ -s "$shot" ] && break; sleep 1; done; kill $! 2>/dev/nu
 
 Some browsers keep running after writing the file, so the loop bounds the wait.
 Replace `--screenshot="$shot"` with `--dump-dom`, redirecting its output to a file, to read the page's `data-osd-preview` state and error message.
-When the host context has no `previewUrl`, the URL is refused, or no browser can reach it, skip the visual check and say so in your hand-off; ask before installing a browser or Playwright.
-Previewing never moves the user's current page or inspector selection.
+When neither the tool nor a `previewUrl` can show the page, skip the visual check and say so in your hand-off; ask before installing a browser or Playwright.
 
 ## Validate before finishing
 
@@ -229,7 +228,7 @@ Previewing never moves the user's current page or inspector selection.
 - Confirm that every imported asset exists under the deck's `assets/` directory or the project-root `assets/` directory.
 - Confirm that no dependency, unrelated deck, alternate slide source, or generated export was added.
 - Re-read the changed page and the exports after editing.
-- When a `previewUrl` is available, preview every page you touched and fix what looked off.
+- Preview every page you touched and fix what looked off.
 - Never claim to have visually inspected, presented, or exported the deck unless the corresponding app action or tool was actually used.
 
 Open Slide provides live editing, thumbnails, comments, asset management, design controls, presenter view, fullscreen navigation, speaker notes, and HTML or PDF export inside Lattice.

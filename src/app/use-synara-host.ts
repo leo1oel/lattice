@@ -13,6 +13,7 @@ import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from ".
 import {
   executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
 } from "../agent/agent-project-document-tools";
+import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
@@ -73,6 +74,10 @@ const TOOL_ROUTES: Array<(data: unknown, bridge: SynaraHostBridge, projectRoot: 
   (data) => {
     const request = parseAgentSpreadsheetToolRequest(data);
     return request && executeAgentSpreadsheetToolRequest(request);
+  },
+  (data, _bridge, projectRoot) => {
+    const request = parseAgentPresentationToolRequest(data);
+    return request && executeAgentPresentationToolRequest(request, projectRoot);
   },
 ];
 

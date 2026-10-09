@@ -1648,6 +1648,89 @@ function previewTarget(slideId, searchParams) {
   return `${target.pathname}${target.search}`;
 }
 
+const PREVIEW_PAGE_RE = /^\/s\/[^/]+\/preview$/;
+const PREVIEW_CAPTURE_MODULE = "\0virtual:lattice-preview-capture";
+
+/**
+ * Loaded only by preview pages. Lattice opens a preview entry in a hidden
+ * 1920 × 1080 frame and asks it, over postMessage, for the settled page; the
+ * page answers its opener with itself as an image, or with Open Slide's
+ * preview error. The opener is another origin and cannot read this frame, so
+ * the page rasterizes itself, with html-to-image as Open Slide's own image
+ * export does. Previewing never touches the deck, so answering a parent that
+ * already holds the session token reveals nothing it could not render itself.
+ */
+const PREVIEW_CAPTURE_SOURCE = `
+const SETTLE_TIMEOUT_MS = 20_000;
+
+function settledPreview() {
+  const read = () => {
+    const root = document.querySelector("[data-osd-preview]");
+    const state = root?.getAttribute("data-osd-preview");
+    return state === "ready" || state === "error" ? root : null;
+  };
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const root = read();
+      if (root) finish(root);
+    });
+    const timer = setTimeout(() => finish(null), SETTLE_TIMEOUT_MS);
+    const finish = (root) => {
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve(root);
+    };
+    observer.observe(document.documentElement, {
+      subtree: true, childList: true, attributes: true, attributeFilter: ["data-osd-preview"],
+    });
+    const root = read();
+    if (root) finish(root);
+  });
+}
+
+const count = (root, name) => {
+  const value = Number(root.getAttribute(name));
+  return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+async function capture() {
+  const root = await settledPreview();
+  if (!root) return { ok: false, message: "The page did not settle within 20 seconds." };
+  const page = count(root, "data-osd-preview-page");
+  const total = count(root, "data-osd-preview-total");
+  if (root.getAttribute("data-osd-preview") === "error") {
+    const message = root.querySelector("[data-osd-preview-error]")?.textContent?.trim();
+    return { ok: false, page, total, message: message || "The page could not be previewed." };
+  }
+  const { toCanvas } = await import("html-to-image");
+  const options = {
+    width: root.clientWidth, height: root.clientHeight, pixelRatio: 1, skipAutoScale: true, cacheBust: true,
+  };
+  // WebKit can paint the SVG foreignObject before the images inlined into it
+  // decode, so its first rasterization may miss them; the second reuses them.
+  if (!/Chrome|Chromium|Edg\\//.test(navigator.userAgent)) await toCanvas(root, options);
+  const canvas = await toCanvas(root, options);
+  return {
+    ok: true, page, total, width: canvas.width, height: canvas.height,
+    dataUrl: canvas.toDataURL("image/jpeg", 0.9),
+  };
+}
+
+if (window.parent !== window) {
+  addEventListener("message", (event) => {
+    const request = event.data;
+    if (event.source !== window.parent || request?.type !== "lattice:preview-capture") return;
+    if (typeof request.id !== "string" || request.id.length === 0 || request.id.length > 128) return;
+    void capture()
+      .catch((error) => ({ ok: false, message: String(error?.message ?? error) }))
+      .then((result) => event.source.postMessage(
+        { type: "lattice:preview-capture-result", version: 1, id: request.id, ...result },
+        event.origin,
+      ));
+  });
+}
+`;
+
 export function createOpenSlideSessionScript(sessionToken, preferences = {}) {
   return `(() => {
   const sessionToken = ${scriptJson(sessionToken)};
@@ -1944,13 +2027,24 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         enforce: "pre",
         transformIndexHtml: {
           order: "pre",
-          handler() {
+          handler(_html, { originalUrl }) {
+            const previewPage = PREVIEW_PAGE_RE.test(new URL(originalUrl ?? "/", "http://127.0.0.1").pathname);
             return [{
               tag: "script",
               children: createOpenSlideSessionScript(sessionToken, sessionPreferences),
               injectTo: "head-prepend",
-            }];
+            }, ...(previewPage ? [{
+              tag: "script",
+              attrs: { type: "module", src: `/@id/${PREVIEW_CAPTURE_MODULE.replace("\0", "__x00__")}` },
+              injectTo: "head",
+            }] : [])];
           },
+        },
+        resolveId(id) {
+          return id === PREVIEW_CAPTURE_MODULE || id === PREVIEW_CAPTURE_MODULE.slice(1) ? PREVIEW_CAPTURE_MODULE : undefined;
+        },
+        load(id) {
+          return id === PREVIEW_CAPTURE_MODULE ? PREVIEW_CAPTURE_SOURCE : undefined;
         },
       },
       {

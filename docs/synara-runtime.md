@@ -180,7 +180,7 @@ Synara 1.0.0 moved Inbox and Auto-fix CI into Stable, so Lattice's embedded pull
 Synara 1.0.1 moved Tasks into Stable as well; it lives in the standalone sidebar and Inbox, which Lattice does not embed. Groups remain Beta-only.
 Standalone Synara retains its upstream flavor behavior, and the Computer Use boundary above remains unchanged.
 
-`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **27** names that pass the filter *without* being
+`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **28** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
 | Group | Count | Names | Implemented by |
@@ -189,6 +189,7 @@ renamed. They are not all Lattice code:
 | Canvas | 4 | `list_canvas_shapes`, `create_canvas_shapes`, `update_canvas_shapes`, `delete_canvas_shapes` | Lattice. They reach the tldraw surface through the canvas broker (`src/agent/agent-canvas-tools.ts`, actions `list` / `create` / `update` / `delete`). |
 | Spreadsheet | 2 | `spreadsheet_read`, `spreadsheet_batch_update` | Lattice, via `src/agent/agent-spreadsheet-tools.ts` (actions `read` / `batch_update`). |
 | Project documents | 1 | `create_project_document` | Lattice. It creates and opens native `.tldr` boards or `.lattice-sheet` spreadsheets through the project transaction path. |
+| Presentations | 1 | `preview_presentation_page` | Lattice. The fork relays `{deck, page, step}` like the canvas tools; `src/agent/agent-presentation-tools.ts` brings the presentation runtime up to date with the disk, opens its token-gated preview entry in a hidden 1920 × 1080 frame, and the preview page rasterizes itself (`PREVIEW_CAPTURE_SOURCE` in `tools/open-slide-runtime/server.mjs`). The model receives the JPEG as image content, so no shell or local browser is needed. |
 | iOS Simulator | 12 | `device_list`, `device_boot`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/src/synara.rs`). |
 
 The mutating literature tools run with `HistoryMode::Defer`, so agent bibliography edits fold into
