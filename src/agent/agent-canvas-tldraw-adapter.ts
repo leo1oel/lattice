@@ -1,4 +1,4 @@
-/* eslint lingui/no-unlocalized-strings: "off" -- Every message here is a tool error returned to the Agent model, never rendered by Lattice UI. */
+/* eslint-disable lingui/no-unlocalized-strings -- Every message here is a tool error returned to the Agent model, never rendered by Lattice UI. */
 
 // The tldraw-facing half of the agent canvas tools. This module is the only
 // place outside board-editor.tsx that value-imports "tldraw" — keep it that

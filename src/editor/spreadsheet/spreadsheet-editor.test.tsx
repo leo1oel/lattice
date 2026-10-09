@@ -463,6 +463,7 @@ describe("SpreadsheetEditor", () => {
     await activateAppLocale(locale);
     renderSheet({ wrapper: ConfirmActionProvider });
     const uiRegistration = univerMock.registeredPlugins.find(({ plugin }) => plugin === univerMock.uiPlugin);
+    // eslint-disable-next-line no-unsafe-optional-chaining -- a missing value fails the test either way
     const override = (uiRegistration?.options as {
       override: Array<[unknown, { useValue: { confirm(params: unknown): Promise<boolean> } }]>;
     }).override[0][1].useValue;

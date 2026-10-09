@@ -1,4 +1,4 @@
-/* eslint lingui/no-unlocalized-strings: "off" -- SVG sprite markup and path data only. */
+/* eslint-disable lingui/no-unlocalized-strings -- SVG sprite markup and path data only. */
 import type { FileTreeIconConfig, RemappedIcon } from "@pierre/trees";
 
 const path = (fill: string, d: string) => `<path fill="${fill}" d="${d}"/>`;

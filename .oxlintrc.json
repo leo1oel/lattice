@@ -1,0 +1,342 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Every rule is listed by name: no category is on, so an Oxlint upgrade
+  // cannot add rules on its own. The base set is what ESLint's
+  // `js.configs.recommended` and `typescript-eslint`'s `recommended` enabled.
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "plugins": ["typescript"],
+  // The React rules run the upstream ESLint plugins rather than Oxlint's
+  // native ports. The native React Compiler port skips a whole component
+  // once any react-hooks rule is disabled inside it, and reports
+  // exhaustive-deps on a different line, so it would silently drop findings
+  // and orphan existing disable comments. Oxlint reserves the `react-hooks`
+  // name for that port, hence the `react-hooks-js` alias in rule names and
+  // disable comments.
+  "jsPlugins": [
+    { "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
+    "eslint-plugin-react-refresh",
+    "eslint-plugin-lingui",
+    "./scripts/lib/oxlint-lattice-plugin.mjs"
+  ],
+  "options": {
+    // A disable comment that no longer suppresses anything counts against
+    // the `--max-warnings` budget in the `lint` script, as it did under ESLint.
+    "reportUnusedDisableDirectives": "warn"
+  },
+  "ignorePatterns": ["dist", "src-tauri/target"],
+  "rules": {
+    "eslint/for-direction": "error",
+    "eslint/no-async-promise-executor": "error",
+    "eslint/no-case-declarations": "error",
+    "eslint/no-compare-neg-zero": "error",
+    "eslint/no-cond-assign": ["error", "except-parens"],
+    "eslint/no-constant-binary-expression": "error",
+    "eslint/no-constant-condition": ["error", { "checkLoops": "allExceptWhileTrue" }],
+    "eslint/no-control-regex": "error",
+    "eslint/no-debugger": "error",
+    "eslint/no-delete-var": "error",
+    "eslint/no-dupe-else-if": "error",
+    "eslint/no-duplicate-case": "error",
+    "eslint/no-empty": ["error", { "allowEmptyCatch": false }],
+    "eslint/no-empty-character-class": "error",
+    "eslint/no-empty-pattern": "error",
+    "eslint/no-empty-static-block": "error",
+    "eslint/no-ex-assign": "error",
+    "eslint/no-extra-boolean-cast": "error",
+    "eslint/no-fallthrough": "error",
+    "eslint/no-global-assign": "error",
+    "eslint/no-invalid-regexp": "error",
+    "eslint/no-irregular-whitespace": "error",
+    "eslint/no-loss-of-precision": "error",
+    "eslint/no-misleading-character-class": "error",
+    "eslint/no-nonoctal-decimal-escape": "error",
+    "eslint/no-prototype-builtins": "error",
+    "eslint/no-regex-spaces": "error",
+    "eslint/no-self-assign": ["error", { "props": true }],
+    "eslint/no-shadow-restricted-names": "error",
+    "eslint/no-sparse-arrays": "error",
+    "eslint/no-unassigned-vars": "error",
+    "eslint/no-unexpected-multiline": "error",
+    "eslint/no-unsafe-finally": "error",
+    "eslint/no-unsafe-optional-chaining": "error",
+    "eslint/no-unused-labels": "error",
+    "eslint/no-unused-private-class-members": "error",
+    "eslint/no-useless-assignment": "error",
+    "eslint/no-useless-backreference": "error",
+    "eslint/no-useless-catch": "error",
+    "eslint/no-useless-escape": "error",
+    "eslint/preserve-caught-error": "error",
+    "eslint/require-yield": "error",
+    "eslint/use-isnan": "error",
+    "eslint/valid-typeof": "error",
+    "eslint/no-array-constructor": "error",
+    "eslint/no-unused-expressions": "error",
+    // Any options object, even an empty one, turns off Oxlint's default `^_`
+    // ignore patterns, which ESLint never had; .ts/.tsx set them below.
+    "eslint/no-unused-vars": ["error", {}],
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "typescript/triple-slash-reference": "error",
+    // The visual Markdown editor is Lattice's own clean-room engine. Code from
+    // Open Knowledge (inkeep/open-knowledge), which the earlier editor was
+    // built on, must not come back in through an import; the repository guard
+    // in src/platform/clean-room-guard.test.ts covers files and packages.
+    "eslint/no-restricted-imports": ["error", {
+      "patterns": [{
+        "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+        "message": "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md)."
+      }]
+    }]
+  },
+  "overrides": [
+    {
+      // TypeScript checks these itself in .ts/.tsx (typescript-eslint's
+      // eslint-recommended turned them off there), so only plain JS gets them.
+      "files": ["**/*.{js,mjs,cjs,jsx}"],
+      "env": { "builtin": true },
+      "rules": {
+        "eslint/constructor-super": "error",
+        "eslint/getter-return": "error",
+        "eslint/no-class-assign": "error",
+        "eslint/no-const-assign": "error",
+        "eslint/no-dupe-class-members": "error",
+        "eslint/no-dupe-keys": "error",
+        "eslint/no-func-assign": "error",
+        "eslint/no-import-assign": "error",
+        "eslint/no-new-native-nonconstructor": "error",
+        "eslint/no-obj-calls": "error",
+        "eslint/no-redeclare": ["error", { "builtinGlobals": true }],
+        "eslint/no-setter-return": "error",
+        "eslint/no-this-before-super": "error",
+        "eslint/no-undef": "error",
+        "eslint/no-unreachable": "error",
+        "eslint/no-unsafe-negation": "error",
+        "eslint/no-with": "error"
+      }
+    },
+    {
+      "files": ["scripts/**/*.mjs", "tools/open-slide-runtime/**/*.mjs"],
+      "globals": {
+        "Buffer": "readonly",
+        "URL": "readonly",
+        "clearTimeout": "readonly",
+        "console": "readonly",
+        "process": "readonly",
+        "setTimeout": "readonly"
+      }
+    },
+    {
+      "files": ["**/*.{ts,tsx}"],
+      "env": { "es2022": true },
+      "globals": {
+        "window": "readonly",
+        "document": "readonly",
+        "navigator": "readonly",
+        "crypto": "readonly",
+        "URL": "readonly",
+        "Blob": "readonly",
+        "Uint8Array": "readonly",
+        "atob": "readonly"
+      },
+      "rules": {
+        "eslint/no-var": "error",
+        "eslint/prefer-const": "error",
+        "eslint/prefer-rest-params": "error",
+        "eslint/prefer-spread": "error",
+        "eslint/no-unused-vars": ["error", {
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_"
+        }],
+        // eslint-plugin-react-hooks' recommended set.
+        "react-hooks-js/rules-of-hooks": "error",
+        "react-hooks-js/static-components": "error",
+        "react-hooks-js/use-memo": "error",
+        "react-hooks-js/incompatible-library": "warn",
+        "react-hooks-js/globals": "error",
+        "react-hooks-js/error-boundaries": "error",
+        "react-hooks-js/purity": "error",
+        "react-hooks-js/set-state-in-render": "error",
+        "react-hooks-js/unsupported-syntax": "warn",
+        "react-hooks-js/config": "error",
+        "react-hooks-js/gating": "error",
+        // The react-compiler-era hooks lints flag many common, working patterns
+        // (ref access, setState in effects, deps completeness). Keep them visible
+        // as warnings rather than failing CI; the classic rules-of-hooks — the one
+        // that actually catches broken code — stays an error.
+        "react-hooks-js/refs": "warn",
+        "react-hooks-js/set-state-in-effect": "warn",
+        "react-hooks-js/immutability": "warn",
+        "react-hooks-js/exhaustive-deps": "warn",
+        // This compiler optimization diagnostic duplicates exhaustive-deps at
+        // very high volume in App; keep correctness rules authoritative.
+        "react-hooks-js/preserve-manual-memoization": "off",
+        "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }]
+      }
+    },
+    {
+      // Every visible string in shipping code goes through Lingui, so a zh-CN
+      // interface never falls back to English. Lingui's strict catalog
+      // compilation catches missing Chinese entries; this rule catches visible
+      // strings that were never added to a catalog in the first place.
+      //
+      // The options below only exempt text that is not interface copy: product
+      // and format names, implementation syntax (selectors, CSS, SVG paths,
+      // shortcut glyphs), and the arguments of APIs that never render text. A
+      // string that really is not UI but fits none of these (an Agent-facing
+      // protocol message, a LaTeX template written into the user's document)
+      // carries an `eslint-disable-next-line lingui/no-unlocalized-strings -- why`
+      // at the site, so each exemption is reviewed where it lives.
+      "files": ["src/**/*.{ts,tsx}"],
+      "excludeFiles": [
+        "src/**/*.test.{ts,tsx}",
+        "src/platform/test-setup.ts",
+        "src/locales/**"
+      ],
+      "rules": {
+        // The Lingui rule trusts every attribute of a native DOM element except
+        // `placeholder`, `alt`, `aria-label`, and `value`, so these other
+        // user-visible attributes need their own check.
+        "lattice/visible-attribute-text": "error",
+        "lingui/no-unlocalized-strings": ["error", {
+          "ignore": [
+            // Product, service, and format names read the same in every locale.
+            "^(?:Lattice|LATTICE|Overleaf|Synara|TexLab|Harper|Vim|Emacs|MCP|BasicTeX|TeX Live|MacTeX|pdfLaTeX|XeLaTeX|LuaLaTeX|BibTeX|biber|LaTeX|TeX|PDF|HTML|URL|DOI|arXiv|NeurIPS|ICML|ICLR|OpenAlex|Crossref|DBLP|Unpaywall|Semantic Scholar|Google Scholar|Firecrawl|Open Slide|Mermaid|KaTeX|Markdown|GitHub|Git)$",
+            // Identifiers (including camelCase keys and ids), event names, MIME
+            // types, and relative paths.
+            "^[a-z][a-z0-9:+./_-]*$",
+            "^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+[-_:.]?$",
+            // CSS: custom properties, functions, values with units, media queries.
+            "^--[\\w-]+$",
+            "^(?:var|calc|min|max|clamp|translate|translate3d|translateX|translateY|scale|rotate|minmax|repeat|rgb|rgba|hsl|hsla|color-mix|url|cubic-bezier|steps)\\(.*\\)$",
+            "^(?=.*\\d(?:px|ms|fr|rem|deg|vh|vw)\\b)!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?)(?:[\\s,/]+!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?))*$",
+            "^(?:@media |\\((?:prefers-|pointer|hover|any-pointer|min-|max-|orientation))",
+            // DOM selectors: class, id, attribute, and pseudo-class selectors.
+            "^(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|\\*|>)(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|(?:\\s*[>+~,]\\s*|\\s+)(?:[a-z][\\w-]*|\\*|[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]))*$",
+            // SVG path data.
+            "^[Mm][\\s,]*[-+.\\d][\\d\\s.,+\\-MmLlHhVvCcSsQqTtAaZz]*$",
+            // LaTeX source: commands, environments, and templates written into
+            // the user's document rather than shown as interface copy.
+            "^\\\\(?:[a-zA-Z@]+\\*?|[\\\\,;:!{}\\[\\]()])",
+            // Lone glyphs: Greek letters, accented letters, math and arrow symbols.
+            "^[^\\x00-\\x7F\\u3000-\\u9fff\\uff00-\\uffef]{1,3}$",
+            // Keyboard shortcut glyphs such as ⌘⇧L or ⌥↵.
+            "^[⌘⇧⌥⌃]+(?:[\\w,./;'`=\\[\\]\\\\-]|F\\d{1,2}|[^\\x00-\\x7F\\u3000-\\u9fff]{1,2})$",
+            // Absolute URLs and file globs.
+            "^(?:https?://|mailto:)\\S*$",
+            "^\\*?\\.[\\w.]+$"
+          ],
+          "ignoreNames": [
+            { "regex": { "pattern": "^(?:className|class|style|key|id|htmlFor|role|type|path|variant|size|side|align|href|src|rel|method|accept|autoComplete|inputMode|enterKeyHint|lang|dir|mode|layoutId|insert|template|mathPreview|codePreview|glyph|preview|snippet)$" } },
+            { "regex": { "pattern": "^data-" } },
+            { "regex": { "pattern": "(?:[cC]lass(?:Name)?(?:es|s)?|[sS]elector|[sS]tyles?|CSS|Css|Transform|_PATH|_SOURCE|Path)$" } },
+            "HTML_PREVIEW_SCROLLBAR_STYLES",
+            "PIERRE_TREE_CSS",
+            "roundedSpotlightPath",
+            "updatePaperBlogSpotlight",
+            "renderPdfPageCanvas",
+            "refineContinuousPageCanvas"
+          ],
+          "ignoreFunctions": [
+            "cn",
+            "clsx",
+            "cva",
+            "twMerge",
+            "console.*",
+            "EditorView.theme",
+            "EditorView.baseTheme",
+            "invoke",
+            "listen",
+            "emit",
+            "matchMedia",
+            "window.matchMedia",
+            "Symbol",
+            "Symbol.for",
+            "URL",
+            "RegExp",
+            "CustomEvent",
+            "Event",
+            "KeyboardEvent",
+            "MouseEvent",
+            "*.querySelector",
+            "*.querySelectorAll",
+            "*.closest",
+            "*.matches",
+            "*.setProperty",
+            "*.getPropertyValue",
+            "*.removeProperty",
+            "*.setAttribute",
+            "*.getAttribute",
+            "*.hasAttribute",
+            "*.removeAttribute",
+            "*.toggleAttribute",
+            "*.addEventListener",
+            "*.removeEventListener",
+            "*.createElement",
+            "*.createElementNS",
+            "*.getItem",
+            "*.setItem",
+            "*.removeItem",
+            "*.startsWith",
+            "*.endsWith",
+            "*.indexOf",
+            "*.lastIndexOf",
+            "*.searchParams.set",
+            "*.searchParams.get",
+            "*.searchParams.append",
+            "performance.mark",
+            "performance.measure"
+          ]
+        }]
+      }
+    },
+    {
+      // Test-only checks for assertion shapes that have flaked under CI load.
+      // Each rule documents the race it closes in its own module.
+      "files": ["**/*.test.{ts,tsx,js,mjs}"],
+      "rules": {
+        "lattice/await-changed-alert": "error"
+      }
+    },
+    {
+      // Headless primitives are styled once, in src/components/ui; feature code
+      // uses those wrappers so menus, popovers and dialogs keep one look. The
+      // rule restates the Open Knowledge guard because a later override replaces
+      // the options of an earlier one for the same files.
+      "files": ["src/**/*.{ts,tsx}"],
+      "excludeFiles": ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
+      "rules": {
+        "eslint/no-restricted-imports": ["error", {
+          "patterns": [{
+            "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+            "message": "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md)."
+          }, {
+            "group": ["radix-ui", "@radix-ui/*"],
+            "message": "Use (or add) the wrapper in src/components/ui instead of a Radix primitive."
+          }]
+        }]
+      }
+    }
+  ]
+}

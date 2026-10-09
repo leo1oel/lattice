@@ -1,4 +1,4 @@
-/* eslint lingui/no-unlocalized-strings: "off" -- Protocol keys and Agent tool errors/results are never rendered by Lattice UI. */
+/* eslint-disable lingui/no-unlocalized-strings -- Protocol keys and Agent tool errors/results are never rendered by Lattice UI. */
 
 import type * as Y from "yjs";
 import { isRecord } from "../app-utils";

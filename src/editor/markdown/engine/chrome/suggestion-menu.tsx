@@ -208,7 +208,7 @@ export function SuggestionListbox<T>({ editor, store, label, emptyLabel, itemKey
       surface.removeAttribute("aria-controls");
       surface.removeAttribute("aria-activedescendant");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [editor, hasItems, id, state.active]);
 
   // Keyboard moves keep the active option in view; hover never scrolls.
@@ -217,7 +217,7 @@ export function SuggestionListbox<T>({ editor, store, label, emptyLabel, itemKey
     if (!moved.current) return;
     moved.current = false;
     list.current?.querySelector(`#${optionId(state.active)}`)?.scrollIntoView({ block: "nearest" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [state.active]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

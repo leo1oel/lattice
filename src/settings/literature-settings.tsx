@@ -116,7 +116,7 @@ export function LiteratureSettings() {
           {message(id)}
         </SettingsGroup>
       ))}
-      {/* eslint-disable-next-line no-restricted-syntax -- product name */}
+      {/* eslint-disable-next-line lattice/visible-attribute-text -- product name */}
       <SettingsGroup title="Crossref" data-setting="literature-email">
         <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref for faster lookups. No key needed`} />
         <form className="literature-credential-form" onSubmit={(event) => {

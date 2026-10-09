@@ -441,7 +441,7 @@ Non-test value importers of `tldraw` today: `src/editor/board/board-editor.tsx`,
 only through the lazy board chunk.
 
 **This rule is not lint-enforced.** There is no `no-restricted-imports` entry
-for it in `eslint.config.js`. The only backstop is the eager-JS budget, which
+for it in `.oxlintrc.json`. The only backstop is the eager-JS budget, which
 fails the build after the fact. Treat it as a convention you must uphold by
 hand.
 
@@ -580,7 +580,7 @@ both in WebKit (`--engine webkit`); each reports the result of its engine's
 `mise run perf-bench` locally, which `check` leaves out; see
 [`performance.md`](performance.md).
 
-`pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
+`pnpm lint` runs Oxlint with the `--max-warnings` cap set in the `lint` script
 in `package.json`. That cap is a debt ratchet:
 lower it when you remove warnings, never raise it.
 

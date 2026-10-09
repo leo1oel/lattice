@@ -36,7 +36,7 @@ export function useCompileRepair(options: {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- a different project starts without the previous project's repair.
+    // eslint-disable-next-line react-hooks-js/set-state-in-effect -- a different project starts without the previous project's repair.
     setState(null);
     return () => {
       const operation = operationRef.current;

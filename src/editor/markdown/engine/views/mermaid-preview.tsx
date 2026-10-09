@@ -76,7 +76,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
       clearTimeout(timer);
     };
     // The previous diagram stays up while the next one renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [baseId, chart, theme]);
 
   useEffect(() => {

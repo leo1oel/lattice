@@ -30,7 +30,7 @@
  * create it only for older direct-TextLayer consumers.
  */
 
-/* eslint lingui/no-unlocalized-strings: "off" -- DOM selectors and native command identifiers only. */
+/* eslint-disable lingui/no-unlocalized-strings -- DOM selectors and native command identifiers only. */
 
 import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";

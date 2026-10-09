@@ -1,4 +1,4 @@
-/* eslint lingui/no-unlocalized-strings: "off" -- This file defines an Agent protocol, not UI copy. */
+/* eslint-disable lingui/no-unlocalized-strings -- This file defines an Agent protocol, not UI copy. */
 
 import type { OverleafThread } from "../app-types";
 import { invoke } from "@tauri-apps/api/core";

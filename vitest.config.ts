@@ -6,6 +6,7 @@ import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import { fsModuleCacheKey } from "./scripts/vitest-fs-cache-key.ts";
 import { BalancedShardSequencer } from "./scripts/vitest-balanced-shards.ts";
 import { privateFontsPlugin } from "./scripts/private-fonts.ts";
+import { reactCompilerSuppressionRules } from "./scripts/react-compiler-suppressions.ts";
 
 export default defineConfig({
   // The suite runs the compiled output, the same as the app: vite.config.ts
@@ -33,7 +34,7 @@ export default defineConfig({
     lingui(),
     babel({
       presets: [
-        reactCompilerPreset({ target: "19" }),
+        reactCompilerPreset({ target: "19", eslintSuppressionRules: reactCompilerSuppressionRules }),
         linguiTransformerBabelPreset(),
       ],
     }),

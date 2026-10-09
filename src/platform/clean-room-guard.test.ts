@@ -5,7 +5,7 @@
  * if any of it comes back as a file or directory, or as a dependency of any
  * package in the repository, and it keeps every Lattice package on the
  * Apache-2.0 license that removal made possible. Imports are guarded by
- * `no-restricted-imports` in eslint.config.js.
+ * `no-restricted-imports` in .oxlintrc.json.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

@@ -80,7 +80,7 @@ export function usePdfDocument({
   // Keep the old instance readable until the replacement finishes initial scaling.
   useEffect(() => {
     if (!source.key) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- source removal cancels the debounced replacement immediately.
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- source removal cancels the debounced replacement immediately.
       setStableLoadKey("");
       return;
     }
@@ -94,7 +94,7 @@ export function usePdfDocument({
       const previous = recordRef.current;
       recordRef.current = null;
       setGeneration(0);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- removing the source clears the imperative viewer and its React mirror together.
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- removing the source clears the imperative viewer and its React mirror together.
       setNumPages(null);
       setLoadedKey(null);
       resetHistory();

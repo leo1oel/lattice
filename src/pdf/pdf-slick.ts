@@ -1,4 +1,3 @@
-/* eslint lingui/no-unlocalized-strings: "off" -- PDF.js/PDFSlick class names and API identifiers only. */
 /**
  * The imperative PDFSlick adapter: PDF.js runtime setup, viewer options, and
  * the DOM/service lifecycle of one viewer instance ("record"). A record is

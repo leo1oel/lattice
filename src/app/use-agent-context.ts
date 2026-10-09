@@ -79,7 +79,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   }, [setOwner]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the working surface follows what the canvas shows
+    // eslint-disable-next-line react-hooks-js/set-state-in-effect -- the working surface follows what the canvas shows
     setActiveSurface((current) => {
       if (activePaper) return "paper";
       if (canvasMode === "pdf") return "pdf";

@@ -7,7 +7,7 @@
  * drawn by Trellis itself, so it is recognised by the view id the controller
  * opens the Agent under.
  */
-/* eslint lingui/no-unlocalized-strings: "off" -- DOM attribute and selector only. */
+/* eslint-disable lingui/no-unlocalized-strings -- DOM attribute and selector only. */
 
 export const AGENT_ENTRY_ATTRIBUTE = "data-agent-entry";
 
