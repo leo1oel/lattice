@@ -207,6 +207,29 @@ function resolveServerDependencies() {
   return { serverPackage, dependencies };
 }
 
+// OpenCode's v2 client declares an optional `effect` peer pinned to a newer
+// prerelease than Synara's catalog `effect`. Bun installs both; npm rejects the
+// root-level peer conflict. Synara loads only the client's promise entry, which
+// never imports `effect`, so the root `effect` satisfies that optional peer
+// while the client's schema and protocol packages keep the exact `effect`
+// they depend on, the version the client's peer names in Synara's lockfile.
+function openCodeClientOverrides(dependencies) {
+  if (!dependencies["@opencode/client"]) return undefined;
+  const lockfile = readFileSync(join(sourceRoot, "bun.lock"), "utf8");
+  const entry = /^\s*"@opencode\/client": (\[.*\]),?$/m.exec(lockfile);
+  const peerEffect = entry ? JSON.parse(entry[1])[2]?.peerDependencies?.effect : undefined;
+  if (typeof peerEffect !== "string" || !peerEffect) {
+    throw new Error("Could not read @opencode/client's effect peer from Synara's bun.lock.");
+  }
+  return {
+    "@opencode/client": {
+      effect: "$effect",
+      "@opencode/schema": { effect: peerEffect },
+      "@opencode/protocol": { effect: peerEffect },
+    },
+  };
+}
+
 // Runs the tool on the standalone Node next to this launcher.
 const BIBTEX_TIDY_LAUNCHER = `#!/bin/sh
 set -eu
@@ -229,6 +252,7 @@ function installServerRuntime(stageRoot) {
   const serverRoot = join(stageRoot, "server");
   mkdirSync(serverRoot, { recursive: true });
   cpSync(join(sourceRoot, "apps/server/dist"), join(serverRoot, "dist"), { recursive: true });
+  const overrides = openCodeClientOverrides(dependencies);
   writeJson(join(serverRoot, "package.json"), {
     name: "@lattice/synara-runtime",
     private: true,
@@ -236,6 +260,7 @@ function installServerRuntime(stageRoot) {
     type: "module",
     engines: serverPackage.engines,
     dependencies,
+    ...(overrides ? { overrides } : {}),
   });
   mkdirSync(npmCache, { recursive: true });
   run(
