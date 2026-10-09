@@ -32,6 +32,8 @@ export interface AgentPresentationContext {
   pagePath: string;
   pendingComments: Array<{ id: string; line: number; ts: string; note: string; hint?: string }>;
   selection: { line: number; column: number; tagName: string; text: string } | null;
+  /** Opens this page alone, without editor chrome, for the agent's post-edit screenshot. */
+  previewUrl?: string;
   updatedAt: string;
 }
 
