@@ -92,6 +92,8 @@ sources = [
   # The Timeless font plugin vite.config.ts imports (the fonts themselves live
   # outside the checkout, so a new copy of them does not invalidate this stage).
   "scripts/private-fonts.ts",
+  # The React Compiler suppression list vite.config.ts imports.
+  "scripts/react-compiler-suppressions.ts",
   "tsconfig.json",
   "tsconfig.node.json",
   "package.json",
