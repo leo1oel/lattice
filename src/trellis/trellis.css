@@ -152,11 +152,12 @@
 .lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: var(--trellis-tab-min); }
 .lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
 /* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch
-   (fitHeader) shows each whole name or only its icon. The selected tab keeps
-   its name longest and the others give theirs up farthest from it first, so
-   the names follow the selection (planHeader). An icon-only tab keeps its
-   name in its tooltip and, still laid out at no width, in its accessible name.
-   The name closes to the measured width it opens to (--trellis-tab-label). */
+   (fitHeader) shows each whole name or only its icon, in one of two states:
+   every tab named, or only the selected one, the others all icons; only a
+   header too narrow for even that name drops it too (planHeader's
+   labelMode). An icon-only tab keeps its name in its tooltip and, still laid
+   out at no width, in its accessible name. The name closes to the measured
+   width it opens to (--trellis-tab-label). */
 .lattice-trellis [data-trellis-part="tab"][data-atomic] { --trellis-tab-label: none; flex: none; min-width: 0; max-width: none; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic] > [data-trellis-part="tab-title"] { max-width: var(--trellis-tab-label); text-overflow: clip; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] { gap: 0; padding-inline: var(--space-4); }

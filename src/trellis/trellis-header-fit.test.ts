@@ -62,10 +62,10 @@ describe("planHeader", () => {
   });
 
   it("leaves a header that fits alone", () => {
-    expect(planHeader(fileTabs(4), 454)).toEqual({ labelled: 0, labels: [], tools: null, tabMin: null, min: 452 });
+    expect(planHeader(fileTabs(4), 454)).toEqual({ labelMode: "all", labelled: 0, labels: [], tools: null, tabMin: null, min: 452 });
   });
 
-  it("drops named tabs' labels before any tool gives way", () => {
+  it("names every tab or only the selected one, which keeps its name longer than the action row", () => {
     const header: HeaderMeasure = {
       chrome: [104, 104, 104, 45],
       gap: 2,
@@ -74,9 +74,14 @@ describe("planHeader", () => {
         { viewId: "agent", atomic: true, full: 64, compact: 32 },
       ],
     };
-    expect(planHeader(header, 250)).toMatchObject({ labelled: 1, tools: null });
-    expect(planHeader(header, 220)).toMatchObject({ labelled: 0, tools: null });
-    expect(planHeader(header, 150)).toMatchObject({ labelled: 0, tools: "hidden" });
+    expect(planHeader(header, 276, 0, "agent")).toMatchObject({ labels: ["project", "agent"] });
+    expect(planHeader(header, 275, 0, "agent")).toMatchObject({ labels: ["agent"], tools: null });
+    expect(planHeader(header, 275, 0, "project")).toMatchObject({ labels: ["project"], tools: null });
+    expect(planHeader(header, 201, 0, "agent")).toMatchObject({ labels: ["agent"], tools: "hidden" });
+    expect(planHeader(header, 142, 0, "agent")).toMatchObject({ labels: [], tools: "hidden" });
+    // Back up a mode only with room to spare, so a width at the edge holds still.
+    expect(planHeader(header, 280, 0, "agent", "selected")).toMatchObject({ labelMode: "selected" });
+    expect(planHeader(header, 288, 0, "agent", "selected")).toMatchObject({ labelMode: "all" });
   });
 
   it("gives a divider's rubber band to the tabs, not the action row", () => {
