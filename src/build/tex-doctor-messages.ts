@@ -97,9 +97,8 @@ function codedDetail(check: CodedDoctorCheck): string | null {
       return kpsewhichMissingText(check.name);
     case "files-missing":
       return missingFilesText(check.name, params.files ?? "");
-    case "pdf-fonts-computer-modern":
     case "pdf-fonts-not-times":
-      return pdfFontsText(check.code, params.fonts ?? "");
+      return pdfFontsText(params);
     case "pdf-unreadable": {
       const path = params.path ?? "";
       return i18n._(msg`Could not read ${path}: ${error}`);

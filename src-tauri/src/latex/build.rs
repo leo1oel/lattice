@@ -1,7 +1,7 @@
 //! One latexmk build per project at a time, abortable from the UI.
 
 use super::build_log::{
-    advice, is_stale_previous_invocation_log, log_loads_conference_template, parse_diagnostics,
+    advice, is_stale_previous_invocation_log, log_conference_template, parse_diagnostics,
     skipped_recompile, trim_log,
 };
 use super::{default_root_document, prewarm, synctex_missing};
@@ -272,8 +272,11 @@ fn run_latexmk(
         wide_event::record("pdf_bytes", pdf.len());
     }
     let mut diagnostics = parse_diagnostics(&log);
+    // latexmk's output is TeX's terminal, which leaves out what fontspec
+    // notes only in the log file.
+    let tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
     if let Some(mut warning) =
-        pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &log))
+        pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &tex_log, &log))
     {
         warning.file = Some(document.path.clone());
         diagnostics.push(warning);
@@ -288,36 +291,35 @@ fn run_latexmk(
     })
 }
 
-/// A warning when a conference document typeset in the wrong fonts.
+/// A warning when a conference document typeset in the wrong fonts, with
+/// what in the build caused it.
 ///
-/// Only for conclusive failures (e.g. Computer Modern): inconclusive scans
-/// false-alarm on compressed pdfTeX object streams. And only for a document
-/// that loaded a conference template — the expectation ("this should be
-/// Times") comes from those templates, not from the project, so a plain
-/// `article` asking for `lmodern` in a NeurIPS-created project is left alone.
-fn font_warning(pdf: &[u8], log: &str) -> Option<Diagnostic> {
-    if !log_loads_conference_template(log) {
-        return None;
-    }
+/// Only when the TeX log shows what replaced Times or the PDF scan is
+/// conclusive: inconclusive scans false-alarm on compressed pdfTeX object
+/// streams. And only for a document that loaded a conference template — the
+/// expectation ("this should be Times") comes from those templates, not from
+/// the project, so a plain `article` asking for `lmodern` in a NeurIPS-created
+/// project is left alone.
+fn font_warning(pdf: &[u8], tex_log: &str, latexmk_output: &str) -> Option<Diagnostic> {
+    let venue =
+        log_conference_template(tex_log).or_else(|| log_conference_template(latexmk_output))?;
     let report = pdf_fonts::inspect_pdf_bytes(pdf);
-    if !report.conclusive || report.ok_for_conference {
-        return None;
-    }
-    let code = report.problem?;
-    let up_to_date = skipped_recompile(log);
+    let cause = pdf_fonts::times_problem(&report, tex_log)?;
+    let detail = pdf_fonts::not_times_detail(venue, &report.fonts, cause);
+    let up_to_date = skipped_recompile(latexmk_output);
     let message = if up_to_date {
         format!(
-            "{} — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts.",
-            report.detail
+            "{detail} — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
         )
     } else {
-        report.detail
+        detail
     };
-    let mut params = vec![("fonts", report.fonts.as_str())];
+    let mut params =
+        vec![("venue", venue), ("fonts", report.fonts.as_str()), ("cause", cause.code())];
     if up_to_date {
         params.push(("upToDate", "true"));
     }
-    Some(advice("warning", code, &params, message))
+    Some(advice("warning", "pdf-fonts-not-times", &params, message))
 }
 
 /// Someone stopped this build. Keep what latexmk had already written: a build

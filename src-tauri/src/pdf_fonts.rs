@@ -17,9 +17,6 @@ pub struct PdfFontReport {
     pub ok_for_conference: bool,
     pub detail: String,
     pub conclusive: bool,
-    /// For a conclusive failure, the message code of `detail`
-    /// (`pdf-fonts-computer-modern` or `pdf-fonts-not-times`).
-    pub problem: Option<&'static str>,
     /// The embedded font names, comma-separated.
     pub fonts: String,
 }
@@ -136,11 +133,6 @@ fn summarize_fonts(fonts: Vec<String>, times_marker: bool, cm_marker: bool) -> P
             let name = name.trim();
             ["cmr", "cmmi", "cmsy", "cmbx", "cmss", "cmtt"].iter().any(|cm| name.starts_with(cm))
         });
-    let problem = match (times_like, computer_modern) {
-        (true, _) => None,
-        (false, true) => Some("pdf-fonts-computer-modern"),
-        (false, false) => (!fonts.is_empty()).then_some("pdf-fonts-not-times"),
-    };
     let (conclusive, detail) = if fonts.is_empty() && !times_like && !computer_modern {
         // Inconclusive: do not fail the build. Real pdfTeX PDFs compress font dicts.
         (false, "Could not read embedded font names from this PDF (compressed streams). Not treated as a font failure.".to_string())
@@ -150,12 +142,122 @@ fn summarize_fonts(fonts: Vec<String>, times_marker: bool, cm_marker: bool) -> P
         (true, format!("Conference Times-like fonts embedded: {joined}"))
     } else if computer_modern {
         let names = if fonts.is_empty() { String::new() } else { format!(" ({joined})") };
-        (true, format!("PDF still uses Computer Modern{names}. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."))
+        (true, format!("PDF uses Computer Modern{names}, not Times."))
     } else {
-        (true, format!("PDF fonts are not NeurIPS Times ({joined}). Expected NimbusRomNo9L-*."))
+        (true, format!("PDF fonts are not Times ({joined})."))
     };
     let ok_for_conference = times_like || !conclusive;
-    PdfFontReport { ok_for_conference, conclusive, detail, problem, fonts: joined }
+    PdfFontReport { ok_for_conference, conclusive, detail, fonts: joined }
+}
+
+/// Why a document that loaded a conference template is not typeset in
+/// Times. Each names the one change that brings Times back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimesCause {
+    /// `lmodern` loaded after the last Times package, replacing it.
+    Lmodern,
+    /// `fontspec` (XeLaTeX/LuaLaTeX) loaded after Times and made Latin Modern
+    /// the main font.
+    Fontspec,
+    /// XeLaTeX/LuaLaTeX asked for Times in their Unicode (TU) encoding, which
+    /// the Times package has no fonts for, so LaTeX fell back to Latin Modern.
+    UnicodeEncoding,
+    /// LaTeX asked for Times and found no fonts for it: Times is not installed.
+    FontsMissing,
+    /// Nothing in the build asked for Times.
+    NotLoaded,
+    /// The PDF is not in Times and the log does not say why.
+    Unknown,
+}
+
+/// What in a TeX log makes Times the text font, lowercase: its packages, the
+/// font definitions LaTeX loads the first time it sets Times, and fontspec's
+/// note of a Times main font.
+const TIMES_MARKERS: [&str; 8] = [
+    "times.sty",
+    "mathptmx.sty",
+    "newtxtext.sty",
+    "tgtermes.sty",
+    "ptm.fd",
+    "font family 'times",
+    "font family 'texgyretermes",
+    "font family 'nimbusrom",
+];
+
+/// What kept a conference document out of Times, or `None` when it is in
+/// Times. `log` is the TeX log of the build that wrote the PDF. What it shows
+/// replacing Times decides on its own, because a scan of the PDF alone passes
+/// a Latin Modern paper whose figures embed their own Times-Roman; without
+/// such evidence the PDF's fonts decide.
+pub fn times_problem(report: &PdfFontReport, log: &str) -> Option<TimesCause> {
+    let pdf_not_times = report.conclusive && !report.ok_for_conference;
+    match TimesCause::from_log(log) {
+        // Times may come from a package this list does not know.
+        Some(TimesCause::NotLoaded) => pdf_not_times.then_some(TimesCause::NotLoaded),
+        Some(cause) => Some(cause),
+        None => pdf_not_times.then_some(TimesCause::Unknown),
+    }
+}
+
+impl TimesCause {
+    /// What the log shows replaced Times, if it shows anything. A log of a
+    /// run that never finished typesetting shows nothing.
+    fn from_log(log: &str) -> Option<Self> {
+        let log = crate::latex::unwrap_log_lines(log).to_ascii_lowercase();
+        if !log.contains("output written on") {
+            return None;
+        }
+        let last = |needle: &str| log.rfind(needle);
+        let times = TIMES_MARKERS.iter().filter_map(|marker| last(marker)).max();
+        let after_times = |package: &str| last(package).is_some_and(|at| Some(at) > times);
+        // Only the upright shape: one missing variant (small-caps italic,
+        // say) falls back to another Times shape, not to another family.
+        let undefined =
+            |encoding: &str| log.contains(&format!("font shape `{encoding}/ptm/m/n' undefined"));
+        if after_times("/lmodern.sty") {
+            Some(Self::Lmodern)
+        } else if after_times("/fontspec.sty") {
+            Some(Self::Fontspec)
+        } else if undefined("tu") {
+            Some(Self::UnicodeEncoding)
+        } else if undefined("t1") || undefined("ot1") {
+            Some(Self::FontsMissing)
+        } else if times.is_none() {
+            Some(Self::NotLoaded)
+        } else {
+            None
+        }
+    }
+
+    /// The message code's `cause` parameter.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Lmodern => "lmodern",
+            Self::Fontspec => "fontspec",
+            Self::UnicodeEncoding => "unicode-encoding",
+            Self::FontsMissing => "fonts-missing",
+            Self::NotLoaded => "not-loaded",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    fn fix(self) -> &'static str {
+        match self {
+            Self::Lmodern => "The document loads lmodern after Times, which replaces it with Latin Modern: remove \\usepackage{lmodern}, then Build.",
+            Self::Fontspec => "The document loads fontspec, which makes Latin Modern the main font: add \\setmainfont{Times New Roman} after it, or build with pdfLaTeX.",
+            Self::UnicodeEncoding => "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add \\usepackage[T1]{fontenc} after the template, or build with pdfLaTeX.",
+            Self::FontsMissing => "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build.",
+            Self::NotLoaded => "The document never loads Times: add \\usepackage{times} after the template, then Build.",
+            Self::Unknown => "Expected NimbusRomNo9L-*.",
+        }
+    }
+}
+
+/// The English text of a `pdf-fonts-not-times` message: a document that
+/// loaded `venue`'s template, typeset in `fonts` because of `cause`.
+pub fn not_times_detail(venue: &str, fonts: &str, cause: TimesCause) -> String {
+    let fonts = if fonts.is_empty() { String::new() } else { format!(" ({fonts})") };
+    format!("PDF fonts are not the Times that {venue} requires{fonts}. {}", cause.fix())
 }
 
 #[cfg(test)]

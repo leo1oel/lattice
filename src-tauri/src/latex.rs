@@ -5,6 +5,7 @@
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab.
 //! - `synctex` maps positions between the compiled PDF and its sources.
+//! - `venue` reads which conference template a document's preamble loads.
 //!
 //! This file holds what they share: which document is built, and the PDF.
 
@@ -18,6 +19,7 @@ mod build;
 mod build_log;
 mod prewarm;
 mod synctex;
+mod venue;
 
 /// Register an already-running process as a project's build, for tests that
 /// need one in flight without launching latexmk. They must still hand over a
@@ -25,8 +27,9 @@ mod synctex;
 #[cfg(test)]
 pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
-pub(crate) use build_log::is_pass_noise_warning;
+pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use synctex::{forward_search, inverse_search};
+pub(crate) use venue::document_venue;
 
 /// The document a build compiles: the one marked default, else the first.
 pub(crate) fn default_root(manifest: &ProjectManifest) -> Option<&RootDocument> {
