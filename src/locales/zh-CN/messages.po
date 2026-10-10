@@ -2427,6 +2427,10 @@ msgstr "无法重新打开“{unopenedName}”：{unopenedReason}"
 msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 msgstr "无法重新打开“{unopenedName}”，它的文件夹可能已被移动或重命名"
 
+#: src/app/use-tex-setup.ts
+msgid "Couldn’t start the paper tools"
+msgstr "无法启动论文工具"
+
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "新建论文"
@@ -4294,6 +4298,10 @@ msgstr "安装 LaTeX"
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "安装 LaTeX"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install later"
+msgstr "稍后安装"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
@@ -8922,6 +8930,10 @@ msgstr "要查找的文字"
 msgid "Textual citation"
 msgstr "文中式引用"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "That action needs them. Install them, then try it again."
+msgstr "这个操作要用到它们。安装后再试一次。"
+
 #: src/settings/literature-settings.tsx
 msgid "That didn’t work. Check the input and keychain access"
 msgstr "没成功，请检查输入和钥匙串权限"
@@ -9549,6 +9561,10 @@ msgstr "重试"
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Try that again now"
+msgstr "现在可以再试一次了"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
@@ -10171,6 +10187,10 @@ msgstr "写完编译"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "写作"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
+msgstr "不装也能写作和编译。用到论文功能时，Lattice 会再提示。"
 
 #: src/build/build-log-messages.ts
 msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."

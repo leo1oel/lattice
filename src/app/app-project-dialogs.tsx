@@ -92,7 +92,8 @@ export function TexSetupDialogs({ setup }: { setup: TexSetup }) {
         open={setup.wizardOpen}
         report={setup.doctorReport}
         checking={setup.doctorBusy}
-        onClose={() => setup.setWizardOpen(false)}
+        paperToolsNeeded={setup.paperToolsNeeded}
+        onClose={setup.closeWizard}
         onRecheck={() => setup.runDoctor({ openWizardIfMissing: true })}
       />
       <TexDependencyInstaller status={setup.install} onClose={setup.closeInstall} onRetry={setup.installDependency} />

@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import {
-  isConferenceFontsMissing,
+  isOnlyPaperToolsMissing,
   missingTexToolNames,
-  missingRequiredToolNames,
+  missingPaperToolNames,
   isRequiredSetupMissing,
   TEX_INSTALL_SIZE_HINT,
   type DoctorReportLike,
@@ -12,6 +12,7 @@ import {
 } from "./tex-setup";
 import { TexInstallDialog } from "./tex-install-dialog";
 import { doctorCheckDetail } from "./tex-doctor-messages";
+import { Button } from "../components/ui/button";
 import { MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -25,6 +26,8 @@ export function TexSetupWizard(props: {
   open: boolean;
   report: DoctorReportLike | null;
   checking: boolean;
+  /** Opened because a paper feature just failed without the paper tools. */
+  paperToolsNeeded?: boolean;
   onClose: () => void;
   onRecheck: () => Promise<DoctorReportLike | null>;
 }) {
@@ -34,11 +37,9 @@ export function TexSetupWizard(props: {
   const [installError, setInstallError] = useState<string | null>(null);
 
   const { checking, onClose, open } = props;
-  const missingPaperTools = missingRequiredToolNames(props.report);
-  const paperToolsOnly = props.report !== null
-    && missingPaperTools.length > 0
-    && missingTexToolNames(props.report).length === 0
-    && !isConferenceFontsMissing(props.report);
+  // Writing, compiling and reading work without the paper tools, so only
+  // this case may be put off; missing TeX or fonts, or a running install, hold.
+  const paperToolsOnly = isOnlyPaperToolsMissing(props.report);
   const ready = props.report !== null && !isRequiredSetupMissing(props.report);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ export function TexSetupWizard(props: {
           message: `${installedProduct} finished installing, but Lattice could not run the final verification.`,
         }));
       }
-      const missingTools = [...missingTexToolNames(report), ...missingRequiredToolNames(report)];
+      const missingTools = [...missingTexToolNames(report), ...missingPaperToolNames(report)];
       const fontCheck = report.checks.find((check) => check.name === "conference-fonts");
       const issues = [
         ...(missingTools.length > 0 ? [t`Missing tools: ${missingTools.join(", ")}`] : []),
@@ -77,7 +78,10 @@ export function TexSetupWizard(props: {
           message: `${installedProduct} finished installing, but Lattice could not verify:\n${issues.join("\n")}`,
         }));
       }
-      trace.ok(paperToolsOnly ? t`Required paper tools installed` : t`BasicTeX installed`);
+      trace.ok(
+        paperToolsOnly ? t`Required paper tools installed` : t`BasicTeX installed`,
+        paperToolsOnly && props.paperToolsNeeded ? { detail: t`Try that again now` } : undefined,
+      );
       props.onClose();
     } catch (reason) {
       setInstallError(toMessage(reason));
@@ -87,14 +91,33 @@ export function TexSetupWizard(props: {
     }
   };
 
+  const install = (
+    <MotionButton
+      type="button"
+      className={buttonClassName({ variant: "primary", className: "tex-setup-install" })}
+      onClick={() => { void startInstall(); }}
+      disabled={busy || ready}
+    >
+      {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
+      {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
+    </MotionButton>
+  );
+
   return (
     <TexInstallDialog
       label={t`Install LaTeX tools`}
       title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
       description={paperToolsOnly
-        ? t({ message: "Needed to add papers and manage bibliographies · about 45 MB" })
+        ? <>
+          {t({ message: "Needed to add papers and manage bibliographies · about 45 MB" })}
+          <span className="tex-setup-description-note">
+            {props.paperToolsNeeded
+              ? t`That action needs them. Install them, then try it again.`
+              : t`Writing and compiling work without them. Lattice asks again when a paper feature needs them.`}
+          </span>
+        </>
         : t({ message: `About ${TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes` })}
-      closeDisabled
+      closeDisabled={!paperToolsOnly || installing}
       onClose={props.onClose}
       progress={installing ? {
         label: paperToolsOnly ? t`Required tools installation progress` : t`BasicTeX installation progress`,
@@ -103,15 +126,14 @@ export function TexSetupWizard(props: {
       } : null}
       error={installError}
     >
-      <MotionButton
-        type="button"
-        className={buttonClassName({ variant: "primary", className: "tex-setup-install" })}
-        onClick={() => { void startInstall(); }}
-        disabled={busy || ready}
-      >
-        {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
-        {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
-      </MotionButton>
+      {paperToolsOnly
+        ? (
+          <div className="modal-actions">
+            <Button variant="ghost" onClick={props.onClose} disabled={installing}>{t`Install later`}</Button>
+            {install}
+          </div>
+        )
+        : install}
     </TexInstallDialog>
   );
 }

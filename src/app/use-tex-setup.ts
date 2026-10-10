@@ -4,7 +4,14 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { DoctorReport } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
-import { isRequiredSetupMissing, texDependencyInstallFailure, type TexDependencyInstallProgress } from "../build/tex-setup";
+import {
+  isCompileSetupMissing,
+  isOnlyPaperToolsMissing,
+  isRequiredSetupMissing,
+  texDependencyInstallFailure,
+  type TexDependencyInstallProgress,
+} from "../build/tex-setup";
+import { deferPaperTools, hasDeferredPaperTools } from "../settings/app-settings";
 import { logAction, notifyError, notifySuccess } from "../telemetry/app-notify";
 import { useRefState, whenIdle } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -13,6 +20,10 @@ import { useLatestRef } from "../hooks/use-latest-ref";
  * The TeX toolchain check ("doctor"), the setup wizard it opens when a
  * required tool is missing, and on-demand installs of single LaTeX packages a
  * build reported missing. `rebuild` runs after a package install succeeds.
+ *
+ * Missing TeX or conference fonts hold the app in the wizard: nothing compiles
+ * without them. Missing paper tools alone do not: launch asks once, "Install
+ * later" is remembered, and the first paper feature that needs them reopens it.
  */
 export function useTexSetup(rebuild: () => void) {
   const { t } = useLingui();
@@ -21,6 +32,8 @@ export function useTexSetup(rebuild: () => void) {
   const [doctorNotice, setDoctorNotice] = useState("");
   const doctorGenerationRef = useRef(0);
   const [wizardOpen, setWizardOpen] = useState(false);
+  // The wizard is open because a paper feature just failed without the tools.
+  const [paperToolsNeeded, setPaperToolsNeeded] = useState(false);
   const [install, , installRef, publishInstall] = useRefState<TexDependencyInstallStatus | null>(null);
   const installAttemptRef = useRef(0);
   const rebuildRef = useLatestRef(rebuild);
@@ -38,7 +51,9 @@ export function useTexSetup(rebuild: () => void) {
         .then((report) => {
           if (generation !== doctorGenerationRef.current) return;
           setDoctorReport(report);
-          if (isRequiredSetupMissing(report)) setWizardOpen(true);
+          if (isCompileSetupMissing(report) || (isOnlyPaperToolsMissing(report) && !hasDeferredPaperTools())) {
+            setWizardOpen(true);
+          }
         })
         .catch(() => {
           // Tests and incomplete environments may not expose doctor.
@@ -83,6 +98,29 @@ export function useTexSetup(rebuild: () => void) {
       notifySuccess(t`LaTeX setup`, t`LaTeX is ready to build`, { detail: t`Every tool Lattice needs is installed` });
     }
   }, [doctorReport, runDoctor, t]);
+
+  /**
+   * A paper feature failed because the paper tools are missing: offer the
+   * install over it, however launch went. The report may predate the failure,
+   * so it is checked again; with nothing to install, the failure stands.
+   */
+  const openForMissingPaperTools = useCallback(async (failure: string) => {
+    setPaperToolsNeeded(true);
+    if (isOnlyPaperToolsMissing(doctorReport)) setWizardOpen(true);
+    const report = await runDoctor({ openWizardIfMissing: true });
+    if (!report || !isRequiredSetupMissing(report)) {
+      setPaperToolsNeeded(false);
+      notifyError(t`LaTeX setup`, t`Couldn’t start the paper tools`, { detail: failure });
+    }
+  }, [doctorReport, runDoctor, t]);
+
+  // Closing over missing paper tools alone is "Install later": launch stops
+  // asking. Closing after an install, or over anything else, is not.
+  const closeWizard = useCallback(() => {
+    if (isOnlyPaperToolsMissing(doctorReport)) deferPaperTools();
+    setWizardOpen(false);
+    setPaperToolsNeeded(false);
+  }, [doctorReport]);
 
   /** A build found no TeX toolchain: drop the stale report and show setup. */
   const openForMissingTex = useCallback(() => {
@@ -136,9 +174,11 @@ export function useTexSetup(rebuild: () => void) {
     doctorNotice,
     runDoctor,
     wizardOpen,
-    setWizardOpen,
+    paperToolsNeeded,
+    closeWizard,
     openWizard,
     openForMissingTex,
+    openForMissingPaperTools,
     install,
     installDependency,
     closeInstall,
