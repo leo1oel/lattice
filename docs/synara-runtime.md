@@ -195,6 +195,14 @@ renamed. They are not all Lattice code:
 The mutating literature tools run with `HistoryMode::Defer`, so agent bibliography edits fold into
 Lattice's own transaction history instead of committing independently.
 
+The agent panel receives every host-answered tool request (bibliography, canvas, spreadsheet, project
+document, editor comments, presentation) through one long poll, the fork's
+`/api/lattice/host-tools/poll`, and posts each result to that tool's own result route.
+A new host tool joins that shared queue instead of adding a poll: each held poll occupies one of the
+six HTTP/1.1 connections WebKit allows the sidecar origin, and when six were held the panel's own
+scripts waited behind them, so it stayed on "Restoring the conversation surface" for a full poll
+cycle on every open.
+
 Renaming is not only structural. `replaceModelVisibleHostBranding` and `replaceStructuredBranding`
 rewrite tool descriptions, input schemas, annotation titles, and every text and structured result
 part, so no `synara` string reaches the model. The fork's
