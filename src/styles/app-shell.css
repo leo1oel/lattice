@@ -554,8 +554,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .agent-permission-radio[aria-disabled] { cursor: default; pointer-events: none; }
 .agent-permission-description { position: absolute; top: 27px; left: calc(var(--space-5) + var(--space-8) + var(--space-4)); right: var(--space-5); pointer-events: none; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.3; white-space: nowrap; }
 .navigator-section { min-height: 0; padding: var(--space-5); }
-/* The tree's scrollbar track reaches the window bottom; its thumb owns the inset. */
-.project-section { flex: 1; padding: 7px var(--space-5) 0; display: flex; flex-direction: column; overflow: hidden; }
+/* The tree's scrollbar track reaches the window bottom; its thumb owns the inset.
+   The right inset lives on the tree surface instead, so the scrollbar can use it
+   as its gutter and sit at the panel edge like the Papers list's. */
+.project-section { flex: 1; padding: 7px 0 0 var(--space-5); display: flex; flex-direction: column; overflow: hidden; }
 .papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-6) 0; overflow: hidden; }
 .papers-section .paper-import-control,
 .papers-section .import-box {
@@ -654,7 +656,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-padding-inline-override: 1px;
   --trees-scrollbar-thumb-override: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
-.project-file-tree-surface { position: relative; isolation: isolate; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; overflow: hidden; }
+.project-file-tree-surface { position: relative; isolation: isolate; box-sizing: border-box; min-width: 0; min-height: 42px; width: 100%; flex: 1 1 auto; display: flex; padding-right: var(--space-5); overflow: hidden; }
 /* A drag aimed at the project root washes the whole tree, rows, sticky folder
    headers and empty space alike. Drawn over the tree rather than as its
    background, which the sticky headers must keep opaque; the z-index is local
@@ -662,7 +664,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .project-file-tree-surface::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 var(--space-5) 0 0;
   z-index: 5;
   background: var(--control-active-soft);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--control-active) 27%, transparent);
