@@ -38,6 +38,7 @@ const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
 const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
+const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
@@ -146,6 +147,11 @@ export function rememberRecentCommand(id: string): string[] {
 export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
+
+/** The writer put off installing the paper tools: launch no longer asks; the first paper feature does. */
+export const hasDeferredPaperTools = () => safely(() => localStorage.getItem(PAPER_TOOLS_DEFERRED_KEY) === "1", false);
+
+export const deferPaperTools = () => persistSetting(PAPER_TOOLS_DEFERRED_KEY, "1");
 
 /** Whether the writer has walked the guided tour to its end before, so it is offered as a replay. */
 export const hasFinishedGuidedTour = () => safely(() => localStorage.getItem(GUIDED_TOUR_KEY) === "completed", false);

@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
 import { AlertTriangle, Check, ChevronRight, ClipboardCheck, ExternalLink, Minus, Plus, RotateCcw } from "lucide-react";
 import type { PaperSummary } from "../app-types";
+import { isMissingPaperToolsError } from "../build/tex-setup";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -85,6 +86,8 @@ export function BibliographyAudit(props: {
   onPrepare: () => Promise<boolean>;
   onApply: (entry: AuditEntry, result: AuditResult) => Promise<void>;
   onApplied?: () => void;
+  /** The checks need the paper tools, and they are missing. */
+  onMissingPaperTools?: (failure: string) => void;
 }) {
   const { t, i18n } = useLingui();
   const [scan, setScan] = useState<AuditScan | null>(null);
@@ -187,6 +190,11 @@ export function BibliographyAudit(props: {
               result = await invoke<AuditResult>("bibliography_audit_entry", { projectRoot: props.projectRoot, entry, s2BatchStatus });
             } catch (reason) {
               result = { status: "unavailable", message: String(reason), before: entry.bibtex, changes: [] };
+            }
+            // Every later entry would fail the same way: stop, and offer the install once.
+            if (isMissingPaperToolsError(result.message) && current()) {
+              if (!run.current.stop) props.onMissingPaperTools?.(result.message);
+              run.current.stop = true;
             }
             if (current()) {
               setResults(previous => ({ ...previous, [indexes[offset]]: { ...result, checkedAt: new Date().toISOString() } }));

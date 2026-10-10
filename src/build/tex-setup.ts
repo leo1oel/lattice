@@ -20,7 +20,8 @@ export type TexDependencyInstallProgress = {
 
 const REQUIRED_ALWAYS = ["latexmk", "synctex", "bibtex"] as const;
 const TEX_ENGINES = ["pdflatex", "xelatex", "lualatex"] as const;
-const REQUIRED_APP_TOOLS = ["uv", "uvx"] as const;
+/** The app-managed uv pair the paper tools (arXiv import, bibcite) run through. */
+const PAPER_TOOLS = ["uv", "uvx"] as const;
 
 function toolOk(report: DoctorReportLike, name: string): boolean {
   return report.checks.some((check) => check.name === name && check.ok);
@@ -38,14 +39,31 @@ export function isConferenceFontsMissing(report: DoctorReportLike | null | undef
   return !!report && report.checks.find((check) => check.name === "conference-fonts")?.ok !== true;
 }
 
-export function missingRequiredToolNames(report: DoctorReportLike | null | undefined): string[] {
-  return report ? REQUIRED_APP_TOOLS.filter((name) => !toolOk(report, name)) : [];
+export function missingPaperToolNames(report: DoctorReportLike | null | undefined): string[] {
+  return report ? PAPER_TOOLS.filter((name) => !toolOk(report, name)) : [];
+}
+
+/** What compiling needs: a TeX toolchain and the conference fonts. Setup blocks the app without it. */
+export function isCompileSetupMissing(report: DoctorReportLike | null | undefined): boolean {
+  return missingTexToolNames(report).length > 0 || isConferenceFontsMissing(report);
+}
+
+/**
+ * Only the paper tools are missing: writing, compiling and reading all work,
+ * so setup can wait until a paper feature asks for them.
+ */
+export function isOnlyPaperToolsMissing(report: DoctorReportLike | null | undefined): boolean {
+  return missingPaperToolNames(report).length > 0 && !isCompileSetupMissing(report);
 }
 
 export function isRequiredSetupMissing(report: DoctorReportLike | null | undefined): boolean {
-  return missingTexToolNames(report).length > 0
-    || isConferenceFontsMissing(report)
-    || missingRequiredToolNames(report).length > 0;
+  return isCompileSetupMissing(report) || missingPaperToolNames(report).length > 0;
+}
+
+/** A paper feature failed because the managed uv/uvx are missing (`PAPER_TOOLS_MISSING` in src-tauri/src/commands/python_tools.rs). */
+export function isMissingPaperToolsError(message: string): boolean {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- marker matched in backend error text
+  return message.includes("Lattice's paper tools are not installed.");
 }
 
 export function isMissingTexBuildError(message: string): boolean {

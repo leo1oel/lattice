@@ -26,6 +26,7 @@ import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
+import { isMissingPaperToolsError } from "./build/tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
 import { useOpenDocuments } from "./app/use-open-documents";
 import { useProjectLifecycle } from "./app/use-project-lifecycle";
@@ -728,6 +729,7 @@ function App() {
       accept,
     },
     onCite: (key) => insertCitation(key, "cite"),
+    onMissingPaperTools: (failure) => void texSetup.openForMissingPaperTools(failure),
   });
   const tools = useToolDrawers({
     trellis, synara, comments: editorComments, references: referenceImport,
@@ -736,6 +738,7 @@ function App() {
     refreshTodos, refreshWordCount,
   });
   const { clearStage: clearImportStage } = referenceImport;
+  const { openForMissingPaperTools } = texSetup;
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
     if (!canDownloadPaper(paper)) {
@@ -773,9 +776,11 @@ function App() {
     };
     await fetchAndOpen().catch((reason: unknown) => {
       clearFetchState();
-      if (opening.isCurrent()) showError(toMessage(reason));
+      const message = toMessage(reason);
+      if (isMissingPaperToolsError(message)) void openForMissingPaperTools(message);
+      else if (opening.isCurrent()) showError(message);
     }).finally(clearImportStage);
-  }, [claim, clearImportStage, openPaper, refreshProject]);
+  }, [claim, clearImportStage, openForMissingPaperTools, openPaper, refreshProject]);
 
   const readDraggedPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
@@ -2029,6 +2034,7 @@ function App() {
           onClose={() => setBibliographyAuditOpen(false)}
           onPrepare={save}
           onApplied={() => refreshAfterSave(project.root, false, true)}
+          onMissingPaperTools={(failure) => void texSetup.openForMissingPaperTools(failure)}
           onApply={async (entry, result) => {
             const root = project.root;
             if (!result.after) throw new Error(t`This reference cannot be updated.`);

@@ -2430,6 +2430,10 @@ msgstr "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
 msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 msgstr "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 
+#: src/app/use-tex-setup.ts
+msgid "Couldn’t start the paper tools"
+msgstr "Couldn’t start the paper tools"
+
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "Create a research project"
@@ -4297,6 +4301,10 @@ msgstr "Install Basic TeX"
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
 msgstr "Install BasicTeX"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install later"
+msgstr "Install later"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install LaTeX to compile"
@@ -8929,6 +8937,10 @@ msgstr "Text to find"
 msgid "Textual citation"
 msgstr "Textual citation"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "That action needs them. Install them, then try it again."
+msgstr "That action needs them. Install them, then try it again."
+
 #: src/settings/literature-settings.tsx
 msgid "That didn’t work. Check the input and keychain access"
 msgstr "That didn’t work. Check the input and keychain access"
@@ -9556,6 +9568,10 @@ msgstr "Try again"
 msgid "Try building the project again"
 msgstr "Try building the project again"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Try that again now"
+msgstr "Try that again now"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
@@ -10180,6 +10196,10 @@ msgstr "Write, then build"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "Writing"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
+msgstr "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
 
 #: src/build/build-log-messages.ts
 msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."

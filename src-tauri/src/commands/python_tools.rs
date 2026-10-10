@@ -9,6 +9,12 @@ use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+/// The first line of every paper-tool launch that found the managed uv/uvx
+/// missing or broken. Setup may be skipped until a paper feature needs it, so
+/// the frontend matches this exact text (`isMissingPaperToolsError` in
+/// src/build/tex-setup.ts) to offer the install; change both together.
+const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
+
 /// A Python CLI Lattice drives through uvx.
 ///
 /// Do not resolve from `PATH`: an editable or stale global install would make
@@ -68,8 +74,10 @@ impl UvTool {
                 // Validate the complete managed pair before every launch.
                 // Generic command resolution must never fall back to a stale
                 // Homebrew/PATH uvx after setup has promised an app-owned one.
-                managed_uv_tool_status("uv")?;
-                self.configured_uvx_command(managed_uv_tool_status("uvx")?)
+                let uvx = managed_uv_tool_status("uv")
+                    .and_then(|_| managed_uv_tool_status("uvx"))
+                    .map_err(|error| format!("{PAPER_TOOLS_MISSING}\n{error}"))?;
+                self.configured_uvx_command(uvx)
             }
         };
         if self.binary != BIBCITE.binary {

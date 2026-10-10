@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, RefreshProject } from "../app-types";
 import { toMessage } from "../app-utils";
+import { isMissingPaperToolsError } from "../build/tex-setup";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
@@ -39,7 +40,7 @@ type BibEntryDialog = {
  * entry dialog for adding, reviewing or editing a BibTeX entry by hand.
  */
 export function useReferenceImport({
-  project, projectRootRef, refreshProject, refreshHistory, editor, onCite, onExternalEdits,
+  project, projectRootRef, refreshProject, refreshHistory, editor, onCite, onExternalEdits, onMissingPaperTools,
 }: {
   project: ProjectSnapshot | null;
   projectRootRef: { readonly current: string | null };
@@ -57,6 +58,8 @@ export function useReferenceImport({
   onCite: (key: string) => void;
   /** Hand bibliography writes that bypassed save to Overleaf sync, like any other disk edit. */
   onExternalEdits: { readonly current: (paths: readonly string[]) => void };
+  /** A lookup or import needed the paper tools, and they are missing: offer the install instead of an error. */
+  onMissingPaperTools: (failure: string) => void;
 }) {
   const { t } = useLingui();
   const [input, setInput] = useState("");
@@ -156,15 +159,17 @@ export function useReferenceImport({
       return result;
     } catch (reason) {
       if (isTitleQuery(trimmed) && superseded()) return;
-      showError(toMessage(reason));
-      throw reason instanceof Error ? reason : new Error(toMessage(reason));
+      const message = toMessage(reason);
+      if (isMissingPaperToolsError(message)) onMissingPaperTools(message);
+      else showError(message);
+      throw reason instanceof Error ? reason : new Error(message);
     } finally {
       inFlightRef.current = false;
       if (requestIdRef.current === requestId) requestIdRef.current = null;
       setImporting(false);
       setStage(null);
     }
-  }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits]);
+  }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits, onMissingPaperTools]);
 
   const cancelImport = useCallback(() => {
     const requestId = requestIdRef.current;
@@ -199,8 +204,11 @@ export function useReferenceImport({
   // closing, or report into a later draft. A new lookup supersedes the last save's error.
   const resolveBibQuery = useCallback((query: string) => {
     setBibEntry({ error: null });
-    return invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
-  }, [setBibEntry]);
+    return invoke<ResolvedCitationDraft>("resolve_citation_query", { query }).catch((reason: unknown) => {
+      if (isMissingPaperToolsError(toMessage(reason))) onMissingPaperTools(toMessage(reason));
+      throw reason;
+    });
+  }, [onMissingPaperTools, setBibEntry]);
 
   const { activeFile, source, dirty, save, accept } = editor;
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {

@@ -4,7 +4,7 @@ import {
   isConferenceFontsMissing,
   isMissingTexBuildError,
   isRequiredSetupMissing,
-  missingRequiredToolNames,
+  missingPaperToolNames,
   missingTexToolNames,
   type DoctorReportLike,
 } from "./tex-setup";
@@ -71,21 +71,22 @@ describe("tex setup wizard helpers", () => {
     expect(isConferenceFontsMissing(report())).toBe(true);
   });
 
-  it("offers one managed install action when only uv is missing", () => {
+  it("offers one managed install action, or later, when only uv is missing", () => {
     const { onClose } = renderWizard(report(...TEX_TOOLS, check("conference-fonts"), check("uv", false), check("uvx", false)));
 
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getAllByRole("button")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Install required tools" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Install later" })).toBeEnabled();
     expect(screen.getByText(/about 45 MB/)).toBeInTheDocument();
     const uvMissing = report(check("uv", false), check("uvx", false));
     expect(isRequiredSetupMissing(uvMissing)).toBe(true);
-    expect(missingRequiredToolNames(uvMissing)).toEqual(["uv", "uvx"]);
+    expect(missingPaperToolNames(uvMissing)).toEqual(["uv", "uvx"]);
     for (const retired of ["Install MacTeX (full)", "Skip for now", "Recheck", "Close"]) {
       expect(screen.queryByText(retired)).not.toBeInTheDocument();
     }
 
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole("button", { name: "Install required tools" }));
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", { mode: "toolsOnly", onProgress: expect.anything() });
