@@ -198,6 +198,8 @@ export function usePdfDocument({
     };
     record.cleanup.push(
       () => unsubscribeReady(),
+      // Before PDF.js's own teardown, which drops the pending reads first.
+      () => range?.abort(),
       () => {
         if (dataTimer !== null) window.clearTimeout(dataTimer);
       },
