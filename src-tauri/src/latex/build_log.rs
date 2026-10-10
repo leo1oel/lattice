@@ -56,7 +56,10 @@ pub(super) fn advice(
 /// latexmk's answer when the PDF is already current.
 pub(super) fn skipped_recompile(log: &str) -> bool {
     let lower = log.to_ascii_lowercase();
-    lower.contains("nothing to do") || lower.contains("up-to-date")
+    // latexmk ends a run that did typeset with "All targets … are up-to-date"
+    // too; only a run that applied no rule skipped.
+    !lower.contains("applying rule")
+        && (lower.contains("nothing to do") || lower.contains("up-to-date"))
 }
 
 pub(super) fn is_stale_previous_invocation_log(log: &str) -> bool {
@@ -70,21 +73,35 @@ pub(crate) fn is_pass_noise_warning(message: &str) -> bool {
     PASS_NOISE.iter().any(|phrase| lower.contains(phrase))
 }
 
-/// Whether this build loaded one of the conference templates.
+/// The conference whose template this build loaded, by its display name.
 ///
 /// The log names every style it reads, so the document that was actually
 /// typeset answers this — the project manifest cannot. A project created as
 /// NeurIPS holds whatever its author later writes in it, including documents
 /// that are not submissions at all.
-pub(super) fn log_loads_conference_template(log: &str) -> bool {
+pub(super) fn log_conference_template(log: &str) -> Option<&'static str> {
     Regex::new(r"[A-Za-z0-9_\-]+\.sty")
         .unwrap()
-        .find_iter(log)
-        .any(|style| conference_template_venue(style.as_str()).is_some())
+        .find_iter(&unwrap_log_lines(log))
+        .find_map(|style| conference_template_venue(style.as_str()))
 }
 
-fn conference_template_venue(sty: &str) -> Option<&'static str> {
-    let lower = sty.to_ascii_lowercase();
+/// TeX breaks every log line at 79 characters, mid-path included, so
+/// `(./iclr2027/iclr2027_conference.sty` can reach the log as `…confe` and
+/// `rence.sty`. Rejoin each full-width line with the next.
+pub(crate) fn unwrap_log_lines(log: &str) -> String {
+    let mut joined = String::with_capacity(log.len());
+    for line in log.lines() {
+        joined.push_str(line);
+        if line.len() != 79 {
+            joined.push('\n');
+        }
+    }
+    joined
+}
+
+pub(super) fn conference_template_venue(name: &str) -> Option<&'static str> {
+    let lower = name.to_ascii_lowercase();
     CONFERENCE_STYLES.iter().find(|(prefix, _)| lower.starts_with(prefix)).map(|(_, venue)| *venue)
 }
 
@@ -408,10 +425,10 @@ mod tests {
         // A grant proposal that asks for Latin Modern on purpose.
         let plain = "(./lambda_gpu_proposal.tex (/usr/local/texlive/2026basic/texmf-dist/tex/latex/lm/lmodern.sty\n\
              (/usr/local/texlive/2026basic/texmf-dist/tex/latex/microtype/microtype.sty";
-        assert!(!log_loads_conference_template(plain));
+        assert_eq!(log_conference_template(plain), None);
         for style in CONFERENCE_STYLE_FILES {
             let log = format!("(./main.tex (./{style}\nPackage: whatever\n");
-            assert!(log_loads_conference_template(&log), "{style} is a conference template");
+            assert!(log_conference_template(&log).is_some(), "{style} is a conference template");
         }
     }
 
@@ -518,7 +535,11 @@ mod tests {
         for (log, skipped, stale) in [
             ("Latexmk: Nothing to do for 'main.tex'.", true, false),
             ("Latexmk: All targets (main.pdf) are up-to-date\n", true, false),
-            ("Latexmk: applying rule 'pdflatex'...", false, false),
+            (
+                "Latexmk: applying rule 'pdflatex'...\nLatexmk: All targets (main.pdf) are up-to-date\n",
+                false,
+                false,
+            ),
             (stale_log, true, true),
         ] {
             let summary = (skipped_recompile(log), is_stale_previous_invocation_log(log));

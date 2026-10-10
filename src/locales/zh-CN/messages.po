@@ -3300,6 +3300,10 @@ msgstr "放大"
 msgid "Expected {expected}, found {found}."
 msgstr "这里应是 {expected}，却是 {found}"
 
+#: src/build/build-log-messages.ts
+msgid "Expected NimbusRomNo9L-*."
+msgstr "应为 NimbusRomNo9L-*。"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Exponential"
 msgstr "指数函数"
@@ -4605,6 +4609,10 @@ msgstr "LaTeX 设置"
 #: src/App.tsx
 msgid "latexmk -c then -g"
 msgstr "先清理再编译"
+
+#: src/build/build-log-messages.ts
+msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
+msgstr "latexmk 没有重新编译（Nothing to do / up-to-date）。按住 Shift 并点击“编译”，即可使用已安装的 Times 字体强制重新编译。"
 
 #: src/build/build-log-messages.ts
 msgid "latexmk stopped before LaTeX ran because {file} failed: {reason}. The Log tab shows the output of the command it runs."
@@ -6565,12 +6573,12 @@ msgid "PDF embedded fonts"
 msgstr "PDF 嵌入字体"
 
 #: src/build/build-log-messages.ts
-msgid "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*."
-msgstr "PDF 字体不是 NeurIPS 要求的 Times（{fonts}）。应为 NimbusRomNo9L-*。"
+msgid "PDF fonts are not the Times that {venue} requires ({fonts})."
+msgstr "PDF 字体不是 {venue} 要求的 Times（{fonts}）。"
 
 #: src/build/build-log-messages.ts
-msgid "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF 字体不是 NeurIPS 要求的 Times（{fonts}）。应为 NimbusRomNo9L-*。——latexmk 没有重新编译（Nothing to do / up-to-date）。按住 Shift 并点击“编译”，即可使用已安装的 Times 字体强制重新编译。"
+msgid "PDF fonts are not the Times that {venue} requires."
+msgstr "PDF 字体不是 {venue} 要求的 Times。"
 
 #: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
@@ -6595,22 +6603,6 @@ msgstr "PDF 已暂停"
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF 加载超时。请再点“编译”，或用“预览”打开"
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-msgstr "PDF 仍在使用 Computer Modern（{fonts}）。应为 NimbusRom/Times——请在“安装 BasicTeX”后按住 Shift 点击“编译”。"
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF 仍在使用 Computer Modern（{fonts}）。应为 NimbusRom/Times——请在“安装 BasicTeX”后按住 Shift 点击“编译”。——latexmk 没有重新编译（Nothing to do / up-to-date）。按住 Shift 并点击“编译”，即可使用已安装的 Times 字体强制重新编译。"
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-msgstr "PDF 仍在使用 Computer Modern。应为 NimbusRom/Times——请在“安装 BasicTeX”后按住 Shift 点击“编译”。"
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF 仍在使用 Computer Modern。应为 NimbusRom/Times——请在“安装 BasicTeX”后按住 Shift 点击“编译”。——latexmk 没有重新编译（Nothing to do / up-to-date）。按住 Shift 并点击“编译”，即可使用已安装的 Times 字体强制重新编译。"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
@@ -9035,6 +9027,18 @@ msgstr "文档正文"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "保存时文档又变了，请先保存再切换"
 
+#: src/build/build-log-messages.ts
+msgid "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
+msgstr "文档加载了 fontspec，它把正文字体换成了 Latin Modern：在它之后加上 {command}，或改用 pdfLaTeX 编译。"
+
+#: src/build/build-log-messages.ts
+msgid "The document loads lmodern after Times, which replaces it with Latin Modern: remove {command}, then Build."
+msgstr "文档在 Times 之后加载了 lmodern，把 Times 换成了 Latin Modern：删掉 {command}，再点“编译”。"
+
+#: src/build/build-log-messages.ts
+msgid "The document never loads Times: add {command} after the template, then Build."
+msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“编译”。"
+
 #: src/trellis/trellis-labels.ts
 msgid "the documents area"
 msgstr "文档区"
@@ -9404,6 +9408,10 @@ msgstr "时间导数记号"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
+
+#: src/build/build-log-messages.ts
+msgid "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
+msgstr "没有安装 Times 字体，LaTeX 改用了 Computer Modern：在“TeX 检查”中点“安装所需工具”，再按住 Shift 点击“编译”。"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -10163,6 +10171,10 @@ msgstr "写完编译"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "写作"
+
+#: src/build/build-log-messages.ts
+msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."
+msgstr "XeLaTeX 和 LuaLaTeX 的默认编码下没有 Times，LaTeX 改用了 Latin Modern：在模板之后加上 {command}，或改用 pdfLaTeX 编译。"
 
 #: src/build/tex-doctor-messages.ts
 msgid "XeLaTeX engine"

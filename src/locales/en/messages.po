@@ -3303,6 +3303,10 @@ msgstr "Expand image"
 msgid "Expected {expected}, found {found}."
 msgstr "Expected {expected}, found {found}."
 
+#: src/build/build-log-messages.ts
+msgid "Expected NimbusRomNo9L-*."
+msgstr "Expected NimbusRomNo9L-*."
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Exponential"
 msgstr "Exponential"
@@ -4608,6 +4612,10 @@ msgstr "LaTeX setup"
 #: src/App.tsx
 msgid "latexmk -c then -g"
 msgstr "latexmk -c then -g"
+
+#: src/build/build-log-messages.ts
+msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
+msgstr "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
 
 #: src/build/build-log-messages.ts
 msgid "latexmk stopped before LaTeX ran because {file} failed: {reason}. The Log tab shows the output of the command it runs."
@@ -6568,12 +6576,12 @@ msgid "PDF embedded fonts"
 msgstr "PDF embedded fonts"
 
 #: src/build/build-log-messages.ts
-msgid "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*."
-msgstr "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*."
+msgid "PDF fonts are not the Times that {venue} requires ({fonts})."
+msgstr "PDF fonts are not the Times that {venue} requires ({fonts})."
 
 #: src/build/build-log-messages.ts
-msgid "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF fonts are not NeurIPS Times ({fonts}). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
+msgid "PDF fonts are not the Times that {venue} requires."
+msgstr "PDF fonts are not the Times that {venue} requires."
 
 #: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
@@ -6598,22 +6606,6 @@ msgstr "PDF preview paused"
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-msgstr "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF still uses Computer Modern ({fonts}). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-msgstr "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."
-
-#: src/build/build-log-messages.ts
-msgid "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
-msgstr "PDF still uses Computer Modern. Expected NimbusRom/Times — Shift-click Build after Install BasicTeX. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
 
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
@@ -9042,6 +9034,18 @@ msgstr "The document body"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "The document changed while saving. Save it, then switch projects again."
 
+#: src/build/build-log-messages.ts
+msgid "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
+msgstr "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
+
+#: src/build/build-log-messages.ts
+msgid "The document loads lmodern after Times, which replaces it with Latin Modern: remove {command}, then Build."
+msgstr "The document loads lmodern after Times, which replaces it with Latin Modern: remove {command}, then Build."
+
+#: src/build/build-log-messages.ts
+msgid "The document never loads Times: add {command} after the template, then Build."
+msgstr "The document never loads Times: add {command} after the template, then Build."
+
 #: src/trellis/trellis-labels.ts
 msgid "the documents area"
 msgstr "the documents area"
@@ -9411,6 +9415,10 @@ msgstr "Time derivative mark"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Times / cross product"
 msgstr "Times / cross product"
+
+#: src/build/build-log-messages.ts
+msgid "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
+msgstr "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -10172,6 +10180,10 @@ msgstr "Write, then build"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "Writing"
+
+#: src/build/build-log-messages.ts
+msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."
+msgstr "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."
 
 #: src/build/tex-doctor-messages.ts
 msgid "XeLaTeX engine"

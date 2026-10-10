@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// Times and Helvetica metrics and Type1 outlines. NeurIPS / ICML templates set
+/// Times and Helvetica metrics and Type1 outlines. Conference templates set
 /// `\rmdefault` to Times (`ptm`); without these, bare BasicTeX compiles without
 /// error but falls back to other fonts. The metrics (tfm/fd) can exist while
 /// the outlines are missing, so both are required.
@@ -93,7 +93,8 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     DoctorReport { ok: required_ok, summary: format_summary(&checks, required_ok), checks }
 }
 
-/// The root document and bibliography exist, and the venue's packages are installed.
+/// The root document and bibliography exist, and the packages of the
+/// conference template it loads are installed.
 fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
     let exists = |relative: &str| {
         project::safe_path(root, relative).map(|path| path.exists()).unwrap_or(false)
@@ -122,7 +123,8 @@ fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
         bib_check = coded(bib_check, "bibliography-missing", &[("file", bibliography)]);
     }
     let mut checks = vec![root_check, bib_check];
-    if manifest.venue.eq_ignore_ascii_case("icml") {
+    let venue = document.and_then(|document| latex::document_venue(root, &document.path));
+    if venue == Some("ICML") {
         // The ICML style needs `algorithms`, which bare BasicTeX lacks until
         // it or collection-latexextra is installed.
         checks.push(kpsewhich_check(
@@ -132,7 +134,7 @@ fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
             |_| "ICML algorithm packages found (algorithm.sty, algorithmic.sty).".into(),
             "ICML Build will Emergency stop. In Terminal: sudo tlmgr install algorithms   (or click Install BasicTeX in Lattice).",
         ));
-    } else if manifest.venue.eq_ignore_ascii_case("neurips") {
+    } else if venue == Some("NeurIPS") {
         // The NeurIPS style pulls in `lineno` and `natbib`, and the template's
         // main.tex a handful more. None ship with bare BasicTeX, and a
         // toolchain that is otherwise fine still dies on the first one missing.
@@ -190,26 +192,43 @@ fn kpsewhich_check(
     }
 }
 
-/// Inspect the project's compiled PDF (if present) — no poppler/`pdffonts` needed.
+/// Whether the compiled PDF (if present) is in the Times its conference
+/// template requires — no poppler/`pdffonts` needed. A document that loads no
+/// conference template has no such rule, whatever the manifest's venue or the
+/// style files beside it say.
 fn project_pdf_fonts(root: &Path) -> Option<DoctorCheck> {
     let manifest = project::read_manifest(root).ok()?;
     let document = latex::default_root(&manifest)?;
     let pdf_path = project::safe_path(root, &document.path).ok()?.with_extension("pdf");
+    let Some(venue) = latex::document_venue(root, &document.path) else {
+        let detail = format!(
+            "{} loads no NeurIPS, ICML, ICLR or CVPR template, so no conference font rule applies to its PDF.",
+            document.path
+        );
+        return Some(check("pdf-embedded-fonts", detail, true));
+    };
     if !pdf_path.exists() {
         let file_name = pdf_path.file_name().and_then(|name| name.to_str()).unwrap_or("main.pdf");
         let detail = format!(
-            "No {file_name} yet — Build once and Recheck; Lattice will verify NeurIPS Times without pdffonts."
+            "No {file_name} yet — Build once and Recheck; Lattice will verify {venue} Times without pdffonts."
         );
         return Some(check("pdf-embedded-fonts", detail, true));
     }
     Some(match pdf_fonts::inspect_pdf_path(&pdf_path) {
-        // Inconclusive scans (compressed streams we cannot name) are not failures.
         Ok(report) => {
-            let ok = !report.conclusive || report.ok_for_conference;
-            let fonts = check("pdf-embedded-fonts", report.detail, ok);
-            match report.problem.filter(|_| !ok) {
-                Some(code) => coded(fonts, code, &[("fonts", &report.fonts)]),
-                None => fonts,
+            // The log of the build that wrote this PDF says what replaced Times.
+            let log = std::fs::read_to_string(pdf_path.with_extension("log")).unwrap_or_default();
+            match pdf_fonts::times_problem(&report, &log) {
+                // In Times, or an inconclusive scan (compressed streams it
+                // cannot name), which is not a failure.
+                None => check("pdf-embedded-fonts", report.detail, true),
+                Some(cause) => {
+                    let detail = pdf_fonts::not_times_detail(venue, &report.fonts, cause);
+                    let params =
+                        [("venue", venue), ("fonts", &report.fonts), ("cause", cause.code())];
+                    let failed = check("pdf-embedded-fonts", detail, false);
+                    coded(failed, "pdf-fonts-not-times", &params)
+                }
             }
         }
         Err(error) => {
