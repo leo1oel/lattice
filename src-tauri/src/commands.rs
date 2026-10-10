@@ -29,7 +29,8 @@ pub fn command(name: &str) -> Command {
     with_child_path(Command::new(resolve(name)))
 }
 
-fn with_child_path(mut command: Command) -> Command {
+/// `command` with the search path `command()` hands its children.
+pub(crate) fn with_child_path(mut command: Command) -> Command {
     command.env("PATH", child_path());
     command
 }
@@ -73,12 +74,16 @@ pub(crate) fn stderr_or(output: &Output, fallback: &str) -> String {
 /// Lattice-owned command-line tools that should not depend on Homebrew or the
 /// environment inherited by a GUI launch.
 pub fn managed_tools_dir() -> Option<PathBuf> {
+    app_support_dir()
+        .map(|directory| directory.join("bin").join(format!("uv-{MANAGED_UV_VERSION}")))
+}
+
+/// This build's own folder under Application Support.
+pub(crate) fn app_support_dir() -> Option<PathBuf> {
     env::var_os("HOME").map(|home| {
         PathBuf::from(home)
             .join("Library/Application Support")
             .join(crate::app_identity::identifier())
-            .join("bin")
-            .join(format!("uv-{MANAGED_UV_VERSION}"))
     })
 }
 
