@@ -10,6 +10,7 @@ function fakeWorkspace(views: FakeView[]) {
   const ws = {
     view: (id: string) => views.find((view) => view.id === id) ?? null,
     views: (filter?: { type?: string }) => views.filter((view) => !filter?.type || view.type === filter.type),
+    getDocument: () => ({ hidden: [] }),
     dock: vi.fn(),
     close: vi.fn(async () => true),
     focus: vi.fn((id: string) => calls.push(`focus ${id}`)),
