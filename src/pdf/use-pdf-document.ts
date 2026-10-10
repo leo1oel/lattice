@@ -76,17 +76,20 @@ export function usePdfDocument({
   const { initialViewState, viewRef, setPageNumber, setScale, setFitMode, schedule, activate, flush } = view;
   const { reset: resetHistory, track: trackHistory } = history;
 
-  // Coalesce rapid rebuild fingerprints before replacing the active document.
-  // Keep the old instance readable until the replacement finishes initial scaling.
+  // A viewer with no document shown or loading opens its source at once: the
+  // user is waiting on it. Every later fingerprint is a rebuild of that
+  // document, coalesced before it replaces the active one; the old instance
+  // stays readable until the replacement finishes initial scaling.
   useEffect(() => {
-    if (!source.key) {
-      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- source removal cancels the debounced replacement immediately.
-      setStableLoadKey("");
+    if (source.key === stableLoadKey) return;
+    if (!source.key || !stableLoadKey) {
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- removal cancels a debounced replacement, and an opened source has none to wait for.
+      setStableLoadKey(source.key);
       return;
     }
     const timer = window.setTimeout(() => setStableLoadKey(source.key), recordRef.current ? 900 : 120);
     return () => window.clearTimeout(timer);
-  }, [recordRef, source.key]);
+  }, [recordRef, source.key, stableLoadKey]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -195,6 +198,8 @@ export function usePdfDocument({
     };
     record.cleanup.push(
       () => unsubscribeReady(),
+      // Before PDF.js's own teardown, which drops the pending reads first.
+      () => range?.abort(),
       () => {
         if (dataTimer !== null) window.clearTimeout(dataTimer);
       },

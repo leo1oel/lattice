@@ -57,6 +57,9 @@ export function saveProjectPdf(file: ProjectPdfFile, destination: string): Promi
  * channel, so a failed read is reported to `onError` and left unanswered:
  * bytes that are not the file's must never reach the document. The owner
  * ends the load, or replaces the document once the file has a new version.
+ * The owner also aborts it when it tears the viewer down: PDF.js's worker
+ * drops its pending reads before PDF.js aborts the transport, and a read
+ * answered in between fails PDF.js's assertion that someone still wants it.
  */
 export function projectPdfTransport(file: ProjectPdfFile, onError: (reason: unknown) => void): PDFDataRangeTransport {
   // The whole streaming session is one `pdf.session` log event, written when
@@ -94,6 +97,7 @@ export function projectPdfTransport(file: ProjectPdfFile, onError: (reason: unkn
     }
 
     abort() {
+      if (this.aborted) return;
       this.aborted = true;
       // A file replaced underneath the viewer is routine (a rebuild), not a failure.
       session.end();
