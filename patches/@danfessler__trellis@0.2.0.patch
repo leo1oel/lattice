@@ -53,22 +53,98 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..7722709a57df23cb70e176191930d1be
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa9e4d3dc0 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..a3253b12827682846a66ac3b194bec0b1c7ff46d 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -447,8 +447,10 @@ function restorePanel(doc, panelId, fallbackLayer) {
+@@ -442,22 +442,77 @@ function restorePanel(doc, panelId, fallbackLayer) {
+     ...doc,
+     hidden: doc.hidden.filter((h2) => h2.panel.id !== panelId)
+   };
+-  const { restore, panel } = hidden;
+-  if (restore.kind === "floating") return floatPanel(without, panel, restore.rect, restore.layer);
++  return restoreAt(without, hidden.panel, hidden.restore, fallbackLayer, /* @__PURE__ */ new Set());
++}
++function restoreAt(doc, panel, restore, fallbackLayer, seen) {
++  if (restore.kind === "floating") return floatPanel(doc, panel, restore.rect, restore.layer);
++  const inPlace = restoreInPlaceOf(doc, panel, restore, fallbackLayer, seen);
++  if (inPlace) return inPlace;
    if (restore.kind === "tab") {
-     const target = locatePanel(without, restore.panel);
-     const node = findNode(without.root, restore.panel);
+-    const target = locatePanel(without, restore.panel);
+-    const node = findNode(without.root, restore.panel);
+-    if (target && target.where !== "hidden" || node?.kind === "stage")
+-      return insertPanel(without, panel, { into: restore.panel });
++    const target = locatePanel(doc, restore.panel);
++    const node = findNode(doc.root, restore.panel);
 +    // Lattice patch: a tab hidden out of a group comes back where it was in
 +    // it, not at the end (insertPanel clamps an index past the last tab).
-     if (target && target.where !== "hidden" || node?.kind === "stage")
--      return insertPanel(without, panel, { into: restore.panel });
-+      return insertPanel(without, panel, { into: restore.panel, index: restore.index });
++    if (target && target.where !== "hidden" || node?.kind === "stage") {
++      const next = insertPanel(doc, panel, { into: restore.panel, index: restore.index });
++      return repointHidden(next, panel.id, panelOfView(next, panel.views[0])?.id);
++    }
    }
-   if (restore.kind === "docked" && findNode(without.root, restore.beside))
-     return insertPanel(without, panel, {
-@@ -1389,7 +1391,7 @@ function createDragController(host) {
+-  if (restore.kind === "docked" && findNode(without.root, restore.beside))
+-    return insertPanel(without, panel, {
++  if (restore.kind === "docked" && findNode(doc.root, restore.beside))
++    return insertPanel(doc, panel, {
+       beside: restore.beside,
+       edge: restore.edge,
+       share: restore.share
+     });
+-  if (without.root) return floatPanel(without, panel, { x: 0.25, y: 0.2, w: 0.5, h: 0.6 }, fallbackLayer);
+-  return { ...without, root: panel };
++  if (doc.root) return floatPanel(doc, panel, { x: 0.25, y: 0.2, w: 0.5, h: 0.6 }, fallbackLayer);
++  return { ...doc, root: panel };
++}
++// Lattice patch: a panel whose place was in, or beside, a panel that is hidden
++// too (a column hidden one panel at a time) used to float over the documents.
++// Now, if that hidden panel will rejoin another as tabs, this one comes back in
++// or beside that other one. Otherwise this one takes the hidden panel's place
++// (floating, if it was a tab of a floating window) and the hidden panel is
++// re-anchored to it the way this one sat against it: its tabs will rejoin this
++// group, or it will dock on the opposite edge. Any show order rebuilds the
++// layout the hide order took apart.
++var OPPOSITE_EDGE = { left: "right", right: "left", top: "bottom", bottom: "top" };
++function restoreInPlaceOf(doc, panel, restore, fallbackLayer, seen) {
++  const anchorId = restore.kind === "tab" ? restore.panel : restore.beside;
++  const anchor = doc.hidden.find((h2) => h2.panel.id === anchorId);
++  if (!anchor || seen.has(anchorId)) return null;
++  seen.add(anchorId);
++  const place = anchor.restore;
++  if (place.kind === "tab") {
++    const through = restore.kind === "tab" ? { kind: "tab", panel: place.panel, index: place.index } : { ...restore, beside: place.panel };
++    return restoreAt(doc, panel, through, fallbackLayer, seen);
++  }
++  if (restore.kind === "docked" && place.kind === "floating") return null;
++  const next = restoreAt(doc, panel, place, fallbackLayer, seen);
++  const id = panelOfView(next, panel.views[0])?.id ?? panel.id;
++  const back = restore.kind === "tab" ? { kind: "tab", panel: id, index: restore.index ? 0 : void 0 } : {
++    kind: "docked",
++    beside: id,
++    edge: OPPOSITE_EDGE[restore.edge],
++    share: 1 - (restore.share ?? 0.5)
++  };
++  return {
++    ...next,
++    hidden: next.hidden.map((h2) => h2.panel.id === anchorId ? { ...h2, restore: back } : h2)
++  };
++}
++// Lattice patch: a hidden panel that joined another as a tab is gone, so the
++// panels hidden in or beside it come back in or beside the one it joined.
++function repointHidden(doc, from, to) {
++  if (!to || to === from) return doc;
++  return {
++    ...doc,
++    hidden: doc.hidden.map((h2) => {
++      const restore = h2.restore;
++      if (restore.kind === "tab" && restore.panel === from) return { ...h2, restore: { ...restore, panel: to } };
++      if (restore.kind === "docked" && restore.beside === from) return { ...h2, restore: { ...restore, beside: to } };
++      return h2;
++    })
++  };
+ }
+ function sanitize(input, isKnownType = () => true) {
+   const doc = {
+@@ -1389,7 +1444,7 @@ function createDragController(host) {
            previous.set(DROP_SLOT, screen);
          }
        }
@@ -77,7 +153,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      } else if (next?.kind === "stage") {
        const world = d.dropBase.get(next.stage).rect;
        d.layoutTargets.set(DROP_SLOT, world);
-@@ -1512,7 +1514,7 @@ function createDragController(host) {
+@@ -1512,7 +1567,7 @@ function createDragController(host) {
      host.setDoc(d.origin);
      host.commit(next, from, repositioning || target.kind === "tab" ? null : lifted.id);
      host.moved(lifted, d.fromFloat && !d.tabRollback ? "floating" : "docked", target.kind);
@@ -86,7 +162,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
    }
    function floatRect(d, next, layer) {
      const viewport = host.viewport();
-@@ -1633,6 +1635,62 @@ function place(el, r, round) {
+@@ -1633,6 +1688,62 @@ function place(el, r, round) {
    setStyle(el, "height", `${Math.max(0, h2)}px`);
  }
  
@@ -149,7 +225,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
  // src/runtime/motion.ts
  var MOTION = {
    spring: { stiffness: 210, damping: 29, maxStep: 0.032, epsilon: 1e-4 },
-@@ -1948,8 +2006,10 @@ function createNavigator(host) {
+@@ -1948,8 +2059,10 @@ function createNavigator(host) {
      "wheel",
      (e) => {
        if (!free()) return;
@@ -161,7 +237,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        if (!e.ctrlKey && !e.altKey && host.contentOwnsWheel(target, e)) return;
        if (target.closest?.("[data-trellis-part=tabs]") && !e.ctrlKey) {
          const list = target.closest("[data-trellis-part=tabs]");
-@@ -1993,7 +2053,7 @@ function createNavigator(host) {
+@@ -1993,7 +2106,7 @@ function createNavigator(host) {
    const snapEl = h(
      "div",
      { "data-trellis-part": "snap-preview", "aria-hidden": "true" },
@@ -170,7 +246,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
    );
    host.root.append(snapEl);
    host.lifetime.add(() => snapEl.remove());
-@@ -2023,7 +2083,7 @@ function createNavigator(host) {
+@@ -2023,7 +2136,7 @@ function createNavigator(host) {
      if (m.candidate) {
        const entry = entries.get(m.candidate);
        place2(candidateEl, host.panelScreen(entry.rect));
@@ -179,7 +255,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      }
    }
    function finishMarquee(commit) {
-@@ -2056,6 +2116,9 @@ function createNavigator(host) {
+@@ -2056,6 +2169,9 @@ function createNavigator(host) {
      "pointerdown",
      (e) => {
        if (!free() || host.busy() || e.button !== 0 || e.pointerType === "touch") return;
@@ -189,7 +265,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        if (e.shiftKey && !dragZoom) {
          e.preventDefault();
          e.stopPropagation();
-@@ -2117,7 +2180,7 @@ function createNavigator(host) {
+@@ -2117,7 +2233,7 @@ function createNavigator(host) {
        host.root,
        type,
        (e) => {
@@ -198,7 +274,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
            e.preventDefault();
            e.stopPropagation();
          }
-@@ -2329,8 +2392,9 @@ function formatCombo(combo) {
+@@ -2329,8 +2445,9 @@ function formatCombo(combo) {
      Enter: mac ? "\u21A9" : "Enter"
    };
    const key = arrows[c.key] ?? (c.key.length === 1 ? c.key.toUpperCase() : c.key);
@@ -209,7 +285,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
    return [
      c.mod || c.ctrl ? "Ctrl" : "",
      c.meta ? "Meta" : "",
-@@ -2739,7 +2803,7 @@ var TYPE_PLACEHOLDER = (type) => ({
+@@ -2739,7 +2856,7 @@ var TYPE_PLACEHOLDER = (type) => ({
        h(
          "div",
          { class: "trellis-placeholder" },
@@ -218,7 +294,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
          h("span", {}, `No view type named \u201C${type}\u201D is registered.`)
        )
      );
-@@ -2752,6 +2816,70 @@ var escapeHtml = (text) => text.replace(
+@@ -2752,6 +2869,70 @@ var escapeHtml = (text) => text.replace(
  var DEFAULT_FLOAT_SIZE = { w: 560, h: 400 };
  var FRAME_ONLY = { w: 160, h: 64 };
  var PANEL_MIN = { w: 80 };
@@ -289,7 +365,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
  var DETAIL = { size: 48, outline: 2 };
  function createWorkspace(host, initialOptions) {
    let options = { ...initialOptions };
-@@ -2762,7 +2890,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2762,7 +2943,7 @@ function createWorkspace(host, initialOptions) {
      class: "trellis",
      "data-trellis-root": "",
      role: "region",
@@ -298,7 +374,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      tabindex: "-1"
    });
    const backdrop = h("div", { "data-trellis-part": "backdrop" });
-@@ -2853,7 +2981,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2853,7 +3034,7 @@ function createWorkspace(host, initialOptions) {
      setAttr(root, "data-tab-bleed", tabs.inset === 0 ? "" : null);
      if (tabs.inset !== void 0) root.style.setProperty("--trellis-tab-inset", `${tabs.inset}px`);
      else if (!options.tokens?.["--trellis-tab-inset"]) root.style.removeProperty("--trellis-tab-inset");
@@ -307,7 +383,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      const tokens = options.tokens ?? {};
      for (const key of appliedTokens) if (!(key in tokens)) root.style.removeProperty(key);
      for (const [key, value] of Object.entries(tokens))
-@@ -3089,7 +3217,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3089,7 +3270,7 @@ function createWorkspace(host, initialOptions) {
      const menuButton = h("button", {
        "data-trellis-part": "panel-menu",
        type: "button",
@@ -316,7 +392,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        "aria-haspopup": "menu",
        tabindex: "-1"
      });
-@@ -3118,6 +3246,20 @@ function createWorkspace(host, initialOptions) {
+@@ -3118,6 +3299,20 @@ function createWorkspace(host, initialOptions) {
        endInset: 0
      };
      panelDoms.set(panelId, dom);
@@ -337,7 +413,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      const d = dom;
      const onPointerDown = (e) => {
        const panel = findPanel(d.id);
-@@ -3182,6 +3324,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3182,6 +3377,7 @@ function createWorkspace(host, initialOptions) {
    function destroyPanelDom(panelId) {
      const dom = panelDoms.get(panelId);
      if (!dom) return;
@@ -345,7 +421,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      dom.el.remove();
      dom.tabbar.remove();
      dom.handles?.remove();
-@@ -3211,6 +3354,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3211,6 +3407,7 @@ function createWorkspace(host, initialOptions) {
        if (!wanted.has(viewId)) {
          tab.el.remove();
          dom.tabs.delete(viewId);
@@ -353,7 +429,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        }
      panel.views.forEach((viewId, index) => {
        let tab = dom.tabs.get(viewId);
-@@ -3241,6 +3385,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3241,6 +3438,7 @@ function createWorkspace(host, initialOptions) {
          });
          tab = { el, title, badge, close: closeButton };
          dom.tabs.set(viewId, tab);
@@ -361,7 +437,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
        if (dom.tablist.children[index] !== tab.el)
          dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
-@@ -3248,12 +3393,17 @@ function createWorkspace(host, initialOptions) {
+@@ -3248,12 +3446,17 @@ function createWorkspace(host, initialOptions) {
        setAttr(record.shell, "aria-labelledby", tab.el.id);
      });
    }
@@ -383,7 +459,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
    }
    function updateTabs() {
      for (const [panelId, dom] of panelDoms) {
-@@ -3262,7 +3412,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3262,7 +3465,13 @@ function createWorkspace(host, initialOptions) {
        for (const [viewId, tab] of dom.tabs) {
          const selected = panel.selected === viewId;
          const title = titleOf(viewId);
@@ -398,7 +474,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
          const badge = badges.get(viewId);
          const dot = badge === true;
          const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
-@@ -3273,16 +3429,23 @@ function createWorkspace(host, initialOptions) {
+@@ -3273,16 +3482,23 @@ function createWorkspace(host, initialOptions) {
          setAttr(tab.el, "data-type", doc.views[viewId]?.type ?? null);
          setAttr(tab.el, "aria-selected", String(selected));
          setAttr(tab.el, "tabindex", selected ? "0" : "-1");
@@ -425,7 +501,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
            if (record.controller.state.title !== title) record.controller.update({ title });
          }
        }
-@@ -3301,7 +3464,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3301,7 +3517,7 @@ function createWorkspace(host, initialOptions) {
      invalidate();
    }
    function sync() {
@@ -434,7 +510,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      const live2 = new Set(viewIds(doc));
      for (const v of lifted()?.views ?? []) live2.add(v);
      for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
-@@ -3360,7 +3523,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3360,7 +3576,7 @@ function createWorkspace(host, initialOptions) {
              role: "separator",
              tabindex: "0",
              "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
@@ -443,7 +519,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
            });
            el2.dataset.split = node.id;
            el2.dataset.index = String(i);
-@@ -3660,8 +3823,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3660,8 +3876,8 @@ function createWorkspace(host, initialOptions) {
          el.dataset.lines = lines;
        }
        const count = leafIds(e.node).length;
@@ -454,7 +530,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        const r = inset(toScreen(e.rect), pad());
        const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
        setStyle(el, "display", onscreen ? "" : "none");
-@@ -3740,6 +3903,15 @@ function createWorkspace(host, initialOptions) {
+@@ -3740,6 +3956,15 @@ function createWorkspace(host, initialOptions) {
        setStyle(dom.el, "zIndex", String(z));
        setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
        place(dom.el, r, round);
@@ -470,7 +546,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        const float2 = doc.floating.find((f) => f.panel.id === panelId);
        const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
        setStyle(dom.el, "clipPath", clip);
-@@ -3866,7 +4038,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3866,7 +4091,7 @@ function createWorkspace(host, initialOptions) {
      const min = minSizeOf(controller.id);
      const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
      const safe = scaleAt(body);
@@ -479,7 +555,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      setStyle(shell, "zIndex", String(z));
      setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
      setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
-@@ -3922,7 +4094,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3922,7 +4147,8 @@ function createWorkspace(host, initialOptions) {
      for (const el of dividerEls.values()) {
        const split = effectiveSplit(el.dataset.split);
        const e = split && entries.get(split.id);
@@ -489,7 +565,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
          setStyle(el, "display", "none");
          continue;
        }
-@@ -4229,7 +4402,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4229,7 +4455,7 @@ function createWorkspace(host, initialOptions) {
          });
        commit({
          ...detached,
@@ -498,7 +574,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        });
        return;
      }
-@@ -4383,16 +4556,16 @@ function createWorkspace(host, initialOptions) {
+@@ -4383,16 +4609,16 @@ function createWorkspace(host, initialOptions) {
      if (navigationMode() && region !== "floating")
        items.push({
          id: "maximize",
@@ -518,7 +594,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
          run: () => dock(
            panelId,
            findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
-@@ -4401,7 +4574,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4401,7 +4627,7 @@ function createWorkspace(host, initialOptions) {
      } else if (floatingLayer() && allowed(panel.views, "floating")) {
        items.push({
          id: "float",
@@ -527,7 +603,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
          run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
        });
      }
-@@ -4421,19 +4594,19 @@ function createWorkspace(host, initialOptions) {
+@@ -4421,19 +4647,19 @@ function createWorkspace(host, initialOptions) {
        moves.push(
          {
            id: "split-right",
@@ -551,7 +627,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
        run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
      });
      const closable = panel.views.filter((v) => typeOf(v).closable !== false);
-@@ -4442,14 +4615,14 @@ function createWorkspace(host, initialOptions) {
+@@ -4442,14 +4668,14 @@ function createWorkspace(host, initialOptions) {
        if (typeOf(panel.selected).closable !== false)
          items.push({
            id: "close",
@@ -568,7 +644,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4798,185 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4851,185 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -755,7 +831,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +4991,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +5044,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -891,7 +967,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5220,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5273,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -903,7 +979,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      };
      return snapshot;
    }
-@@ -4902,7 +5331,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5384,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -912,7 +988,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..9bdb235945233703fd51d05daa40e5aa
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5476,7 @@ export {
+@@ -5047,6 +5529,7 @@ export {
    formatCombo,
    layout,
    layoutRects,

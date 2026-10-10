@@ -529,11 +529,34 @@ export class TrellisController {
       return;
     }
     const view = ws.view(kind);
+    if (view?.placement === "hidden") {
+      this.restoreHidden(kind, view.panelId);
+      return;
+    }
     if (view) {
-      if (view.placement === "hidden" || focus || !view.visible) ws.focus(kind);
+      if (focus || !view.visible) ws.focus(kind);
       return;
     }
     ws.open(kind, { id: kind, focus, placement: this.homeOf(kind) });
+  }
+
+  /**
+   * Trellis brings a hidden panel back where it was, or where the hidden
+   * panels it sat in or beside will be. One whose place is gone altogether
+   * (its group was closed meanwhile) comes back floating over the documents;
+   * unless it was hidden from a floating window, it docks where a closed panel
+   * would reopen instead.
+   */
+  private restoreHidden(kind: TrellisSingleton, panelId: string) {
+    const ws = this.ws;
+    if (!ws) return;
+    const floated = ws.getDocument().hidden.find((entry) => entry.panel.id === panelId)?.restore.kind === "floating";
+    ws.focus(kind);
+    if (floated || ws.view(kind)?.placement !== "floating") return;
+    const home = this.homeOf(kind);
+    if (typeof home !== "object" || "float" in home) return;
+    ws.dock(kind, home);
+    ws.focus(kind);
   }
 
   /**
