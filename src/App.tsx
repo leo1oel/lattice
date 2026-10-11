@@ -1344,7 +1344,7 @@ function App() {
       { id: "workspace-save", when: inProject, label: t`Save to workspace`, group: "layout" as const, run: () => trellis.saveWorkspace() },
       { id: "workspace-revert", when: inProject, label: t`Revert to saved`, group: "layout" as const, recent: false as const, run: () => trellis.revertWorkspace() },
     ] : []),
-    // Writing and Reading, the layout switch's two presets; the one in use is not offered again.
+    // Writing and Reading, the layout presets (also in the Panels menu); the one in use is not offered again.
     ...(["writing", "reading"] as const).filter((preset) => trellisUi.preset !== preset).map((preset): AppCommand => ({
       id: `preset-${preset}`, when: inProject, group: "layout",
       label: preset === "writing" ? t`Switch to the Writing layout` : t`Switch to the Reading layout`,

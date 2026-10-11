@@ -86,7 +86,7 @@ describe("titlebar panel controls in a narrow window", () => {
     expect(shed(".trellis-titlebar-layout-actions")).toEqual(["Maximize focused panel", "Reset layout"]);
     expect(shed(".trellis-titlebar-panel-toggles")).toEqual(["Show Project", "Show Papers", "Show Agent"]);
     const presets = container.querySelector<HTMLElement>(".trellis-titlebar-presets")!;
-    expect(within(presets).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Workspace", "Writing", "Reading"]);
+    expect(within(presets).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Workspace"]);
     expect(within(presets).getByRole("button", { name: "New workspace" })).toBeInTheDocument();
 
     const panels = screen.getByRole("button", { name: "Panels" });
@@ -515,7 +515,7 @@ describe("named workspaces in the titlebar", () => {
     expect(save).toHaveBeenCalledOnce();
   });
 
-  it("moves along workspaces and presets with the arrow keys, choosing each", () => {
+  it("moves along the workspaces with the arrow keys, choosing each", () => {
     const { controller, library } = withWorkspaces();
     library.add("Review", null);
     render(<TrellisTitlebar controller={controller} />);
@@ -523,7 +523,9 @@ describe("named workspaces in the titlebar", () => {
     fireEvent.keyDown(first, { key: "ArrowRight" });
     expect(selectedTab()).toBe("Review");
     fireEvent.keyDown(screen.getByRole("tab", { name: "Review" }), { key: "ArrowRight" });
-    expect(controller.ui.get().preset).toBe("writing");
+    expect(selectedTab()).toBe("Workspace");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Workspace" }), { key: "ArrowLeft" });
+    act(() => controller.setPreset("writing"));
     // The workspace under the preset is marked, and choosing it again returns from the preset.
     expect(screen.getByRole("tab", { name: "Review" })).toHaveAttribute("data-underlying", "true");
     fireEvent.click(screen.getByRole("tab", { name: "Review" }));
@@ -781,41 +783,26 @@ describe("named workspaces in the titlebar", () => {
     const { controller, library } = withWorkspaces();
     library.add("Review", null);
     render(<LayoutSwitch controller={controller} compact />);
-    const trigger = screen.getByRole("button", { name: "布局：布局" });
+    const trigger = screen.getByRole("button", { name: "工作区：工作区" });
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
     const menu = within(await screen.findByRole("menu"));
     expect(menu.getByRole("menuitem", { name: "左移" })).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(menu.getByRole("menuitem", { name: "右移" }));
-    expect(library.list().map((entry) => entry.name)).toEqual(["Review", "布局"]);
-    expect(announced()).toHaveTextContent("“布局”已移到第 2 位（共 2 个）");
+    expect(library.list().map((entry) => entry.name)).toEqual(["Review", "工作区"]);
+    expect(announced()).toHaveTextContent("“工作区”已移到第 2 位（共 2 个）");
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("folded, moves along the workspaces' button and the presets with the arrow keys, choosing each", () => {
+  it("folded, the arrow keys choose the workspaces' button, leaving a preset, without opening its menu", () => {
     const { controller } = withWorkspaces();
     render(<LayoutSwitch controller={controller} compact />);
     const trigger = screen.getByRole("button", { name: "Workspace: Workspace" });
-    const writing = screen.getByRole("tab", { name: "Writing" });
-    const reading = screen.getByRole("tab", { name: "Reading" });
+    act(() => controller.setPreset("reading"));
     trigger.focus();
     fireEvent.keyDown(trigger, { key: "ArrowRight" });
-    expect(writing).toHaveFocus();
-    expect(controller.ui.get().preset).toBe("writing");
-    fireEvent.keyDown(writing, { key: "ArrowRight" });
-    expect(reading).toHaveFocus();
-    expect(controller.ui.get().preset).toBe("reading");
-    // Round to the workspace: it is chosen, not its menu opened.
-    fireEvent.keyDown(reading, { key: "ArrowRight" });
     expect(trigger).toHaveFocus();
     expect(controller.ui.get().preset).toBeNull();
     expect(screen.queryByRole("menu")).toBeNull();
-    fireEvent.keyDown(trigger, { key: "End" });
-    expect(reading).toHaveFocus();
-    fireEvent.keyDown(reading, { key: "Home" });
-    expect(trigger).toHaveFocus();
-    expect(controller.ui.get().preset).toBeNull();
-    fireEvent.keyDown(trigger, { key: "ArrowLeft" });
-    expect(reading).toHaveFocus();
   });
 
   it("reaches each of the first nine workspaces by position", () => {

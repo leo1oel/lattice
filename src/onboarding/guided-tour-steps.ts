@@ -168,9 +168,10 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "layouts",
     title: msg`Layouts for each task`,
-    body: msg`Workspaces keep your panel arrangements. Writing and Reading are ready-made.`,
-    action: msg`Switch to Reading`,
-    target: () => elementRect(".trellis-titlebar-presets"),
+    body: msg`Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you.`,
+    action: msg`Choose Reading in Panels`,
+    // The presets are in the Panels menu, not among the workspaces' tabs.
+    target: () => elementRect("[data-trellis-panels-menu]"),
     watch: ({ controller }, done) => watchStore(
       controller.ui,
       () => `${controller.ui.get().preset ?? ""}\n${controller.ui.get().workspace}`,

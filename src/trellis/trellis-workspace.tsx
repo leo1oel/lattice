@@ -1151,7 +1151,10 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       presetRef.current = null;
       focusRef.current = null;
       try {
-        handle.setDocument(defaultLayout());
+        // The default with its document panel between the navigators and the
+        // PDF: the open documents fill it, and with none open it stays as an
+        // empty one, where the next document opens.
+        handle.setDocument(arrangementOf(defaultLayout()));
       } finally {
         resettingRef.current = false;
       }
@@ -1286,8 +1289,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         }
         show(handle, next, { preset, focus: false, focusPdf: false });
         // The document the layout is for becomes the active one: the source to
-        // write, the paper to read. Keyboard focus stays on the layout switch,
-        // so its arrow keys keep moving between layouts.
+        // write, the paper to read. Keyboard focus stays where it was.
         const root = handle.getDocument().root;
         const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
         const key = lead ? handle.view(lead)?.params.key : null;
