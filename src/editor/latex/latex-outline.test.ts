@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   activeOutlineNode,
+  findBodyEnd,
   flattenOutline,
   parseLatexOutline,
   parseProjectOutline,
@@ -8,6 +9,12 @@ import {
 } from "./latex-outline";
 
 describe("latex outline", () => {
+  it("ends the body at the first appendix switch ignoring comments", () => {
+    const appendix = { "main.tex": "\\section{Intro}\n% \\appendix\n\\appendix\n\\section{Proofs}\n" };
+    expect(findBodyEnd("main.tex", appendix, ["main.tex"])).toEqual([{ path: "main.tex", before: 3 }]);
+    expect(findBodyEnd("main.tex", { "main.tex": "\\begin{document}\nHi\n\\end{document}\n" }, ["main.tex"])).toBeNull();
+  });
+
   it("keeps independent line counters across nested includes and multiline titles", () => {
     const sources = {
       "main.tex": "😀\r\n\\section{First}\n\\input{body}\n\n\\section{Last\n title}\\subsection{Same line}",

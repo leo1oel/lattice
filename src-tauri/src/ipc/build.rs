@@ -140,6 +140,15 @@ pub async fn synctex_view(
         .await
 }
 
+/// How many pages of the compiled PDF the manuscript's body takes.
+#[tauri::command]
+pub async fn synctex_body_pages(
+    state: State<'_, AppState>, window: Window, spans: Vec<latex::BodySpan>,
+) -> Result<Option<u32>, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("The SyncTeX page count", move || latex::body_pages(&root, &spans)).await
+}
+
 #[tauri::command]
 pub async fn run_doctor(
     state: State<'_, AppState>, window: Window,

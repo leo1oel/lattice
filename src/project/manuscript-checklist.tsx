@@ -4,7 +4,7 @@ import { ChevronRight, ClipboardCheck } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
-import type { AppendixBoundary } from "../app-types";
+import type { BodyBoundary } from "../app-types";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -17,8 +17,8 @@ export type ManuscriptChecklistData = {
   wordSource: string;
   wordBudget: number | null;
   pages: number | null;
-  /** Where `\appendix` splits the PDF; the page budget counts what precedes it. */
-  appendix: AppendixBoundary;
+  /** Where the main body ends, before its appendix or references; the page budget counts only the body. */
+  body: BodyBoundary;
   pageBudget: number | null;
   todos: number;
   unusedLabels: number;
@@ -92,18 +92,18 @@ export function ManuscriptChecklistPanel(props: {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
-  const { words, wordBudget: wordLimit, pageBudget: pageLimit, pages: totalPages, appendix } = props.data;
+  const { words, wordBudget: wordLimit, pageBudget: pageLimit, pages: totalPages, body } = props.data;
   // A missing or partial count is never a pass: no meter, no colour, only
   // what was counted and why it cannot settle the limit.
   const wordsEstimated = props.data.wordSource !== "texcount";
   const countedWords = wordsEstimated ? null : words;
   const wordsOk = wordLimit == null || countedWords == null ? null : countedWords <= wordLimit;
-  // Without an appendix the whole PDF is the main body; with one SyncTeX has
-  // not placed, or before the included files show whether there is one, the
-  // total would measure a different scope than the budget.
+  // Without an appendix or references the whole PDF is the main body; with an
+  // end SyncTeX has not placed, or before the included files show where the
+  // body ends, the total would measure a different scope than the budget.
   const countedPages = totalPages == null
     ? null
-    : appendix.kind === "none" ? totalPages : appendix.kind === "resolved" ? appendix.mainPages : null;
+    : body.kind === "none" ? totalPages : body.kind === "resolved" ? body.mainPages : null;
   const pagesOk = pageLimit == null || countedPages == null ? null : countedPages <= pageLimit;
   const wordLimitNote = wordLimit == null
     ? null
@@ -117,12 +117,12 @@ export function ManuscriptChecklistPanel(props: {
       : t`via texcount -inc`;
   const pageDetail = totalPages == null
     ? notes(pageLimitNote)
-    : appendix.kind === "unread"
+    : body.kind === "unread"
       ? notes(t`${totalPages} total · included files not read`, pageLimitNote)
-      : appendix.kind === "unresolved"
-        ? notes(t`${totalPages} total · appendix not located in the PDF`, pageLimitNote)
-        : appendix.kind === "resolved" && appendix.mainPages !== totalPages
-          ? t({ message: `${{ totalPages }} total · appendix after p.${{ mainPages: appendix.mainPages }}` })
+      : body.kind === "unresolved"
+        ? notes(t`${totalPages} total · end of the body not located in the PDF`, pageLimitNote)
+        : body.kind === "resolved" && body.mainPages !== totalPages
+          ? t({ message: `${{ totalPages }} total · body ends on p.${{ mainPages: body.mainPages }}` })
           : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);
@@ -161,7 +161,7 @@ export function ManuscriptChecklistPanel(props: {
             detail={wordDetail}
           />
           <BudgetRow
-            label={totalPages != null && appendix.kind !== "none" ? t`Main pages` : t`PDF pages`}
+            label={totalPages != null && body.kind !== "none" ? t`Main pages` : t`PDF pages`}
             value={totalPages == null
               ? t`Build to count`
               : countedPages == null
@@ -193,8 +193,8 @@ export function ManuscriptChecklistPanel(props: {
         </div>
         <div className="checklist-budgets">
           {([
-            ["word", t`Word budget`, wordBudget, setWordBudget, t`e.g. 5500`],
-            ["page", t`Page budget`, pageBudget, setPageBudget, t`e.g. 9`],
+            ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],
+            ["page", t`Page budget`, pageBudget, setPageBudget, t`No limit`],
           ] as const).map(([budgetKey, label, value, setValue, placeholder]) => (
             <label key={budgetKey}>
               {label}

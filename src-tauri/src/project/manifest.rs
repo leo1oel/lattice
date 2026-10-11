@@ -2,7 +2,7 @@
 //! root documents, compile roots, TeX magic comments, and project settings.
 //! Also the editor-comments sidecar.
 
-use super::create::{default_brief, default_manifest, Venue, RESEARCH_GITIGNORE};
+use super::create::{default_brief, default_manifest, RESEARCH_GITIGNORE};
 use super::history::{
     prune_conversation_checkpoints, MAX_CHECKPOINTS_PER_SESSION, MAX_CHECKPOINT_BYTES,
 };
@@ -17,6 +17,8 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 const MANIFEST_PATH: &str = ".research/project.json";
+/// The manifest's format; 2 is the first without a seeded word budget.
+pub(super) const MANIFEST_SCHEMA_VERSION: u32 = 2;
 const EDITOR_COMMENTS_PATH: &str = ".research/editor-comments.json";
 
 pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
@@ -55,11 +57,9 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     if apply_tex_magic_comments(&root, &mut manifest)? {
         write_manifest(&root, &manifest)?;
     }
-    if manifest.word_budget.is_none() && manifest.page_budget.is_none() {
-        if let Ok(venue) = Venue::parse(&manifest.venue) {
-            (manifest.word_budget, manifest.page_budget) = venue.budgets();
-            write_manifest(&root, &manifest)?;
-        }
+    if manifest.schema_version < MANIFEST_SCHEMA_VERSION {
+        upgrade_manifest(&mut manifest);
+        write_manifest(&root, &manifest)?;
     }
 
     let step = wide_event::step("scan");
@@ -115,6 +115,17 @@ pub fn classify_open_error(error: &str) -> Failure {
 }
 
 /// Write down a manifest for a folder Lattice did not create.
+/// Bring an older manifest up to [`MANIFEST_SCHEMA_VERSION`]. Before 2, every
+/// project was born with a 5,500-word budget that no venue sets, stored as if
+/// the writer had chosen it, so the checklist held every paper to it; that
+/// seeded value goes.
+fn upgrade_manifest(manifest: &mut ProjectManifest) {
+    if manifest.word_budget == Some(5500) {
+        manifest.word_budget = None;
+    }
+    manifest.schema_version = MANIFEST_SCHEMA_VERSION;
+}
+
 fn adopt_folder(root: &Path) -> Result<ProjectManifest, String> {
     let name = root.file_name().and_then(|value| value.to_str()).unwrap_or("Research project");
     let mut manifest = default_manifest(name);

@@ -218,6 +218,47 @@ pub(super) fn source_at(synctex: &str, page: u32, (x, y): (f64, f64)) -> Option<
     Some((inputs.get(&tag)?.to_string(), line))
 }
 
+/// The last page holding anything TeX recorded from a line `before` keeps:
+/// asked once per input as SyncTeX declares it, with that input's path, it
+/// answers the line its records must come before (`u32::MAX` for the whole
+/// file), or `None` for an input that does not count.
+///
+/// A page's header and footer are recorded at the source line TeX was reading
+/// when the page broke, so a page the references open is tagged with lines
+/// after them, never with the body's; and a page the body shares with the
+/// references holds the body's own records.
+pub(super) fn last_page_before(
+    synctex: &str, mut before: impl FnMut(&str) -> Option<u32>,
+) -> Option<u32> {
+    let mut limits = HashMap::new();
+    let mut page = None;
+    let mut last = None;
+    for record in synctex.lines() {
+        if let Some((tag, path)) =
+            record.strip_prefix("Input:").and_then(|rest| rest.split_once(':'))
+        {
+            if let (Ok(tag), Some(limit)) = (tag.parse::<u32>(), before(path)) {
+                limits.insert(tag, limit);
+            }
+            continue;
+        }
+        if let Some(number) = record.strip_prefix('{') {
+            page = number.parse::<u32>().ok();
+            continue;
+        }
+        if record.starts_with('}') {
+            page = None;
+            continue;
+        }
+        let Some(page) = page else { continue };
+        let Some(node) = record.get(1..).and_then(Node::parse) else { continue };
+        if node.line > 0 && limits.get(&node.tag).is_some_and(|limit| node.line < *limit) {
+            last = Some(page);
+        }
+    }
+    last
+}
+
 /// How well a record answers for a point: its distance from it, its area,
 /// then the deepest box first.
 type Rank = (f64, f64, Reverse<usize>);

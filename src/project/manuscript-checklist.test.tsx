@@ -4,7 +4,7 @@ import { ManuscriptChecklistPanel, type ManuscriptChecklistData } from "./manusc
 import { activateAppLocale } from "../i18n";
 
 const base: ManuscriptChecklistData = {
-  words: 5_080, wordSource: "texcount", wordBudget: null, pages: 12, appendix: { kind: "none" }, pageBudget: null,
+  words: 5_080, wordSource: "texcount", wordBudget: null, pages: 12, body: { kind: "none" }, pageBudget: null,
   todos: 0, unusedLabels: 0, unusedCitations: 0, buildOk: true, buildMessage: "",
 };
 
@@ -70,14 +70,14 @@ describe("ManuscriptChecklistPanel budgets", () => {
   });
 
   it("counts main pages against the page budget and shows the total beside it", () => {
-    const { row } = renderChecklist({ pages: 12, appendix: { kind: "resolved", mainPages: 8 }, pageBudget: 9 });
-    expect(row("Main pages")).toHaveTextContent("Main pages8 / 91 page remaining · 12 total · appendix after p.8");
+    const { row } = renderChecklist({ pages: 12, body: { kind: "resolved", mainPages: 8 }, pageBudget: 9 });
+    expect(row("Main pages")).toHaveTextContent("Main pages8 / 91 page remaining · 12 total · body ends on p.8");
     expect(row("Main pages")).toHaveClass("ok");
   });
 
   it.each([10, 20])("leaves main pages unmeasured, not the PDF's total, when the appendix was not located (%i-page budget)", (pageBudget) => {
-    const { container, row } = renderChecklist({ pages: 12, appendix: { kind: "unresolved" }, pageBudget });
-    expect(row("Main pages")).toHaveTextContent(`Main pagesUnavailable12 total · appendix not located in the PDF · Limit ${pageBudget} pages`);
+    const { container, row } = renderChecklist({ pages: 12, body: { kind: "unresolved" }, pageBudget });
+    expect(row("Main pages")).toHaveTextContent(`Main pagesUnavailable12 total · end of the body not located in the PDF · Limit ${pageBudget} pages`);
     expect(row("Main pages")).not.toHaveClass("ok");
     expect(row("Main pages")).not.toHaveClass("warn");
     expect(container.querySelector(".checklist-meter")).toBeNull();
@@ -86,7 +86,7 @@ describe("ManuscriptChecklistPanel budgets", () => {
   it("leaves main pages unmeasured, not the PDF's total, until the included files show whether there is an appendix", () => {
     // 12 pages against a 10-page budget would be a false "2 pages over" if
     // an appendix still unread were taken for none.
-    const { container, row } = renderChecklist({ pages: 12, appendix: { kind: "unread" }, pageBudget: 10 });
+    const { container, row } = renderChecklist({ pages: 12, body: { kind: "unread" }, pageBudget: 10 });
     expect(row("Main pages")).toHaveTextContent("Main pagesUnavailable12 total · included files not read · Limit 10 pages");
     expect(row("Main pages")).not.toHaveClass("ok");
     expect(row("Main pages")).not.toHaveClass("warn");
@@ -94,7 +94,7 @@ describe("ManuscriptChecklistPanel budgets", () => {
   });
 
   it("never passes a budget it cannot measure", () => {
-    const { container, row } = renderChecklist({ words: null, wordBudget: 5_500, pages: null, appendix: { kind: "unresolved" }, pageBudget: 9 });
+    const { container, row } = renderChecklist({ words: null, wordBudget: 5_500, pages: null, body: { kind: "unresolved" }, pageBudget: 9 });
     expect(container.querySelector(".checklist-meter")).toBeNull();
     expect(row("Body words")).toHaveTextContent("Body wordsUnavailableNeeds a root document to count from · Limit 5,500 words");
     expect(row("PDF pages")).toHaveTextContent("PDF pagesBuild to countLimit 9 pages");

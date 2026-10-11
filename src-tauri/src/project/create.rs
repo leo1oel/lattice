@@ -1,6 +1,6 @@
 //! New projects: conference templates and the disposable tutorial.
 
-use super::manifest::write_manifest;
+use super::manifest::{write_manifest, MANIFEST_SCHEMA_VERSION};
 use super::paths::is_plain_segment;
 use super::tree::build_artifact_ignore_lines;
 use crate::models::{ProjectManifest, RootDocument};
@@ -80,11 +80,12 @@ impl Venue {
         }
     }
 
-    /// Default (word, page) budgets.
-    pub(super) fn budgets(self) -> (Option<u32>, Option<u32>) {
+    /// The main-text page limit the venue's call for papers sets. None of them
+    /// limits words, so a new project has no word budget until the writer sets one.
+    fn page_budget(self) -> u32 {
         match self {
-            Self::Neurips | Self::Iclr => (Some(5500), Some(9)),
-            Self::Icml => (Some(5500), Some(8)),
+            Self::Neurips | Self::Iclr => 9,
+            Self::Icml => 8,
         }
     }
 
@@ -102,9 +103,8 @@ pub fn default_manifest(name: &str) -> ProjectManifest {
 }
 
 fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
-    let (word_budget, page_budget) = venue.budgets();
     ProjectManifest {
-        schema_version: 1,
+        schema_version: MANIFEST_SCHEMA_VERSION,
         project_id: Uuid::new_v4().to_string(),
         name: name.to_string(),
         root_documents: vec![RootDocument {
@@ -117,8 +117,8 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         engine: "pdf".to_string(),
         keep_engine: false,
         venue: venue.as_str().to_string(),
-        word_budget,
-        page_budget,
+        word_budget: None,
+        page_budget: Some(venue.page_budget()),
         spelling_words: Vec::new(),
     }
 }

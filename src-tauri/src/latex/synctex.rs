@@ -7,6 +7,7 @@ use crate::commands;
 use crate::latex::PdfSyncTarget;
 use crate::models::SyncTexTarget;
 use crate::project;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -88,6 +89,43 @@ pub fn forward_search(
     first_synctex_view_target(&output, |page| {
         records::read(&pdf).map(|synctex| records::corrections(&synctex, page)).unwrap_or_default()
     })
+}
+
+/// Source the manuscript's body is read from: all of `path`, or its lines
+/// before `before` (where the body ends in it, or the file holding that end
+/// is included).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BodySpan {
+    pub path: String,
+    pub before: Option<u32>,
+}
+
+/// How many pages of the compiled PDF the body takes: the last page holding
+/// anything typeset from `spans`. References and an appendix that start
+/// partway down a page leave that page in the body; ones that open a page do
+/// not. `None` when nothing from `spans` is on any page.
+pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String> {
+    let (_, pdf) = synced_pdf(root, "Build the project before counting its pages.")?;
+    let Some(synctex) = records::read(&root.join(&pdf)) else { return Ok(None) };
+    let spans: Vec<(PathBuf, u32)> = spans
+        .iter()
+        .filter_map(|span| {
+            let path = project::safe_path(root, &span.path).ok()?.canonicalize().ok()?;
+            Some((path, span.before.unwrap_or(u32::MAX)))
+        })
+        .collect();
+    // SyncTeX names its inputs as TeX opened them, absolute or from the
+    // build's directory: the project root.
+    Ok(records::last_page_before(&synctex, |input| {
+        let input = root.join(input);
+        // Most inputs are the TeX installation's: only a name a span has is resolved.
+        if !spans.iter().any(|(path, _)| path.file_name() == input.file_name()) {
+            return None;
+        }
+        let input = input.canonicalize().ok()?;
+        spans.iter().find(|(path, _)| *path == input).map(|(_, before)| *before)
+    }))
 }
 
 /// The default root document and its PDF (relative to `root`), once that PDF

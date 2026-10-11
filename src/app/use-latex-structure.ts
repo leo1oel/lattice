@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppendixBoundary, EditorPosition, ProjectSnapshot } from "../app-types";
+import type { BodyBoundary, EditorPosition, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
-import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "../editor/latex/latex-outline";
 import {
-  findAppendixMarker, katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
+  activeOutlineNode, findBodyEnd, includedPathsIn, parseProjectOutline, type BodySpan,
+} from "../editor/latex/latex-outline";
+import {
+  katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
   type ReferenceInfo,
 } from "../editor/latex/latex-text";
 import { changesReach, onProjectFilesChanged } from "../project/project-files-changed";
@@ -12,9 +14,9 @@ import { mergeTodosWithBuffer, type TodoHit } from "../project/todo-scavenger";
 
 /** How deep `\input`/`\include` chains are followed from the root document. */
 const MAX_INCLUDE_DEPTH = 8;
-const NO_APPENDIX: AppendixBoundary = { kind: "none" };
-const UNRESOLVED_APPENDIX: AppendixBoundary = { kind: "unresolved" };
-const UNREAD_APPENDIX: AppendixBoundary = { kind: "unread" };
+const NO_BODY_END: BodyBoundary = { kind: "none" };
+const UNRESOLVED_BODY_END: BodyBoundary = { kind: "unresolved" };
+const UNREAD_BODY_END: BodyBoundary = { kind: "unread" };
 const NO_SOURCES: Record<string, string> = {};
 const NO_PATHS: string[] = [];
 
@@ -50,8 +52,8 @@ export type LatexStructureDeps = {
   pdfShown: boolean;
   /**
    * The PDF the last successful build shows (its preview URL), or null: the
-   * appendix's page there marks where the main body ends. A new URL is a new
-   * PDF, whose pagination may differ though the appendix stayed on its line.
+   * last page holding the body there is where the main body ends. A new URL is
+   * a new PDF, whose pagination may differ though the source did not move.
    */
   compiledPdf: string | null;
 };
@@ -60,7 +62,7 @@ export type LatexStructureDeps = {
  * What the project's LaTeX says about itself, kept live with the open
  * buffer: the section outline across `\input`/`\include` files, labels,
  * macros (for completion and KaTeX), `\graphicspath` roots, TODO markers, and
- * how many PDF pages the main body (before `\appendix`) takes.
+ * how many PDF pages the main body (before its appendix or references) takes.
  *
  * Only a `.tex` buffer joins the project-wide parses, through its settled
  * text: a Markdown buffer leaves every memo here inert while typing.
@@ -121,8 +123,8 @@ export function useLatexStructure({
   // lists them (its panel, Go to symbol): with only the open buffer it found
   // nothing in a project whose sections live in \input/\include files, or
   // whenever the root was not open. A PDF on screen needs them too, whatever
-  // panel is open: an \appendix in an unread file would read as no appendix, and
-  // the whole PDF would be held to the main body's page budget.
+  // panel is open: an \appendix or bibliography in an unread file would read
+  // as none, and the whole PDF would be held to the main body's page budget.
   const scanWanted = outlineWanted || pdfShown;
   useEffect(() => {
     if (!scanWanted || !manuscript.missing.length) return;
@@ -219,49 +221,53 @@ export function useLatexStructure({
     [activeFile, diskTodos, settledSource],
   );
 
-  // Where \appendix sits, as two scalars rather than the marker object. The
-  // source map behind it is rebuilt on every keystroke, so keying the SyncTeX
-  // lookup on the map spent an IPC round trip per character typed while a
-  // build was on screen. The appendix only moves when someone edits around it.
+  // What the body is read from, up to where it ends (its appendix or
+  // references), as one string rather than the spans themselves. The source
+  // map behind it is rebuilt on every keystroke, so keying the SyncTeX count
+  // on the map spent an IPC round trip per character typed while a build was
+  // on screen. The spans only change when someone edits above the body's end.
   // Only the manuscript's own files: an unrelated .tex open in the editor has
   // no say in where this PDF's main body ends.
-  const appendixMarker = useMemo(() => findAppendixMarker(manuscript.sources), [manuscript]);
-  const appendixMarkerPath = appendixMarker?.path ?? "";
-  const appendixMarkerLine = appendixMarker?.line ?? 0;
-  // SyncTeX's last answer: the main body's page count, or null when it could
-  // not place the marker (no target, or the lookup failed). A rebuild keeps
-  // the last answer until the next one arrives, so the count does not flicker.
-  // The answer belongs to one project and marker, and only shows while they
+  const bodyEnd = useMemo(
+    () => findBodyEnd(rootDocumentPath, manuscript.sources, projectPaths, MAX_INCLUDE_DEPTH),
+    [manuscript, projectPaths, rootDocumentPath],
+  );
+  const bodySpans = Array.isArray(bodyEnd) ? JSON.stringify(bodyEnd) : "";
+  // SyncTeX's last answer: the main body's page count, or null when it found
+  // none of the body in the PDF (or the count failed). A rebuild keeps the
+  // last answer until the next one arrives, so the count does not flicker.
+  // The answer belongs to one project and body, and only shows while they
   // are current; it is dropped once the PDF goes away. Leaving a file of the
-  // manuscript hides its marker for a render, until the effect below keeps
-  // its text: the answer outlasts that, and is not asked again for the same PDF.
-  const placementOwner = `${project?.root ?? ""}\n${appendixMarkerPath}\n${appendixMarkerLine}`;
-  const [appendixPlacement, setAppendixPlacement] = useState<{
+  // manuscript hides its text for a render, until the effect below keeps it:
+  // the answer outlasts that, and is not asked again for the same PDF.
+  const placementOwner = `${project?.root ?? ""}\n${bodySpans}`;
+  const [bodyPlacement, setBodyPlacement] = useState<{
     owner: string;
     pdf: string;
     mainPages: number | null;
   } | null>(null);
-  if (appendixPlacement && !compiledPdf) setAppendixPlacement(null);
-  const placementCurrent = appendixPlacement?.owner === placementOwner;
-  const placedInPdf = placementCurrent && appendixPlacement?.pdf === compiledPdf;
+  if (bodyPlacement && !compiledPdf) setBodyPlacement(null);
+  const placementCurrent = bodyPlacement?.owner === placementOwner;
+  const placedInPdf = placementCurrent && bodyPlacement?.pdf === compiledPdf;
   useEffect(() => {
-    if (!compiledPdf || !appendixMarkerPath || placedInPdf) return;
+    if (!compiledPdf || !bodySpans || placedInPdf) return;
     let cancelled = false;
-    void invoke<{ page: number } | null>("synctex_view", { path: appendixMarkerPath, line: appendixMarkerLine, column: 0 })
-      .then((target) => (target ? Math.max(0, target.page - 1) : null), () => null)
+    void invoke<number | null>("synctex_body_pages", { spans: JSON.parse(bodySpans) as BodySpan[] })
+      .then((pages) => pages ?? null, () => null)
       .then((mainPages) => {
         if (cancelled) return;
-        setAppendixPlacement({ owner: placementOwner, pdf: compiledPdf, mainPages });
+        setBodyPlacement({ owner: placementOwner, pdf: compiledPdf, mainPages });
       });
     return () => {
       cancelled = true;
     };
-  }, [appendixMarkerLine, appendixMarkerPath, compiledPdf, placedInPdf, placementOwner]);
-  const appendixBoundary = useMemo((): AppendixBoundary => {
-    if (!appendixMarkerPath) return manuscript.complete ? NO_APPENDIX : UNREAD_APPENDIX;
-    const mainPages = compiledPdf && placementCurrent ? appendixPlacement?.mainPages : null;
-    return mainPages == null ? UNRESOLVED_APPENDIX : { kind: "resolved", mainPages };
-  }, [appendixMarkerPath, appendixPlacement, compiledPdf, manuscript.complete, placementCurrent]);
+  }, [bodySpans, compiledPdf, placedInPdf, placementOwner]);
+  const bodyBoundary = useMemo((): BodyBoundary => {
+    if (bodyEnd === "unread") return UNREAD_BODY_END;
+    if (!bodyEnd) return manuscript.complete ? NO_BODY_END : UNREAD_BODY_END;
+    const mainPages = compiledPdf && placementCurrent ? bodyPlacement?.mainPages : null;
+    return mainPages == null ? UNRESOLVED_BODY_END : { kind: "resolved", mainPages };
+  }, [bodyEnd, bodyPlacement, compiledPdf, manuscript.complete, placementCurrent]);
 
   /** Included files follow a rename or move. */
   const remapIncludedSources = useCallback((remap: (path: string) => string) => {
@@ -279,6 +285,6 @@ export function useLatexStructure({
 
   return {
     projectPaths, rootDocumentPath, outlineNodes, activeOutlineId, liveReferences, macros, graphicsRoots, katexMacros,
-    todoHits, appendixBoundary, remapIncludedSources, forgetIncludedSources,
+    todoHits, bodyBoundary, remapIncludedSources, forgetIncludedSources,
   };
 }
