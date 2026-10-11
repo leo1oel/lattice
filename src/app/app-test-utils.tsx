@@ -708,7 +708,7 @@ export async function dropFinderPaths(paths: string[]) {
 export function persistLayout(root: string, layout: Pick<WorkspaceLayout, "openTabs" | "activeFile" | "canvasMode"> & Partial<WorkspaceLayout>) {
   persistWorkspaceLayout(root, {
     activeTab: layout.activeFile,
-    documentMode: layout.canvasMode as WorkspaceLayout["documentMode"], paperView: "blog", ...layout,
+    documentMode: layout.canvasMode as WorkspaceLayout["documentMode"], bibMode: "source", paperView: "blog", ...layout,
   });
 }
 

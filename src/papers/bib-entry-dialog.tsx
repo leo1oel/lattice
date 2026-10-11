@@ -67,6 +67,8 @@ export function BibEntryDialog(props: {
   busy: boolean;
   error: string | null;
   mode?: "add" | "edit";
+  /** Offer to insert `\cite{key}` at the editor's caret once a new entry is saved. */
+  offerCite?: boolean;
   initialResolveQuery?: string;
   initialDraft?: ResolvedCitationDraft;
   onClose: () => void;
@@ -85,7 +87,8 @@ export function BibEntryDialog(props: {
   const [initialFields] = useState(() => fieldsOf(seed));
   const [type, setType] = useState<BibEntryType>(initialType);
   const [fields, setFields] = useState(initialFields);
-  const [insertCite, setInsertCite] = useState(!editing);
+  const offerCite = !editing && props.offerCite !== false;
+  const [insertCite, setInsertCite] = useState(offerCite);
   const [resolveQuery, setResolveQuery] = useState(props.initialResolveQuery ?? "");
   const [venueOpen, setVenueOpen] = useState(false);
   // The suggestion the arrows (or the pointer) last lit; Enter takes it.
@@ -251,7 +254,7 @@ export function BibEntryDialog(props: {
   const error = lookupError ?? props.error;
   // Anything typed or picked since the dialog opened; a click outside must not throw it away.
   const dirty = type !== initialType || TEXT_FIELDS.some((name) => fields[name] !== initialFields[name])
-    || resolveQuery !== (props.initialResolveQuery ?? "") || insertCite !== !editing;
+    || resolveQuery !== (props.initialResolveQuery ?? "") || insertCite !== offerCite;
   // `BIB_ENTRY_TYPES` is BibTeX wire format; only the menu label is prose.
   const entryTypeLabel: Record<BibEntryType, string> = {
     article: t`Article`,
@@ -391,7 +394,7 @@ export function BibEntryDialog(props: {
           )}
           {textField("doi", "DOI", { placeholder: "10.…" })}
           {textField("url", "URL")}
-          {!editing && (
+          {offerCite && (
             <CheckboxField
               checked={insertCite}
               label={t`Insert cite at cursor after saving`}

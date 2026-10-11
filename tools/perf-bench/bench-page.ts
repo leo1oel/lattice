@@ -365,6 +365,23 @@ function textTask(args: Args): unknown {
   return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
 
+/** Every `\\cite…{keys}` in the project's .tex files, as `list_citation_usages` reports them. */
+function citationUsages() {
+  const usages: Array<{ kind: string; symbol: string; role: string; path: string; line: number; snippet: string }> = [];
+  for (const [path, content] of current.files) {
+    if (!path.endsWith(".tex") || typeof content !== "string") continue;
+    const lines = content.split("\n");
+    lines.forEach((text, index) => {
+      for (const match of text.matchAll(/\\(?:no)?cite[a-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}/g)) {
+        for (const key of match[1].split(",").map((part) => part.trim()).filter(Boolean)) {
+          usages.push({ kind: "citation", symbol: key, role: "reference", path, line: index + 1, snippet: text.trim().slice(0, 160) });
+        }
+      }
+    });
+  }
+  return usages;
+}
+
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   switch (command) {
@@ -419,6 +436,8 @@ function answer(command: string, args: Args): unknown {
       return { available: false, repository: false, branch: null, files: [] };
     case "list_unused_symbols":
       return { labels: [], citations: [] };
+    case "list_citation_usages":
+      return citationUsages();
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":

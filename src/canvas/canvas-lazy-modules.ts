@@ -32,5 +32,11 @@ export const loadSpreadsheetEditorModule = () => import("../editor/spreadsheet/s
 
 export const loadOpenSlideWorkspaceModule = () => import("../editor/presentation/open-slide-workspace");
 
+/** A .bib file's visual form: the reference list. */
+export const loadBibVisualEditorModule = () => import("../papers/bib-visual-editor");
+
+/** The .bib parser on its own, for deciding whether the reference list can show (it shares it). */
+export const loadBibDocumentModule = () => import("../papers/bib-document");
+
 /** The proofread card's diff (Pierre and its highlighter). */
 export const loadProofreadDiffModule = () => import("./proofread-diff");

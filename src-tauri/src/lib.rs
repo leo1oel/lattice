@@ -392,6 +392,7 @@ pub fn run() {
             ipc::search::rename_symbol,
             ipc::search::list_references,
             ipc::search::list_unused_symbols,
+            ipc::search::list_citation_usages,
             ipc::search::list_todos,
             ipc::search::count_project_words,
             ipc::bibliography::list_citations,

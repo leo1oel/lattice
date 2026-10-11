@@ -143,11 +143,25 @@ function entryAt(source: string, start: number, newline: string): ScannedEntry |
 
 const isFormatted = (entry: ScannedEntry | null): entry is FormattedEntry => Boolean(entry?.formatted);
 
+/** Where `next` differs from `previous`: `[from, to)` in `next`, empty for a pure deletion. */
+function changedRange(previous: string, next: string) {
+  let from = 0;
+  while (from < previous.length && from < next.length && previous[from] === next[from]) from += 1;
+  let suffix = 0;
+  const limit = Math.min(previous.length, next.length) - from;
+  while (suffix < limit && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]) suffix += 1;
+  return { from, to: next.length - suffix };
+}
+
 /**
  * Formats only complete, conventional BibTeX entries. Anything the scanner
  * cannot classify without interpreting BibTeX is copied byte-for-byte.
+ *
+ * Given `saved`, the text this save replaces, only the entries the save
+ * changed are formatted: every other entry keeps the writer's own layout
+ * (aligned `=` signs, the spacing around it), however it was written.
  */
-export function formatBibDocument(source: string): string {
+export function formatBibDocument(source: string, saved?: string): string {
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
   const entryStart = /(^|\n)([\t ]*)@([A-Za-z][A-Za-z0-9_-]*)[\t ]*([({])/g;
   const entries: FormattedEntry[] = [];
@@ -173,9 +187,16 @@ export function formatBibDocument(source: string): string {
     entryStart.lastIndex = previousEnd + 1;
   }
 
+  const changed = saved === undefined ? null : changedRange(saved, source);
+  const touched = (entry: FormattedEntry) => !changed || (changed.to > changed.from
+    ? entry.start < changed.to && entry.end >= changed.from
+    // A deletion touches the entry it was made inside, not the one after it.
+    : entry.start < changed.from && entry.end >= changed.from);
+
   let output = "";
   let copiedThrough = 0;
   for (const [index, entry] of entries.entries()) {
+    if (!touched(entry)) continue;
     const gap = source.slice(copiedThrough, entry.start);
     const normalizedGap = index > 0 && /^[\t \r\n]*$/.test(gap) ? `${newline}${newline}` : gap;
     output += normalizedGap + entry.formatted;

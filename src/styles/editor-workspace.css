@@ -926,6 +926,8 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .resizing-split .split-canvas > * { transition: none; }
 .resizing-split { cursor: col-resize; user-select: none; }
 .markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
+/* A .bib file's reference list (papers/bib-visual-editor.css draws its inside). */
+.bib-preview { height: 100%; min-width: 0; min-height: 0; background: var(--editor-bg); }
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
 .markdown-preview-content:has(> .markdown-preview-loading) { display: grid; place-items: center; }
 .markdown-preview-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); }

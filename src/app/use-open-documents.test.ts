@@ -231,7 +231,7 @@ describe("opening documents", () => {
 describe("entering a project", () => {
   const layout = (overrides: Partial<WorkspaceLayout>): WorkspaceLayout => ({
     openTabs: ["main.tex", "intro.tex"], activeFile: "intro.tex", activeTab: "intro.tex", canvasMode: "source",
-    documentMode: "source", paperView: "blog", ...overrides,
+    documentMode: "source", bibMode: "source", paperView: "blog", ...overrides,
   });
 
   it("restores the saved tabs, file and mode, and persists the layout from then on", async () => {

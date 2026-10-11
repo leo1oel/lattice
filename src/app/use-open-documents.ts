@@ -8,7 +8,7 @@ import type {
   RefreshProject,
 } from "../app-types";
 import {
-  arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey, isPreviewableSourceFilePath, isProjectSourceFilePath, paperTabKey,
+  arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, isPreviewableSourceFilePath, isProjectSourceFilePath, paperTabKey,
   remapProjectPath, stripFrontmatter, toMessage, type ProjectPathChange,
 } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
@@ -256,6 +256,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const [mode, setMode] = useState<CanvasMode>("split");
   const htmlModesRef = useRef(new Map<string, DocumentViewMode>());
   const documentModeRef = useRef<DocumentViewMode>("split");
+  // A bibliography opens as its source until the writer picks its reference list (Preview) or Split.
+  const bibModeRef = useRef<DocumentViewMode>("source");
   useEffect(() => {
     if (
       !paper
@@ -388,9 +390,10 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       setAssetLive(null);
       setMode((current) => {
         if (isHtmlFilePath(path)) return htmlModesRef.current.get(path) ?? "pdf";
+        if (isBibFilePath(path)) return bibModeRef.current;
         if (isPreviewableSourceFilePath(path)) return documentModeRef.current;
         if (options?.revealSource) return "source";
-        if (isHtmlFilePath(previousPath)) return documentModeRef.current;
+        if (isHtmlFilePath(previousPath) || isBibFilePath(previousPath)) return documentModeRef.current;
         if (current === "asset") return "split";
         return current;
       });
@@ -441,7 +444,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       ] as const;
       const writtenPaths: string[] = [];
       if (!openPaper && !openAsset && primaryPath && primarySource !== primarySavedSource) {
-        const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource) : primarySource;
+        // Only what this save changed: the writer's layout of every other entry stays.
+        const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource, primarySavedSource) : primarySource;
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
         // edit, not be replaced by the formatted snapshot when the write returns.
         if (content !== primarySource) setTextLive(content);
@@ -882,6 +886,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         return;
       }
       if (isHtmlFilePath(activeFile)) htmlModesRef.current.set(activeFile, next);
+      else if (isBibFilePath(activeFile)) bibModeRef.current = next;
       else documentModeRef.current = next;
       setAssetLive(null);
       closePaper();
@@ -1055,6 +1060,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       activeTab,
       canvasMode: mode,
       documentMode: documentModeRef.current,
+      bibMode: bibModeRef.current,
       paperView,
     });
   }, [activeTab, file, mode, paperView, persistenceReadyRoot, projectRoot, tabs]);
@@ -1090,6 +1096,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     setMode("split");
     htmlModesRef.current.clear();
     documentModeRef.current = "split";
+    bibModeRef.current = "source";
     /** A newer file intent from the writer cancels the rest of the restore. */
     let primaryGeneration = restoreGeneration;
     const restoreIsCurrent = () => ownsProjectRestore() && intentRef.current === primaryGeneration;
@@ -1105,6 +1112,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         plan = planWorkspaceRestore(snapshot, papers, loadWorkspaceLayout(snapshot.root), loadLastFile(snapshot.root));
         const { primaryFile, activeTab: restoredTab, mode: restoredMode } = plan;
         documentModeRef.current = plan.documentMode;
+        bibModeRef.current = plan.bibMode;
         if (!restoreIsCurrent()) return supersede();
         if (primaryFile && !(await loadFile(primaryFile, { expectedProjectRoot: snapshot.root, projectGeneration }))) {
           return supersede();

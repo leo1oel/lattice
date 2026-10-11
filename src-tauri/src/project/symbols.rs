@@ -417,6 +417,21 @@ pub fn find_citation_usages(root: &Path, key: &str) -> Result<Vec<SymbolOccurren
         .collect())
 }
 
+/// Every citation of every key in the manuscript, in path order, for the
+/// bibliography's visual editor: one scan instead of one per key. `\nocite{*}`
+/// comes back as the key `*`.
+pub fn citation_usages(root: &Path) -> Result<Vec<SymbolOccurrence>, String> {
+    let mut usages = Vec::new();
+    for (path, source) in iter_tex_sources(root)? {
+        for (from, to, key) in find_command_argument_keys(&source, CITATION_COMMANDS) {
+            usages.push(
+                SymbolEdit::new(&path, &source, from, to, "reference").occurrence("citation", &key),
+            );
+        }
+    }
+    Ok(usages)
+}
+
 /// A whole-file citation edit: (relative path, expected contents, new contents).
 pub(crate) type PreparedFileEdit = (String, String, String);
 

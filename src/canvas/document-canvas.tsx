@@ -56,15 +56,16 @@ import type {
   EditorKeymap,
 } from "../app-types";
 import {
-  isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath, markdownFrontmatterEnd,
-  PROJECT_FIGURE_DRAG_TYPE,
+  isBibFilePath, isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath,
+  markdownFrontmatterEnd, PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
+import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import type { AgentHostSurface, AgentPdfDocumentPlace } from "../agent/agent-host-context";
 import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
-  BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, PdfPreview,
+  BibVisualEditor, BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, PdfPreview,
   PdfPreviewLoading, SpreadsheetEditor,
 } from "./canvas-lazy-editors";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
@@ -82,6 +83,7 @@ import { PaperReader } from "./paper-reader";
 import { OpenSlideDeckPool, type DeckHosts } from "./open-slide-deck-pool";
 import { AfterSwitch, type SwitchState } from "./after-switch";
 import { ProjectAssetPreview } from "./project-asset-preview";
+import { useBibUnreadable } from "./use-bib-readability";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { usePaperPdf } from "./use-paper-pdf";
@@ -209,6 +211,14 @@ export function DocumentCanvas(props: {
   activePaper: PaperSummary | null;
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
+  /** A .bib reference's library paper, opened from the reference list. */
+  onOpenPaper?: (paper: PaperSummary) => void;
+  /** A .bib reference's DOI, arXiv or web link. */
+  onOpenUrl?: (url: string) => void;
+  /** Looks a citation up for the reference list's Add reference. */
+  onResolveCitation?: (query: string) => Promise<ResolvedCitationDraft>;
+  /** Changes after the manuscript was saved, so the reference list scans its citations again. */
+  citationUsageRevision?: unknown;
   activeAsset: AssetPreview | null;
   /** The active asset was rewritten on disk: read its new version. */
   onActiveAssetChanged?: () => void;
@@ -364,6 +374,9 @@ export function DocumentCanvas(props: {
   const markdownDocument = Boolean(props.activePaper)
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
+  const bibDocument = !props.activePaper && isBibFilePath(activeFile);
+  // Shown alone, a reference list the file cannot make gives way to the source.
+  const bibUnreadable = useBibUnreadable(bibDocument && props.mode === "pdf" ? props.source : null);
   const explicitPreview = props.markdownPreviewSource;
   const markdownPreviewStart = explicitPreview !== undefined
     ? (props.source.endsWith(explicitPreview) ? props.source.length - explicitPreview.length : 0)
@@ -1092,6 +1105,30 @@ export function DocumentCanvas(props: {
   const undoVisualMarkdown = useCallback(() => stepVisualHistory("undo"), [stepVisualHistory]);
   const redoVisualMarkdown = useCallback(() => stepVisualHistory("redo"), [stepVisualHistory]);
 
+  /**
+   * The reference list's edit of the .bib in front: `next` was computed from
+   * `base`, so it lands only on that text. A mounted source view takes it as
+   * one change in its own history; otherwise the preview's history holds it,
+   * as it does a visual Markdown edit.
+   */
+  const replaceBibSource = useCallback((next: string, base: string) => {
+    if (latestRef.current.activeFile !== activeFile) return false;
+    const view = livePrimaryView();
+    const source = view?.state.doc.toString() ?? mountSourceRef.current;
+    if (source !== base) return false;
+    if (view) {
+      view.dispatch({ changes: minimalTextChange(base, next, 0) });
+      mountSourceRef.current = next;
+      return true;
+    }
+    if (visualSourceHistoryRef.current.path !== activeFile) visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
+    visualSourceHistoryRef.current.undo.push(source);
+    visualSourceHistoryRef.current.redo = [];
+    mountSourceRef.current = next;
+    setSource(next);
+    return true;
+  }, [activeFile, livePrimaryView, setSource]);
+
   useMarkdownSplitScroll({
     view: primaryScrollbarView,
     preview: markdownPreviewViewport,
@@ -1303,6 +1340,27 @@ export function DocumentCanvas(props: {
       pdfViewState={viewStateBinding(activeFile, "pdf")}
     />
   ) : markdownPreview;
+  const bibPreview = bibDocument ? (
+    <div className="bib-preview" onPointerDownCapture={activatePrimarySurface} onFocusCapture={activatePrimarySurface}>
+      <Suspense fallback={<MarkdownPreviewLoading />}>
+        <BibVisualEditor
+          path={activeFile}
+          source={props.source}
+          projectRoot={props.projectRoot}
+          editable={props.editorEditable}
+          papers={props.papers ?? []}
+          usageRevision={props.citationUsageRevision}
+          onChange={replaceBibSource}
+          onUndo={undoVisualMarkdown}
+          onRedo={redoVisualMarkdown}
+          onOpenLine={(path, line) => props.onTexlabGoto(path, line)}
+          onOpenPaper={(paper) => props.onOpenPaper?.(paper)}
+          onOpenUrl={(url) => props.onOpenUrl?.(url)}
+          onResolveCitation={(query) => props.onResolveCitation?.(query) ?? Promise.reject(new Error(t`Looking up references is not available here.`))}
+        />
+      </Suspense>
+    </div>
+  ) : null;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
@@ -1474,18 +1532,27 @@ export function DocumentCanvas(props: {
     );
   };
   const preview = props.activeAsset ? assetPreview(props.activeAsset)
+    : bibDocument ? bibPreview
     : markdownDocument ? paperPreview
       : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
         : projectPdfPreview(activeFile);
   // The file panel shows the document the way its kind is edited; LaTeX
   // and other source files never split here, the PDF is its own panel.
   const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.trellis;
-  const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument;
+  const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument || bibDocument;
   const fileContent = props.activeAsset ? assetPreview(props.activeAsset)
     : primaryKind === "presentation" ? null
     : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind))
       : paperPdf.pdfView ? paperPreview
         : !readable || props.mode === "source" ? editor
+          : bibUnreadable ? (
+            <div className="bib-source-fallback">
+              <InlineMessage level="warning">
+                {t`This bibliography can't be shown as a list until it reads as BibTeX.`} {bibUnreadable}
+              </InlineMessage>
+              {editor}
+            </div>
+          )
           : props.mode === "pdf" ? preview
             : (
         <div
@@ -1504,6 +1571,7 @@ export function DocumentCanvas(props: {
               ? t`Resize editor and asset preview`
               : markdownDocument
                 ? t`Resize editor and Markdown preview`
+                : bibDocument ? t`Resize editor and reference list`
                 : htmlDocument ? t`Resize editor and HTML preview` : t`Resize editor and PDF preview`,
             beginSplitResize,
             {

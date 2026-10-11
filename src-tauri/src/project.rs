@@ -75,7 +75,7 @@ pub(crate) use search::{
 pub use search::{list_todos, preview_replace_in_project, replace_in_project, search_files};
 pub use search::{ReplacePreview, ReplaceResult, TodoHit};
 pub(crate) use symbols::remove_citation_usages;
-pub use symbols::{find_citation_usages, unused_symbols, Symbol};
+pub use symbols::{citation_usages, find_citation_usages, unused_symbols, Symbol};
 pub use symbols::{RenameSymbolResult, UnusedSymbols};
 pub(crate) use tree::{project_tree_path_visible, scan_tree, tree_files, TreeView};
 pub use tree::{read_file, stat_file, ProjectFileStat};

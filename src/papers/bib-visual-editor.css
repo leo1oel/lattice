@@ -1,0 +1,95 @@
+/* A .bib file's visual form (bib-visual-editor.tsx): the reference list and,
+   beside it, the reference in front. A narrow pane shows one at a time. */
+.bib-visual { container: bib-visual / inline-size; height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--editor-bg); color: var(--text-primary); font-family: var(--ui-font); }
+.bib-visual[data-state="unreadable"] { grid-template-rows: minmax(0, 1fr); place-items: center; padding: var(--space-16) var(--space-12); }
+
+.bib-visual-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.bib-visual-search { flex: 1 1 12em; min-width: 0; }
+.bib-visual-filter { flex: none; }
+.bib-visual-count { margin-inline-start: var(--space-2); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.bib-visual-toolbar .bib-visual-sort { flex: none; width: auto; }
+.bib-visual-add { flex: none; }
+
+.bib-visual-body { min-height: 0; display: grid; grid-template-columns: minmax(18em, 1fr) minmax(22em, 1.25fr); }
+.bib-visual-list { position: relative; min-height: 0; overflow-y: auto; border-inline-end: 1px solid var(--border-subtle); }
+.bib-visual-list > .ui-empty-state { padding: var(--space-16) var(--space-8); }
+.bib-visual-rows { position: relative; }
+
+/* Every row is exactly ROW_HEIGHT tall (set inline), so the list can place
+   rows it has not drawn. Three lines: title, byline, key. */
+.bib-row { position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-rows: auto auto auto; align-content: center; row-gap: var(--space-1); padding: 0 var(--space-6); border-bottom: 1px solid var(--border-subtle); cursor: default; color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.bib-row:hover { background: var(--control-hover-surface); }
+.bib-row[aria-selected="true"] { background: var(--control-active-soft); }
+.bib-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Set as the Papers list sets a title; the reference in front takes the reader's face. */
+.bib-row-title { color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); }
+.bib-row-title em { color: var(--text-tertiary); }
+.bib-row-meta { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-row-foot { display: flex; align-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.bib-row-key { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--editor-font); }
+.bib-row-type { flex: none; }
+.bib-row-cited { flex: none; font-variant-numeric: tabular-nums; }
+.bib-row-badge { flex: none; }
+.bib-visual-list:focus-visible .bib-row[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--control-active); }
+
+.bib-visual-detail { min-width: 0; min-height: 0; display: grid; }
+.bib-visual-detail > .ui-empty-state { align-self: center; padding: var(--space-16) var(--space-8); }
+.bib-detail { min-height: 0; }
+.bib-detail-content { max-width: 46em; padding: var(--space-10) var(--space-12) var(--space-16); }
+/* Only a pane too narrow for both columns needs the way back to the list. */
+.bib-detail-back { display: none; }
+
+.bib-detail-header { display: grid; gap: var(--space-3); }
+.bib-detail-identity { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.bib-detail-identity .bib-detail-type { flex: none; width: auto; font-family: var(--editor-font); }
+.bib-detail-key { flex: 1 1 auto; min-width: 0; font-family: var(--editor-font); }
+.bib-detail-copy { flex: none; width: var(--control-size-icon); height: var(--control-size-icon); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); cursor: pointer; }
+.bib-detail-copy:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.bib-detail-title { margin: var(--space-6) 0 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.bib-detail-authors,
+.bib-detail-venue { margin: 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
+.bib-detail-venue { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.bib-detail-delete { color: var(--status-danger); }
+.bib-detail-error { margin: 0; }
+
+.bib-detail-section { margin-top: var(--space-12); }
+.bib-detail-section h3 { margin: 0 0 var(--space-4); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.bib-detail-muted,
+.bib-detail-unused { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-detail-unused { color: var(--status-warning); }
+.bib-detail-usages { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+.bib-detail-usages button { width: 100%; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--space-5); padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: inherit; text-align: start; font: inherit; cursor: pointer; }
+.bib-detail-usages button:hover { background: var(--control-hover-surface); }
+.bib-usage-place { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.bib-usage-snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); }
+
+.bib-detail-fields { display: grid; gap: var(--space-3); }
+.bib-field { display: grid; grid-template-columns: 8em minmax(0, 1fr) auto; align-items: start; gap: var(--space-2) var(--space-4); }
+.bib-field-name { padding-top: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-field-value { width: 100%; min-width: 0; font-family: var(--editor-font); }
+textarea.bib-field-value { min-height: var(--control-height-compact); max-height: 16em; resize: none; }
+.bib-field-remove { visibility: hidden; }
+.bib-field:is(:hover, :focus-within) .bib-field-remove { visibility: visible; }
+.bib-field-error { grid-column: 2 / -1; margin: 0; }
+.bib-detail-add-field { display: grid; grid-template-columns: 8em minmax(0, 1fr) auto; gap: var(--space-2) var(--space-4); margin-top: var(--space-6); }
+.bib-add-field-name { font-family: var(--editor-font); }
+.bib-detail-add-field > .bib-detail-error { grid-column: 1 / -1; }
+
+@container bib-visual (max-width: 720px) {
+  .bib-visual-body { grid-template-columns: minmax(0, 1fr); }
+  .bib-visual-list { border-inline-end: 0; }
+  .bib-visual:not([data-detail="open"]) .bib-visual-detail,
+  .bib-visual[data-detail="open"] .bib-visual-list { display: none; }
+  .bib-detail-back { display: inline-flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-6); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); cursor: pointer; }
+  .bib-detail-back:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+  .bib-detail-content { padding: var(--space-8) var(--space-8) var(--space-16); }
+  .bib-field,
+  .bib-detail-add-field { grid-template-columns: minmax(0, 1fr) auto; }
+  .bib-field-name { grid-column: 1 / -1; padding-top: 0; }
+  .bib-detail-add-field > .bib-add-field-name { grid-column: 1 / -1; }
+}
+
+/* The source, shown in place of a list the file cannot make, with why. */
+.bib-source-fallback { height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.bib-source-fallback > .ui-inline-message { margin: 0; padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border-subtle); }

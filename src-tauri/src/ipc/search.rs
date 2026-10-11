@@ -89,6 +89,13 @@ pub async fn list_unused_symbols(
 }
 
 #[tauri::command]
+pub async fn list_citation_usages(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Vec<SymbolOccurrence>, String> {
+    in_project(&state, &window, "Citation scan", project::citation_usages).await
+}
+
+#[tauri::command]
 pub async fn list_todos(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<TodoHit>, String> {
