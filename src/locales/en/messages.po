@@ -627,10 +627,6 @@ msgstr "Add a bibliography entry for {title}"
 msgid "Add a cursor above or below"
 msgstr "Add a cursor above or below"
 
-#: src/project/paper-library.tsx
-msgid "Add a paper"
-msgstr "Add a paper"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
@@ -682,6 +678,10 @@ msgstr "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "Add project term"
+
+#: src/project/paper-library.tsx
+msgid "Add your first paper"
+msgstr "Add your first paper"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx

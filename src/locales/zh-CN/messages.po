@@ -624,10 +624,6 @@ msgstr "为 {title} 添加文献"
 msgid "Add a cursor above or below"
 msgstr "多加光标"
 
-#: src/project/paper-library.tsx
-msgid "Add a paper"
-msgstr "添加论文"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
@@ -679,6 +675,10 @@ msgstr "用 arXiv 编号、DOI 或标题加论文，在草稿旁阅读"
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加词语"
+
+#: src/project/paper-library.tsx
+msgid "Add your first paper"
+msgstr "添加第一篇论文"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx

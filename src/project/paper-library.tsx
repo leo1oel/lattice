@@ -333,7 +333,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 <strong>{emptyState[0]}</strong>
                 <p>{emptyState[1]}</p>
                 {/* Only focuses the field: what to add is the writer's to type. */}
-                {!total && <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add a paper`}</Button>}
+                {!total && <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
               </div>
             </div>
           )}
