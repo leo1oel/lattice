@@ -14,7 +14,12 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
         let results = entries.iter().map(|_| None).collect();
         Ok(BatchAudit { results, s2_failure: Some(code.into()) })
     };
-    let ids = entries.iter().map(|entry| batch_id(&entry.bibtex)).collect::<Vec<_>>();
+    // Inline references are read from prose; only the per-entry check
+    // completes their abbreviated author lists before comparing.
+    let ids = entries
+        .iter()
+        .map(|entry| entry.inline.is_none().then(|| batch_id(&entry.bibtex)).flatten())
+        .collect::<Vec<_>>();
     let papers = match citation_batch::lookup(&ids.iter().flatten().cloned().collect::<Vec<_>>()) {
         Ok(papers) => papers,
         Err(failure) => return failed(failure.code()),

@@ -1,8 +1,10 @@
-//! Bibliography audit: scan the project's registered .bib files, check each
-//! entry against publication sources, and apply a reviewed replacement.
+//! Bibliography audit: scan the project's registered .bib files and its root
+//! documents' inline reference lists, check each entry against publication
+//! sources, and apply a reviewed replacement (to .bib entries only).
 //!
 //! The stages, in the order an entry meets them:
-//! - `scan`: parse every registered bibliography and run local schema checks.
+//! - `scan`: parse every registered bibliography and run local schema checks;
+//!   `inline` reads each root document's `thebibliography` as review-only rows.
 //! - `batch`: the Semantic Scholar exact-ID fast path for up to 20 entries.
 //! - `check`: the per-entry bibcite pipeline (DOI, title, or preprint upgrade).
 //! - `publication`, `proceedings`: authoritative publisher and proceedings
@@ -27,6 +29,7 @@ mod bibcite;
 mod bibtex;
 mod check;
 mod identity;
+mod inline;
 mod proceedings;
 mod proposal;
 mod publication;
@@ -55,6 +58,11 @@ pub struct AuditEntry {
     pub bibtex: String,
     #[serde(default)]
     pub issues: Vec<String>,
+    /// The `\bibitem` as written, for a root document's inline reference
+    /// list. Its row is checked but never rewritten; `bibtex` is the item read
+    /// as a record.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inline: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,6 +83,19 @@ pub struct AuditIssue {
 pub struct AuditScan {
     pub entries: Vec<AuditEntry>,
     pub issues: Vec<AuditIssue>,
+    pub coverage: Vec<AuditCoverage>,
+}
+
+/// One file the scan read references from, so the report states what it
+/// covered rather than implying a whole project was checked.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditCoverage {
+    pub path: String,
+    /// "bibliography" (a `.bib` file) or "inline" (a root document's
+    /// `thebibliography`).
+    pub kind: &'static str,
+    pub entries: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +139,14 @@ pub struct AuditResult {
     pub changes: Vec<FieldChange>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub health: Option<CitationHealth>,
+    /// Fields on which two authoritative records disagree. The conference's
+    /// own citation export is kept; the reviewer sees that Crossref differs.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub disagreements: Vec<String>,
+    /// The official proceedings export that produced `after`, so a later
+    /// generic supplement (Crossref) cannot overwrite the fields it settled.
+    #[serde(skip)]
+    official: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -149,6 +178,8 @@ fn result(status: &str, message: &str, before: impl Into<String>) -> AuditResult
         candidate: None,
         changes: vec![],
         health: None,
+        disagreements: vec![],
+        official: None,
     }
 }
 
@@ -175,10 +206,18 @@ impl AuditResult {
 
     /// A failed official request is not proof that publication is absent, so
     /// an entry without a proposal is left unverified rather than "checked".
+    /// When an index had already matched the entry, say so: the paper is not
+    /// in doubt, only the official confirmation is missing.
     fn official_source_unavailable(&mut self) {
         if self.after.is_none() {
+            let matched = self.status == "checked" && self.publication_reason.is_none();
             self.status = "unavailable".into();
-            self.publication_reason = Some("sources_unavailable".into());
+            if matched {
+                self.publication_reason = Some("official_unavailable".into());
+                self.message = "Metadata matched; official verification incomplete.".into();
+            } else {
+                self.publication_reason = Some("sources_unavailable".into());
+            }
         }
     }
 

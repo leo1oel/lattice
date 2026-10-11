@@ -74,6 +74,9 @@ const RESULT_MESSAGES: Record<string, MessageDescriptor> = {
   "Could not safely preserve this entry's BibTeX expressions.": msg`Could not safely preserve this entry's BibTeX expressions.`,
   "DOI metadata corrections are available.": msg`DOI metadata corrections are available.`,
   "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used.": msg`Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used.`,
+  "The inline reference agrees with the verified record.": msg`The inline reference agrees with the verified record.`,
+  "A published version of this preprint exists. Inline references are edited by hand.": msg`A published version of this preprint exists. Inline references are edited by hand.`,
+  "The verified record differs from this inline reference. Inline references are edited by hand.": msg`The verified record differs from this inline reference. Inline references are edited by hand.`,
 };
 
 /* eslint-disable lingui/no-unlocalized-strings -- prefixes matched in backend text */

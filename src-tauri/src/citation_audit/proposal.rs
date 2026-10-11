@@ -22,10 +22,31 @@ const MERGED_FIELDS: [&str; 11] = [
 // Local repairs must remain available even when a remote candidate is rejected.
 // They modify the current entry, never fields from that rejected candidate.
 pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
-    let checked = publication::refine(result("checked", "", raw));
+    // A fetched record is one entry plus surrounding whitespace; read and
+    // rebuild the entry itself so its last field survives the merge.
+    let raw = raw.trim();
+    let mut checked = publication::refine_import(result("checked", "", raw));
+    // Crossref names the proceedings of an arXiv import. For NeurIPS and ICLR
+    // the conference's own export then settles the fields it covers (LLaVA's
+    // publisher is Curran Associates, not Crossref's depositor).
+    if checked.after.is_some() && checked.candidate.is_none() {
+        checked = proceedings::refine(raw, checked);
+        if checked.official.is_some() {
+            checked = publication::refine_import(checked);
+        }
+    }
     if let Some(candidate) = &checked.candidate {
         let doi = fields(&candidate.bibtex).get("doi").cloned().unwrap_or_default();
-        return Err(format!("A published record was found ({doi}), but its identity fields differ from the preprint. Review the published record and import its DOI explicitly; no citation was added."));
+        let source = checked.sources.last().map(|row| row.source.as_str()).unwrap_or("Crossref");
+        return Err(format!("A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added."));
+    }
+    // A verified correction that could not be merged must not be dropped
+    // silently: the import would store the very metadata it was correcting.
+    if checked.status == "unavailable"
+        && checked.after.is_none()
+        && checked.sources.iter().any(|row| row.outcome == "selected")
+    {
+        return Err(format!("{} Verified publication metadata could not be merged into the fetched record; no citation was added.", checked.message));
     }
     Ok(cleanup_result(checked).after.unwrap_or_else(|| raw.into()))
 }
@@ -48,6 +69,7 @@ pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> Aud
                 // (case-insensitive) with typography: ImageNet != Imagenet.
                 (a.contains('{') && normalize_title(&a) == normalize_title(&b))
                     || words(&a) == words(&b)
+                    || drops_short_name(&a, &b)
             } else {
                 same_value(name, &a, &b)
             };
@@ -63,7 +85,7 @@ pub(super) fn merge_metadata(before: &str, remote: &str, published: bool) -> Aud
         );
     }
     for name in changed {
-        merged.insert(name.into(), format!("{{{}}}", other[name]));
+        merged.insert(name.into(), format!("{{{}}}", stored_value(name, &other[name])));
     }
     if published || entry_type(before) != entry_type(remote) {
         for name in ["journal", "booktitle"] {
@@ -188,6 +210,8 @@ pub(super) fn cleanup_result(checked: AuditResult) -> AuditResult {
     cleaned.sources = checked.sources;
     cleaned.health = checked.health;
     cleaned.publication_reason = checked.publication_reason;
+    cleaned.official = checked.official;
+    cleaned.disagreements = checked.disagreements;
     // Keep an incomplete health verdict when combining with a remote update.
     if checked.after.is_some() && checked.status == "unavailable" {
         cleaned.status = checked.status;
@@ -303,13 +327,46 @@ pub(super) fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
         .collect()
 }
 
-/// Author lists compare as names (TeX accents and BibTeX name order aside);
-/// other fields compare case- and whitespace-insensitively.
-fn same_value(field: &str, a: &str, b: &str) -> bool {
-    if field == "author" {
-        author_names(a) == author_names(b)
-    } else {
-        normalize_text(a) == normalize_text(b)
+/// Author lists compare as names (TeX accents and BibTeX name order aside),
+/// page ranges as their two ends, DOI links as their DOI; other fields compare
+/// case- and whitespace-insensitively. Typography alone (`3558-3568` against
+/// `3558--3568`, `http://dx.doi.org/` against `https://doi.org/`) is never a
+/// correction.
+pub(super) fn same_value(field: &str, a: &str, b: &str) -> bool {
+    match field {
+        "author" => author_names(a) == author_names(b),
+        "pages" => normalize_text(&page_range(a)) == normalize_text(&page_range(b)),
+        "url" if normalize_doi(a).is_some() => normalize_doi(a) == normalize_doi(b),
+        _ => normalize_text(a) == normalize_text(b),
+    }
+}
+
+/// A page range in BibTeX's `first--last` form, whatever dash a source used.
+fn page_range(value: &str) -> String {
+    static RANGE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"^\s*([A-Za-z]*\d+)\s*(?:-{1,3}|\x{2013}|\x{2014}|\x{2212})\s*([A-Za-z]*\d+)\s*$",
+        )
+        .unwrap()
+    });
+    match RANGE.captures(value) {
+        Some(range) => format!("{}--{}", &range[1], &range[2]),
+        None => value.trim().to_string(),
+    }
+}
+
+/// A remote value as this entry should store it: page ranges with BibTeX's
+/// `--`, DOI links through the canonical resolver.
+fn stored_value(field: &str, value: &str) -> String {
+    match field {
+        "pages" => page_range(value),
+        "url" if normalize_doi(value).is_some() => {
+            let doi = value.trim();
+            let start = doi.find("10.").unwrap_or(0);
+            format!("https://doi.org/{}", &doi[start..])
+        }
+        // Exports wrap long fields across lines ("Li, Yifan  and\n      Du").
+        _ => crate::util::collapse_whitespace(value),
     }
 }
 

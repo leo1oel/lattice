@@ -25,10 +25,15 @@ pub(super) fn field_value(values: &BTreeMap<String, String>, name: &str) -> Stri
 // Preserve raw expressions (macros, concatenation, protected capitals) in
 // untouched fields rather than converting every value to a braced literal.
 pub(super) fn field_expressions(entry: &str) -> BTreeMap<String, String> {
-    let Some(start) = entry.find(',') else {
+    // Fetched BibTeX ends with a newline. Taking the last byte as the closing
+    // delimiter kept the brace in the body, and the scanner then never flushed
+    // the final field: imports lost `year`, refused the verified merge, and
+    // stored bibcite's lossy record (ImageNet as CVPRW).
+    let entry = entry.trim_end();
+    let Some(body) = entry.find(',').and_then(|start| entry[start + 1..].strip_suffix(['}', ')']))
+    else {
         return BTreeMap::new();
     };
-    let body = &entry[start + 1..entry.len() - 1];
     let mut fields = BTreeMap::new();
     let (mut depth, mut quoted, mut escaped, mut start) = (0i32, false, false, 0usize);
     for (i, byte) in body.bytes().chain(std::iter::once(b',')).enumerate() {
@@ -119,6 +124,12 @@ pub(super) fn normalize_title(value: &str) -> String {
 /// A DOI that can identify a publication: normalized, and not arXiv's.
 pub(super) fn published_doi(value: &str) -> Option<String> {
     normalize_doi(value).filter(|doi| !doi.starts_with(ARXIV_DOI_PREFIX))
+}
+
+/// The entry's DOI: its `doi` field, else a DOI resolver link in `url`. Many
+/// published records (COCO's ECCV chapter) carry the DOI only as that link.
+pub(super) fn entry_doi(values: &BTreeMap<String, String>) -> Option<String> {
+    ["doi", "url"].into_iter().find_map(|name| values.get(name).and_then(|v| normalize_doi(v)))
 }
 
 pub(super) fn unversioned_arxiv(id: &str) -> &str {

@@ -40,7 +40,7 @@ pub struct UvTool {
 /// bumped with app releases and `prewarm_literature_tools` rebuilds the
 /// environment right after an update instead of mid-import.
 pub const BIBCITE: UvTool = UvTool {
-    requirement: "bibcite-cli==0.6.10",
+    requirement: "bibcite-cli==0.6.11",
     binary: "bibcite",
     override_env: "LATTICE_BIBCITE_BIN",
 };
@@ -109,7 +109,7 @@ fn configure_bibcite_env(
     ]) {
         command.env_remove(name);
     }
-    // 0.6.10 caches publication matches by title without author/ID context.
+    // bibcite caches publication matches by title without author/ID context.
     // Do not replay a cached candidate as independently verified metadata.
     command.env("BIBCITE_NO_CACHE", "1");
     command.env("BIBCITE_PUBLIC_SERVICE_URL", crate::literature_service::ENDPOINT);
