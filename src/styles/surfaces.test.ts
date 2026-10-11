@@ -235,7 +235,7 @@ describe("shared surface contracts", () => {
     ["matches spreadsheet selectors and sidebar actions to Lattice controls", [
       /\[data-u-comp="sidebar"\] \[data-u-comp="select"\] \{[^}]*height: var\(--control-height-default\);[^}]*border-radius: var\(--form-control-select-radius\) !important;/,
       /\[data-u-comp="sidebar"\] \[data-u-comp="button"\] \{[^}]*height: var\(--control-height-default\);[^}]*border-radius: var\(--radius-control\) !important;/,
-      /\[data-u-comp="button"\]\.univer-bg-primary-600 \{[^}]*background: var\(--text-primary\) !important;[^}]*color: var\(--surface-app\) !important;/,
+      /\[data-u-comp="button"\]\.univer-bg-primary-600 \{[^}]*background: var\(--control-tinted-surface\) !important;[^}]*color: var\(--text-primary\) !important;/,
       /div:has\(> \[data-u-comp="button"\] \+ \[data-u-comp="button"\]\) \{[^}]*gap: var\(--space-4\);/,
     ]],
     ["keeps spreadsheet menu labels left and selection marks right", [

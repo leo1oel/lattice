@@ -156,7 +156,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
                 <button
                   key={index}
                   type="button"
-                  className={buttonClassName({ size: "compact", variant: index === 0 ? "primary" : "secondary" })}
+                  className={buttonClassName({ size: "compact", variant: index === 0 ? "tinted" : "secondary" })}
                   onClick={() => {
                     void action.onClick();
                     // The action was the answer, so it is not also reported as a dismissal.

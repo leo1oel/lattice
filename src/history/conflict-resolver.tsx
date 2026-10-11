@@ -109,7 +109,7 @@ function ConflictSpot(props: {
             role="radio"
             aria-checked={choice === option.value}
             size="compact"
-            variant={choice === option.value ? "primary" : "secondary"}
+            variant={choice === option.value ? "tinted" : "secondary"}
             disabled={props.disabled}
             onClick={() => props.onChoose(option.value)}
           >

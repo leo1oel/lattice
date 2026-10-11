@@ -223,7 +223,7 @@ function TextLinkEditor({ editor, host, from, to }: { editor: Editor; host: Chro
       )}
       <span className="lx-md-link-editor-actions">
         {initial && <Button variant="ghost" size="compact" onClick={remove}>{t`Remove`}</Button>}
-        <Button variant="primary" size="compact" onClick={commit}>{t`Done`}</Button>
+        <Button variant="tinted" size="compact" onClick={commit}>{t`Done`}</Button>
       </span>
     </div>,
     document.body,
@@ -290,7 +290,7 @@ function CitationEditor({ editor, host, at }: { editor: Editor; host: ChromeHost
       <Input controlSize="compact" aria-label={t`Link URL`} value={href} spellCheck={false} aria-invalid={UNSAFE_URL.test(href) || undefined} onChange={(event) => setHref(event.target.value)} onKeyDown={keys} />
       <span className="lx-md-link-editor-actions">
         <Button variant="ghost" size="compact" onClick={remove}>{t`Remove`}</Button>
-        <Button variant="primary" size="compact" onClick={commit}>{t`Done`}</Button>
+        <Button variant="tinted" size="compact" onClick={commit}>{t`Done`}</Button>
       </span>
     </div>,
     document.body,

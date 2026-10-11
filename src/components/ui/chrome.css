@@ -102,6 +102,14 @@
   color: var(--text-secondary);
 }
 
+/* The lead action of a surface that is not a dialog's answer (a toast's Undo,
+   a popover's Done, a card's Accept): it leads its row without the dark slab
+   the primary fill paints, which is kept for the one answer of a dialog. */
+.ui-button--tinted {
+  background: var(--control-tinted-surface);
+  color: var(--text-primary);
+}
+
 /* The destructive answer to a confirmation: tinted rather than filled, so it
    leads the row in either theme without a red slab in the dark one. */
 .ui-button--danger {
@@ -123,6 +131,10 @@
 .ui-button--ghost:hover:not(:disabled) {
   background: var(--control-hover-surface);
   color: var(--text-primary);
+}
+
+.ui-button--tinted:hover:not(:disabled) {
+  background: var(--control-tinted-hover-surface);
 }
 
 .ui-button--danger:hover:not(:disabled) {

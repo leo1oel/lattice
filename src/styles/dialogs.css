@@ -473,12 +473,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   text-align: center;
 }
 [data-slot="select-content"][data-settings-control="true"] [data-slot="select-item"] { text-align: start; }
-.settings-section .ui-button:not(.ui-button--primary):not(.ui-button--danger) {
+.settings-section .ui-button:not(.ui-button--primary):not(.ui-button--tinted):not(.ui-button--danger) {
   border-color: var(--border-strong);
   background: var(--surface-panel-raised);
   color: var(--text-primary);
 }
-.settings-section .ui-button:not(.ui-button--primary):not(.ui-button--danger):hover:not(:disabled) {
+.settings-section .ui-button:not(.ui-button--primary):not(.ui-button--tinted):not(.ui-button--danger):hover:not(:disabled) {
   background: var(--settings-control-hover-surface);
 }
 .settings-section .ui-button--primary {

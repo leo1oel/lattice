@@ -700,7 +700,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
         ? <InfinityLoader className="overleaf-row-spinner" size={15} />
         : (
           <MotionButton
-            className={buttonClassName({ variant: "primary", size: "compact", className: "overleaf-open-button" })}
+            className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
             disabled={working}
             onClick={() => void clone(project)}
           >

@@ -243,6 +243,11 @@
      the default emphasis, and a stronger one for a committed choice. */
   --control-active-border: color-mix(in srgb, var(--control-active) 35%, var(--border-subtle));
   --control-active-border-strong: color-mix(in srgb, var(--control-active) 45%, var(--border-strong));
+  /* The tinted Button: the accent's wash under neutral text, the same steps as
+     the danger tint. The accent itself as text drops below 4.5:1 on its own
+     wash, so the label stays --text-primary (9:1 or more in every preset). */
+  --control-tinted-surface: color-mix(in srgb, var(--control-active) 12%, transparent);
+  --control-tinted-hover-surface: color-mix(in srgb, var(--control-active) 18%, transparent);
   --search-clear-width: 20px;
   --search-clear-height: 22px;
   --segmented-surface: var(--border-subtle);

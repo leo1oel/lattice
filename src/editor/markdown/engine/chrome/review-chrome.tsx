@@ -304,7 +304,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
       />
       <span className="lx-md-comment-actions">
         <Button variant="ghost" size="compact" onClick={finish}>{t`Cancel`}</Button>
-        <Button variant="primary" size="compact" disabled={!body.trim() || error === "locate"} onClick={submit}>{t`Add comment`}</Button>
+        <Button variant="tinted" size="compact" disabled={!body.trim() || error === "locate"} onClick={submit}>{t`Add comment`}</Button>
       </span>
     </div>,
     document.body,
