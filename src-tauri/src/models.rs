@@ -33,6 +33,10 @@ pub struct ProjectManifest {
     pub trusted: bool,
     #[serde(default = "default_pdf_engine")]
     pub engine: String,
+    /// The writer undid an automatic switch to pdfLaTeX, so builds leave this
+    /// project's engine alone from then on (latex/engine_mismatch.rs).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub keep_engine: bool,
     #[serde(default = "default_venue")]
     pub venue: String,
     #[serde(default)]

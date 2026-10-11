@@ -4,7 +4,7 @@ use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, parse_diagnostics,
     skipped_recompile, trim_log,
 };
-use super::{default_root_document, prewarm, synctex_missing};
+use super::{default_root_document, engine_mismatch, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::Diagnostic;
@@ -188,9 +188,20 @@ fn build_passes(
         let _ = clean(root);
         wide_event::record("stale_rebuild", true);
         result = run_latexmk(root, true, active, started)?;
+        // At the end: a failed log is read and copied from its top, where
+        // this note used to stand in for the error that followed it.
         if !result.log.is_empty() {
-            result.log = format!("Cleared a stale failed build, then rebuilt.\n\n{}", result.log);
+            result.log.push_str("\n\nLattice cleared a stale failed build, then rebuilt.");
         }
+    }
+    // A document written for pdfLaTeX (arXiv's `\pdfoutput=1`) under XeLaTeX
+    // or LuaLaTeX. When nothing in the project wants the engine it has, switch
+    // and build again now; the note says so and carries the undo.
+    if let Some(switch) = engine_mismatch::automatic_switch(root, &result) {
+        project::update_manifest_settings(root, Some("pdf".to_string()), None, None, None, None)?;
+        wide_event::record("engine_switched_from", switch.previous.as_str());
+        result = run_latexmk(root, force, active, started)?;
+        result.diagnostics.insert(0, switch.note());
     }
     // A PDF built by anything else (the agent's own `latexmk -pdf`, say)
     // leaves latexmk with nothing to do, so `-synctex=1` never reaches the

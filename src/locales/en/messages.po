@@ -438,6 +438,10 @@ msgstr "{where} (reconnecting…)"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
+#: src/build/build-log-messages.ts
+msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
+msgstr "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ to navigate · Enter to open"
@@ -1352,9 +1356,17 @@ msgstr "Build superseded"
 msgid "Build the project to preview the paper"
 msgstr "Build the project to preview the paper"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Build this project with pdfLaTeX from now on"
+msgstr "Build this project with pdfLaTeX from now on"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Build to count"
 msgstr "Build to count"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Build with {switchedFrom} again"
+msgstr "Build with {switchedFrom} again"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -8760,6 +8772,10 @@ msgstr "Switch to {name}"
 msgid "Switch to a workspace by its place"
 msgstr "Switch to a workspace by its place"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Switch to pdfLaTeX"
+msgstr "Switch to pdfLaTeX"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Switch to Reading"
 msgstr "Switch to Reading"
@@ -8771,6 +8787,10 @@ msgstr "Switch to the Reading layout"
 #: src/App.tsx
 msgid "Switch to the Writing layout"
 msgstr "Switch to the Writing layout"
+
+#: src/build/build-log-messages.ts
+msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
+msgstr "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -9631,6 +9651,7 @@ msgid "Underline"
 msgstr "Underline"
 
 #: src/app/use-editor-comments.ts
+#: src/build/compile-diagnostics-panel.tsx
 #: src/editor/editor-keymap.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx

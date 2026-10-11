@@ -242,6 +242,12 @@ fn apply_tex_magic_comments(root: &Path, manifest: &mut ProjectManifest) -> Resu
     Ok(changed)
 }
 
+/// The engine a `% !TEX program` comment in `content` asks for, as a manifest
+/// engine name (`pdf`, `xelatex`, `lualatex`).
+pub fn tex_program_engine(content: &str) -> Option<String> {
+    parse_tex_magic_comments(content).engine
+}
+
 #[derive(Debug, Default, PartialEq, Eq)]
 struct TexMagicHints {
     /// Forward-slashed path as written.
@@ -427,11 +433,12 @@ fn detect_root_document(root: &Path) -> Option<String> {
     best.map(|(_, path)| path)
 }
 
-/// Apply what the settings dialog and budget editor change; `None` keeps a
-/// setting and a `Some(None)` budget clears it.
+/// Apply what the settings dialog, the budget editor and the build panel's
+/// engine actions change; `None` keeps a setting and a `Some(None)` budget
+/// clears it.
 pub fn update_manifest_settings(
-    root: &Path, engine: Option<String>, trusted: Option<bool>, word_budget: Option<Option<u32>>,
-    page_budget: Option<Option<u32>>,
+    root: &Path, engine: Option<String>, keep_engine: Option<bool>, trusted: Option<bool>,
+    word_budget: Option<Option<u32>>, page_budget: Option<Option<u32>>,
 ) -> Result<ProjectManifest, String> {
     let mut manifest = read_manifest(root)?;
     if let Some(engine) = engine {
@@ -441,6 +448,7 @@ pub fn update_manifest_settings(
         }
         manifest.engine = normalized;
     }
+    manifest.keep_engine = keep_engine.unwrap_or(manifest.keep_engine);
     manifest.trusted = trusted.unwrap_or(manifest.trusted);
     manifest.word_budget = word_budget.unwrap_or(manifest.word_budget);
     manifest.page_budget = page_budget.unwrap_or(manifest.page_budget);
@@ -667,6 +675,7 @@ mod tests {
         let updated = update_manifest_settings(
             root,
             Some("xelatex".into()),
+            None,
             Some(true),
             Some(Some(5000)),
             Some(Some(9)),
@@ -675,7 +684,8 @@ mod tests {
         assert_eq!(updated.engine, "xelatex");
         assert!(updated.trusted);
         assert_eq!((updated.word_budget, updated.page_budget), (Some(5000), Some(9)));
-        assert!(update_manifest_settings(root, Some("tectonic".into()), None, None, None).is_err());
+        assert!(update_manifest_settings(root, Some("tectonic".into()), None, None, None, None)
+            .is_err());
         let words = ["TexLab", "VLM", "texlab"].map(String::from).to_vec();
         assert_eq!(set_spelling_words(root, words).unwrap().spelling_words, vec!["TexLab", "VLM"]);
         assert_eq!(read_manifest(root).unwrap().engine, "xelatex");

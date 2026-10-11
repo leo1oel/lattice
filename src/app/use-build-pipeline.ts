@@ -432,6 +432,14 @@ export function useBuildPipeline({
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
         }
+        // The backend switched the project to pdfLaTeX on its own and says so
+        // in this note (latex/engine_mismatch.rs); Settings shows the engine too.
+        const switchedEngine = result.diagnostics.some((item) => item.code === "engine-switched");
+        if (switchedEngine) {
+          setProject((current) => current?.root === projectRoot
+            ? { ...current, manifest: { ...current.manifest, engine: "pdf" } }
+            : current);
+        }
         setCompiledSources(sources);
         // Reopening the panel is for news. Autosave rebuilds after every pause
         // in typing, and reopening unconditionally meant a warning the writer
@@ -443,7 +451,8 @@ export function useBuildPipeline({
           (result.success || !shouldPlayCompletionSound)
             && diagnosticsFingerprint(result.diagnostics) === dismissedDiagnosticsRef.current,
         );
-        setDiagnosticsExpanded(!result.success || result.diagnostics.some((item) => item.level === "error"));
+        // A switch the writer did not ask for is shown open, with its undo.
+        setDiagnosticsExpanded(!result.success || switchedEngine || result.diagnostics.some((item) => item.level === "error"));
         // The debounce exists so a slow pdf.js load is not torn down by the
         // next rebuild while someone is still typing. Once they have stopped —
         // the buffer matches what is on disk — waiting is just the PDF lagging.

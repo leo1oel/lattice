@@ -115,6 +115,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         primary_bibliography: "references.bib".to_string(),
         trusted: false,
         engine: "pdf".to_string(),
+        keep_engine: false,
         venue: venue.as_str().to_string(),
         word_budget,
         page_budget,
