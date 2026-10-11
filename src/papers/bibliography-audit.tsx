@@ -373,7 +373,7 @@ export function BibliographyAudit(props: {
       {scan && <div className="bibliography-audit-toolbar">
         <label className="bibliography-audit-status"><Checkbox aria-label={t`Select all references`} disabled={busy || applying !== null} checked={total > 0 && selected.size === total} indeterminate={selected.size > 0 && selected.size < total} onChange={event => setSelected(event.target.checked ? new Set(scan.entries.map((_, index) => index)) : new Set())} />{t`Select all`}</label>
         <Button size="compact" variant="ghost" disabled={busy || applying !== null || selected.size === 0} onClick={() => void start([...selected])}>{t`Check selected`}</Button>
-        {updates.length > 0 && <Button size="compact" variant="primary" disabled={busy || applying !== null} onClick={() => void apply(updates, -1)}><Check size={12} />{t`Accept all updates`}</Button>}
+        {updates.length > 0 && <Button size="compact" variant="tinted" disabled={busy || applying !== null} onClick={() => void apply(updates, -1)}><Check size={12} />{t`Accept all updates`}</Button>}
       </div>}
       {waitingForS2 && <p className="bibliography-audit-copy" role="status">{t`Waiting for Semantic Scholar…`}</p>}
       {scan && <progress aria-label={t`Reference check progress`} max={Math.max(progressTotal, 1)} value={waitingForS2 ? undefined : completed} />}
@@ -452,7 +452,7 @@ export function BibliographyAudit(props: {
             <dd><div className="bibliography-audit-before"><Minus size={12} aria-hidden="true" /><del>{change.before || "—"}</del></div><div className="bibliography-audit-after"><Plus size={12} aria-hidden="true" /><ins>{change.after || "—"}</ins></div></dd>
           </div>)}</dl>
           <Disclosure className="bibliography-audit-source" summary={t`Proposed BibTeX`}><pre>{result.after}</pre></Disclosure>
-          <div className="bibliography-audit-apply"><Button size="compact" variant="primary" disabled={busy || applying !== null || isApplied} onClick={() => void apply([index], index)}>
+          <div className="bibliography-audit-apply"><Button size="compact" variant="tinted" disabled={busy || applying !== null || isApplied} onClick={() => void apply([index], index)}>
             {applying === index ? <InfinityLoader size={13} /> : <Check size={13} aria-hidden="true" />}{t`Apply this update`}
           </Button></div>
         </Disclosure>}

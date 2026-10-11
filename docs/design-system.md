@@ -490,6 +490,12 @@ all take it.
   standing 12px apart, and the action row 24px below. It closes on Escape, a
   backdrop click and its Cancel; it draws no X. A tool too large for that
   shape is a `SheetDialog`, whose title row is a `PanelHeader`.
+- **One dark slab per dialog at most.** The `primary` Button, filled with the
+  text colour, is the one answer of a dialog or sheet (Save, Create, Apply and
+  sync) or the single way out of a whole page (Restart). Every other lead
+  action, in a toast, popover, card, panel or row, and a chosen option among
+  several, is the `tinted` Button: the accent's wash under neutral text, so
+  it leads without the slab and follows the writer's accent.
 - **Destructive answers.** The confirmation that destroys leads its row as the
   tinted `danger` Button (`--status-danger-soft`, deeper on hover), never a red
   slab; a destructive alternative beside a safe default ("Don't save" beside
@@ -508,7 +514,7 @@ all take it.
   `telemetry/toast-stack.tsx` on Base UI's Toast), the app update included: a
   frosted floating card, 320px, `--radius-surface`, a title in the
   body-compact role, detail in the caption role, the first action as a compact
-  primary Button and the rest compact secondary, and a compact `CloseButton`.
+  tinted Button and the rest compact secondary, and a compact `CloseButton`.
   Only the edge's tint changes with severity. Toasts stack into a pile, the
   newest in front with up to two slivers beneath, and fan out while the
   pointer or keyboard focus (F6) is on them. The clock (6 s, 9 s for an

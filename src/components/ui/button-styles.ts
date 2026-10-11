@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "tinted" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "compact" | "default";
 
 export type ButtonClassOptions = {

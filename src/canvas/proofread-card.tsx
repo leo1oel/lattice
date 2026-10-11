@@ -154,7 +154,7 @@ export function ProofreadCard(props: {
             {chosen.length < offered && (
               <Button size="compact" disabled={!props.editable} onClick={props.onAcceptAll}>{t`Accept all`}</Button>
             )}
-            <Button size="compact" variant="primary" disabled={!props.editable || chosen.length === 0} onClick={props.onAccept}>
+            <Button size="compact" variant="tinted" disabled={!props.editable || chosen.length === 0} onClick={props.onAccept}>
               {offered === 1 ? t`Accept` : chosen.length === offered ? t`Accept all` : t`Accept ${kept} of ${offered}`} <kbd>⌘↵</kbd>
             </Button>
           </>

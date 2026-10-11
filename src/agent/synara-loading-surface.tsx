@@ -67,7 +67,7 @@ function SynaraFailureActions(props: { runtime: SynaraRuntimeInfo; onRetry: () =
   return (
     <>
       <div className="synara-failure-actions">
-        <ReloadButton size="compact" variant="primary" onClick={props.onRetry}>
+        <ReloadButton size="compact" variant="tinted" onClick={props.onRetry}>
           {t`Retry`}
         </ReloadButton>
         <Button size="compact" onClick={openLogs}>
