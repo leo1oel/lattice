@@ -1502,7 +1502,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:382 "hides a 
 as follows:
 - a multi-panel figure row, with each column share taken from `columns`;
 - panel anchors keyed by `id`, including an empty placeholder panel;
-- images inside panels, with italic captions.
+- images and tables inside panels, with italic captions.
 
 Editing a caption keeps the whole component structure.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2871 "renders extracted multi-panel paper figures with source slots and alignment"`.
