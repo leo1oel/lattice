@@ -1,6 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import type { PaperSummary } from "../app-types";
-import { hasPaperDrag, paperMarkdownCitation, resolvePaperDrag } from "../papers/paper-drag";
+import { hasPaperDrag, PAPER_DRAG_TYPE, paperMarkdownCitation, resolvePaperDrag } from "../papers/paper-drag";
+import { dropPoint } from "./drop-cursor";
 
 type CitationEdit = { from: number; to: number; insert: string };
 
@@ -24,12 +25,11 @@ function proseCitationPoint(source: string, position: number): number {
 
 const CITATION_COMMAND = /\\(?:[Cc]ite(?:p|t|alp|alt|author|year(?:par)?|num|url)?|[Pp]arencite|[Tt]extcite|[Aa]utocite|[Ff]ootcite|[Ss]martcite)\*?(?:\s*\[[^\]]*\]){0,2}\s*\{([^{}]*)\}/g;
 
-/**
- * The key list of a live citation command at `position`, with `key` added at
- * the nearest key boundary; null when it already cites `key`, undefined when
- * no citation command is there.
- */
-function citationMerge(source: string, position: number, key: string): CitationEdit | null | undefined {
+/** The key list `from`–`to` of a citation command, with the key boundary `index` a new key joins at, document position `at`. */
+type CitationList = { from: number; to: number; keys: string[]; index: number; at: number };
+
+/** The key list of a live citation command at `position`, split at the nearest key boundary. */
+function citationList(source: string, position: number): CitationList | undefined {
   for (const match of source.matchAll(CITATION_COMMAND)) {
     const start = match.index;
     const end = start + match[0].length;
@@ -40,61 +40,113 @@ function citationMerge(source: string, position: number, key: string): CitationE
     const prefix = source.slice(source.lastIndexOf("\n", start - 1) + 1, start);
     if (/(^|[^\\])(?:\\\\)*%/.test(prefix)) continue;
     const from = end - match[1].length - 1;
-    const keys = Array.from(match[1].matchAll(/[^,\s]+/g));
-    const unique = [...new Set(keys.map((part) => part[0]))];
-    if (unique.includes(key)) return null;
+    const parts = Array.from(match[1].matchAll(/[^,\s]+/g));
     const offset = position - from;
-    const index = keys.findIndex((part) => offset <= part.index + part[0].length / 2);
-    const before = keys.slice(0, index < 0 ? keys.length : index).map((part) => part[0]);
-    const insertion = new Set([...before, key, ...keys.slice(before.length).map((part) => part[0])]);
-    return { from, to: end - 1, insert: [...insertion].join(", ") };
+    const found = parts.findIndex((part) => offset <= part.index + part[0].length / 2);
+    const index = found < 0 ? parts.length : found;
+    const last = parts.at(-1);
+    const at = from + (found >= 0 ? parts[found].index : last ? last.index + last[0].length : 0);
+    return { from, to: end - 1, keys: parts.map((part) => part[0]), index, at };
   }
   return undefined;
+}
+
+/** Where a citation dropped at `dropPosition` goes: a citation list there or just before it, else a word end. */
+function latexCitationPoint(source: string, dropPosition: number): { at: number; list?: CitationList } {
+  const list = citationList(source, dropPosition);
+  if (list) return { at: list.at, list };
+  const position = proseCitationPoint(source, dropPosition);
+  // A drop just past a citation and its space joins that citation.
+  const adjacent = position === dropPosition ? undefined : citationList(source, position);
+  return adjacent ? { at: adjacent.at, list: adjacent } : { at: position };
 }
 
 /** Snap to a key boundary instead of splitting a key under the pointer. */
 export function latexCitationDrop(source: string, dropPosition: number, key: string): CitationEdit | null {
   if (!key || /[\s,{}\\%]/.test(key)) return null;
-  const merged = citationMerge(source, dropPosition, key);
-  if (merged !== undefined) return merged;
-  const position = proseCitationPoint(source, dropPosition);
-  // A drop just past a citation and its space joins that citation.
-  const adjacent = position === dropPosition ? undefined : citationMerge(source, position, key);
-  if (adjacent !== undefined) return adjacent;
+  const { at, list } = latexCitationPoint(source, dropPosition);
+  if (list) {
+    if (list.keys.includes(key)) return null;
+    const keys = new Set([...list.keys.slice(0, list.index), key, ...list.keys.slice(list.index)]);
+    return { from: list.from, to: list.to, insert: [...keys].join(", ") };
+  }
   // A tie binds the citation to the text it follows; at the start of a line
   // there is nothing to bind, and a word right after needs its space back.
-  const tie = /[^\s([{]/.test(source.charAt(position - 1)) ? "~" : "";
-  const space = isWordAt(source, position) ? " " : "";
-  return { from: position, to: position, insert: `${tie}\\citep{${key}}${space}` };
+  const tie = /[^\s([{]/.test(source.charAt(at - 1)) ? "~" : "";
+  const space = isWordAt(source, at) ? " " : "";
+  return { from: at, to: at, insert: `${tie}\\citep{${key}}${space}` };
+}
+
+/**
+ * Where the drop caret goes for a citation dropped at `dropPosition`: where
+ * `latexCitationDrop` puts the key, or null when that drop inserts nothing.
+ * Without a key (a browser hides a drag's data until it drops) only the place is known.
+ */
+function latexCitationCaret(source: string, dropPosition: number, key?: string): number | null {
+  if (key !== undefined && !latexCitationDrop(source, dropPosition, key)) return null;
+  return latexCitationPoint(source, dropPosition).at;
+}
+
+/**
+ * The lines around `position`, from a line start: a citation command a drop
+ * joins and the word it snaps past are never further away, and a drag must
+ * not copy and scan a whole thesis on every move.
+ */
+function dropContext(view: EditorView, position: number) {
+  const { doc } = view.state;
+  const line = doc.lineAt(position).number;
+  const from = doc.line(Math.max(1, line - 5)).from;
+  return { from, source: doc.sliceString(from, doc.line(Math.min(doc.lines, line + 5)).to) };
 }
 
 export function paperDropExtension(path: string, getLibrary: () => { projectRoot: string; papers: readonly PaperSummary[] }) {
-  return EditorView.domEventHandlers({
-    dragover(event) {
-      if (!hasPaperDrag(event.dataTransfer)) return false;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-      return true;
-    },
-    drop(event, view) {
-      if (!hasPaperDrag(event.dataTransfer)) return false;
-      event.preventDefault();
-      event.stopPropagation();
+  const tex = /\.tex$/i.test(path);
+  const markdown = /\.md$/i.test(path);
+  const writable = (view: EditorView) => !view.state.readOnly && view.state.facet(EditorView.editable);
+  return [
+    dropPoint.of((view, event, pointer) => {
+      const data = event.dataTransfer;
+      if (!hasPaperDrag(data)) return undefined;
+      if (!writable(view) || !(tex || markdown)) return null;
       const { projectRoot, papers } = getLibrary();
-      const paper = resolvePaperDrag(event.dataTransfer, projectRoot, papers);
-      if (!paper || view.state.readOnly || !view.state.facet(EditorView.editable)) return true;
-      const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (position === null) return true;
-      const edit = /\.tex$/i.test(path)
-        ? latexCitationDrop(view.state.doc.toString(), position, paper.citationKey ?? "")
-        : /\.md$/i.test(path)
-          ? { from: position, to: position, insert: paperMarkdownCitation(path, paper) }
-          : null;
-      if (edit) {
-        view.dispatch({ changes: edit, selection: { anchor: edit.from + edit.insert.length }, userEvent: "input.drop" });
-        view.focus();
-      }
-      return true;
-    },
-  });
+      const paper = resolvePaperDrag(data, projectRoot, papers);
+      // A browser hides the paper until the drop, so the caret then shows
+      // where it would go; the native bridge's transfer names it at once.
+      const hidden = !paper && !data?.getData(PAPER_DRAG_TYPE) && !data?.getData("text/plain");
+      if (!paper && !hidden) return null;
+      if (!tex) return pointer;
+      const { from, source } = dropContext(view, pointer);
+      const caret = latexCitationCaret(source, pointer - from, paper ? paper.citationKey ?? "" : undefined);
+      return caret === null ? null : from + caret;
+    }),
+    EditorView.domEventHandlers({
+      dragover(event) {
+        if (!hasPaperDrag(event.dataTransfer)) return false;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        return true;
+      },
+      drop(event, view) {
+        if (!hasPaperDrag(event.dataTransfer)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        const { projectRoot, papers } = getLibrary();
+        const paper = resolvePaperDrag(event.dataTransfer, projectRoot, papers);
+        if (!paper || !writable(view)) return true;
+        const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (position === null) return true;
+        let edit: CitationEdit | null = null;
+        if (tex) {
+          const { from, source } = dropContext(view, position);
+          const citation = latexCitationDrop(source, position - from, paper.citationKey ?? "");
+          if (citation) edit = { from: from + citation.from, to: from + citation.to, insert: citation.insert };
+        } else if (markdown) edit = { from: position, to: position, insert: paperMarkdownCitation(path, paper) };
+        if (edit) {
+          view.dispatch({ changes: edit, selection: { anchor: edit.from + edit.insert.length }, userEvent: "input.drop" });
+          view.focus();
+        }
+        return true;
+      },
+    }),
+  ];
 }

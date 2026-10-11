@@ -34,6 +34,19 @@ export function usePaperDropRouting(
     let activeDrag: NativePaperDrag | null = null;
     let enteredPaper: PaperDrag | null = null;
     let insidePaperDrop = false;
+    // Tauri answers the native drag itself, so the page never sees a
+    // dragover: replay each move as one, so an editor draws its drop caret
+    // where the paper will land, and a dragleave where the pointer left.
+    let overTarget: Element | null = null;
+    const leave = (next: Element | null) => {
+      if (overTarget && overTarget !== next) overTarget.dispatchEvent(new DragEvent("dragleave", { bubbles: true, relatedTarget: next }));
+      overTarget = next;
+    };
+    const paperTransfer = (paper: PaperDrag) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData(PAPER_DRAG_TYPE, JSON.stringify(paper));
+      return dataTransfer;
+    };
     const cleanups: (() => void)[] = [];
     const register = (promise: Promise<() => void>) =>
       promise.then((cleanup) => disposed ? cleanup() : cleanups.push(cleanup));
@@ -49,9 +62,18 @@ export function usePaperDropRouting(
       if (payload.type === "enter") {
         insidePaperDrop = payload.paths.length === 0;
         enteredPaper = payload.paths.length ? null : activeDrag?.paper ?? null;
+      } else if (payload.type === "over") {
+        if (!enteredPaper) return;
+        const { x: clientX, y: clientY } = nativeDragClientPoint(payload.position, latest.current.interfaceScale);
+        const target = document.elementFromPoint(clientX, clientY);
+        leave(target);
+        target?.dispatchEvent(new DragEvent("dragover", {
+          bubbles: true, cancelable: true, dataTransfer: paperTransfer(enteredPaper), clientX, clientY,
+        }));
       } else if (payload.type === "leave") {
         insidePaperDrop = false;
         enteredPaper = null;
+        leave(null);
       } else if (payload.type === "drop") {
         // Keep the identity captured at enter even if the source's dragend
         // IPC arrives first. A later enter/leave replaces it, and each drop
@@ -60,15 +82,18 @@ export function usePaperDropRouting(
         insidePaperDrop = false;
         enteredPaper = null;
         activeDrag = null;
-        if (payload.paths.length || !paper) return;
-        const dataTransfer = new DataTransfer();
-        dataTransfer.setData(PAPER_DRAG_TYPE, JSON.stringify(paper));
-        const current = latest.current.library;
-        if (!resolvePaperDrag(dataTransfer, current.projectRoot, current.papers)) return;
         const { x: clientX, y: clientY } = nativeDragClientPoint(payload.position, latest.current.interfaceScale);
+        const target = document.elementFromPoint(clientX, clientY);
+        const transfer = payload.paths.length || !paper ? null : paperTransfer(paper);
+        const current = latest.current.library;
+        const dataTransfer = transfer && resolvePaperDrag(transfer, current.projectRoot, current.papers) ? transfer : null;
+        // The drop target clears its own caret; a refused drop leaves the last one.
+        leave(dataTransfer ? target : null);
+        overTarget = null;
+        if (!dataTransfer) return;
         // Route through the same DOM drop handlers as a browser tab. CodeMirror
         // retains citation merging, selection, read-only and undo semantics.
-        document.elementFromPoint(clientX, clientY)?.dispatchEvent(new DragEvent("drop", {
+        target?.dispatchEvent(new DragEvent("drop", {
           bubbles: true, cancelable: true, dataTransfer, clientX, clientY,
         }));
       }
