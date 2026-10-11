@@ -22,7 +22,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Annotation, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
 import {
-  EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
+  EditorView, crosshairCursor, drawSelection, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
 } from "@codemirror/view";
 import { history } from "@codemirror/commands";
@@ -31,6 +31,7 @@ import {
 } from "@codemirror/language";
 import { highlightSelectionMatches } from "@codemirror/search";
 import { closeBrackets } from "@codemirror/autocomplete";
+import { dropCursor } from "./drop-cursor";
 import { baseEditorKeymap } from "./editor-keymap";
 import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";

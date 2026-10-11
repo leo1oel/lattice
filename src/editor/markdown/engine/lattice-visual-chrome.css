@@ -375,6 +375,17 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.lx-md-toolbar, .lx-md-emoji-pic
 .lx-md-editor .lx-md-surface :is(ul, ol):not([data-type="taskList"]) > li[data-type="taskItem"] > label { display: flex; align-items: center; height: calc(var(--lx-md-line-height) * 1em); margin: 0; user-select: none; }
 .lx-md-editor .lx-md-surface :is(ul, ol):not([data-type="taskList"]) > li[data-type="taskItem"] > div { flex: 1; min-width: 0; }
 
+/* Where a drag will land, drawn like the source editor's drop caret.
+   ProseMirror places it in the editor's offset parent, outside the surface. */
+.lx-md-drop-cursor.prosemirror-dropcursor-inline {
+  border-left: var(--editor-caret-width) solid var(--control-active);
+  margin-left: calc(var(--editor-caret-width) / -2);
+}
+.lx-md-drop-cursor.prosemirror-dropcursor-block {
+  border-top: var(--editor-caret-width) solid var(--control-active);
+  margin-top: calc(var(--editor-caret-width) / -2);
+}
+
 /* --- Review: collaborators, comments, suggestions ------------------------------- */
 
 /* A collaborator's caret is drawn text: it takes no room and no clicks. */

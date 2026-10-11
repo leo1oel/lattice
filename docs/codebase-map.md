@@ -118,7 +118,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/settings/` | 15 | 5 | 2,265 | The settings dialog, its panes and its search, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus the range-read transport for project PDFs. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
-| `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (the `element()` helper for hand-built editor chrome). |
+| `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops and the drop caret that shows where they land, the go-to-line dialog, and `dom-utils.ts` (the `element()` helper for hand-built editor chrome). |
 | `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). |
 | `src/editor/comments/` | 6 | 2 | 960 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel, and the open-or-all visibility filter it shares with the Overleaf comments panel. |
 | `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |

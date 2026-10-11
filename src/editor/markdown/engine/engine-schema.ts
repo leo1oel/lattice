@@ -319,6 +319,8 @@ export function engineSchemaExtensions(options: EngineSchemaOptions = {}): AnyEx
     strike: false,
     code: false,
     link: false,
+    // Zero-width, so the caret is drawn by `.lx-md-drop-cursor`'s border in the source editor's caret style.
+    dropcursor: { color: false, width: 0, class: "lx-md-drop-cursor" },
   });
   return [
     kit,
