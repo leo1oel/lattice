@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
-import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey, stripFrontmatter } from "../app-utils";
+import { arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, stripFrontmatter } from "../app-utils";
 import type { MenuEntry } from "@danfessler/trellis";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
@@ -190,7 +190,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   // A Paper is Markdown: its source and visual editor switch like any other's.
   const trellisViewModes = activeAsset ? null
     : activePaper || activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
-      : isHtmlFilePath(activeFile) ? "html" : null;
+      : isHtmlFilePath(activeFile) ? "html" : isBibFilePath(activeFile) ? "bib" : null;
   const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
   useLayoutEffect(() => {
     trellis.docTools.set({

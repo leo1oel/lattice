@@ -146,9 +146,31 @@ const isFormatted = (entry: ScannedEntry | null): entry is FormattedEntry => Boo
 /**
  * Formats only complete, conventional BibTeX entries. Anything the scanner
  * cannot classify without interpreting BibTeX is copied byte-for-byte.
+ *
+ * Given `saved`, the text this save replaces, only the entries the save
+ * changed are formatted: every other entry keeps the writer's own layout
+ * (aligned `=` signs, the spacing around it), however it was written.
  */
-export function formatBibDocument(source: string): string {
+export function formatBibDocument(source: string, saved?: string): string {
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
+  const entries = scanEntries(source, newline);
+  // An entry written exactly as it was saved is one this save did not change.
+  const kept = saved === undefined ? null : new Set(scanEntries(saved, newline).map((entry) => saved.slice(entry.start, entry.end + 1)));
+
+  let output = "";
+  let copiedThrough = 0;
+  for (const [index, entry] of entries.entries()) {
+    if (kept?.has(source.slice(entry.start, entry.end + 1))) continue;
+    const gap = source.slice(copiedThrough, entry.start);
+    const normalizedGap = index > 0 && /^[\t \r\n]*$/.test(gap) ? `${newline}${newline}` : gap;
+    output += normalizedGap + entry.formatted;
+    copiedThrough = entry.end + 1;
+  }
+  return output + source.slice(copiedThrough);
+}
+
+/** Every complete, conventional entry of `source` that formatting would rewrite. */
+function scanEntries(source: string, newline: string): FormattedEntry[] {
   const entryStart = /(^|\n)([\t ]*)@([A-Za-z][A-Za-z0-9_-]*)[\t ]*([({])/g;
   const entries: FormattedEntry[] = [];
   let match: RegExpExecArray | null;
@@ -173,13 +195,5 @@ export function formatBibDocument(source: string): string {
     entryStart.lastIndex = previousEnd + 1;
   }
 
-  let output = "";
-  let copiedThrough = 0;
-  for (const [index, entry] of entries.entries()) {
-    const gap = source.slice(copiedThrough, entry.start);
-    const normalizedGap = index > 0 && /^[\t \r\n]*$/.test(gap) ? `${newline}${newline}` : gap;
-    output += normalizedGap + entry.formatted;
-    copiedThrough = entry.end + 1;
-  }
-  return output + source.slice(copiedThrough);
+  return entries;
 }

@@ -48,8 +48,10 @@ describe("documents and editors", () => {
       await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
       expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     };
+    // A bibliography opens in its own view: its source, until the writer picks its reference list.
     await openTreeFile("references.bib");
-    await expectPlainSource();
+    await waitFor(() => expect(document.querySelector(".source-editor")).not.toBeNull());
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
 
     fireEvent.click(await findProjectTreeItem("notes.md"));
     await waitFor(() => expect(document.querySelector(".source-editor")).toBeNull());

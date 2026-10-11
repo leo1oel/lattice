@@ -4,7 +4,7 @@ import { FileCode2 } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "../pdf/pdf-loading";
 import {
-  isVisualMarkdownEditorWarmed, loadBoardEditorModule, loadOpenSlideWorkspaceModule,
+  isVisualMarkdownEditorWarmed, loadBibVisualEditorModule, loadBoardEditorModule, loadOpenSlideWorkspaceModule,
   loadPdfPreviewModule, loadProofreadDiffModule, loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule,
   markVisualMarkdownEditorWarmed,
 } from "./canvas-lazy-modules";
@@ -15,6 +15,7 @@ const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((m
 export const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({ default: module.BoardEditor })));
 export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({ default: module.SpreadsheetEditor })));
 export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({ default: module.OpenSlideWorkspace })));
+export const BibVisualEditor = lazy(() => loadBibVisualEditorModule().then((module) => ({ default: module.BibVisualEditor })));
 export const ProofreadDiff = lazy(() => loadProofreadDiffModule().then((module) => ({ default: module.ProofreadDiff })));
 
 export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {

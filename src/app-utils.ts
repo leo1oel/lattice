@@ -70,6 +70,8 @@ export const isProjectSourceFilePath = hasExtension(
 );
 export const isProjectAssetFilePath = hasExtension("png", "jpg", "jpeg", "pdf", "svg", "eps", "webp");
 export const isHtmlFilePath = hasExtension("html");
+/** A BibTeX bibliography, which has a visual form (the reference list) beside its source. */
+export const isBibFilePath = hasExtension("bib");
 export const isPreviewableSourceFilePath = hasExtension("tex", "md", "html");
 export const isHarperProseFilePath = hasExtension("tex", "md", "txt");
 

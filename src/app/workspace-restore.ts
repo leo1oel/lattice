@@ -1,5 +1,6 @@
 import type { CanvasMode, FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
 import {
+  isBibFilePath,
   isHtmlFilePath,
   isPaperTabKey,
   isPreviewableSourceFilePath,
@@ -38,6 +39,9 @@ function restoredCanvasMode(
   if (kind === "asset") return "asset";
   if (isHtmlFilePath(activeTab)) {
     return layout?.activeTab === activeTab && (saved === "source" || saved === "split" || saved === "pdf") ? saved : "pdf";
+  }
+  if (isBibFilePath(activeTab)) {
+    return layout?.activeTab === activeTab && (saved === "source" || saved === "split" || saved === "pdf") ? saved : layout?.bibMode ?? "source";
   }
   if (!isPreviewableSourceFilePath(activeTab)) return "source";
   return saved ?? "split";
@@ -93,6 +97,7 @@ export function planWorkspaceRestore(
     activeKind,
     mode,
     documentMode: layout?.documentMode ?? "split",
+    bibMode: layout?.bibMode ?? "source",
     paperView: layout?.paperView ?? "blog",
   };
 }

@@ -213,6 +213,8 @@ export type WorkspaceLayout = {
   activeTab: string;
   canvasMode: CanvasMode;
   documentMode: DocumentViewMode;
+  /** The view a .bib file opens in: its source, or its reference list (alone or beside it). */
+  bibMode: DocumentViewMode;
   paperView: "blog" | "fulltext";
 };
 
@@ -249,6 +251,7 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     activeTab: typeof candidate.activeTab === "string" && candidate.activeTab ? candidate.activeTab : activeFile,
     canvasMode,
     documentMode,
+    bibMode: oneOf(candidate.bibMode, DOCUMENT_MODES, "source"),
     paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),
   };
 }

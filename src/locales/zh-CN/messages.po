@@ -488,6 +488,10 @@ msgstr "还剩 1 词"
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "DOI、arXiv 编号或标题"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
+msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
@@ -656,6 +660,14 @@ msgstr "添加当前颜色"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "一次只能加一条"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Add field"
+msgstr "添加字段"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Add one by DOI, arXiv ID, title, or by hand"
+msgstr "可按 DOI、arXiv ID、标题添加，或手动填写"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Add or edit a link"
 msgstr "加链接"
@@ -671,6 +683,10 @@ msgstr "用 arXiv 编号、DOI 或标题加论文，在草稿旁阅读"
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加词语"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Add reference"
+msgstr "添加文献"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -767,6 +783,7 @@ msgid "Alignment"
 msgstr "对齐"
 
 #: src/history/history-drawer.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "全部"
@@ -782,6 +799,10 @@ msgstr "全部函数…"
 #: src/telemetry/app-log.tsx
 msgid "All levels"
 msgstr "全部级别"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "All references"
+msgstr "全部文献"
 
 #: src/App.tsx
 msgid "all source files"
@@ -865,6 +886,10 @@ msgstr "已经在修复了，请等它完成"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "项目里另一个文件"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Another reference already uses “{key}”."
+msgstr "已有另一条文献使用“{key}”。"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -984,6 +1009,7 @@ msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need、扩散模型…"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Author"
 msgstr "作者"
 
@@ -1116,6 +1142,7 @@ msgid "bibliography"
 msgstr "参考文献"
 
 #: src/build/tex-doctor-messages.ts
+#: src/papers/bib-visual-editor.tsx
 msgid "Bibliography"
 msgstr "参考文献"
 
@@ -1138,6 +1165,10 @@ msgstr "BibTeX 参考文献样式"
 #: src/papers/bib-entry-dialog.tsx
 msgid "BibTeX preview"
 msgstr "条目预览"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "BibTeX source beside the reference list"
+msgstr "BibTeX 源码与文献列表并排"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Big section heading."
@@ -1270,6 +1301,10 @@ msgstr "表格底线"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Brace-delimited matrix"
 msgstr "用花括号包裹的矩阵"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Braces in the value must be balanced."
+msgstr "值中的花括号必须成对。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bracketed matrix"
@@ -1689,6 +1724,10 @@ msgstr "希"
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "从项目中选择文件，或用快速打开查找"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Choose a reference to see where it is cited and edit its fields"
+msgstr "选择一条文献，查看它在哪里被引用并编辑字段"
+
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
 msgstr "选择图片"
@@ -1750,6 +1789,7 @@ msgid "Citation candidates"
 msgstr "可能匹配"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Citation key"
 msgstr "引用名"
 
@@ -1781,6 +1821,10 @@ msgstr "引用工具"
 msgid "Citations"
 msgstr "引用"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Citations in the manuscript: {citedCount}"
+msgstr "在稿件中被引用 {citedCount} 次"
+
 #: src/canvas/proofread-card.tsx
 msgid "citations or references"
 msgstr "引用或交叉引用"
@@ -1788,6 +1832,22 @@ msgstr "引用或交叉引用"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "引用参考文献条目"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited"
+msgstr "已引用"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited ×{citedCount}"
+msgstr "引用 ×{citedCount}"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited in"
+msgstr "引用位置"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited in the manuscript"
+msgstr "在稿件中被引用"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2192,6 +2252,7 @@ msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "拷贝"
 
+#: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Copy citation key"
 msgstr "复制引用名"
@@ -2588,6 +2649,7 @@ msgstr "定义"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/project/project-file-tree.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
@@ -2670,6 +2732,10 @@ msgstr "删除工作表？"
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "删除"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Deleted “{key}”"
+msgstr "已删除“{key}”"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Deleted “{name}”"
@@ -3032,6 +3098,10 @@ msgstr "编辑消息"
 msgid "Edit message text"
 msgstr "编辑消息内容"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "Edit the BibTeX source"
+msgstr "编辑 BibTeX 源码"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Edit the LaTeX here. Build typesets it beside you in seconds."
 msgstr "在这里写 LaTeX，编译几秒就在旁边出排版"
@@ -3219,6 +3289,7 @@ msgid "Entry changed"
 msgstr "条目已变"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "类型"
@@ -3377,6 +3448,18 @@ msgstr "正在获取 Overleaf 版本…"
 msgid "Fetching the paper overview…"
 msgstr "正在获取概览…"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Field"
+msgstr "字段"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Field names start with a letter and have no spaces."
+msgstr "字段名须以字母开头，且不含空格。"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Fields"
+msgstr "字段"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fifth-level heading."
 msgstr "五级标题"
@@ -3401,6 +3484,10 @@ msgstr "图片"
 msgctxt "macOS menu bar"
 msgid "File"
 msgstr "文件"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "File order"
+msgstr "文件顺序"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "file restore"
@@ -3545,6 +3632,10 @@ msgstr "修复所有问题后重新编译"
 #: src/history/conflict-resolver.tsx
 msgid "Fix anything left, then save"
 msgstr "改好剩下的再保存"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Fix it in the source and the list comes back."
+msgstr "在源码中修正后，列表会恢复显示。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
@@ -3771,6 +3862,10 @@ msgstr "跳到章节或标签…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "跳到标题"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Go to the error"
+msgstr "转到出错位置"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Go to the matching \\begin, \\end or math delimiter"
@@ -4434,6 +4529,10 @@ msgstr "无效的工作表：{name}"
 msgid "Iota"
 msgstr "约塔"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "It is still cited in the manuscript ({cited})."
+msgstr "稿件中仍有引用（{cited} 处）。"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -4843,6 +4942,26 @@ msgstr "行"
 msgid "line {line}"
 msgstr "第 {line} 行"
 
+#: src/papers/bib-document.ts
+msgid "Line {line}: a field could not be read."
+msgstr "第 {line} 行：有字段无法读取。"
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: a field of “{key}” could not be read."
+msgstr "第 {line} 行：“{key}”中有字段无法读取。"
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: an entry has no citation key."
+msgstr "第 {line} 行：有条目缺少引用名。"
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: an entry is never closed."
+msgstr "第 {line} 行：有条目没有闭合。"
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: the entry “{key}” is never closed."
+msgstr "第 {line} 行：条目“{key}”没有闭合。"
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line number"
 msgstr "行号"
@@ -4853,6 +4972,7 @@ msgstr "表达式下方加横线"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/papers/bib-visual-editor.tsx
 msgid "Link"
 msgstr "链接"
 
@@ -5056,6 +5176,14 @@ msgstr "跨行断开的长公式"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Long quotation"
 msgstr "长引文"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Looking through the manuscript…"
+msgstr "正在查找稿件中的引用…"
+
+#: src/canvas/document-canvas.tsx
+msgid "Looking up references is not available here."
+msgstr "此处无法查找文献。"
 
 #: src/project/todo-scavenger-panel.tsx
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
@@ -5478,6 +5606,14 @@ msgstr "新建白板"
 msgid "New changes on Overleaf · click to pull"
 msgstr "Overleaf 有新内容 · 点击获取"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "New field name"
+msgstr "新字段名"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "New field value"
+msgstr "新字段值"
+
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "新建文件"
@@ -5544,6 +5680,10 @@ msgstr "新建工作区"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New…"
 msgstr "新建…"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Newest first"
+msgstr "最新优先"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
@@ -5726,6 +5866,10 @@ msgstr "没找到这篇"
 msgid "No matching publication was found in the sources checked."
 msgstr "查过的来源里都没找到这篇"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "No matching references"
+msgstr "没有匹配的文献"
+
 #: src/settings/settings-search.tsx
 msgid "No matching settings"
 msgstr "没有匹配的设置"
@@ -5779,9 +5923,17 @@ msgstr "没有正式发表版"
 msgid "No readable paper content is available."
 msgstr "这篇论文没有可读内容"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "No reference selected"
+msgstr "未选择文献"
+
 #: src/papers/bibliography-audit.tsx
 msgid "No references to check"
 msgstr "没有要检查的引用"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "No references yet"
+msgstr "还没有文献"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
@@ -5857,6 +6009,14 @@ msgstr "尚未检查"
 #: src/settings/doctor-settings.tsx
 msgid "Not checked yet"
 msgstr "还没检查"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Not cited by key, but {nociteAll} includes every entry"
+msgstr "未按引用名引用，但 {nociteAll} 会收录所有条目"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Not cited in any .tex file"
+msgstr "未在任何 .tex 文件中引用"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not enabled · add your own API key in Settings"
@@ -6133,6 +6293,10 @@ msgstr "打开 notes.md"
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "查看公告"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Open paper"
+msgstr "打开论文"
 
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
@@ -7187,9 +7351,17 @@ msgstr "引用检查进度"
 msgid "Reference lacks identifying metadata"
 msgstr "文献信息不全，无法核对"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "Reference list"
+msgstr "文献列表"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Reference with its type name"
 msgstr "带类型名称的引用"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "References"
+msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Refresh"
@@ -7284,6 +7456,10 @@ msgstr "删除版本名“{0}”"
 #: src/overleaf/overleaf-history.tsx
 msgid "Remove the “{0}” label from this Overleaf version?"
 msgstr "删除这个版本名“{0}”？"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Remove the {name} field"
+msgstr "删除 {name} 字段"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
@@ -7576,6 +7752,10 @@ msgstr "调整编辑器与 Markdown 预览大小"
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "调整编辑器与 PDF 预览大小"
+
+#: src/canvas/document-canvas.tsx
+msgid "Resize editor and reference list"
+msgstr "调整编辑器与文献列表的宽度"
 
 #: src/trellis/trellis-labels.ts
 msgid "Resize panels"
@@ -8088,6 +8268,10 @@ msgstr "搜索项目"
 msgid "Search PDF"
 msgstr "搜索 PDF"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Search references"
+msgstr "搜索文献"
+
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "搜索设置"
@@ -8294,6 +8478,10 @@ msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "全部显示"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show all references"
+msgstr "显示全部文献"
+
 #: src/project/project-find-dialog.tsx
 msgid "Show all results"
 msgstr "显示全部"
@@ -8315,6 +8503,10 @@ msgstr "显示隐藏文件"
 msgid "Show in Finder"
 msgstr "在访达中显示"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show in source"
+msgstr "在源码中显示"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "显示预览"
@@ -8326,6 +8518,10 @@ msgstr "面板开关"
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "显示大纲"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Show references"
+msgstr "显示文献"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
@@ -8467,6 +8663,10 @@ msgstr "部分来源不可用"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
 msgstr "行排序"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Sort references"
+msgstr "文献排序"
 
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -9301,6 +9501,14 @@ msgstr "此账号没有权限处理修订"
 msgid "This action cannot be undone."
 msgstr "删除后无法恢复"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "This bibliography can't be shown as a list"
+msgstr "此参考文献无法以列表显示"
+
+#: src/canvas/document-canvas.tsx
+msgid "This bibliography can't be shown as a list until it reads as BibTeX."
+msgstr "此参考文献需能按 BibTeX 读取，才能以列表显示。"
+
 #: src/App.tsx
 msgid "This bibliography entry has no citation key to remove."
 msgstr "这条文献没有引用名，无法删除"
@@ -9411,6 +9619,10 @@ msgstr "此项目同步到“{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "此项目用的是 {linkedHost}，请退出并重新连接它"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "This reference already has a “{name}” field."
+msgstr "这条文献已有“{name}”字段。"
+
 #: src/App.tsx
 msgid "This reference cannot be updated."
 msgstr "无法更新这条引用"
@@ -9426,6 +9638,10 @@ msgstr "仅供对比，未确认，不能采用"
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "This value joins strings with #; keep it valid BibTeX."
+msgstr "此值用 # 拼接字符串，请保持为有效的 BibTeX。"
 
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
@@ -9463,6 +9679,7 @@ msgstr "提示"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Title"
 msgstr "标题"
@@ -9652,6 +9869,7 @@ msgstr "下划线"
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
 #: src/editor/editor-keymap.ts
+#: src/papers/bib-visual-editor.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
@@ -9759,12 +9977,17 @@ msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "不支持的电子表格协作格式：{version}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Untitled"
 msgstr "无标题"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Untitled research"
 msgstr "未命名"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Unused"
+msgstr "未引用"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unused citation key “{key}”."
@@ -9885,6 +10108,10 @@ msgstr "使用系统环境的密钥"
 #: src/settings/literature-settings.tsx
 msgid "Using shared quota"
 msgstr "使用共享额度"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Value"
+msgstr "值"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"

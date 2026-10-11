@@ -1620,6 +1620,10 @@ function App() {
       mode={canvasMode}
       workspaceIndex={workspaceIndex}
       papers={papers}
+      onOpenPaper={(paper) => void openPaper(paper)}
+      onOpenUrl={(url) => void openUrl(url).catch((reason) => showError(toMessage(reason)))}
+      onResolveCitation={referenceImport.resolveBibQuery}
+      citationUsageRevision={unusedSymbols}
       source={canvasSource}
       settledSource={settledCanvasSource}
       markdownPreviewSource={documents.canvas.previewText}

@@ -14,7 +14,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis";
 import type { AssetPreview, FileViewState } from "../app-types";
 import type { AgentPdfDocumentPlace } from "../agent/agent-host-context";
-import { isHtmlFilePath } from "../app-utils";
+import { isBibFilePath, isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
@@ -67,10 +67,10 @@ export function documentTools(kind: TrellisTabKind, key: string): DocumentTools 
   if (kind !== "file") return null;
   const lower = key.toLocaleLowerCase();
   if (lower.endsWith(".tex")) return "build";
-  return lower.endsWith(".md") || isHtmlFilePath(key) ? "views" : null;
+  return lower.endsWith(".md") || isHtmlFilePath(key) || isBibFilePath(key) ? "views" : null;
 }
 
-/** Edit, Split or Preview for a Markdown or HTML document. */
+/** Edit, Split or Preview for a Markdown, HTML or BibTeX document. */
 export type TrellisViewMode = "source" | "split" | "pdf";
 
 /** App's side of the bridge, replaced on every App render and read at event time. */
@@ -120,7 +120,7 @@ export type TrellisDocToolsState = {
   lastBuild: BuildOutcome | null;
   /** The active document's view, and whether it has Edit/Split/Preview at all. */
   viewMode: TrellisViewMode;
-  viewModes: "markdown" | "html" | null;
+  viewModes: "markdown" | "html" | "bib" | null;
   paperView: "blog" | "fulltext" | null;
   /** Both a blog and a full text exist, so the Paper panel can switch. */
   paperViews: boolean;

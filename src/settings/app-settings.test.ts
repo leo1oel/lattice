@@ -32,6 +32,7 @@ const layout: WorkspaceLayout = {
   activeTab: "sections/method.tex",
   canvasMode: "source",
   documentMode: "source",
+  bibMode: "source",
   paperView: "fulltext",
 };
 
@@ -113,6 +114,7 @@ describe("workspace layout persistence", () => {
       activeTab: "main.tex",
       canvasMode: "split",
       documentMode: "split",
+      bibMode: "source",
       paperView: "blog",
     });
   });

@@ -491,6 +491,10 @@ msgstr "1 word remaining"
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
+msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
@@ -659,6 +663,14 @@ msgstr "Add current color"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Add field"
+msgstr "Add field"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Add one by DOI, arXiv ID, title, or by hand"
+msgstr "Add one by DOI, arXiv ID, title, or by hand"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Add or edit a link"
 msgstr "Add or edit a link"
@@ -674,6 +686,10 @@ msgstr "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "Add project term"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Add reference"
+msgstr "Add reference"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -770,6 +786,7 @@ msgid "Alignment"
 msgstr "Alignment"
 
 #: src/history/history-drawer.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "All"
@@ -785,6 +802,10 @@ msgstr "All Functions…"
 #: src/telemetry/app-log.tsx
 msgid "All levels"
 msgstr "All levels"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "All references"
+msgstr "All references"
 
 #: src/App.tsx
 msgid "all source files"
@@ -868,6 +889,10 @@ msgstr "Another compile repair is already starting for this project. Wait for it
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Another reference already uses “{key}”."
+msgstr "Another reference already uses “{key}”."
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -987,6 +1012,7 @@ msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Author"
 msgstr "Author"
 
@@ -1119,6 +1145,7 @@ msgid "bibliography"
 msgstr "bibliography"
 
 #: src/build/tex-doctor-messages.ts
+#: src/papers/bib-visual-editor.tsx
 msgid "Bibliography"
 msgstr "Bibliography"
 
@@ -1141,6 +1168,10 @@ msgstr "BibTeX bibliography style"
 #: src/papers/bib-entry-dialog.tsx
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "BibTeX source beside the reference list"
+msgstr "BibTeX source beside the reference list"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Big section heading."
@@ -1273,6 +1304,10 @@ msgstr "Bottom table rule"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Brace-delimited matrix"
 msgstr "Brace-delimited matrix"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Braces in the value must be balanced."
+msgstr "Braces in the value must be balanced."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bracketed matrix"
@@ -1692,6 +1727,10 @@ msgstr "Chi"
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "Choose a file from the project, or find it with Quick open"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Choose a reference to see where it is cited and edit its fields"
+msgstr "Choose a reference to see where it is cited and edit its fields"
+
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
 msgstr "Choose image to upload"
@@ -1753,6 +1792,7 @@ msgid "Citation candidates"
 msgstr "Citation candidates"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Citation key"
 msgstr "Citation key"
 
@@ -1784,6 +1824,10 @@ msgstr "Citation tool"
 msgid "Citations"
 msgstr "Citations"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Citations in the manuscript: {citedCount}"
+msgstr "Citations in the manuscript: {citedCount}"
+
 #: src/canvas/proofread-card.tsx
 msgid "citations or references"
 msgstr "citations or references"
@@ -1791,6 +1835,22 @@ msgstr "citations or references"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited"
+msgstr "Cited"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited ×{citedCount}"
+msgstr "Cited ×{citedCount}"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited in"
+msgstr "Cited in"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Cited in the manuscript"
+msgstr "Cited in the manuscript"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2195,6 +2255,7 @@ msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "Copy"
 
+#: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Copy citation key"
 msgstr "Copy citation key"
@@ -2591,6 +2652,7 @@ msgstr "Definition"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/project/project-file-tree.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
@@ -2673,6 +2735,10 @@ msgstr "Delete worksheet?"
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "deleted"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Deleted “{key}”"
+msgstr "Deleted “{key}”"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Deleted “{name}”"
@@ -3035,6 +3101,10 @@ msgstr "Edit message"
 msgid "Edit message text"
 msgstr "Edit message text"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "Edit the BibTeX source"
+msgstr "Edit the BibTeX source"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Edit the LaTeX here. Build typesets it beside you in seconds."
 msgstr "Edit the LaTeX here. Build typesets it beside you in seconds."
@@ -3222,6 +3292,7 @@ msgid "Entry changed"
 msgstr "Entry changed"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "Entry type"
@@ -3380,6 +3451,18 @@ msgstr "Fetching the Overleaf copy…"
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Field"
+msgstr "Field"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Field names start with a letter and have no spaces."
+msgstr "Field names start with a letter and have no spaces."
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Fields"
+msgstr "Fields"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fifth-level heading."
 msgstr "Fifth-level heading."
@@ -3404,6 +3487,10 @@ msgstr "Figures"
 msgctxt "macOS menu bar"
 msgid "File"
 msgstr "File"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "File order"
+msgstr "File order"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "file restore"
@@ -3548,6 +3635,10 @@ msgstr "Fix all errors and warnings, then recompile"
 #: src/history/conflict-resolver.tsx
 msgid "Fix anything left, then save"
 msgstr "Fix anything left, then save"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Fix it in the source and the list comes back."
+msgstr "Fix it in the source and the list comes back."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
@@ -3774,6 +3865,10 @@ msgstr "Go to section or label…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "Go to symbol"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Go to the error"
+msgstr "Go to the error"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Go to the matching \\begin, \\end or math delimiter"
@@ -4437,6 +4532,10 @@ msgstr "Invalid worksheet: {name}"
 msgid "Iota"
 msgstr "Iota"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "It is still cited in the manuscript ({cited})."
+msgstr "It is still cited in the manuscript ({cited})."
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -4846,6 +4945,26 @@ msgstr "Line"
 msgid "line {line}"
 msgstr "line {line}"
 
+#: src/papers/bib-document.ts
+msgid "Line {line}: a field could not be read."
+msgstr "Line {line}: a field could not be read."
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: a field of “{key}” could not be read."
+msgstr "Line {line}: a field of “{key}” could not be read."
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: an entry has no citation key."
+msgstr "Line {line}: an entry has no citation key."
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: an entry is never closed."
+msgstr "Line {line}: an entry is never closed."
+
+#: src/papers/bib-document.ts
+msgid "Line {line}: the entry “{key}” is never closed."
+msgstr "Line {line}: the entry “{key}” is never closed."
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line number"
 msgstr "Line number"
@@ -4856,6 +4975,7 @@ msgstr "Line under an expression"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/papers/bib-visual-editor.tsx
 msgid "Link"
 msgstr "Link"
 
@@ -5059,6 +5179,14 @@ msgstr "Long equation broken across lines"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Long quotation"
 msgstr "Long quotation"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Looking through the manuscript…"
+msgstr "Looking through the manuscript…"
+
+#: src/canvas/document-canvas.tsx
+msgid "Looking up references is not available here."
+msgstr "Looking up references is not available here."
 
 #: src/project/todo-scavenger-panel.tsx
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
@@ -5481,6 +5609,14 @@ msgstr "New board"
 msgid "New changes on Overleaf · click to pull"
 msgstr "New changes on Overleaf · click to pull"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "New field name"
+msgstr "New field name"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "New field value"
+msgstr "New field value"
+
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "New file"
@@ -5547,6 +5683,10 @@ msgstr "New workspace"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New…"
 msgstr "New…"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Newest first"
+msgstr "Newest first"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
@@ -5729,6 +5869,10 @@ msgstr "No matching publication found"
 msgid "No matching publication was found in the sources checked."
 msgstr "No matching publication was found in the sources checked."
 
+#: src/papers/bib-visual-editor.tsx
+msgid "No matching references"
+msgstr "No matching references"
+
 #: src/settings/settings-search.tsx
 msgid "No matching settings"
 msgstr "No matching settings"
@@ -5782,9 +5926,17 @@ msgstr "No published version was found."
 msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
+#: src/papers/bib-visual-editor.tsx
+msgid "No reference selected"
+msgstr "No reference selected"
+
 #: src/papers/bibliography-audit.tsx
 msgid "No references to check"
 msgstr "No references to check"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "No references yet"
+msgstr "No references yet"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
@@ -5860,6 +6012,14 @@ msgstr "Not checked"
 #: src/settings/doctor-settings.tsx
 msgid "Not checked yet"
 msgstr "Not checked yet"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Not cited by key, but {nociteAll} includes every entry"
+msgstr "Not cited by key, but {nociteAll} includes every entry"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Not cited in any .tex file"
+msgstr "Not cited in any .tex file"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not enabled · add your own API key in Settings"
@@ -6136,6 +6296,10 @@ msgstr "Open notes.md"
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "Open notice"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Open paper"
+msgstr "Open paper"
 
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
@@ -7190,9 +7354,17 @@ msgstr "Reference check progress"
 msgid "Reference lacks identifying metadata"
 msgstr "Reference lacks identifying metadata"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "Reference list"
+msgstr "Reference list"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Reference with its type name"
 msgstr "Reference with its type name"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "References"
+msgstr "References"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Refresh"
@@ -7287,6 +7459,10 @@ msgstr "Remove the \"{0}\" label"
 #: src/overleaf/overleaf-history.tsx
 msgid "Remove the “{0}” label from this Overleaf version?"
 msgstr "Remove the “{0}” label from this Overleaf version?"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Remove the {name} field"
+msgstr "Remove the {name} field"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "removed"
@@ -7579,6 +7755,10 @@ msgstr "Resize editor and Markdown preview"
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and PDF preview"
 msgstr "Resize editor and PDF preview"
+
+#: src/canvas/document-canvas.tsx
+msgid "Resize editor and reference list"
+msgstr "Resize editor and reference list"
 
 #: src/trellis/trellis-labels.ts
 msgid "Resize panels"
@@ -8093,6 +8273,10 @@ msgstr "Search Overleaf projects"
 msgid "Search PDF"
 msgstr "Search PDF"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Search references"
+msgstr "Search references"
+
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "Search settings"
@@ -8299,6 +8483,10 @@ msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "Show All"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show all references"
+msgstr "Show all references"
+
 #: src/project/project-find-dialog.tsx
 msgid "Show all results"
 msgstr "Show all results"
@@ -8320,6 +8508,10 @@ msgstr "Show hidden files"
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show in source"
+msgstr "Show in source"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
@@ -8331,6 +8523,10 @@ msgstr "Show or hide panels"
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "Show outline"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Show references"
+msgstr "Show references"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
@@ -8474,6 +8670,10 @@ msgstr "Some sources unavailable"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
 msgstr "Sort lines"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Sort references"
+msgstr "Sort references"
 
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -9308,6 +9508,14 @@ msgstr "This account cannot accept or reject suggestions here."
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
 
+#: src/papers/bib-visual-editor.tsx
+msgid "This bibliography can't be shown as a list"
+msgstr "This bibliography can't be shown as a list"
+
+#: src/canvas/document-canvas.tsx
+msgid "This bibliography can't be shown as a list until it reads as BibTeX."
+msgstr "This bibliography can't be shown as a list until it reads as BibTeX."
+
 #: src/App.tsx
 msgid "This bibliography entry has no citation key to remove."
 msgstr "This bibliography entry has no citation key to remove."
@@ -9418,6 +9626,10 @@ msgstr "This project syncs with “{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "This project uses {linkedHost}. Sign out and connect to it to resume"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "This reference already has a “{name}” field."
+msgstr "This reference already has a “{name}” field."
+
 #: src/App.tsx
 msgid "This reference cannot be updated."
 msgstr "This reference cannot be updated."
@@ -9433,6 +9645,10 @@ msgstr "This source record is shown for comparison only. It was not verified and
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
+
+#: src/papers/bib-visual-editor.tsx
+msgid "This value joins strings with #; keep it valid BibTeX."
+msgstr "This value joins strings with #; keep it valid BibTeX."
 
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
@@ -9470,6 +9686,7 @@ msgstr "Tip"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Title"
 msgstr "Title"
@@ -9659,6 +9876,7 @@ msgstr "Underline"
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
 #: src/editor/editor-keymap.ts
+#: src/papers/bib-visual-editor.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
@@ -9766,12 +9984,17 @@ msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "Unsupported spreadsheet collaboration format: {version}"
 
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/papers/bib-visual-editor.tsx
 msgid "Untitled"
 msgstr "Untitled"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Untitled research"
 msgstr "Untitled research"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Unused"
+msgstr "Unused"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unused citation key “{key}”."
@@ -9894,6 +10117,10 @@ msgstr "Using environment key"
 #: src/settings/literature-settings.tsx
 msgid "Using shared quota"
 msgstr "Using shared quota"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Value"
+msgstr "Value"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"

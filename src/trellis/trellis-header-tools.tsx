@@ -1,7 +1,7 @@
 /**
  * A document panel's header tools: Build on a .tex file (it builds the
  * project and brings the PDF up), Edit / Split / Preview on the active
- * Markdown or HTML file, and on the active Paper Blog / Paper beside its own
+ * Markdown, HTML or .bib file (whose Preview is its reference list), and on the active Paper Blog / Paper beside its own
  * Edit / Split / Preview (a Paper is Markdown too).
  *
  * The modes are icons, each named in its tooltip and to assistive technology;
@@ -191,7 +191,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     return <Tip label={label}>{button(true)}</Tip>;
   }
   if (which === null) return null;
-  // Edit, Split and Preview: a Markdown or HTML file's, and a Paper's beside its Blog/Paper switch.
+  // Edit, Split and Preview: a Markdown, HTML or .bib file's, and a Paper's beside its Blog/Paper switch.
   const modeItems = [
     { value: "source" as const, label: <><PenLine size={13} /><span className="trellis-mode-name">{t`Edit`}</span></> },
     { value: "split" as const, label: <><Columns2 size={13} /><span className="trellis-mode-name">{t`Split`}</span></> },
@@ -207,7 +207,9 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
         ...item,
         title: (tools.viewModes === "html"
           ? [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`]
-          : [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`])[i],
+          : tools.viewModes === "bib"
+            ? [t`Edit the BibTeX source`, t`BibTeX source beside the reference list`, t`Reference list`]
+            : [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`])[i],
       }))}
     />
   ) : <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={modeItems} /></Reserve>;
