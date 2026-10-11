@@ -1639,6 +1639,9 @@ function App() {
       onOpenSlideError={showError}
       pdfUrl={pdfUrl}
       pdfBytes={buildPipeline.displayedPdfBytesRef.current}
+      onBuildProject={() => void compileAndShowPdf(false, true)}
+      building={building}
+      buildShortcut={commandShortcutText(commands, "build") ?? undefined}
       pdfTop={(!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
         <Suspense fallback={null}>
           <CompileDiagnosticsPanel

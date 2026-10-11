@@ -782,6 +782,12 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .papers-empty-text { min-width: 0; display: grid; gap: var(--space-1); }
 .papers-empty-state strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: 600; }
 .papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.45; }
+/* The empty library: the card box on the plate's own raised paper, and the
+   action that takes the writer to the import field above. */
+.papers-empty-state[data-library="empty"] { --art-paper: var(--surface-panel-raised); padding: var(--space-4); gap: var(--space-3); }
+.papers-empty-state[data-library="empty"] .research-art { width: 52px; }
+.papers-empty-state[data-library="empty"] p { margin-bottom: var(--space-1); }
+.papers-empty-state .ui-button { justify-self: start; max-width: 100%; }
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
 .import-box button:hover:not(:disabled) { background: var(--control-active-soft); }

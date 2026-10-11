@@ -542,6 +542,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 
 .ui-icon-button:disabled,
 .ui-button:disabled,
+.ui-button[aria-disabled="true"],
 .ui-compact-selectable:disabled,
 .ui-checkbox:disabled {
   opacity: var(--control-disabled-opacity);

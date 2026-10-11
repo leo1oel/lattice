@@ -425,6 +425,8 @@
 /* ---------------------------------------------------------------- empty and sleeping states */
 .trellis-empty {
   position: absolute; inset: 0; z-index: 1;
+  container-type: size;
+  --art-paper: var(--lattice-panel-surface, var(--surface-app));
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3);
   padding: var(--space-8);
   background: var(--lattice-panel-surface, var(--surface-app));
@@ -442,6 +444,11 @@
   color: var(--text-secondary);
   transition: background-color var(--motion-fast), color var(--motion-fast);
 }
+/* The drawing shrinks with a narrow panel and gives way in a short one, so
+   the title and its action always fit. */
+.trellis-empty-art { width: min(112px, 50cqw); margin-bottom: var(--space-2); }
+.trellis-empty-art .research-art { width: 100%; }
+@container (max-height: 240px) { .trellis-empty-art { display: none; } }
 .trellis-empty strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
 .trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }

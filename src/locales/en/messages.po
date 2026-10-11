@@ -1337,6 +1337,7 @@ msgstr "Build output"
 
 #: src/App.tsx
 #: src/app/use-trellis-bridge.ts
+#: src/pdf/pdf-viewer.tsx
 msgid "Build project"
 msgstr "Build project"
 
@@ -1351,10 +1352,6 @@ msgstr "Build succeeded in {seconds}s"
 #: src/app/use-build-pipeline.ts
 msgid "Build superseded"
 msgstr "Build superseded"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Build the project to preview the paper"
-msgstr "Build the project to preview the paper"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build this project with pdfLaTeX from now on"
@@ -1373,6 +1370,11 @@ msgstr "Build with {switchedFrom} again"
 msgid "Build with ⌘S. Edits still save on their own"
 msgstr "Build with ⌘S. Edits still save on their own"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Build your LaTeX project to see the typeset paper"
+msgstr "Build your LaTeX project to see the typeset paper"
+
+#: src/pdf/pdf-viewer.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
 msgstr "Building…"
@@ -1689,6 +1691,10 @@ msgstr "Checklist with checkboxes."
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "Chi"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Choose a file from the project, or find it with Quick open"
+msgstr "Choose a file from the project, or find it with Quick open"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4497,6 +4503,10 @@ msgstr "Keep my fields"
 msgid "Keep Overleaf's version"
 msgstr "Keep Overleaf's version"
 
+#: src/project/paper-library.tsx
+msgid "Keep sources beside your writing"
+msgstr "Keep sources beside your writing"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
@@ -6538,10 +6548,6 @@ msgstr "Partial results for {completed} of {progressTotal} references"
 msgctxt "macOS menu bar"
 msgid "Paste"
 msgstr "Paste"
-
-#: src/project/paper-library.tsx
-msgid "Paste an arXiv ID, DOI, URL or title above"
-msgstr "Paste an arXiv ID, DOI, URL or title above"
 
 #: src/App.tsx
 #: src/project/project-file-tree.tsx
@@ -10269,6 +10275,10 @@ msgstr "You sign in on Overleaf. Lattice never sees your password"
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Your first PDF starts here"
+msgstr "Your first PDF starts here"
+
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "Your Lattice copy"
@@ -10285,6 +10295,10 @@ msgstr "your Overleaf account"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
+
+#: src/project/paper-library.tsx
+msgid "Your paper library"
+msgstr "Your paper library"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Your project"

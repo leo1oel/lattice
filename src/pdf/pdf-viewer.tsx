@@ -29,6 +29,7 @@ import {
   Download,
   Ellipsis,
   LocateFixed,
+  Play,
   RectangleHorizontal,
   RectangleVertical,
   WholeWord,
@@ -42,7 +43,9 @@ import {
 } from "../components/ui/dropdown-menu";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
-import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { Button } from "../components/ui/button";
+import { ResearchArt } from "../components/ui/research-art";
+import { PROOF_TRAY } from "../components/ui/research-art-proof-tray";
 import { EmptyState } from "../components/ui/empty-state";
 import { comboText } from "../app/key-combos";
 import { REVEAL_IN_PDF_KEY } from "./pdf-keys";
@@ -327,6 +330,9 @@ export function PdfPreview({
   toolbarStart,
   toolbarEnd,
   notice = null,
+  onBuild,
+  building = false,
+  buildShortcut,
   citations,
   canOpenCitation,
   onOpenCitation,
@@ -357,6 +363,11 @@ export function PdfPreview({
   toolbarEnd?: ReactNode;
   /** A short status shown over the pages, such as the file having been removed. */
   notice?: string | null;
+  /** Builds the project, offered while there is no PDF yet. */
+  onBuild?: () => void;
+  building?: boolean;
+  /** The build command's keys, from the command table. */
+  buildShortcut?: string;
 }) {
   const { t } = useLingui();
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -463,7 +474,26 @@ export function PdfPreview({
           </div>
         </div>
         <div className="pdf-placeholder">
-          <EmptyState icon={<EmptyIllustration kind="preview" />} description={t`Build the project to preview the paper`} />
+          <EmptyState
+            icon={<ResearchArt drawing={PROOF_TRAY} />}
+            title={t`Your first PDF starts here`}
+            description={t`Build your LaTeX project to see the typeset paper`}
+            actions={onBuild && (
+              // Busy rather than queueing another build (the header's Build
+              // button is the one that queues a fresh build), and still
+              // focusable, so focus stays here if the build ends without a PDF.
+              <Button
+                size="compact"
+                aria-disabled={building || undefined}
+                aria-busy={building || undefined}
+                onClick={building ? undefined : onBuild}
+              >
+                {building ? <InfinityLoader size={13} /> : <Play size={11} fill="currentColor" />}
+                {building ? t`Building…` : t`Build project`}
+                {buildShortcut && !building && <kbd>{buildShortcut}</kbd>}
+              </Button>
+            )}
+          />
         </div>
       </div>
     );

@@ -202,6 +202,10 @@ export function DocumentCanvas(props: {
   pdfUrl: string | null;
   pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
+  /** Builds the project from the PDF panel while it has no PDF yet. */
+  onBuildProject?: () => void;
+  building?: boolean;
+  buildShortcut?: string;
   activePaper: PaperSummary | null;
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
@@ -1445,6 +1449,9 @@ export function DocumentCanvas(props: {
             locatingPdf={props.locatingPdf}
             onForwardSync={props.onForwardSync}
             loadErrorHint={t`Try building the project again`}
+            onBuild={props.onBuildProject}
+            building={props.building}
+            buildShortcut={props.buildShortcut}
             // Under Trellis a reverse jump always has a file panel to land in.
             onSource={props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}

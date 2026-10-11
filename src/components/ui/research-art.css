@@ -1,0 +1,20 @@
+/* Research desk drawings (research-art.tsx). The host sets --art-paper to the
+   surface the drawing sits on, so its paper hides the lines behind it without
+   showing as a white patch in either theme. The strokes keep their width at
+   any size the host draws the art. */
+.research-art { display: block; flex: none; width: 112px; height: auto; aspect-ratio: 160 / 124; overflow: visible; color: var(--text-tertiary); }
+.research-art [data-tone="paper"] { fill: var(--art-paper, var(--surface-app)); }
+.research-art [data-tone^="shade"] { fill: currentColor; opacity: .025; }
+.research-art [data-tone="shade-mid"] { opacity: .06; }
+.research-art [data-tone="shade-deep"] { opacity: .095; }
+.research-art :is([data-tone="faint"], [data-tone="line"]) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.research-art [data-tone="faint"] { opacity: .38; }
+.research-art [data-tone="line"] { opacity: .65; }
+.research-art [data-tone="dot"] { fill: currentColor; opacity: .6; }
