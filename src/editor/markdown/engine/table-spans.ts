@@ -6,9 +6,10 @@
  * comment directly above it lists spans as `[row, col, rowspan, colspan]`,
  * with row 0 the header row and body rows counted from 1. Every source cell a
  * span covers repeats the origin cell's text, so the Markdown still reads as a
- * complete table anywhere else. Papers converted from arXiv carry no marker;
- * in paper reading mode their repeated header and stub labels are inferred as
- * spans instead.
+ * complete table anywhere else. The arXiv converter writes the source's
+ * merges as a marker; paper tables without one (other converters, bundles
+ * converted earlier) have their repeated header and stub labels inferred as
+ * spans in paper reading mode instead.
  *
  * Cells are compared by a key: the meaning of the cell's content (see
  * `semanticKey`), with an empty cell as the empty string.

@@ -47,7 +47,7 @@ pub const BIBCITE: UvTool = UvTool {
 
 /// Converts an arXiv paper to markdown Lattice and the agent can read.
 pub const ARXIV2MD: UvTool = UvTool {
-    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@d87059e892c390a134316ee5ca55ce61197bb21d",
+    requirement: "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a4bd5f876483cfce17daae5039f1b54f34092766",
     binary: "arxiv2md",
     override_env: "LATTICE_ARXIV2MD_BIN",
 };
@@ -331,7 +331,7 @@ mod tests {
         assert!(BIBCITE.requirement.starts_with("bibcite-cli=="));
         assert_eq!(
             ARXIV2MD.requirement,
-            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@d87059e892c390a134316ee5ca55ce61197bb21d"
+            "arxiv2markdown @ git+https://github.com/leo1oel/arxiv2md.git@a4bd5f876483cfce17daae5039f1b54f34092766"
         );
         assert_eq!(ARXIV_SOURCE2MD.requirement, "arxiv-md==0.1.0");
     }
