@@ -170,6 +170,22 @@ export function layoutShape(doc: LayoutDocument): string {
 const newId = () => `ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const sameName = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLowerCase();
 const defaultName = () => i18n._(msg`Workspace`);
+/**
+ * The default name, and "+"'s numbered ones ("Workspace 2"…), as stored: in
+ * one form, shown in the language of the moment, so they follow a change of
+ * language while a name the writer gave stays as given. A library saved
+ * them in the language it was created in, so every language's default name
+ * (zh-CN's former "布局" too) reads as the stored form.
+ */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- stored form; asDefault shows it translated
+const STORED_DEFAULT_NAME = "Workspace";
+const DEFAULT_NAMES = /^(?:Workspace|工作区|布局)(?: ([2-9]|[1-9]\d+))?$/;
+/** `name` with a default name put as `base` (keeping its number); any other name as it is. */
+const asDefault = (name: string, base: string) => {
+  const match = DEFAULT_NAMES.exec(name);
+  return match ? (match[1] ? `${base} ${match[1]}` : base) : name;
+};
+const storedName = (name: string) => asDefault(name, STORED_DEFAULT_NAME);
 
 function isSavedLayout(value: unknown): value is { version: number; savedAt?: number; document: LayoutDocument; preset?: { previous?: LayoutDocument } } {
   const saved = value as { version?: unknown; document?: { views?: unknown } } | null;
@@ -206,7 +222,7 @@ function migrateLegacyLayouts(storage: Storage): SavedLibrary {
       // The project falls back to the most recent workspace.
     }
   }
-  return { version: LIBRARY_VERSION, workspaces: [{ id, name: defaultName(), arrangement: latest?.arrangement ?? null }], recent: id };
+  return { version: LIBRARY_VERSION, workspaces: [{ id, name: STORED_DEFAULT_NAME, arrangement: latest?.arrangement ?? null }], recent: id };
 }
 
 function isWorkspace(value: unknown): value is Workspace {
@@ -216,8 +232,9 @@ function isWorkspace(value: unknown): value is Workspace {
 
 /**
  * The workspaces, in the writer's order, persisted in localStorage. The
- * summary list (ids and names) keeps its identity until one is added,
- * removed, renamed or moved, so the titlebar re-renders only then. Only "+",
+ * summary list (ids and names as shown) keeps its identity until one is
+ * added, removed, renamed or moved, or the language changes, so the titlebar
+ * re-renders only then. Only "+",
  * Save to workspace, Duplicate and Rename write an arrangement; writing one
  * here notifies nobody, since the listed summaries do not change. Any change
  * another window makes notifies, its arrangements' included: the project in a
@@ -226,6 +243,8 @@ function isWorkspace(value: unknown): value is Workspace {
 export class WorkspaceLibrary {
   private saved: SavedLibrary | null = null;
   private summaries: readonly WorkspaceSummary[] = [];
+  /** The language `summaries` named the default names in. */
+  private summariesLocale = "";
   private listeners = new Set<Listener>();
 
   /** The library as stored now, if a valid one is. */
@@ -234,7 +253,9 @@ export class WorkspaceLibrary {
       const raw = localStorage.getItem(LIBRARY_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as Partial<SavedLibrary>;
-      const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces.filter(isWorkspace) : [];
+      const workspaces = Array.isArray(parsed.workspaces)
+        ? parsed.workspaces.filter(isWorkspace).map((entry) => ({ ...entry, name: storedName(entry.name) }))
+        : [];
       return workspaces.length ? { version: LIBRARY_VERSION, workspaces, recent: typeof parsed.recent === "string" ? parsed.recent : undefined } : null;
     } catch {
       return null;
@@ -253,9 +274,16 @@ export class WorkspaceLibrary {
     } catch {
       // Without storage, one session-only workspace.
     }
-    this.saved = saved ?? { version: LIBRARY_VERSION, workspaces: [{ id: newId(), name: defaultName(), arrangement: null }] };
-    this.summaries = this.saved.workspaces.map(({ id, name }) => ({ id, name }));
+    this.saved = saved ?? { version: LIBRARY_VERSION, workspaces: [{ id: newId(), name: STORED_DEFAULT_NAME, arrangement: null }] };
+    this.summaries = this.summarize(this.saved.workspaces);
     return this.saved;
+  }
+
+  /** The workspaces as listed: default names in the current language. */
+  private summarize(workspaces: Workspace[]): WorkspaceSummary[] {
+    this.summariesLocale = i18n.locale;
+    const name = defaultName();
+    return workspaces.map((entry) => ({ id: entry.id, name: asDefault(entry.name, name) }));
   }
 
   /**
@@ -267,7 +295,7 @@ export class WorkspaceLibrary {
     const saved = this.read();
     if (!saved) return this.load();
     this.saved = saved;
-    const summaries = saved.workspaces.map(({ id, name }) => ({ id, name }));
+    const summaries = this.summarize(saved.workspaces);
     if (JSON.stringify(summaries) !== JSON.stringify(this.summaries)) {
       this.summaries = summaries;
       if (notify) this.notify();
@@ -290,7 +318,7 @@ export class WorkspaceLibrary {
   /** Persist a change to the list, and tell the titlebar. */
   private commit(workspaces: Workspace[], recent = this.load().recent) {
     this.saved = { version: LIBRARY_VERSION, workspaces, recent };
-    this.summaries = workspaces.map(({ id, name }) => ({ id, name }));
+    this.summaries = this.summarize(workspaces);
     this.persist();
     this.notify();
   }
@@ -310,8 +338,10 @@ export class WorkspaceLibrary {
     this.fresh(false);
   }
 
+  /** Re-read on a change of language too: the titlebar re-renders with it. */
   list = (): readonly WorkspaceSummary[] => {
-    this.load();
+    const { workspaces } = this.load();
+    if (this.summariesLocale !== i18n.locale) this.summaries = this.summarize(workspaces);
     return this.summaries;
   };
 
@@ -353,12 +383,13 @@ export class WorkspaceLibrary {
 
   /** Whether `name` is free for a workspace: none other has it, ignoring case. */
   nameFree(name: string, except?: string) {
-    return !this.load().workspaces.some((entry) => entry.id !== except && sameName(entry.name, name.trim()));
+    const stored = storedName(name.trim());
+    return !this.load().workspaces.some((entry) => entry.id !== except && sameName(entry.name, stored));
   }
 
-  /** `base`, or the first of "base 2", "base 3"… that no workspace has. */
+  /** `base`, or the first of "base 2", "base 3"… that no workspace has, as stored. */
   uniqueName(base: string) {
-    const trimmed = base.trim().slice(0, WORKSPACE_NAME_MAX) || defaultName();
+    const trimmed = storedName(base.trim().slice(0, WORKSPACE_NAME_MAX) || STORED_DEFAULT_NAME);
     if (this.nameFree(trimmed)) return trimmed;
     for (let count = 2; ; count += 1) {
       const suffix = ` ${count}`;
@@ -386,7 +417,7 @@ export class WorkspaceLibrary {
 
   /** Rename, unless the name is empty or another workspace has it. */
   rename(id: string, name: string): "renamed" | "empty" | "taken" {
-    const trimmed = name.trim().slice(0, WORKSPACE_NAME_MAX);
+    const trimmed = storedName(name.trim().slice(0, WORKSPACE_NAME_MAX));
     if (!trimmed) return "empty";
     this.fresh();
     if (!this.nameFree(trimmed, id)) return "taken";

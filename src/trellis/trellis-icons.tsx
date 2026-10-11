@@ -14,7 +14,7 @@ import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import type { TrellisSingleton } from "./trellis-controller";
 import type { LayoutPreset } from "./trellis-layout";
 
-/** The layout presets, in the titlebar's layout switch and its Panels menu. */
+/** The layout presets, in the titlebar's Panels menu. */
 export const PRESETS = [
   { value: "writing", icon: PenLine },
   { value: "reading", icon: BookOpen },

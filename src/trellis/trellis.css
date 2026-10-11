@@ -513,7 +513,7 @@
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
-  /* One line, so a control short of room overflows the bar (which the preset
+  /* One line, so a control short of room overflows the bar (which the switch's
      fit measures) instead of wrapping a CJK label character by character. */
   white-space: nowrap;
   transition: background-color var(--motion-fast), color var(--motion-fast);
@@ -521,10 +521,10 @@
 .trellis-titlebar .trellis-titlebar-toggle { width: var(--control-height-compact); justify-content: center; padding: 0; }
 .trellis-titlebar button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
-/* Layout presets: a quiet track beside the panel controls, the chosen layout
-   a raised plate that slides between them. Short of room (measured by the
-   titlebar, which marks itself data-compact), only icons stay (their names
-   remain for tooltips and assistive tech). */
+/* The layout switch: a quiet track beside the panel controls, the chosen
+   workspace a raised plate that slides between them. Short of room (measured
+   by the titlebar, which marks itself data-compact), the workspaces fold into
+   one menu button. */
 .trellis-titlebar .trellis-presets.ui-segmented {
   height: var(--control-height-compact);
   background: color-mix(in srgb, var(--text-primary) 5%, transparent);
@@ -542,10 +542,9 @@
 .trellis-presets .sliding-tab-pill { background: var(--segmented-selected-surface); box-shadow: 0 0 0 1px var(--border-strong), var(--segmented-selected-shadow); }
 .trellis-presets .sliding-tab-label { gap: var(--space-3); }
 .trellis-titlebar[data-compact] .trellis-presets .trellis-preset { padding-inline: var(--space-4); }
-.trellis-titlebar[data-compact] .trellis-preset-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-/* Named workspaces lead the track, then "+", a hairline, and the presets.
-   The workspace a preset lies over keeps the primary text colour. */
-.trellis-workspace-tabs, .trellis-preset-tabs { display: flex; align-items: stretch; }
+/* Named workspaces, then "+". The workspace a preset lies over keeps the
+   primary text colour. */
+.trellis-workspace-tabs { display: flex; align-items: stretch; }
 .trellis-titlebar .trellis-presets .trellis-workspace-tab { padding-inline: var(--space-5); touch-action: none; }
 .trellis-titlebar .trellis-presets .trellis-preset[data-underlying] { color: var(--text-primary); }
 .trellis-titlebar .trellis-presets .trellis-workspace-tab[data-dragging] { cursor: grabbing; opacity: .7; }
@@ -556,7 +555,6 @@
   color: var(--text-tertiary);
 }
 .trellis-titlebar .trellis-presets .trellis-workspace-add:hover { background: transparent; color: var(--text-primary); }
-.trellis-presets-divider { flex: none; align-self: center; width: 1px; height: 55%; margin-inline: var(--space-1); background: var(--border-subtle); }
 /* Where a workspace's context menu opens: the pointer, placed in the page (the titlebar contains its layout). */
 .trellis-workspace-menu-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }
 .trellis-workspace-menu-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

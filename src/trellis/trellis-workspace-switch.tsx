@@ -1,13 +1,14 @@
 /**
- * The titlebar's layout switch: the writer's named workspaces, a "+" that
- * makes one from the arrangement on screen, then the Writing and Reading
- * presets, which lay themselves over whichever workspace is active. One plate
- * slides between them all. A workspace is renamed in place (double-click, F2
- * or its context menu, which also duplicates, moves and deletes it) and moved
- * by dragging too. While the project's layout differs from its workspace's saved
- * arrangement, that workspace shows a dot, and its menus offer to save the
- * layout to it or revert to it. Short of room (`compact`), the workspaces fold into a menu and the
- * presets keep only their icons.
+ * The titlebar's layout switch: the writer's named workspaces and a "+" that
+ * makes one from the arrangement on screen. One plate slides between them. The
+ * Writing and Reading presets, which lay themselves over whichever workspace
+ * is active, are not tabs here: the Panels menu and the command palette offer
+ * them, and the workspace under one shows that it can be returned to. A
+ * workspace is renamed in place (double-click, F2 or its context menu, which
+ * also duplicates, moves and deletes it) and moved by dragging too. While the
+ * project's layout differs from its workspace's saved arrangement, that
+ * workspace shows a dot, and its menus offer to save the layout to it or
+ * revert to it. Short of room (`compact`), the workspaces fold into a menu.
  *
  * Eager but light: it drives the workspace only through the controller.
  */
@@ -21,7 +22,6 @@ import {
 import { SlidingTabPill } from "../components/ui/motion";
 import { notifyInfo } from "../telemetry/app-notify";
 import { useCurrentWorkspace, useTrellisUi, useWorkspaces, type TrellisController } from "./trellis-controller";
-import { PRESETS } from "./trellis-icons";
 import { spaceMixedScript } from "./trellis-titles";
 import { WORKSPACE_NAME_MAX, workspaceShortcut, type WorkspaceSummary } from "./trellis-workspaces";
 
@@ -51,8 +51,6 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   // What a move from a menu says, there being no drag to see.
   const [announcement, setAnnouncement] = useState("");
 
-  const presetLabels = { writing: t`Writing`, reading: t`Reading` };
-  const presetTitles = { writing: t`Source beside the compiled PDF`, reading: t`A paper beside your notes` };
   const rename = (id: string) => controller.ui.set({ renaming: id });
   const create = () => controller.createWorkspace(t`Workspace`);
   const duplicate = (entry: WorkspaceSummary) => {
@@ -160,10 +158,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     if (tab && openMenuAt(tab, fromKeyboard ? undefined : { x: event.clientX, y: event.clientY })) event.preventDefault();
   };
 
-  // Arrow keys move along the track, workspaces and presets alike, and choose
-  // what they reach (as SlidingTabs does). Folded, the workspaces' menu button
-  // stands in their place: reaching it chooses the workspace (leaving any
-  // preset), and its own keys (Enter, Space, ArrowDown) open the menu.
+  // Arrow keys move along the workspaces and choose what they reach (as
+  // SlidingTabs does). Folded, the workspaces' menu button stands in their
+  // place: reaching it chooses the workspace (leaving any preset), and its own
+  // keys (Enter, Space, ArrowDown) open the menu.
   const onTrackKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const item = (event.target as HTMLElement).closest<HTMLButtonElement>('[role="tab"], [data-workspace-menu]');
     if (!item || !trackRef.current) return;
@@ -241,7 +239,8 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
         type="button"
         role="tab"
         aria-selected={selected}
-        tabIndex={selected ? 0 : -1}
+        // Under a preset no tab is chosen; the workspace under it keeps the keyboard's way in.
+        tabIndex={entry.id === current ? 0 : -1}
         title={tabTitle(entry, index)}
         data-workspace={entry.id}
         data-underlying={(preset && entry.id === current) || undefined}
@@ -350,27 +349,6 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
           <Plus size={13} />
         </button>
       )}
-      <span className="trellis-presets-divider" aria-hidden="true" />
-      <div role="tablist" aria-label={t`Presets`} className="trellis-preset-tabs">
-        {PRESETS.map(({ value, icon: Icon }) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={preset === value}
-            tabIndex={preset === value ? 0 : -1}
-            title={presetTitles[value]}
-            className={`sliding-tab ui-segmented-tab trellis-preset${preset === value ? " active" : ""}`}
-            onClick={() => controller.setPreset(value)}
-          >
-            {preset === value && pill}
-            <span className="sliding-tab-label">
-              <Icon size={13} aria-hidden="true" />
-              <span className="trellis-preset-label">{presetLabels[value]}</span>
-            </span>
-          </button>
-        ))}
-      </div>
       {/* Says where a menu's move put a workspace: a live region, not role="status", which the app keeps for loading states. */}
       <span aria-live="polite" aria-atomic="true" className="sr-only" data-workspace-announcement="">{announcement}</span>
     </div>

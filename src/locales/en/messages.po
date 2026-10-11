@@ -503,10 +503,6 @@ msgstr "A one-minute tour of this sample paper. Seven stops, each with something
 msgid "a over b"
 msgstr "a over b"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "A paper beside your notes"
-msgstr "A paper beside your notes"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "A project latexmkrc overrides this"
@@ -1703,6 +1699,10 @@ msgstr "Choose image to upload"
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
 msgstr "Choose location"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Choose Reading in Panels"
+msgstr "Choose Reading in Panels"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Choose the document class"
@@ -6788,10 +6788,6 @@ msgstr "Preprint check returned an incomplete or ambiguous result."
 msgid "Presentation runtime"
 msgstr "Presentation runtime"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "Presets"
-msgstr "Presets"
-
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "Press + to import it"
@@ -7084,7 +7080,6 @@ msgid "Read-only preview · click to edit"
 msgstr "Read-only preview · click to edit"
 
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Reading"
 msgstr "Reading"
 
@@ -8489,10 +8484,6 @@ msgstr "Source"
 msgid "Source and PDF, linked"
 msgstr "Source and PDF, linked"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "Source beside the compiled PDF"
-msgstr "Source beside the compiled PDF"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
 msgstr "Source candidate (not applied)"
@@ -8790,10 +8781,6 @@ msgstr "Switch to a workspace by its place"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Switch to pdfLaTeX"
 msgstr "Switch to pdfLaTeX"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Switch to Reading"
-msgstr "Switch to Reading"
 
 #: src/App.tsx
 msgid "Switch to the Reading layout"
@@ -10185,8 +10172,8 @@ msgid "Workspaces"
 msgstr "Workspaces"
 
 #: src/onboarding/guided-tour-steps.ts
-msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
-msgstr "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
+msgid "Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you."
+msgstr "Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you."
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Wrap in \\iffalse … \\fi"
@@ -10229,7 +10216,6 @@ msgid "Write, then build"
 msgstr "Write, then build"
 
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "Writing"
 

@@ -1,9 +1,9 @@
 /**
  * Titlebar controls for the Trellis workspace: a Panels menu that reopens any
  * panel or tool, switches the workspace or preset and resets the layout, the
- * layout switch (the named workspaces, then Writing and Reading; see
- * trellis-workspace-switch), one toggle each for Project, Papers and the
- * Agent, maximize/restore and reset, and a chip per hidden panel. The PDF
+ * layout switch (the named workspaces; see trellis-workspace-switch), one
+ * toggle each for Project, Papers and the Agent, maximize/restore and reset,
+ * and a chip per hidden panel. The PDF
  * comes up from each .tex panel's Build button (and the Panels menu).
  * Eager but light: it drives the workspace only through the controller.
  */
@@ -55,20 +55,20 @@ function usePanelStates(controller: TrellisController) {
 }
 
 /**
- * Whether the layout presets must drop their labels: only when the controls,
- * labelled, would not fit the room the titlebar has (what the window leaves
+ * Whether the layout switch must fold its workspaces into a menu: only when
+ * the controls, unfolded ("labelled"), would not fit the room the titlebar has (what the window leaves
  * beside the canvas tools), so the answer follows the window, those tools and
- * the language's label lengths rather than a fixed window width. The hidden
+ * the language's and the workspaces' name lengths rather than a fixed window width. The hidden
  * panels' chips count as content to fit, since they shrink before anything
  * else would overflow and a restore chip clipped to nothing is lost: both
  * the row's own overflow and each chip squeezed below its own width cap.
  *
  * Labelled, the controls are measured against the room; compact, the room is
- * compared with what they needed labelled, so the labels come back only where
+ * compared with what they needed labelled, so the tabs come back only where
  * they fit and the switch cannot oscillate. `content` names what changes that
- * need (the language, the chips), which re-measures it labelled.
+ * need (the language, the names, the chips), which re-measures it labelled.
  */
-function useCompactPresets(barRef: RefObject<HTMLDivElement | null>, chipsRef: RefObject<HTMLDivElement | null>, content: string) {
+function useCompactSwitch(barRef: RefObject<HTMLDivElement | null>, chipsRef: RefObject<HTMLDivElement | null>, content: string) {
   // A fit belongs to the content it was measured with: new content starts
   // labelled, and is measured that way before it paints (a layout effect).
   const [fit, setFit] = useState({ content, labelledNeed: 0 });
@@ -143,7 +143,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
   // The workspaces' names are content to fit as much as the chips are; their
   // order is not (a move must not unfold the switch and remount its open menu).
   const content = [i18n.locale, ...workspaces.map((entry) => entry.name).sort(), "", ...hidden.map((entry) => entry.title)].join("\n");
-  const compact = useCompactPresets(barRef, chipsRef, content);
+  const compact = useCompactSwitch(barRef, chipsRef, content);
   // One command in two places: the inline button and, once that is shed, the
   // Panels menu, so the menu never offers Maximize while it would restore.
   const frameAction = framed
@@ -204,7 +204,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             );
           })}
           {PRESETS.map(({ value, icon: Icon }) => (
-            <DropdownMenuItem key={value} role="menuitemradio" aria-checked={preset === value} onSelect={() => controller.setPreset(value)}>
+            <DropdownMenuItem key={value} role="menuitemradio" aria-checked={preset === value} data-layout-preset={value} onSelect={() => controller.setPreset(value)}>
               <Icon size={14} />
               <span className="flex-1">{presetLabels[value]}</span>
               {preset === value && <Check size={14} className="trellis-menu-state" />}

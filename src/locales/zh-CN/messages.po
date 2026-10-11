@@ -500,10 +500,6 @@ msgstr "一分钟看懂这篇示例论文，共七步，每步试一下"
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "A paper beside your notes"
-msgstr "论文和笔记并排"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "A project latexmkrc overrides this"
@@ -1700,6 +1696,10 @@ msgstr "选择图片"
 #: src/project/project-dialogs.tsx
 msgid "Choose location"
 msgstr "选择位置"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Choose Reading in Panels"
+msgstr "在“面板”里选阅读"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Choose the document class"
@@ -5543,7 +5543,7 @@ msgstr "新版本 {version}"
 #: src/App.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
-msgstr "新建布局"
+msgstr "新建工作区"
 
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New…"
@@ -6785,10 +6785,6 @@ msgstr "预印本检查结果不明确"
 msgid "Presentation runtime"
 msgstr "幻灯片组件"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "Presets"
-msgstr "预设"
-
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "按 + 导入"
@@ -7081,7 +7077,6 @@ msgid "Read-only preview · click to edit"
 msgstr "只读 · 点击编辑"
 
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Reading"
 msgstr "阅读"
 
@@ -7993,7 +7988,7 @@ msgstr "请先保存再修复"
 #: src/App.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
-msgstr "保存布局"
+msgstr "保存到工作区"
 
 #: src/history/versions-timeline.tsx
 msgid "Save version"
@@ -8482,10 +8477,6 @@ msgstr "源码"
 msgid "Source and PDF, linked"
 msgstr "双向跳转"
 
-#: src/trellis/trellis-workspace-switch.tsx
-msgid "Source beside the compiled PDF"
-msgstr "源码和 PDF 并排"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
 msgstr "来源记录（未采用）"
@@ -8778,15 +8769,11 @@ msgstr "切换到{name}"
 
 #: src/App.tsx
 msgid "Switch to a workspace by its place"
-msgstr "切换布局"
+msgstr "切换工作区"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Switch to pdfLaTeX"
 msgstr "切换到 pdfLaTeX"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Switch to Reading"
-msgstr "切换到阅读"
 
 #: src/App.tsx
 msgid "Switch to the Reading layout"
@@ -10161,23 +10148,23 @@ msgstr "正在处理…"
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts
 msgid "Workspace"
-msgstr "布局"
+msgstr "工作区"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace name"
-msgstr "布局名称"
+msgstr "工作区名称"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspace: {currentName}"
-msgstr "布局：{currentName}"
+msgstr "工作区：{currentName}"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Workspaces"
-msgstr "布局"
+msgstr "工作区"
 
 #: src/onboarding/guided-tour-steps.ts
-msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
-msgstr "布局会记住面板摆放，写作和阅读已备好"
+msgid "Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you."
+msgstr "工作区会记住面板摆放，“面板”里还有写作和阅读布局"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Wrap in \\iffalse … \\fi"
@@ -10220,7 +10207,6 @@ msgid "Write, then build"
 msgstr "写完编译"
 
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "写作"
 
