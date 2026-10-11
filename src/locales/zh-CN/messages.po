@@ -5951,7 +5951,7 @@ msgstr "没有可用的修改"
 
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
-msgstr "还没有章节，加一个 \\\\section{…} 试试"
+msgstr "还没有章节，加一个 \\section{…} 试试"
 
 #. placeholder {0}: query.trim()
 #: src/app/shortcut-sheet.tsx
@@ -9166,7 +9166,7 @@ msgstr "没成功，请检查输入和钥匙串权限"
 
 #: src/project/project-dialogs.tsx
 msgid "The \\begin and \\end under the cursor"
-msgstr "光标所在的 \\\\begin 和 \\\\end"
+msgstr "光标所在的 \\begin 和 \\end"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the acknowledgement did not arrive in time"
@@ -10044,11 +10044,11 @@ msgstr "更新于 {0}"
 
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
-msgstr "会同步改所有 \\\\ref"
+msgstr "会同步改所有 \\ref"
 
 #: src/project/project-dialogs.tsx
 msgid "Updates the .bib entry and every \\cite"
-msgstr "会同步改 .bib 和所有 \\\\cite"
+msgstr "会同步改 .bib 和所有 \\cite"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Updating…"
@@ -10427,7 +10427,7 @@ msgstr "作为浮动表格"
 
 #: src/project/project-dialogs.tsx
 msgid "Wraps the selection in \\begin…\\end"
-msgstr "用 \\\\begin…\\\\end 包住所选"
+msgstr "用 \\begin…\\end 包住所选"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
