@@ -87,6 +87,9 @@ vi.mock("./canvas-lazy-modules", () => {
     loadBoardEditorModule: async () => ({ BoardEditor: editorStub("board-editor") }),
     loadSpreadsheetEditorModule: async () => ({ SpreadsheetEditor: editorStub("spreadsheet-editor") }),
     loadOpenSlideWorkspaceModule: async () => ({ OpenSlideWorkspace }),
+    loadBibVisualEditorModule: async () => ({ BibVisualEditor: editorStub("bib-visual-editor") }),
+    // Every .bib reads as a reference list here; the parser has its own tests.
+    loadBibDocumentModule: async () => ({ readBibDocument: () => ({ document: { entries: [], macros: new Map() }, error: null }), bibUnreadableReason: () => "" }),
     // Reported as warmed so DeferredVisualMarkdownEditor skips its one-frame
     // placeholder; the deferral is a paint concern, not canvas behaviour.
     isVisualMarkdownEditorWarmed: () => true,
