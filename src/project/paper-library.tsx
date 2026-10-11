@@ -9,11 +9,12 @@ import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
 import { SearchField } from "../components/ui/search-field";
-import { paperKey } from "../app-utils";
+import { paperKey, toMessage } from "../app-utils";
+import { notifyError } from "../telemetry/app-notify";
 import type { PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
 import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
-import { canDownloadPaper } from "../papers/paper-source";
+import { canDownloadPaper, paperLinkUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { beginPaperDrag } from "../papers/paper-drag";
 import { citationHealthLabel, citationHealthParts, citationHealthTitle } from "./citation-health";
@@ -184,6 +185,13 @@ export function PaperLibrary(props: PaperLibraryProps) {
               const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
               const citationOnly = !readable && !downloadable;
               const citeKey = paper.citationKey;
+              const link = paperLinkUrl(paper);
+              const openLink = () => {
+                if (!link) return;
+                void openUrl(link).catch((reason) => {
+                  notifyError(t`Papers`, t`Could not open the article in your browser`, { detail: toMessage(reason) });
+                });
+              };
               const reportIntent = () => {
                 if (readable) props.onLikelyPaper?.(paper);
               };
@@ -283,6 +291,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
                           <code>{citeKey}</code>
                         </CopyButton>
                       )}
+                      {link && (
+                        <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={openLink}><ExternalLink size={12} /></button>
+                      )}
                       {citeKey && (
                         <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
                       )}
@@ -305,18 +316,26 @@ export function PaperLibrary(props: PaperLibraryProps) {
                   {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
                 </div>
               );
-              // A cited-only paper has no local file to act on, so it stays bare;
-              // one with full text gets the same right-click menu as a tree file.
+              // The right-click menu opens the paper's web page, and one with a
+              // local file reveals it as a tree file's menu does; a paper with
+              // neither stays bare.
               const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
               return (
                 <Fragment key={paperKey(paper)}>
-                  {readable ? (
+                  {readable || link ? (
                     <ContextMenu>
                       <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
                       <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-                        <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
-                          <FolderOpen size={14} />{t`Show in Finder`}
-                        </ContextMenuItem>
+                        {link && (
+                          <ContextMenuItem onSelect={openLink}>
+                            <ExternalLink size={14} />{t`Open link in browser`}
+                          </ContextMenuItem>
+                        )}
+                        {readable && (
+                          <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
+                            <FolderOpen size={14} />{t`Show in Finder`}
+                          </ContextMenuItem>
+                        )}
                       </ContextMenuContent>
                     </ContextMenu>
                   ) : row}

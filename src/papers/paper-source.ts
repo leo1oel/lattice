@@ -15,16 +15,35 @@ function webUrl(value: string | undefined): URL | null {
 
 const hasCredentials = (url: URL) => Boolean(url.username || url.password);
 
+const ARXIV_ID = /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i;
+const arxivPath = (id: string) => id.split("/").map(encodeURIComponent).join("/");
+
+function doiUrl(doi: string | undefined): string | null {
+  return doi && /^10\.\d{4,9}\/\S+$/i.test(doi) ? `https://doi.org/${doi.split("/").map(encodeURIComponent).join("/")}` : null;
+}
+
 /** Bibliography fields are untrusted; only open web URLs, never local/OS schemes. */
 export function citationSourceUrl(citation?: { url?: string; doi?: string; arxivId?: string }): string | null {
   if (!citation) return null;
   const url = webUrl(citation.url);
   if (url && !hasCredentials(url)) return url.href;
   // Otherwise fall back to the DOI or arXiv identity.
-  if (citation.doi && /^10\.\d{4,9}\/\S+$/i.test(citation.doi)) {
-    return `https://doi.org/${citation.doi.split("/").map(encodeURIComponent).join("/")}`;
-  }
-  return paperPdfUrl({ arxivId: citation.arxivId ?? "" });
+  return doiUrl(citation.doi) ?? paperPdfUrl({ arxivId: citation.arxivId ?? "" });
+}
+
+/**
+ * Where a paper lives on the web, for reading it there instead of in Lattice:
+ * its DOI's resolver (the version of record), else its arXiv abstract page,
+ * else the web page it was cited or captured from. A captured page's bundle
+ * key is not an arXiv id. Null when nothing records a web address.
+ */
+export function paperLinkUrl(paper: Pick<PaperSummary, "arxivId" | "doi" | "url">): string | null {
+  const doi = doiUrl(paper.doi?.trim());
+  if (doi) return doi;
+  const id = paper.arxivId.trim();
+  if (ARXIV_ID.test(id)) return `https://arxiv.org/abs/${arxivPath(id)}`;
+  const url = webUrl(paper.url);
+  return url && !hasCredentials(url) ? url.href : null;
 }
 
 function alphaxivId(url: URL): string | null {
@@ -35,9 +54,7 @@ function alphaxivId(url: URL): string | null {
 
 /** A source PDF is independent of the URL used to cite the work. */
 export function paperPdfUrl(paper: PaperIdentity): string | null {
-  if (/^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(paper.arxivId)) {
-    return `https://arxiv.org/pdf/${paper.arxivId.split("/").map(encodeURIComponent).join("/")}`;
-  }
+  if (ARXIV_ID.test(paper.arxivId)) return `https://arxiv.org/pdf/${arxivPath(paper.arxivId)}`;
   const url = webUrl(paper.url);
   if (!url || hasCredentials(url)) return null;
   const id = alphaxivId(url);

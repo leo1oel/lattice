@@ -2297,6 +2297,7 @@ msgid "Could not load PDF"
 msgstr "PDF 打不开"
 
 #: src/canvas/use-paper-pdf.ts
+#: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "浏览器打不开原文"
 
@@ -6015,6 +6016,10 @@ msgstr "打开 {name}"
 msgid "Open {title}"
 msgstr "打开{title}"
 
+#: src/project/paper-library.tsx
+msgid "Open {title} in browser"
+msgstr "在浏览器中打开 {title}"
+
 #: src/App.tsx
 msgid "Open a .tex file before formatting."
 msgstr "请先打开 .tex 文件"
@@ -6104,6 +6109,10 @@ msgstr "在 Overleaf 中打开"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open landing page"
 msgstr "论文主页"
+
+#: src/project/paper-library.tsx
+msgid "Open link in browser"
+msgstr "在浏览器中打开链接"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"

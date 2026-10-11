@@ -2300,6 +2300,7 @@ msgid "Could not load PDF"
 msgstr "Could not load PDF"
 
 #: src/canvas/use-paper-pdf.ts
+#: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
@@ -6018,6 +6019,10 @@ msgstr "Open {name}"
 msgid "Open {title}"
 msgstr "Open {title}"
 
+#: src/project/paper-library.tsx
+msgid "Open {title} in browser"
+msgstr "Open {title} in browser"
+
 #: src/App.tsx
 msgid "Open a .tex file before formatting."
 msgstr "Open a .tex file before formatting."
@@ -6107,6 +6112,10 @@ msgstr "Open in Overleaf"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open landing page"
 msgstr "Open landing page"
+
+#: src/project/paper-library.tsx
+msgid "Open link in browser"
+msgstr "Open link in browser"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
