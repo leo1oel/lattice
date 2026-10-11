@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
 import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
+import { ResearchArt } from "@/components/ui/research-art";
+import { MANUSCRIPT_CLIPBOARD } from "@/components/ui/research-art-clipboard";
 import { confirmAction, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { latexHighlightStyle } from "../editor/latex/latex-editor";
@@ -174,8 +176,10 @@ function AgentView({ controller }: { controller: TrellisController }) {
 }
 
 /** A quiet placeholder for a panel whose content is not mounted right now. */
-function EmptyState({ icon, title, detail, children, onActivate }: {
-  icon: ReactNode;
+function EmptyState({ icon, art, title, detail, children, onActivate }: {
+  icon?: ReactNode;
+  /** A drawing in place of the icon, for a panel with room to show one. */
+  art?: ReactNode;
   title: ReactNode;
   detail?: ReactNode;
   children?: ReactNode;
@@ -194,7 +198,7 @@ function EmptyState({ icon, title, detail, children, onActivate }: {
         }
       } : undefined}
     >
-      <span className="trellis-empty-icon">{icon}</span>
+      {art ? <span className="trellis-empty-art">{art}</span> : <span className="trellis-empty-icon">{icon}</span>}
       <strong>{title}</strong>
       {detail && <span className="trellis-empty-detail">{detail}</span>}
       {children && <div className="trellis-empty-actions">{children}</div>}
@@ -719,7 +723,11 @@ function QuickOpenKeys({ controller }: { controller: TrellisController }) {
 function SlotView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   return (
-    <EmptyState icon={<FileText size={18} />} title={t`No document open`}>
+    <EmptyState
+      art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
+      title={t`No document open`}
+      detail={t`Choose a file from the project, or find it with Quick open`}
+    >
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />
         {t`Quick open`}

@@ -122,7 +122,7 @@ describe("PaperLibrary", () => {
     expect(screen.getByText("2 papers")).toBeInTheDocument();
 
     rerenderWith({ papers: [] });
-    expect(screen.getByText("Add your first paper")).toBeInTheDocument();
+    expect(screen.getByText("Your paper library")).toBeInTheDocument();
     expect(screen.queryByText("No matching papers")).toBeNull();
   });
 

@@ -10,7 +10,7 @@ import "./empty-illustration.css";
  * its empty state is hovered; nothing loops. Decorative only: the empty
  * state's text says what it means.
  */
-export type EmptyIllustrationKind = "papers" | "comments" | "search" | "history" | "preview" | "done";
+export type EmptyIllustrationKind = "papers" | "comments" | "search" | "history" | "done";
 
 const order = (index: number) => ({ "--draw-order": index }) as CSSProperties;
 
@@ -118,29 +118,11 @@ function drawHistory() {
   );
 }
 
-function drawPreview() {
-  return (
-    <>
-      <path className="empty-illustration-paper" d="M19 5h19l11 11v26a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z" />
-      <Line d="M19 5h19l11 11v26a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z" i={0} />
-      <Line d="M38 5v8a3 3 0 0 0 3 3h8" i={1} />
-      <Line d="M22 20h14" i={2} className="empty-illustration-strong" />
-      <Line d="M22 24h9" i={2.5} className="empty-illustration-weft" />
-      <g className="empty-illustration-text">
-        <Line d="M22 30h21" i={3} className="empty-illustration-faint" />
-        <Line d="M22 34h21" i={3.3} className="empty-illustration-faint" />
-        <Line d="M22 38h13" i={3.6} className="empty-illustration-faint" />
-      </g>
-    </>
-  );
-}
-
 const DRAWINGS: Record<EmptyIllustrationKind, () => ReactNode> = {
   papers: drawPapers,
   comments: drawComments,
   search: drawSearch,
   history: drawHistory,
-  preview: drawPreview,
   done: drawDone,
 };
 

@@ -20,6 +20,9 @@ import { citationHealthLabel, citationHealthParts, citationHealthTitle } from ".
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
 import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { Button } from "../components/ui/button";
+import { ResearchArt } from "../components/ui/research-art";
+import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 type PaperFetchState = "loading" | "success";
@@ -60,6 +63,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(progressActive, props.importStageId);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
   useEffect(() => {
@@ -83,7 +87,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
   };
   const total = props.papers.length;
   const emptyState = !total
-    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL or title above`]
+    ? [t`Your paper library`, t`Keep sources beside your writing`]
     : filteredPapers.length ? null
       : [t`No matching papers`, t`Press + to import it`];
 
@@ -108,6 +112,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
       <div className="navigator-section papers-section">
         <div className="paper-import-control" data-importing={progressActive || undefined}>
           <SearchField
+            ref={importInputRef}
             aria-label={t`Search or import papers`}
             aria-busy={progressActive}
             readOnly={progressActive}
@@ -320,13 +325,15 @@ export function PaperLibrary(props: PaperLibraryProps) {
             })}
           </div>
           {emptyState && (
-            <div className="papers-empty-state">
+            <div className="papers-empty-state" data-library={total ? undefined : "empty"}>
               {/* Beside the text, not above it: the card sits in a short panel
                   at startup, and a taller card would overflow it. */}
-              <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
+              {total ? <EmptyIllustration kind="search" size="compact" /> : <ResearchArt drawing={CARD_INDEX} />}
               <div className="papers-empty-text">
                 <strong>{emptyState[0]}</strong>
                 <p>{emptyState[1]}</p>
+                {/* Only focuses the field: what to add is the writer's to type. */}
+                {!total && <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add a paper`}</Button>}
               </div>
             </div>
           )}

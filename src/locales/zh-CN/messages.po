@@ -624,6 +624,10 @@ msgstr "为 {title} 添加文献"
 msgid "Add a cursor above or below"
 msgstr "多加光标"
 
+#: src/project/paper-library.tsx
+msgid "Add a paper"
+msgstr "添加论文"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
@@ -675,10 +679,6 @@ msgstr "用 arXiv 编号、DOI 或标题加论文，在草稿旁阅读"
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加词语"
-
-#: src/project/paper-library.tsx
-msgid "Add your first paper"
-msgstr "加第一篇"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -1334,6 +1334,7 @@ msgstr "编译结果"
 
 #: src/App.tsx
 #: src/app/use-trellis-bridge.ts
+#: src/pdf/pdf-viewer.tsx
 msgid "Build project"
 msgstr "编译"
 
@@ -1348,10 +1349,6 @@ msgstr "编译成功，用时 {seconds} 秒"
 #: src/app/use-build-pipeline.ts
 msgid "Build superseded"
 msgstr "已被新的编译取代"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Build the project to preview the paper"
-msgstr "编译后在这里看论文"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build this project with pdfLaTeX from now on"
@@ -1370,6 +1367,11 @@ msgstr "改回用 {switchedFrom} 编译"
 msgid "Build with ⌘S. Edits still save on their own"
 msgstr "按 ⌘S 编译，修改仍自动保存"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Build your LaTeX project to see the typeset paper"
+msgstr "编译 LaTeX 项目，查看排版后的论文"
+
+#: src/pdf/pdf-viewer.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
 msgstr "正在编译…"
@@ -1686,6 +1688,10 @@ msgstr "带勾选框的清单"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "希"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Choose a file from the project, or find it with Quick open"
+msgstr "从项目中选择文件，或用快速打开查找"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4494,6 +4500,10 @@ msgstr "用我填的"
 msgid "Keep Overleaf's version"
 msgstr "用 Overleaf 的"
 
+#: src/project/paper-library.tsx
+msgid "Keep sources beside your writing"
+msgstr "把参考文献放在写作旁边"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "用本机的"
@@ -5617,7 +5627,7 @@ msgstr "没有不同，可以关闭"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "No document open"
-msgstr "没有打开文档"
+msgstr "尚未打开文档"
 
 #: src/canvas/proofread-card.tsx
 msgid "No edits selected. The selection stays as written."
@@ -6535,10 +6545,6 @@ msgstr "已有 {completed}/{progressTotal} 条结果"
 msgctxt "macOS menu bar"
 msgid "Paste"
 msgstr "粘贴"
-
-#: src/project/paper-library.tsx
-msgid "Paste an arXiv ID, DOI, URL or title above"
-msgstr "在上方粘贴 arXiv 编号、DOI、网址或标题"
 
 #: src/App.tsx
 #: src/project/project-file-tree.tsx
@@ -10260,6 +10266,10 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 msgid "You’re on the latest version"
 msgstr "已是最新版"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Your first PDF starts here"
+msgstr "从这里预览论文"
+
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "你的版本"
@@ -10276,6 +10286,10 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "登录已过期，请重新登录"
+
+#: src/project/paper-library.tsx
+msgid "Your paper library"
+msgstr "论文资料库"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Your project"
