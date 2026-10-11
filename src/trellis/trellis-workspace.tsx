@@ -176,7 +176,7 @@ function AgentView({ controller }: { controller: TrellisController }) {
 }
 
 /** A quiet placeholder for a panel whose content is not mounted right now. */
-function EmptyState({ icon, art, title, detail, children, onActivate }: {
+function EmptyState({ icon, art, title, detail, children, onActivate, className }: {
   icon?: ReactNode;
   /** A drawing in place of the icon, for a panel with room to show one. */
   art?: ReactNode;
@@ -184,10 +184,11 @@ function EmptyState({ icon, art, title, detail, children, onActivate }: {
   detail?: ReactNode;
   children?: ReactNode;
   onActivate?: () => void;
+  className?: string;
 }) {
   return (
     <div
-      className={cn("trellis-empty", onActivate && "trellis-empty-activatable")}
+      className={cn("trellis-empty", onActivate && "trellis-empty-activatable", className)}
       onClick={onActivate}
       role={onActivate ? "button" : undefined}
       tabIndex={onActivate ? 0 : undefined}
@@ -742,8 +743,10 @@ function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   return (
     <EmptyState
-      icon={<FileText size={18} />}
+      className="trellis-workspace-empty"
+      art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
       title={t`Every panel is closed`}
+      detail={t`Open a file, or reset the layout to bring your panels back`}
     >
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />

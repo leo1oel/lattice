@@ -416,7 +416,10 @@
 /* Literature opens beside Papers, in the sidebar, so it takes the sidebar's
    ground and Papers' insets rather than a tool panel's. */
 .trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .trellis-docked-drawer.literature-drawer { background: var(--surface-sidebar); }
-.trellis-tool-host > .trellis-docked-drawer.literature-drawer { padding: 7px var(--space-6) var(--space-5); }
+/* A size container, so its empty state's drawing can answer the panel's own
+   width and height (workspace-panels.css): the panel is sized by the layout,
+   never by its content. */
+.trellis-tool-host > .trellis-docked-drawer.literature-drawer { container: literature / size; padding: 7px var(--space-6) var(--space-5); }
 /* The search stays put over the results, as Papers' does. A frosted window
    lets it scroll away instead: an opaque band would break the frost. */
 .trellis-docked-drawer.literature-drawer > .literature-search { position: sticky; z-index: 2; top: -7px; margin: -7px 0 var(--space-1); padding: 7px 0 var(--space-5); background: var(--surface-sidebar); }
@@ -451,6 +454,9 @@
 @container (max-height: 240px) { .trellis-empty-art { display: none; } }
 .trellis-empty strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
+/* With every panel closed, how to get them back sits under the drawing as a
+   short, even block rather than one long line across the window. */
+.trellis-workspace-empty .trellis-empty-detail { max-width: 34ch; text-wrap: balance; }
 .trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .trellis-empty-button {
   display: inline-flex; align-items: center; gap: var(--space-3);

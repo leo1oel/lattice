@@ -3502,6 +3502,10 @@ msgstr "引用位置"
 msgid "Find text to replace"
 msgstr "要替换的文字"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "Find your next source"
+msgstr "找到下一篇参考文献"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "完成"
@@ -6028,6 +6032,10 @@ msgstr "请先打开 .tex 文件再粘贴"
 msgid "Open a file"
 msgstr "打开文件"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open a file, or reset the layout to bring your panels back"
+msgstr "打开文件，或重置布局以恢复面板"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
@@ -8025,8 +8033,8 @@ msgid "Search"
 msgstr "搜索"
 
 #: src/papers/literature-discovery-panel.tsx
-msgid "Search alphaXiv and OpenAlex for related work"
-msgstr "在 alphaXiv 和 OpenAlex 找相关论文"
+msgid "Search alphaXiv and OpenAlex by title or topic"
+msgstr "按标题或主题搜索 alphaXiv 和 OpenAlex"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search by name or license"

@@ -618,8 +618,10 @@ reuse its vocabulary so the product reads as one thing:
   empty-state drawings: neutral line work in the host's text color with one
   weft or warp thread. Pass one to `EmptyState`'s `icon`.
 - `ResearchArt` (`src/components/ui/research-art.tsx`) draws the larger empty
-  states as static isometric objects from a research desk: the empty document
-  panel's clipboard, the first PDF's proof tray, the empty library's card box.
+  states as static isometric objects from a research desk: the clipboard of an
+  empty document panel and of a workspace with every panel closed, the first
+  PDF's proof tray, the empty library's card box, and literature search's
+  reading folio before a first search.
   They are monochrome, with no thread, and the host sets `--art-paper` to the
   surface they sit on.
 - The welcome screen's lattice field (`src/project/welcome-lattice.tsx`)
