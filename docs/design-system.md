@@ -25,10 +25,11 @@ not to force every surface into one density.
   adjustable.
 - Project filenames and folders use the interface font at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.
-- Papers titles, and Literature results beside them, use the reading font at
-  13/18px regular weight, as the paper reader sets a title. Author, year, venue,
-  and other Papers metadata remain in the interface font at 11/16px regular
-  weight.
+- Papers titles use the interface font at 13/18px regular weight, as the
+  Project tree sets a filename. Literature results beside them keep the reading
+  font, as the paper reader sets a title. Author, year, venue, and other Papers
+  metadata remain in the interface font at 11/16px regular weight; a full-text
+  search hit is quoted in the reading font's italic.
 - Diff code uses the editor font at 11/18px. Diff paths, headers, and line
   numbers remain in the interface font; compact metadata uses the 10/14px role.
 - Embedded Agent thread titles use the caption role (11/16) at regular
@@ -123,7 +124,7 @@ the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
 - Roles: `--ui-font` is Timeless Sans in its Grotesk style (the variable
   font's default; at 10–13px it kept confusable pairs such as e/o, rn/m and
   3/8 slightly further apart than the Sans style). `--reading-font`, for the
-  visual Markdown surface and a paper's title, is Timeless Serif Text, the cut
+  visual Markdown surface and a paper's title in the reader, is Timeless Serif Text, the cut
   drawn for body sizes. `--display-font` (the welcome title) is Timeless
   Serif. Source editors, code, logs and every monospace surface stay on
   `--editor-font`.

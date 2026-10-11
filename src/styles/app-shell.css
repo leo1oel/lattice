@@ -712,9 +712,9 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
 .paper-row > :is(.paper-title, .paper-meta, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
-/* A paper's title is set as the reader sets it, in the reading face; a
-   narrow panel gets a third line before the ellipsis. */
-.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+/* A paper's title is set in the interface face, as the Project tree sets a
+   file's name; a narrow panel gets a third line before the ellipsis. */
+.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .paper-row.active .paper-title { color: var(--text-primary); }
 .paper-row.cited-only .paper-title { color: var(--text-secondary); }
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
@@ -771,9 +771,9 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .paper-cite-key .copy-button-icon > svg { stroke-width: 1.5; }
 .paper-row.active .paper-cite-key { color: var(--text-secondary); }
 .paper-cite-key:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
-.row-delete svg, .row-edit-bib svg { stroke-width: 1.5; }
-.row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
+.row-delete, .row-edit-bib, .row-open-link { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
+.row-delete svg, .row-edit-bib svg, .row-open-link svg { stroke-width: 1.5; }
+.row-edit-bib:hover, .row-open-link:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; text-align: center; }
 /* Drawing beside the text, both on a quiet plate that reads as part of the

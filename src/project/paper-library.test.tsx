@@ -133,8 +133,8 @@ describe("PaperLibrary", () => {
     expect(within(list).queryByText("2 papers")).toBeNull();
     const items = within(list).getAllByRole("listitem");
     expect(items.map((item) => within(item).getAllByRole("button").map((button) => button.getAttribute("title")))).toEqual([
-      ["Attention Is All You Need", "Copy citation key", "Edit bibliography entry", "Remove Attention Is All You Need"],
-      ["Download arXiv 2010.11929", "Copy citation key", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
+      ["Attention Is All You Need", "Copy citation key", "Open link in browser", "Edit bibliography entry", "Remove Attention Is All You Need"],
+      ["Download arXiv 2010.11929", "Copy citation key", "Open link in browser", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
     ]);
     // The opening button is named by the title and byline it lies under,
     // which are hidden themselves so they are read once, and described by
