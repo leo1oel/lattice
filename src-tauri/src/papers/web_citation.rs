@@ -247,7 +247,7 @@ pub(crate) fn alphaxiv_bibtex(paper: &crate::alphaxiv::Paper) -> Result<String, 
     Ok(format!("{head},\n{}\n}}\n", fields.collect::<Vec<_>>().join("\n")))
 }
 
-/// Same key policy as bibcite-cli 0.6.10's normalize.make_key / _finalize.
+/// Same key policy as bibcite-cli 0.6.11's normalize.make_key / _finalize.
 /// Supplied BibTeX bypasses that policy upstream, so apply it here without
 /// round-tripping publisher fields through bibcite's lossy normalization.
 pub(super) fn supplied_citation_key(raw: &str) -> String {

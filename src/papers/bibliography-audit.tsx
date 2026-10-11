@@ -17,8 +17,11 @@ import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } f
 import { auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
 import "./bibliography-audit.css";
 
-export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[] };
-type AuditScan = { entries: AuditEntry[]; issues: ({ path: string; key?: string } & CodedAuditIssue)[] };
+/** `inline` is the `\bibitem` as written in a root document's own reference list: checked, never rewritten. */
+export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[]; inline?: string };
+/** A file the scan read references from: a `.bib` file or a root document's inline list. */
+type AuditCoverage = { path: string; kind: "bibliography" | "inline"; entries: number };
+type AuditScan = { entries: AuditEntry[]; issues: ({ path: string; key?: string } & CodedAuditIssue)[]; coverage?: AuditCoverage[] };
 /** Stored in the saved report as a key; the panel translates it where it renders. */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- persisted message key, translated in publicationMessage
 const REFERENCE_CHANGED_MESSAGE = "Reference changed since the last check. Check this reference again.";
@@ -39,6 +42,8 @@ export type AuditResult = {
     reasons: string[];
   };
   health?: PaperSummary["citationHealth"];
+  /** Fields on which the conference's own export and Crossref disagree; the export is kept. */
+  disagreements?: string[];
 };
 
 /** Results follow an entry across rescans by its file and citation key. */
@@ -279,19 +284,21 @@ export function BibliographyAudit(props: {
   };
 
   const hasCandidate = (result?: AuditResult) => result?.candidate != null;
-  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index));
+  // Inline references are edited by hand; their verified record is shown for comparison only.
+  const updates = Object.keys(results).map(Number).filter(index => !!results[index].after && !hasCandidate(results[index]) && results[index].status !== "conflict" && !applied.has(index) && !scan?.entries[index]?.inline);
 
   if (!props.open) return null;
   const completed = Object.values(results).filter(result => !busy || (result.checkedAt && result.checkedAt >= checkStartedAt)).length;
   const total = scan?.entries.length ?? 0;
   const progressTotal = busy ? checkCount : total;
-  const statusLabel = (result?: AuditResult) => !result ? t`Not checked`
-    : result.status === "update" ? t`Update available`
+  const statusLabel = (result: AuditResult | undefined, inline: boolean) => !result ? t`Not checked`
+    : result.status === "update" ? inline ? t`Differs from the verified record` : t`Update available`
       : result.publicationReason === "missing_identity" ? t`Reference lacks identifying metadata`
         : result.publicationReason === "no_match" ? t`No matching publication found`
       : result.status === "unavailable" ? result.publicationReason === "identity_conflict" ? t`Candidate does not match reference`
         : result.publicationReason === "metadata_unavailable" ? t`Independent metadata unavailable`
           : result.publicationReason === "sources_unavailable" ? t`Some sources unavailable`
+            : result.publicationReason === "official_unavailable" ? t`Official verification incomplete`
             : t`Check incomplete`
         : result.status === "skipped" ? t`Not verified`
           : result.status === "conflict" ? t`Entry changed`
@@ -300,6 +307,7 @@ export function BibliographyAudit(props: {
     title: t`Title`, author: t`Authors`, year: t`Year`, journal: t`Journal`,
     booktitle: t`Booktitle`, publisher: t`Publisher`, volume: t`Volume`,
     number: t`Number`, pages: t`Pages`, doi: "DOI", url: t`URL`, ENTRYTYPE: t`Entry type`,
+    venue: t`Venue`,
   };
   const publicationMessage = (result: AuditResult) => !result.publicationReason
     ? result.message === "A published version is available." ? t`A published version is available.`
@@ -310,6 +318,7 @@ export function BibliographyAudit(props: {
         : result.publicationReason === "missing_identity" ? t`Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference.`
           : result.publicationReason === "no_match" || result.publicationReason === "no_published_version" ? t`No matching publication was found in the sources checked.`
       : result.publicationReason === "sources_unavailable" ? t`Some sources could not complete the lookup. This does not mean the reference is incorrect.`
+        : result.publicationReason === "official_unavailable" ? t`An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect.`
         : result.publicationReason === "ambiguous" ? t`The results did not identify a unique matching publication.`
           : t`The publication lookup could not be completed. Try again later.`;
   const sourceNames: Record<string, string> = {
@@ -352,8 +361,19 @@ export function BibliographyAudit(props: {
   };
   const reasonLabels: Record<string, string> = {
     ...fieldLabels, insufficient_identity: t`Insufficient identifying metadata`,
-    record: t`Record identity`, venue: t`Venue`, arxiv: t`arXiv identifier`,
+    record: t`Record identity`, arxiv: t`arXiv identifier`,
   };
+  const coverage = scan?.coverage ?? [];
+  // Incomplete checks are unverified, not wrong: count them apart from findings.
+  const tally = scan && Object.keys(results).length > 0 ? scan.entries.reduce((counts, _, index) => {
+    const result = results[index];
+    if (!result || applied.has(index)) return counts;
+    if (result.status === "update") counts.updates += 1;
+    else if (result.status === "checked") counts.verified += 1;
+    else if (result.candidate) counts.review += 1;
+    else if (result.status === "unavailable") counts.incomplete += 1;
+    return counts;
+  }, { verified: 0, updates: 0, review: 0, incomplete: 0 }) : undefined;
   // A running check or a selection waiting to be applied must survive a stray click outside.
   const dirty = busy || applying !== null || selected.size > 0;
   return <SheetDialog className="bibliography-audit" label={t`Check references`} dirty={dirty} onClose={props.onClose}>
@@ -377,6 +397,15 @@ export function BibliographyAudit(props: {
       </div>}
       {waitingForS2 && <p className="bibliography-audit-copy" role="status">{t`Waiting for Semantic Scholar…`}</p>}
       {scan && <progress aria-label={t`Reference check progress`} max={Math.max(progressTotal, 1)} value={waitingForS2 ? undefined : completed} />}
+      {coverage.length > 0 && <ul className="bibliography-audit-coverage" aria-label={t`Files checked`}>
+        {coverage.map(file => <li key={`${file.kind}:${file.path}`}>
+          <span>{file.path}</span>
+          <span>{file.kind === "inline" ? t`${file.entries} inline references, compared but not edited` : t`${file.entries} BibTeX entries`}</span>
+        </li>)}
+      </ul>}
+      {tally && <p className="bibliography-audit-copy">
+        {t`${tally.verified} verified · ${tally.updates} with updates · ${tally.review} need review · ${tally.incomplete} incomplete (not errors)`}
+      </p>}
     </div>
     <ScrollArea className="bibliography-audit-scroll" viewportClassName="bibliography-audit-viewport">
     <div className="bibliography-audit-results">
@@ -403,18 +432,18 @@ export function BibliographyAudit(props: {
       return <article className="bibliography-audit-entry" key={`${entry.path}:${entry.key}:${index}`}>
         <div className="bibliography-audit-entry-heading">
           <Checkbox aria-label={t`Select ${entry.key}`} checked={selected.has(index)} disabled={busy || applying !== null} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />
-          <div><h3>{entry.title || entry.key}</h3><p className="bibliography-audit-meta">{entry.key} <span>· {entry.path}</span></p></div>
+          <div><h3>{entry.title || entry.key}</h3><p className="bibliography-audit-meta">{entry.key} <span>· {entry.path}</span>{entry.inline && <span> · {t`Inline reference`}</span>}</p></div>
           <IconButton size="compact" label={t`Check ${entry.key}`} disabled={busy || applying !== null} onClick={() => void start([index])}><ClipboardCheck size={14} /></IconButton>
         </div>
         <div className="bibliography-audit-entry-status">
           <Badge tone={isApplied || result?.status === "update" ? "success" : incomplete ? "warning" : "neutral"}>
-            {isApplied && <Check size={11} aria-hidden="true" />}{isApplied ? t`Update applied` : statusLabel(result)}
+            {isApplied && <Check size={11} aria-hidden="true" />}{isApplied ? t`Update applied` : statusLabel(result, !!entry.inline)}
           </Badge>
           {result?.checkedAt && <span className="bibliography-audit-meta">{t`Last checked`}: <time dateTime={result.checkedAt}>{new Date(result.checkedAt).toLocaleString(i18n.locale)}</time></span>}
         </div>
-        <Disclosure className="bibliography-audit-source" summary={t`Current BibTeX`}>
-          <pre>{currentBibtex}</pre>
-        </Disclosure>
+        {entry.inline
+          ? <Disclosure className="bibliography-audit-source" summary={t`Reference as written`}><pre>{entry.inline}</pre></Disclosure>
+          : <Disclosure className="bibliography-audit-source" summary={t`Current BibTeX`}><pre>{currentBibtex}</pre></Disclosure>}
         {health && (notice || (health.link && /^https?:\/\//i.test(health.link))) && <div className="bibliography-audit-notice" data-tone={!notice ? "neutral" : health.kind === "retracted" ? "danger" : "warning"}>
           {notice && <p><AlertTriangle size={13} aria-hidden="true" />{t`Publisher notice`}: {health.updateType || health.kind}</p>}
           {health.link && /^https?:\/\//i.test(health.link) && <a href={health.link} onClick={(event) => {
@@ -430,6 +459,7 @@ export function BibliographyAudit(props: {
               <dd>{sourceOutcome(result, source.outcome)}</dd>
             </div>)}
           </dl>}
+          {!!result.disagreements?.length && <p>{t`The conference's own citation export and Crossref disagree on: ${result.disagreements.map(field => fieldLabels[field] ?? field).join(", ")}. The conference export is kept.`}</p>}
           {health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={health.checkedAt}>{new Date(health.checkedAt).toLocaleString(i18n.locale)}</time>{health.stale ? ` · ${t`Stale result`}` : ""}</p>}
         </Disclosure>}
         {candidate && <Disclosure className="bibliography-audit-changes"
@@ -445,7 +475,19 @@ export function BibliographyAudit(props: {
           </div>)}</dl>
           {candidate.bibtex && <Disclosure className="bibliography-audit-source" summary={t`Unverified candidate BibTeX`}><pre>{candidate.bibtex}</pre></Disclosure>}
         </Disclosure>}
-        {result?.after && !candidatePresent && <Disclosure className="bibliography-audit-changes"
+        {entry.inline && result?.after && !candidatePresent && <Disclosure className="bibliography-audit-changes"
+          summary={<><span>{t`Compare with the verified record`}</span><Badge size="compact">{result.changes.length}</Badge></>}>
+          <p className="bibliography-audit-copy">{t`Inline references are not edited automatically. Change ${entry.path} by hand if needed.`}</p>
+          {result.changes.length > 0 && <dl className="bibliography-audit-diff">{result.changes.map(change => <div key={change.field}>
+            <dt>{fieldLabels[change.field] ?? change.field}</dt>
+            <dd className="bibliography-audit-candidate-values">
+              <div><span>{t`As written`}</span><span>{change.before || "—"}</span></div>
+              <div><span>{t`Verified record`}</span><span>{change.after || "—"}</span></div>
+            </dd>
+          </div>)}</dl>}
+          <Disclosure className="bibliography-audit-source" summary={t`Verified record (BibTeX)`}><pre>{result.after}</pre></Disclosure>
+        </Disclosure>}
+        {!entry.inline && result?.after && !candidatePresent && <Disclosure className="bibliography-audit-changes"
           summary={<><span>{t`Review proposed changes`}</span><Badge size="compact">{result.changes.length}</Badge></>}>
           <dl className="bibliography-audit-diff">{result.changes.map(change => <div key={change.field}>
             <dt>{fieldLabels[change.field] ?? change.field}</dt>

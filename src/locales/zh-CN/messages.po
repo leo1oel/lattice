@@ -54,6 +54,11 @@ msgstr "（无内容）"
 msgid "(this comment's text was removed)"
 msgstr "（原文已被删除）"
 
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} BibTeX entries"
+msgstr "{0} 条 BibTeX 条目"
+
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
@@ -73,10 +78,23 @@ msgstr "{0} 个文件"
 msgid "{0} files"
 msgstr "{0} 个文件"
 
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} inline references, compared but not edited"
+msgstr "{0} 条正文内文献，只比对、不修改"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
 msgstr "{0} 个软件包"
+
+#. placeholder {0}: tally.verified
+#. placeholder {1}: tally.updates
+#. placeholder {2}: tally.review
+#. placeholder {3}: tally.incomplete
+#: src/papers/bibliography-audit.tsx
+msgid "{0} verified · {1} with updates · {2} need review · {3} incomplete (not errors)"
+msgstr "{0} 条已核实 · {1} 条有更新 · {2} 条需人工核对 · {3} 条没查完（不代表有错）"
 
 #. placeholder {0}: work.votes
 #: src/papers/literature-discovery-panel.tsx
@@ -513,6 +531,10 @@ msgstr "项目自带的 latexmkrc 优先"
 msgid "A published version is available."
 msgstr "有正式发表版"
 
+#: src/papers/audit-messages.ts
+msgid "A published version of this preprint exists. Inline references are edited by hand."
+msgstr "这篇预印本已有正式发表版本。正文内文献需要手动修改。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
 msgstr "找到的记录和这条文献对不上"
@@ -857,6 +879,10 @@ msgstr "修改还在传，请稍后再拒绝"
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "有一条文献的引用名无效"
 
+#: src/papers/bibliography-audit.tsx
+msgid "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
+msgstr "索引已对上这条文献，但没能连上官方论文集来确认。这不代表这条有错。"
+
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "Overleaf 的更新对不上，需要重新载入"
@@ -971,6 +997,10 @@ msgstr "article 应写 journal，而不是 booktitle"
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
+
+#: src/papers/bibliography-audit.tsx
+msgid "As written"
+msgstr "原文"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
@@ -2096,6 +2126,10 @@ msgstr "评论"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "评论署名：{0}（取自 Git 或 Overleaf）"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Compare with the verified record"
+msgstr "与核实记录比对"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "正在和 Overleaf 对比…"
@@ -2798,6 +2832,10 @@ msgstr "方块"
 #: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "{0} 的改动"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Differs from the verified record"
+msgstr "与核实记录不一致"
 
 #: src/settings/acknowledged-software.ts
 msgid "Diffs of changes and history"
@@ -3505,6 +3543,10 @@ msgstr "上传文件"
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "文件"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Files checked"
+msgstr "已检查的文件"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -4312,6 +4354,15 @@ msgstr "句中公式"
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Inline Math Properties"
 msgstr "公式设置"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Inline reference"
+msgstr "正文内文献"
+
+#. placeholder {0}: entry.path
+#: src/papers/bibliography-audit.tsx
+msgid "Inline references are not edited automatically. Change {0} by hand if needed."
+msgstr "正文内文献不会自动修改。如有需要，请在 {0} 中手动修改。"
 
 #: src/papers/audit-messages.ts
 msgid "Inproceedings entry uses journal instead of booktitle."
@@ -6126,6 +6177,10 @@ msgstr "2026 官方模板"
 msgid "Official 2026 style · preprint draft"
 msgstr "2026 官方模板 · 预印本"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Official verification incomplete"
+msgstr "官方核实没完成"
+
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
 msgid "OK"
@@ -7338,6 +7393,10 @@ msgstr "引用公式标签"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an existing label"
 msgstr "引用已有的标签"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference as written"
+msgstr "原文文献"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Reference changed since the last check. Check this reference again."
@@ -9236,6 +9295,11 @@ msgstr "AI 助手没能启动"
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "此文件已不在实时协作中，请重试"
 
+#. placeholder {0}: result.disagreements.map(field => fieldLabels[field] ?? field).join(", ")
+#: src/papers/bibliography-audit.tsx
+msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
+msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0}。已保留会议官方的版本。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
@@ -9288,6 +9352,10 @@ msgstr "保存时文件变了，请看最新内容再保存"
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处：{path}:{line}"
+
+#: src/papers/audit-messages.ts
+msgid "The inline reference agrees with the verified record."
+msgstr "这条正文内文献与核实记录一致。"
 
 #: src/settings/acknowledged-software.ts
 msgid "The interface framework"
@@ -9441,6 +9509,10 @@ msgstr "电子表格编辑器"
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "无法从应用包中读取第三方声明。"
+
+#: src/papers/audit-messages.ts
+msgid "The verified record differs from this inline reference. Inline references are edited by hand."
+msgstr "核实记录与这条正文内文献不一致。正文内文献需要手动修改。"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -10161,6 +10233,14 @@ msgstr "已找到发表版"
 #: src/papers/audit-messages.ts
 msgid "Verified publication metadata is available."
 msgstr "已确认的发表信息可用"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified record"
+msgstr "核实记录"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified record (BibTeX)"
+msgstr "核实记录（BibTeX）"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Verifying installation…"

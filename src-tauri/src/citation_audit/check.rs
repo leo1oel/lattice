@@ -16,6 +16,9 @@ pub fn check_entry(
     {
         return Err("Invalid batch status.".into());
     }
+    if request.inline.is_some() {
+        return inline::check(root, request, s2_batch_status);
+    }
     let before = match registered_entry(root, &request.path, &request.key)? {
         Some(value) if value == request.bibtex => value,
         Some(value) => {
@@ -23,8 +26,40 @@ pub fn check_entry(
         }
         None => return Ok(result("conflict", "The bibliography entry no longer exists.", "")),
     };
-    let checked = annotate_s2(lookup(root, before, s2_batch_status)?, s2_batch_status);
+    let checked = look_up(root, before, s2_batch_status)?;
     Ok(publication::refine(cleanup_result(checked)))
+}
+
+/// Look `before` up by its strongest identity, retrying once after a
+/// provider failure. The result is unrefined: no local cleanup, no
+/// publisher record yet.
+pub(super) fn look_up(
+    root: &Path, before: String, s2_batch_status: Option<&str>,
+) -> Result<AuditResult, String> {
+    let mut checked = lookup(root, before.clone(), s2_batch_status)?;
+    if provider_failed(&checked) {
+        // A provider timing out (DBLP during SigLIP 2's check) leaves the check
+        // incomplete, not the reference wrong. One bounded retry shows whether
+        // the provider recovered before the entry is reported unverified.
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        checked = lookup(root, before, s2_batch_status)?;
+    }
+    Ok(annotate_s2(checked, s2_batch_status))
+}
+
+/// An incomplete result caused by a provider failure rather than a finding.
+fn provider_failed(checked: &AuditResult) -> bool {
+    checked.status == "unavailable"
+        && matches!(
+            checked.publication_reason.as_deref(),
+            Some("sources_unavailable" | "metadata_unavailable")
+        )
+        && checked.sources.iter().any(|row| {
+            matches!(
+                row.outcome.as_str(),
+                "timeout" | "connection_failed" | "server_error" | "unavailable" | "network"
+            )
+        })
 }
 
 fn lookup(root: &Path, before: String, s2: Option<&str>) -> Result<AuditResult, String> {
@@ -39,7 +74,7 @@ fn lookup(root: &Path, before: String, s2: Option<&str>) -> Result<AuditResult, 
         let checked = upgrade_preprint(&before, s2)?;
         return Ok(proceedings::refine(&before, checked));
     }
-    Ok(match local.get("doi").and_then(|v| normalize_doi(v)) {
+    Ok(match entry_doi(&local) {
         Some(doi) => lookup_doi(root, before, &doi, s2),
         None => lookup_title(before, &local, s2),
     })
@@ -260,6 +295,7 @@ mod tests {
             title: title.into(),
             bibtex: bibtex.into(),
             issues: vec![],
+            inline: None,
         };
         let checked =
             check_entry(root, entry("ranzinger2024amradio", "AM-RADIO", before), None).unwrap();

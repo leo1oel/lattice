@@ -11,6 +11,11 @@
 .bibliography-audit progress::-webkit-progress-bar { background: var(--border-subtle); }
 .bibliography-audit progress::-webkit-progress-value { background: var(--control-active); border-radius: var(--radius-pill); transition: width var(--motion-moderate); }
 .bibliography-audit progress::-moz-progress-bar { background: var(--control-active); }
+.bibliography-audit-coverage { display: grid; gap: var(--space-2); margin: var(--space-5) 0 0; padding: 0; list-style: none; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bibliography-audit-coverage li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2) var(--space-4); overflow-wrap: anywhere; }
+.bibliography-audit-coverage li > span:first-child { color: var(--text-secondary); }
+.bibliography-audit-coverage li > span:last-child { color: var(--text-tertiary); }
+.bibliography-audit-overview > .bibliography-audit-copy { margin-top: var(--space-4); }
 .bibliography-audit-scroll { flex: 1; min-height: 0; margin-inline: calc(-1 * var(--drawer-content-inset)); }
 .bibliography-audit-viewport { padding: var(--space-2) var(--drawer-content-inset) var(--space-8); }
 .bibliography-audit-results { display: grid; gap: var(--space-5); min-width: 0; }

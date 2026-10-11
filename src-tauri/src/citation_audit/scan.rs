@@ -63,10 +63,13 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
     let mut issues = Vec::new();
     // Citation key, DOI and title identities, each to every (path, key) using it.
     let mut groups: [HashMap<String, Vec<(String, String)>>; 3] = Default::default();
+    let mut coverage = Vec::new();
     for (path, source) in audit_sources(root)? {
+        let read = entries.len();
         if has_conflict_markers(&source) {
             let conflict = finding("bibliography-conflict", &[], UNRESOLVED_CONFLICT.into());
             issues.push(audit_issue(&path, None, conflict));
+            coverage.push(AuditCoverage { path, kind: "bibliography", entries: 0 });
             continue;
         }
         let spans = project::bibliography_entry_spans(&source);
@@ -102,8 +105,16 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
                     group.entry(identity).or_default().push((path.clone(), key.clone()));
                 }
             }
-            entries.push(AuditEntry { path: path.clone(), key, title, bibtex, issues: local });
+            entries.push(AuditEntry {
+                path: path.clone(),
+                key,
+                title,
+                bibtex,
+                issues: local,
+                inline: None,
+            });
         }
+        coverage.push(AuditCoverage { path, kind: "bibliography", entries: entries.len() - read });
     }
     let kinds =
         [("citation key", "duplicate-key"), ("DOI", "duplicate-doi"), ("title", "duplicate-title")];
@@ -113,7 +124,29 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
             issues.push(audit_issue(&path, Some(&key), finding(code, &[], message)));
         }
     }
-    Ok(AuditScan { entries, issues })
+    // Inline lists are separate documents: their keys may repeat a .bib key
+    // without being duplicates, and their rows are never rewritten.
+    let mut lists: Vec<AuditCoverage> = Vec::new();
+    for reference in inline::inline_references(root)? {
+        match lists.last_mut().filter(|list| list.path == reference.path) {
+            Some(list) => list.entries += 1,
+            None => lists.push(AuditCoverage {
+                path: reference.path.clone(),
+                kind: "inline",
+                entries: 1,
+            }),
+        }
+        entries.push(AuditEntry {
+            path: reference.path,
+            key: reference.key,
+            title: reference.title,
+            bibtex: reference.bibtex,
+            issues: vec![],
+            inline: Some(reference.text),
+        });
+    }
+    coverage.extend(lists);
+    Ok(AuditScan { entries, issues, coverage })
 }
 
 fn local_validation(entry: &str) -> Vec<Finding> {

@@ -56,6 +56,11 @@ msgstr "(no text)"
 msgid "(this comment's text was removed)"
 msgstr "(this comment's text was removed)"
 
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} BibTeX entries"
+msgstr "{0} BibTeX entries"
+
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
@@ -75,10 +80,23 @@ msgstr "{0} file"
 msgid "{0} files"
 msgstr "{0} files"
 
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} inline references, compared but not edited"
+msgstr "{0} inline references, compared but not edited"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
 msgstr "{0} packages"
+
+#. placeholder {0}: tally.verified
+#. placeholder {1}: tally.updates
+#. placeholder {2}: tally.review
+#. placeholder {3}: tally.incomplete
+#: src/papers/bibliography-audit.tsx
+msgid "{0} verified · {1} with updates · {2} need review · {3} incomplete (not errors)"
+msgstr "{0} verified · {1} with updates · {2} need review · {3} incomplete (not errors)"
 
 #. placeholder {0}: work.votes
 #: src/papers/literature-discovery-panel.tsx
@@ -516,6 +534,10 @@ msgstr "A project latexmkrc overrides this"
 msgid "A published version is available."
 msgstr "A published version is available."
 
+#: src/papers/audit-messages.ts
+msgid "A published version of this preprint exists. Inline references are edited by hand."
+msgstr "A published version of this preprint exists. Inline references are edited by hand."
+
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
 msgstr "A source returned a possible record, but its identifying metadata conflicts with this reference."
@@ -860,6 +882,10 @@ msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "An existing bibliography entry has an invalid citation key."
 
+#: src/papers/bibliography-audit.tsx
+msgid "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
+msgstr "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
+
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "An update from Overleaf did not fit this document; it needs to be reloaded."
@@ -974,6 +1000,10 @@ msgstr "Article entry uses booktitle instead of journal."
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
+
+#: src/papers/bibliography-audit.tsx
+msgid "As written"
+msgstr "As written"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
@@ -2099,6 +2129,10 @@ msgstr "Comments"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Compare with the verified record"
+msgstr "Compare with the verified record"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "Comparing this project with Overleaf…"
@@ -2801,6 +2835,10 @@ msgstr "Diamond suit"
 #: src/history/file-diff-view.tsx
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Differs from the verified record"
+msgstr "Differs from the verified record"
 
 #: src/settings/acknowledged-software.ts
 msgid "Diffs of changes and history"
@@ -3508,6 +3546,10 @@ msgstr "file upload"
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "Files"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Files checked"
+msgstr "Files checked"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -4315,6 +4357,15 @@ msgstr "Inline Math"
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Inline Math Properties"
 msgstr "Inline Math Properties"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Inline reference"
+msgstr "Inline reference"
+
+#. placeholder {0}: entry.path
+#: src/papers/bibliography-audit.tsx
+msgid "Inline references are not edited automatically. Change {0} by hand if needed."
+msgstr "Inline references are not edited automatically. Change {0} by hand if needed."
 
 #: src/papers/audit-messages.ts
 msgid "Inproceedings entry uses journal instead of booktitle."
@@ -6129,6 +6180,10 @@ msgstr "Official 2026 style"
 msgid "Official 2026 style · preprint draft"
 msgstr "Official 2026 style · preprint draft"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Official verification incomplete"
+msgstr "Official verification incomplete"
+
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
 msgid "OK"
@@ -7341,6 +7396,10 @@ msgstr "Reference an equation label"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an existing label"
 msgstr "Reference an existing label"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reference as written"
+msgstr "Reference as written"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Reference changed since the last check. Check this reference again."
@@ -9243,6 +9302,11 @@ msgstr "The bundled Agent service did not report a valid local address."
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
 
+#. placeholder {0}: result.disagreements.map(field => fieldLabels[field] ?? field).join(", ")
+#: src/papers/bibliography-audit.tsx
+msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
+msgstr "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
@@ -9295,6 +9359,10 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/papers/audit-messages.ts
+msgid "The inline reference agrees with the verified record."
+msgstr "The inline reference agrees with the verified record."
 
 #: src/settings/acknowledged-software.ts
 msgid "The interface framework"
@@ -9448,6 +9516,10 @@ msgstr "The spreadsheet editor"
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "The third-party notices could not be read from the app bundle."
+
+#: src/papers/audit-messages.ts
+msgid "The verified record differs from this inline reference. Inline references are edited by hand."
+msgstr "The verified record differs from this inline reference. Inline references are edited by hand."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -10170,6 +10242,14 @@ msgstr "Verified publication match"
 #: src/papers/audit-messages.ts
 msgid "Verified publication metadata is available."
 msgstr "Verified publication metadata is available."
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified record"
+msgstr "Verified record"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Verified record (BibTeX)"
+msgstr "Verified record (BibTeX)"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Verifying installation…"

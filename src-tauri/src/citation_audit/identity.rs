@@ -31,7 +31,11 @@ pub(super) fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
     let (local, other) = (fields(before), fields(remote));
     let title = normalize_title(&field_value(&local, "title"));
     let remote_title = normalize_title(&field_value(&other, "title"));
-    if remote_title.is_empty() || (!title.is_empty() && title != remote_title) {
+    if remote_title.is_empty()
+        || (!title.is_empty()
+            && title != remote_title
+            && !drops_short_name(&field_value(&local, "title"), &field_value(&other, "title")))
+    {
         reasons.push("title".into());
     }
     let doi = |values: &BTreeMap<String, String>| {
@@ -95,7 +99,7 @@ pub(super) fn identity_conflict(before: &str, remote: &str) -> AuditResult {
 }
 
 pub(super) fn compare_doi_entry(before: &str, remote: &str) -> AuditResult {
-    let doi = |entry: &str| fields(entry).get("doi").and_then(|v| normalize_doi(v));
+    let doi = |entry: &str| entry_doi(&fields(entry));
     let local = doi(before);
     if local.is_none() || local != doi(remote) {
         return identity_conflict(before, remote);
@@ -123,6 +127,19 @@ fn title_acronym(title: &str) -> Option<String> {
     (!key.is_empty()).then_some(key)
 }
 
+/// Whether `remote` is exactly `local` without the short name before its
+/// colon. DBLP indexes SOLO's TMLR paper as "A Single Transformer for Scalable
+/// Vision-Language Modeling", dropping "SOLO:" from the title the paper itself
+/// prints. Dropping the name is not renaming (see `renamed_paper`); any other
+/// difference still is a different title.
+pub(super) fn drops_short_name(local: &str, remote: &str) -> bool {
+    let local = local.replace(['{', '}'], "");
+    title_acronym(&local).is_some()
+        && local.split_once(':').is_some_and(|(_, rest)| {
+            !normalize_title(rest).is_empty() && normalize_title(rest) == normalize_title(remote)
+        })
+}
+
 /// Whether a proposed record renamed the paper, which means it is not the same
 /// paper at all.
 ///
@@ -140,41 +157,49 @@ pub(super) fn renamed_paper(before: &str, after: &str) -> bool {
     matches!((name_of(before), name_of(after)), (Some(a), Some(b)) if a != b)
 }
 
-pub(super) fn author_names(authors: &str) -> Vec<Vec<String>> {
-    // Decode conventional TeX accents only for comparison. Keep the original
-    // field when equivalent, and never discard accents or unknown commands.
+/// Conventional TeX accents as Unicode combining marks (`R{\'e}` as `Ré`), for
+/// comparison only. Unknown commands are kept as written.
+pub(super) fn decode_accents(text: &str) -> String {
     static ACCENT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
             r#"\\([`'"^~=.uvHckrbd])(?:\s*\{\s*([A-Za-z])\s*\}|\s+([A-Za-z])|([A-Za-z]))"#,
         )
         .unwrap()
     });
-    let decoded = ACCENT.replace_all(authors, |captures: &regex::Captures<'_>| {
-        // A letter command requires a delimiter: \unknown is not \u nknown.
-        if captures.get(4).is_some() && captures[1].chars().all(|c| c.is_ascii_alphabetic()) {
-            return captures[0].to_string();
-        }
-        let mark = match &captures[1] {
-            "`" => '\u{0300}',
-            "'" => '\u{0301}',
-            "^" => '\u{0302}',
-            "~" => '\u{0303}',
-            "=" => '\u{0304}',
-            "u" => '\u{0306}',
-            "." => '\u{0307}',
-            "\"" => '\u{0308}',
-            "r" => '\u{030a}',
-            "H" => '\u{030b}',
-            "v" => '\u{030c}',
-            "d" => '\u{0323}',
-            "c" => '\u{0327}',
-            "k" => '\u{0328}',
-            "b" => '\u{0331}',
-            _ => unreachable!("accent regex restricts the command"),
-        };
-        let base = (2..=4).find_map(|group| captures.get(group)).unwrap().as_str();
-        format!("{base}{mark}")
-    });
+    ACCENT
+        .replace_all(text, |captures: &regex::Captures<'_>| {
+            // A letter command requires a delimiter: \unknown is not \u nknown.
+            if captures.get(4).is_some() && captures[1].chars().all(|c| c.is_ascii_alphabetic()) {
+                return captures[0].to_string();
+            }
+            let mark = match &captures[1] {
+                "`" => '\u{0300}',
+                "'" => '\u{0301}',
+                "^" => '\u{0302}',
+                "~" => '\u{0303}',
+                "=" => '\u{0304}',
+                "u" => '\u{0306}',
+                "." => '\u{0307}',
+                "\"" => '\u{0308}',
+                "r" => '\u{030a}',
+                "H" => '\u{030b}',
+                "v" => '\u{030c}',
+                "d" => '\u{0323}',
+                "c" => '\u{0327}',
+                "k" => '\u{0328}',
+                "b" => '\u{0331}',
+                _ => unreachable!("accent regex restricts the command"),
+            };
+            let base = (2..=4).find_map(|group| captures.get(group)).unwrap().as_str();
+            format!("{base}{mark}")
+        })
+        .into_owned()
+}
+
+pub(super) fn author_names(authors: &str) -> Vec<Vec<String>> {
+    // Keep the original field when equivalent, and never discard accents or
+    // unknown commands.
+    let decoded = decode_accents(authors);
     normalize_text(&decoded.replace(['{', '}'], ""))
         .nfc()
         .collect::<String>()

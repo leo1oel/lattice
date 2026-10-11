@@ -52,6 +52,7 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
             // independently verify its title/authors against the official export.
             // Merge from the original so the preview remains snapshot-correct.
             let mut official = merge_metadata(before, &remote, true);
+            official.official = Some(remote);
             official.sources = checked.sources;
             for row in &mut official.sources {
                 if row.outcome.starts_with("selected") {
@@ -100,16 +101,28 @@ pub(super) fn official_client(user_agent: &str, stop_off_host: bool) -> Result<C
         .map_err(|e| e.to_string())
 }
 
+/// An official page or export. Its own bound keeps a misbehaving host from
+/// streaming an arbitrarily large body into memory.
 pub(super) fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String> {
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|e| e.to_string())?
-        .error_for_status()
-        .map_err(|e| e.to_string())?;
+    read_bounded(client.get(url), 4 * 1024 * 1024)
+}
+
+/// The whole-conference indexes are far larger than any paper page: CVF's
+/// CVPR 2025 and ICCV 2025 "all papers" pages are 8.4 MB and 7.7 MB, and they
+/// grow every year. A separate, generous bound (and deadline) lets them load
+/// while still refusing a runaway response.
+const INDEX_LIMIT: u64 = 48 * 1024 * 1024;
+
+pub(super) fn fetch_index(client: &Client, url: reqwest::Url) -> Result<String, String> {
+    read_bounded(client.get(url).timeout(Duration::from_secs(60)), INDEX_LIMIT)
+}
+
+fn read_bounded(request: reqwest::blocking::RequestBuilder, limit: u64) -> Result<String, String> {
+    let response =
+        request.send().map_err(|e| e.to_string())?.error_for_status().map_err(|e| e.to_string())?;
     let mut text = String::new();
-    response.take(4 * 1024 * 1024 + 1).read_to_string(&mut text).map_err(|e| e.to_string())?;
-    if text.len() > 4 * 1024 * 1024 {
+    response.take(limit + 1).read_to_string(&mut text).map_err(|e| e.to_string())?;
+    if text.len() as u64 > limit {
         return Err("Proceedings response too large".into());
     }
     Ok(text)
