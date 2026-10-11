@@ -41,6 +41,14 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       const command = params.command ?? "";
       return i18n._(msg`The project's .latexmkrc runs Playwright, and the Chromium this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run \`${command}\` in Terminal, then build again.`);
     }
+    case "pdftex-only-command": {
+      const { command = "", engine = "" } = params;
+      return i18n._(msg`\`${command}\` only works in pdfLaTeX, but this document was built with ${engine}. Switch the project to pdfLaTeX to build it.`);
+    }
+    case "engine-switched": {
+      const { command = "", from = "" } = params;
+      return i18n._(msg`Switched this project from ${from} to pdfLaTeX: the document uses \`${command}\`, which only works in pdfLaTeX, and loads nothing that needs ${from}.`);
+    }
     case "stale-build":
       return i18n._(msg`Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again.`);
     case "build-cancelled": {

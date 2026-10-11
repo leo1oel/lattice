@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 
 mod build;
 mod build_log;
+mod engine_mismatch;
 mod prewarm;
 mod synctex;
 mod venue;

@@ -62,7 +62,7 @@ pub use imports::{
 pub use manifest::EditorComment;
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_editor_comments,
-    read_manifest, resolve_compile_root, set_compile_root, set_spelling_words,
+    read_manifest, resolve_compile_root, set_compile_root, set_spelling_words, tex_program_engine,
     update_manifest_settings, write_editor_comments,
 };
 pub use paths::safe_path;

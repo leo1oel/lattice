@@ -435,6 +435,10 @@ msgstr "{where}（重连中…）"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
 
+#: src/build/build-log-messages.ts
+msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
+msgstr "`{command}` 只能在 pdfLaTeX 中使用，但这份文档是用 {engine} 编译的。将项目切换到 pdfLaTeX 即可编译。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ 选择 · Enter 打开"
@@ -1349,9 +1353,17 @@ msgstr "已被新的编译取代"
 msgid "Build the project to preview the paper"
 msgstr "编译后在这里看论文"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Build this project with pdfLaTeX from now on"
+msgstr "今后用 pdfLaTeX 编译此项目"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Build to count"
 msgstr "编译后统计"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Build with {switchedFrom} again"
+msgstr "改回用 {switchedFrom} 编译"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -8753,6 +8765,10 @@ msgstr "切换到{name}"
 msgid "Switch to a workspace by its place"
 msgstr "切换布局"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Switch to pdfLaTeX"
+msgstr "切换到 pdfLaTeX"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Switch to Reading"
 msgstr "切换到阅读"
@@ -8764,6 +8780,10 @@ msgstr "阅读布局"
 #: src/App.tsx
 msgid "Switch to the Writing layout"
 msgstr "写作布局"
+
+#: src/build/build-log-messages.ts
+msgid "Switched this project from {from} to pdfLaTeX: the document uses `{command}`, which only works in pdfLaTeX, and loads nothing that needs {from}."
+msgstr "已将此项目从 {from} 切换到 pdfLaTeX：文档使用了只能在 pdfLaTeX 中使用的 `{command}`，且没有加载任何需要 {from} 的内容。"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -9624,6 +9644,7 @@ msgid "Underline"
 msgstr "下划线"
 
 #: src/app/use-editor-comments.ts
+#: src/build/compile-diagnostics-panel.tsx
 #: src/editor/editor-keymap.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx

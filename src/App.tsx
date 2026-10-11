@@ -1604,6 +1604,14 @@ function App() {
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
 
 
+  // The build panel's engine actions: write the engine, then build with it.
+  // `keepEngine` is the undo of an automatic switch, which must not recur.
+  const switchEngineAndBuild = (engine: string, keepEngine?: boolean) => void showingErrors(async () => {
+    const manifest = await invoke<ProjectManifest>("update_project_manifest", { engine, keepEngine });
+    setProject((current) => current ? { ...current, manifest } : current);
+    await buildPipeline.runBuild(false, { requested: true, sound: true });
+  });
+
   const documentCanvas = (
     <DocumentCanvas
       projectRoot={project.root}
@@ -1641,6 +1649,8 @@ function App() {
             onExpandedChange={buildPipeline.setDiagnosticsExpanded}
             onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
             onInstallDependency={texSetup.installDependency}
+            onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
+            onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
             onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
             fixDisabled={!repairWritable || building || compileRepair.busy}
             repair={compileRepair.state}

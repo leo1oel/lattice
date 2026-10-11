@@ -172,6 +172,7 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         !terminal_error
             && (diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message))
     });
+    super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
 }
 
@@ -277,7 +278,7 @@ fn push_unique(diagnostics: &mut Vec<Diagnostic>, candidate: Diagnostic) {
     }
 }
 
-fn normalize_log_path(path: &str) -> String {
+pub(super) fn normalize_log_path(path: &str) -> String {
     let trimmed = path.trim().trim_matches('"').replace('\\', "/");
     let without_dot = trimmed.strip_prefix("./").unwrap_or(&trimmed);
     match without_dot.rsplit_once("/./") {

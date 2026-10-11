@@ -22,6 +22,8 @@ export type ProjectManifest = {
   primaryBibliography: string;
   trusted: boolean;
   engine?: string;
+  /** The writer undid an automatic switch to pdfLaTeX; builds leave the engine alone. */
+  keepEngine?: boolean;
   venue?: ProjectVenue | string;
   wordBudget?: number | null;
   pageBudget?: number | null;

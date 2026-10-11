@@ -120,6 +120,10 @@ export function CompileDiagnosticsPanel(props: {
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
   onInstallDependency: (missingFile: string) => void;
+  /** Build with pdfLaTeX from now on; absent when the project already does. */
+  onSwitchToPdfLatex?: () => void;
+  /** Put back the engine an automatic switch replaced (`xelatex`, `lualatex`). */
+  onUndoEngineSwitch?: (engine: string) => void;
   onFixAll?: () => void;
   fixDisabled?: boolean;
   repair?: CompileRepairState | null;
@@ -215,6 +219,8 @@ export function CompileDiagnosticsPanel(props: {
                       const text = compileDiagnosticText(diagnostic);
                       const line = diagnostic.line;
                       const missingFile = missingTexDependencyFile(diagnostic.message);
+                      const previousEngine = diagnostic.params?.previous;
+                      const switchedFrom = diagnostic.params?.from ?? "";
                       return (
                         <li key={`${severity}-${diagnostic.line ?? ""}-${index}`}>
                           <button
@@ -233,6 +239,18 @@ export function CompileDiagnosticsPanel(props: {
                             <Button variant="ghost" size="compact" title={t`Find and install the TeX Live package for ${missingFile}`}
                               onClick={() => props.onInstallDependency(missingFile)}>
                               <Trans>Install</Trans>
+                            </Button>
+                          )}
+                          {diagnostic.code === "pdftex-only-command" && props.onSwitchToPdfLatex && (
+                            <Button variant="ghost" size="compact" title={t`Build this project with pdfLaTeX from now on`}
+                              onClick={props.onSwitchToPdfLatex}>
+                              <Trans>Switch to pdfLaTeX</Trans>
+                            </Button>
+                          )}
+                          {diagnostic.code === "engine-switched" && previousEngine && props.onUndoEngineSwitch && (
+                            <Button variant="ghost" size="compact" title={t`Build with ${switchedFrom} again`}
+                              onClick={() => props.onUndoEngineSwitch?.(previousEngine)}>
+                              <Trans>Undo</Trans>
                             </Button>
                           )}
                           <CopyButton
