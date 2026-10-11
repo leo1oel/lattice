@@ -9,7 +9,8 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { notifySuccess } from "../telemetry/app-notify";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { EmptyState } from "../components/ui/empty-state";
-import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { ResearchArt } from "../components/ui/research-art";
+import { READING_FOLIO } from "../components/ui/research-art-reading-folio";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
@@ -298,7 +299,12 @@ export function LiteratureDiscoveryPanel(props: {
         </button>
       )}
       {!loading && !results.length && !error && !notice && (
-        <EmptyState icon={<EmptyIllustration kind="papers" />} description={t`Search alphaXiv and OpenAlex for related work`} />
+        <EmptyState
+          className="literature-empty"
+          icon={<ResearchArt drawing={READING_FOLIO} />}
+          title={t`Find your next source`}
+          description={t`Search alphaXiv and OpenAlex by title or topic`}
+        />
       )}
     </ResizableDrawer>
   );

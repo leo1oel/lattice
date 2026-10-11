@@ -10,7 +10,7 @@ import "./empty-illustration.css";
  * its empty state is hovered; nothing loops. Decorative only: the empty
  * state's text says what it means.
  */
-export type EmptyIllustrationKind = "papers" | "comments" | "search" | "history" | "done";
+export type EmptyIllustrationKind = "comments" | "search" | "history" | "done";
 
 const order = (index: number) => ({ "--draw-order": index }) as CSSProperties;
 
@@ -19,32 +19,7 @@ function Line({ d, i, className }: { d: string; i: number; className?: string })
   return <path className={cn("empty-illustration-line", className)} d={d} pathLength={1} style={order(i)} />;
 }
 
-const PAGE_BACK = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
 const SEARCH_PAGE = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h17a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-17a2.5 2.5 0 0 1-2.5-2.5z";
-const PAGE_FRONT = "M24 11.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
-
-function drawPapers() {
-  return (
-    <>
-      <g className="empty-illustration-sheet" data-part="back">
-        <g transform="rotate(-9 26 24)">
-          <path className="empty-illustration-paper" d={PAGE_BACK} />
-          <Line d={PAGE_BACK} i={0} />
-        </g>
-      </g>
-      <g className="empty-illustration-sheet" data-part="front">
-        <g transform="rotate(5 36 26)">
-          <path className="empty-illustration-paper" d={PAGE_FRONT} />
-          <Line d={PAGE_FRONT} i={1} />
-          <Line d="M29 17h14" i={2} className="empty-illustration-strong" />
-          <Line d="M29 23h12M29 28h14M29 33h9" i={3} className="empty-illustration-faint" />
-        </g>
-      </g>
-      <Line d="M47.5 31c5 0 6-9 10.5-11" i={4} className="empty-illustration-weft" />
-      <circle className="empty-illustration-knot" data-thread="warp" cx="58.5" cy="19.5" r="2.5" style={order(5)} />
-    </>
-  );
-}
 
 function drawComments() {
   return (
@@ -119,7 +94,6 @@ function drawHistory() {
 }
 
 const DRAWINGS: Record<EmptyIllustrationKind, () => ReactNode> = {
-  papers: drawPapers,
   comments: drawComments,
   search: drawSearch,
   history: drawHistory,

@@ -16,8 +16,8 @@
 .empty-illustration-dashed { stroke-dasharray: .06 .05; }
 .empty-illustration-weft { stroke: var(--mark-weft); stroke-width: 1.75; }
 .empty-illustration-warp { stroke: var(--mark-warp); stroke-width: 1.75; }
-/* Paper is the surface behind a line drawing: it hides what an overlapping
-   sheet or the lens passes over, in whichever surface the host sits on. */
+/* Paper is the surface behind a line drawing: it hides what the lens or a
+   badge passes over, in whichever surface the host sits on. */
 .empty-illustration-paper { fill: var(--surface-panel-raised); }
 .empty-illustration-knot { fill: currentColor; opacity: .7; }
 .empty-illustration-knot[data-thread="weft"] { fill: var(--mark-weft); opacity: 1; }
@@ -49,17 +49,12 @@
 }
 
 /* While its empty state is hovered, each drawing does one small thing: the
-   papers fan, the lens leans in, the check swells, the timeline's newest knot swells. The typing dots are the only sequence, and only on hover. */
-.empty-illustration-sheet,
+   lens leans in, the check swells, the timeline's newest knot swells. The typing dots are the only sequence, and only on hover. */
 .empty-illustration-lens { transform-box: view-box; transition: rotate var(--motion-moderate), translate var(--motion-moderate), opacity var(--motion-moderate); }
-.empty-illustration-sheet[data-part="back"] { transform-origin: 26px 40px; }
-.empty-illustration-sheet[data-part="front"] { transform-origin: 36px 42px; }
 .empty-illustration-lens { transform-origin: 38px 28px; }
 .empty-illustration-badge { transform-box: view-box; transform-origin: 40px 32px; transition: scale var(--motion-moderate); }
 .empty-illustration-now { transition: scale var(--motion-moderate); }
 
-:is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-sheet[data-part="back"] { rotate: -5deg; }
-:is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-sheet[data-part="front"] { rotate: 4deg; translate: 1px 0; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-lens { rotate: -8deg; translate: -2px 1px; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-now { scale: 1.25; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-badge { scale: 1.1; }

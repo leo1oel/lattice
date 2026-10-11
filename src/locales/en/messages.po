@@ -3513,6 +3513,10 @@ msgstr "Find references"
 msgid "Find text to replace"
 msgstr "Find text to replace"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "Find your next source"
+msgstr "Find your next source"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "Finish"
@@ -6035,6 +6039,10 @@ msgstr "Open a .tex file before pasting a figure."
 msgid "Open a file"
 msgstr "Open a file"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open a file, or reset the layout to bring your panels back"
+msgstr "Open a file, or reset the layout to bring your panels back"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "Open a LaTeX project"
@@ -8039,8 +8047,8 @@ msgid "Search"
 msgstr "Search"
 
 #: src/papers/literature-discovery-panel.tsx
-msgid "Search alphaXiv and OpenAlex for related work"
-msgstr "Search alphaXiv and OpenAlex for related work"
+msgid "Search alphaXiv and OpenAlex by title or topic"
+msgstr "Search alphaXiv and OpenAlex by title or topic"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search by name or license"

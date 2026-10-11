@@ -282,6 +282,14 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .literature-search .literature-search-submit:hover:not(:disabled) { background: var(--control-active-soft); }
 .literature-search .literature-search-submit:disabled { color: var(--text-tertiary); opacity: .6; }
 .literature-precise { padding-inline: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); }
+/* Before the first search: the reading folio on the panel's own surface, a
+   smaller one in a narrow or short panel, none in a very short one, so the
+   form above always keeps its room. */
+.literature-empty { --art-paper: var(--surface-sidebar); }
+.literature-empty .research-art { width: 104px; }
+.literature-empty .ui-empty-state-description { max-width: 28ch; text-wrap: balance; }
+@container literature (max-width: 300px) or (max-height: 540px) { .literature-empty .research-art { width: 80px; } }
+@container literature (max-height: 320px) { .literature-empty .ui-empty-state-icon { display: none; } }
 /* A result reads as a Papers row (app-shell.css): the title in the reading
    face, who and when beneath it, hairlines between rows and the tree's hover
    fill. Where it came from, its votes or citations and its id wait in the
