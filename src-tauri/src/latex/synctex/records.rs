@@ -11,9 +11,12 @@
 //! way. This replays synctex's own measuring (`_synctex_make_hbox_contain_box`
 //! and `_contain_point` in synctex_parser.c) to recognise the box it reported,
 //! then measures that box again without what was not laid out where SyncTeX
-//! records it (`corrections`).
+//! records it (`corrections`). It also finds the source line under a point
+//! that `synctex edit` answers without one (`source_at`).
 
 use crate::latex::PdfSyncTarget;
+use std::cmp::Reverse;
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 
@@ -158,6 +161,67 @@ pub(super) fn corrections(synctex: &str, page: u32) -> Vec<Correction> {
         .collect()
 }
 
+/// The source file and line SyncTeX recorded at a point on `page` (in PDF
+/// points, as `synctex edit` takes one), for a point `synctex edit` answers
+/// without a line.
+///
+/// pdfTeX draws a clipped graphic (`\includegraphics[clip]`, or any `trim`
+/// with `clip`) through a form XObject, and records it as a form reference
+/// (`f<form>:h,v`) with no form definition. `synctex edit` on the graphic
+/// lands on that reference and answers its file with `Line:0`, while every
+/// box around it still carries the `\includegraphics` line. So: the tightest
+/// box with a line around the point, the innermost of equal ones; with none
+/// around it, the nearest record with a line.
+pub(super) fn source_at(synctex: &str, page: u32, (x, y): (f64, f64)) -> Option<(String, u32)> {
+    let (page_open, page_close) = (format!("{{{page}"), format!("}}{page}"));
+    let mut scale = Scale::default();
+    let mut inputs = HashMap::new();
+    let mut in_page = false;
+    let mut depth = 0_usize;
+    let mut best: Option<(Rank, u32, u32)> = None;
+    for record in synctex.lines() {
+        if let Some((tag, path)) =
+            record.strip_prefix("Input:").and_then(|rest| rest.split_once(':'))
+        {
+            if let Ok(tag) = tag.parse::<u32>() {
+                inputs.insert(tag, path);
+            }
+            continue;
+        }
+        if !in_page {
+            scale.read(record);
+            in_page = record == page_open;
+            continue;
+        }
+        if record == page_close {
+            break;
+        }
+        let Some(kind) = record.chars().next() else { continue };
+        if matches!(kind, ')' | ']') {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        let Some(node) = Node::parse(&record[1..]) else { continue };
+        if matches!(kind, '(' | '[') {
+            depth += 1;
+        }
+        if node.line == 0 || !inputs.contains_key(&node.tag) {
+            continue;
+        }
+        let target = scale.target(page, Visible::new(&node, node.size().unwrap_or_default()));
+        let key = (target.distance(x, y), target.area(), Reverse(depth));
+        if best.as_ref().is_none_or(|(best, ..)| key < *best) {
+            best = Some((key, node.tag, node.line));
+        }
+    }
+    let (_, tag, line) = best?;
+    Some((inputs.get(&tag)?.to_string(), line))
+}
+
+/// How well a record answers for a point: its distance from it, its area,
+/// then the deepest box first.
+type Rank = (f64, f64, Reverse<usize>);
+
 /// Where SyncTeX's record of something is to be believed, from most to
 /// least.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -301,6 +365,8 @@ impl Visible {
 /// One content record after its type: `tag,line[,column]:h,v`, then a
 /// box's `:W,H,D` or a kern's `:W`.
 struct Node {
+    tag: u32,
+    line: u32,
     h: f64,
     v: f64,
     lengths: Vec<f64>,
@@ -310,8 +376,8 @@ impl Node {
     fn parse(record: &str) -> Option<Self> {
         let mut parts = record.split(':');
         let mut source = parts.next()?.split(',');
-        source.next()?.parse::<u32>().ok()?;
-        source.next()?.parse::<u32>().ok()?;
+        let tag = source.next()?.parse().ok()?;
+        let line = source.next()?.parse().ok()?;
         let (h, v) = parts.next()?.split_once(',')?;
         let lengths = match parts.next() {
             Some(lengths) => {
@@ -319,7 +385,7 @@ impl Node {
             }
             None => Vec::new(),
         };
-        Some(Self { h: h.parse().ok()?, v: v.parse().ok()?, lengths })
+        Some(Self { tag, line, h: h.parse().ok()?, v: v.parse().ok()?, lengths })
     }
 
     /// A box's width, height and depth.

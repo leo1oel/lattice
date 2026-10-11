@@ -25,7 +25,15 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
         &["edit".into(), "-o".into(), format!("{page}:{x:.3}:{y:.3}:{}", pdf.display())],
         "SyncTeX could not locate this PDF position.",
     )?;
-    let (input, line) = parse_synctex_edit(&output)?;
+    // On a clipped graphic pdfTeX's SyncTeX answers `Line:0` (see
+    // `records::source_at`); the records around the point still name the line
+    // that placed it, or failing that the nearest one that has a line.
+    let (input, line) = parse_synctex_edit(&output)
+        .or_else(|| {
+            records::read(&root.join(&pdf))
+                .and_then(|synctex| records::source_at(&synctex, page, (x, y)))
+        })
+        .ok_or_else(|| "No LaTeX source was found for this PDF position.".to_string())?;
     let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
     let canonical_input = root.join(&input).canonicalize().map_err(|error| error.to_string())?;
     let relative = canonical_input
@@ -139,17 +147,16 @@ fn synctex_failure(stderr: &str, lead: &str) -> String {
     format!("{lead} {}", crate::util::truncate_chars(&reason, 200))
 }
 
-fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
+/// The source file and line of `synctex edit`'s first result, when it names
+/// both.
+fn parse_synctex_edit(output: &str) -> Option<(String, u32)> {
     let input = output
         .lines()
         .find_map(|line| line.strip_prefix("Input:"))
         .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "No LaTeX source was found for this PDF position.".to_string())?;
-    let line = field(output, "Line:")
-        .filter(|value| *value > 0)
-        .ok_or_else(|| "SyncTeX returned an invalid source line.".to_string())?;
-    Ok((input.to_string(), line))
+        .filter(|value| !value.is_empty())?;
+    let line = field(output, "Line:").filter(|value| *value > 0)?;
+    Some((input.to_string(), line))
 }
 
 /// Where a forward search lands in `synctex view` output. Every result must
@@ -271,6 +278,13 @@ impl PdfSyncTarget {
             && x <= self.x + self.width + SLACK
             && y >= self.y - SLACK
             && y <= self.y + self.height + SLACK
+    }
+
+    /// How far the point lies outside this rectangle; 0 inside it.
+    fn distance(&self, x: f64, y: f64) -> f64 {
+        let dx = (self.x - x).max(x - (self.x + self.width)).max(0.0);
+        let dy = (self.y - y).max(y - (self.y + self.height)).max(0.0);
+        dx.hypot(dy)
     }
 }
 
