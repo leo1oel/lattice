@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, mockAppCommand, fileNode, projectCommands, attentionPaper, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, selectPanelTab, buildButton, waitForBuildIdle, renderApp, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { windowApi, synaraHook, chooseLayoutPreset, mockAppCommand, fileNode, projectCommands, attentionPaper, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, selectPanelTab, buildButton, waitForBuildIdle, renderApp, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -170,10 +170,16 @@ describe("Agent panel", () => {
     renderApp(projectCommands());
     await screen.findByRole("button", { name: "Switch project" });
     const { frame } = await openAgentFrame({ ready: true });
-    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
-    for (const name of ["Writing", "Reading", "Workspace"]) {
-      fireEvent.click(layoutTab(name));
-      await waitFor(() => expect(layoutTab(name)).toHaveAttribute("aria-selected", "true"));
+    const workspaceTab = () => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Workspace" });
+    const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
+    for (const name of ["Writing", "Reading", "Workspace"] as const) {
+      if (name === "Workspace") {
+        fireEvent.click(workspaceTab());
+        await waitFor(() => expect(workspaceTab()).toHaveAttribute("aria-selected", "true"));
+      } else {
+        await chooseLayoutPreset(name);
+        await waitFor(() => expect(panel(`panel-${name.toLowerCase()}`)).not.toBeNull());
+      }
       expect(frame.isConnected).toBe(true);
       expect(await findFrame()).toBe(frame);
       // The panels a layout parks wait for the writer's own layout, not behind a chip each.

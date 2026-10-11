@@ -747,6 +747,12 @@ export function waitForSelectedTab(path: string) {
   return waitFor(() => expect(tab()).toHaveAttribute("aria-selected", "true"));
 }
 
+/** Enters the Writing or Reading layout from the Panels menu (the titlebar's switch lists only workspaces). */
+export async function chooseLayoutPreset(name: "Writing" | "Reading") {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Panels" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+  fireEvent.click(await screen.findByRole("menuitemradio", { name }));
+}
+
 /** Opens `path` from the Project tree and waits for its tab to take focus. */
 export async function openTreeFile(path: string) {
   fireEvent.click(await findProjectTreeItem(path));

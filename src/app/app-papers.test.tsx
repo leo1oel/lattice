@@ -1,4 +1,4 @@
-import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent, selectDocumentView } from "./app-test-utils";
+import { synaraHook, chooseLayoutPreset, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent, selectDocumentView } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -395,7 +395,7 @@ describe("papers", () => {
     const liveTokens = tokens(live);
 
     await openPaper("Attention Is All You Need");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     const snapshot = await findElement(".trellis-snapshot .cm-content");
     await waitFor(() => expect(tokens(snapshot)).toEqual(liveTokens));
   });
@@ -435,12 +435,12 @@ describe("papers", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Paper" }));
     await screen.findByRole("heading", { name: "Attention" });
     const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
-    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
-    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+    const workspaceTab = () => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Workspace" });
+    expect(workspaceTab()).toHaveAttribute("aria-selected", "true");
 
-    fireEvent.click(layoutTab("Reading"));
+    await chooseLayoutPreset("Reading");
     await waitFor(() => expect(panel("panel-reading")).toBeInTheDocument());
-    expect(layoutTab("Reading")).toHaveAttribute("aria-selected", "true");
+    expect(workspaceTab()).toHaveAttribute("data-underlying", "true");
     // The paper is read with the library beside it; the notes have a panel of their own; the PDF has gone.
     expect(within(panel("panel-reading") as HTMLElement).getByRole("tab", { name: /Attention Is All You Need/ })).toBeInTheDocument();
     expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /notes\.md/ })).toBeInTheDocument();
@@ -463,13 +463,13 @@ describe("papers", () => {
     fireEvent.click(close, { button: 0 });
     await waitFor(() => expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument());
 
-    fireEvent.click(layoutTab("Workspace"));
+    fireEvent.click(workspaceTab());
     await waitFor(() => expect(panel("panel-reading")).not.toBeInTheDocument());
     expect(panel("panel-project")).toBeInTheDocument();
     expect(panel("panel-pdf")).toBeInTheDocument();
     for (const name of [/notes\.md/, /draft\.md/, /Attention Is All You Need/]) expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
-    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+    expect(workspaceTab()).toHaveAttribute("aria-selected", "true");
     // The document being written is the one in front.
     await waitForSelectedTab("draft.md");
   });
@@ -485,7 +485,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     await openPaper("Attention Is All You Need");
     await screen.findByRole("heading", { name: "Attention" });
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-paper-snapshot");
@@ -514,7 +514,7 @@ describe("papers", () => {
     const blocks = (root: ParentNode) => [...root.querySelector(".ProseMirror")!.children].map((block) => block.textContent);
     const reader = blocks(heading.closest(".ProseMirror")!.parentElement!);
     expect(reader).toEqual(["Attention", "Paper content.", "Section 2", "More content."]);
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-paper-snapshot");
@@ -530,7 +530,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     const reading = () => document.querySelector<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]')!;
     await waitFor(() => expect(reading()).toBeInTheDocument());
     // Writing the notes: the PDF stays open where it was read rather than going to sleep.
@@ -558,7 +558,7 @@ describe("papers", () => {
     selectDocumentView(view);
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
 
     const notes = await findElement(`.trellis-snapshot[data-mode="${mode}"]`);
     await waitFor(() => expect(notes.querySelector(".markdown-preview")).toHaveTextContent("Notes heading"));
@@ -577,7 +577,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-pdf-snapshot");
@@ -653,7 +653,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-pdf-snapshot");
@@ -693,7 +693,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-pdf-snapshot");
@@ -724,7 +724,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     await openPaper("Attention Is All You Need");
     await waitForSelectedTab("Attention Is All You Need");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     const reading = await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]');
     const paperTab = () => within(reading).getByRole("tab", { name: /Attention Is All You Need/ });
     const libraryTab = () => within(reading).getByRole("tab", { name: "Papers" });
@@ -772,7 +772,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-pdf-snapshot");
@@ -813,7 +813,7 @@ describe("papers", () => {
     await openTreeFile("notes.md");
     fireEvent.click(await findProjectTreeItem("reference.pdf"));
     await waitForSelectedTab("reference.pdf");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     // A clean build removed the PDF just as the notes are written beside it.
     removed = true;
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
@@ -838,7 +838,7 @@ describe("papers", () => {
     await openPaper("Attention Is All You Need");
     act(() => paperRead.resolve("# Attention\n\nPaper content."));
     await waitForSelectedTab("Attention Is All You Need");
-    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    await chooseLayoutPreset("Reading");
     const reading = await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]');
     const paperTab = () => within(reading).getByRole("tab", { name: /Attention Is All You Need/ });
     const libraryTab = () => within(reading).getByRole("tab", { name: "Papers" });

@@ -204,7 +204,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             );
           })}
           {PRESETS.map(({ value, icon: Icon }) => (
-            <DropdownMenuItem key={value} role="menuitemradio" aria-checked={preset === value} onSelect={() => controller.setPreset(value)}>
+            <DropdownMenuItem key={value} role="menuitemradio" aria-checked={preset === value} data-layout-preset={value} onSelect={() => controller.setPreset(value)}>
               <Icon size={14} />
               <span className="flex-1">{presetLabels[value]}</span>
               {preset === value && <Check size={14} className="trellis-menu-state" />}
