@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   bibliographyEntryLine,
-  findAppendixMarker,
   katexMacrosFromSources,
   mergeReferences,
   parseLocalLabels,
@@ -74,9 +73,4 @@ describe("LaTeX source parsing", () => {
     ])).toEqual({ "\\R": String.raw`\mathbb{R}`, "\\eps": String.raw`\varepsilon` });
   });
 
-  it("finds the first appendix switch ignoring comments", () => {
-    expect(findAppendixMarker({ "main.tex": "\\section{Intro}\n% \\appendix\n\\appendix\n\\section{Proofs}\n" }))
-      .toEqual({ path: "main.tex", line: 3 });
-    expect(findAppendixMarker({ "main.tex": "\\begin{document}\nHi\n\\end{document}\n" })).toBeNull();
-  });
 });

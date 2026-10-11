@@ -407,12 +407,12 @@ msgid "{total} files would change"
 msgstr "{total} files would change"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · appendix after p.{mainPages}"
-msgstr "{totalPages} total · appendix after p.{mainPages}"
+msgid "{totalPages} total · body ends on p.{mainPages}"
+msgstr "{totalPages} total · body ends on p.{mainPages}"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · appendix not located in the PDF"
-msgstr "{totalPages} total · appendix not located in the PDF"
+msgid "{totalPages} total · end of the body not located in the PDF"
+msgstr "{totalPages} total · end of the body not located in the PDF"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total · included files not read"
@@ -2971,14 +2971,6 @@ msgstr "Duplicate title across bibliography files."
 #: src/settings/theme-settings.tsx
 msgid "Dusk"
 msgstr "Dusk"
-
-#: src/project/manuscript-checklist.tsx
-msgid "e.g. 5500"
-msgstr "e.g. 5500"
-
-#: src/project/manuscript-checklist.tsx
-msgid "e.g. 9"
-msgstr "e.g. 9"
 
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
@@ -5667,6 +5659,10 @@ msgstr "No independent metadata was available to verify a possible record. The r
 #: src/settings/acknowledgements-settings.tsx
 msgid "No license declared"
 msgstr "No license declared"
+
+#: src/project/manuscript-checklist.tsx
+msgid "No limit"
+msgstr "No limit"
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"

@@ -19,7 +19,7 @@ import type { EditorComments } from "./use-editor-comments";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
-  AppendixBoundary,
+  BodyBoundary,
   BuildResult,
   OpenProjectFile,
   ProjectManifest,
@@ -41,7 +41,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   openTabs: readonly string[];
   build: BuildResult | null;
   editorCommentAuthorId: string;
-  appendixBoundary: AppendixBoundary;
+  bodyBoundary: BodyBoundary;
   openProjectFile: OpenProjectFile;
   pdfPageCount: number | null;
   project: ProjectSnapshot;
@@ -131,7 +131,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
             wordSource: props.projectWordCount?.source ?? "estimate",
             wordBudget: project.manifest.wordBudget ?? null,
             pages: props.pdfPageCount,
-            appendix: props.appendixBoundary,
+            body: props.bodyBoundary,
             pageBudget: project.manifest.pageBudget ?? null,
             todos: todoHits.length,
             unusedLabels: unusedSymbols.labels.length,
@@ -140,10 +140,9 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
             buildMessage: props.build?.log?.split("\n").slice(-1)[0] ?? "",
           }}
           onClose={() => tools.close("checklist")}
-          onOpenTodos={() => {
-            tools.close("checklist");
-            tools.open("todos");
-          }}
+          // TODOs open beside the checklist, as a tab in its panel (the
+          // panel under the pointer), which stays one tab away.
+          onOpenTodos={() => tools.open("todos")}
           onSaveBudgets={(wordBudget, pageBudget) => {
             void invoke<ProjectManifest>("update_project_manifest", {
               wordBudget: wordBudget ?? undefined,

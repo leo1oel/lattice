@@ -810,7 +810,7 @@ function App() {
     compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
-    projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, appendixBoundary, forgetIncludedSources,
+    projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, bodyBoundary, forgetIncludedSources,
   } = latex;
   const tree = useProjectTree({
     projectState, documents, library: { refreshProject, refreshHistory }, setGitStatus,
@@ -2008,7 +2008,7 @@ function App() {
         openTabs={documents.tabs}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}
-        appendixBoundary={appendixBoundary}
+        bodyBoundary={bodyBoundary}
         openProjectFile={openFile}
         pdfPageCount={pdfPageCount}
         project={project}

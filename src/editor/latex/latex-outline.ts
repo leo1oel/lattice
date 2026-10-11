@@ -16,6 +16,62 @@ export type OutlineNode = {
 const SECTION_COMMAND = /\\(part|chapter|section|subsection|subsubsection)\*?\{([^{}]*)\}/g;
 const LEVELS: Record<string, OutlineLevel> = { part: 1, chapter: 2, section: 3, subsection: 4, subsubsection: 5 };
 
+/** What ends the body: an appendix, or the references. */
+const BODY_END = /(?<!\\)\\(?:appendix(?![A-Za-z@])|begin\{appendices\}|bibliography\s*\{|printbibliography(?![A-Za-z@])|begin\{thebibliography\})/;
+/** A comment, from the first `%` that is not escaped. */
+const COMMENT = /(^|[^\\])%.*/;
+
+/** Source the manuscript's body is read from: all of `path`, or its lines before `before`. */
+export type BodySpan = { path: string; before: number | null };
+
+/**
+ * Where the manuscript's body ends, read as TeX reads it: from the root
+ * document through each `\input`/`\include` in turn, to the first appendix
+ * (`\appendix`, an `appendices` environment) or bibliography
+ * (`\bibliography{…}`, `\printbibliography`, a `thebibliography`
+ * environment). Returns what precedes it: each file read whole, and the lines
+ * before it in the file holding it and in each file on the way there. Null
+ * when nothing ends the body early; "unread" when the walk reached a file not
+ * in `sources` before finding the end, as that file may hold it or end the
+ * body's text.
+ */
+export function findBodyEnd(
+  rootPath: string,
+  sources: Record<string, string>,
+  projectPaths: string[],
+  maxDepth = 8,
+): BodySpan[] | "unread" | null {
+  const spans: BodySpan[] = [];
+  const seen = new Set<string>();
+  let unread = false;
+  const walk = (path: string, depth: number): boolean => {
+    if (depth > maxDepth || seen.has(path)) return false;
+    seen.add(path);
+    const source = sources[path];
+    if (source == null) {
+      unread = true;
+      return false;
+    }
+    for (const [index, raw] of source.split("\n").entries()) {
+      const line = raw.replace(COMMENT, "$1");
+      const end = BODY_END.exec(line)?.index ?? Infinity;
+      // The line's includes before the end are read first, and may end the body themselves.
+      const ended = [...line.matchAll(INCLUDE)].some((match) => {
+        const included = match.index < end ? resolveTexPath(match[1], projectPaths) : null;
+        return included !== null && walk(included, depth + 1);
+      }) || end !== Infinity;
+      if (ended) {
+        spans.push({ path, before: index + 1 });
+        return true;
+      }
+    }
+    spans.push({ path, before: null });
+    return false;
+  };
+  const ended = walk(rootPath, 0);
+  return unread ? "unread" : ended ? spans : null;
+}
+
 export function includedPathsIn(source: string, projectPaths: string[]): string[] {
   const paths = [...source.matchAll(INCLUDE)].map((match) => resolveTexPath(match[1], projectPaths));
   return [...new Set(paths.filter((path): path is string => path !== null))];

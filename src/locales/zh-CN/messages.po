@@ -404,12 +404,12 @@ msgid "{total} files would change"
 msgstr "会改动 {total} 个文件"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · appendix after p.{mainPages}"
-msgstr "共 {totalPages} 页 · 附录在第 {mainPages} 页后"
+msgid "{totalPages} total · body ends on p.{mainPages}"
+msgstr "共 {totalPages} 页 · 正文到第 {mainPages} 页"
 
 #: src/project/manuscript-checklist.tsx
-msgid "{totalPages} total · appendix not located in the PDF"
-msgstr "共 {totalPages} 页 · 没找到附录"
+msgid "{totalPages} total · end of the body not located in the PDF"
+msgstr "共 {totalPages} 页 · 没在 PDF 里找到正文结尾"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total · included files not read"
@@ -2968,14 +2968,6 @@ msgstr "多个文献文件里有重复的标题"
 #: src/settings/theme-settings.tsx
 msgid "Dusk"
 msgstr "暮色"
-
-#: src/project/manuscript-checklist.tsx
-msgid "e.g. 5500"
-msgstr "例如 5500"
-
-#: src/project/manuscript-checklist.tsx
-msgid "e.g. 9"
-msgstr "例如 9"
 
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
@@ -5664,6 +5656,10 @@ msgstr "没有可核对的资料，这条文献仍可能没问题"
 #: src/settings/acknowledgements-settings.tsx
 msgid "No license declared"
 msgstr "未声明许可证"
+
+#: src/project/manuscript-checklist.tsx
+msgid "No limit"
+msgstr "不限"
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"

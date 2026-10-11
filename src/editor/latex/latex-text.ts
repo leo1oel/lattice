@@ -178,12 +178,3 @@ export function katexMacrosFromSources(sources: string[]): Record<string, string
   return macros;
 }
 
-/** Locate the first `\appendix` switch in project sources (line is 1-based). */
-export function findAppendixMarker(sources: Record<string, string>): { path: string; line: number } | null {
-  for (const [path, source] of Object.entries(sources)) {
-    if (!source.includes("\\appendix")) continue;
-    const index = source.split("\n").findIndex((line) => /(^|[^\\])\\appendix\b/.test(` ${line.split("%")[0]}`));
-    if (index >= 0) return { path, line: index + 1 };
-  }
-  return null;
-}
