@@ -1385,6 +1385,8 @@ export function DocumentCanvas(props: {
     </div>
   ) : null;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
+  // The rail mounts with the editor's view: it reads the viewport from the start.
+  const railView = railOutline ? primaryScrollbarView?.deref() ?? null : null;
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
       <div className="source-main">
@@ -1436,11 +1438,12 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
-          {railOutline && (
+          {railOutline && railView && (
             <LatexOutlineRail
-              view={primaryScrollbarView?.deref() ?? null}
+              view={railView}
               path={activeFile}
               nodes={railOutline.nodes}
+              label={t`Outline`}
               documentName={railOutline.name}
               pdfUrl={props.pdfUrl}
               onSelect={onOutlineNavigate}

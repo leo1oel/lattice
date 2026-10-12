@@ -6645,8 +6645,8 @@ msgstr "Origins and adapted work"
 msgid "Other projects"
 msgstr "Other projects"
 
+#: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
-#: src/editor/latex/latex-outline-rail.tsx
 msgid "Outline"
 msgstr "Outline"
 

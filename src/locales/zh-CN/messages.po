@@ -6642,8 +6642,8 @@ msgstr "起源与改编作品"
 msgid "Other projects"
 msgstr "其他项目"
 
+#: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
-#: src/editor/latex/latex-outline-rail.tsx
 msgid "Outline"
 msgstr "大纲"
 

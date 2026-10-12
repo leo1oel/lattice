@@ -1149,9 +1149,9 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .latex-outline-rail-row[data-depth="1"], .latex-outline-rail-row[data-depth="2"] { grid-template-columns: max-content minmax(0, 1fr) auto; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-row[data-depth="1"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-8)); }
 .latex-outline-rail-row[data-depth="2"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-16)); }
-.latex-outline-rail-row:hover:not(.active) { background: var(--control-hover-surface); }
+.latex-outline-rail-row:hover:not([data-item-selected="true"]) { background: var(--control-hover-surface); }
 .latex-outline-rail-row:focus-visible { outline-offset: calc(0px - var(--focus-ring-width)); }
-.latex-outline-rail-row.active { background: var(--control-pressed-surface); font-weight: 500; }
+.latex-outline-rail-row[data-item-selected="true"] { background: var(--control-pressed-surface); font-weight: 500; }
 .latex-outline-rail-number, .latex-outline-rail-page { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .latex-outline-rail-page { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
