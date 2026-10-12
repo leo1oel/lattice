@@ -26,7 +26,10 @@ const PROJECT = {
 const DISK: Record<string, string> = { "main.tex": "\\documentclass{article}", "chapters/intro.tex": "Intro\n\\foo" };
 
 function result(overrides: Partial<BuildResult> = {}): BuildResult {
-  return { success: true, hasPdf: false, log: "", durationMs: 3_200, diagnostics: [], rootDocument: "main.tex", ...overrides };
+  return {
+    success: true, hasPdf: false, log: "", durationMs: 3_200, diagnostics: [], rootDocument: "main.tex",
+    steps: [], pages: null, synctex: null, ...overrides,
+  };
 }
 
 /** The pipeline over one project, with `build_project` answered by `answer`. */

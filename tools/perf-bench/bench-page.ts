@@ -12,7 +12,7 @@
  * driver injects them before any page script runs, so the same probe also
  * measures the real app. See scripts/perf-bench.mjs.
  */
-import { perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
+import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import type { FileNode, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
@@ -252,6 +252,29 @@ const counts = new Map<string, number>();
  * `?build=clean` drops the warnings and `?build=failed` fails it, for looking
  * at the other results.
  */
+/** The passes a build of the fixture runs, as latexmk announces them: pdflatex, bibtex, pdflatex again. */
+const BUILD_STEPS = [
+  { tool: "pdflatex", run: 1, draft: false, startedMs: 0, durationMs: 612 },
+  { tool: "bibtex", run: 1, draft: false, startedMs: 612, durationMs: 96 },
+  { tool: "pdflatex", run: 2, draft: false, startedMs: 708, durationMs: 431 },
+];
+
+/**
+ * `?build=running`: a build that never finishes, reporting its passes as
+ * latexmk would (the backend's `build-progress`), so the Build button's live
+ * sequence can be looked at. It stays in its second pdflatex pass.
+ */
+function runningBuild(args: Args): Promise<never> {
+  const report = (elapsedMs: number, count: number) => window.setTimeout(() => emit("build-progress", {
+    projectRoot: current.root,
+    progressId: args?.progressId ?? null,
+    elapsedMs,
+    steps: BUILD_STEPS.slice(0, count).map((step, index) => index === count - 1 ? { ...step, durationMs: null } : step),
+  }), elapsedMs);
+  BUILD_STEPS.forEach((step, index) => report(step.startedMs, index + 1));
+  return new Promise<never>(() => {});
+}
+
 function buildResult() {
   const outcome = params.get("build");
   const warnings = [
@@ -267,6 +290,10 @@ function buildResult() {
       : outcome === "failed" ? [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 6 }]
         : warnings,
     rootDocument: "main.tex",
+    // The failed build stops in its first pass.
+    steps: outcome === "failed" ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : BUILD_STEPS,
+    pages: outcome === "failed" ? null : sizes.pdfPages ?? PLAYBOOK_FIXTURE.pdfPages,
+    synctex: true,
   };
 }
 
@@ -451,7 +478,7 @@ function answer(command: string, args: Args): unknown {
       return copyBuffer(content.subarray(Number(args?.start), Number(args?.end)));
     }
     case "build_project":
-      return buildResult();
+      return params.get("build") === "running" ? runningBuild(args) : buildResult();
     case "read_compiled_pdf":
       return copyBuffer(fixture.compiledPdf);
     case "stat_project_file":

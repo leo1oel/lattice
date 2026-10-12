@@ -28,7 +28,7 @@ export type TrellisBridgeApp = {
   documents: OpenDocuments;
   lastBuild: BuildOutcome | null;
   building: boolean;
-  buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild">;
+  buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild" | "cycleDiagnostic" | "progress">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "mountFrame" | "notifyPanelOpened">;
   tools: Pick<ToolDrawers, "open">;
   referenceImport: Pick<ReturnType<typeof useReferenceImport>, "openBibEntry">;
@@ -158,6 +158,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         })();
       },
       stopBuild: () => void buildPipeline.abortBuild(),
+      nextBuildProblem: () => buildPipeline.cycleDiagnostic(1),
       setViewMode: (mode) => documents.chooseMode(mode),
       setPaperView: (view) => documents.choosePaperView(view),
     };
@@ -187,6 +188,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
   }, [activeFile, activePaper, source, trellis]);
   // What the document panels' header tools show: build state, the active document's view, the Paper's view.
+  const buildProgress = buildPipeline.progress;
   // A Paper is Markdown: its source and visual editor switch like any other's.
   const trellisViewModes = activeAsset ? null
     : activePaper || activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
@@ -195,11 +197,12 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   useLayoutEffect(() => {
     trellis.docTools.set({
       building,
+      buildProgress,
       lastBuild,
       viewMode: trellisViewMode,
       viewModes: trellisViewModes,
       paperView: activePaper ? paperView : null,
       paperViews,
     });
-  }, [activePaper, building, lastBuild, paperView, paperViews, trellis, trellisViewMode, trellisViewModes]);
+  }, [activePaper, building, buildProgress, lastBuild, paperView, paperViews, trellis, trellisViewMode, trellisViewModes]);
 }

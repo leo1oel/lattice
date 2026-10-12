@@ -6,6 +6,7 @@
 //! draft passes, and deliberately declines custom or stateful build setups.
 
 use super::build::{cancelled_build, run_tracked, ActiveBuild};
+use super::build_steps::BuildSteps;
 use super::default_root_document;
 use crate::commands;
 use crate::latex::BuildResult;
@@ -14,7 +15,6 @@ use crate::{project, wide_event};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::time::Instant;
 
 // Two draft passes are only a net win when normal passes would repeatedly
 // encode a substantial graphics payload. Small projects keep the direct path.
@@ -79,7 +79,7 @@ fn has_large_graphics_payload(root: &Path) -> bool {
 }
 
 pub(super) fn prewarm_cold_pdf_build(
-    root: &Path, force: bool, active: &ActiveBuild, started: Instant,
+    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<Option<BuildResult>, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
@@ -94,7 +94,7 @@ pub(super) fn prewarm_cold_pdf_build(
 
     let step = wide_event::step("prewarm");
     let mut passes =
-        DraftPasses { root, document_path: &document.path, active, log: String::new() };
+        DraftPasses { root, document_path: &document.path, active, steps, log: String::new() };
     let stopped = passes.run(&root_document.with_extension("aux"));
     drop(step);
     let prewarm = match &stopped {
@@ -107,7 +107,7 @@ pub(super) fn prewarm_cold_pdf_build(
         // latexmk produces and verifies the final PDF from the warmed state.
         Ok(()) => {}
         Err(Stop::Cancelled) => {
-            return Ok(Some(cancelled_build(started, &passes.log, &document.path)))
+            return Ok(Some(cancelled_build(steps.started(), &passes.log, &document.path)))
         }
         Err(Stop::Abandoned) => {
             for extension in ARTIFACTS.split_whitespace() {
@@ -130,6 +130,7 @@ struct DraftPasses<'a> {
     root: &'a Path,
     document_path: &'a str,
     active: &'a ActiveBuild,
+    steps: &'a BuildSteps,
     log: String,
 }
 
@@ -143,7 +144,7 @@ impl DraftPasses<'_> {
                 let stem = Path::new(self.document_path).file_stem().and_then(|name| name.to_str());
                 let mut bibtex = commands::command("bibtex");
                 bibtex.arg(stem.ok_or(Stop::Abandoned)?);
-                self.pass(bibtex, "BibTeX")?;
+                self.pass(bibtex, "bibtex", "BibTeX")?;
             }
             _ => return Err(Stop::Abandoned),
         }
@@ -161,14 +162,16 @@ impl DraftPasses<'_> {
             "-no-shell-escape",
             self.document_path,
         ]);
-        self.pass(pdflatex, "pdfLaTeX")
+        self.pass(pdflatex, "pdflatex", "pdfLaTeX")
     }
 
-    fn pass(&mut self, mut command: Command, label: &str) -> Result<(), Stop> {
+    fn pass(&mut self, mut command: Command, tool: &str, label: &str) -> Result<(), Stop> {
         command.current_dir(self.root);
+        self.steps.begin(tool, true);
         let (output, cancelled) = run_tracked(
             command,
             self.active,
+            self.steps,
             &format!("Could not start the {label} draft prewarm: "),
             &format!("The {label} draft prewarm stopped unexpectedly: "),
         )
