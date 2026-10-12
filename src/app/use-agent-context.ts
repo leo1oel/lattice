@@ -7,6 +7,7 @@ import {
   type AgentHostSelectionImage,
   type AgentHostSurface,
   type AgentPdfDocumentPlace,
+  type AgentSelectionLines,
 } from "../agent/agent-host-context";
 import { buildAgentPaperLibrary } from "../agent/agent-paper-library";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
@@ -55,16 +56,27 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   // A PDF selection made in a project PDF open as a document, rather than in
   // the compiled preview, names that PDF and the page it was made on.
   const [selectionPdfDocument, setSelectionPdfDocument] = useState<AgentPdfDocumentPlace | null>(null);
+  // The source editor's selection also names its lines, for the agent and the
+  // Agent panel's selection chip.
+  const [selectionLines, setSelectionLines] = useState<AgentSelectionLines | null>(null);
   const [activeSurface, setActiveSurface] = useState<AgentHostSurface>("editor");
   // A content surface can re-report its DOM selection after Lattice has cleared
   // the one-shot Agent context. Scope that suppression to the original surface
   // so the same text selected in another surface remains valid.
   const dismissedRef = useRef<{ source: AgentHostSurface; text: string } | null>(null);
 
-  const setOwner = useCallback((source: AgentHostSurface | null, text = "", pdfDocument: AgentPdfDocumentPlace | null = null) => {
+  const setOwner = useCallback((
+    source: AgentHostSurface | null,
+    text = "",
+    pdfDocument: AgentPdfDocumentPlace | null = null,
+    lines: AgentSelectionLines | null = null,
+  ) => {
     setSelection(text);
     setSelectionSource(source);
     setSelectionPdfDocument(pdfDocument);
+    setSelectionLines((current) => (
+      current && lines && current.start === lines.start && current.end === lines.end ? current : lines
+    ));
   }, [setSelectionSource]);
   /** Clear the selection without letting its surface re-report the same text. */
   const dismissSelection = useCallback(() => {
@@ -99,7 +111,12 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     else if (dismissedRef.current?.source === surface) dismissedRef.current = null;
   }, [dismissSelection, sourceRef]);
 
-  const reportSelection = useCallback((source: AgentHostSurface, value: string, pdfDocument?: AgentPdfDocumentPlace) => {
+  const reportSelection = useCallback((
+    source: AgentHostSurface,
+    value: string,
+    pdfDocument?: AgentPdfDocumentPlace,
+    lines?: AgentSelectionLines,
+  ) => {
     const dismissed = dismissedRef.current;
     if (value && dismissed?.source === source && dismissed.text === value) return;
     if (!value) {
@@ -109,7 +126,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     }
     dismissedRef.current = null;
     setActiveSurface(source);
-    setOwner(source, value, pdfDocument);
+    setOwner(source, value, pdfDocument, lines);
   }, [setOwner, sourceRef]);
 
   // A selected Markdown image reaches the agent as a file it can read. PNG and
@@ -145,10 +162,11 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
 
   const hostContext = useMemo(() => project ? buildAgentHostContext({
     workspaceRoot: project.root, activeFile, editorPosition, activePaper, canvasMode, paperView,
-    pdfPage, pdfPageCount, presentation, selection, selectionSource, selectionPdfDocument, selectionImage, activeSurface,
+    pdfPage, pdfPageCount, presentation, selection, selectionSource, selectionLines, selectionPdfDocument, selectionImage,
+    activeSurface,
   }) : null, [
     activeFile, activePaper, activeSurface, canvasMode, editorPosition, paperView, pdfPage, pdfPageCount,
-    presentation, project, selection, selectionImage, selectionPdfDocument, selectionSource,
+    presentation, project, selection, selectionImage, selectionLines, selectionPdfDocument, selectionSource,
   ]);
   const paperLibrary = useMemo(
     () => project ? buildAgentPaperLibrary({ workspaceRoot: project.root, papers }) : null,

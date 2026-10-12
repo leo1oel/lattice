@@ -1632,7 +1632,7 @@ function App() {
       onSave={save}
       onVisualMarkdownFlushChange={documents.canvas.registerFlush}
       onMarkdownModeViewportCaptureChange={documents.canvas.registerViewportCapture}
-      setSelection={(value) => agentContext.reportSelection(activePaper ? "paper" : "editor", value)}
+      setSelection={(value, lines) => agentContext.reportSelection(activePaper ? "paper" : "editor", value, undefined, lines)}
       onPdfTextSelect={(value, place) => agentContext.reportSelection("pdf", value, place)}
       onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
       onImportAsset={tree.importClipboardImageFile}
