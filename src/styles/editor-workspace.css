@@ -877,14 +877,108 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   line-height: 1.45;
   white-space: pre-wrap;
 }
-.citation-hover-card { width: min(340px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
-.citation-hover-card small, .citation-hover-card strong, .citation-hover-card span, .citation-hover-card em { display: block; }
-.citation-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); }
-.citation-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
-.citation-hover-open { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; text-align: left; cursor: pointer; }
-.citation-hover-open:hover, .citation-hover-open:focus-visible { color: var(--control-active); text-decoration: underline; }
-.citation-hover-card span { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; }
-.citation-hover-card em { margin-top: 5px; color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; }
+/* A citation key's card (latex-hover-cards; the PDF's citation links share
+   it): the key as a quiet chip, the entry set as a reference list sets it,
+   facts as badges, then its actions on a hairline. Every line wraps or
+   truncates inside the card, which narrows with the editor. */
+.citation-hover-card {
+  width: min(360px, calc(100vw - 32px));
+  padding: var(--space-6) var(--space-8) var(--space-4);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  container-type: inline-size;
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+/* A card taller than the room CodeMirror gives it scrolls, its lines whole. */
+.citation-hover-card > * { flex-shrink: 0; }
+/* Long entries stay a card, not a page: the title keeps four lines, the
+   byline and venue two, and the card names the whole title to assistive
+   tech and in its tooltip. */
+.citation-card-title,
+.citation-card-authors,
+.citation-card-venue {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.citation-card-title { -webkit-line-clamp: 4; }
+.citation-card-authors,
+.citation-card-venue { -webkit-line-clamp: 2; }
+/* Opened from the keyboard, the card is CodeMirror's tooltip itself rather
+   than a section of the hover host, so it drops the base theme's border. */
+.source-editor .cm-tooltip.citation-hover-card { border: 0; }
+.citation-card-key {
+  max-width: 100%;
+  margin-bottom: var(--space-2);
+  padding: var(--gap-hairline) var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-compact);
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+  font-family: var(--editor-font);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.citation-card-title {
+  max-width: 100%;
+  color: var(--text-primary);
+  font-family: var(--reading-font);
+  font-size: var(--type-title-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--type-title-line-height);
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+/* In a narrow editor the title steps down to the reading size, so its words
+   break between themselves rather than inside one. */
+@container (max-width: 260px) {
+  .citation-card-title { font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); }
+}
+button.citation-card-title { padding: 0; border: 0; background: transparent; text-align: start; cursor: pointer; }
+button.citation-card-title:hover, button.citation-card-title:focus-visible { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.citation-card-authors {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+/* Italic for Latin; a CJK venue has no italic and stays upright rather than
+   being slanted by the browser. */
+.citation-card-venue {
+  color: var(--text-secondary);
+  font-family: var(--reading-font);
+  font-size: var(--type-body-size);
+  font-style: italic;
+  font-synthesis: none;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  line-height: var(--type-subtitle-line-height);
+  text-wrap: pretty;
+}
+.citation-card-facts { max-width: 100%; margin-top: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.citation-card-facts:empty { display: none; }
+.citation-card-fact { max-width: 100%; }
+.citation-card-fact[hidden] { display: none; }
+.citation-card-fact > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.citation-card-fact svg { width: 12px; height: 12px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.citation-card-actions {
+  align-self: stretch;
+  margin: var(--space-5) calc(-1 * var(--space-4)) 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.citation-card-actions .ui-button { padding-inline: var(--space-4); }
+.citation-card-actions kbd { color: var(--text-secondary); font: inherit; }
 .reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
 .reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
 .reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); text-transform: capitalize; }

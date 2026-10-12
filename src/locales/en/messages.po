@@ -348,6 +348,14 @@ msgstr "{name} is not in a file right now."
 msgid "{name} properties"
 msgstr "{name} properties"
 
+#: src/papers/paper-identity.ts
+msgid "{names} +{more}"
+msgstr "{names} +{more}"
+
+#: src/papers/paper-identity.ts
+msgid "{names} et al."
+msgstr "{names} et al."
+
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
@@ -1892,6 +1900,10 @@ msgstr "Cite bibliography entries"
 msgid "Cited"
 msgstr "Cited"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Cited {times}× here"
+msgstr "Cited {times}× here"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited ×{citedCount}"
 msgstr "Cited ×{citedCount}"
@@ -2288,6 +2300,7 @@ msgstr "Convert selection to footnote"
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "Copied"
@@ -2334,6 +2347,10 @@ msgstr "Copy error message"
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
 msgstr "Copy JSON"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Copy key"
+msgstr "Copy key"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy log"
@@ -3909,6 +3926,10 @@ msgstr "Go to {title}"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Go to definition"
 msgstr "Go to definition"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Go to entry"
+msgstr "Go to entry"
 
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -6396,6 +6417,7 @@ msgstr "Open notes.md"
 msgid "Open notice"
 msgstr "Open notice"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "Open paper"
 msgstr "Open paper"
@@ -8649,6 +8671,10 @@ msgstr "Show replace"
 msgid "Show results from"
 msgstr "Show results from"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Show the citation card"
+msgstr "Show the citation card"
+
 #: src/App.tsx
 #: src/app/focus-mode-bar.tsx
 msgid "Show the PDF beside the editor"
@@ -10293,6 +10319,10 @@ msgstr "Venue unavailable"
 #: src/canvas/proofread-card.tsx
 msgid "verbatim code"
 msgstr "verbatim code"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Verified · Crossref"
+msgstr "Verified · Crossref"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"

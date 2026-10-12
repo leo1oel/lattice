@@ -345,6 +345,14 @@ msgstr "{name} 当前没在看任何文件"
 msgid "{name} properties"
 msgstr "{name}设置"
 
+#: src/papers/paper-identity.ts
+msgid "{names} +{more}"
+msgstr "{names} 及另 {more} 人"
+
+#: src/papers/paper-identity.ts
+msgid "{names} et al."
+msgstr "{names} 等"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
@@ -1889,6 +1897,10 @@ msgstr "引用参考文献条目"
 msgid "Cited"
 msgstr "已引用"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Cited {times}× here"
+msgstr "本文引用 {times} 次"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited ×{citedCount}"
 msgstr "引用 ×{citedCount}"
@@ -2285,6 +2297,7 @@ msgstr "改成脚注"
 msgid "Convert selection to inline math"
 msgstr "改成公式"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "已复制"
@@ -2331,6 +2344,10 @@ msgstr "复制错误"
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
 msgstr "复制 JSON"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Copy key"
+msgstr "复制引用名"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy log"
@@ -3906,6 +3923,10 @@ msgstr "跳到{title}"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Go to definition"
 msgstr "跳到定义"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Go to entry"
+msgstr "跳到条目"
 
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -6393,6 +6414,7 @@ msgstr "打开 notes.md"
 msgid "Open notice"
 msgstr "查看公告"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "Open paper"
 msgstr "打开论文"
@@ -8644,6 +8666,10 @@ msgstr "显示替换"
 msgid "Show results from"
 msgstr "搜索范围"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Show the citation card"
+msgstr "显示引用卡片"
+
 #: src/App.tsx
 #: src/app/focus-mode-bar.tsx
 msgid "Show the PDF beside the editor"
@@ -10284,6 +10310,10 @@ msgstr "无发表信息"
 #: src/canvas/proofread-card.tsx
 msgid "verbatim code"
 msgstr "原样代码"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Verified · Crossref"
+msgstr "已核验 · Crossref"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
