@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Settings, Sparkles, Wrench } from "lucide-react";
+import { Cloud, FileArchive, Folder, FolderOpen, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -179,7 +179,6 @@ export function CreateProjectDialog(props: {
   return (
     <ModalDialog label={t`Create a research project`} onClose={props.onClose}>
       <div className="modal create-project-modal">
-        <div className="modal-icon"><FileText size={18} /></div>
         <h2>{t`Create a research project`}</h2>
         <label>
           {t`Project name`}
@@ -246,7 +245,6 @@ export function RenameDialog(props: {
   return (
     <ModalDialog label={title} onClose={props.onClose} closeDisabled={busy}>
       <div className="modal rename-modal">
-        <div className="modal-icon"><Pencil size={18} /></div>
         <h2>{title}</h2>
         <p>{copy}</p>
         <label>

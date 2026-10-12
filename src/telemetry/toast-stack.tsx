@@ -139,7 +139,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
     >
       <Toast.Content className="app-toast-content">
         <span className="app-toast-icon">
-          {progress !== undefined ? <InfinityLoader size={15} /> : <Icon size={15} aria-hidden="true" />}
+          {progress !== undefined ? <InfinityLoader size={16} /> : <Icon size={16} aria-hidden="true" />}
         </span>
         <div className="app-toast-body">
           <Toast.Title className="app-toast-title">{entry.title}</Toast.Title>

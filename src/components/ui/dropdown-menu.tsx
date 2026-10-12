@@ -55,12 +55,14 @@ function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof D
   )
 }
 
+// A group's label steps back to the caption role in the secondary ink, so the
+// items under it lead.
 function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return (
     <DropdownMenuPrimitive.Label
       data-slot="dropdown-menu-label"
       className={cn(
-        "px-2 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] font-[var(--type-body-compact-weight)]",
+        "px-2.5 pt-2 pb-1 text-[length:var(--type-caption-size)] leading-[var(--type-caption-line-height)] font-[var(--weight-medium)] text-muted-foreground",
         className
       )}
       {...props}

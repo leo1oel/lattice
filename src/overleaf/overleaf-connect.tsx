@@ -716,7 +716,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
       closeDisabled={working}
       onClose={onClose}
     >
-      <div className="modal overleaf-picker-modal" onKeyDown={navigateProjects}>
+      <div className="modal modal-large overleaf-picker-modal" onKeyDown={navigateProjects}>
       <PanelHeader
         className="overleaf-picker-header"
         icon={<Cloud size={22} />}

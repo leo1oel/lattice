@@ -4,8 +4,10 @@
  * Focus management and portal behavior stay with each Radix primitive; these
  * constants only unify surface geometry, typography, and item states.
  *
- * Concentric corners: the surface is 11px and the viewport pads by 5px, so
- * items inherit the derived 6px radius. Icons sit next to regular-weight
+ * Concentric corners: the surface is 10px (the surface radius) and the
+ * viewport pads by 4px, so items inherit the derived 6px radius. The fill is
+ * the lift (`--surface-elevated`): white in light, a step above the sheet in
+ * dark, with the quiet ring of the popover level. Icons sit next to regular-weight
  * labels, so they carry a 1.5 stroke rather than Lucide's default 2.
  *
  * A long name wraps anywhere rather than widening the surface past its cap

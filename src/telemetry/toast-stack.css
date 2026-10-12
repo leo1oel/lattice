@@ -1,4 +1,4 @@
-/* The notification stack (toast-stack.tsx). Fill, edge and blur come from the
+/* The notification stack (toast-stack.tsx). Fill and edge come from the
    floating level in styles/surfaces.css; this file owns the stack's geometry
    and motion.
 
@@ -12,6 +12,7 @@
 
 .app-toast-viewport {
   --toast-gap: var(--space-4);
+  --toast-icon-size: 16px;
   --toast-peek: var(--space-4);
   position: fixed;
   z-index: var(--z-toast);
@@ -95,21 +96,21 @@
    a paragraph, so both pin to the title's line box instead. */
 .app-toast-content {
   display: grid;
-  grid-template-columns: 15px minmax(0, 1fr) var(--control-size-icon-compact);
+  grid-template-columns: var(--toast-icon-size) minmax(0, 1fr) var(--control-size-icon-compact);
   align-items: center;
   gap: var(--space-4);
   box-sizing: border-box;
   height: 100%;
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-5) var(--space-6);
   overflow: hidden;
   transition: opacity var(--motion-fast);
 }
 /* Behind the front card only the sliver shows; the words would be noise. */
 .app-toast-content[data-behind]:not([data-expanded]) { opacity: 0; }
 .app-toast.multiline .app-toast-content { align-items: start; }
-.app-toast.multiline .app-toast-icon { margin-top: calc((var(--type-body-compact-line-height) - 15px) / 2); }
-.app-toast.multiline .app-toast-content > button { margin-top: calc((var(--type-body-compact-line-height) - var(--control-size-icon-compact)) / 2); }
-.app-toast-icon { display: flex; align-items: center; justify-content: center; height: 15px; }
+.app-toast.multiline .app-toast-icon { margin-top: calc((var(--type-subtitle-line-height) - var(--toast-icon-size)) / 2); }
+.app-toast.multiline .app-toast-content > button { margin-top: calc((var(--type-subtitle-line-height) - var(--control-size-icon-compact)) / 2); }
+.app-toast-icon { display: flex; align-items: center; justify-content: center; height: var(--toast-icon-size); }
 /* The icon carries the level; the text stays in the primary colour so a long
    message is read as prose, not as an alarm. */
 .app-toast.info .app-toast-icon { color: var(--status-info); }
@@ -118,13 +119,15 @@
 .app-toast.error .app-toast-icon { color: var(--status-danger); }
 
 .app-toast-body { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+/* The title is read, not clicked: the subtitle's size and leading at medium
+   weight, a step above the detail's caption. */
 .app-toast-title {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  font-size: var(--type-body-compact-size);
-  line-height: var(--type-body-compact-line-height);
-  font-weight: var(--type-body-compact-weight);
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
+  font-weight: var(--weight-medium);
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;

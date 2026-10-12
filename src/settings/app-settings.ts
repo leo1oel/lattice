@@ -405,7 +405,9 @@ export function loadAppearance(): AppearanceSettings {
     editorKeymap: "default",
     editorSpellcheck: true,
     interfaceSounds: true,
-    toastPosition: "top-right",
+    // Clear of the PDF toolbar and the build's diagnostics card, which share
+    // the top right. A position the writer stored is kept.
+    toastPosition: "bottom-right",
     hiddenTitlebarTools: [],
     tint: "graphite",
     accent: "graphite",

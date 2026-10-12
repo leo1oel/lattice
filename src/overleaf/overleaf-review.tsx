@@ -155,7 +155,7 @@ export function OverleafReviewDialog(props: {
 
   return (
     <ModalDialog label={t`Review Overleaf changes`} onClose={props.onClose} closeDisabled={applying}>
-      <div className="modal overleaf-review">
+      <div className="modal modal-large overleaf-review">
         <div className="overleaf-review-head">
           <div>
             <h2><Trans>Review changes</Trans></h2>

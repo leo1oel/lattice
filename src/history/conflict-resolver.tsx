@@ -247,7 +247,7 @@ export function ConflictResolverDialog(props: {
 
   return (
     <ModalDialog label={t`Resolve conflicts in ${path}`} onClose={props.onClose} closeDisabled={saving}>
-      <div className="modal conflict-resolver" data-stage={stage}>
+      <div className="modal modal-large conflict-resolver" data-stage={stage}>
         <div className="conflict-resolver-head">
           <div className="modal-icon" data-tone="warning"><TriangleAlert size={18} /></div>
           <div>

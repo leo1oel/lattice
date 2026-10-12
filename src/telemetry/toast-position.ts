@@ -5,7 +5,7 @@ import type { ToastPosition } from "../settings/app-settings";
  * Where the notification stack stands. App applies the stored Settings →
  * Appearance choice here; the stack, mounted outside App (main.tsx), reads it.
  */
-let position: ToastPosition = "top-right";
+let position: ToastPosition = "bottom-right";
 const listeners = new Set<() => void>();
 
 export function configureToastPosition(next: ToastPosition) {

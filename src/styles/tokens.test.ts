@@ -157,9 +157,9 @@ describe("design token contract", () => {
     expect(foundations).toMatch(/--titlebar-height: 40px/)
   })
 
-  it("keeps single-line controls on the 28px compact and 30px default scale, with one Settings type contract", () => {
+  it("keeps single-line controls on the 28px compact and 32px default scale, with one Settings type contract", () => {
     expect(foundations).toMatch(/--control-height-compact: 28px/)
-    expect(foundations).toMatch(/--control-height-default: 30px/)
+    expect(foundations).toMatch(/--control-height-default: 32px/)
     // Square icon controls and toolbar buttons stand on the same two steps.
     expect(foundations).toMatch(/--control-size-icon: var\(--control-height-compact\)/)
     expect(foundations).toMatch(/--control-size-icon-large: var\(--control-height-default\)/)

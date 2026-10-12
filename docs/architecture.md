@@ -538,7 +538,7 @@ colour names onto the app's own theme variables.
 
 There are also cross-component consistency cases: one height across the
 navigation controls (`:140`), one action width across sidebar modes (`:146`),
-28px compact / 30px default single-line controls (`:153`), one typography
+28px compact / 32px default single-line controls (`:153`), one typography
 contract for Settings controls (`:161`), one focus ring drawn exactly once
 (`:200`).
 
