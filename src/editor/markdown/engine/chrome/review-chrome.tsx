@@ -28,15 +28,18 @@ import { Textarea } from "../../../../components/ui/textarea";
 import { buildCommentTooltipDom } from "../../../comments/editor-comments";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 
 function place(element: HTMLElement, anchor: { getBoundingClientRect: () => DOMRect }, placement: "top" | "bottom" = "top") {
   void computePosition(anchor, element, {
     placement,
     strategy: "fixed",
     middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
-  }).then(({ x, y }) => {
+  }).then(({ x, y, placement: side }) => {
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
+    // The side it landed on, after any flip: the entrance travels from it.
+    element.dataset.side = side.split("-")[0];
   });
 }
 
@@ -176,7 +179,7 @@ export function ChangePopover({ editor, host }: { editor: Editor; host: ChromeHo
       ref={setPopover}
       role="dialog"
       aria-label={t`Suggested change`}
-      className="lx-md-change-popover"
+      className={`lx-md-change-popover ${popupMotionClassName}`}
       style={{ position: "fixed", left: 0, top: 0, "--lx-md-change-color": hueColor(change.hue) } as CSSProperties}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
@@ -276,7 +279,7 @@ export function CommentComposer({ editor, host }: { editor: Editor; host: Chrome
     finish();
   };
   return createPortal(
-    <div ref={setDialog} role="dialog" aria-label={t`Add comment`} className="lx-md-comment-composer" style={{ position: "fixed", left: 0, top: 0 }}>
+    <div ref={setDialog} role="dialog" aria-label={t`Add comment`} className={`lx-md-comment-composer ${popupMotionClassName}`} style={{ position: "fixed", left: 0, top: 0 }}>
       {draft.quote && <blockquote className="lx-md-comment-quote">{draft.quote}</blockquote>}
       {error && (
         <p className="lx-md-comment-error" role="alert">

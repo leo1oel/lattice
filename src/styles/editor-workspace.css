@@ -656,6 +656,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   border-radius: var(--radius-compact);
   background: var(--control-hover-surface);
   color: var(--text-tertiary);
+  transition: color var(--motion-fast);
 }
 .source-editor .cm-foldPlaceholder:hover { color: var(--text-primary); }
 /* The current line is a rounded wash inset from the panel's right edge, not
@@ -738,6 +739,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   flex: 1 1 150px;
   min-width: 120px;
   width: auto;
+  transition: border-color var(--motion-fast);
 }
 .source-editor .cm-panel.cm-search input.cm-textfield:hover:not(:focus) {
   border-color: var(--search-control-interactive-border-color);
@@ -806,6 +808,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   font: var(--weight-medium) var(--type-caption-size)/1 var(--editor-font);
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 .source-editor .cm-panel.cm-search label:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .source-editor .cm-panel.cm-search label:has(input:checked) { background: var(--control-active-soft); color: var(--control-active); }

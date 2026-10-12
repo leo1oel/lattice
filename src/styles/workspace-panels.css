@@ -1,4 +1,8 @@
-.drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-drawer-backdrop); background: var(--scrim-surface); display: flex; justify-content: flex-end; }
+.drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-drawer-backdrop); display: flex; justify-content: flex-end; }
+/* The scrim fades in with its drawer, as a dialog's does (dialogs.css), instead
+   of darkening the workspace in one frame. It is a layer of its own: fading the
+   backdrop would fade the drawer inside it a second time. */
+.drawer-backdrop::before { content: ""; position: absolute; inset: 0; background: var(--scrim-surface); animation: modal-scrim-in var(--motion-slow) both; }
 .history-drawer { width: min(460px, 100%); transition: width var(--motion-moderate); }
 .project-history-drawer { display: flex; flex-direction: column; overflow: hidden; }
 .project-history-scroll { min-height: 0; flex: 1; margin: 0 calc(-1 * var(--drawer-content-inset)) calc(-1 * var(--drawer-content-inset)); }
@@ -247,6 +251,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   justify-content: center;
   gap: var(--gap-inline-tight);
   font-size: var(--type-micro-size);
+  transition: filter var(--motion-fast), opacity var(--motion-fast);
 }
 .git-commit-button:disabled { opacity: .45; }
 .git-commit-button:hover:not(:disabled) { filter: brightness(1.03); }
@@ -313,7 +318,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
    The box stands taller than its backing so the mask keeps their focus ring. */
 .literature-result-actions { position: absolute; inset-block: calc(-1 * var(--space-3)); inset-inline-end: calc(-1 * var(--space-2)); padding-inline-start: var(--space-8); display: flex; align-items: center; background-image: linear-gradient(var(--literature-row-surface), var(--literature-row-surface)), linear-gradient(var(--surface-sidebar), var(--surface-sidebar)); background-position: center; background-size: 100% 22px; background-repeat: no-repeat; -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .literature-result:is(:hover, :focus-within) .literature-result-actions { opacity: 1; pointer-events: auto; transition-duration: var(--duration-fast); }
-.literature-result-actions :is(button, a) { width: 22px; height: 22px; padding: 0; border-radius: var(--radius-compact); display: grid; place-items: center; background: transparent; color: var(--text-tertiary); }
+.literature-result-actions :is(button, a) { width: 22px; height: 22px; padding: 0; border-radius: var(--radius-compact); display: grid; place-items: center; background: transparent; color: var(--text-tertiary); transition: background-color var(--motion-fast), color var(--motion-fast); }
 .literature-result-actions :is(button, a) > svg { stroke-width: 1.5; }
 .literature-result-actions :is(button, a):hover:not(:disabled) { background: var(--control-active-soft); color: var(--control-active); }
 .literature-snippet { margin: var(--space-2) 0 0; color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-tree-size); font-style: italic; line-height: var(--type-tree-line-height); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

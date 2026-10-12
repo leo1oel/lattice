@@ -27,6 +27,7 @@ import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { requestLinkEditor } from "./link-chrome";
 import { requestComment } from "./review-chrome";
 import { insertFootnote } from "./slash-items";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 
 type BlockType = {
   id: string;
@@ -154,13 +155,14 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
   return (
     <BubbleMenu
       editor={editor}
-      className="lx-md-toolbar"
+      className={`lx-md-toolbar ${popupMotionClassName}`}
       role="toolbar"
       aria-label={t`Formatting`}
       appendTo={() => layer}
       updateDelay={0}
       shouldShow={({ editor: current }) => selectionShows(current as Editor, host)}
       options={{ placement: "top", offset: 8, flip: true }}
+      data-side="top"
     >
       {editable && <><DropdownMenu>
         <DropdownMenuTrigger asChild>

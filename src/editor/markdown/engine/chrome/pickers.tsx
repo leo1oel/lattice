@@ -15,6 +15,7 @@ import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { EmojiPicker } from "frimousse";
 import { projectAssetMarkdownHref } from "../../markdown-link-routing";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 
 export function EmojiPickerPopover({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t, i18n } = useLingui();
@@ -27,9 +28,11 @@ export function EmojiPickerPopover({ editor, host }: { editor: Editor; host: Chr
     const caret = editor.view.coordsAtPos(Math.min(at, editor.state.doc.content.size));
     const reference = { getBoundingClientRect: () => new DOMRect(caret.left, caret.top, 1, caret.bottom - caret.top) };
     void computePosition(reference, element, { placement: "bottom-start", strategy: "fixed", middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })] })
-      .then(({ x, y }) => {
+      .then(({ x, y, placement }) => {
         element.style.left = `${x}px`;
         element.style.top = `${y}px`;
+        // The side it landed on, after any flip: the entrance travels from it.
+        element.dataset.side = placement.split("-")[0];
       });
   }, [at, editor, element]);
 
@@ -52,7 +55,7 @@ export function EmojiPickerPopover({ editor, host }: { editor: Editor; host: Chr
     editor.view.focus();
   };
   return createPortal(
-    <div ref={setElement} className="lx-md-emoji-picker" data-testid="emoji-picker-popover" style={{ position: "fixed", left: 0, top: 0 }}>
+    <div ref={setElement} className={`lx-md-emoji-picker ${popupMotionClassName}`} data-testid="emoji-picker-popover" style={{ position: "fixed", left: 0, top: 0 }}>
       <EmojiPicker.Root
         className="lx-md-emoji-root"
         locale={i18n.locale.startsWith("zh") ? "zh" : "en"}

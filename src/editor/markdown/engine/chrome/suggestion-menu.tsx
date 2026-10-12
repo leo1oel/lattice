@@ -20,6 +20,7 @@ import { Extension, type Editor, type Range } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import Suggestion, { exitSuggestion } from "@tiptap/suggestion";
 import { ScrollArea } from "../../../../components/ui/scroll-area";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 
 export type MenuState<T> = {
   open: boolean;
@@ -157,10 +158,12 @@ function usePlacement(element: HTMLElement | null, rect: DOMRect | null) {
       placement: "bottom-start",
       strategy: "fixed",
       middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
-    }).then(({ x, y }) => {
+    }).then(({ x, y, placement }) => {
       if (cancelled) return;
       element.style.left = `${x}px`;
       element.style.top = `${y}px`;
+      // The side it landed on, after any flip: the entrance travels from it.
+      element.dataset.side = placement.split("-")[0];
     });
     return () => {
       cancelled = true;
@@ -231,7 +234,7 @@ export function SuggestionListbox<T>({ editor, store, label, emptyLabel, itemKey
   if (!state.open) return null;
   const active = state.items[state.active];
   return createPortal(
-    <div ref={setElement} className={`lx-md-menu ${className ?? ""}`} style={{ position: "fixed", left: 0, top: 0 }} onMouseDown={(event) => event.preventDefault()}>
+    <div ref={setElement} className={`lx-md-menu ${popupMotionClassName} ${className ?? ""}`} style={{ position: "fixed", left: 0, top: 0 }} onMouseDown={(event) => event.preventDefault()}>
       {hasItems
         ? (
           <>

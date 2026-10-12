@@ -118,7 +118,7 @@
 @keyframes drawer-in {
   from {
     transform: translateX(24px);
-    opacity: 0.5;
+    opacity: 0;
   }
 }
 
