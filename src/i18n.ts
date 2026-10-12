@@ -22,3 +22,25 @@ export async function activateAppLocale(locale: AppLocale): Promise<void> {
   i18n.load(locale, messages);
   i18n.activate(locale);
 }
+
+/**
+ * A count as the interface language reads it: digits grouped ("120,400"), and
+ * in Chinese from 10,000 on in 万 and 亿 with up to two decimals ("12.04 万"),
+ * the unit a Chinese reader counts in. The space before 万 is the one every
+ * number takes before its unit; a catalog's "{count} 词" then reads
+ * "12.04 万 词" until `spaceMixedScript` closes the gap between the two
+ * Chinese characters.
+ */
+export function formatCount(value: number, locale: string = i18n.locale || "en"): string {
+  if (locale.startsWith("zh") && Math.abs(value) >= 10_000) {
+    return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 2 })
+      .format(value)
+      .replace(/(\d)(?=[万亿])/, "$1 ");
+  }
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+/** A duration in seconds to one decimal, with the space SI puts before its unit ("1.2 s"). */
+export function formatSeconds(seconds: number): string {
+  return `${seconds.toFixed(1)} s`;
+}

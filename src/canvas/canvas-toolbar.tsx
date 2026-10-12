@@ -170,12 +170,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         {props.overleafPresence}
         {shows("git") && (
           <ToolbarButton label={t`Git status and commit`} className="history-button" data-tour="git" onClick={props.onGit}>
-            <AnimatedProductIcon kind="git-branch" size={15} />
+            <AnimatedProductIcon kind="git-branch" size={14} />
           </ToolbarButton>
         )}
         {shows("history") && (
           <ToolbarButton label={t`Project history`} className="history-button" onClick={props.onHistory}>
-            <AnimatedProductIcon kind="clock-back" size={15} />
+            <AnimatedProductIcon kind="clock-back" size={14} />
           </ToolbarButton>
         )}
         {shows("browser") && props.onMoveWorkspace && (
@@ -184,7 +184,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             className="history-button"
             onClick={props.onMoveWorkspace}
           >
-            {props.inBrowserTab ? <AppWindow size={15} /> : <Globe size={15} />}
+            {props.inBrowserTab ? <AppWindow size={14} /> : <Globe size={14} />}
           </ToolbarButton>
         )}
       </div>

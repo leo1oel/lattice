@@ -231,8 +231,10 @@ slab and fade to `--control-disabled-opacity`.
   `#252528`, about 6% above the sheet), so in dark a menu reads off the sheet
   by its fill and a quiet 10% ring rather than a bright edge. The other tints
   keep their own surfaces.
-- **Icons** are Lucide line glyphs on the control ladder: 13px on a compact
-  control, 16px on a default one and in a toast or dialog mark, with a 1.5
+- **Icons** are Lucide line glyphs at three sizes: 14px in the chrome (the
+  titlebar, panel tabs and headers, compact controls), 16px on a default
+  control and in a dialog or toast mark, and 12px in a meta row (the status
+  bar) and for a disclosure chevron beside a label, with a 1.5
   stroke beside regular-weight text (menus) and the default 2 where they stand
   alone. They take the secondary ink at rest and the primary when their
   control is on, hovered or current; colour belongs to status (a toast's
@@ -330,6 +332,15 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   grid: `--gap-hairline` (1), `--gap-tight` (2), `--gap-inline-tight` (4),
   `--gap-inline` (8), `--pad-inline-control` (10),
   `--pad-inline-control-tight` (8).
+- A side panel has one icon gutter, 20px in from its edge: the tab's icon
+  (`--tab-inset-inline`, 14px, from the tab's edge), the Project tree's
+  glyphs and the Papers search icon all start on it. The tree and Papers stand
+  10px off the panel edge, and an icon sits 10px inside its row or field,
+  the field's border included.
+- Numbers keep one rule for units: a space before a unit (`1.2 s`, SI), none
+  before `%` (`184%`). Counts go through `formatCount` (`src/i18n.ts`):
+  grouped digits, and in Chinese 万 and 亿 from 10,000 on (`12.04 万词`), with
+  `spaceMixedScript` closing up the unit after them.
 - A surface nested flush inside another does not choose its own radius. The
   container declares `--surface-radius` and `--surface-inset`, and the child uses
   `border-radius: var(--nested-radius)`, which resolves to
@@ -347,7 +358,7 @@ A description, subtitle, or explainer paragraph appears only when it says someth
 
   | Step | Height | Text | Icons | Where |
   | --- | --- | --- | --- | --- |
-  | compact | 28px | caption | 13px | dense chrome: panel headers, toolbars, filters, the titlebar, popover forms |
+  | compact | 28px | caption | 14px | dense chrome: panel headers, toolbars, filters, the titlebar, popover forms |
   | default | 32px | body-compact | 16px | forms, dialogs, Settings |
 
   Buttons (`Button` `size`), fields (`Input` `controlSize`), selects

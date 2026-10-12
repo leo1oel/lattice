@@ -101,13 +101,15 @@
   min-width: 56px;
   max-width: 200px;
   gap: var(--space-3);
-  padding: 0 var(--space-2) 0 var(--space-5);
+  /* 14px puts the tab's icon on the panel's one icon gutter, with the Project
+     tree's glyphs and the Papers search icon (app-shell.css). */
+  padding: 0 var(--space-2) 0 var(--tab-inset-inline);
   border-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
   font-weight: var(--weight-medium);
 }
-.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-close"][hidden]) { padding-right: var(--space-5); }
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-close"][hidden]) { padding-right: var(--tab-inset-inline); }
 .lattice-trellis [data-trellis-part="tab"]:hover { background: color-mix(in srgb, var(--trellis-tab-active) 55%, transparent); color: var(--text-primary); }
 .lattice-trellis [data-trellis-part="tab"][data-selected],
 .lattice-trellis [data-trellis-part="tab"][data-selected]:hover,
@@ -122,6 +124,7 @@
 .lattice-trellis [data-trellis-part="panel"]:not([data-focused]) [data-trellis-part="tab"][data-selected] { color: var(--text-secondary); }
 .lattice-trellis [data-trellis-part="tab-icon"] { color: var(--text-tertiary); }
 .lattice-trellis [data-trellis-part="tab"][data-selected] [data-trellis-part="tab-icon"] { color: var(--text-secondary); }
+.lattice-trellis [data-trellis-part="tab-icon"] { width: 14px; }
 .lattice-trellis [data-trellis-part="tab-icon"] svg { width: 14px; height: 14px; }
 .lattice-trellis [data-trellis-part="tab-badge"][data-dot] { width: var(--tab-dirty-dot-size); min-width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); }
 .lattice-trellis [data-trellis-part="tab-close"],

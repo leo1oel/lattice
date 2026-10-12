@@ -575,14 +575,19 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
    The right inset lives on the tree surface instead, so the scrollbar can use it
    as its gutter and sit at the panel edge like the Papers list's. */
 .project-section { flex: 1; padding: 7px 0 0 var(--space-5); display: flex; flex-direction: column; overflow: hidden; }
-.papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-6) 0; overflow: hidden; }
+/* Papers stands 10px off the panel edge like the Project tree, and its search
+   icon 10px inside the field, border included, like a tree row's glyph inside
+   its row: the tab icons, the tree glyphs and the search icon share one
+   gutter (the tabs' 14px in trellis.css). */
+.papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-5) 0; overflow: hidden; }
 .papers-section .paper-import-control,
 .papers-section .import-box {
-  width: calc(100% - var(--space-6));
+  width: calc(100% - var(--space-5));
 }
 .papers-section .paper-import-control .import-box { width: 100%; }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] {
   height: var(--navigation-search-height);
+  padding-inline-start: calc(var(--search-control-padding-inline) - var(--field-control-border-width));
 }
 .papers-section .paper-import-control { position: relative; }
 .papers-section .paper-import-control[data-importing] .import-box {
@@ -709,7 +714,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
 /* The count, then the sort and the filter at the end, on the search field's
    measure; in a narrow panel their labels give way before the count does. */
-.paper-list-toolbar { width: calc(100% - var(--space-6)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+.paper-list-toolbar { width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
 .paper-list-count { flex: none; margin: 0 auto 0 0; padding-inline: var(--space-4); white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 .paper-list-toolbar .paper-list-select { flex: 0 1 auto; width: auto; gap: var(--space-2); padding-inline: var(--space-4) var(--space-3); }
 .paper-list-select > svg:first-child { color: var(--text-secondary); }

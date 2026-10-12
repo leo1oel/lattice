@@ -31,8 +31,11 @@
 .pdf-page-value.editing input { position: static; inset: auto; opacity: 1; }
 .pdf-page-display, .pdf-page-total { white-space: nowrap; }
 .pdf-page-total { padding-left: 3px; }
-.pdf-zoom-value input { width: 100%; border: 0; outline: 0; padding: 0 var(--space-5) 0 var(--space-1); background: transparent; color: inherit; font: inherit; text-align: center; font-variant-numeric: tabular-nums; overflow-x: hidden; }
-.pdf-zoom-value span { position: absolute; right: 8px; width: 7px; text-align: left; pointer-events: none; }
+/* The percent sign closes up to the number ("184%", never "184 %"): the field
+   is three tabular digits wide, the most a zoom takes (30–500), with the
+   digits set against the sign and the pair centred in the box. */
+.pdf-zoom-value input { flex: none; width: 3ch; border: 0; outline: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: right; font-variant-numeric: tabular-nums; overflow-x: hidden; }
+.pdf-zoom-value span { pointer-events: none; }
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; background: var(--border-strong); }
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
 .pdf-search { min-width: 0; padding-right: var(--space-2); }
