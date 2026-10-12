@@ -1,10 +1,11 @@
 /**
- * The panels that hang off the editor rather than the project: the editor
- * comment thread list, the TODO scavenger, and the submission checklist.
+ * The panels that hang off the editor rather than the project: the
+ * Annotations panel and its Revision rounds sheet, the TODO scavenger, and
+ * the submission checklist.
  *
- * Only the comment list is lazy, so it carries its own `Suspense` rather than
- * sharing one with the other drawers — a `null` fallback that covered all of
- * them would unmount an open TODO panel while an unrelated chunk loads.
+ * Only the annotations are lazy, so they carry their own `Suspense` rather
+ * than sharing one with the other drawers — a `null` fallback that covered
+ * all of them would unmount an open TODO panel while an unrelated chunk loads.
  */
 import { lazy, Suspense, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -16,6 +17,8 @@ import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
 import { showError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
+import type { Annotations } from "./use-annotations";
+import { useIntentLabels } from "../editor/comments/use-intent-labels";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
@@ -31,12 +34,22 @@ import type {
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
+const AnnotationRoundsDialog = lazy(() =>
+  import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
+);
 
-export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
+export function AppEditorPanels({ comments, annotations, renderCommentsSurface, ...props }: {
   comments: EditorComments;
+  annotations: Annotations;
+  /** Saves pending edits before a round is restored over the files. */
+  saveBeforeRestore: () => Promise<boolean>;
+  /** Brings the project, the open file and history up to date after a restore. */
+  reloadAfterRestore: () => Promise<void>;
   /** Wraps the comment list in the Overleaf drawer when the project is linked. */
   renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
+  /** The active file's text, for the panel's line numbers and sections. */
+  activeSource: string;
   /** The document tabs still open; closing the last one leaves `activeFile` set but nothing to return to. */
   openTabs: readonly string[];
   build: BuildResult | null;
@@ -52,7 +65,9 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   unusedSymbols: UnusedSymbols;
 }) {
   const { t } = useLingui();
-  const { openProjectFile, project, todoHits, tools, unusedSymbols } = props;
+  const intentLabels = useIntentLabels();
+  const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
+  const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
   // Where the writer was writing: the active file, still active while a Paper
   // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
@@ -80,6 +95,10 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       onReturnToEditor={() => void returnToEditor()}
       currentAuthorId={props.editorCommentAuthorId}
       focusCommentId={comments.panelFocusId}
+      activeCommentId={comments.activeId}
+      sourceFor={sourceFor}
+      rounds={annotations.panel}
+      intentLabels={intentLabels}
       onClose={comments.closePanel}
       onOpen={comments.openComment}
       onDelete={comments.deleteComment}
@@ -105,14 +124,33 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
           ) : (
             <ToolLoadingShell
               className="editor-comments-drawer"
-              label={t`Editor comments`}
-              message={t`Loading editor comments…`}
+              label={t`Annotations`}
+              message={t`Loading annotations…`}
               onClose={() => tools.close("comments")}
             />
           )
       )}
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
+        {annotations.roundsOpen && (
+          <AnnotationRoundsDialog
+            rounds={comments.rounds}
+            annotations={comments.comments}
+            readSource={annotations.readSource}
+            onOpenInHistory={(historyEntry) => {
+              annotations.setRoundsOpen(false);
+              tools.open("history", { historyEntry });
+            }}
+            onRestore={async (label, files) => {
+              if (!await props.saveBeforeRestore()) throw new Error(t`Save pending edits before restoring a round.`);
+              await invoke("restore_annotation_round", {
+                projectRoot: project.root, label, files: files.map(({ path, text }) => ({ path, before: null, after: text })),
+              });
+              await props.reloadAfterRestore();
+            }}
+            onClose={() => annotations.setRoundsOpen(false)}
+          />
+        )}
       </Suspense>
       {tools.isOpen.todos && (
         <TodoScavengerPanel

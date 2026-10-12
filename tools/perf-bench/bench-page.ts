@@ -369,12 +369,130 @@ const UNSAFE_FIXES: Fix[] = [
 ];
 const proofreadTasks = new Map<string, { text: string; ready: number }>();
 
+// --- Annotations ----------------------------------------------------------
+// `.research/annotations.json` kept in memory. On the tutorial, `?annotations=1`
+// seeds five open notes (one made on the PDF), `?annotations=review` a round
+// in review (proposals, an accepted one and a question) after a settled first
+// round, and `?annotations=rounds` two settled rounds to compare.
+
+type BenchAnnotation = Record<string, unknown> & { id: string; quote: string; revision?: Record<string, unknown> };
+let annotationsState: { annotations: BenchAnnotation[]; rounds: Array<Record<string, unknown>> } | null = null;
+const roundFiles = new Map<number, Array<{ path: string; before: string | null; after: string | null }>>();
+
+/** The seeded notes: quote, note, intent, minutes ago, and (for one) where it sits on the PDF. */
+const SEEDED_ANNOTATIONS: Array<[string, string, string | null, number, boolean?]> = [
+  ["Attention turns a collection of token representations into context-sensitive representations by learning which pieces of information should interact.",
+    "Too abstract for the opening line; start with what the reader will be able to do", "rewrite", 42],
+  ["The Transformer made a stronger design choice", "Say what the choice was before calling it stronger", null, 31],
+  ["That choice exposes parallel computation during training", "One line contrasting this with an RNN", "clarify", 20],
+  ["The factor $1/\\sqrt{d_k}$ controls score magnitude", "Add one sentence of intuition before the variance argument", null, 12],
+  ["Multiplicative variants made this retrieval efficient", "Name the variants (dot-product, general)", "clarify", 1, true],
+];
+
+/** The agent's canned answers in the bench, by the passage they revise. */
+const BENCH_REVISIONS: Array<[string, string, string, string]> = [
+  ["Attention turns a collection",
+    "This tutorial shows how attention lets each token choose which others to read from, and why that one choice made the Transformer possible. Attention turns a collection of token representations into context-sensitive representations by learning which pieces of information should interact.",
+    "Opens with what the reader gets; the definition moves to the next sentence.", "先说读者能得到什么，定义挪到下一句。"],
+  ["Multiplicative variants",
+    "Multiplicative variants (dot-product and general scoring) made this retrieval efficient",
+    "Names the two variants Luong et al. compare.", "点名 Luong 等人比较的两种变体。"],
+  ["That choice exposes",
+    "Unlike a recurrent network, which must step through tokens one by one, that choice exposes parallel computation during training",
+    "Contrasts the Transformer with an RNN in one clause.", "用一个从句对比 RNN。"],
+  ["The Transformer made",
+    "The Transformer made attention the only path between positions, a stronger design choice",
+    "Says what the choice was before judging it.", "先说是什么选择，再评价它。"],
+];
+
+function benchAnnotations() {
+  if (annotationsState) return annotationsState;
+  const seed = params.get("annotations");
+  if (!seed || current.root !== TUTORIAL_ROOT) return { annotations: [], rounds: [] };
+  const main = String(current.files.get("main.tex") ?? "");
+  // `?annotationNumbers=<n>` numbers the seeds from n + 1, for wide pins.
+  const numberBase = Number(params.get("annotationNumbers") ?? 0) || 0;
+  const annotations = SEEDED_ANNOTATIONS.flatMap(([quote, body, intent, minutes, pdf], index): BenchAnnotation[] => {
+    const from = main.indexOf(quote);
+    if (from < 0) return [];
+    const at = new Date(Date.now() - minutes * 60_000).toISOString();
+    return [{
+      id: `bench-annotation-${index + 1}`, number: numberBase + index + 1, path: "main.tex", from, to: from + quote.length, quote,
+      prefix: main.slice(Math.max(0, from - 32), from), suffix: main.slice(from + quote.length, from + quote.length + 32),
+      body, ...intent ? { intent } : {},
+      ...pdf ? { pdf: { page: 1, rects: [{ x: 0.408, y: 0.552, width: 0.322, height: 0.0125 }], text: quote } } : {},
+      authorId: "me", authorName: "Leo", resolved: false, replies: [], createdAt: at, updatedAt: at,
+    }];
+  });
+  const rounds: Array<Record<string, unknown>> = [];
+  if (seed === "review" || seed === "rounds") {
+    const settled = (number: number, hoursAgo: number) => ({
+      number, startedAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
+      settledAt: new Date(Date.now() - (hoursAgo - 0.2) * 3_600_000).toISOString(), outcomes: {} as Record<string, string>,
+      historyId: `bench-round-${number}`,
+    });
+    const before = main.replace("A sequence model must decide how information at one position can influence another.",
+      "A sequence model has to decide, at every step, how information at one position can influence another one.");
+    const first = settled(1, 3);
+    first.outcomes = { "bench-old-1": "accepted", "bench-old-2": "accepted" };
+    roundFiles.set(1, [{ path: "main.tex", before, after: main }]);
+    rounds.push(first);
+    if (seed === "rounds") {
+      const second = settled(2, 1);
+      second.outcomes = { "bench-annotation-2": "accepted", "bench-annotation-3": "rejected" };
+      const revised = BENCH_REVISIONS[3]!;
+      const after = main.replace("The Transformer made a stronger design choice", revised[1]);
+      roundFiles.set(2, [{ path: "main.tex", before: main, after }]);
+      current.files.set("main.tex", after);
+      rounds.push(second);
+    } else {
+      const zh = lang === "zh-CN";
+      const open = { number: 2, startedAt: new Date(Date.now() - 5 * 60_000).toISOString(), outcomes: {} as Record<string, string> };
+      for (const annotation of annotations) {
+        const number = (annotation.number as number) - numberBase;
+        const canned = BENCH_REVISIONS.find(([start]) => annotation.quote.startsWith(start));
+        if (number === 4) {
+          annotation.revision = { round: 2, state: "asked", question: zh ? "直觉放在式 (2) 之前还是之后？" : "Should the intuition go before equation (2) or after it?" };
+        } else if (number === 2 && canned) {
+          annotation.revision = { round: 2, state: "accepted", original: annotation.quote, text: canned[1], reason: zh ? canned[3] : canned[2] };
+          annotation.resolved = true;
+        } else if (canned) {
+          annotation.revision = { round: 2, state: "proposed", original: annotation.quote, text: canned[1], reason: zh ? canned[3] : canned[2] };
+        }
+        if (annotation.revision) open.outcomes[annotation.id] = String(annotation.revision.state);
+      }
+      roundFiles.set(2, [{ path: "main.tex", before: main, after: null }]);
+      rounds.push(open);
+    }
+  }
+  annotationsState = { annotations, rounds };
+  return annotationsState;
+}
+
+/** The bench agent's answer to an annotation: a canned revision, or a question when asked to cite. */
+function annotationReply(prompt: string): string {
+  const passage = /<passage>\n([\s\S]*)\n<\/passage>/.exec(prompt)?.[1] ?? "";
+  const zh = prompt.includes("in Simplified Chinese");
+  if (prompt.includes("<bibliography>")) {
+    return `<question>${zh ? "要引用哪篇论文？参考文献里没有直接支持这句话的。" : "Which paper should support this? Nothing in the bibliography states it directly."}</question>`;
+  }
+  const canned = BENCH_REVISIONS.find(([start]) => passage.trim().startsWith(start));
+  const text = canned?.[1] ?? passage.replace(/\bvery\b\s*/g, "").replace(/\bin order to\b/g, "to").replace(/\bdeliberately\b\s*/g, "");
+  const reason = canned ? (zh ? canned[3] : canned[2]) : (zh ? "更紧凑，意思不变。" : "Tighter, same meaning.");
+  return `<revision>${text}</revision>\n<reason>${reason}</reason>`;
+}
+
 function textTask(args: Args): unknown {
   const mode = params.get("proofread");
   const action = String(args?.action ?? "");
   if (action === "start") {
     if (mode === "unavailable") throw "agent_route_unavailable";
     const prompt = String(args?.prompt ?? "");
+    if (prompt.startsWith("Revise a passage")) {
+      const taskId = `text-task:${proofreadTasks.size + 1}`;
+      proofreadTasks.set(taskId, { text: annotationReply(prompt), ready: performance.now() + 1_200 + Math.random() * 1_600 });
+      return { taskId };
+    }
     const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(prompt)?.[1] ?? "";
     const fixes = [
       ...PROOFREAD_FIXES,
@@ -447,7 +565,8 @@ function answer(command: string, args: Args): unknown {
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "initial_project":
-      return params.has("welcome") ? null : snapshot();
+      // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
+      return params.has("welcome") ? null : params.has("tutorial") ? openTutorial() : snapshot();
     case "open_project":
       if (String(args?.path ?? "").startsWith(MOVED_PROJECT_ROOT)) throw new Error("No such file or directory (os error 2)");
       return snapshot();
@@ -479,7 +598,10 @@ function answer(command: string, args: Args): unknown {
     }
     case "build_project":
       return params.get("build") === "running" ? runningBuild(args) : buildResult();
+    // `?pdf=<url>` answers with that PDF instead, such as the tutorial compiled
+    // outside the checkout, for screenshots of a real page.
     case "read_compiled_pdf":
+      if (params.get("pdf")) return fetch(params.get("pdf")!).then((response) => response.arrayBuffer());
       return copyBuffer(fixture.compiledPdf);
     case "synctex_heading_pages":
       // The fixture PDF has no SyncTeX map: about a page per 45 source lines.
@@ -533,6 +655,27 @@ function answer(command: string, args: Args): unknown {
       return false;
     case "agent_text_task":
       return textTask(args);
+    case "list_annotations":
+      return benchAnnotations();
+    case "save_annotations":
+      annotationsState = { annotations: (args?.annotations as BenchAnnotation[]) ?? [], rounds: (args?.rounds as Array<Record<string, unknown>>) ?? [] };
+      return null;
+    case "save_annotation_round": {
+      const number = Number(args?.number);
+      roundFiles.set(number, (args?.files as Array<{ path: string; before: string | null; after: string | null }>) ?? []);
+      return args?.settled ? `bench-round-${number}` : null;
+    }
+    case "read_annotation_round":
+      return roundFiles.get(Number(args?.number)) ?? [];
+    case "restore_annotation_round":
+      for (const file of (args?.files as Array<{ path: string; after: string | null }>) ?? []) {
+        if (typeof file.after === "string") current.files.set(file.path, file.after);
+      }
+      return null;
+    // Reverse SyncTeX, roughly: page 1 of the tutorial holds main.tex's first
+    // sixty lines, top to bottom; Lattice then finds the selected words near it.
+    case "synctex_edit":
+      return { path: "main.tex", line: Math.max(1, Math.round(Number(args?.y ?? 0) / 792 * 60)) };
     case "synara_ensure_ready":
     case "create_project_entry":
       return createEntry(args);

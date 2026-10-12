@@ -17,11 +17,11 @@ describe("CanvasToolbar Overleaf status", () => {
   it("offers one comment entry for linked projects and keeps local projects' entry", () => {
     const onOverleafChat = vi.fn();
     const { rerender } = render(<CanvasToolbar {...baseProps} overleafLinked onOverleafChat={onOverleafChat} overleafUnreadChat={3} />);
-    expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Annotations" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Overleaf comments and chat · 3 waiting" }));
     expect(onOverleafChat).toHaveBeenCalledOnce();
     rerender(<CanvasToolbar {...baseProps} commentCount={2} />);
-    expect(screen.getByRole("button", { name: "Editor comments" })).toHaveTextContent("2");
+    expect(screen.getByRole("button", { name: "Annotations" })).toHaveTextContent("2");
     expect(screen.queryByRole("button", { name: /Overleaf comments and chat/ })).not.toBeInTheDocument();
   });
 
@@ -73,11 +73,11 @@ describe("CanvasToolbar project tools", () => {
 
   it("hides the tools the writer turned off in Settings", () => {
     const { rerender } = render(<CanvasToolbar {...baseProps} />);
-    for (const name of ["Editor comments", "Git status and commit", "Project history"]) {
+    for (const name of ["Annotations", "Git status and commit", "Project history"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
     rerender(<CanvasToolbar {...baseProps} hiddenTools={["comments", "history"]} />);
-    expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Annotations" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Project history" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Git status and commit" })).toBeInTheDocument();
   });

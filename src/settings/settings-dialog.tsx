@@ -282,7 +282,7 @@ function TitlebarToolsGroup(props: SettingsDialogProps) {
   const { t } = useLingui();
   const hidden = props.appearance.hiddenTitlebarTools;
   const tools: Array<{ tool: TitlebarTool; label: string }> = [
-    { tool: "comments", label: t`Editor comments` },
+    { tool: "comments", label: t`Annotations` },
     { tool: "overleaf", label: t`Overleaf` },
     { tool: "git", label: t`Git status and commit` },
     { tool: "history", label: t`Project history` },

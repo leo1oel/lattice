@@ -10,7 +10,7 @@ export const PANEL_TITLES: Record<TrellisSingleton, MessageDescriptor> = {
   pdf: msg`PDF`,
   history: msg`History`,
   git: msg`Source control`,
-  comments: msg`Comments`,
+  comments: msg`Annotations`,
   overleaf: msg`Overleaf`,
   literature: msg`Literature`,
   todos: msg`TODOs`,

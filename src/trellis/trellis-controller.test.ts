@@ -117,8 +117,8 @@ describe("TrellisController", () => {
     expect(ws.dock).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
     // A drawer opened with no panel of its own still brings one up beside the document.
-    controller.openDrawer("comments", () => {});
-    expect(ws.open).toHaveBeenCalledWith("comments", { id: "comments", placement: { into: "panel-notes" } });
+    controller.openDrawer("todos", () => {});
+    expect(ws.open).toHaveBeenCalledWith("todos", { id: "todos", placement: { into: "panel-notes" } });
   });
 
   it("opens tools in the last panel under the pointer and moves existing tools there", () => {
@@ -132,8 +132,8 @@ describe("TrellisController", () => {
     panel.dataset.trellisPart = "panel";
     panel.dataset.panel = "left";
     controller.rememberPointerPanel(panel);
-    controller.revealTool("comments");
-    expect(ws.open).toHaveBeenCalledWith("comments", { id: "comments", placement: { into: "left" } });
+    controller.revealTool("todos");
+    expect(ws.open).toHaveBeenCalledWith("todos", { id: "todos", placement: { into: "left" } });
     controller.revealTool("history");
     expect(ws.dock).toHaveBeenCalledWith("history", { into: "left" });
     expect(ws.focus).toHaveBeenCalledWith("history");
@@ -150,8 +150,8 @@ describe("TrellisController", () => {
     panel.dataset.trellisPart = "panel";
     panel.dataset.panel = "closed";
     controller.rememberPointerPanel(panel);
-    controller.revealTool("comments");
-    expect(ws.open).toHaveBeenCalledWith("comments", { id: "comments", placement: { into: "editor" } });
+    controller.revealTool("todos");
+    expect(ws.open).toHaveBeenCalledWith("todos", { id: "todos", placement: { into: "editor" } });
   });
 
   it("does not activate a file from focus while it is being dragged in from the Project panel", () => {

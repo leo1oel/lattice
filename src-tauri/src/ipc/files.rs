@@ -6,7 +6,7 @@ use super::{
 };
 use crate::app_state::{AppState, Lease};
 use crate::models;
-use crate::project::{AssetPreview, EditorComment};
+use crate::project::{AnnotationRound, Annotations, AssetPreview, EditorComment};
 use crate::{export, project};
 use std::path::Path;
 use tauri::{State, Window};
@@ -236,17 +236,62 @@ pub async fn save_xlsx(request: tauri::ipc::Request<'_>) -> Result<String, Strin
 }
 
 #[tauri::command]
-pub async fn list_editor_comments(
+pub async fn list_annotations(
     state: State<'_, AppState>, window: Window,
-) -> Result<Vec<EditorComment>, String> {
-    in_project(&state, &window, "Editor comment read", project::read_editor_comments).await
+) -> Result<Annotations, String> {
+    in_project(&state, &window, "Annotation read", project::read_annotations).await
 }
 
 #[tauri::command]
-pub async fn save_editor_comments(
-    state: State<'_, AppState>, window: Window, comments: Vec<EditorComment>,
+pub async fn save_annotations(
+    state: State<'_, AppState>, window: Window, project_root: String,
+    annotations: Vec<EditorComment>, rounds: Vec<AnnotationRound>, save: u64,
 ) -> Result<(), String> {
-    let root = current_root(&state, &window)?;
-    run_blocking("Editor comment save", move || project::write_editor_comments(&root, comments))
-        .await
+    let root = pinned_root(&state, &window, &project_root, "saving the annotations")?;
+    run_blocking("Annotation save", move || {
+        project::write_annotations(&root, annotations, rounds, save)
+    })
+    .await
+}
+
+/// Keep a revision round's files; a settled round also becomes one history
+/// entry, whose id this returns.
+#[tauri::command]
+pub async fn save_annotation_round(
+    state: State<'_, AppState>, window: Window, project_root: String, number: u32,
+    files: Vec<models::FileChange>, settled: bool,
+) -> Result<Option<String>, String> {
+    let root = pinned_root(&state, &window, &project_root, "saving the revision round")?;
+    run_blocking("Annotation round save", move || {
+        project::save_annotation_round(&root, number, files, settled)
+    })
+    .await
+}
+
+/// Restore the project's files to the text `files` gives them (how a
+/// revision round left them), as one history entry named `label`.
+#[tauri::command]
+pub async fn restore_annotation_round(
+    state: State<'_, AppState>, window: Window, project_root: String, label: String,
+    files: Vec<models::FileChange>,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "restoring the revision round")?;
+    let edits = files
+        .into_iter()
+        .filter_map(|file| file.after.map(|after| (file.path, after)))
+        .collect::<Vec<_>>();
+    run_blocking("Annotation round restore", move || {
+        project::apply_annotation_restore(&root, &label, edits).map(|_| ())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn read_annotation_round(
+    state: State<'_, AppState>, window: Window, number: u32,
+) -> Result<Vec<models::FileChange>, String> {
+    in_project(&state, &window, "Annotation round read", move |root| {
+        project::read_annotation_round(root, number)
+    })
+    .await
 }

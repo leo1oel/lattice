@@ -85,6 +85,11 @@ textarea {
   --glyph-config: #6a6a70;
   --glyph-folder: #8a6a3e;
   --glyph-tint: 16%;
+  /* Local annotations: the highlighter's amber, a step deeper than the .bib
+     glyph so a pin's white figure clears 4.5:1, and the figure's ink on
+     every annotation pin. */
+  --annotation: #9a5c00;
+  --annotation-contrast: #ffffff;
   /* The elevation ladder's shadows (foundations.css): one stack per level,
      the same geometry in both themes and deeper in dark, where a faint
      shadow disappears into the ground. The ring is the hairline every
@@ -182,6 +187,8 @@ textarea {
   --glyph-config: #9d9da5;
   --glyph-folder: #d9bc8c;
   --glyph-tint: 20%;
+  --annotation: #f2b65e;
+  --annotation-contrast: #1a1a1c;
   /* A floating surface's edge is a quiet hairline; the lift (below) already
      sets it off the sheet. */
   --shadow-ring: rgba(255, 255, 255, 0.1);

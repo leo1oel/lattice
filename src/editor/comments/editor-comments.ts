@@ -1,10 +1,11 @@
 import { msg } from "@lingui/core/macro";
-import { StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
-import { Decoration, EditorView, hoverTooltip, type DecorationSet } from "@codemirror/view";
+import { RangeSet, StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
+import { Decoration, EditorView, gutter, GutterMarker, hoverTooltip, type DecorationSet } from "@codemirror/view";
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import {
+  annotationStatus,
   editorCommentAuthorDisplayName,
   resolveCommentAnchor,
   type EditorComment,
@@ -34,22 +35,74 @@ function anchoredComments(source: string, path: string, comments: EditorComment[
   });
 }
 
+/**
+ * A local annotation reads as an amber highlighter stroke, in the blue of a
+ * proposal or the violet of a question while the agent's answer waits; an
+ * Overleaf thread keeps its author's colour.
+ */
 export function buildCommentDecorations(source: string, path: string, comments: EditorComment[]): DecorationSet {
-  const ranges = anchoredComments(source, path, comments).sort((a, b) => a.from - b.from || a.to - b.to);
+  return decorationsFor(anchoredComments(source, path, comments));
+}
+
+function decorationsFor(anchored: AnchoredComment[]): DecorationSet {
+  const ranges = [...anchored].sort((a, b) => a.from - b.from || a.to - b.to);
   return Decoration.set(
     ranges.map(({ comment, from, to }) => Decoration.mark({
-      class: "cm-editor-comment",
+      class: comment.number ? "cm-editor-comment cm-annotation" : "cm-editor-comment",
       attributes: {
         "data-comment-id": comment.id,
         "data-author-id": comment.authorId,
         // Author + body are shown by the richer hover tooltip below. A native
         // `title` here would double up with it (and is unreliable in the
         // macOS webview), so we intentionally omit it.
-        style: commentMarkStyle(comment),
+        ...comment.number
+          ? { "data-annotation-status": annotationStatus(comment) }
+          : { style: commentMarkStyle(comment) },
       },
     }).range(from, to)),
     true,
   );
+}
+
+/**
+ * An annotation's numbered pin in the gutter, on the line its passage starts.
+ * Several on one line show the first, and the pin's label names them all.
+ */
+class AnnotationPinMarker extends GutterMarker {
+  constructor(readonly comments: readonly EditorComment[], readonly label: string) {
+    super();
+  }
+
+  eq(other: AnnotationPinMarker) {
+    return other.label === this.label && other.comments.length === this.comments.length
+      && other.comments.every((comment, index) => comment.number === this.comments[index]?.number
+        && annotationStatus(comment) === annotationStatus(this.comments[index]!));
+  }
+
+  toDOM() {
+    const first = this.comments[0]!;
+    const pin = element("span", "cm-annotation-pin", String(first.number));
+    pin.dataset.annotationStatus = annotationStatus(first);
+    if (this.comments.length > 1) pin.dataset.more = "";
+    pin.title = this.label;
+    // A box one row tall at the line's top, so the pin sits on its first row however far it wraps.
+    const row = element("span", "cm-annotation-pin-row");
+    row.append(pin);
+    return row;
+  }
+}
+
+function annotationPins(doc: Text, anchored: AnchoredComment[], label: (numbers: number[]) => string): RangeSet<GutterMarker> {
+  const byLine = new Map<number, AnchoredComment[]>();
+  for (const hit of anchored) {
+    if (!hit.comment.number) continue;
+    const line = doc.lineAt(hit.from).from;
+    byLine.set(line, [...byLine.get(line) ?? [], hit]);
+  }
+  return RangeSet.of([...byLine].sort(([a], [b]) => a - b).map(([line, hits]) => {
+    const comments = hits.map((hit) => hit.comment).sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+    return new AnnotationPinMarker(comments, label(comments.map((comment) => comment.number ?? 0))).range(line);
+  }));
 }
 
 /**
@@ -72,11 +125,14 @@ const RELATIVE_STEPS: Array<[unit: Intl.RelativeTimeFormatUnit, divisor: number,
   ["day", 24, 7],
 ];
 
-/** Short "3 min ago" style label; falls back to the raw date on parse failure. */
-export function formatCommentTimestamp(iso: string, now = Date.now(), locale = "en"): string {
+/**
+ * "3 minutes ago" style label, or "3 min. ago" with the short `style`; falls
+ * back to the raw date on parse failure.
+ */
+export function formatCommentTimestamp(iso: string, now = Date.now(), locale = "en", style: Intl.RelativeTimeFormatStyle = "long"): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
-  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style });
   let elapsed = Math.round((now - then) / 1000);
   if (elapsed < 45) return relative.format(0, "second");
   for (const [unit, divisor, limit] of RELATIVE_STEPS) {
@@ -93,6 +149,8 @@ export type EditorCommentLocalization = {
   reopen: string;
   resolve: string;
   reply: string;
+  /** A gutter pin's label, naming the annotations on its line; English when absent. */
+  pins?: (numbers: number[]) => string;
 };
 
 function defaultCommentLocalization(): EditorCommentLocalization {
@@ -103,6 +161,10 @@ function defaultCommentLocalization(): EditorCommentLocalization {
     reopen: i18n._(msg`Reopen`),
     resolve: i18n._(msg({ message: "Resolve", context: "comment thread" })),
     reply: i18n._(msg`Reply`),
+    pins: (numbers) => {
+      const list = numbers.join(", ");
+      return numbers.length === 1 ? i18n._(msg`Annotation ${list}`) : i18n._(msg`Annotations ${list}`);
+    },
   };
 }
 
@@ -185,6 +247,8 @@ export type EditorCommentsExtensionOptions = {
   getDraft?: () => EditorCommentDraft | null;
   onResolve?: (id: string) => void;
   onReply?: (comment: EditorComment) => void;
+  /** A gutter pin was clicked: show its annotation. */
+  onOpenAnnotation?: (comment: EditorComment) => void;
   getLocalization?: () => EditorCommentLocalization;
 };
 
@@ -218,15 +282,18 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
     },
     provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
   });
-  const field = StateField.define<{ comments: EditorComment[]; decorations: DecorationSet }>({
+  const pinLabel = (numbers: number[]) => (options.getLocalization?.()?.pins ?? defaultCommentLocalization().pins!)(numbers);
+  type Anchored = { comments: EditorComment[]; decorations: DecorationSet; pins: RangeSet<GutterMarker> };
+  const anchor = (doc: Text, comments: EditorComment[]): Anchored => {
+    const anchored = anchoredComments(doc.toString(), path, comments);
+    return { comments, decorations: decorationsFor(anchored), pins: annotationPins(doc, anchored, pinLabel) };
+  };
+  const field = StateField.define<Anchored>({
     create(state) {
       const comments = getComments?.() ?? [];
       // Serializing the whole doc is O(document); skip it when there is
       // nothing to anchor (the common case for most files).
-      return {
-        comments,
-        decorations: comments.length ? buildCommentDecorations(state.doc.toString(), path, comments) : Decoration.none,
-      };
+      return comments.length ? anchor(state.doc, comments) : { comments, decorations: Decoration.none, pins: RangeSet.empty };
     },
     update(value, tr) {
       const pushed = lastEffectValue(tr.effects, setEditorCommentsEffect);
@@ -239,11 +306,32 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
       // No comments means no decorations regardless of content — return
       // before paying doc.toString() on every keystroke of large files.
       if (!comments.length) {
-        return value.comments.length || value.decorations.size ? { comments, decorations: Decoration.none } : value;
+        return value.comments.length || value.decorations.size
+          ? { comments, decorations: Decoration.none, pins: RangeSet.empty }
+          : value;
       }
-      return { comments, decorations: buildCommentDecorations(tr.state.doc.toString(), path, comments) };
+      return anchor(tr.state.doc, comments);
     },
     provide: (value) => EditorView.decorations.from(value, (state) => state.decorations),
+  });
+  // Zero-width beside the text: the pin overlays the quiet fold column (editor-workspace.css).
+  const pinGutter = gutter({
+    class: "cm-annotation-gutter",
+    markers: (view) => view.state.field(field).pins,
+    domEventHandlers: {
+      mousedown: (view, line, event) => {
+        const pin = event.target instanceof Element ? event.target.closest(".cm-annotation-pin") : null;
+        if (!pin || !options.onOpenAnnotation) return false;
+        let hit: EditorComment | undefined;
+        view.state.field(field).pins.between(line.from, line.from, (_from, _to, marker) => {
+          hit = (marker as AnnotationPinMarker).comments[0];
+        });
+        if (!hit) return false;
+        event.preventDefault();
+        options.onOpenAnnotation(hit);
+        return true;
+      },
+    },
   });
 
   const commentHover = hoverTooltip((view, pos) => {
@@ -282,5 +370,15 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
     };
   });
 
-  return [field, draftField, commentHover];
+  // A pin of three digits or more is wider than the fold column it lies over;
+  // the gutter beside the text widens by the difference (editor-workspace.css).
+  const pinDigits = EditorView.editorAttributes.compute([field], (state) => {
+    let digits = 0;
+    state.field(field).pins.between(0, state.doc.length, (_from, _to, marker) => {
+      digits = Math.max(digits, String((marker as AnnotationPinMarker).comments[0]?.number ?? 0).length);
+    });
+    const attributes: Record<string, string> = digits >= 3 ? { "data-annotation-digits": String(Math.min(digits, 5)) } : {};
+    return attributes;
+  });
+  return [field, draftField, commentHover, pinGutter, pinDigits];
 }

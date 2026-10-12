@@ -17,6 +17,8 @@ export type OpenToolOptions = {
   turnReview?: AgentTurnReview;
   /** Comments: open with this comment's reply box focused. */
   replyTo?: string;
+  /** History: open on this entry of the project's changes (a revision round's). */
+  historyEntry?: string;
 };
 
 const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, todos: false, checklist: false };
@@ -62,6 +64,8 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
    * to Changes / Pull requests drops back to the working tree.
    */
   const [turnReview, setTurnReview] = useState<AgentTurnReview | null>(null);
+  /** The history entry the drawer was last asked to open on, until it is opened without one. */
+  const [historyEntry, setHistoryEntry] = useState<{ id: string; nonce: string } | null>(null);
   const { requestRuntime, origin: synaraOrigin, sourceControlFrameRef } = synara;
   const { openPanel: openCommentsPanel, openReply, closePanel: closeCommentsPanel } = comments;
   const { setLiteratureOpen } = references;
@@ -94,6 +98,8 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
           requestRuntime();
           if (options.turnReview) setTurnReview(options.turnReview);
           if (options.gitView) setGitView(options.gitView);
+        } else if (kind === "history") {
+          setHistoryEntry(options.historyEntry ? { id: options.historyEntry, nonce: crypto.randomUUID() } : null);
         } else if (kind === "todos") {
           void refreshTodos();
         } else if (kind === "checklist") {
@@ -146,8 +152,8 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
   }, [close, gitOpen, synaraOrigin, sourceControlFrameRef]);
 
   return useMemo(() => ({
-    isOpen, open, close, loading, gitView, turnReview, showGitView, resetForProject,
-  }), [close, gitView, isOpen, loading, open, resetForProject, showGitView, turnReview]);
+    isOpen, open, close, loading, gitView, turnReview, historyEntry, showGitView, resetForProject,
+  }), [close, gitView, historyEntry, isOpen, loading, open, resetForProject, showGitView, turnReview]);
 }
 
 export type ToolDrawers = ReturnType<typeof useToolDrawers>;

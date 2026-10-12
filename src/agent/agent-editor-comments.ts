@@ -4,7 +4,7 @@ import type { OverleafThread } from "../app-types";
 import { invoke } from "@tauri-apps/api/core";
 import { isRecord, toMessage } from "../app-utils";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
-import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
+import { annotationStatus, resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import type { OverleafCommentAnchor } from "../overleaf/use-overleaf-comments";
 import { hasOnlyKeys, isNonBlankString, isWorkspaceRelativePath, parseToolEnvelope } from "./agent-protocol";
 
@@ -21,6 +21,17 @@ export type AgentCommentReply = { authorName: string; body: string; createdAt: s
 export type AgentComment = {
   id: string;
   origin: "local" | "overleaf";
+  /**
+   * A local annotation's pin number, what the writer calls it and what
+   * `propose_annotation_edit` and `ask_about_annotation` take; with what it
+   * asks of the agent (`intent`), where its revision stands (`status`), the
+   * agent's open question, and the PDF page it was made on.
+   */
+  number?: number;
+  intent?: string;
+  status?: string;
+  question?: string;
+  pdfPage?: number;
   path: string;
   from: number;
   to: number;
@@ -139,6 +150,10 @@ export function buildAgentCommentsSnapshot(options: BuildAgentCommentsOptions): 
         : { from: source.from, to: source.to, anchorStatus: "missing" as const };
     comments.push({
       id: source.id, origin: "local", path, ...anchor,
+      ...source.number ? { number: source.number, status: annotationStatus(source) } : {},
+      ...source.intent ? { intent: source.intent } : {},
+      ...source.revision?.state === "asked" && source.revision.question ? { question: bounded(source.revision.question, MAX_BODY) } : {},
+      ...source.pdf ? { pdfPage: source.pdf.page } : {},
       quote: bounded(source.quote, MAX_QUOTE), body: bounded(source.body, MAX_BODY),
       authorName: bounded(source.authorName, 300), resolved: source.resolved,
       replies: capReplies(source.replies), updatedAt: source.updatedAt,

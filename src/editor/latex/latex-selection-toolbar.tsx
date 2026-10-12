@@ -52,7 +52,7 @@ const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: t
   { action: "underline", label: msg`Underline`, icon: Underline },
   { action: "strikethrough", label: msg`Strikethrough`, icon: Strikethrough },
   { action: "quote", label: msg`Quote`, icon: Quote },
-  { action: "comment", label: msg`Comment`, icon: MessageSquareText, separated: true },
+  { action: "comment", label: msg`Annotate`, icon: MessageSquareText, separated: true },
   { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: "⌘⌥P" },
   { action: "polish", label: msg`Polish`, icon: WandSparkles },
 ];

@@ -17,9 +17,10 @@ type TextTaskStatus = {
 const AGENT_ROUTE_UNAVAILABLE = "agent_route_unavailable";
 
 /**
- * Why a proofread produced nothing, for the surface to word: the runtime has
- * no text tasks, the task failed (`detail` is the service's own message), or
- * the reply held no marked excerpt.
+ * Why a proofread (or an annotation revision, which runs the same text task)
+ * produced nothing, for the surface to word: the runtime has no text tasks,
+ * the task failed (`detail` is the service's own message), or the reply held
+ * no marked answer.
  */
 export class ProofreadFailure extends Error {
   constructor(readonly kind: "unavailable" | "failed" | "unreadable", readonly detail = "") {
@@ -198,22 +199,19 @@ const delay = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) =
 export type ProofreadResult = { text: string; reasons?: ProofreadReasonLine[]; model?: string };
 
 /**
- * Proofread or polish `text` through the embedded agent's provider: one
- * read-only task on the agent service, polled until it settles. Aborting
- * cancels the task. Resolves to the revised text; rejects with a
- * `ProofreadFailure`, or with the signal's reason once aborted.
+ * One read-only text task on the agent service (no tools, no thread), polled
+ * until it settles: the agent's final message, and the model that wrote it
+ * when the runtime says. Aborting cancels the task. Rejects with a
+ * `ProofreadFailure` (`unavailable` or `failed`), or with the signal's
+ * reason once aborted. Proofread, Polish and annotation revisions all run
+ * through it.
  */
-export async function proofreadWithAgent(request: {
+export async function runAgentTextTask(request: {
   projectRoot: string;
-  path: string;
-  text: string;
-  mode: ProofreadMode;
-  /** The interface language, in English words, for the agent's notes. */
-  language?: string;
+  prompt: string;
   signal: AbortSignal;
-}): Promise<ProofreadResult> {
-  const { projectRoot, signal } = request;
-  const prompt = proofreadPrompt(request.text, request.path, request.mode, request.language);
+}): Promise<{ text: string; model?: string }> {
+  const { projectRoot, prompt, signal } = request;
   const started = await invoke<{ taskId?: string }>("agent_text_task", { action: "start", projectRoot, prompt })
     .catch((error: unknown) => {
       const detail = String(error);
@@ -238,13 +236,34 @@ export async function proofreadWithAgent(request: {
         });
       if (progress.status === "failed") throw new ProofreadFailure("failed", progress.message);
       if (progress.status !== "completed") continue;
-      const proofread = parseProofreadReply(progress.text ?? "", request.text);
-      if (proofread === null) throw new ProofreadFailure("unreadable");
-      const reasons = parseProofreadReasons(progress.text ?? "");
       const model = typeof progress.model === "string" ? progress.model.trim() : "";
-      return { text: proofread, ...(reasons.length ? { reasons } : {}), ...(model ? { model } : {}) };
+      return { text: progress.text ?? "", ...(model ? { model } : {}) };
     }
   } finally {
     signal.removeEventListener("abort", cancel);
   }
+}
+
+/**
+ * Proofread or polish `text` through the embedded agent's provider: one
+ * read-only task on the agent service, polled until it settles. Aborting
+ * cancels the task. Resolves to the revised text; rejects with a
+ * `ProofreadFailure`, or with the signal's reason once aborted.
+ */
+export async function proofreadWithAgent(request: {
+  projectRoot: string;
+  path: string;
+  text: string;
+  mode: ProofreadMode;
+  /** The interface language, in English words, for the agent's notes. */
+  language?: string;
+  signal: AbortSignal;
+}): Promise<ProofreadResult> {
+  const { projectRoot, signal } = request;
+  const prompt = proofreadPrompt(request.text, request.path, request.mode, request.language);
+  const { text: reply, model } = await runAgentTextTask({ projectRoot, prompt, signal });
+  const proofread = parseProofreadReply(reply, request.text);
+  if (proofread === null) throw new ProofreadFailure("unreadable");
+  const reasons = parseProofreadReasons(reply);
+  return { text: proofread, ...(reasons.length ? { reasons } : {}), ...(model ? { model } : {}) };
 }

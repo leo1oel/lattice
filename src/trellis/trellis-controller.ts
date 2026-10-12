@@ -642,7 +642,8 @@ export class TrellisController {
 
   /**
    * Where a closed panel comes back. Project and the Agent share a panel,
-   * Papers sits below them, the PDF right of the documents, and tools join
+   * Papers sits below them, the PDF right of the documents, Annotations with
+   * the PDF (else right of the documents they annotate), and other tools join
    * the Project/Agent panel as tabs; with those gone, beside the documents.
    */
   private homeOf(kind: TrellisSingleton): Placement {
@@ -667,6 +668,7 @@ export class TrellisController {
       case "agent": return into("project") ?? near("papers", "top", 0.62) ?? besideDocuments("left", 0.3);
       case "papers": return near("project", "bottom", 0.38) ?? near("agent", "bottom", 0.38) ?? besideDocuments("left", 0.25);
       case "pdf": return besideDocuments("right", 0.42);
+      case "comments": return into("pdf") ?? besideDocuments("right", 0.36);
       default: return into("agent") ?? into("project") ?? besideDocuments("right", 0.32);
     }
   }
@@ -829,6 +831,14 @@ export class TrellisController {
     const anchor = views.some((view) => view.panelId === this.pointerPanel && view.placement !== "hidden")
       ? this.pointerPanel : this.documentPanel();
     const existing = views.find((view) => view.type === kind);
+    // Annotations stand beside the document they annotate, never in its place
+    // as a tab of its panel: with the PDF, else right of the documents. Once
+    // placed, they stay where the writer moved them.
+    if (kind === "comments") {
+      if (existing) ws.focus(existing.id);
+      else ws.open(kind, { id: kind, placement: this.homeOf(kind) });
+      return;
+    }
     if (existing) {
       // Repeated clicks follow the same placement rule, preserving the tool's
       // singleton state instead of silently focusing a distant old location.

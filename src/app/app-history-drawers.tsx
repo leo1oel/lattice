@@ -48,7 +48,7 @@ async function afterConfirming(question: string, change: () => Promise<void>) {
 export function AppHistoryDrawers({ tools, synara: {
   postMessage, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
 }, project, activeFile, ...props }: {
-  tools: Pick<ToolDrawers, "isOpen" | "close" | "loading" | "gitView" | "turnReview" | "showGitView">;
+  tools: Pick<ToolDrawers, "isOpen" | "close" | "loading" | "gitView" | "turnReview" | "historyEntry" | "showGitView">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "postMessage" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
   project: ProjectSnapshot;
   activeFile: string;
@@ -95,6 +95,7 @@ export function AppHistoryDrawers({ tools, synara: {
       {tools.isOpen.history && (
         <HistoryDrawer
           history={props.projectHistory}
+          focusEntry={tools.historyEntry}
           onClose={() => tools.close("history")}
           onVersionsChanged={reloadAfterRestore}
           onRevert={(item) => {

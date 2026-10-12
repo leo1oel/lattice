@@ -1000,11 +1000,11 @@ describe("papers", () => {
     await loadVisualMarkdownEditorModule();
     renderApp({
       ...projectCommands(markdownSnapshot(), "## Selected context\n\nUnselected paragraph"),
-      list_editor_comments: () => ["notes.md", "other.tex"].map((path) => ({
+      list_annotations: () => ({ rounds: [], annotations: ["notes.md", "other.tex"].map((path) => ({
         id: path, path, from: 3, to: 19, quote: "Selected context", prefix: "## ", suffix: "",
         body: "Explain the evidence", authorId: "reviewer", authorName: "Reviewer",
         resolved: false, replies: [], createdAt: "2026-09-18T00:00:00Z", updatedAt: "2026-09-18T00:00:00Z",
-      })),
+      })) }),
     });
     const { frame, postMessage } = await openAgentFrame({ ready: true });
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });

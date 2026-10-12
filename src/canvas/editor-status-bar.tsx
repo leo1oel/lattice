@@ -66,15 +66,15 @@ export function EditorStatusBar(props: {
       <button
         type="button"
         className={`status-todos status-comments${openComments ? " has-todos" : ""}`}
-        title={t`Editor comments`}
+        title={t`Annotations`}
         onClick={props.onOpenComments}
       >
         <MessageSquareText size={12} />
         {!openComments
-          ? t`Comments`
+          ? t`Annotations`
           : openComments === 1
-            ? t({ message: `${{ count: openComments }} comment` })
-            : t({ message: `${{ count: openComments }} comments` })}
+            ? t({ message: `${{ count: openComments }} annotation` })
+            : t({ message: `${{ count: openComments }} annotations` })}
       </button>
       <button
         type="button"

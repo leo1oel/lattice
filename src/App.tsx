@@ -22,6 +22,8 @@ import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
+import { useAnnotations } from "./app/use-annotations";
+import type { AnnotationToolHost } from "./agent/agent-annotations";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -289,6 +291,10 @@ function App() {
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
   const agentCommentsOptionsRef = useRef<(() => BuildAgentCommentsOptions | null) | null>(null);
+  /** The conversation's annotation tools, once the annotations below exist; null without a project. */
+  const annotationToolsRef = useRef<AnnotationToolHost | null>(null);
+  /** Stops the agent's revisions in flight; set once the annotations below exist. */
+  const resetAnnotationRoundsRef = useRef<() => void>(() => {});
   const flushWholeFilesBeforeProjectTransitionRef = useRef<() => Promise<void>>(async () => {});
   const openOverleafSettingsRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -427,6 +433,7 @@ function App() {
         flush();
       },
       agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
+      annotationTools: () => annotationToolsRef.current,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
       onHistorySnapshot: (snapshot) => agentCheckpoints.handleSnapshot(snapshot),
       onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
@@ -697,6 +704,7 @@ function App() {
       endGuidedTour();
       resetAgentSelection();
       resetEditorComments();
+      resetAnnotationRoundsRef.current();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -741,6 +749,14 @@ function App() {
     commentsOpen: editorComments.panelOpen || overleaf.overleafCollabOpen,
     refreshTodos, refreshWordCount,
   });
+  const annotations = useAnnotations({
+    comments: editorComments, projectRootRef, activeFileRef, sourceRef, openFile, citations,
+    openTool: tools.open, overleafLinked: overleafLink !== null,
+  });
+  useLayoutEffect(() => {
+    annotationToolsRef.current = project ? annotations.rounds.toolHost : null;
+    resetAnnotationRoundsRef.current = annotations.rounds.reset;
+  }, [annotations.rounds.reset, annotations.rounds.toolHost, project]);
   const { clearStage: clearImportStage } = referenceImport;
   const { openForMissingPaperTools } = texSetup;
 
@@ -1400,6 +1416,12 @@ function App() {
       id: "checklist", when: inProject, label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: "edit",
       run: () => tools.open("checklist"),
     },
+    { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
+    {
+      id: "annotations-revise", when: inProject && annotations.panel.revisable > 0, label: t`Revise from annotations`,
+      detail: annotations.panel.revisable === 1 ? t`1 annotation` : t`${annotations.panel.revisable} annotations`, group: "edit",
+      run: annotations.panel.onRevise,
+    },
     { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: "edit", run: () => void tree.pasteClipboardImage() },
     { id: "format", when: latexSource, label: t`Format document`, detail: "latexindent", group: "edit", run: formatFocusedDocument },
     // The Project panel's + menu, which the tree answers with an inline field.
@@ -1777,6 +1799,7 @@ function App() {
       commentAuthorName={authorName.trim() || "Anonymous"}
       commentAuthorId={editorCommentAuthorId}
       onCreateEditorComment={editorComments.create}
+      annotations={annotations.canvas}
       onOpenEditorComments={() => tools.open("comments")}
       onResolveEditorComment={editorComments.toggleResolved}
       onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
@@ -2010,6 +2033,13 @@ function App() {
 
       <AppEditorPanels
         comments={editorComments}
+        annotations={annotations}
+        reloadAfterRestore={async () => {
+          await refreshProject();
+          if (activeFile) await loadFile(activeFile);
+          await refreshHistory();
+        }}
+        saveBeforeRestore={save}
         renderCommentsSurface={overleafLink ? (localComments) => (
           <AppOverleafCollabDrawer
             key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}
@@ -2031,6 +2061,7 @@ function App() {
         ) : undefined}
         key={project.root}
         activeFile={activeFile}
+        activeSource={settledCanvasSource}
         openTabs={documents.tabs}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}

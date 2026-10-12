@@ -187,6 +187,11 @@ function baseProps(): CanvasProps {
       switchState: { subscribe: () => () => {}, switching: () => false },
     },
     openPaths: [],
+    annotations: {
+      local: [], proposals: [], running: new Set(), review: null, canRevise: true, canAnnotatePdf: true, pdfMarks: [],
+      onRevise: vi.fn(), onOpen: vi.fn(), onOpenById: vi.fn(), onAccepted: vi.fn(), onRejected: vi.fn(), onRetry: vi.fn(),
+      onNavigate: vi.fn(), onCloseReview: vi.fn(), mapPdfSelection: vi.fn(),
+    },
   };
 }
 
@@ -227,8 +232,8 @@ async function composeCommentOnBold(bounds: DOMRect, coords: () => { left: numbe
     view.focus();
     view.dispatch({ selection: { anchor: 6, head: 10 } });
   });
-  fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-  return { view, composer: await screen.findByRole("dialog", { name: "Add comment" }) };
+  fireEvent.click(await screen.findByRole("button", { name: "Annotate" }));
+  return { view, composer: await screen.findByRole("dialog", { name: "Annotate" }) };
 }
 
 beforeEach(() => {
@@ -418,7 +423,7 @@ describe("DocumentCanvas / mode", () => {
     fireEvent.scroll(view.scrollDOM);
     await waitFor(() => expect(composer).toBeVisible());
     expect(within(composer).getByRole("textbox")).toHaveValue("Keep this draft");
-    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    fireEvent.click(within(composer).getByRole("button", { name: /^Save(?! and)/ }));
     expect(props.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ quote: "bold", body: "Keep this draft", from: 6, to: 10 }));
   });
 

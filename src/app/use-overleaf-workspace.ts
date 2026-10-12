@@ -48,7 +48,7 @@ export function projectOverleafEditorComments(
     if (!anchor || !path) return [];
     const [first, ...rest] = thread.messages;
     return [{
-      id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`, path,
+      id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`, number: 0, path,
       from: anchor.position, to: anchor.position + anchor.quote.length, quote: anchor.quote, prefix: "", suffix: "",
       body: first?.content ?? "", authorId: first?.authorEmail ?? "overleaf",
       // eslint-disable-next-line lingui/no-unlocalized-strings -- a name tagged with the product, the same in every locale

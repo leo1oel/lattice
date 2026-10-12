@@ -36,12 +36,12 @@ describe("EditorStatusBar", () => {
   afterEach(cleanup);
 
   it.each([
-    [[], 0, "Comments", "TODOs"],
-    [[comment(), comment(true)], 1, "1 comment", "1 TODO"],
-    [[comment(), comment()], 3, "2 comments", "3 TODOs"],
+    [[], 0, "Annotations", "TODOs"],
+    [[comment(), comment(true)], 1, "1 annotation", "1 TODO"],
+    [[comment(), comment()], 3, "2 annotations", "3 TODOs"],
   ])("counts open comments and TODOs in words that agree with the number", (comments, todoCount, commentLabel, todoLabel) => {
     renderStatus({ comments, todoCount });
-    expect(screen.getByTitle("Editor comments")).toHaveTextContent(new RegExp(`^${commentLabel}$`));
+    expect(screen.getByTitle("Annotations")).toHaveTextContent(new RegExp(`^${commentLabel}$`));
     expect(screen.getByTitle("Manuscript TODOs")).toHaveTextContent(new RegExp(`^${todoLabel}$`));
   });
 

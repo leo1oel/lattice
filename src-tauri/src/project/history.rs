@@ -40,6 +40,12 @@ impl HistoryContext {
         Self { actor: "user", kind, source, thread_id: None, checkpoint_ref: None, undo_of: None }
     }
 
+    /// A settled annotation round: the agent proposed the changes, the
+    /// writer accepted each one.
+    pub(super) fn annotations() -> Self {
+        Self { actor: "agent", ..Self::user("annotation-round", "annotations") }
+    }
+
     fn citation() -> Self {
         Self { actor: "citation", ..Self::user("citation", "citation") }
     }
@@ -115,6 +121,14 @@ pub fn apply_transaction(
         HistoryContext::user("project", "project")
     };
     commit_transaction_changes(root, label, changes_from_disk(root, unchecked(edits))?, context)
+}
+
+/// Put files back to how a revision round left them, as one restore entry.
+pub fn apply_annotation_restore(
+    root: &Path, label: &str, edits: Vec<(String, String)>,
+) -> Result<Option<TransactionRecord>, String> {
+    let changes = changes_from_disk(root, unchecked(edits))?;
+    commit_transaction_changes(root, label, changes, HistoryContext::user("restore", "annotations"))
 }
 
 pub fn apply_citation_transaction(

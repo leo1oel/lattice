@@ -27,10 +27,10 @@ describe("LaTeX selection toolbar", () => {
   it("exposes formatting, heading-level, and comment actions for the primary editor", async () => {
     const { onAction } = renderToolbar();
     fireEvent.click(button("Bold"));
-    fireEvent.click(button("Comment"));
+    fireEvent.click(button("Annotate"));
     expect(onAction).toHaveBeenNthCalledWith(1, "bold");
     expect(onAction).toHaveBeenNthCalledWith(2, "comment");
-    expect(button("Comment").closest(".latex-selection-tool")).toHaveClass("separated");
+    expect(button("Annotate").closest(".latex-selection-tool")).toHaveClass("separated");
     expect(button("Highlight color")).toBeInTheDocument();
     fireEvent.click(button("Heading level"));
     fireEvent.click(await screen.findByRole("button", { name: /Subsection/ }));
@@ -72,15 +72,15 @@ describe("LaTeX selection toolbar", () => {
 
   it("omits comments where the secondary editor cannot attach them", () => {
     renderToolbar({ position: { ...position, below: true }, canComment: false });
-    expect(screen.queryByRole("button", { name: "Comment" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Annotate" })).not.toBeInTheDocument();
     expect(screen.getByRole("toolbar")).toHaveClass("below");
   });
 
   it("offers only comments for Markdown selections", () => {
     renderToolbar({ commentOnly: true });
     expect(screen.getByRole("toolbar", { name: "Comment on selected Markdown" })).toBeInTheDocument();
-    expect(button("Comment")).toBeInTheDocument();
-    expect(button("Comment").closest(".latex-selection-tool")).not.toHaveClass("separated");
+    expect(button("Annotate")).toBeInTheDocument();
+    expect(button("Annotate").closest(".latex-selection-tool")).not.toHaveClass("separated");
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 

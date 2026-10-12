@@ -321,13 +321,58 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   padding-top: 0;
 }
 .pdf-mark-item.resolved { opacity: .72; }
-/* Unresolved editor comments — per-author colors come from inline styles. */
+/* Unresolved editor comments — an Overleaf thread's per-author colours come
+   from inline styles; a local annotation is an amber highlighter stroke, blue
+   while the agent's proposal waits and violet while its question does. */
 .source-editor .cm-editor-comment {
   border-radius: 2px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   cursor: help;
 }
+.source-editor .cm-annotation {
+  --annotation-mark-ink: var(--annotation-ink);
+  background: var(--annotation-highlight);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--annotation-mark-ink) 70%, transparent);
+}
+.source-editor .cm-annotation[data-annotation-status="proposed"] { --annotation-mark-ink: var(--annotation-proposed-ink); background: color-mix(in srgb, var(--annotation-proposed-ink) 10%, transparent); }
+.source-editor .cm-annotation[data-annotation-status="asked"] { --annotation-mark-ink: var(--annotation-asked-ink); background: color-mix(in srgb, var(--annotation-asked-ink) 10%, transparent); }
+/* Annotation pins (editor/comments/editor-comments.ts): a zero-width gutter
+   beside the text whose pins lie over the fold column, quiet until the pointer
+   is over the gutter, so a numbered amber mark reads right after the line number. */
+.source-editor .cm-annotation-gutter { width: 0; min-width: 0; overflow: visible; }
+.source-editor .cm-editor[data-annotation-digits="3"] .cm-annotation-gutter { width: 11px; }
+.source-editor .cm-editor[data-annotation-digits="4"] .cm-annotation-gutter { width: 18px; }
+.source-editor .cm-editor[data-annotation-digits="5"] .cm-annotation-gutter { width: 25px; }
+.source-editor .cm-annotation-gutter .cm-gutterElement { position: relative; width: 0; min-width: 0; padding: 0; overflow: visible; }
+.source-editor .cm-annotation-pin-row { position: absolute; z-index: 1; top: 0; right: 0; display: grid; place-items: center; height: 1lh; }
+.source-editor .cm-annotation-pin {
+  --annotation-pin-ink: var(--annotation-ink);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: var(--gap-tight);
+  border-radius: var(--radius-pill);
+  background: var(--annotation-pin-ink);
+  color: var(--annotation-pin-text);
+  font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.source-editor .cm-annotation-pin[data-annotation-status="proposed"] { --annotation-pin-ink: var(--annotation-proposed-ink); }
+.source-editor .cm-annotation-pin[data-annotation-status="asked"] { --annotation-pin-ink: var(--annotation-asked-ink); }
+/* More than one note starts on the line: a second ring says so. */
+.source-editor .cm-annotation-pin[data-more] { box-shadow: 0 0 0 2px var(--editor-gutter), 0 0 0 3px var(--annotation-pin-ink); }
+/* The proposal reviewed under its passage (canvas/annotation-review.tsx). */
+.source-editor .cm-annotation-review-source {
+  background: color-mix(in srgb, var(--annotation-proposed-ink) 12%, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.cm-annotation-review-block { padding: var(--space-3) var(--space-2) var(--space-4); cursor: default; }
 /* Hover cards shown when the pointer rests on a suggestion or a comment mark.
    Both draw their own card over CodeMirror's see-through tooltip, so its chrome
    is stripped; the suggestion card's minimum width keeps Accept and Reject

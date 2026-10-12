@@ -12,8 +12,8 @@ describe("application localization", () => {
     expect(i18n._(msg`Providers`)).toBe("模型");
     expect(i18n._(msg`Skills`)).toBe("技能");
     expect(i18n._(msg`Starting Agent`)).toBe("正在启动 AI 助手");
-    expect(i18n._(msg`Editor comments`)).toBe("批注");
-    expect(i18n._(msg`Include resolved`)).toBe("含已解决");
+    expect(i18n._(msg`Annotations`)).toBe("批注");
+    expect(i18n._(msg`Revision rounds`)).toBe("修改轮次");
   });
 
   it("activates the instance that standalone core macros resolve through", async () => {

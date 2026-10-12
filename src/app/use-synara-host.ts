@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ProjectSnapshot } from "../app-types";
 import { executeAgentBibliographyToolRequest, parseAgentBibliographyToolRequest } from "../agent/agent-bibliography-tools";
 import { executeAgentCanvasToolRequest, parseAgentCanvasToolRequest } from "../agent/agent-canvas-tools";
+import type { AnnotationToolHost } from "../agent/agent-annotations";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
   LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, type AgentHostContextSnapshot,
@@ -38,6 +39,9 @@ const SYNARA_MINIMUM_WIDTH_CEILING = 720;
 function loadAgentEditorComments() {
   return import("../agent/agent-editor-comments");
 }
+function loadAgentAnnotations() {
+  return import("../agent/agent-annotations");
+}
 
 /** What the embedded agent can reach in the host; read at message time. */
 type SynaraHostBridge = {
@@ -49,6 +53,8 @@ type SynaraHostBridge = {
   clearSelection: () => void;
   flushVisualMarkdown: () => void;
   agentCommentsOptions: () => BuildAgentCommentsOptions | null;
+  /** Where the conversation's annotation tools record a proposal or question; null without a project. */
+  annotationTools: () => AnnotationToolHost | null;
   projectDocumentCreator: () => ((request: AgentProjectDocumentToolRequest) => Promise<string>) | null;
   onHistorySnapshot: (snapshot: NonNullable<ReturnType<typeof parseAgentProjectHistorySnapshot>>) => void;
   /** The narrowest the agent frame can be with its composer intact, in CSS px. */
@@ -271,6 +277,17 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
               if (!options) throw new Error("editor_comments_host_unavailable");
               return tools.readAgentCommentsSnapshot({ ...options, ...commentsRequest.args });
             },
+          ));
+        });
+      },
+      "synara:annotations-tool-request": (data, host) => {
+        void loadAgentAnnotations().then(async (tools) => {
+          const request = tools.parseAgentAnnotationsToolRequest(data);
+          if (!request) return;
+          await postMessage(await tools.executeAgentAnnotationsToolRequest(
+            request,
+            () => projectRootRef.current,
+            host.bridge.annotationTools(),
           ));
         });
       },

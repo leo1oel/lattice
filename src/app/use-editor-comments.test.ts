@@ -22,7 +22,7 @@ const comment = (id: string): EditorComment => ({
 
 /** The comment list over one project, not linked to Overleaf, holding `initial` once loaded. */
 async function renderComments(initial: EditorComment[]) {
-  vi.mocked(invoke).mockImplementation(async (command) => (command === "list_editor_comments" ? initial : undefined));
+  vi.mocked(invoke).mockImplementation(async (command) => (command === "list_annotations" ? { annotations: initial, rounds: [] } : undefined));
   const project = { root: "/project" } as unknown as ProjectSnapshot;
   const projectRootRef = { current: "/project" as string | null };
   const overleaf = {
@@ -47,8 +47,8 @@ async function renderComments(initial: EditorComment[]) {
   return { view, projectRootRef, activeFileRef, openProjectFile };
 }
 
-const saved = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "save_editor_comments")
-  .map(([, args]) => (args as { comments: EditorComment[] }).comments.map((item) => item.id));
+const saved = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "save_annotations")
+  .map(([, args]) => (args as { annotations: EditorComment[] }).annotations.map((item) => item.id));
 const ids = (comments: EditorComment[]) => comments.map((item) => item.id);
 
 /** The Undo on the toast the last delete raised. */

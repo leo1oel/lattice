@@ -4,13 +4,25 @@ import { invoke } from "@tauri-apps/api/core";
 import type { OpenProjectFile, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
-import { createEditorCommentReply, type EditorComment } from "../editor/comments/editor-comment-data";
-import { useLatestRef } from "../hooks/use-latest-ref";
+import {
+  createEditorCommentReply,
+  nextAnnotationNumber,
+  type AnnotationRound,
+  type EditorComment,
+} from "../editor/comments/editor-comment-data";
 import { showError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
 
 type Ref<T> = { readonly current: T };
+
+/** The project's local annotations and the revision rounds that asked about them. */
+export type AnnotationsState = { annotations: EditorComment[]; rounds: AnnotationRound[] };
+
+const EMPTY: AnnotationsState = { annotations: [], rounds: [] };
+
+/** How many annotation saves this session has sent, which orders them (`save_annotations`). */
+const annotationSaves = { sent: 0 };
 
 /** An Overleaf thread's id, when this comment is one of theirs. */
 export function overleafThreadOf(commentId: string): string | null {
@@ -18,10 +30,11 @@ export function overleafThreadOf(commentId: string): string | null {
 }
 
 /**
- * Comments anchored in the editor. This project's own live in
- * `.research/editor-comments.json`; a document edited live with Overleaf uses
- * Overleaf's comment threads instead, so collaborators in the browser see
- * them. Both kinds show together.
+ * Notes anchored in the editor. This project's own are annotations, kept in
+ * `.research/annotations.json` with the revision rounds that asked the agent
+ * about them (see `use-annotation-rounds.ts`); a document edited live with
+ * Overleaf uses Overleaf's comment threads instead, so collaborators in the
+ * browser see them. Both kinds show together.
  */
 export function useEditorComments({
   project, projectRootRef, activeFileRef, openProjectFile, overleaf, author, openSources, agentOptionsRef,
@@ -37,9 +50,14 @@ export function useEditorComments({
   agentOptionsRef: { current: (() => BuildAgentCommentsOptions | null) | null };
 }) {
   const { t } = useLingui();
-  const [comments, setComments] = useState<EditorComment[]>([]);
-  /** Read when the agent asks, where the state captured at render time may already be stale. */
-  const commentsRef = useLatestRef(comments);
+  const [state, setState] = useState<AnnotationsState>(EMPTY);
+  /**
+   * The state as of the last change, ahead of React's render: a round's
+   * answers land one after another, and each must build on the one before.
+   */
+  const stateRef = useRef<AnnotationsState>(EMPTY);
+  const loadGenerationRef = useRef(0);
+  const comments = state.annotations;
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panelFocus, setPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);
@@ -51,14 +69,31 @@ export function useEditorComments({
     setOverleafCollabOpen, setOverleafCollabTab,
   } = overleaf;
 
-  const persist = useCallback(async (next: EditorComment[]) => {
-    setComments(next);
-    try {
-      await invoke("save_editor_comments", { comments: next });
-    } catch (reason) {
-      showError(toMessage(reason));
-    }
-  }, []);
+  /**
+   * Change the annotations and rounds, and save them. Each save names the
+   * project it belongs to, which the backend refuses once another is open,
+   * and its place in this session's order, so a save that finishes after a
+   * newer one is dropped there rather than writing older state over it.
+   */
+  const commit = useCallback((change: (current: AnnotationsState) => AnnotationsState) => {
+    const projectRoot = projectRootRef.current;
+    const current = stateRef.current;
+    const next = change(current);
+    if (!projectRoot || next === current) return;
+    stateRef.current = next;
+    setState(next);
+    annotationSaves.sent += 1;
+    const save = annotationSaves.sent;
+    void invoke<void>("save_annotations", { projectRoot, annotations: next.annotations, rounds: next.rounds, save })
+      .catch((reason: unknown) => showError(toMessage(reason)));
+  }, [projectRootRef]);
+
+  const setAnnotations = useCallback((change: (annotations: EditorComment[]) => EditorComment[]) => {
+    commit((current) => {
+      const annotations = change(current.annotations);
+      return annotations === current.annotations ? current : { ...current, annotations };
+    });
+  }, [commit]);
 
   /**
    * Delete a comment and its replies at once, with an Undo toast rather than a
@@ -67,32 +102,32 @@ export function useEditorComments({
    * survives, and it does nothing once another project is open.
    */
   const deleteComment = useCallback((id: string) => {
-    const before = commentsRef.current;
+    const before = stateRef.current.annotations;
     const index = before.findIndex((comment) => comment.id === id);
     if (index < 0) return;
     const removed = before[index];
     const root = projectRootRef.current;
-    void persist(before.filter((comment) => comment.id !== id));
+    setAnnotations((current) => current.filter((comment) => comment.id !== id));
     setActiveId((current) => (current === id ? null : current));
-    notifyInfo(t`Comments`, t`Comment deleted`, {
+    notifyInfo(t`Annotations`, t`Annotation deleted`, {
       dedupeKey: `editor-comment-deleted:${id}`,
       primaryAction: {
         label: t`Undo`,
         onClick: () => {
-          const current = commentsRef.current;
-          if (projectRootRef.current !== root || current.some((comment) => comment.id === id)) return;
-          void persist([...current.slice(0, index), removed, ...current.slice(index)]);
+          if (projectRootRef.current !== root) return;
+          setAnnotations((current) => current.some((comment) => comment.id === id)
+            ? current
+            : [...current.slice(0, index), removed, ...current.slice(index)]);
         },
       },
     });
-  }, [commentsRef, persist, projectRootRef, t]);
-
+  }, [projectRootRef, setAnnotations, t]);
 
   const update = useCallback((id: string, change: (comment: EditorComment) => Partial<EditorComment>) => {
-    void persist(comments.map((item) => (
+    setAnnotations((current) => current.map((item) => (
       item.id === id ? { ...item, ...change(item), updatedAt: new Date().toISOString() } : item
     )));
-  }, [comments, persist]);
+  }, [setAnnotations]);
 
   const toggleResolved = useCallback((id: string) => {
     const threadId = overleafThreadOf(id);
@@ -115,22 +150,29 @@ export function useEditorComments({
     if (created) update(commentId, (item) => ({ replies: [...item.replies, created] }));
   }, [author.id, author.name, overleafCommentsRef, update]);
 
-  /** Add a comment the editor composed; see the module note for which kind it becomes. */
-  const create = useCallback((comment: EditorComment) => {
+  /**
+   * Add a note the editor or the PDF composed; see the module note for which
+   * kind it becomes. A local annotation takes the next pin number. Resolves
+   * to the annotation as saved, or null when it became an Overleaf thread or
+   * could not be made.
+   */
+  const create = useCallback((comment: EditorComment): EditorComment | null => {
     const docId = [...overleafDocPaths.entries()].find(([, path]) => path === comment.path)?.[0] ?? null;
     if (!overleafLink || !docId || !project) {
-      void persist([...comments, comment]);
-      setActiveId(comment.id);
-      return;
+      const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
+      setAnnotations((current) => [...current, annotation]);
+      setActiveId(annotation.id);
+      return annotation;
     }
     if (!overleafRealtime.liveFile || overleafRealtime.docId !== docId) {
       showError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
-      return;
+      return null;
     }
     void overleafComments
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
       .catch((reason) => showError(toMessage(reason)));
-  }, [comments, overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, persist, project, t]);
+    return null;
+  }, [overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, setAnnotations, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);
@@ -151,33 +193,42 @@ export function useEditorComments({
   }, [setOverleafCollabOpen]);
 
   /**
-   * Close the list and open the comment's file, then ask the editor to focus
-   * the comment, unless another comment was opened or the file changed meanwhile.
+   * Open the comment's file and ask the editor to focus the comment, unless
+   * another comment was opened or the file changed meanwhile. The Annotations
+   * panel stays beside the editor; Overleaf's drawer, which stands in the
+   * document's place, closes.
    */
   const openComment = useCallback((comment: EditorComment) => {
     const generation = ++openGenerationRef.current;
     setActiveId(comment.id);
-    closePanel();
+    if (overleafLink) closePanel();
     // The focus below places the editor; a remembered position must not land after it.
     void openProjectFile(comment.path, { restoreView: false }).then(() => {
       if (openGenerationRef.current !== generation || activeFileRef.current !== comment.path) return;
       setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
     });
-  }, [activeFileRef, closePanel, openProjectFile]);
+  }, [activeFileRef, closePanel, openProjectFile, overleafLink]);
   /** The editor focused the comment `nonce` asked for. */
   const focusHandled = useCallback((nonce: string) => {
     setFocusRequest((current) => (current?.nonce === nonce ? null : current));
   }, []);
 
-  /** Drop the outgoing project's comments; `load` reads the incoming one's. */
+  /** Drop the outgoing project's annotations; `load` reads the incoming one's. */
   const reset = useCallback(() => {
-    setComments([]);
+    loadGenerationRef.current += 1;
+    stateRef.current = EMPTY;
+    setState(EMPTY);
     setPanelOpen(false);
     setActiveId(null);
     setPanelFocus(null);
   }, []);
   const load = useCallback(async () => {
-    setComments(await invoke<EditorComment[]>("list_editor_comments").catch(() => []));
+    const generation = ++loadGenerationRef.current;
+    const loaded = await invoke<AnnotationsState>("list_annotations").catch(() => EMPTY);
+    if (loadGenerationRef.current !== generation) return;
+    const next = { annotations: loaded?.annotations ?? [], rounds: loaded?.rounds ?? [] };
+    stateRef.current = next;
+    setState(next);
   }, []);
 
   /** Both kinds of comment, as the editor and the panel want them. */
@@ -188,7 +239,7 @@ export function useEditorComments({
       if (!project || projectRootRef.current !== project.root) return null;
       return {
         workspaceRoot: project.root,
-        localComments: commentsRef.current,
+        localComments: stateRef.current.annotations,
         overleafThreads: overleafComments.threads,
         overleafAnchors: [...overleafComments.anchors.values()],
         docPaths: overleafDocPaths,
@@ -197,12 +248,12 @@ export function useEditorComments({
       };
     };
     return () => { agentOptionsRef.current = null; };
-  }, [agentOptionsRef, commentsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
+  }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, all, update, create, toggleResolved, reply, reset, load, openComment, deleteComment,
-    panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
-    activeId, focusRequest, focusHandled,
+    comments, rounds: state.rounds, stateRef, commit, all, update, create, toggleResolved, reply, reset, load, openComment,
+    deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
+    activeId, setActiveId, focusRequest, focusHandled,
   };
 }
 

@@ -76,7 +76,8 @@
 .texlab-hover-card,
 .citation-hover-card,
 .reference-hover-card,
-.proofread-card {
+.proofread-card,
+.annotation-review-card {
   overflow-wrap: break-word;
 }
 
@@ -92,7 +93,8 @@
 .citation-hover-card,
 .source-editor .cm-tooltip.citation-hover-card,
 .reference-hover-card,
-.proofread-card {
+.proofread-card,
+.annotation-review-card {
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--surface-elevated) 97%, transparent);
   box-shadow: var(--elevation-popover);
