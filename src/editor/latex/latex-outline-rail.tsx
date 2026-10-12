@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { EditorView } from "@codemirror/view";
 import { frameCoalescer } from "../../app/effect-helpers";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
-import { flattenOutline, outlineNumbers, type OutlineNode } from "./latex-outline";
+import { flattenOutline, outlineNumbers, parseLatexOutline, type OutlineNode } from "./latex-outline";
 
 /** More marks than this and the rail keeps the upper levels; the outline it opens lists every one. */
 const MAX_MARKS = 32;
@@ -30,7 +30,16 @@ type Outline = { entries: RailEntry[]; marks: RailEntry[]; markOf: number[] };
 /** The PDF pages last read, by outline and build. */
 type PageCache = { key: string; pages: Array<number | null> };
 /** What the rail shows as current, kept outside React state: scrolling must not render it. */
-type Live = { outline: Outline | null; path: string; line: number; pinned: number; shown: number; fits: boolean };
+type Live = {
+  outline: Outline | null; path: string; line: number; pinned: number; shown: number; narrow: boolean;
+  /** The pending open or close of the outline. */
+  timer: number | null;
+};
+/**
+ * The pages last read. The outline mounts only while open, and one editor has
+ * one rail, so the cache outlives both here rather than in a hook.
+ */
+const pageCache: { last: PageCache | null } = { last: null };
 
 /**
  * The entry `line` of `path` reads in: the last of the file's own headings at
@@ -73,7 +82,21 @@ function showCurrent(state: Live, root: HTMLElement | null, force = false) {
   });
 }
 
-function railOutline(nodes: OutlineNode[]): Outline {
+/**
+ * The outline the rail shows: the manuscript's from any of its files, and for
+ * a .tex outside it (notes, a standalone figure) with headings of its own,
+ * those instead.
+ */
+function railOutline(path: string, manuscript: OutlineNode[], rootPath: string, source: string): Outline & { name: string } {
+  const name = (file: string) => file.split("/").at(-1) ?? file;
+  const own = path === rootPath || flattenOutline(manuscript).some((node) => node.path === path)
+    ? null
+    : parseLatexOutline(source, path);
+  const nodes = own?.length ? own : manuscript;
+  return { ...headingRail(nodes), name: name(own?.length ? path : rootPath || path) };
+}
+
+function headingRail(nodes: OutlineNode[]): Outline {
   const sections = flattenOutline(nodes).filter((node) => node.kind !== "input");
   if (!sections.length) return { entries: [], marks: [], markOf: [] };
   const numbers = outlineNumbers(nodes);
@@ -104,32 +127,33 @@ function railOutline(nodes: OutlineNode[]): Outline {
  * rows are keyed by position, as a heading's id moves with every edit above
  * it. The outline mounts only while open.
  */
-export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUrl, onSelect }: {
+export function LatexOutlineRail({ view, path, source, nodes, rootPath, label, pdfUrl, onSelect }: {
   view: EditorView;
-  /** The file in the editor. */
+  /** The file in the editor, and its text as of the last pause in typing. */
   path: string;
+  source: string;
+  /** The manuscript's outline, and its root document. */
   nodes: OutlineNode[];
+  rootPath: string;
   /** The rail's and the outline's accessible name. */
   label: string;
-  /** What the outline is of, for its header. */
-  documentName: string;
   /** The compiled PDF the pages are read from; null when there is none. */
   pdfUrl: string | null;
   onSelect: (path: string, line: number) => void;
 }) {
+  // Few hooks on purpose: the rail mounts with every LaTeX document, and
+  // renders with the canvas. What the DOM shows as current is kept outside
+  // React (see above), and so is whether the editor has room for it.
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const timerRef = useRef<number | null>(null);
-  // What the DOM shows as current, kept outside React (see above).
-  const live = useRef<Live>({ outline: null, path, line: 1, pinned: -1, shown: -2, fits: true });
+  const live = useRef<Live>({ outline: null, path, line: 1, pinned: -1, shown: -2, narrow: false, timer: null });
   const [open, setOpen] = useState(false);
-  const [pages, setPages] = useState<PageCache | null>(null);
-  const [fits, setFits] = useState(true);
-  const outline = useMemo(() => railOutline(nodes), [nodes]);
+  const outline = useMemo(() => railOutline(path, nodes, rootPath, source), [nodes, path, rootPath, source]);
 
   // Every render may have drawn new marks or rows: mark them again.
   useLayoutEffect(() => {
     live.current.outline = outline;
     live.current.path = path;
+    rootRef.current?.toggleAttribute("data-narrow", live.current.narrow);
     showCurrent(live.current, rootRef.current, true);
   });
 
@@ -147,10 +171,11 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
     };
     const [scheduleRead, cancelRead] = frameCoalescer(read);
     const resize = new ResizeObserver(() => {
-      const next = scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_EDITOR_WIDTH;
-      if (next !== state.fits) {
-        state.fits = next;
-        setFits(next);
+      const narrow = scroller.clientWidth > 0 && scroller.clientWidth < MIN_RAIL_EDITOR_WIDTH;
+      if (narrow !== state.narrow) {
+        state.narrow = narrow;
+        rootRef.current?.toggleAttribute("data-narrow", narrow);
+        if (narrow) setOpen(false);
       }
       scheduleRead();
     });
@@ -168,22 +193,25 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
       resize.disconnect();
       scroller.removeEventListener("scroll", scheduleRead);
       for (const type of RELEASES) pane.removeEventListener(type, release, true);
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      if (state.timer !== null) window.clearTimeout(state.timer);
     };
   }, [view]);
 
-  if (outline.marks.length < 2 || !fits) return null;
+  if (outline.marks.length < 2) return null;
 
+  const cancelTimer = () => {
+    if (live.current.timer !== null) window.clearTimeout(live.current.timer);
+    live.current.timer = null;
+  };
   const settle = (next: boolean, delay: number) => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
+    cancelTimer();
+    live.current.timer = window.setTimeout(() => {
+      live.current.timer = null;
       setOpen(next);
     }, delay);
   };
   const close = (refocus: boolean) => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = null;
+    cancelTimer();
     setOpen(false);
     if (refocus) rootRef.current?.querySelector<HTMLElement>(".latex-outline-rail-marks")?.focus();
   };
@@ -194,8 +222,7 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
   const openFromKeyboard = () => {
     if (open) focusCurrentRow();
     else {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      timerRef.current = null;
+      cancelTimer();
       setOpen(true);
       // The outline mounts in this commit; its rows are marked before the next frame.
       window.requestAnimationFrame(focusCurrentRow);
@@ -206,6 +233,7 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
     <div
       ref={rootRef}
       className="latex-outline-rail"
+      // The editor's width sets data-narrow (see the effect above).
       data-open={open ? "" : undefined}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") settle(true, open ? 0 : OPEN_DELAY_MS);
@@ -251,10 +279,8 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
           entries={outline.entries}
           path={path}
           label={label}
-          documentName={documentName}
+          documentName={outline.name}
           pdfUrl={pdfUrl}
-          pages={pages}
-          onPages={setPages}
           onEscape={() => close(true)}
           onChoose={(index) => {
             const { node } = outline.entries[index]!;
@@ -270,15 +296,12 @@ export function LatexOutlineRail({ view, path, nodes, label, documentName, pdfUr
 }
 
 /** The opened outline: numbers, titles and pages, one row per heading. */
-function OutlinePanel({ entries, path, label, documentName, pdfUrl, pages, onPages, onEscape, onChoose }: {
+function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, onChoose }: {
   entries: RailEntry[];
   path: string;
   label: string;
   documentName: string;
   pdfUrl: string | null;
-  /** The pages last read, kept by the rail while the outline is closed. */
-  pages: PageCache | null;
-  onPages: (pages: PageCache) => void;
   onEscape: () => void;
   onChoose: (index: number) => void;
 }) {
@@ -288,6 +311,7 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, pages, onPag
   const pageKey = useMemo(() => pdfUrl && entries.length
     ? `${pdfUrl}\n${entries.map(({ node }) => `${node.path}:${node.line}`).join("\n")}`
     : "", [entries, pdfUrl]);
+  const [pages, setPages] = useState(pageCache.last);
   const pagesCurrent = pages !== null && pages.key === pageKey;
   useEffect(() => {
     if (!pageKey || pagesCurrent) return;
@@ -296,12 +320,14 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, pages, onPag
     void invoke<Array<number | null>>("synctex_heading_pages", { headings })
       .then((answer) => Array.isArray(answer) ? answer : [], () => [])
       .then((answer) => {
-        if (!cancelled) onPages({ key: pageKey, pages: answer });
+        if (cancelled) return;
+        pageCache.last = { key: pageKey, pages: answer };
+        setPages(pageCache.last);
       });
     return () => {
       cancelled = true;
     };
-  }, [entries, onPages, pageKey, pagesCurrent]);
+  }, [entries, pageKey, pagesCurrent]);
 
   // Open on the current row. The list scrolls itself, never the editor pane
   // around it (as scrollIntoView would).

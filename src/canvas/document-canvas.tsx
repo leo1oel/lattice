@@ -44,7 +44,7 @@ import { clamp, type AppLocale, type Theme } from "../settings/app-settings";
 import { editorDiagnosticsForFile, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
-import { flattenOutline, parseLatexOutline, sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
+import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
@@ -757,18 +757,6 @@ export function DocumentCanvas(props: {
     () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, statusPosition.line, activeFile) : [],
     [activeFile, settledSource, statusPosition.line],
   );
-  // The outline rail shows the manuscript from any of its files, and a .tex
-  // outside it (notes, a standalone figure) with headings of its own shows
-  // those instead.
-  const outlineRootPath = props.outlineRootPath ?? "";
-  const railOutline = useMemo(() => {
-    if (!activeFile.endsWith(".tex")) return null;
-    const name = (path: string) => path.split("/").at(-1) ?? path;
-    const ofManuscript = { nodes: outlineNodes, name: name(outlineRootPath || activeFile) };
-    if (activeFile === outlineRootPath || flattenOutline(outlineNodes).some((node) => node.path === activeFile)) return ofManuscript;
-    const own = parseLatexOutline(settledSource, activeFile);
-    return own.length ? { nodes: own, name: name(activeFile) } : ofManuscript;
-  }, [activeFile, outlineNodes, outlineRootPath, settledSource]);
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
   /**
@@ -1386,7 +1374,7 @@ export function DocumentCanvas(props: {
   ) : null;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
   // The rail mounts with the editor's view: it reads the viewport from the start.
-  const railView = railOutline ? primaryScrollbarView?.deref() ?? null : null;
+  const railView = activeFile.endsWith(".tex") ? primaryScrollbarView?.deref() ?? null : null;
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
       <div className="source-main">
@@ -1438,13 +1426,14 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
-          {railOutline && railView && (
+          {railView && (
             <LatexOutlineRail
               view={railView}
               path={activeFile}
-              nodes={railOutline.nodes}
+              source={settledSource}
+              nodes={outlineNodes}
+              rootPath={props.outlineRootPath ?? ""}
               label={t`Outline`}
-              documentName={railOutline.name}
               pdfUrl={props.pdfUrl}
               onSelect={onOutlineNavigate}
             />

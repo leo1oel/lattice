@@ -1111,12 +1111,13 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
    rail's width (on the scroller, as focus mode pads it, so the gutter and
    the editor's layers keep measuring from its edge). */
 .source-editor { --outline-rail-clearance: calc(var(--space-16) + var(--space-2)); }
-.source-editor:has(> .latex-outline-rail) .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
-.focus-mode .trellis-editor-host .source-editor:has(> .latex-outline-rail) .cm-scroller {
+.source-editor:has(> .latex-outline-rail:not([data-narrow])) .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
+.focus-mode .trellis-editor-host .source-editor:has(> .latex-outline-rail:not([data-narrow])) .cm-scroller {
   padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--focus-mode-measure)) / 2));
 }
 .latex-outline-rail { position: absolute; z-index: var(--z-editor-popover); inset-block: var(--space-10) var(--space-6); inset-inline: var(--space-6) 10px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
 .latex-outline-rail-marks { display: grid; grid-auto-rows: minmax(var(--space-1), var(--space-4)); align-items: center; justify-items: end; width: var(--hit-area-min); min-height: 0; max-height: 100%; padding: var(--space-2) var(--space-3); overflow: hidden; border: 0; border-radius: var(--radius-compact); background: transparent; color: color-mix(in srgb, var(--text-secondary) 60%, transparent); pointer-events: auto; cursor: default; }
+.latex-outline-rail[data-narrow] { display: none; }
 .latex-outline-rail-marks:hover, .latex-outline-rail-marks:focus-visible, .latex-outline-rail[data-open] .latex-outline-rail-marks { color: var(--text-secondary); }
 .latex-outline-rail-mark { display: block; width: calc(var(--space-6) + var(--space-1)); height: var(--space-1); border-radius: var(--radius-pill); background: currentColor; }
 .latex-outline-rail-mark[data-depth="1"] { width: var(--space-4); }
