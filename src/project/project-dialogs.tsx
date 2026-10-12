@@ -67,11 +67,9 @@ export function Welcome(props: {
       <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
         <button className="icon-button" onClick={props.onSettings} title={t`Settings`}><Settings size={16} /></button>
       </div>
-      <div className="welcome-glow" />
       <WelcomeLattice />
       <div className="welcome-content">
         <div className="brand-mark"><LatticeMark size={34} motion="weave" /></div>
-        <p className="eyebrow">LATTICE</p>
         <h1>{t`Research, written with evidence`}</h1>
         <div className="welcome-actions">
           <MotionButton
@@ -95,19 +93,6 @@ export function Welcome(props: {
           >
             <Sparkles size={17} /> {t`Guided tutorial`}
           </MotionButton>
-        </div>
-        <div className="welcome-more">
-          {props.onOpenOverleaf && (
-            <button className="welcome-more-action" onClick={props.onOpenOverleaf}>
-              <Cloud size={15} /> {t`Open from Overleaf`}
-            </button>
-          )}
-          <button className="welcome-more-action" onClick={props.onImportZip}>
-            <FileArchive size={15} /> {t`Import ZIP`}
-          </button>
-          <button className="welcome-more-action" onClick={props.onInstallTex}>
-            <Wrench size={15} /> {t`Install LaTeX tools`}
-          </button>
         </div>
         {(unopenedName || recents.length > 0) && (
           <section className="welcome-recents" aria-label={t`Recent projects`}>
@@ -142,6 +127,19 @@ export function Welcome(props: {
             )}
           </section>
         )}
+        <div className="welcome-more">
+          {props.onOpenOverleaf && (
+            <button className="welcome-more-action" onClick={props.onOpenOverleaf}>
+              <Cloud size={15} /> {t`Open from Overleaf`}
+            </button>
+          )}
+          <button className="welcome-more-action" onClick={props.onImportZip}>
+            <FileArchive size={15} /> {t`Import ZIP`}
+          </button>
+          <button className="welcome-more-action" onClick={props.onInstallTex}>
+            <Wrench size={15} /> {t`Install LaTeX tools`}
+          </button>
+        </div>
         {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
       </div>
       {props.createOpen && (

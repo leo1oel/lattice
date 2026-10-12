@@ -16,7 +16,7 @@ not to force every surface into one density.
   fonts) at regular weight. Chinese falls through to Songti SC, the macOS
   system serif, so a title stays a serif in either language. It is used for
   titles only: the welcome title, dialog and Settings page titles, the guided
-  tour's card and the error page.
+  tour's card, a workspace with every panel closed and the error page.
 - The product accent is neutral by default (Graphite). Settings → Appearance
   offers six accent presets and a custom color; each reads at 4.6:1 as text on
   every surface of every tint, and a custom pick is fitted to that floor.
@@ -254,7 +254,7 @@ role's leading (or on `normal`) is a missing role, not a choice.
 | Role | Chrome | Settings | Weight | Family | Typical use |
 | --- | --- | --- | --- | --- | --- |
 | Display | 30 / 36 | 30 / 36 | 400 | serif | the one title on a page that has only one: the welcome screen, a paper's title, the error page |
-| Title | 18 / 24 | 24 / 30 | 400 | serif | dialog and Settings page titles; the guided tour's card |
+| Title | 18 / 24 | 24 / 30 | 400 | serif | dialog and Settings page titles; the guided tour's card; a workspace with every panel closed |
 | Subtitle | 13 / 18 | 14 / 20 | 600 | interface | panel, drawer, sheet and group headings; the project switcher |
 | Body | 13 / 20 | 14 / 22 | 400 | interface | menus, popovers, copy, the Agent's messages and composer |
 | Caption | 12 / 16 | 12 / 18 | 400 | interface | metadata, paths, descriptions, helper text, menu group labels |
@@ -595,10 +595,17 @@ all take it.
   failed build's log opens at TeX's first error (else the end, where latexmk
   says why it stopped), and Copy log takes all of it.
 - **Empty states offer the way forward.** An empty region says what would be
-  there and offers the next step, with its shortcut taken from the command table. The
-  welcome screen lists a few recent projects under its actions and, when launch
-  could not reopen the last one, names it with an inline warning instead of
-  silently landing there.
+  there and offers the next step, with its shortcut taken from the command table.
+  An empty inside a panel titles itself in the subtitle role and sits on the
+  panel, never on a plate of its own; a workspace with every panel closed is
+  the whole window, so its title takes the serif title role and its drawing
+  is larger.
+- **The welcome screen leads with the way back.** The mark and a serif title
+  (48px at most, no eyebrow and no haze behind it), the three actions, then
+  the recent projects as one card on the lift; the other ways in (Overleaf,
+  ZIP, LaTeX tools) come last and quietest. When launch could not reopen the
+  last project, an inline warning above the card names it instead of silently
+  landing there.
 
 ## Motion
 

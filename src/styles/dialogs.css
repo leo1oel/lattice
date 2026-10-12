@@ -228,11 +228,14 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 
 .welcome-screen { width: 100%; height: 100%; background: var(--surface-backdrop); position: relative; overflow: hidden; }
 .welcome-titlebar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; padding: 0 14px; }
-.welcome-glow { position: absolute; width: 680px; height: 680px; left: 50%; top: 46%; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--control-active) 14%, transparent), transparent 67%); filter: blur(20px); }
-.welcome-content { position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }
+.welcome-content { position: relative; z-index: 1; width: min(520px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }
 .brand-mark { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--control-active); }
-.eyebrow { margin: 17px 0 var(--space-4); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; letter-spacing: .22em; }
-.welcome-content h1 { margin: 0; font-family: var(--display-font); font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
+/* The one brand moment: the mark, then a serif title at a size that greets
+   rather than advertises. Chinese takes Songti SC through --display-font, a
+   serif like the Latin; it sets solid, so it opens its tracking a little
+   where the Latin tightens. */
+.welcome-content h1 { margin: var(--space-10) 0 0; font-family: var(--display-font); font-size: clamp(36px, 4.4vw, 48px); line-height: 1.08; font-weight: 400; letter-spacing: -.02em; text-wrap: balance; }
+.welcome-content h1:lang(zh-CN) { letter-spacing: .02em; }
 
 /* Only the welcome composition enters; busy updates and project contents do not. */
 .welcome-content > :not(.busy-label) { animation: welcome-rise var(--motion-slow) both; }
@@ -243,12 +246,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.welcome-actions { margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+.welcome-actions { margin-top: var(--space-12); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4); }
 
-/* The ways into an existing project. Quieter than the two above, and on one
-   line at the width the content column actually has. */
+/* The other ways in, last: quieter than the actions and the recent projects
+   above them, and on one line at the width the content column actually has. */
 .welcome-more {
-  margin-top: 14px;
+  margin-top: var(--space-8);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -265,20 +268,21 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   align-items: center;
   gap: var(--space-3);
   font-size: var(--type-caption-size);
-  font-weight: 600;
+  font-weight: var(--weight-regular);
   white-space: nowrap;
 }
 .welcome-more-action:hover { background: var(--border-subtle); color: var(--text-primary); }
-/* The projects to go back to, and why the last one did not open. A quiet
-   list under the actions: a name to read, its folder after it. */
-.welcome-recents { width: min(360px, 100%); margin-top: var(--space-16); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); text-align: start; }
-.welcome-unopened { margin-bottom: var(--space-4); padding-inline: var(--space-4); }
-.welcome-recents-title { margin: 0; padding-inline: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
-.welcome-recent-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+/* The projects to go back to, and why the last one did not open: the
+   writer's way back, so it comes straight after the actions, as one card on
+   the lift. A name to read, its folder after it. */
+.welcome-recents { width: 100%; margin-top: var(--space-16); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); text-align: start; }
+.welcome-unopened { padding-inline: var(--space-1); }
+.welcome-recents-title { margin: 0; padding-inline: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.welcome-recent-list { margin: 0; padding: var(--space-2); list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; border-radius: var(--radius-panel); }
 .welcome-recent {
   width: 100%;
-  min-height: var(--row-height-compact);
-  padding: 0 var(--space-4);
+  min-height: var(--row-height-default);
+  padding: 0 var(--space-5);
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
