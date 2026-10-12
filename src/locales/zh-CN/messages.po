@@ -3170,6 +3170,11 @@ msgstr "编辑"
 msgid "edited"
 msgstr "修改"
 
+#. A recent project's last change: “Edited yesterday”, “Edited 3 days ago”.
+#: src/project/welcome-desk.tsx
+msgid "Edited {edited}"
+msgstr "{edited}编辑"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 msgstr "两边改了同一处，同步后会标出来让你选"
@@ -4640,6 +4645,7 @@ msgid "Jump to this location"
 msgstr "跳到这里"
 
 #: src/app-utils.ts
+#: src/project/welcome-desk.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "just now"
 msgstr "刚刚"
@@ -5972,6 +5978,10 @@ msgstr "还没有其他项目"
 msgid "No papers match “{trimmedQuery}”"
 msgstr "没有论文包含“{trimmedQuery}”"
 
+#: src/project/welcome-desk.tsx
+msgid "No PDF yet"
+msgstr "还没有 PDF"
+
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
 msgstr "还没有添加词语"
@@ -6299,6 +6309,10 @@ msgid "Open a project to manage Agent settings"
 msgstr "打开项目后可设置 AI 助手"
 
 #: src/App.tsx
+msgid "Open a recent project by its place"
+msgstr "打开最近项目"
+
+#: src/App.tsx
 msgid "Open an Overleaf project"
 msgstr "打开 Overleaf 项目"
 
@@ -6494,6 +6508,11 @@ msgstr "OpenAlex"
 #: src/App.tsx
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
+
+#. When a recent project was last opened: “Opened yesterday”, “Opened 3 days ago”.
+#: src/project/welcome-desk.tsx
+msgid "Opened {opened}"
+msgstr "{opened}打开"
 
 #. placeholder {0}: documents.opening
 #: src/App.tsx
@@ -7367,6 +7386,7 @@ msgid "Recent files"
 msgstr "最近文件"
 
 #: src/project/project-dialogs.tsx
+#: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "最近项目"
 

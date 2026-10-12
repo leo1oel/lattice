@@ -85,6 +85,11 @@ pub struct BuildResult {
     /// may have re-targeted onto the open file (Overleaf's rule), and the
     /// frontend needs to know without re-reading the manifest.
     pub root_document: String,
+    /// The conference template the typeset document loaded ("NeurIPS"), by
+    /// the log rather than the manifest: the welcome screen's badge on the
+    /// project's first page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub venue: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize)]

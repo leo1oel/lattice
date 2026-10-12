@@ -611,14 +611,18 @@ if (!params.has("keepStorage")) {
 }
 // `?recents=1` gives the welcome screen (`?welcome=1`) projects to reopen. The
 // newest one's folder is gone, so launch cannot reopen it and the welcome
-// screen says so, as after a writer moved the folder.
+// screen says so, as after a writer moved the folder. The next one has built
+// the fixture's PDF, so the desk shows its first page; the others have no PDF.
 if (params.has("recents")) {
+  const day = 86_400_000;
   localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([
-    { name: "Thesis draft", path: `${MOVED_PROJECT_ROOT}/thesis-draft` },
-    { name: "Sparse attention", path: "/Users/writer/Papers/sparse-attention" },
-    { name: "NeurIPS rebuttal", path: "/Users/writer/Papers/2026/neurips-rebuttal" },
+    { name: "Thesis draft", path: `${MOVED_PROJECT_ROOT}/thesis-draft`, openedAt: Date.now() - day / 2 },
+    { name: "Sparse attention", path: "/Users/writer/Papers/sparse-attention", openedAt: Date.now() - day },
+    { name: "NeurIPS rebuttal", path: "/Users/writer/Papers/2026/neurips-rebuttal", openedAt: Date.now() - 3 * day },
     { name: "Reading notes", path: "/Users/writer/Documents/reading-notes" },
   ]));
+  const { rememberFirstPage } = await import("../../src/project/first-pages");
+  await rememberFirstPage("/Users/writer/Papers/sparse-attention", copyBuffer(fixture.compiledPdf), "ICML");
 }
 // Stored raw, not as JSON (loadThemePreference).
 if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);

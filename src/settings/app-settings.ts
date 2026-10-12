@@ -19,7 +19,12 @@ export type Theme = "light" | "dark";
 export type ThemePreference = "system" | Theme;
 export type AppLocale = "en" | "zh-CN";
 export type InterfaceLanguage = "system" | AppLocale;
-export type RecentProject = { name: string; path: string };
+export type RecentProject = {
+  name: string;
+  path: string;
+  /** When this window last opened it (ms since the epoch); absent from entries older than the field. */
+  openedAt?: number;
+};
 type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
@@ -117,7 +122,7 @@ function persistRecentProjects(projects: RecentProject[]): RecentProject[] {
 /// Record a project as the most recently opened one.
 export function rememberRecentProject(entry: RecentProject): RecentProject[] {
   return persistRecentProjects([
-    entry,
+    { ...entry, openedAt: Date.now() },
     ...loadRecentProjects().filter((item) => item.path !== entry.path),
   ].slice(0, RECENT_PROJECTS_MAX));
 }

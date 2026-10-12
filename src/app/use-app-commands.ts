@@ -86,10 +86,13 @@ export function useAppCommands(commands: AppCommand[]) {
       const mod = event.metaKey || event.ctrlKey;
       // ⌘? is ⌘⇧/; a keyboard that reports the unshifted key still means it.
       const key = event.key === "/" && event.shiftKey ? "?" : event.key.toLocaleLowerCase();
+      // A key may belong to one command here and another there (⌘1 picks a
+      // workspace in a project and a recent project on the welcome screen):
+      // the one that can run now takes it.
       const command = commandsRef.current.find((item) => (
-        item.key === key && Boolean(item.shift) === event.shiftKey && (item.mod !== false) === mod
+        item.when !== false && item.key === key && Boolean(item.shift) === event.shiftKey && (item.mod !== false) === mod
       ));
-      if (!command || command.when === false) return;
+      if (!command) return;
       event.preventDefault();
       command.run();
     };
