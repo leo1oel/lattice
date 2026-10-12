@@ -12,8 +12,8 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@open-slide/core':
-        specifier: 2.1.0
-        version: 2.1.0(esbuild@0.28.0)(jiti@2.7.0)
+        specifier: 2.2.0
+        version: 2.2.0(esbuild@0.28.0)(jiti@2.7.0)
       katex:
         specifier: 0.17.0
         version: 0.17.0
@@ -440,8 +440,8 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@open-slide/core@2.1.0':
-    resolution: {integrity: sha512-xoD4TEZFABzBJ0y3uNa0L6G1AEjiCkD9UctexFHu39ekDyoyu0+ru38UneVMuHicO7SeUx5+0ywY4Crw5F6xRA==}
+  '@open-slide/core@2.2.0':
+    resolution: {integrity: sha512-0Jyv8mA61YH6jz9KQ9xybal5Z41u3bN1LG0yAWCYOaDzlzrLxgjF+MFk6wcdl9/eqOStrlgOBiPB5A+kMGd8/A==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
@@ -2662,7 +2662,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
 
-  '@open-slide/core@2.1.0(esbuild@0.28.0)(jiti@2.7.0)':
+  '@open-slide/core@2.2.0(esbuild@0.28.0)(jiti@2.7.0)':
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8

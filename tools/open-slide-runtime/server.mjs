@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;
@@ -64,6 +64,25 @@ const LATTICE_EDITOR_STYLES = `
 [data-lattice-present] > button:active {
   background: color-mix(in oklch, var(--brand) 90%, black);
   filter: none;
+}
+
+/* Comment mode outlines its targets in brand, which the light active surface
+   above leaves nearly invisible on a white page. Draw those outlines in the
+   edit overlay's blue instead; the pins and buttons keep Lattice's surface. */
+[data-comment-layer] .border-brand {
+  border-color: var(--color-blue-500);
+}
+[data-comment-layer] .border-brand\\/70 {
+  border-color: color-mix(in oklch, var(--color-blue-500) 70%, transparent);
+}
+[data-comment-layer] .border-brand\\/50 {
+  border-color: color-mix(in oklch, var(--color-blue-500) 50%, transparent);
+}
+[data-comment-layer] .bg-brand\\/10 {
+  background-color: color-mix(in oklch, var(--color-blue-500) 10%, transparent);
+}
+[data-comment-layer] .bg-brand\\/5 {
+  background-color: color-mix(in oklch, var(--color-blue-500) 5%, transparent);
 }
 
 /* The save action sits inside an already elevated card. Its brand variant's
@@ -179,36 +198,44 @@ export function transformOpenSlideComments(source, id) {
       if (!res.ok) throw new Error(\`DELETE /__comments/\${id} → \${res.status}\`);
       await refetch();`;
     requireContract(source, [silentRemove], "comment removal");
-    // Upstream lets delete failures escape from an unawaited click handler, so
-    // read-only and network errors look like a dead button. Keep the comment and
-    // surface the server's explanation in the existing comment-panel error row.
-    return source.replace(silentRemove, `      try {
-        const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
-          method: 'DELETE',
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? \`DELETE /__comments/\${id} → \${res.status}\`);
-        }
-        await refetch();
-      } catch (e) {
-        setError(String((e as Error).message ?? e));
-      }`);
+    // The comment layer toasts a failed delete, but upstream only reports the
+    // HTTP status. Carry the server's explanation (such as a read-only
+    // project) into that toast; the pin and its open editor stay in place.
+    return source.replace(silentRemove, `      const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? \`DELETE /__comments/\${id} → \${res.status}\`);
+      }
+      await refetch();`);
   }
 
-  if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/comment-widget.tsx")) {
-    const manualApplyHint = `              <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-                {t.inspector.commentsApplyHintPrefix}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-                  /apply-comments
-                </code>
-                {t.inspector.commentsApplyHintSuffix}
-              </div>`;
-    requireContract(source, [manualApplyHint], "comment apply hint");
-    return source.replace(manualApplyHint, `              <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-                {t.inspector.commentsApplyHintPrefix}
-                {t.inspector.commentsApplyHintSuffix}
-              </div>`);
+  if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/comment-layer.tsx")) {
+    const manualApplyHint = `              {t.inspector.commentsApplyHintPrefix}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+                /apply-comments
+              </code>
+              {t.inspector.commentsApplyHintSuffix}`;
+    const hintRow = '<div className="absolute inset-x-0 bottom-3 flex justify-center">';
+    const hintText = "'col-start-1 row-start-1 w-max whitespace-nowrap',";
+    const previewCard = '"island-arrive pointer-events-none absolute w-72 origin-top-left';
+    const card = "'island-arrive pointer-events-auto absolute w-72 origin-top-left";
+    requireContract(source, [manualApplyHint, hintRow, hintText, previewCard, card], "comment layer");
+    // Lattice sends pending comments with the next AI message, so there is no
+    // command to run. The hint pill also never wraps upstream, which clips the
+    // longer Lattice copy in a narrow editor pane: bound each line by the hint
+    // row's width instead, which unlike the pill's own animated width does not
+    // depend on the text being measured. The 288 px cards likewise overrun a
+    // pane narrower than that and hide their send button; the layer places
+    // them by their measured size, so capping the width keeps them inside.
+    return source
+      .replace(manualApplyHint, `              {t.inspector.commentsApplyHintPrefix}
+              {t.inspector.commentsApplyHintSuffix}`)
+      .replace(hintRow, '<div className="@container absolute inset-x-0 bottom-3 flex justify-center">')
+      .replace(hintText, "'col-start-1 row-start-1 w-max max-w-[calc(100cqw-2rem-26px)] whitespace-normal',")
+      .replace(previewCard, `${previewCard.slice(0, -"origin-top-left".length)}max-w-[calc(100%-1rem)] origin-top-left`)
+      .replace(card, `${card.slice(0, -"origin-top-left".length)}max-w-[calc(100%-1rem)] origin-top-left`);
   }
 
   return null;
@@ -218,9 +245,9 @@ export function transformOpenSlideInspectorPanel(source, id) {
   const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-panel.tsx")) return null;
   const agentImport = "import { useAgentSocketConnected } from '@/lib/use-agent-socket';\n";
-  const badgeCall = "            <AgentWatchingBadge />\n";
+  const badgeCall = "          <AgentWatchingBadge />\n";
   const badgeStart = "function AgentWatchingBadge() {";
-  const badgeEnd = "// The cue animation re-mounts with every element selection;";
+  const badgeEnd = "function readSnapshot(el: HTMLElement): ElementSnapshot {";
   requireContract(source, [
     agentImport,
     badgeCall,
@@ -364,17 +391,47 @@ export function transformOpenSlideToolbar(source, id) {
   }, [selected]);
   return null;
 }`;
+  const menuModes = `  const { active, toggle, panelOpen, panelHidden, togglePanel } = useInspector();
+  return (
+    <>
+      <DropdownMenuGroup>
+        <DropdownMenuRadioGroup
+          value={active ? 'edit' : 'preview'}
+          onValueChange={(value) => {
+            if ((value === 'edit') !== active) toggle();
+          }}
+        >
+          <DropdownMenuRadioItem value="preview">{t.inspector.previewMode}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="edit">{t.inspector.editMode}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>`;
   requireContract(source, [
     presentGroup,
     badgeCall,
     badgeStart,
     badgeEnd,
     selectionReporter,
+    menuModes,
   ], "toolbar layout");
   let transformed = source.replace(
     presentGroup,
     '<div data-lattice-present className="inline-flex items-stretch">',
   );
+  // Below 640 px the mode switcher moves into the More menu, which upstream
+  // never taught the comment mode: the menu shows Preview while commenting and
+  // cannot leave it. Lattice's editor pane is often that narrow, so offer all
+  // three modes there.
+  transformed = transformed.replace(menuModes, `  const { mode, setMode, active, panelOpen, panelHidden, togglePanel } = useInspector();
+  return (
+    <>
+      <DropdownMenuGroup>
+        <DropdownMenuRadioGroup
+          value={mode}
+          onValueChange={(value) => setMode(value as typeof mode)}
+        >
+          <DropdownMenuRadioItem value="preview">{t.inspector.previewMode}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="edit">{t.inspector.editMode}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="comment">{t.inspector.commentMode}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>`);
   transformed = transformed.replace(
     badgeCall,
     "{import.meta.env.DEV && <AgentConnectionWarning />}",
@@ -1439,12 +1496,28 @@ export function createMutationQueue(root, controlToken, { previewUrl = null } = 
         if (textLength + note.length + hint.length > 24_000) break;
         ids.add(id);
         textLength += note.length + hint.length;
+        // Since 2.2.0 a comment can cover a dragged region of the 1920 x 1080
+        // page instead of one element, and records its page; without both the
+        // agent would apply a region note to the whole enclosing element.
+        const rect = value.rect && typeof value.rect === "object"
+          && ["x", "y", "w", "h"].every((key) => Number.isFinite(value.rect[key]))
+          && value.rect.w > 0
+          && value.rect.h > 0
+          ? {
+              x: Math.round(value.rect.x),
+              y: Math.round(value.rect.y),
+              w: Math.round(value.rect.w),
+              h: Math.round(value.rect.h),
+            }
+          : null;
         comments.push({
           id,
           line: Math.floor(value.line),
           ts: value.ts.slice(0, 128),
           note,
           ...(hint ? { hint } : {}),
+          ...(rect ? { rect } : {}),
+          ...(Number.isFinite(value.page) && value.page >= 0 ? { page: Math.floor(value.page) } : {}),
         });
       }
       next.pendingComments = comments;
