@@ -67,6 +67,21 @@ textarea {
   --brand-weft: #4568f6;
   --brand-warp: #25b4bb;
   --brand-glint: rgba(255, 255, 255, 0.85);
+  /* File glyphs, one hue per kind; each clears 3:1 on the sheet, the lift
+     and a selected row. Folders are manila. */
+  --glyph-tex: #3b5bd6;
+  --glyph-style: #7a52c4;
+  --glyph-bib: #b06a00;
+  --glyph-markdown: #4d6a8a;
+  --glyph-pdf: #c4473c;
+  --glyph-image: #2e8a55;
+  --glyph-board: #13878a;
+  --glyph-sheet: #3a7f2e;
+  --glyph-slides: #c2571c;
+  --glyph-code: #a85a12;
+  --glyph-config: #6a6a70;
+  --glyph-folder: #8a6a3e;
+  --glyph-tint: 16%;
   /* The elevation ladder's shadows (foundations.css): one stack per level,
      the same geometry in both themes and deeper in dark, where a faint
      shadow disappears into the ground. The ring is the hairline every
@@ -150,6 +165,19 @@ textarea {
   --brand-weft: #7f97ff;
   --brand-warp: #4fd2c6;
   --brand-glint: rgba(255, 255, 255, 0.7);
+  --glyph-tex: #8fa5ff;
+  --glyph-style: #bba3f2;
+  --glyph-bib: #f2b65e;
+  --glyph-markdown: #a7bad3;
+  --glyph-pdf: #f39087;
+  --glyph-image: #72cf98;
+  --glyph-board: #62d1cd;
+  --glyph-sheet: #93d07f;
+  --glyph-slides: #f4a06a;
+  --glyph-code: #eaa565;
+  --glyph-config: #9d9da5;
+  --glyph-folder: #d9bc8c;
+  --glyph-tint: 20%;
   /* A floating surface's edge is a quiet hairline; the lift (below) already
      sets it off the sheet. */
   --shadow-ring: rgba(255, 255, 255, 0.1);

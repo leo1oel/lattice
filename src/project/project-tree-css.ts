@@ -1,5 +1,17 @@
 import fluidHoverCSS from "../components/ui/fluid-hover.css?inline";
 
+/**
+ * A folder's glyph as a mask: Pierre has no folder icon slot, so the row's
+ * content draws it before the name in `--file-glyph-folder`, with the body at
+ * the file glyphs' tint and Lucide's folder outline (ISC) on top.
+ */
+const folderMask = (d: string) => `url("data:image/svg+xml,${encodeURIComponent(
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- SVG markup
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${d}" fill="black" fill-opacity="0.18" stroke="black" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+)}")`;
+const FOLDER = folderMask("M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z");
+const FOLDER_OPEN = folderMask("m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2");
+
 /** Injected into the tree's shadow root through Pierre's `unsafeCSS`. */
 export const PIERRE_TREE_CSS = `
 ${fluidHoverCSS}
@@ -133,8 +145,27 @@ button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {
   color: var(--trees-fg-muted);
 }
 
-[data-item-section="icon"] {
-  opacity: 0.76;
+/* A folder's glyph, closed or open, between its chevron and its name. It is
+   part of the content, so the name's truncation measures the room after it. */
+button[data-item-type="folder"] [data-item-section="content"] {
+  display: flex;
+  align-items: center;
+  gap: var(--trees-item-row-gap);
+}
+
+button[data-item-type="folder"] [data-item-section="content"]::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: var(--file-glyph-folder);
+  -webkit-mask: ${FOLDER} center / 14px 14px no-repeat;
+  mask: ${FOLDER} center / 14px 14px no-repeat;
+}
+
+button[data-item-type="folder"]:is([aria-expanded="true"], [data-file-tree-sticky-row="true"]) [data-item-section="content"]::before {
+  -webkit-mask-image: ${FOLDER_OPEN};
+  mask-image: ${FOLDER_OPEN};
 }
 
 [data-icon-name="file-tree-icon-chevron"] {
@@ -167,6 +198,20 @@ button[data-type="item"][data-item-selected="true"] [data-item-section="icon"] {
 [data-truncate-group-container="middle"] > div:last-child {
   min-width: 0;
   flex: 0 0 auto;
+}
+
+/* A flattened folder ("slides / deck") ends in an ellipsis instead of being
+   clipped at the row's edge. The innermost folder, usually the longest name,
+   gives way first; the ones before it only past 40% of the row. */
+[data-item-flattened-subitems],
+[data-item-flattened-subitem] {
+  min-width: 0;
+  overflow: hidden;
+}
+
+[data-item-flattened-subitem]:not(:last-child) {
+  flex: none;
+  max-width: 40%;
 }
 
 [data-truncate-container] {

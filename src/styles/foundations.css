@@ -325,6 +325,9 @@
      the Panels button's left padding sit between the chevron and the icon. */
   --titlebar-trailing-gap: calc(var(--titlebar-switcher-gap) - var(--space-4) - var(--space-3) - var(--space-4) - var(--titlebar-glyph-bearing));
   --titlebar-action-size: var(--control-size-icon-large);
+  /* A panel toggle that is off: the secondary ink at 70%, still 3:1 on the
+     chrome; full secondary when the system asks for more contrast. */
+  --titlebar-toggle-off-ink: color-mix(in srgb, var(--text-secondary) 70%, transparent);
   --titlebar-project-title-max-width: 260px;
   /* A narrow window gives that room to the panel controls instead. */
   --titlebar-project-title-max-width-compact: 200px;
@@ -339,7 +342,7 @@
   --row-height-compact: 32px;
   --row-height-default: 40px;
   --row-height-comfortable: 44px;
-  --row-height-tree: var(--row-height-compact);
+  --row-height-tree: var(--control-height-compact);
 
   /* The one size of the large centered dialogs: Settings, Open from Overleaf,
      Check references, the bibliography entry editor, the table generator and
@@ -482,9 +485,10 @@
    */
   --surface-elevated: var(--surface-panel-raised);
   --elevation-ring: var(--shadow-ring);
-  /* Half a hairline: the surfaces already part panels from the workspace, and
-     a full outline on every one competed with the document inside. */
-  --elevation-panel: 0 0 0 1px color-mix(in srgb, var(--border-subtle) 50%, transparent);
+  /* Short of a full hairline: the surfaces already part panels from the
+     workspace, and a full outline on every one competed with the document
+     inside. */
+  --elevation-panel: 0 0 0 1px color-mix(in srgb, var(--border-subtle) 70%, transparent);
   --elevation-raised-shadow: var(--shadow-raised);
   --elevation-popover-shadow: var(--shadow-popover);
   --elevation-floating-shadow: var(--shadow-floating);
@@ -549,6 +553,22 @@
   --mark-weft: var(--brand-weft);
   --mark-warp: var(--brand-warp);
   --mark-glint: var(--brand-glint);
+  /* The file glyphs (components/ui/file-glyphs.ts): one hue per kind of file
+     in the tree, the tabs and the pickers, its body tinted with the same hue. */
+  --file-glyph-tex: var(--glyph-tex);
+  --file-glyph-style: var(--glyph-style);
+  --file-glyph-bib: var(--glyph-bib);
+  --file-glyph-markdown: var(--glyph-markdown);
+  --file-glyph-pdf: var(--glyph-pdf);
+  --file-glyph-image: var(--glyph-image);
+  --file-glyph-board: var(--glyph-board);
+  --file-glyph-sheet: var(--glyph-sheet);
+  --file-glyph-slides: var(--glyph-slides);
+  --file-glyph-code: var(--glyph-code);
+  --file-glyph-config: var(--glyph-config);
+  --file-glyph-text: var(--glyph-config);
+  --file-glyph-folder: var(--glyph-folder);
+  --file-glyph-tint: var(--glyph-tint);
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
   --status-danger-soft-hover: color-mix(in srgb, var(--danger) 18%, transparent);
@@ -574,7 +594,10 @@
   }
 }
 @media (prefers-contrast: more) {
-  :root { --navigation-text-strong: var(--text-primary); }
+  :root {
+    --navigation-text-strong: var(--text-primary);
+    --titlebar-toggle-off-ink: var(--text-secondary);
+  }
 }
 
 /* Settings is read, not scanned: the dialog is a page of prose and controls, so

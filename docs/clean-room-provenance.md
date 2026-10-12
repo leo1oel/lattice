@@ -144,7 +144,7 @@ Every license and copyright detection is declared in [`THIRD_PARTY_NOTICES.md`](
   - the Fluid Functionalism / Lina UI primitives in `src/components/ui/`;
   - the Open Slide `create-theme` skill;
   - `scripts/prepare-synara-sidecar.mjs`, which stages runtime license files.
-- MIT and Apache-2.0: `src/project/project-file-icons.ts` (Material Icon Theme and Material Icons).
+- ISC: the Lucide-derived file glyphs in `src/components/ui/file-glyphs.ts` and the folder glyph in `src/project/project-tree-css.ts`.
 - OFL-1.1: the Ioskeley Mono font, and font license texts that tests assert.
 - GPL-3.0-or-later: the `literature-worker` and `video` package license fields, since changed to Apache-2.0.
 - License identifiers that `scripts/generate-notices.mjs` classifies.

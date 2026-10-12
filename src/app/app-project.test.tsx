@@ -478,13 +478,13 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(file).toHaveAttribute("data-item-git-status", "modified"));
 
     const host = document.querySelector<HTMLElement>("file-tree-container.lattice-file-tree");
-    expect(host?.style.getPropertyValue("--trees-item-height")).toBe("32px");
+    expect(host?.style.getPropertyValue("--trees-item-height")).toBe("28px");
     expect(host).toHaveAttribute("data-file-tree-virtualized", "true");
-    expect((await findProjectTreeItem("component.tsx")).querySelector("[data-icon-token='react']")).not.toBeNull();
     for (const [path, icon] of [
-      ["chapters/method/main.tex", "lattice-material-tex"], ["references.bib", "lattice-material-bibliography"],
-      ["paper.pdf", "lattice-material-pdf"], ["conference.sty", "lattice-material-tex-style"],
-      ["plain.bst", "lattice-material-bibtex-style"], ["figure.eps", "file-tree-builtin-image"],
+      ["chapters/method/main.tex", "lattice-glyph-tex"], ["references.bib", "lattice-glyph-bib"],
+      ["paper.pdf", "lattice-glyph-pdf"], ["conference.sty", "lattice-glyph-style"],
+      ["plain.bst", "lattice-glyph-style"], ["figure.eps", "lattice-glyph-image"],
+      ["component.tsx", "lattice-glyph-code"],
     ]) expect((await findProjectTreeItem(path)).querySelector("use")).toHaveAttribute("href", `#${icon}`);
     const folderRows = projectTreeRoot()?.querySelectorAll("[data-item-type='folder']");
     expect(new Set(Array.from(folderRows ?? [], (row) => (row as HTMLElement).dataset.itemPath))).toEqual(new Set(["chapters/method/"]));
