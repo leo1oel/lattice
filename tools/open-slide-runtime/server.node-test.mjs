@@ -168,16 +168,18 @@ test("centers vertical slide previews with folios in the left gutter", async () 
 });
 
 test("surfaces comment deletion failures and removes the manual apply instruction", async () => {
-  const [{ source: hookSource, transformed: hook }, { transformed: widget }] = await Promise.all([
+  const [{ source: hookSource, transformed: hook }, { transformed: layer }] = await Promise.all([
     patchCore(transformOpenSlideComments, "src/app/lib/inspector/use-comments.ts"),
-    patchCore(transformOpenSlideComments, "src/app/components/inspector/comment-widget.tsx"),
+    patchCore(transformOpenSlideComments, "src/app/components/inspector/comment-layer.tsx"),
   ]);
   assert.match(hook, /const body = \(await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)\) as \{ error\?: string \}/);
-  assert.match(hook, /setError\(String\(\(e as Error\)\.message \?\? e\)\)/);
   assert.doesNotMatch(hook, /if \(!res\.ok\) throw new Error\(`DELETE/);
-  assert.doesNotMatch(widget, /apply-comments/);
+  assert.doesNotMatch(layer, /apply-comments/);
+  assert.match(layer, /@container absolute inset-x-0 bottom-3/);
+  assert.match(layer, /w-max max-w-\[calc\(100cqw-2rem-26px\)\] whitespace-normal/);
+  assert.equal(layer.match(/absolute w-72 max-w-\[calc\(100%-1rem\)\] origin-top-left/g)?.length, 2);
   assert.equal(transformOpenSlideComments(hookSource, "/project/use-comments.ts"), null);
-  await Promise.all([hook, widget].map((source) => transformTsx(source, { loader: "tsx" })));
+  await Promise.all([hook, layer].map((source) => transformTsx(source, { loader: "tsx" })));
 });
 
 test("deletes only the requested comment marker when inline JSX follows it", () => {
@@ -206,7 +208,7 @@ test("starts the Open Slide format sidebar closed at any frame width", async () 
   assert.doesNotMatch(transformed, /innerWidth >= 1024/);
   // The explicit Format toggle and the inspector's active default stay upstream's.
   assert.match(transformed, /setPanelOpen\(!active \|\| panelHidden \|\| !panelOpen\);/);
-  assert.match(transformed, /const \[active, setActive\] = useState\(import\.meta\.env\.DEV\);/);
+  assert.match(transformed, /useState<InspectorMode>\(import\.meta\.env\.DEV \? 'edit' : 'preview'\)/);
   assert.equal(transformOpenSlideInspectorDefault(source, "/project/inspector-provider.tsx"), null);
   assert.throws(() => transformOpenSlideInspectorDefault("changed", "/@open-slide/core/src/app/components/inspector/inspector-provider.tsx"));
   // Every Lattice patch to this module must still apply, in registration order.
@@ -285,6 +287,9 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /slice\(0, 12_000\)/);
   assert.doesNotMatch(transformed, /slice\(0, 120\)/);
   assert.doesNotMatch(transformed, /AgentConnectedBadge|bg-emerald-500|t\.slide\.agentConnected/);
+  // The narrow toolbar's More menu offers the comment mode too.
+  assert.match(transformed, /<DropdownMenuRadioItem value="comment">\{t\.inspector\.commentMode\}/);
+  assert.doesNotMatch(transformed, /value=\{active \? 'edit' : 'preview'\}/);
   // Embedded toolbar patches must preserve both beta.2 export paths and the
   // new editable export's command-menu action, rather than its old placeholder.
   assert.match(transformed, /onClick=\{exportPptx\}/);
@@ -633,6 +638,10 @@ test("streams the current page and inspector selection to Lattice", () => withTe
     pendingEdits: true,
     pendingComments: [{
       id: "c-1234abcd", line: 44.9, ts: "2026-09-03T00:00:00.000Z", note: "  Make this chart larger.  ", hint: "  chart  ",
+      rect: { x: 120.4, y: 80, w: 640.6, h: 0 }, page: 2.7,
+    }, {
+      id: "c-5678abcd", line: 60, ts: "2026-09-03T00:00:01.000Z", note: "Tighten these two cards",
+      rect: { x: 120.4, y: 80, w: 640.6, h: 360 }, page: -1, target: { line: 58, column: 4 },
     }],
     selection: { line: 42.8, column: 6.2, tagName: "H1", text: "  Q2   Roadmap  " },
   });
@@ -643,7 +652,10 @@ test("streams the current page and inspector selection to Lattice", () => withTe
     pagePath: "slides/research-update/index.tsx",
     pendingEdits: true,
     pendingComments: [{
-      id: "c-1234abcd", line: 44, ts: "2026-09-03T00:00:00.000Z", note: "Make this chart larger.", hint: "chart",
+      id: "c-1234abcd", line: 44, ts: "2026-09-03T00:00:00.000Z", note: "Make this chart larger.", hint: "chart", page: 2,
+    }, {
+      id: "c-5678abcd", line: 60, ts: "2026-09-03T00:00:01.000Z", note: "Tighten these two cards",
+      rect: { x: 120, y: 80, w: 641, h: 360 },
     }],
     selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
     updatedAt: context.updatedAt,
