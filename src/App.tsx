@@ -107,6 +107,7 @@ import {
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
+import { welcomeDeskProjects } from "./project/first-pages";
 import { NEW_ENTRIES, type NewEntryRequest, type NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
@@ -1420,6 +1421,13 @@ function App() {
       recent: false,
       run: () => void chooseRecentProject(path),
     })),
+    // ⌘1 to ⌘3 on the welcome screen: the projects on its desk, by place. In a
+    // project the same keys switch workspaces, so these are only listed here.
+    ...(inProject ? [] : welcomeDeskProjects(recentProjects, unopenedProject?.path).map(({ path }, index): AppCommand => ({
+      id: `desk-project-${index + 1}`, label: t`Open a recent project by its place`, group: "project", key: String(index + 1), palette: false,
+      when: !createForm.open && !busyLabel && !settingsOpen && !overleafPickerOpen,
+      run: () => void chooseRecentProject(path),
+    }))),
     { id: "import-zip", label: t`Import Overleaf ZIP`, group: "overleaf", run: () => void importOverleafZip() },
     { id: "overleaf-open", label: t`Open an Overleaf project`, group: "overleaf", run: () => setOverleafPickerOpen(true) },
     { id: "overleaf-sync", when: inProject && overleafLink !== null && !overleafSyncing, label: t`Sync with Overleaf`, group: "overleaf", run: syncOverleaf },
@@ -1636,7 +1644,7 @@ function App() {
       onSave={save}
       onVisualMarkdownFlushChange={documents.canvas.registerFlush}
       onMarkdownModeViewportCaptureChange={documents.canvas.registerViewportCapture}
-      setSelection={(value) => agentContext.reportSelection(activePaper ? "paper" : "editor", value)}
+      setSelection={(value, lines) => agentContext.reportSelection(activePaper ? "paper" : "editor", value, undefined, lines)}
       onPdfTextSelect={(value, place) => agentContext.reportSelection("pdf", value, place)}
       onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
       onImportAsset={tree.importClipboardImageFile}

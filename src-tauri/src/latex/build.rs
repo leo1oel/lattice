@@ -299,6 +299,7 @@ fn run_latexmk(
         log: trim_log(&log),
         duration_ms: started.elapsed().as_millis(),
         root_document: document.path.clone(),
+        venue: log_conference_template(&tex_log).or_else(|| log_conference_template(&log)),
     })
 }
 
@@ -353,6 +354,7 @@ pub(super) fn cancelled_build(
         },
         duration_ms: elapsed.as_millis(),
         root_document: root_document.to_string(),
+        venue: None,
     }
 }
 

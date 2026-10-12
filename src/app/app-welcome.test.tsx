@@ -85,7 +85,8 @@ describe("welcome screen", () => {
     const recents = screen.getByRole("region", { name: "Recent projects" });
     expect(within(recents).queryByRole("button", { name: /Moved paper/ })).not.toBeInTheDocument();
     const reopen = within(recents).getByRole("button", { name: /Second paper/ });
-    expect(reopen).toHaveTextContent("~/Papers");
+    // The line under the name fills in once the desk has read its stored pages.
+    await waitFor(() => expect(reopen).toHaveTextContent("~/Papers"));
     fireEvent.click(reopen);
     await expectInvoked("open_project", { path: second.root });
   });

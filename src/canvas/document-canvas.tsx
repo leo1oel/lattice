@@ -10,7 +10,7 @@ import { paperDropExtension } from "../editor/paper-drop";
 import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
-import type { Extension, TransactionSpec } from "@codemirror/state";
+import type { Extension, SelectionRange, Text, TransactionSpec } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
@@ -60,7 +60,7 @@ import {
   markdownFrontmatterEnd, PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
-import type { AgentHostSurface, AgentPdfDocumentPlace } from "../agent/agent-host-context";
+import type { AgentHostSurface, AgentPdfDocumentPlace, AgentSelectionLines } from "../agent/agent-host-context";
 import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
@@ -135,6 +135,13 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
 }
 
 /** Apply `spec` to `view`, scrolling the result into view, and hand the editor focus back. */
+/** The lines a non-empty selection covers; one that ends at a line's start stops on the line before. */
+function selectionLines(doc: Text, range: SelectionRange): AgentSelectionLines {
+  const start = doc.lineAt(range.from).number;
+  const last = doc.lineAt(range.to);
+  return { start, end: Math.max(start, range.to === last.from ? last.number - 1 : last.number) };
+}
+
 function editAndFocus(view: EditorView, spec: TransactionSpec) {
   view.dispatch({ ...spec, scrollIntoView: true });
   view.focus();
@@ -192,7 +199,8 @@ export function DocumentCanvas(props: {
   onSave: () => Promise<boolean>;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
-  setSelection: (value: string) => void;
+  /** `lines` places a source-editor selection in its file (1-based, inclusive). */
+  setSelection: (value: string, lines?: AgentSelectionLines) => void;
   /** `place` names a project PDF open as a document; without it the text is from the compiled preview. */
   onPdfTextSelect: (value: string, place?: AgentPdfDocumentPlace) => void;
   onPaperTextSelect: (value: string) => void;
@@ -600,7 +608,7 @@ export function DocumentCanvas(props: {
     const range = state.selection.main;
     lastInsertionPositionRef.current = range.head;
     const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
-    latestRef.current.setSelection(nextSelection);
+    latestRef.current.setSelection(nextSelection, range.empty ? undefined : selectionLines(state.doc, range));
     setSelectedText(nextSelection);
     if (path) {
       // Focus moving to another control (a tab, a panel, a command) hides

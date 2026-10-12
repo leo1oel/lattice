@@ -10,6 +10,7 @@ import {
 import { isBuildOutput } from "../build/build-inputs";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
+import { scheduleFirstPage } from "../project/first-pages";
 import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/project-files-changed";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
@@ -453,6 +454,8 @@ export function useBuildPipeline({
         );
         // A switch the writer did not ask for is shown open, with its undo.
         setDiagnosticsExpanded(!result.success || switchedEngine || result.diagnostics.some((item) => item.level === "error"));
+        // The welcome screen's desk shows each recent project by its first page.
+        if (pdfBytes && wrotePdf) scheduleFirstPage(projectRoot, pdfBytes, result.venue ?? null);
         // The debounce exists so a slow pdf.js load is not torn down by the
         // next rebuild while someone is still typing. Once they have stopped —
         // the buffer matches what is on disk — waiting is just the PDF lagging.

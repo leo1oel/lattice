@@ -80,10 +80,8 @@
   overflow-wrap: break-word;
 }
 
-/* Raised: a plate resting on its surface, such as the welcome screen's mark
-   and its card of recent projects. */
-.brand-mark,
-.welcome-recent-list {
+/* Raised: a plate resting on its surface, such as the welcome screen's mark. */
+.brand-mark {
   background: var(--surface-elevated);
   box-shadow: var(--elevation-raised);
 }

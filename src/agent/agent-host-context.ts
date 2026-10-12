@@ -70,6 +70,9 @@ const PRESENTATION_AUTHORING_CONTEXT = {
   explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
 } as const;
 
+/** 1-based first and last line of an editor selection in its file. */
+export type AgentSelectionLines = { start: number; end: number };
+
 /** The bounded text selection a surface shares, if it owns the selection. */
 type SelectionContext = { selection?: string; selectionOmittedChars?: number };
 type ImageSelectionContext = SelectionContext & { selectionImage?: AgentHostSelectionImage };
@@ -83,7 +86,8 @@ export interface AgentHostContextSnapshot {
   editorComments?: AgentCommentsCollection;
   presentationAuthoring: typeof PRESENTATION_AUTHORING_CONTEXT;
   activeSurface: AgentHostSurface;
-  editor?: ImageSelectionContext & { path: string; line: number; column: number };
+  /** `selectionLines` places the source editor's selection; the visual editor reports none. */
+  editor?: ImageSelectionContext & { path: string; line: number; column: number; selectionLines?: AgentSelectionLines };
   presentation?: AgentPresentationContext;
   /** The compiled preview, or the project PDF open as a document (`path`) that owns the selection. */
   pdf?: SelectionContext & { page: number; pageCount: number | null; path?: string };
@@ -120,6 +124,8 @@ export function buildAgentHostContext(input: {
   pdfPageCount: number | null;
   selection: string;
   selectionSource: AgentHostSurface | null;
+  /** Where an editor selection sits in its file, when the editor knows. */
+  selectionLines?: AgentSelectionLines | null;
   /** Set when the PDF selection came from a project PDF open as a document rather than the compiled preview. */
   selectionPdfDocument?: AgentPdfDocumentPlace | null;
   selectionImage?: (AgentHostSelectionImage & { source: AgentHostSurface }) | null;
@@ -166,6 +172,9 @@ export function buildAgentHostContext(input: {
         line: Math.max(1, Math.floor(input.editorPosition?.line ?? 1)),
         column: Math.max(0, Math.floor(input.editorPosition?.column ?? 0)),
         ...selected("editor"),
+        ...(input.selectionSource === "editor" && bounded.selection && input.selectionLines
+          ? { selectionLines: { start: input.selectionLines.start, end: input.selectionLines.end } }
+          : {}),
         ...selectedImage("editor"),
       }
     : undefined;
