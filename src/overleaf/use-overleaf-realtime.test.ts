@@ -446,7 +446,7 @@ describe("connection ownership", () => {
     await waitFor(() => expect(result.current.status).toBe("connecting"));
     expect(result.current.permission).toBe("unknown");
     expect(result.current.canWrite).toBe(false);
-    expect(result.current.detail).toMatch(/reconnecting in 1s/i);
+    expect(result.current.detail).toMatch(/reconnecting in 1 s/i);
 
     await advance(1_100);
     await waitFor(() => expect(invokeCalls("overleaf_rt_connect")).toHaveLength(2));

@@ -120,6 +120,7 @@
   --pad-inline-control: 10px; /* Chrome control side padding. */
   --pad-inline-control-tight: 8px; /* The same, on a shorter control. */
   --drawer-content-inset: 14px; /* Shared edge for drawer headers and first-level content. */
+  --tab-inset-inline: 14px; /* A panel tab's side padding: its icon lands on the panel's icon gutter. */
   --drawer-section-gap: var(--space-5); /* Vertical rhythm between first-level drawer sections. */
 
   /*

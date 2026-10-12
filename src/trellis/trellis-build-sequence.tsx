@@ -21,16 +21,17 @@ import type { BuildStep } from "../app-types";
 import type { BuildOutcome, BuildProgressStore } from "../app/use-build-pipeline";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { diagnosticCountsText } from "../build/build-result-text";
+import { formatCount, formatSeconds } from "../i18n";
+import { spaceMixedScript } from "./trellis-titles";
 
 const ENGINES = new Set(["pdflatex", "xelatex", "lualatex", "latex", "platex", "uplatex"]);
 const BIBLIOGRAPHY = new Set(["bibtex", "bibtex8", "bibtexu", "pbibtex", "upbibtex", "biber"]);
 const INDEX = new Set(["makeindex", "mendex", "upmendex", "xindy", "texindy"]);
 const PDF_OUTPUT = new Set(["xdvipdfmx", "dvipdfmx", "dvipdfm", "dvipdf", "ps2pdf"]);
 
-/** "0.6s"; a pass too quick to show a tenth still took some time. */
+/** "0.6 s"; a pass too quick to show a tenth still took some time. */
 function seconds(ms: number): string {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- a duration, in the unit the Build button writes its time in
-  return ms < 50 ? "<0.1s" : `${(ms / 1000).toFixed(1)}s`;
+  return ms < 50 ? `<${formatSeconds(0.1)}` : formatSeconds(ms / 1000);
 }
 
 /** `performance.now()`, every tenth of a second while `on`. */
@@ -50,13 +51,13 @@ function StepMark({ state }: { state: StepState }) {
   return (
     <i className="build-sequence-mark" data-state={state} aria-hidden="true">
       {state === "running" ? <InfinityLoader size={14} />
-        : state === "done" ? <Check size={11} />
-          : state === "failed" ? <X size={11} />
+        : state === "done" ? <Check size={12} />
+          : state === "failed" ? <X size={12} />
             : state === "warning" ? (
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
                 <path d="M12 5v9M12 19h.01" />
               </svg>
-            ) : <Minus size={11} />}
+            ) : <Minus size={12} />}
     </i>
   );
 }
@@ -98,7 +99,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   const last = steps.at(-1);
   const totalMs = elapsed ?? (outcome?.status === "succeeded" ? outcome.seconds * 1000
     : last ? last.startedMs + lasted(last) : null);
-  const pages = !building && outcome?.pages ? outcome.pages === 1 ? t`1 page` : t`${outcome.pages} pages` : null;
+  const pages = !building && outcome?.pages ? outcome.pages === 1 ? t`1 page` : spaceMixedScript(t`${formatCount(outcome.pages)} pages`) : null;
   const facts = [pages, totalMs === null ? null : seconds(totalMs)].filter(Boolean).join(" · ");
 
   /** What a pass did, beside its program's name. */
@@ -192,7 +193,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
               {where && <span className="build-sequence-where">{where}</span>}
             </span>
           </span>
-          <ChevronRight size={14} aria-hidden="true" />
+          <ChevronRight size={12} aria-hidden="true" />
         </button>
       )}
       <div className="build-sequence-hint">{hint}</div>

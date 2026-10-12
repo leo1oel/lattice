@@ -74,6 +74,11 @@ function isTransientOverleafTransportFailure(reason: unknown): boolean {
   return /could not reach overleaf|error decoding response body/i.test(toMessage(reason));
 }
 
+/** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
+function isOverleafSignedOut(reason: unknown): boolean {
+  return /overleaf session expired|not connected to overleaf/i.test(toMessage(reason));
+}
+
 /** How often live mode asks Overleaf whether anything changed. */
 const OVERLEAF_LIVE_POLL_MS = 3_000;
 /** Quiet time after a save before local work is pushed up. */
@@ -146,6 +151,8 @@ export type OverleafWorkspaceDeps = {
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
   overleafSyncSettledRef: RefObject<Promise<void> | null>;
   resolveOverleafSyncRef: RefObject<(() => void) | null>;
+  /** Settings › Overleaf, where a signed-out writer signs in again. */
+  openOverleafSettingsRef: RefObject<() => void>;
 };
 
 /**
@@ -194,7 +201,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, editorPosition, editorPositionRef, build,
     saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, save, compile, loadFile, refreshProject, openProjectFile,
-    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
+    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef, openOverleafSettingsRef,
   } = deps;
   const { t } = useLingui();
 
@@ -545,6 +552,21 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           overleafTransportRetryRef.current = true;
           trace.enrich({ retry_scheduled: true });
           trace.fail(reason, { toast: false });
+        } else if (isOverleafSignedOut(reason)) {
+          // What happened and what Lattice does about it, with the backend's
+          // advice ("Reconnect in Settings → Overleaf") as the action; its
+          // own words stay in Copy and the log.
+          trace.fail(reason, {
+            title: t`Overleaf sync paused`,
+            detail: t`Your Overleaf session ended. Your edits stay on this Mac until you sign in`,
+            primaryAction: { label: t`Sign in to Overleaf`, onClick: () => openOverleafSettingsRef.current() },
+          });
+        } else if (isTransientOverleafTransportFailure(reason)) {
+          trace.fail(reason, {
+            title: t`Couldn’t reach Overleaf`,
+            detail: t`Your edits stay on this Mac until the next sync`,
+            primaryAction: { label: t`Sync again`, onClick: () => void overleafSyncRef.current() },
+          });
         } else {
           trace.fail(reason);
         }
@@ -554,7 +576,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       release();
     }
   }, [
-    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
+    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, openOverleafSettingsRef,
     overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
     save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);

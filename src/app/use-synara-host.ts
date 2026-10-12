@@ -110,6 +110,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useSynaraNotificationBridge({ frameRef: sourceControlFrameRef, origin, source: t`Synara source control` });
   useSynaraConfirmationBridge({ frameRef: sourceControlFrameRef, origin });
   const [frameMounted, setFrameMounted] = useState(false);
+  /** Part of the agent frame's key: Retry remounts a frame that never said it was ready. */
+  const [frameAttempt, setFrameAttempt] = useState(0);
   const [readyFrameKey, setReadyFrameKey] = useState<string | null>(null);
   const [permissionMode, setPermissionMode] = useState<SynaraPermissionMode>("full-access");
   const [autoModeAvailable, setAutoModeAvailable] = useState(true);
@@ -323,9 +325,18 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   }, [theme, tint, accent, translucency, translucent, frameReady, postMessage]);
 
   const requestRuntime = useCallback(() => setRuntimeRequested(true), []);
+  /**
+   * The agent panel's Retry. A running service whose frame never sent
+   * embed-ready gets a fresh frame; restarting the service instead would
+   * reload every other frame on it too. One that is not running starts again.
+   */
+  const retryAgent = useCallback(() => {
+    if (origin) setFrameAttempt((value) => value + 1);
+    else retry();
+  }, [origin, retry]);
   return {
-    runtime, retry, origin, requestRuntime, mountFrame,
-    frameRef, sourceControlFrameRef, frameMounted, frameReady,
+    runtime, retry, retryAgent, origin, requestRuntime, mountFrame,
+    frameRef, sourceControlFrameRef, frameMounted, frameAttempt, frameReady,
     permissionMode, autoModeAvailable, changePermissionMode,
     postMessage, notifyPanelOpened, showThread,
     /** Delivery state for the snapshots useAgentContext posts; not for rendering. */

@@ -10,7 +10,7 @@ describe("build log messages", () => {
       ["tex-dependency-missing", { file: "algorithm.sty" }, "Missing LaTeX dependency `algorithm.sty`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."],
       ["conference-style-missing", { file: "cvpr.sty", venue: "CVPR" }, "Missing style file `cvpr.sty`. It is part of the CVPR template and belongs next to main.tex — TeX Live cannot install it. Sync or copy it back from another copy of the project."],
       ["latexmkrc-failed", { file: ".latexmkrc", reason: "Figure export failed" }, "latexmk stopped before LaTeX ran because .latexmkrc failed: Figure export failed. The Log tab shows the output of the command it runs."],
-      ["build-cancelled", { seconds: "2.5" }, "Build stopped after 2.5s. The log below is how far it got."],
+      ["build-cancelled", { seconds: "2.5" }, "Build stopped after 2.5 s. The log below is how far it got."],
       ["pdf-fonts-not-times", { venue: "ICLR", fonts: "LMRoman10-Regular", cause: "lmodern" }, "PDF fonts are not the Times that ICLR requires (LMRoman10-Regular). The document loads lmodern after Times, which replaces it with Latin Modern: remove \\usepackage{lmodern}, then Build."],
       ["pdf-fonts-not-times", { venue: "NeurIPS", fonts: "Arial", cause: "unknown", upToDate: "true" }, "PDF fonts are not the Times that NeurIPS requires (Arial). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."],
     ];

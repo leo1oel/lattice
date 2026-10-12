@@ -130,7 +130,7 @@ function syncFixture() {
     }),
     refreshProject: vi.fn(async () => project), openProjectFile: vi.fn(),
     overleafSyncingRef: { current: false }, overleafSyncSettledRef: { current: null },
-    resolveOverleafSyncRef: { current: null },
+    resolveOverleafSyncRef: { current: null }, openOverleafSettingsRef: { current: vi.fn() },
   };
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "overleaf_link") return { projectId: "ol-paper", projectName: "Paper", host: "https://www.overleaf.com", paused: false };

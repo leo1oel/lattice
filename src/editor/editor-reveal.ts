@@ -9,7 +9,7 @@
  * whole on screen, at the bottom edge.
  */
 import { StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
-import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
 import { focusWhenShown } from "./focus-when-shown";
 
@@ -52,12 +52,26 @@ const revealFlash = StateField.define<Flash>({
   provide: (field) => EditorView.decorations.from(field, (flash) => flash.marks),
 });
 
-/** For every editor that can be sent somewhere: the target's mark. */
-export function revealExtension(): Extension {
-  return revealFlash;
-}
-
 const flashTimers = new WeakMap<EditorView, number>();
+
+/**
+ * A jump's timers belong to its view: one destroyed while its target is still
+ * settling or marked (a file switch, a closed tab, a test's unmount) ends the
+ * hold and drops the mark's timer with it, rather than leaving them to fire
+ * on a view, or a window, that is gone.
+ */
+const revealLifetime = ViewPlugin.define((view) => ({
+  destroy() {
+    releaseReveal(view);
+    window.clearTimeout(flashTimers.get(view));
+    flashTimers.delete(view);
+  },
+}));
+
+/** For every editor that can be sent somewhere: the target's mark, and its timers' lifetime. */
+export function revealExtension(): Extension {
+  return [revealFlash, revealLifetime];
+}
 
 /**
  * Send `view` to `from`…`to` (a caret when `to` is omitted): select it,

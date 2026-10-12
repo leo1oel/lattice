@@ -110,7 +110,7 @@ describe("the Build button's report of the last build", () => {
     act(() => controller.docTools.set({ building: true }));
     expect(shown(container)).toEqual({ state: "is-building", label: "Build", busy: "true" });
     act(() => controller.docTools.set({ building: false, lastBuild: succeeded(3.24) }));
-    expect(shown(container)).toEqual({ state: "is-succeeded", label: "3.2s", busy: null });
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "3.2 s", busy: null });
     expect(container.querySelector(".trellis-build-status")).not.toBeNull();
   });
 
@@ -152,16 +152,16 @@ describe("the Build button's report of the last build", () => {
   it("keeps a build with warnings a success, marked and described rather than celebrated", () => {
     const { container } = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2, { ...NO_DIAGNOSTICS, warning: 2 }) });
     const button = container.querySelector(".trellis-build-button")!;
-    expect(shown(container)).toEqual({ state: "is-succeeded", label: "1.2s", busy: null });
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "1.2 s", busy: null });
     expect(button).toHaveClass("has-warnings", "is-fresh");
     expect(container.querySelector(".trellis-build-pip")).not.toBeNull();
     expect(container.querySelector(".trellis-build-burst")).toBeNull();
     expect(button).toHaveAccessibleName("Build");
-    expect(button).toHaveAccessibleDescription("Built with 2 warnings · main.tex · 1.2s · just now");
+    expect(button).toHaveAccessibleDescription("Built with 2 warnings · main.tex · 1.2 s · just now");
     cleanup();
     const clean = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2) });
     expect(clean.container.querySelector(".trellis-build-pip")).toBeNull();
-    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
+    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built · main.tex · 1.2 s · just now");
     cleanup();
     const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
     expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error · main.tex · just now");
@@ -209,13 +209,13 @@ describe("the Build button's report of the last build", () => {
     const finishedAt = Date.now();
     const { container } = renderTools(tex, { active: true }, { lastBuild: { ...succeeded(1.2), finishedAt } });
     const button = container.querySelector<HTMLButtonElement>(".trellis-build-button")!;
-    expect(button).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
+    expect(button).toHaveAccessibleDescription("Built · main.tex · 1.2 s · just now");
     const now = vi.spyOn(Date, "now").mockReturnValue(finishedAt + 3 * 60_000);
     act(() => button.focus());
-    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 3 minutes ago/);
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2 s · 3 minutes ago/);
     now.mockReturnValue(finishedAt + 2 * 3_600_000);
     fireEvent.pointerEnter(button);
-    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 2 hours ago/);
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2 s · 2 hours ago/);
     now.mockRestore();
   });
 
@@ -228,7 +228,7 @@ describe("the Build button's report of the last build", () => {
     act(() => controller.docTools.set({ building: false, lastBuild: succeeded(12) }));
     act(() => controller.app.set({ activeKey: tex.key }));
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
-    expect(shown(container)).toEqual({ state: "is-succeeded", label: "12.0s", busy: null });
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "12.0 s", busy: null });
   });
 });
 

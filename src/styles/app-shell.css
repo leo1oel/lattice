@@ -240,6 +240,13 @@ input[type="search"]:focus-visible {
 .quick-open-list .picker-shortcut { flex: none; margin-inline-start: var(--space-2); }
 /* The command palette reaches files, papers and settings as well as
    commands, so it gives its rows more room than the single-purpose pickers. */
+/* A query that found nothing names what was not found, set as an empty
+   state's title and description, at the rows' text edge; the one row that
+   may still answer it (the palette's Find in project) follows. */
+.picker-no-match { padding: var(--space-8) var(--space-8) var(--space-2); display: grid; gap: var(--space-1); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.picker-no-match > strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
+.picker-no-match:has(+ .quick-open-list[hidden]) { padding-bottom: var(--space-8); }
+.quick-open-list[hidden] { display: none; }
 .modal.quick-open-modal.command-palette-modal { width: min(640px, calc(100vw - 40px)); }
 .command-palette-modal .quick-open-list { max-height: min(460px, 60vh); }
 .command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
@@ -341,6 +348,9 @@ input[type="search"]:focus-visible {
 /* Find results are a list, not a stack of cards: rows that light up under the
    pointer and the keyboard, an icon column, then name, folder and line above
    the matched text. */
+/* Find's empty and no-result states stand centred in the room the results
+   would take, a step down from the filters. */
+.project-find .project-replace-preview > .ui-empty-state { margin-top: var(--space-16); }
 :is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
 :is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
 /* Find's current hit is the one highlight, which the pointer moves as well
@@ -489,6 +499,68 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
 }
+/* The agent panel's wait: the thread's shape from the top (the Agent's lines
+   full width, the writer's bubbles at the end), so the thread lands where its
+   shape was. A stall's note stands in the room below it. */
+.synara-loading-surface[data-shape="thread"] {
+  align-items: stretch;
+  gap: var(--space-8);
+  overflow: hidden;
+  padding: var(--space-12) var(--space-6) var(--space-6);
+  text-align: start;
+}
+.synara-loading-surface[data-shape="thread"] > :first-child { margin-top: 0; }
+.synara-thread-skeleton {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+  animation: git-workspace-skeleton-in var(--motion-moderate) both;
+}
+.synara-thread-skeleton > span {
+  display: block;
+  height: var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+}
+.synara-thread-skeleton > span[data-from="writer"] {
+  align-self: flex-end;
+  height: var(--control-height-default);
+  margin-block: var(--space-2);
+  border-radius: var(--radius-surface);
+}
+.synara-thread-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-sidebar) 70%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: git-workspace-skeleton-sheen 1.6s ease-in-out infinite;
+}
+.synara-slow {
+  margin-block: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-surface);
+  background: var(--surface-panel-raised);
+  box-shadow: var(--elevation-raised);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  overflow-wrap: break-word;
+}
+.synara-slow > strong {
+  color: var(--text-primary);
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
+  font-weight: var(--type-subtitle-weight);
+}
+.synara-slow > .synara-failure-actions { justify-content: flex-start; margin-top: var(--space-4); }
+.synara-slow > .synara-failure-note { margin: var(--space-2) 0 0; }
 /* Side by side when they fit; stacked at one shared width when they don't. */
 .synara-failure-actions {
   width: max-content;
@@ -575,14 +647,19 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
    The right inset lives on the tree surface instead, so the scrollbar can use it
    as its gutter and sit at the panel edge like the Papers list's. */
 .project-section { flex: 1; padding: 7px 0 0 var(--space-5); display: flex; flex-direction: column; overflow: hidden; }
-.papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-6) 0; overflow: hidden; }
+/* Papers stands 10px off the panel edge like the Project tree, and its search
+   icon 10px inside the field, border included, like a tree row's glyph inside
+   its row: the tab icons, the tree glyphs and the search icon share one
+   gutter (the tabs' 14px in trellis.css). */
+.papers-section { display: flex; flex: 1; flex-direction: column; padding-block: 7px var(--space-5); padding-inline: var(--space-5) 0; overflow: hidden; }
 .papers-section .paper-import-control,
 .papers-section .import-box {
-  width: calc(100% - var(--space-6));
+  width: calc(100% - var(--space-5));
 }
 .papers-section .paper-import-control .import-box { width: 100%; }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] {
   height: var(--navigation-search-height);
+  padding-inline-start: calc(var(--search-control-padding-inline) - var(--field-control-border-width));
 }
 .papers-section .paper-import-control { position: relative; }
 .papers-section .paper-import-control[data-importing] .import-box {
@@ -709,7 +786,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
 /* The count, then the sort and the filter at the end, on the search field's
    measure; in a narrow panel their labels give way before the count does. */
-.paper-list-toolbar { width: calc(100% - var(--space-6)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+.paper-list-toolbar { width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
 .paper-list-count { flex: none; margin: 0 auto 0 0; padding-inline: var(--space-4); white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 .paper-list-toolbar .paper-list-select { flex: 0 1 auto; width: auto; gap: var(--space-2); padding-inline: var(--space-4) var(--space-3); }
 .paper-list-select > svg:first-child { color: var(--text-secondary); }

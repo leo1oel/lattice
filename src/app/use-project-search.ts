@@ -8,10 +8,11 @@ import type { ReplaceOptions, ReplacePreviewResult } from "../project/project-re
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { showNotice } from "./notify";
 
-type FindState = { open: boolean; busy: boolean; error: string | null; hits: ProjectFindHit[] };
+/** `seed`: a query handed over by whoever opened Find (the palette's no-match row); new per opening. */
+type FindState = { open: boolean; busy: boolean; error: string | null; hits: ProjectFindHit[]; seed: { query: string } | null };
 type ReplaceState = { open: boolean; busy: boolean; error: string | null; preview: ReplacePreviewResult | null };
 
-const CLOSED_FIND: FindState = { open: false, busy: false, error: null, hits: [] };
+const CLOSED_FIND: FindState = { open: false, busy: false, error: null, hits: [], seed: null };
 const CLOSED_REPLACE: ReplaceState = { open: false, busy: false, error: null, preview: null };
 
 /**
@@ -43,7 +44,9 @@ export function useProjectSearch(deps: {
     [],
   );
 
-  const openFind = useCallback(() => setFind({ open: true, error: null, hits: [] }), [setFind]);
+  const openFind = useCallback(() => setFind({ open: true, error: null, hits: [], seed: null }), [setFind]);
+  /** Open Find on `query`, as if typed there. */
+  const openFindFor = useCallback((query: string) => setFind({ open: true, error: null, hits: [], seed: { query } }), [setFind]);
   const closeFind = useCallback(() => {
     searchGenerationRef.current += 1;
     setFindState(CLOSED_FIND);
@@ -102,7 +105,7 @@ export function useProjectSearch(deps: {
           : t`Replaced ${replacements} occurrences in ${files} files.`);
   }), [depsRef, runReplaceStep, setReplace, t]);
 
-  return { find, replace, openFind, closeFind, search, openReplace, closeReplace, previewReplace, applyReplace };
+  return { find, replace, openFind, openFindFor, closeFind, search, openReplace, closeReplace, previewReplace, applyReplace };
 }
 
 export type ProjectSearch = ReturnType<typeof useProjectSearch>;

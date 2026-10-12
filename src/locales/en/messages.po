@@ -90,7 +90,7 @@ msgstr "{0} inline references, compared but not edited"
 msgid "{0} packages"
 msgstr "{0} packages"
 
-#. placeholder {0}: outcome.pages
+#. placeholder {0}: formatCount(outcome.pages)
 #: src/trellis/trellis-build-sequence.tsx
 msgid "{0} pages"
 msgstr "{0} pages"
@@ -1452,12 +1452,12 @@ msgid "Build project"
 msgstr "Build project"
 
 #: src/build/build-log-messages.ts
-msgid "Build stopped after {seconds}s. The log below is how far it got."
-msgstr "Build stopped after {seconds}s. The log below is how far it got."
+msgid "Build stopped after {seconds} s. The log below is how far it got."
+msgstr "Build stopped after {seconds} s. The log below is how far it got."
 
 #: src/app/use-build-pipeline.ts
-msgid "Build succeeded in {seconds}s"
-msgstr "Build succeeded in {seconds}s"
+msgid "Build succeeded in {seconds} s"
+msgstr "Build succeeded in {seconds} s"
 
 #: src/app/use-build-pipeline.ts
 msgid "Build superseded"
@@ -2605,6 +2605,10 @@ msgstr "Couldn’t open the logs"
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Couldn’t open this spreadsheet"
 msgstr "Couldn’t open this spreadsheet"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Couldn’t reach Overleaf"
+msgstr "Couldn’t reach Overleaf"
 
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
@@ -5925,6 +5929,14 @@ msgstr "No changes since the last version."
 msgid "No changes suggested"
 msgstr "No changes suggested"
 
+#: src/app/command-palette.tsx
+msgid "No commands or settings match “{query}”"
+msgstr "No commands or settings match “{query}”"
+
+#: src/app/command-palette.tsx
+msgid "No commands, files or papers match “{query}”"
+msgstr "No commands, files or papers match “{query}”"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "No comments yet"
@@ -6738,8 +6750,8 @@ msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
 
 #: src/overleaf/use-overleaf-realtime.ts
-msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
-msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
+msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
+msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
@@ -6793,6 +6805,7 @@ msgstr "Overleaf sync cancelled"
 msgid "Overleaf sync is finishing. Try switching projects again in a moment."
 msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf sync paused"
 msgstr "Overleaf sync paused"
@@ -8505,6 +8518,10 @@ msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "Search or add by title, arXiv ID, DOI, or URL"
 
 #: src/project/paper-library.tsx
+msgid "Search or add papers"
+msgstr "Search or add papers"
+
+#: src/project/paper-library.tsx
 msgid "Search or import papers"
 msgstr "Search or import papers"
 
@@ -8523,6 +8540,10 @@ msgstr "Search references"
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "Search settings"
+
+#: src/app/command-palette.tsx
+msgid "Search the project for “{query}”"
+msgstr "Search the project for “{query}”"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
@@ -8823,6 +8844,7 @@ msgstr "Sign in to {linkedHost} to resume syncing"
 msgid "Sign in to {linkedHost}, then resume"
 msgstr "Sign in to {linkedHost}, then resume"
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to Overleaf"
 msgstr "Sign in to Overleaf"
@@ -9289,6 +9311,10 @@ msgstr "Synara source control"
 msgid "Sync"
 msgstr "Sync"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Sync again"
+msgstr "Sync again"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sync behavior"
 msgstr "Sync behavior"
@@ -9352,6 +9378,10 @@ msgstr "Table of contents"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Table preview"
 msgstr "Table preview"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "Taking longer than usual"
+msgstr "Taking longer than usual"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Task list"
@@ -9469,6 +9499,10 @@ msgstr "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
+
+#: src/agent/synara-loading-surface.tsx
+msgid "The Agent started {seconds} s ago and hasn’t answered yet"
+msgstr "The Agent started {seconds} s ago and hasn’t answered yet"
 
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
@@ -10091,6 +10125,10 @@ msgstr "Try another filter"
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
+
+#: src/app/command-palette.tsx
+msgid "Try other words, or search every source file"
+msgstr "Try other words, or search every source file"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
@@ -10802,6 +10840,10 @@ msgstr "You sign in on Overleaf. Lattice never sees your password"
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Your edits stay on this Mac until the next sync"
+msgstr "Your edits stay on this Mac until the next sync"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Your first PDF starts here"
 msgstr "Your first PDF starts here"
@@ -10818,6 +10860,10 @@ msgstr "Your name"
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "your Overleaf account"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
+msgstr "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"

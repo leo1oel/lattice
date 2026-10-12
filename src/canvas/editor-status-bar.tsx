@@ -6,6 +6,8 @@ import { countWords, textStats } from "../editor/latex/latex-edits";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorKeymap, WordCount } from "../app-types";
+import { formatCount } from "../i18n";
+import { spaceMixedScript } from "../trellis/trellis-titles";
 
 /** Caret position, Vim mode, section breadcrumb, shortcuts, comments/TODOs, and word counts for the focused editor. */
 export function EditorStatusBar(props: {
@@ -114,17 +116,18 @@ function StatusWordCount(props: {
   const fileWords = useMemo(() => countWords(source), [source]);
   const selection = useMemo(() => textStats(selectedText), [selectedText]);
   const estimated = projectWordCount != null && projectWordCount.source !== "texcount";
-  const words = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} word` })
-    : t({ message: `${{ count: count.toLocaleString() }} words` }));
+  // A count over 10,000 reads in 万 in Chinese ("12.04 万词"); see formatCount.
+  const words = (count: number) => spaceMixedScript(count === 1
+    ? t({ message: `${{ count: formatCount(count) }} word` })
+    : t({ message: `${{ count: formatCount(count) }} words` }));
   // An estimate reads as one in the footer too, not only in the details.
   const manuscriptWords = (count: number) => (estimated ? `≈${words(count)}` : words(count));
-  const characters = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} character` })
-    : t({ message: `${{ count: count.toLocaleString() }} characters` }));
-  const lines = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} line` })
-    : t({ message: `${{ count: count.toLocaleString() }} lines` }));
+  const characters = (count: number) => spaceMixedScript(count === 1
+    ? t({ message: `${{ count: formatCount(count) }} character` })
+    : t({ message: `${{ count: formatCount(count) }} characters` }));
+  const lines = (count: number) => spaceMixedScript(count === 1
+    ? t({ message: `${{ count: formatCount(count) }} line` })
+    : t({ message: `${{ count: formatCount(count) }} lines` }));
   const [scope, count] = selectedText
     ? [t`Selection`, words(selection.words)]
     : projectWordCount
@@ -154,7 +157,7 @@ function StatusWordCount(props: {
             </dd>
             {projectWordCount && !estimated && (
               <dd className="word-count-note">
-                {t({ message: `Text ${{ text: projectWordCount.text.toLocaleString() }} · headings ${{ headers: projectWordCount.headers.toLocaleString() }} · captions ${{ captions: projectWordCount.captions.toLocaleString() }}` })}
+                {spaceMixedScript(t({ message: `Text ${{ text: formatCount(projectWordCount.text) }} · headings ${{ headers: formatCount(projectWordCount.headers) }} · captions ${{ captions: formatCount(projectWordCount.captions) }}` }))}
               </dd>
             )}
           </div>

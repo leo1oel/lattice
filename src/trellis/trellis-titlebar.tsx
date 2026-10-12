@@ -357,7 +357,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
         </Tip>
         <Tip label={t`Reset layout`}>
           <button type="button" className="trellis-titlebar-toggle" aria-label={t`Reset layout`} onClick={() => void controller.resetLayout()}>
-            <RotateCcw size={13} />
+            <RotateCcw size={14} />
           </button>
         </Tip>
       </div>
