@@ -71,6 +71,20 @@ export function paperAuthorNames(paper: Pick<PaperSummary, "authors">): string[]
   return parseAuthors(paper.authors).people.map((author) => author.name);
 }
 
+/**
+ * The first three names in full, then how many more: "Ashish Vaswani, Noam
+ * Shazeer, Niki Parmar +5", as a citation card bylines its entry. Null
+ * without authors.
+ */
+export function paperBylineAuthors(paper: Pick<PaperSummary, "authors">): string | null {
+  const { people, others } = parseAuthors(paper.authors);
+  if (!people.length) return null;
+  const names = people.slice(0, 3).map((author) => author.name).join(", ");
+  const more = people.length - 3;
+  if (more > 0) return i18n._(msg`${names} +${more}`);
+  return others ? i18n._(msg`${names} et al.`) : names;
+}
+
 /** "Vaswani", "Vaswani and Shazeer" or "Vaswani et al."; null without authors. */
 export function paperShortAuthors(paper: Pick<PaperSummary, "authors">): string | null {
   const { people, others } = parseAuthors(paper.authors);

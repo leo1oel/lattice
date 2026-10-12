@@ -345,6 +345,14 @@ msgstr "{name} 当前没在看任何文件"
 msgid "{name} properties"
 msgstr "{name}设置"
 
+#: src/papers/paper-identity.ts
+msgid "{names} +{more}"
+msgstr "{names} 及另 {more} 人"
+
+#: src/papers/paper-identity.ts
+msgid "{names} et al."
+msgstr "{names} 等"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
@@ -366,8 +374,12 @@ msgid "{notice}. Open notice"
 msgstr "{notice}。查看公告"
 
 #: src/canvas/proofread-card.tsx
-msgid "{offered} suggested edits"
-msgstr "{offered} 处建议"
+msgid "{offered} edits · clarity and flow"
+msgstr "{offered} 处修改 · 清晰流畅"
+
+#: src/canvas/proofread-card.tsx
+msgid "{offered} edits · errors only"
+msgstr "{offered} 处修改 · 只改错误"
 
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
@@ -466,6 +478,10 @@ msgstr "{where}（重连中…）"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
 
+#: src/canvas/proofread-card.tsx
+msgid "% comment"
+msgstr "% 注释"
+
 #: src/build/build-log-messages.ts
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` 只能在 pdfLaTeX 中使用，但这份文档是用 {engine} 编译的。将项目切换到 pdfLaTeX 即可编译。"
@@ -481,6 +497,14 @@ msgstr "⌘S · 按住 ⇧ 点击从头编译"
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
 msgstr "1 项需要处理"
+
+#: src/canvas/proofread-card.tsx
+msgid "1 edit · clarity and flow"
+msgstr "1 处修改 · 清晰流畅"
+
+#: src/canvas/proofread-card.tsx
+msgid "1 edit · errors only"
+msgstr "1 处修改 · 只改错误"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -506,10 +530,6 @@ msgstr "还剩 1 页"
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
-
-#: src/canvas/proofread-card.tsx
-msgid "1 suggested edit"
-msgstr "1 处建议"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -615,10 +635,6 @@ msgstr "全部接受（{0}）"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "全部更新"
-
-#: src/canvas/proofread-card.tsx
-msgid "Accept this edit"
-msgstr "接受"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -1828,6 +1844,10 @@ msgstr "圈斜线"
 msgid "Circled times / tensor"
 msgstr "圈乘 / 张量积"
 
+#: src/canvas/proofread-card.tsx
+msgid "citation"
+msgstr "引用"
+
 #: src/app/app-search-dialogs.tsx
 msgid "Citation"
 msgstr "文献"
@@ -1889,6 +1909,10 @@ msgstr "引用参考文献条目"
 msgid "Cited"
 msgstr "已引用"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Cited {times}× here"
+msgstr "本文引用 {times} 次"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited ×{citedCount}"
 msgstr "引用 ×{citedCount}"
@@ -1900,6 +1924,10 @@ msgstr "引用位置"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "在稿件中被引用"
+
+#: src/canvas/proofread-card.tsx
+msgid "clarity"
+msgstr "清晰"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1940,6 +1968,14 @@ msgstr "清空"
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "清空"
+
+#: src/canvas/proofread-card.tsx
+msgid "Click an edit to keep the original"
+msgstr "点一处修改可保留原文"
+
+#: src/canvas/proofread-card.tsx
+msgid "Click the edit to keep the original"
+msgstr "点这处修改可保留原文"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Click to edit"
@@ -2084,6 +2120,10 @@ msgstr "自动合并"
 msgid "Coming from Overleaf"
 msgstr "来自 Overleaf"
 
+#: src/canvas/proofread-card.tsx
+msgid "command"
+msgstr "命令"
+
 #: src/App.tsx
 #: src/app/command-palette.tsx
 msgid "Command palette"
@@ -2184,6 +2224,10 @@ msgstr "组件"
 msgid "Composition / ring"
 msgstr "复合 / 环运算"
 
+#: src/canvas/proofread-card.tsx
+msgid "concision"
+msgstr "简洁"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "会议"
@@ -2250,6 +2294,10 @@ msgstr "连接"
 msgid "Connection failed"
 msgstr "连接失败"
 
+#: src/canvas/proofread-card.tsx
+msgid "consistency"
+msgstr "一致"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Contact email"
@@ -2285,6 +2333,7 @@ msgstr "改成脚注"
 msgid "Convert selection to inline math"
 msgstr "改成公式"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "已复制"
@@ -2331,6 +2380,10 @@ msgstr "复制错误"
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
 msgstr "复制 JSON"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Copy key"
+msgstr "复制引用名"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy log"
@@ -2464,7 +2517,6 @@ msgstr "无法显示改动：{0}"
 msgid "Could not render these changes: {renderError}"
 msgstr "无法显示改动：{renderError}"
 
-#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Could not render this diff: {errorMessage}"
 msgstr "无法显示改动：{errorMessage}"
@@ -2706,6 +2758,10 @@ msgstr "定义"
 msgid "Delete"
 msgstr "删除"
 
+#: src/components/ui/inline-edits.tsx
+msgid "Delete “{deleted}”"
+msgstr "删除“{deleted}”"
+
 #: src/app/use-project-tree.ts
 msgid "Delete “{path}” from this project?"
 msgstr "删除“{path}”？"
@@ -2857,6 +2913,10 @@ msgstr "与核实记录不一致"
 #: src/settings/acknowledged-software.ts
 msgid "Diffs of changes and history"
 msgstr "更改与历史的差异对比"
+
+#: src/canvas/proofread-card.tsx
+msgid "Discard"
+msgstr "放弃"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Discard and close"
@@ -3226,10 +3286,6 @@ msgstr "状态"
 msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "编辑器字体，由 Ahmed Hatem 制作，基于 Renzhi Li 的 Iosevka"
 
-#: src/canvas/proofread-card.tsx
-msgid "Edits held back"
-msgstr "已跳过"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
 msgstr "继续后两边的修改会合并"
@@ -3357,6 +3413,10 @@ msgstr "条目已变"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "类型"
+
+#: src/canvas/proofread-card.tsx
+msgid "environment"
+msgstr "环境"
 
 #: src/canvas/proofread-card.tsx
 msgid "environments"
@@ -3729,6 +3789,10 @@ msgstr "浮动图，含图片、题注与标签（需要 graphicx）"
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "浮动表格，三线表样式（需要 booktabs）"
 
+#: src/canvas/proofread-card.tsx
+msgid "flow"
+msgstr "流畅"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Flush floats and start a new page"
 msgstr "输出浮动体并另起一页"
@@ -3911,6 +3975,10 @@ msgstr "跳到{title}"
 msgid "Go to definition"
 msgstr "跳到定义"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Go to entry"
+msgstr "跳到条目"
+
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
@@ -3954,6 +4022,10 @@ msgstr "传到 Overleaf"
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/canvas/proofread-card.tsx
+msgid "grammar"
+msgstr "语法"
 
 #: src/settings/acknowledged-software.ts
 msgid "Grammar checking"
@@ -4066,6 +4138,10 @@ msgstr "有 {count} 处会改到{changed}，已跳过"
 #: src/canvas/proofread-card.tsx
 msgid "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
 msgstr "有 1 处会改到{changed}，已跳过"
+
+#: src/components/ui/inline-edits.tsx
+msgid "Held back: {change}"
+msgstr "已跳过：{change}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4402,6 +4478,10 @@ msgstr "inproceedings 应写 booktitle，而不是 journal"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Insert"
 msgstr "插入"
+
+#: src/components/ui/inline-edits.tsx
+msgid "Insert “{inserted}”"
+msgstr "插入“{inserted}”"
 
 #: src/editor/harper-spellcheck.ts
 msgid "Insert “{replacement}”"
@@ -5857,10 +5937,6 @@ msgstr "没有不同，可以关闭"
 msgid "No document open"
 msgstr "尚未打开文档"
 
-#: src/canvas/proofread-card.tsx
-msgid "No edits selected. The selection stays as written."
-msgstr "没选修改，原文不变"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "这次更新没有文件改动"
@@ -6137,10 +6213,6 @@ msgstr "不等于"
 msgid "Not now"
 msgstr "以后再说"
 
-#: src/canvas/proofread-card.tsx
-msgid "Not offered"
-msgstr "未提供"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "还没同步"
@@ -6405,6 +6477,7 @@ msgstr "打开 notes.md"
 msgid "Open notice"
 msgstr "查看公告"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "Open paper"
 msgstr "打开论文"
@@ -6798,6 +6871,10 @@ msgstr "切换论文"
 #: src/trellis/trellis-titles.ts
 msgid "Papers"
 msgstr "论文库"
+
+#: src/canvas/proofread-card.tsx
+msgid "paragraph break"
+msgstr "分段"
 
 #: src/canvas/proofread-card.tsx
 msgid "paragraph breaks"
@@ -7296,6 +7373,10 @@ msgstr "出版方公告"
 msgid "Pull requests"
 msgstr "PR"
 
+#: src/canvas/proofread-card.tsx
+msgid "punctuation"
+msgstr "标点"
+
 #: src/settings/theme-settings.tsx
 msgid "Purple"
 msgstr "紫色"
@@ -7502,21 +7583,15 @@ msgstr "高级匹配"
 msgid "Regular expression"
 msgstr "高级匹配（正则）"
 
-#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "拒绝"
 
-#: src/canvas/proofread-card.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "全部拒绝"
-
-#: src/canvas/proofread-card.tsx
-msgid "Reject this edit"
-msgstr "拒绝"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -7650,8 +7725,6 @@ msgstr "正在重命名…"
 msgid "Rendering changes…"
 msgstr "正在加载改动…"
 
-#: src/canvas/proofread-card.tsx
-#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "正在对比…"
@@ -7719,6 +7792,10 @@ msgstr "作者名重复，请先对照原文再删"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Replace"
 msgstr "替换"
+
+#: src/components/ui/inline-edits.tsx
+msgid "Replace “{deleted}” with “{inserted}”"
+msgstr "将“{deleted}”改为“{inserted}”"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Replace {replacementCount}"
@@ -8362,6 +8439,14 @@ msgstr "搜索表情"
 msgid "Search failed."
 msgstr "搜索失败"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands"
+msgstr "搜索文件、论文、命令"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands…"
+msgstr "搜索文件、论文、命令…"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索论文"
@@ -8661,6 +8746,10 @@ msgstr "显示替换"
 msgid "Show results from"
 msgstr "搜索范围"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Show the citation card"
+msgstr "显示引用卡片"
+
 #: src/App.tsx
 #: src/app/focus-mode-bar.tsx
 msgid "Show the PDF beside the editor"
@@ -8877,6 +8966,10 @@ msgstr "黑桃"
 msgid "Spectrum"
 msgstr "色谱"
 
+#: src/canvas/proofread-card.tsx
+msgid "spelling"
+msgstr "拼写"
+
 #: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9061,10 +9154,6 @@ msgstr "成功"
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Suggested change"
 msgstr "修改建议"
-
-#: src/canvas/proofread-card.tsx
-msgid "Suggested edits"
-msgstr "建议修改"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
@@ -10316,8 +10405,16 @@ msgid "Venue unavailable"
 msgstr "无发表信息"
 
 #: src/canvas/proofread-card.tsx
+msgid "verbatim"
+msgstr "原样"
+
+#: src/canvas/proofread-card.tsx
 msgid "verbatim code"
 msgstr "原样代码"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Verified · Crossref"
+msgstr "已核验 · Crossref"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
@@ -10525,6 +10622,10 @@ msgstr "窗口"
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
 msgstr "词数上限"
+
+#: src/canvas/proofread-card.tsx
+msgid "word choice"
+msgstr "用词"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count"

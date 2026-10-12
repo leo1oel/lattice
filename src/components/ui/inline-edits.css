@@ -1,0 +1,58 @@
+/* A passage read in place with its suggested edits (inline-edits.tsx): the
+   reading font on the typeset role, the old words struck in the secondary ink,
+   the new ones on a success wash, and a quiet tag after each saying why. The
+   tag sits at the top of the line's text, so it never grows the line. */
+.inline-edits {
+  color: var(--text-primary);
+  font-family: var(--reading-font);
+  font-size: var(--type-typeset-size);
+  line-height: var(--type-typeset-line-height);
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+.inline-edits-break { display: block; height: var(--space-3); }
+.inline-edit {
+  border-radius: var(--radius-compact);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-color var(--motion-fast);
+}
+.inline-edit[role="button"] { cursor: pointer; }
+.inline-edit[role="button"]:hover { background: var(--control-hover-surface); }
+.inline-edit[role="button"]:active { background: var(--control-pressed-surface); }
+.inline-edit del {
+  color: var(--text-secondary);
+  text-decoration-line: line-through;
+  text-decoration-color: var(--status-danger);
+  text-decoration-thickness: 1px;
+}
+.inline-edit ins {
+  padding-inline: var(--gap-tight);
+  border-radius: var(--radius-compact);
+  background: var(--status-success-soft);
+  color: var(--status-success);
+  text-decoration: none;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+/* Kept: the original stays, underlined so it still reads as a choice. */
+.inline-edit-original {
+  text-decoration: underline dashed var(--border-strong);
+  text-underline-offset: 4px;
+}
+.inline-edit-caret { color: var(--text-secondary); }
+.inline-edit[data-status="held"] .inline-edit-original { text-decoration: underline dotted var(--status-warning); }
+/* Inline, not an inline box, so the word joiner before it holds it to its word. */
+.inline-edit-tag {
+  margin-inline-start: var(--gap-tight);
+  padding-inline: var(--gap-inline-tight);
+  vertical-align: text-top;
+  border-radius: var(--radius-pill);
+  background: var(--tone-surface);
+  color: var(--text-secondary);
+  font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
+  white-space: nowrap;
+}
+.inline-edit[data-status="kept"] .inline-edit-tag { background: transparent; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.inline-edit[data-status="held"] .inline-edit-tag { color: var(--status-warning); }
+.inline-edit-tag svg { margin-inline-end: var(--gap-tight); vertical-align: -2px; }

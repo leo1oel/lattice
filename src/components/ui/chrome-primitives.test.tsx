@@ -51,10 +51,10 @@ describe("shared chrome primitives", () => {
     expect(message.querySelector("span")).toHaveClass("ui-inline-message-copy");
   });
 
-  it("gives primary buttons press feedback and keeps menu items concentric", () => {
+  it("gives text buttons press feedback and keeps menu items concentric", () => {
     const chrome = String(readFileSync("src/components/ui/chrome.css", "utf8"));
-    expect(chrome).toContain(".ui-button--primary:active:not(:disabled)");
-    expect(chrome).toContain("scale: 0.96");
+    expect(chrome).toContain(".ui-button:active:not(:disabled");
+    expect(chrome).toContain("scale: 0.97");
     // The portaled surface declares both inputs to the same derived radius
     // contract used by hand-written menus. Regular labels take a 1.5 stroke.
     expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");

@@ -90,6 +90,7 @@
  * underlying page remains readable, and they share the same blur strength. */
 .texlab-hover-card,
 .citation-hover-card,
+.source-editor .cm-tooltip.citation-hover-card,
 .reference-hover-card,
 .proofread-card {
   border-radius: var(--radius-panel);

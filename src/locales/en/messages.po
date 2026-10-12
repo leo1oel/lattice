@@ -348,6 +348,14 @@ msgstr "{name} is not in a file right now."
 msgid "{name} properties"
 msgstr "{name} properties"
 
+#: src/papers/paper-identity.ts
+msgid "{names} +{more}"
+msgstr "{names} +{more}"
+
+#: src/papers/paper-identity.ts
+msgid "{names} et al."
+msgstr "{names} et al."
+
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
@@ -369,8 +377,12 @@ msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
 #: src/canvas/proofread-card.tsx
-msgid "{offered} suggested edits"
-msgstr "{offered} suggested edits"
+msgid "{offered} edits · clarity and flow"
+msgstr "{offered} edits · clarity and flow"
+
+#: src/canvas/proofread-card.tsx
+msgid "{offered} edits · errors only"
+msgstr "{offered} edits · errors only"
 
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
@@ -469,6 +481,10 @@ msgstr "{where} (reconnecting…)"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
+#: src/canvas/proofread-card.tsx
+msgid "% comment"
+msgstr "% comment"
+
 #: src/build/build-log-messages.ts
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
@@ -484,6 +500,14 @@ msgstr "⌘S · ⇧-click for a clean rebuild"
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
 msgstr "1 check needs attention"
+
+#: src/canvas/proofread-card.tsx
+msgid "1 edit · clarity and flow"
+msgstr "1 edit · clarity and flow"
+
+#: src/canvas/proofread-card.tsx
+msgid "1 edit · errors only"
+msgstr "1 edit · errors only"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -509,10 +533,6 @@ msgstr "1 page remaining"
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
-
-#: src/canvas/proofread-card.tsx
-msgid "1 suggested edit"
-msgstr "1 suggested edit"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -618,10 +638,6 @@ msgstr "Accept all ({0})"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "Accept all updates"
-
-#: src/canvas/proofread-card.tsx
-msgid "Accept this edit"
-msgstr "Accept this edit"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -1831,6 +1847,10 @@ msgstr "Circled slash"
 msgid "Circled times / tensor"
 msgstr "Circled times / tensor"
 
+#: src/canvas/proofread-card.tsx
+msgid "citation"
+msgstr "citation"
+
 #: src/app/app-search-dialogs.tsx
 msgid "Citation"
 msgstr "Citation"
@@ -1892,6 +1912,10 @@ msgstr "Cite bibliography entries"
 msgid "Cited"
 msgstr "Cited"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Cited {times}× here"
+msgstr "Cited {times}× here"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited ×{citedCount}"
 msgstr "Cited ×{citedCount}"
@@ -1903,6 +1927,10 @@ msgstr "Cited in"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "Cited in the manuscript"
+
+#: src/canvas/proofread-card.tsx
+msgid "clarity"
+msgstr "clarity"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1943,6 +1971,14 @@ msgstr "Clear PDF search"
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "Clear search"
+
+#: src/canvas/proofread-card.tsx
+msgid "Click an edit to keep the original"
+msgstr "Click an edit to keep the original"
+
+#: src/canvas/proofread-card.tsx
+msgid "Click the edit to keep the original"
+msgstr "Click the edit to keep the original"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Click to edit"
@@ -2087,6 +2123,10 @@ msgstr "Combines automatically"
 msgid "Coming from Overleaf"
 msgstr "Coming from Overleaf"
 
+#: src/canvas/proofread-card.tsx
+msgid "command"
+msgstr "command"
+
 #: src/App.tsx
 #: src/app/command-palette.tsx
 msgid "Command palette"
@@ -2187,6 +2227,10 @@ msgstr "Components"
 msgid "Composition / ring"
 msgstr "Composition / ring"
 
+#: src/canvas/proofread-card.tsx
+msgid "concision"
+msgstr "concision"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "conference"
 msgstr "conference"
@@ -2253,6 +2297,10 @@ msgstr "Connection"
 msgid "Connection failed"
 msgstr "Connection failed"
 
+#: src/canvas/proofread-card.tsx
+msgid "consistency"
+msgstr "consistency"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Contact email"
@@ -2288,6 +2336,7 @@ msgstr "Convert selection to footnote"
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
 msgstr "Copied"
@@ -2334,6 +2383,10 @@ msgstr "Copy error message"
 #: src/telemetry/app-log.tsx
 msgid "Copy JSON"
 msgstr "Copy JSON"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Copy key"
+msgstr "Copy key"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy log"
@@ -2467,7 +2520,6 @@ msgstr "Could not render these changes: {0}"
 msgid "Could not render these changes: {renderError}"
 msgstr "Could not render these changes: {renderError}"
 
-#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Could not render this diff: {errorMessage}"
 msgstr "Could not render this diff: {errorMessage}"
@@ -2709,6 +2761,10 @@ msgstr "Definition"
 msgid "Delete"
 msgstr "Delete"
 
+#: src/components/ui/inline-edits.tsx
+msgid "Delete “{deleted}”"
+msgstr "Delete “{deleted}”"
+
 #: src/app/use-project-tree.ts
 msgid "Delete “{path}” from this project?"
 msgstr "Delete “{path}” from this project?"
@@ -2860,6 +2916,10 @@ msgstr "Differs from the verified record"
 #: src/settings/acknowledged-software.ts
 msgid "Diffs of changes and history"
 msgstr "Diffs of changes and history"
+
+#: src/canvas/proofread-card.tsx
+msgid "Discard"
+msgstr "Discard"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Discard and close"
@@ -3229,10 +3289,6 @@ msgstr "Editor status"
 msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 
-#: src/canvas/proofread-card.tsx
-msgid "Edits held back"
-msgstr "Edits held back"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
 msgstr "Edits on both sides merge when you resume"
@@ -3360,6 +3416,10 @@ msgstr "Entry changed"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "Entry type"
+
+#: src/canvas/proofread-card.tsx
+msgid "environment"
+msgstr "environment"
 
 #: src/canvas/proofread-card.tsx
 msgid "environments"
@@ -3732,6 +3792,10 @@ msgstr "Floating figure with image, caption, and label (requires graphicx)"
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "Floating table with ruled rows (requires booktabs)"
 
+#: src/canvas/proofread-card.tsx
+msgid "flow"
+msgstr "flow"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Flush floats and start a new page"
 msgstr "Flush floats and start a new page"
@@ -3914,6 +3978,10 @@ msgstr "Go to {title}"
 msgid "Go to definition"
 msgstr "Go to definition"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Go to entry"
+msgstr "Go to entry"
+
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
@@ -3957,6 +4025,10 @@ msgstr "Going to Overleaf"
 #: src/papers/bibliography-audit.tsx
 msgid "Google Scholar"
 msgstr "Google Scholar"
+
+#: src/canvas/proofread-card.tsx
+msgid "grammar"
+msgstr "grammar"
 
 #: src/settings/acknowledged-software.ts
 msgid "Grammar checking"
@@ -4069,6 +4141,10 @@ msgstr "Held back {count} edits that would change {changed}. Lattice only offers
 #: src/canvas/proofread-card.tsx
 msgid "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
 msgstr "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+
+#: src/components/ui/inline-edits.tsx
+msgid "Held back: {change}"
+msgstr "Held back: {change}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4405,6 +4481,10 @@ msgstr "Inproceedings entry uses journal instead of booktitle."
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Insert"
 msgstr "Insert"
+
+#: src/components/ui/inline-edits.tsx
+msgid "Insert “{inserted}”"
+msgstr "Insert “{inserted}”"
 
 #: src/editor/harper-spellcheck.ts
 msgid "Insert “{replacement}”"
@@ -5860,10 +5940,6 @@ msgstr "No differences. You can close this window"
 msgid "No document open"
 msgstr "No document open"
 
-#: src/canvas/proofread-card.tsx
-msgid "No edits selected. The selection stays as written."
-msgstr "No edits selected. The selection stays as written."
-
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "No file changes recorded for this update"
@@ -6140,10 +6216,6 @@ msgstr "Not equal"
 msgid "Not now"
 msgstr "Not now"
 
-#: src/canvas/proofread-card.tsx
-msgid "Not offered"
-msgstr "Not offered"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
@@ -6408,6 +6480,7 @@ msgstr "Open notes.md"
 msgid "Open notice"
 msgstr "Open notice"
 
+#: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "Open paper"
 msgstr "Open paper"
@@ -6801,6 +6874,10 @@ msgstr "Paper switch"
 #: src/trellis/trellis-titles.ts
 msgid "Papers"
 msgstr "Papers"
+
+#: src/canvas/proofread-card.tsx
+msgid "paragraph break"
+msgstr "paragraph break"
 
 #: src/canvas/proofread-card.tsx
 msgid "paragraph breaks"
@@ -7299,6 +7376,10 @@ msgstr "Publisher notice"
 msgid "Pull requests"
 msgstr "Pull requests"
 
+#: src/canvas/proofread-card.tsx
+msgid "punctuation"
+msgstr "punctuation"
+
 #: src/settings/theme-settings.tsx
 msgid "Purple"
 msgstr "Purple"
@@ -7505,21 +7586,15 @@ msgstr "Regex"
 msgid "Regular expression"
 msgstr "Regular expression"
 
-#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
 msgstr "Reject"
 
-#: src/canvas/proofread-card.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "Reject all"
-
-#: src/canvas/proofread-card.tsx
-msgid "Reject this edit"
-msgstr "Reject this edit"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -7653,8 +7728,6 @@ msgstr "Renaming…"
 msgid "Rendering changes…"
 msgstr "Rendering changes…"
 
-#: src/canvas/proofread-card.tsx
-#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "Rendering diff…"
@@ -7722,6 +7795,10 @@ msgstr "Repeated author names; verify against the publication's author list befo
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Replace"
 msgstr "Replace"
+
+#: src/components/ui/inline-edits.tsx
+msgid "Replace “{deleted}” with “{inserted}”"
+msgstr "Replace “{deleted}” with “{inserted}”"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Replace {replacementCount}"
@@ -8367,6 +8444,14 @@ msgstr "Search emoji"
 msgid "Search failed."
 msgstr "Search failed."
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands"
+msgstr "Search files, papers and commands"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands…"
+msgstr "Search files, papers and commands…"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
@@ -8666,6 +8751,10 @@ msgstr "Show replace"
 msgid "Show results from"
 msgstr "Show results from"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Show the citation card"
+msgstr "Show the citation card"
+
 #: src/App.tsx
 #: src/app/focus-mode-bar.tsx
 msgid "Show the PDF beside the editor"
@@ -8884,6 +8973,10 @@ msgstr "Spade suit"
 msgid "Spectrum"
 msgstr "Spectrum"
 
+#: src/canvas/proofread-card.tsx
+msgid "spelling"
+msgstr "spelling"
+
 #: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9068,10 +9161,6 @@ msgstr "Success"
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Suggested change"
 msgstr "Suggested change"
-
-#: src/canvas/proofread-card.tsx
-msgid "Suggested edits"
-msgstr "Suggested edits"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
@@ -10325,8 +10414,16 @@ msgid "Venue unavailable"
 msgstr "Venue unavailable"
 
 #: src/canvas/proofread-card.tsx
+msgid "verbatim"
+msgstr "verbatim"
+
+#: src/canvas/proofread-card.tsx
 msgid "verbatim code"
 msgstr "verbatim code"
+
+#: src/editor/latex/latex-hover-cards.ts
+msgid "Verified · Crossref"
+msgstr "Verified · Crossref"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
@@ -10534,6 +10631,10 @@ msgstr "Window"
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
 msgstr "Word budget"
+
+#: src/canvas/proofread-card.tsx
+msgid "word choice"
+msgstr "word choice"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count"
