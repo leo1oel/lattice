@@ -312,30 +312,32 @@ function searchProject(query: string) {
  * `?proofread=unavailable` answers like a runtime that predates the route,
  * `?proofread=unsafe` also changes the first inline math and citation key
  * (which the card must hold back), and `?proofreadModel=<name>` reports that
- * model with the answer.
+ * model with the answer. Each fix also answers with its reason, as the
+ * prompt asks: a category and, for some, a note in the asked language.
  */
-const PROOFREAD_FIXES: Array<[RegExp, string]> = [
-  [/\bteh\b/g, "the"],
-  [/\bwich\b/g, "which"],
-  [/\bbeleive\b/g, "believe"],
-  [/\brecieves?\b/g, "receives"],
-  [/\boccured\b/g, "occurred"],
-  [/\bseperate\b/g, "separate"],
-  [/\bachieve state of the art\b/g, "achieves state-of-the-art"],
-  [/\ba ([aeiou])/g, "an $1"],
+type Fix = [pattern: RegExp, replacement: string, category?: string, note?: string, noteZh?: string];
+const PROOFREAD_FIXES: Fix[] = [
+  [/\bteh\b/g, "the", "spelling"],
+  [/\bwich\b/g, "which", "spelling"],
+  [/\bbeleive\b/g, "believe", "spelling"],
+  [/\brecieves?\b/g, "receives", "spelling"],
+  [/\boccured\b/g, "occurred", "spelling"],
+  [/\bseperate\b/g, "separate", "spelling"],
+  [/\bachieve state of the art\b/g, "achieves state-of-the-art", "grammar", "Agreement, and a hyphenated modifier", "主谓一致，复合修饰语加连字符"],
+  [/\ba ([aeiou])/g, "an $1", "grammar", "“an” before a vowel sound", "元音前用 an"],
   [/ {2,}/g, " "],
-  [/ ,/g, ","],
+  [/ ,/g, ",", "punctuation", "No space before a comma", "逗号前不空格"],
 ];
-const POLISH_FIXES: Array<[RegExp, string]> = [
-  [/\bIn this paper,? we show that\b/g, "This paper shows that"],
-  [/\bin order to\b/g, "to"],
-  [/\bdue to the fact that\b/g, "because"],
-  [/\bvery important\b/g, "essential"],
-  [/\ba lot of\b/g, "many"],
+const POLISH_FIXES: Fix[] = [
+  [/\bIn this paper,? we show that\b/g, "This paper shows that", "concision"],
+  [/\bin order to\b/g, "to", "concision", "Shorter, same meaning", "更简短，意思不变"],
+  [/\bdue to the fact that\b/g, "because", "concision"],
+  [/\bvery important\b/g, "essential", "word choice", "Stronger than an intensifier", "比加强副词更有力"],
+  [/\ba lot of\b/g, "many", "word choice", "Less colloquial", "更书面"],
 ];
-const UNSAFE_FIXES: Array<[RegExp, string]> = [
-  [/\$([^$]+)\$/, "$\\hat{$1}$"],
-  [/\\cite\{([^}]+)\}/, "\\cite{$1-2024}"],
+const UNSAFE_FIXES: Fix[] = [
+  [/\$([^$]+)\$/, "$\\hat{$1}$", "consistency"],
+  [/\\cite\{([^}]+)\}/, "\\cite{$1-2024}", "consistency"],
 ];
 const proofreadTasks = new Map<string, { text: string; ready: number }>();
 
@@ -351,9 +353,16 @@ function textTask(args: Args): unknown {
       ...prompt.startsWith("Polish") ? POLISH_FIXES : [],
       ...mode === "unsafe" ? UNSAFE_FIXES : [],
     ];
-    const fixed = fixes.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), excerpt);
+    const zh = prompt.includes("in Simplified Chinese");
+    const reasons: string[] = [];
+    const fixed = fixes.reduce((text, [pattern, replacement, category, note, noteZh]) => text.replace(pattern, (match) => {
+      const revised = match.replace(new RegExp(pattern.source, pattern.flags.replace("g", "")), replacement);
+      if (category) reasons.push([`${match} => ${revised}`, category, ...note ? [zh ? noteZh : note] : []].join(" | "));
+      return revised;
+    }), excerpt);
     const taskId = `text-task:${proofreadTasks.size + 1}`;
-    proofreadTasks.set(taskId, { text: `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>`, ready: performance.now() + 1_600 });
+    const text = `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>\n<reasons>\n${reasons.join("\n")}\n</reasons>`;
+    proofreadTasks.set(taskId, { text, ready: performance.now() + 1_600 });
     return { taskId };
   }
   const task = proofreadTasks.get(String(args?.taskId ?? ""));

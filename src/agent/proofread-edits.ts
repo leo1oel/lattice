@@ -1,3 +1,4 @@
+import type { ProofreadCategory, ProofreadReasonLine } from "./agent-proofread";
 import {
   protectedDifference,
   protectedLatexSignature,
@@ -5,12 +6,15 @@ import {
   type ProtectedKind,
 } from "../editor/latex/latex-protected";
 
+/** Why the agent made an edit: its category, and a short note when it gave one. */
+export type ProofreadReason = { category: ProofreadCategory | null; note: string };
+
 /**
  * One logical change a proofread suggests: replace `[from, to)` of the
  * original selection with `insert`. Edits of one suggestion are ordered and
  * never overlap, so any subset of them applies to the original as is.
  */
-export type ProofreadEdit = { id: number; from: number; to: number; insert: string };
+export type ProofreadEdit = { id: number; from: number; to: number; insert: string; reason?: ProofreadReason };
 
 /** An edit that would have altered protected LaTeX, and so is never offered. */
 type HeldProofreadEdit = ProofreadEdit & { kind: ProtectedKind };
@@ -240,42 +244,38 @@ export function reviewProofread(original: string, revised: string, context: Proo
   return review;
 }
 
-/** An edit as the card lists it: a little unchanged text around what it deletes and inserts. */
-export type ProofreadEditPreview = { before: string; deleted: string; inserted: string; after: string };
+const squash = (text: string) => text.replace(/\s+/g, " ").trim();
 
-/** How far the preview widens an edit to whole words, and how much context it shows. */
-const WORD_LIMIT = 32;
-const CONTEXT_REACH = 120;
-
-/** Spaces and line breaks made visible when they are all an edit changes. */
-const visible = (text: string) => text && !text.trim()
-  ? text.replace(/\n/g, "↵").replace(/[^\S\n]/g, "␣")
-  : text.replace(/\s+/g, " ");
-
-const isWordCharacter = (char: string | undefined) => Boolean(char?.trim());
-
-export function proofreadEditPreview(original: string, edit: Hunk): ProofreadEditPreview {
-  // Widen to whole words when the edit cuts into one, so `␣of␣the␣` → `-of-the-`
-  // reads as `state of the art` → `state-of-the-art`.
-  const deleted = original.slice(edit.from, edit.to);
-  let from = edit.from;
-  let to = edit.to;
-  if (isWordCharacter(deleted[0]) || isWordCharacter(edit.insert[0])) {
-    while (from > 0 && edit.from - from < WORD_LIMIT && isWordCharacter(original[from - 1])) from -= 1;
-  }
-  if (isWordCharacter(deleted.at(-1)) || isWordCharacter(edit.insert.at(-1))) {
-    while (to < original.length && to - edit.to < WORD_LIMIT && isWordCharacter(original[to])) to += 1;
-  }
-  const lead = original.slice(Math.max(0, from - CONTEXT_REACH), from);
-  const before = /(?:\S+\s*){0,3}$/.exec(lead)!;
-  const trail = original.slice(to, to + CONTEXT_REACH);
-  const after = /^(?:\s*\S+){0,3}/.exec(trail)!;
-  const moreBefore = from > CONTEXT_REACH || Boolean(lead.slice(0, before.index).trim());
-  const moreAfter = Boolean(original.slice(to + after[0].length).trim());
+/**
+ * `review` with the agent's reasons attached to the edits they describe.
+ * Lattice splits the suggestion into edits itself, so a reason belongs to the
+ * edit whose removed and inserted words its quote contains. Both run in the
+ * excerpt's order, so each edit looks from the last match onwards first. An
+ * edit no reason describes (a whitespace change, a terse reply) has none.
+ */
+export function withReasons(review: ProofreadReview, original: string, reasons: readonly ProofreadReasonLine[]): ProofreadReview {
+  if (!reasons.length) return review;
+  const used = new Set<number>();
+  let cursor = 0;
+  const describes = (edit: ProofreadEdit, line: ProofreadReasonLine) => {
+    const deleted = squash(original.slice(edit.from, edit.to));
+    const inserted = squash(edit.insert);
+    return Boolean(deleted || inserted) && squash(line.from).includes(deleted) && squash(line.to).includes(inserted);
+  };
+  const attach = <Edit extends ProofreadEdit>(edit: Edit): Edit => {
+    const order = [...reasons.keys()].map((index) => (index + cursor) % reasons.length);
+    const match = order.find((index) => !used.has(index) && describes(edit, reasons[index]!));
+    if (match === undefined) return edit;
+    used.add(match);
+    cursor = match + 1;
+    const { category, note } = reasons[match]!;
+    return category || note ? { ...edit, reason: { category, note } } : edit;
+  };
+  // Offered and held edits share one id sequence in the excerpt's order.
+  const all = [...review.edits, ...review.held].sort((left, right) => left.from - right.from);
+  const reasoned = new Map(all.map((edit) => [edit.id, attach(edit)]));
   return {
-    before: `${moreBefore ? "…" : ""}${before[0].replace(/\s+/g, " ").trimStart()}`,
-    deleted: visible(original.slice(from, to)),
-    inserted: visible(original.slice(from, edit.from) + edit.insert + original.slice(edit.to, to)),
-    after: `${after[0].replace(/\s+/g, " ").trimEnd()}${moreAfter ? "…" : ""}`,
+    edits: review.edits.map((edit) => reasoned.get(edit.id) ?? edit),
+    held: review.held.map((edit) => (reasoned.get(edit.id) as HeldProofreadEdit | undefined) ?? edit),
   };
 }

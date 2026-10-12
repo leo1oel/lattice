@@ -254,61 +254,67 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .cm-proofread-block { padding: var(--space-3) var(--space-2) var(--space-4); cursor: default; }
 .proofread-card {
+  container-type: inline-size;
   max-width: 760px;
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-4) var(--space-3);
   font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
   white-space: normal;
   user-select: text;
   animation: proofread-card-in var(--motion-moderate);
 }
 @keyframes proofread-card-in { from { opacity: 0; translate: 0 -4px; } }
-.proofread-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--text-secondary); }
-.proofread-card-summary { margin-inline-start: auto; color: var(--text-tertiary); font-size: var(--type-caption-size); }
-.proofread-card-model::before { content: "·"; margin-inline: var(--space-2); }
-.proofread-card-note { margin: 0; display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.proofread-card-diff { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
-.proofread-card-diff-empty { padding: var(--space-3) var(--space-4); }
-/* One row per offered edit: the change in a few words of its context, then
-   reject and accept. A rejected row fades; a held-back one cannot be chosen. */
-.proofread-card-edits { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
-.proofread-edit {
+.proofread-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; }
+.proofread-card-summary {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  min-height: var(--control-height-compact);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-  border-radius: var(--radius-control);
-  transition: opacity var(--motion-fast), background-color var(--motion-fast);
-}
-.proofread-edit:hover { background: var(--control-hover-surface); }
-.proofread-edit[data-accepted="false"] { opacity: 0.5; }
-.proofread-edit[data-held] { padding-inline-end: var(--space-3); }
-.proofread-edit-preview {
-  flex: 1;
+  gap: var(--gap-inline-tight);
   min-width: 0;
-  overflow-wrap: anywhere;
+  margin-inline-start: auto;
   color: var(--text-secondary);
-  font-family: var(--editor-font);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
+  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
 }
-.proofread-edit-preview del,
-.proofread-edit-preview ins { border-radius: 2px; padding-inline: 1px; text-decoration: none; }
-.proofread-edit-preview del { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--text-primary); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent); }
-.proofread-edit-preview ins { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--text-primary); }
-.proofread-edit-preview del + ins { margin-inline-start: var(--space-1); }
-.proofread-edit[data-accepted="false"] .proofread-edit-preview ins { text-decoration: line-through; }
-.proofread-edit-choice { display: flex; gap: var(--space-1); }
-.proofread-edit-choice .ui-icon-button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--control-active); }
-.proofread-edit-lock { flex: none; color: var(--text-tertiary); }
-.proofread-card-held { display: grid; gap: var(--space-2); }
-.proofread-card-held .ui-inline-message { margin: 0; }
-.proofread-edit[data-held] del { text-decoration: none; }
+.proofread-card-summary-text,
+.proofread-card-model { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proofread-card-model::before { content: "·"; margin-inline-end: var(--gap-inline-tight); }
+.proofread-card-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-line-height); }
+/* The selection read in place (components/ui/inline-edits.tsx). */
+.proofread-card-text { padding-inline: var(--gap-tight); }
+.proofread-card-held,
 .proofread-card-error { margin: 0; }
-.proofread-card-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-.proofread-card-actions kbd { margin-inline-start: var(--space-2); color: inherit; font: inherit; opacity: 0.6; }
+/* One rule above the answers, then the lead action, the rest, and the hint
+   that an edit is a choice. Narrow, the hint goes first, then the keys. */
+.proofread-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.proofread-card-actions kbd { margin-inline-start: var(--gap-inline); color: var(--text-secondary); font: inherit; }
+.proofread-card-hint {
+  min-width: 0;
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@container (max-width: 440px) {
+  .proofread-card-hint { display: none; }
+}
+@container (max-width: 300px) {
+  .proofread-card-actions kbd,
+  .proofread-card-model { display: none; }
+}
+/* The narrowest panel: the strength switch takes the row and tightens. */
+@container (max-width: 220px) {
+  .proofread-card-mode { flex: 1 1 auto; min-width: 0; }
+  .proofread-card-mode .ui-segmented-tab { flex: 1 1 0; padding-inline: var(--gap-inline-tight); overflow: hidden; white-space: nowrap; }
+}
 .editor-comments-drawer { width: min(420px, 100%); }
 .editor-comments-content .pdf-marks-toolbar { margin-top: var(--drawer-content-inset); }
 .editor-comments-content .ui-empty-state[data-density="compact"] {
