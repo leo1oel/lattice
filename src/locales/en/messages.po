@@ -1940,14 +1940,9 @@ msgid "Close"
 msgstr "Close"
 
 #: src/components/ui/panel-header.tsx
-#: src/components/ui/search-picker-dialog.tsx
 #: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "Close {title}"
-
-#: src/app/command-palette.tsx
-msgid "Close command palette"
-msgstr "Close command palette"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Close find"
@@ -1965,10 +1960,6 @@ msgstr "Close other tabs"
 #: src/components/ui/panel-header.tsx
 msgid "Close panel"
 msgstr "Close panel"
-
-#: src/project/quick-open-dialog.tsx
-msgid "Close quick search"
-msgstr "Close quick search"
 
 #: src/editor/latex/search-panel.ts
 msgid "Close search"

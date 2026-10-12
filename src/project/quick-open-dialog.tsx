@@ -43,8 +43,6 @@ function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
       label={t`Quick open file`}
       searchLabel={t`Quick open search`}
       placeholder={t`Open file…`}
-      closeLabel={t`Close quick search`}
-      compactClose
       emptyText={t`No matching files`}
       rank={rank}
       itemKey={(path) => path}

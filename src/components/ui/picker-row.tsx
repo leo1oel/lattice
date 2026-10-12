@@ -17,6 +17,6 @@ export function searchPickerRow(item: SearchPickerItem): ReactNode {
   return <>
     {item.icon && <span className="picker-icon" aria-hidden="true">{item.icon}</span>}
     <span className="picker-text">{text}</span>
-    {item.keys && renderKeycaps(item.keys, "picker-shortcut")}
+    {item.keys && renderKeycaps(item.keys, "picker-shortcut", "run")}
   </>;
 }

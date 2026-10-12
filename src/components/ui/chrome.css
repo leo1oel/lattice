@@ -688,3 +688,24 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   font-weight: var(--weight-medium);
   line-height: var(--type-caption-line-height);
 }
+
+/* In a long list (a picker or the palette) a combination reads as one quiet
+   word, ⌘⇧K, as a menu writes it: a column of boxed caps on every row was
+   the loudest thing in the list. The caps stay `kbd`s, so the markup still
+   says which keys they are. */
+.ui-keycaps-run {
+  gap: 1px;
+  color: var(--text-secondary);
+}
+
+.ui-keycaps-run .ui-keycap {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+}

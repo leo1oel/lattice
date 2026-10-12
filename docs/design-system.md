@@ -435,7 +435,7 @@ the research workspace and those embedded surfaces.
 | No-content message | `EmptyState` | copy, optional icon and actions, density |
 | Menu-like floating surface | primitives using `menu-surface.ts` | Radix semantics and feature content |
 | Ordinary scrolling | `ScrollArea` | orientation and exceptional layout classes |
-| Keyboard shortcut hint | `Keycaps`, or `renderKeycaps` in a long list (one cap per key) | the keys, from the binding through `key-combos.ts` rather than typed out |
+| Keyboard shortcut hint | `Keycaps`, or `renderKeycaps` in a long list (one cap per key; its `run` variant draws them as one quiet word) | the keys, from the binding through `key-combos.ts` rather than typed out |
 | Keyboard-driven list (quick open, pickers, the command palette) | `PickerDialog` / `SearchPickerDialog`, ranked by `picker-ranking.ts` | items, their icon, detail and shortcut, and what choosing one does |
 | Hover highlight in a list or menu | `FluidHoverSurface` in a `fluid-hover-surface` container | the row selector, which row is current (`follow`), its fill (`--fluid-hover-fill`) |
 
@@ -654,10 +654,12 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
 ## Keyboard shortcuts and focus mode
 
 - A key combination is drawn by `key-combos.ts` everywhere it appears: Mac
-  glyphs, ⌘ first (⌘⇧J, ⌘⌥P), a Shift-typed character as itself (⌘?). In a
-  list, a hint or a palette row it is `Keycaps` (`src/components/ui/keycaps.tsx`,
-  or `renderKeycaps` where a list draws many), a quiet cap per key; inline in
-  a menu it stays text.
+  glyphs, ⌘ first (⌘⇧J, ⌘⌥P), a Shift-typed character as itself (⌘?). In the
+  shortcut sheet, a hint or the palette's footer it is `Keycaps`
+  (`src/components/ui/keycaps.tsx`, or `renderKeycaps` where a list draws
+  many), a quiet cap per key. A picker or palette row draws the same `kbd`s
+  as one run of caption text in the secondary ink (its `run` variant), as a
+  menu writes it inline, so a column of shortcuts never outweighs the rows.
 - Shortcuts are never typed out by hand next to a command. The palette draws
   a command's keys from the command table, a tooltip takes them as `Tip`'s
   `shortcut` (quiet text after the label, outside the accessible name), and

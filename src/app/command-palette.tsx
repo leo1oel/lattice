@@ -182,7 +182,6 @@ export function CommandPalette(props: {
       label={t`Command palette`}
       searchLabel={t`Command palette`}
       placeholder={props.hasProject ? t`Search commands, files, papers and settings…` : t`Search commands and settings…`}
-      closeLabel={t`Close command palette`}
       className="command-palette-modal"
       detailPlacement="end"
       emptyText={t`No matches`}

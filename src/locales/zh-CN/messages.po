@@ -1937,14 +1937,9 @@ msgid "Close"
 msgstr "关闭"
 
 #: src/components/ui/panel-header.tsx
-#: src/components/ui/search-picker-dialog.tsx
 #: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "关闭 {title}"
-
-#: src/app/command-palette.tsx
-msgid "Close command palette"
-msgstr "关闭"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Close find"
@@ -1961,10 +1956,6 @@ msgstr "关闭其他"
 #: src/components/ui/icon-button.tsx
 #: src/components/ui/panel-header.tsx
 msgid "Close panel"
-msgstr "关闭"
-
-#: src/project/quick-open-dialog.tsx
-msgid "Close quick search"
 msgstr "关闭"
 
 #: src/editor/latex/search-panel.ts

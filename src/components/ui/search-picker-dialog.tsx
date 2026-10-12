@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
 import { SearchField } from "./search-field";
@@ -38,13 +37,13 @@ function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefine
  * The keyboard-driven modal list behind quick open and the command pickers:
  * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
  * list. Mount it only while open, so each opening starts from an empty query.
+ * It has no close button: Escape and a click outside dismiss it, as in every
+ * command bar, and the palette's footer says so.
  */
 export function PickerDialog<T>(props: {
   label: string;
   searchLabel: string;
   placeholder: string;
-  closeLabel: string;
-  compactClose?: boolean;
   /** Where an item's detail goes: under its label, or trailing it on one line. */
   detailPlacement?: "below" | "end";
   emptyText: string;
@@ -125,9 +124,6 @@ export function PickerDialog<T>(props: {
                 props.onSelect(selected);
               }
             }}
-            trailing={props.compactClose
-              ? <CloseButton label={props.closeLabel} size="compact" data-hit-area onClick={props.onClose} />
-              : <CloseButton label={props.closeLabel} onClick={props.onClose} />}
           />
         </div>
         <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox">
@@ -206,7 +202,6 @@ function SearchPickerDialogForm({ title, items, leading, ...props }: SearchPicke
       {...props}
       label={title}
       searchLabel={title}
-      closeLabel={t`Close ${title}`}
       emptyText={t`No matches`}
       rank={rank}
       itemKey={(item) => item.id}
