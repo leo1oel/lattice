@@ -16,7 +16,8 @@ not to force every surface into one density.
   fonts) at regular weight. Chinese falls through to Songti SC, the macOS
   system serif, so a title stays a serif in either language. It is used for
   titles only: the welcome title, dialog and Settings page titles, the guided
-  tour's card, a workspace with every panel closed and the error page.
+  tour's card, a workspace with every panel closed, the error page, and the
+  verdicts that open the submission checklist and the Build button's card.
 - The product accent is neutral by default (Graphite). Settings → Appearance
   offers six accent presets and a custom color; each reads at 4.6:1 as text on
   every surface of every tint, and a custom pick is fitted to that floor.

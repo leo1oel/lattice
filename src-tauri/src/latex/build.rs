@@ -1,9 +1,10 @@
 //! One latexmk build per project at a time, abortable from the UI.
 
 use super::build_log::{
-    advice, is_stale_previous_invocation_log, log_conference_template, parse_diagnostics,
-    skipped_recompile, trim_log,
+    advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
+    parse_diagnostics, skipped_recompile, trim_log,
 };
+use super::build_steps::BuildSteps;
 use super::{default_root_document, engine_mismatch, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
@@ -11,6 +12,7 @@ use crate::models::Diagnostic;
 use crate::wide_event::{self, Failure};
 use crate::{pdf_fonts, project};
 use std::fs;
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -79,19 +81,45 @@ fn finish_active(active: &ActiveBuild) -> bool {
 
 /// Run `command` as this project's build and capture its output, reporting
 /// whether it was cancelled. The error texts prefix the spawn/wait error.
+///
+/// Both pipes are read a line at a time as the process writes them, so the
+/// passes latexmk announces reach `steps` while it runs; the step still open
+/// when the process exits ends with it.
 pub(super) fn run_tracked(
-    mut command: Command, active: &ActiveBuild, start_error: &str, wait_error: &str,
+    mut command: Command, active: &ActiveBuild, steps: &BuildSteps, start_error: &str,
+    wait_error: &str,
 ) -> Result<(Output, bool), String> {
     commands::in_new_process_group(&mut command).stdout(Stdio::piped()).stderr(Stdio::piped());
-    let child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
+    let mut child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
     if let Err(error) = begin_active(active, pid) {
         terminate(pid);
         let _ = child.wait_with_output();
         return Err(error);
     }
-    let output = child.wait_with_output().map_err(|error| format!("{wait_error}{error}"))?;
-    Ok((output, finish_active(active)))
+    let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
+    let (stdout, stderr) = std::thread::scope(|scope| {
+        let stdout = scope.spawn(|| read_lines(stdout, steps));
+        let stderr = scope.spawn(|| read_lines(stderr, steps));
+        (stdout.join().unwrap_or_default(), stderr.join().unwrap_or_default())
+    });
+    let status = child.wait().map_err(|error| format!("{wait_error}{error}"))?;
+    steps.finish();
+    Ok((Output { status, stdout, stderr }, finish_active(active)))
+}
+
+/// Everything `pipe` carries until it closes, each line shown to `steps` as it lands.
+fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let Some(pipe) = pipe else { return bytes };
+    let mut reader = BufReader::new(pipe);
+    loop {
+        let start = bytes.len();
+        match reader.read_until(b'\n', &mut bytes) {
+            Ok(0) | Err(_) => return bytes,
+            Ok(_) => steps.line(&bytes[start..]),
+        }
+    }
 }
 
 pub fn clean(root: &Path) -> Result<String, String> {
@@ -135,9 +163,11 @@ pub fn classify_build_error(error: &str) -> Failure {
 const ALREADY_RUNNING: &str = "A build is already running.";
 
 pub fn build(
-    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>,
+    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
-    let result = build_passes(root, force, active, open_document)?;
+    let mut result = build_passes(root, force, active, open_document, steps)?;
+    result.steps = steps.take();
+    result.synctex = result.has_pdf.then(|| !synctex_missing(root));
     record_result(&result);
     Ok(result)
 }
@@ -152,6 +182,7 @@ fn record_result(result: &BuildResult) {
     wide_event::record("errors", count("error"));
     wide_event::record("warnings", count("warning"));
     wide_event::record("log_bytes", result.log.len());
+    wide_event::record("passes", result.steps.len());
     let cancelled = result.diagnostics.iter().any(|d| d.code == Some("build-cancelled"));
     if cancelled {
         wide_event::outcome("cancelled");
@@ -165,7 +196,7 @@ fn record_result(result: &BuildResult) {
 }
 
 fn build_passes(
-    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>,
+    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
     wide_event::record("force", force);
     // Overleaf's compile rule: the file open in the editor wins when it is a
@@ -177,17 +208,16 @@ fn build_passes(
     if let Some(target) = open_document.and_then(|open| project::resolve_compile_root(root, open)) {
         project::set_compile_root(root, &target)?;
     }
-    let started = Instant::now();
-    if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, started)? {
+    if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, steps)? {
         return Ok(cancelled);
     }
-    let mut result = run_latexmk(root, force, active, started)?;
+    let mut result = run_latexmk(root, force, active, steps)?;
     // After fixing missing packages, latexmk often reports "Nothing to do" while still
     // remembering the previous failed pass. Clean once and force a fresh run.
     if !result.success && is_stale_previous_invocation_log(&result.log) {
         let _ = clean(root);
         wide_event::record("stale_rebuild", true);
-        result = run_latexmk(root, true, active, started)?;
+        result = run_latexmk(root, true, active, steps)?;
         // At the end: a failed log is read and copied from its top, where
         // this note used to stand in for the error that followed it.
         if !result.log.is_empty() {
@@ -200,7 +230,7 @@ fn build_passes(
     if let Some(switch) = engine_mismatch::automatic_switch(root, &result) {
         project::update_manifest_settings(root, Some("pdf".to_string()), None, None, None, None)?;
         wide_event::record("engine_switched_from", switch.previous.as_str());
-        result = run_latexmk(root, force, active, started)?;
+        result = run_latexmk(root, force, active, steps)?;
         result.diagnostics.insert(0, switch.note());
     }
     // A PDF built by anything else (the agent's own `latexmk -pdf`, say)
@@ -211,7 +241,7 @@ fn build_passes(
     // twice on every build.
     if result.success && !force && skipped_recompile(&result.log) && synctex_missing(root) {
         wide_event::record("synctex_rebuild", true);
-        result = run_latexmk(root, true, active, started)?;
+        result = run_latexmk(root, true, active, steps)?;
     }
     Ok(result)
 }
@@ -225,7 +255,7 @@ fn latexmk_pdf_default(engine: &str) -> &'static str {
 }
 
 fn run_latexmk(
-    root: &Path, force: bool, active: &ActiveBuild, started: Instant,
+    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
@@ -263,13 +293,14 @@ fn run_latexmk(
     let (output, cancelled) = run_tracked(
         command,
         active,
+        steps,
         "Could not start latexmk. Install MacTeX or TeX Live. ",
         "latexmk exited unexpectedly: ",
     )?;
     drop(step);
     let log = commands::combined_output(&output);
     if cancelled {
-        return Ok(cancelled_build(started, &log, &document.path));
+        return Ok(cancelled_build(steps.started(), &log, &document.path));
     }
 
     let success = output.status.success();
@@ -297,9 +328,12 @@ fn run_latexmk(
         has_pdf: pdf_bytes.is_some(),
         diagnostics,
         log: trim_log(&log),
-        duration_ms: started.elapsed().as_millis(),
+        duration_ms: steps.started().elapsed().as_millis(),
         root_document: document.path.clone(),
         venue: log_conference_template(&tex_log).or_else(|| log_conference_template(&log)),
+        steps: Vec::new(),
+        pages: pages_written(&tex_log),
+        synctex: None,
     })
 }
 
@@ -355,6 +389,9 @@ pub(super) fn cancelled_build(
         duration_ms: elapsed.as_millis(),
         root_document: root_document.to_string(),
         venue: None,
+        steps: Vec::new(),
+        pages: None,
+        synctex: None,
     }
 }
 
@@ -392,7 +429,8 @@ mod tests {
             "\\end{document}\n",
         );
         root.write("main.tex", main);
-        let result = run_latexmk(&root, false, &ActiveBuild::default(), Instant::now()).unwrap();
+        let result =
+            run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent()).unwrap();
         assert!(result.success && result.has_pdf, "{}", result.log);
         let log = fs::read_to_string(root.join("main.log")).unwrap();
         assert!(!log.contains("undefined"), "{log}");
@@ -441,7 +479,8 @@ mod tests {
             "system('cat playwright-error.txt >&2; exit 1') == 0\n  or die \"Probe SVG conversion failed\\n\";\n",
         )
         .unwrap();
-        let result = build(&root, false, &ActiveBuild::default(), None).unwrap();
+        let result =
+            build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
         assert!(!result.success, "{}", result.log);
         assert!(result.log.contains("problem with rc file"), "{}", result.log);
         assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
@@ -454,7 +493,8 @@ mod tests {
     fn creates_and_builds_a_real_project() {
         let parent = TempDir::new("latex");
         let root = project::create(&parent, "R&D_100%").unwrap();
-        let result = build(&root, false, &ActiveBuild::default(), None).unwrap();
+        let result =
+            build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
         assert!(result.success, "{}", result.log);
         assert_eq!(result.root_document, "main.tex");
         assert!(super::super::read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"));

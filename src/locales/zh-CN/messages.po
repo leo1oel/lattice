@@ -88,6 +88,11 @@ msgstr "{0} 条正文内文献，只比对、不修改"
 msgid "{0} packages"
 msgstr "{0} 个软件包"
 
+#. placeholder {0}: outcome.pages
+#: src/trellis/trellis-build-sequence.tsx
+msgid "{0} pages"
+msgstr "{0} 页"
+
 #. placeholder {0}: tally.verified
 #. placeholder {1}: tally.updates
 #. placeholder {2}: tally.review
@@ -509,6 +514,10 @@ msgstr "1 行"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "1 page"
+msgstr "1 页"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 page over"
@@ -1198,6 +1207,7 @@ msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "文献引用（需要 natbib 或兼容宏包）"
 
 #: src/editor/latex/latex-diagnostics.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "bibliography"
 msgstr "参考文献"
 
@@ -1395,6 +1405,7 @@ msgid "Build and show the PDF"
 msgstr "编译并显示 PDF"
 
 #: src/build/build-result-text.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "Build failed"
 msgstr "编译失败"
 
@@ -1463,6 +1474,7 @@ msgid "Build your LaTeX project to see the typeset paper"
 msgstr "编译 LaTeX 项目，查看排版后的论文"
 
 #: src/pdf/pdf-viewer.tsx
+#: src/trellis/trellis-build-sequence.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
 msgstr "正在编译…"
@@ -1478,6 +1490,7 @@ msgid "Builds 1.2 s after you stop typing"
 msgstr "停止输入 1.2 秒后自动编译"
 
 #: src/build/build-result-text.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "Built"
 msgstr "编译成功"
 
@@ -3077,6 +3090,10 @@ msgstr "正在下载全文和图片…"
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "draft pass {run}"
+msgstr "草稿第 {run} 遍"
+
 #: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "把图片拖到编辑器或项目栏"
@@ -3934,6 +3951,10 @@ msgstr "Git 工作区"
 msgid "Git workspace didn’t load"
 msgstr "Git 没加载出来"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "glossary"
+msgstr "术语表"
+
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "跳转"
@@ -4390,6 +4411,10 @@ msgstr "引用他人原话"
 #: src/papers/bibliography-audit.tsx
 msgid "Independent metadata unavailable"
 msgstr "没有可核对的资料"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "index"
+msgstr "索引"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Indigo"
@@ -6188,6 +6213,10 @@ msgstr "还没同步"
 msgid "Not verified"
 msgstr "未确认"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "not written"
+msgstr "未生成"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "备注"
@@ -6204,6 +6233,10 @@ msgstr "继续前不会收发任何内容"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "没有“{0}”相关结果"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "Nothing to rerun"
+msgstr "无需重新编译"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
@@ -6877,6 +6910,10 @@ msgstr "偏导数"
 msgid "Partial results for {completed} of {progressTotal} references"
 msgstr "已有 {completed}/{progressTotal} 条结果"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "pass {run}"
+msgstr "第 {run} 遍"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Paste"
@@ -6945,6 +6982,10 @@ msgstr "PDF 字体不是 {venue} 要求的 Times。"
 #: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
 msgstr "PDF 加载进度"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "PDF output"
+msgstr "生成 PDF"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF page {pageNumber}"
@@ -7047,6 +7088,10 @@ msgstr "润色建议"
 #: src/canvas/proofread-card.tsx
 msgid "Polishing…"
 msgstr "正在润色…"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "PostScript output"
+msgstr "生成 PostScript"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
@@ -8242,6 +8287,10 @@ msgstr "行选项"
 msgid "Rows"
 msgstr "行数"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "run {run}"
+msgstr "第 {run} 次"
+
 #: src/App.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
@@ -8857,6 +8906,10 @@ msgstr "声音 提示音"
 msgid "Source"
 msgstr "源码"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "source ↔ PDF"
+msgstr "源码 ↔ PDF"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Source and PDF, linked"
 msgstr "双向跳转"
@@ -9013,6 +9066,10 @@ msgstr "记录版本"
 #: src/telemetry/app-log.tsx
 msgid "Started"
 msgstr "已开始"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "starting"
+msgstr "正在启动"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
@@ -9533,6 +9590,10 @@ msgstr "PDF 加载太慢，请重试或在浏览器打开"
 #: src/settings/acknowledged-software.ts
 msgid "The PDF viewer"
 msgstr "PDF 查看器"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "the PDF was already up to date"
+msgstr "PDF 已是最新"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."

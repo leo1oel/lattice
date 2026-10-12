@@ -12,11 +12,13 @@ vi.mock("@danfessler/trellis-react", () => ({ useView: () => ({ params: { key: v
 afterEach(cleanup);
 
 const NO_DIAGNOSTICS = { error: 0, warning: 0, info: 0 };
+/** What a finished build ran, which these tests do not look at. */
+const SEQUENCE = { steps: [], pages: null, synctex: null, issue: null };
 /** A finished build as the pipeline reports it. */
 const succeeded = (seconds: number, counts = NO_DIAGNOSTICS) => (
-  { status: "succeeded", seconds, counts, rootDocument: "main.tex", finishedAt: Date.now() } as const
+  { status: "succeeded", seconds, counts, rootDocument: "main.tex", finishedAt: Date.now(), ...SEQUENCE } as const
 );
-const failed = () => ({ status: "failed", counts: { ...NO_DIAGNOSTICS, error: 1 }, rootDocument: "main.tex", finishedAt: Date.now() } as const);
+const failed = () => ({ status: "failed", counts: { ...NO_DIAGNOSTICS, error: 1 }, rootDocument: "main.tex", finishedAt: Date.now(), ...SEQUENCE } as const);
 
 /** Every kind of document a document panel can hold, with the tools its header carries. */
 const DOCUMENTS: Array<{ name: string; key: string; kind: TrellisTabKind; tools: ReturnType<typeof documentTools> }> = [

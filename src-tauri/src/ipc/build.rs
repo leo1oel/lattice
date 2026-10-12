@@ -6,7 +6,7 @@ use super::{binary_save, current_root, in_project, pinned_root, run_blocking, ru
 use crate::app_state::AppState;
 use crate::command_diagnostics;
 use crate::doctor::DoctorReport;
-use crate::latex::{BuildResult, PdfSyncTarget};
+use crate::latex::{BuildResult, BuildStep, BuildSteps, PdfSyncTarget};
 use crate::models::SyncTexTarget;
 use crate::texlab::{DocumentAt, TexlabCompletionItem, TexlabHover, TexlabLocation};
 use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab, wide_event};
@@ -17,7 +17,7 @@ use tauri::{Emitter, Manager, State, Window};
 #[tauri::command]
 pub async fn build_project(
     state: State<'_, AppState>, window: Window, force: Option<bool>, project_root: String,
-    document_path: Option<String>,
+    document_path: Option<String>, progress_id: Option<u32>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
     let operation = wide_event::Operation::start("latex.compile", latex::classify_build_error);
@@ -27,13 +27,37 @@ pub async fn build_project(
             wide_event::project(&root);
             let force = force.unwrap_or(false);
             let active = state.project(&root).active_build.clone();
+            let steps = build_progress(window, project_root, progress_id);
             // Quietly: the operation's event already carries any failure.
             run_quietly("The LaTeX build task", move || {
-                latex::build(&root, force, &active, document_path.as_deref())
+                latex::build(&root, force, &active, document_path.as_deref(), &steps)
             })
             .await
         }))
         .await
+}
+
+/// The passes of a running build, sent to the window that asked for it as
+/// each one starts and ends, so its Build button can draw the sequence live.
+/// `progress_id` is the caller's name for this build, so a late event from
+/// the one before it is not taken for this one's.
+const BUILD_PROGRESS_EVENT: &str = "build-progress";
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildProgress<'a> {
+    project_root: &'a str,
+    progress_id: Option<u32>,
+    elapsed_ms: u64,
+    steps: &'a [BuildStep],
+}
+
+fn build_progress(window: Window, project_root: String, progress_id: Option<u32>) -> BuildSteps {
+    BuildSteps::new(move |elapsed_ms, steps| {
+        let progress =
+            BuildProgress { project_root: &project_root, progress_id, elapsed_ms, steps };
+        let _ = window.emit_to(window.label(), BUILD_PROGRESS_EVENT, progress);
+    })
 }
 
 #[tauri::command]

@@ -618,7 +618,14 @@ mod tests {
         )
         .unwrap();
 
-        let result = super::super::build(&root, true, &Default::default(), None).unwrap();
+        let result = super::super::build(
+            &root,
+            true,
+            &Default::default(),
+            None,
+            &super::super::BuildSteps::silent(),
+        )
+        .unwrap();
         assert!(result.success, "{}", result.log);
         let at =
             |line| forward_search(&root, "main.tex", line, 0).unwrap().expect("a PDF position");
@@ -653,7 +660,14 @@ mod tests {
         )
         .unwrap();
 
-        let result = super::super::build(&root, true, &Default::default(), None).unwrap();
+        let result = super::super::build(
+            &root,
+            true,
+            &Default::default(),
+            None,
+            &super::super::BuildSteps::silent(),
+        )
+        .unwrap();
         assert!(result.success, "{}", result.log);
         let at =
             |line| forward_search(&root, "main.tex", line, 0).unwrap().expect("a PDF position");
@@ -692,7 +706,14 @@ mod tests {
         )
         .unwrap();
 
-        let result = super::super::build(&root, true, &Default::default(), None).unwrap();
+        let result = super::super::build(
+            &root,
+            true,
+            &Default::default(),
+            None,
+            &super::super::BuildSteps::silent(),
+        )
+        .unwrap();
         assert!(result.success, "{}", result.log);
         let target = forward_search(&root, "references.bib", 3, 0)
             .unwrap()

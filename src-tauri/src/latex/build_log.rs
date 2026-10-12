@@ -100,6 +100,14 @@ pub(crate) fn unwrap_log_lines(log: &str) -> String {
     joined
 }
 
+/// How many pages the last pass wrote: TeX ends its log with `Output written
+/// on main.pdf (4 pages, 123456 bytes).` (a `.xdv` under XeLaTeX).
+pub(super) fn pages_written(tex_log: &str) -> Option<u32> {
+    let written = Regex::new(r"Output written on .+? \((\d+) pages?\b").unwrap();
+    let log = unwrap_log_lines(tex_log);
+    written.captures_iter(&log).last().and_then(|captures| captures[1].parse().ok())
+}
+
 pub(super) fn conference_template_venue(name: &str) -> Option<&'static str> {
     let lower = name.to_ascii_lowercase();
     CONFERENCE_STYLES.iter().find(|(prefix, _)| lower.starts_with(prefix)).map(|(_, venue)| *venue)

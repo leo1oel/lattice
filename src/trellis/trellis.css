@@ -235,7 +235,8 @@
   white-space: nowrap;
   transition: background-color var(--motion-fast), scale var(--motion-fast);
 }
-.trellis-build-button:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
+.trellis-build-button:hover,
+.trellis-build-button[data-state="open"] { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
 .trellis-build-button:active { scale: 0.96; }
 .trellis-build-button.is-building { cursor: progress; }
 /* The last build's result: a green check and its time, or a red cross and
@@ -302,12 +303,51 @@
   85% { translate: .5px 0; }
 }
 .trellis-build-label { display: inline-grid; font-variant-numeric: tabular-nums; }
-/* The tip: the result's sentence, its facts in a quieter line, then the keys. */
-.trellis-build-tip { display: grid; gap: var(--space-1); text-align: start; }
-.trellis-build-tip-headline { font-weight: var(--weight-semibold); }
-.trellis-build-tip-facts, .trellis-build-tip-hint { color: color-mix(in srgb, currentColor 66%, transparent); font-weight: var(--weight-regular); }
-.trellis-build-tip-facts > span + span::before { content: " · "; }
-.trellis-build-tip-facts { font-variant-numeric: tabular-nums; }
+/* The Build button's card (trellis-build-sequence.tsx): the verdict
+   with its pages and time, the document and when, a track with one segment
+   per pass, the passes in latexmk's order, SyncTeX, the first problem, and
+   the keys. Rows share the checklist's marks (a tick, a cross, an
+   exclamation or a dash on a soft disc), so colour never carries a result
+   alone; names stay in ink and times in the secondary ink. Before any
+   build it says only what the button does, at a tooltip's size. */
+.trellis-build-card { width: 320px; padding: var(--space-2); }
+.trellis-build-card:has([data-idle]) { width: auto; }
+.build-sequence-idle { padding: var(--space-3) var(--space-5) 0; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-semibold); }
+.build-sequence[data-idle] .build-sequence-hint { margin-top: 0; padding-top: var(--space-1); border-top: 0; }
+.build-sequence { display: grid; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.build-sequence-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-4); min-width: 0; padding: var(--space-3) var(--space-5) 0; }
+.build-sequence-verdict { font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); }
+.build-sequence-facts { margin-inline-start: auto; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.build-sequence-place { flex-basis: 100%; min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
+.build-sequence-track { display: flex; gap: var(--space-1); height: 4px; margin: var(--space-4) var(--space-5) var(--space-2); }
+.build-sequence-track > span { flex: 0 1 0; min-width: 4px; border-radius: var(--radius-pill); background: var(--status-success); transition: flex-grow var(--motion-moderate); }
+.build-sequence-track > [data-draft] { background: var(--status-success-soft); }
+.build-sequence-track > [data-state="running"] { background: var(--border-strong); }
+.build-sequence-track > [data-state="failed"] { background: var(--status-danger); }
+.build-sequence-steps { display: grid; margin: 0; padding: 0; list-style: none; }
+.build-sequence-steps > li, .build-sequence-issue { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: var(--space-5); align-items: center; padding: var(--space-3) var(--space-5); border-radius: var(--radius-icon); }
+.build-sequence-mark { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--border-subtle); color: var(--text-secondary); }
+.build-sequence-mark svg { stroke-width: 2.5; }
+.build-sequence-mark[data-state="done"] { background: var(--status-success-soft); color: var(--status-success); }
+.build-sequence-mark[data-state="failed"] { background: var(--status-danger-soft); color: var(--status-danger); }
+.build-sequence-mark[data-state="warning"] { background: var(--status-warning-soft); color: var(--status-warning); }
+.build-sequence-mark[data-state="running"] { background: transparent; }
+.build-sequence-step { display: grid; min-width: 0; }
+.build-sequence-tool { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-sequence-role { display: flex; gap: var(--space-2); min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.build-sequence-message { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-sequence-where { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-sequence-where::before { content: "· "; }
+.build-sequence-time { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.build-sequence-steps > li[data-state="running"] .build-sequence-time { color: var(--text-primary); }
+/* The first problem opens in its source, as F8 does. The row is washed in
+   its level's colour (the tone roles read currentColor); its words stay in ink. */
+.build-sequence-issue { width: 100%; margin-top: var(--space-1); color: var(--status-warning); background: var(--tone-hover-surface); text-align: start; transition: background-color var(--motion-fast); }
+.build-sequence-issue[data-level="error"] { color: var(--status-danger); }
+.build-sequence-issue:hover { background: var(--tone-surface); }
+.build-sequence-issue .build-sequence-tool { color: var(--text-primary); }
+.build-sequence-issue > svg { color: var(--text-secondary); }
+.build-sequence-hint { margin-top: var(--space-2); padding: var(--space-4) var(--space-5) var(--space-2); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .trellis-build-label > span { grid-area: 1 / 1; }
 .trellis-build-label > .trellis-build-label-off { visibility: hidden; }
 /* On the darker strip the switch is a row of icons; the chosen one sits on the panel's own surface, like the selected tab. */
