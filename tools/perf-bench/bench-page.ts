@@ -180,7 +180,8 @@ const BENCH_PAPERS = [
  * Everything but the first paper is fictional.
  */
 const LIBRARY_PAPERS = [
-  ...BENCH_PAPERS,
+  // Crossref found no notice for it, so its citation card says Verified.
+  ...BENCH_PAPERS.map((paper) => ({ ...paper, citationHealth: { kind: "unknown", checkedAt: "2026-10-01T00:00:00Z" } })),
   {
     arxivId: "2409.01234", title: "Grounded Visual Reasoning in Long Contexts with Sparse Multimodal Supervision", citationKey: "example2024grounded", year: "2024",
     authors: "Example, Ada and Sample, Grace", hasFullText: true, hasBlog: false,
@@ -391,6 +392,29 @@ function citationUsages() {
   return usages;
 }
 
+/**
+ * The tutorial's references as `list_citations` reports them (fields without
+ * their braces), so a `\\cite` there has its card; the fixture cites nothing.
+ */
+function tutorialCitations() {
+  if (current.root !== TUTORIAL_ROOT) return [];
+  const field = (entry: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`, "i")
+    .exec(entry)?.[1].replace(/[{}]/g, "").replace(/\s+/g, " ").trim() ?? "";
+  return [...current.files].flatMap(([path, content]) => (
+    path.endsWith(".bib") && typeof content === "string" ? content.split(/\n(?=@)/) : []
+  )).flatMap((entry) => {
+    const key = /^\s*@\w+\s*\{\s*([^,\s]+)\s*,/.exec(entry)?.[1];
+    if (!key) return [];
+    const arxivId = field(entry, "eprint");
+    const doi = field(entry, "doi");
+    return [{
+      key, title: field(entry, "title"), authors: field(entry, "author"), year: field(entry, "year"),
+      venue: field(entry, "journal") || field(entry, "booktitle") || (arxivId ? "arXiv" : ""),
+      ...arxivId ? { arxivId } : {}, ...doi ? { doi } : {},
+    }];
+  });
+}
+
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   switch (command) {
@@ -447,6 +471,8 @@ function answer(command: string, args: Args): unknown {
       return { labels: [], citations: [] };
     case "list_citation_usages":
       return citationUsages();
+    case "list_citations":
+      return tutorialCitations();
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":
