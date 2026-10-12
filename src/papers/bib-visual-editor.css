@@ -5,13 +5,13 @@
 
 .bib-visual-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-5) var(--space-8); border-bottom: 1px solid var(--border-subtle); }
 .bib-visual-search { flex: 1 1 12em; min-width: 0; }
-.bib-visual-filter { flex: none; }
+.bib-visual-filter { flex: none; max-width: 100%; }
 .bib-visual-count { margin-inline-start: var(--space-2); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .bib-visual-toolbar .bib-visual-sort { flex: none; width: auto; }
 .bib-visual-add { flex: none; }
 
 .bib-visual-body { min-height: 0; display: grid; grid-template-columns: minmax(18em, 1fr) minmax(22em, 1.25fr); }
-.bib-visual-list { position: relative; min-height: 0; overflow-y: auto; border-inline-end: 1px solid var(--border-subtle); }
+.bib-visual-list { container: bib-list / inline-size; position: relative; min-height: 0; overflow-y: auto; border-inline-end: 1px solid var(--border-subtle); }
 .bib-visual-list > .ui-empty-state { padding: var(--space-16) var(--space-8); }
 .bib-visual-rows { position: relative; }
 
@@ -20,7 +20,7 @@
    margin column, the title in the reading face, authors and then the venue in
    italic as a bibliography sets it; the key and its use sit quietly on the
    right. The hairline starts after the margin, as a list's rule would. */
-.bib-row { --bib-year-column: 44px; position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-columns: var(--bib-year-column) minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; column-gap: var(--space-6); row-gap: var(--space-1); padding: 0 var(--space-8) 0 var(--space-6); cursor: default; color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.bib-row { --bib-year-column: 44px; position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-columns: var(--bib-year-column) minmax(0, 1fr) fit-content(40%); grid-template-rows: auto auto; align-content: center; column-gap: var(--space-6); row-gap: var(--space-1); padding: 0 var(--space-8) 0 var(--space-6); cursor: default; color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
 .bib-row::after { content: ""; position: absolute; inset-inline: calc(var(--space-6) + var(--bib-year-column) + var(--space-6)) var(--space-8); bottom: 0; height: 1px; background: var(--border-subtle); }
 .bib-row:hover { background: var(--control-hover-surface); }
 /* The one in front stands on the lift with the weft's edge; its rule and the
@@ -41,11 +41,23 @@
 .bib-row-venue { flex: 0 1 auto; font-family: var(--reading-font); font-style: italic; }
 .bib-row-authors + .bib-row-venue::before { content: "·"; margin-inline-end: var(--space-3); font-style: normal; }
 .bib-row > .bib-row-foot { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
-.bib-row-key { max-width: 18ch; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: var(--gap-hairline) var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); font-family: var(--editor-font); }
+.bib-row-key { max-width: min(18ch, 100%); min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: var(--gap-hairline) var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); font-family: var(--editor-font); }
 .bib-row-cited { display: inline-flex; align-items: center; gap: var(--space-2); font-variant-numeric: tabular-nums; }
 .bib-row-dots { display: inline-flex; gap: var(--space-1); }
 .bib-row-dots > i { width: 4px; height: 4px; border-radius: var(--radius-pill); background: var(--mark-weft); }
-.bib-row-badge { flex: none; }
+.bib-row-badge { flex: none; max-width: 100%; }
+
+/* Too narrow for a margin (the narrowest panel, or the list beside a card):
+   the year leads the byline, and the key and its use take a third line. */
+@container bib-list (max-width: 380px) {
+  .bib-row { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: var(--space-3); row-gap: 0; padding-inline: var(--space-6); }
+  .bib-row::after { inset-inline: var(--space-6); }
+  .bib-row-year { grid-row: 2; justify-self: start; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+  .bib-row-year:not(:empty)::after { content: "·"; margin-inline-start: var(--space-3); }
+  .bib-row-title { grid-column: 1 / -1; }
+  .bib-row-year:empty ~ .bib-row-meta { grid-column: 1 / -1; }
+  .bib-row > .bib-row-foot { grid-column: 1 / -1; grid-row: 3; flex-direction: row; align-items: center; gap: var(--space-4); }
+}
 
 .bib-visual-detail { min-width: 0; min-height: 0; display: grid; }
 .bib-visual-detail > .ui-empty-state { align-self: center; padding: var(--space-16) var(--space-8); }
@@ -58,9 +70,10 @@
 .bib-detail-back { display: none; }
 
 .bib-detail-header { display: grid; gap: var(--space-3); }
-.bib-detail-identity { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+/* In the narrowest panel the key takes its own line under the type rather than running past the edge. */
+.bib-detail-identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-width: 0; }
 .bib-detail-identity .bib-detail-type { flex: none; width: auto; font-family: var(--editor-font); }
-.bib-detail-key { flex: 1 1 auto; min-width: 0; font-family: var(--editor-font); }
+.bib-detail-key { flex: 1 1 10em; min-width: 0; font-family: var(--editor-font); }
 .bib-detail-copy { flex: none; width: var(--control-size-icon); height: var(--control-size-icon); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); cursor: pointer; }
 .bib-detail-copy:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .bib-detail-title { margin: var(--space-6) 0 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: balance; }
@@ -89,8 +102,10 @@
 .bib-field-name { padding-top: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-field-value { width: 100%; min-width: 0; font-family: var(--editor-font); }
 /* A value reads as the card's text until the pointer or the caret reaches it;
-   then it takes the field's border, as an invalid value always does. */
-.bib-field-value:not(:hover, :focus, [aria-invalid="true"]) { border-color: transparent; background: transparent; }
+   then it takes the field's border, as an invalid value always does. So does
+   a long value taller than its box (resizeTextareaToContent lets it scroll),
+   or its last line would read as cut off. */
+.bib-field-value:not(:hover, :focus, [aria-invalid="true"], [style*="overflow-y: auto"]) { border-color: transparent; background: transparent; }
 textarea.bib-field-value { min-height: var(--control-height-compact); max-height: 16em; resize: none; }
 .bib-field-remove { visibility: hidden; }
 .bib-field:is(:hover, :focus-within) .bib-field-remove { visibility: visible; }
@@ -98,6 +113,12 @@ textarea.bib-field-value { min-height: var(--control-height-compact); max-height
 .bib-detail-add-field { display: grid; grid-template-columns: 8em minmax(0, 1fr) auto; gap: var(--space-2) var(--space-4); margin-top: var(--space-6); }
 .bib-add-field-name { font-family: var(--editor-font); }
 .bib-detail-add-field > .bib-detail-error { grid-column: 1 / -1; }
+
+/* The narrowest panel keeps the three filters and drops their counts. */
+@container bib-visual (max-width: 320px) {
+  .bib-visual-filter .ui-segmented-tab { padding-inline: var(--space-3); }
+  .bib-visual-count { display: none; }
+}
 
 @container bib-visual (max-width: 720px) {
   .bib-visual-body { grid-template-columns: minmax(0, 1fr); }
