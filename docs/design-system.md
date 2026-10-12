@@ -614,6 +614,12 @@ reuse its vocabulary so the product reads as one thing:
   and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
   interaction: they color the mark and the one accent stroke of an
   illustration, never a control, whatever accent the writer chose.
+- The source editor's syntax palette ("weft and warp", `--syntax-*` in
+  `src/styles/theme.css`) borrows the two threads' hues at text lightness:
+  commands in the weft's blue, environment names and math in the warp's teal,
+  arguments and prose in ink, numbers and operators the one warm voice. Every
+  token reads at 4.5:1 or more on the editor, its active line and a focused
+  selection, in both themes and under every tint.
 - `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
   empty-state drawings: neutral line work in the host's text color with one
   weft or warp thread. Pass one to `EmptyState`'s `icon`.
