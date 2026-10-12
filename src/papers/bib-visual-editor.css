@@ -3,7 +3,7 @@
 .bib-visual { container: bib-visual / inline-size; height: 100%; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--editor-bg); color: var(--text-primary); font-family: var(--ui-font); }
 .bib-visual[data-state="unreadable"] { grid-template-rows: minmax(0, 1fr); place-items: center; padding: var(--space-16) var(--space-12); }
 
-.bib-visual-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.bib-visual-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-5) var(--space-8); border-bottom: 1px solid var(--border-subtle); }
 .bib-visual-search { flex: 1 1 12em; min-width: 0; }
 .bib-visual-filter { flex: none; }
 .bib-visual-count { margin-inline-start: var(--space-2); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
@@ -16,26 +16,44 @@
 .bib-visual-rows { position: relative; }
 
 /* Every row is exactly ROW_HEIGHT tall (set inline), so the list can place
-   rows it has not drawn. Three lines: title, byline, key. */
-.bib-row { position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-rows: auto auto auto; align-content: center; row-gap: var(--space-1); padding: 0 var(--space-6); border-bottom: 1px solid var(--border-subtle); cursor: default; color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+   rows it has not drawn. Set as a reference list sets an entry: the year in a
+   margin column, the title in the reading face, authors and then the venue in
+   italic as a bibliography sets it; the key and its use sit quietly on the
+   right. The hairline starts after the margin, as a list's rule would. */
+.bib-row { --bib-year-column: 44px; position: absolute; inset-inline: 0; box-sizing: border-box; display: grid; grid-template-columns: var(--bib-year-column) minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; column-gap: var(--space-6); row-gap: var(--space-1); padding: 0 var(--space-8) 0 var(--space-6); cursor: default; color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.bib-row::after { content: ""; position: absolute; inset-inline: calc(var(--space-6) + var(--bib-year-column) + var(--space-6)) var(--space-8); bottom: 0; height: 1px; background: var(--border-subtle); }
 .bib-row:hover { background: var(--control-hover-surface); }
-.bib-row[aria-selected="true"] { background: var(--control-active-soft); }
+/* The one in front stands on the lift with the weft's edge; its rule and the
+   one above it give way to the lift's own ring. */
+.bib-row[aria-selected="true"] { background: var(--surface-panel-raised); box-shadow: inset 2px 0 0 var(--mark-weft), 0 0 0 1px var(--border-subtle); }
+.bib-row[aria-selected="true"]::after,
+.bib-row:has(+ .bib-row[aria-selected="true"])::after { visibility: hidden; }
+.bib-visual-list:focus-visible .bib-row[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--mark-weft), 0 0 0 1px var(--control-active-border-strong); }
 .bib-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Set as the Papers list sets a title; the reference in front takes the reader's face. */
-.bib-row-title { color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); }
+.bib-row-year { grid-column: 1; grid-row: 1 / span 2; justify-self: end; color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-variant-numeric: oldstyle-nums proportional-nums; }
+.bib-row-title { grid-column: 2; grid-row: 1; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); }
 .bib-row-title em { color: var(--text-tertiary); }
-.bib-row-meta { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.bib-row-foot { display: flex; align-items: center; gap: var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
-.bib-row-key { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--editor-font); }
-.bib-row-type { flex: none; }
-.bib-row-cited { flex: none; font-variant-numeric: tabular-nums; }
+/* The venue gives way before the authors do. */
+.bib-row > .bib-row-meta { grid-column: 2; grid-row: 2; display: flex; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-row-authors,
+.bib-row-venue { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bib-row-authors { flex: none; max-width: 60%; }
+.bib-row-venue { flex: 0 1 auto; font-family: var(--reading-font); font-style: italic; }
+.bib-row-authors + .bib-row-venue::before { content: "·"; margin-inline-end: var(--space-3); font-style: normal; }
+.bib-row > .bib-row-foot { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.bib-row-key { max-width: 18ch; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: var(--gap-hairline) var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); font-family: var(--editor-font); }
+.bib-row-cited { display: inline-flex; align-items: center; gap: var(--space-2); font-variant-numeric: tabular-nums; }
+.bib-row-dots { display: inline-flex; gap: var(--space-1); }
+.bib-row-dots > i { width: 4px; height: 4px; border-radius: var(--radius-pill); background: var(--mark-weft); }
 .bib-row-badge { flex: none; }
-.bib-visual-list:focus-visible .bib-row[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--control-active); }
 
 .bib-visual-detail { min-width: 0; min-height: 0; display: grid; }
 .bib-visual-detail > .ui-empty-state { align-self: center; padding: var(--space-16) var(--space-8); }
 .bib-detail { min-height: 0; }
-.bib-detail-content { max-width: 46em; padding: var(--space-10) var(--space-12) var(--space-16); }
+/* The reference in front, set as a citation card: its title, byline and
+   venue as the paper would carry them, where the manuscript cites it, and
+   its fields on one raised card. */
+.bib-detail-content { max-width: 46em; padding: var(--space-12) var(--space-16) var(--space-16); }
 /* Only a pane too narrow for both columns needs the way back to the list. */
 .bib-detail-back { display: none; }
 
@@ -45,10 +63,10 @@
 .bib-detail-key { flex: 1 1 auto; min-width: 0; font-family: var(--editor-font); }
 .bib-detail-copy { flex: none; width: var(--control-size-icon); height: var(--control-size-icon); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); cursor: pointer; }
 .bib-detail-copy:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.bib-detail-title { margin: var(--space-6) 0 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.bib-detail-title { margin: var(--space-6) 0 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: balance; }
 .bib-detail-authors,
 .bib-detail-venue { margin: 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
-.bib-detail-venue { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-detail-venue { font-family: var(--reading-font); font-style: italic; font-variant-numeric: oldstyle-nums proportional-nums; }
 .bib-detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 .bib-detail-delete { color: var(--status-danger); }
 .bib-detail-error { margin: 0; }
@@ -61,13 +79,18 @@
 .bib-detail-usages { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
 .bib-detail-usages button { width: 100%; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--space-5); padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: inherit; text-align: start; font: inherit; cursor: pointer; }
 .bib-detail-usages button:hover { background: var(--control-hover-surface); }
-.bib-usage-place { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
-.bib-usage-snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); }
+/* Each place leads as a tag, the way the source names it: main.tex:37. */
+.bib-usage-place { padding: var(--gap-hairline) var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bib-usage-snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-diff-code-size); line-height: var(--type-diff-code-line-height); }
 
-.bib-detail-fields { display: grid; gap: var(--space-3); }
+.bib-detail-fields { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-6); border-radius: var(--radius-panel); background: var(--surface-panel-raised); box-shadow: var(--elevation-raised); }
+.bib-field + .bib-field { padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
 .bib-field { display: grid; grid-template-columns: 8em minmax(0, 1fr) auto; align-items: start; gap: var(--space-2) var(--space-4); }
 .bib-field-name { padding-top: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-field-value { width: 100%; min-width: 0; font-family: var(--editor-font); }
+/* A value reads as the card's text until the pointer or the caret reaches it;
+   then it takes the field's border, as an invalid value always does. */
+.bib-field-value:not(:hover, :focus, [aria-invalid="true"]) { border-color: transparent; background: transparent; }
 textarea.bib-field-value { min-height: var(--control-height-compact); max-height: 16em; resize: none; }
 .bib-field-remove { visibility: hidden; }
 .bib-field:is(:hover, :focus-within) .bib-field-remove { visibility: visible; }
