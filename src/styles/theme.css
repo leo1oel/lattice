@@ -24,7 +24,10 @@ textarea {
   --ui-font: var(--ui-font-fallback);
   /* Long-form prose: the visual Markdown surface and a paper's title. */
   --reading-font: var(--ui-font-fallback);
-  --display-font-fallback: "Instrument Serif", Georgia, serif;
+  /* The serif voice: Display and Title (foundations.css). Chinese falls
+     through to Songti SC, the macOS system serif, so a title keeps its serif
+     in either language instead of dropping to a heavy sans. */
+  --display-font-fallback: "Instrument Serif", "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --display-font: var(--display-font-fallback);
   --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: var(--type-typeset-size);
@@ -38,13 +41,14 @@ textarea {
   background: var(--window);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --chrome-text: #59595b;
   --sidebar: var(--chrome-surface);
   --line: rgba(28, 28, 31, 0.09);
   --line-strong: rgba(28, 28, 31, 0.14);
+  /* Two inks: primary and secondary. Secondary clears 5.5:1 on the chrome,
+     the faintest surface it sits on (foundations.css aliases the old tertiary
+     and chrome text roles to it). */
   --text: #242426;
-  --muted: #606066;
-  --faint: #6c6c72;
+  --muted: #5f5f64;
   --accent-graphite: #303033;
   --accent: var(--accent-graphite);
   /* Graphite's soft accent: a quiet neutral wash. */
@@ -77,6 +81,9 @@ textarea {
     0 10px 20px rgba(0, 0, 0, 0.04), 0 5px 10px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
   /* A compiled page on the PDF ground: paper on a desk, not interface. */
   --shadow-pdf-page: 0 8px 24px rgba(22, 22, 24, 0.08);
+  /* Behind a dialog: enough to set it off, light enough that the writer
+     still sees where they were. */
+  --dialog-scrim: rgba(10, 10, 12, 0.28);
   --pdf-bg: #efeff0;
   /* "Weft and warp": the source editor is colored by the mark's two threads.
      Commands take the weft's blue, environment names and math the warp's
@@ -109,25 +116,27 @@ textarea {
  * The surfaces a tint replaces, at Graphite, the default. Graphite is also a
  * swatch in Settings, so this applies wherever data-tint names it, as every
  * tint below does. --tint-mark is only the swatch's identifying hue.
+ *
+ * Graphite has two neutrals and a lift: the ground (the chrome), one sheet
+ * that the panels, the editor and the fields share, and the lift that menus,
+ * popovers, toasts and dialogs stand on.
  */
 :root, [data-tint="graphite"] {
   --bg: #f7f7f6;
-  --panel: #fbfbfa;
-  --panel-strong: #F9F9FA;
+  --panel: #fafafa;
+  --panel-strong: #ffffff;
   --chrome-surface: #efeff0;
-  --side-surface: #f9f9fa;
-  --editor-bg: #f9f9fa;
-  --editor-gutter: #f9f9fa;
+  --side-surface: #fafafa;
+  --editor-bg: #fafafa;
+  --editor-gutter: #fafafa;
   --tint-mark: #a4a4a6;
 }
 
 :root[data-theme="dark"] {
-  --chrome-text: #a4a4aa;
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.12);
   --text: #e9e9e7;
-  --muted: #a4a4aa;
-  --faint: #88888f;
+  --muted: #a0a0a7;
   --accent-graphite: #e7e7e4;
   --accent: var(--accent-graphite);
   --neutral-soft: rgba(255, 255, 255, 0.1);
@@ -141,7 +150,9 @@ textarea {
   --brand-weft: #7f97ff;
   --brand-warp: #4fd2c6;
   --brand-glint: rgba(255, 255, 255, 0.7);
-  --shadow-ring: rgba(255, 255, 255, 0.18);
+  /* A floating surface's edge is a quiet hairline; the lift (below) already
+     sets it off the sheet. */
+  --shadow-ring: rgba(255, 255, 255, 0.1);
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.16);
   --shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.16), 0 9.4px 12.5px rgba(0, 0, 0, 0.12),
     0 5.25px 7px rgba(0, 0, 0, 0.08), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.04), 0 1.2px 1.5px rgba(0, 0, 0, 0.04);
@@ -150,6 +161,7 @@ textarea {
   --shadow-dialog: 0 40px 80px rgba(0, 0, 0, 0.24), 0 20px 40px rgba(0, 0, 0, 0.2),
     0 10px 20px rgba(0, 0, 0, 0.16), 0 5px 10px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
   --shadow-pdf-page: 0 10px 28px rgba(0, 0, 0, 0.28);
+  --dialog-scrim: rgba(0, 0, 0, 0.5);
   --pdf-bg: color-mix(in srgb, var(--bg) 84%, #888 16%);
   /* As strong as the dimmest token (comment) allows at 4.5:1. */
   --selection-mix: 19%;
@@ -172,10 +184,12 @@ textarea {
 
 :root[data-theme="dark"], :root[data-theme="dark"] [data-tint="graphite"] {
   --bg: #171718;
-  --panel: #1b1b1d;
-  --panel-strong: #202023;
-  --chrome-surface: #141416;
-  --side-surface: #1b1b1d;
+  --panel: #1a1a1c;
+  /* Lifts step about 6% above the sheet, so a menu or dialog reads off it
+     without a bright edge. */
+  --panel-strong: #252528;
+  --chrome-surface: #131315;
+  --side-surface: #1f1f22;
   --editor-bg: var(--panel);
   --editor-gutter: var(--panel);
 }
@@ -266,17 +280,17 @@ textarea {
  */
 [data-accent="graphite"] { --accent: var(--accent-graphite); }
 [data-accent="blue"] { --accent: #096acb; }
-:root[data-theme="dark"] [data-accent="blue"], :root[data-theme="dark"][data-accent="blue"] { --accent: #498bdc; }
+:root[data-theme="dark"] [data-accent="blue"], :root[data-theme="dark"][data-accent="blue"] { --accent: #4d8fe0; }
 [data-accent="purple"] { --accent: #884fbe; }
-:root[data-theme="dark"] [data-accent="purple"], :root[data-theme="dark"][data-accent="purple"] { --accent: #a275d1; }
+:root[data-theme="dark"] [data-accent="purple"], :root[data-theme="dark"][data-accent="purple"] { --accent: #a679d5; }
 [data-accent="pink"] { --accent: #b83b76; }
-:root[data-theme="dark"] [data-accent="pink"], :root[data-theme="dark"][data-accent="pink"] { --accent: #d06793; }
+:root[data-theme="dark"] [data-accent="pink"], :root[data-theme="dark"][data-accent="pink"] { --accent: #d56b97; }
 [data-accent="orange"] { --accent: #b04d00; }
-:root[data-theme="dark"] [data-accent="orange"], :root[data-theme="dark"][data-accent="orange"] { --accent: #d07135; }
+:root[data-theme="dark"] [data-accent="orange"], :root[data-theme="dark"][data-accent="orange"] { --accent: #d37438; }
 [data-accent="green"] { --accent: #007c34; }
-:root[data-theme="dark"] [data-accent="green"], :root[data-theme="dark"][data-accent="green"] { --accent: #379b55; }
+:root[data-theme="dark"] [data-accent="green"], :root[data-theme="dark"][data-accent="green"] { --accent: #3da05a; }
 [data-accent="teal"] { --accent: #007777; }
-:root[data-theme="dark"] [data-accent="teal"], :root[data-theme="dark"][data-accent="teal"] { --accent: #06999a; }
+:root[data-theme="dark"] [data-accent="teal"], :root[data-theme="dark"][data-accent="teal"] { --accent: #139d9e; }
 [data-accent]:not([data-accent="graphite"]) {
   --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
   --focus: var(--accent);

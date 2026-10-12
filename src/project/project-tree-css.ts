@@ -76,7 +76,7 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   margin: 0;
   overflow: visible;
   border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface-panel-raised) 54%, transparent);
   box-shadow: var(--elevation-floating-shadow);
   opacity: 0;

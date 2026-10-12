@@ -122,6 +122,7 @@
 .guided-tour-title {
   margin: 0;
   padding-right: var(--space-16);
+  font-family: var(--type-title-font);
   font-size: var(--type-title-size);
   line-height: var(--type-title-line-height);
   font-weight: var(--type-title-weight);

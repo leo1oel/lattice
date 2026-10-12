@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { ChevronRight, Wrench } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import type { TexDependencyInstallProgress, TexInstallProgress } from "./tex-setup";
@@ -43,7 +43,6 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
   return (
     <ModalDialog label={label} onClose={onClose} closeDisabled={closeDisabled} backdropClassName="tex-setup-backdrop">
       <div className={["modal", "tex-setup-modal"].join(" ")}>
-        <div className="modal-icon"><Wrench size={18} /></div>
         <h2>{title}</h2>
         <p>{description}</p>
         {progress && (

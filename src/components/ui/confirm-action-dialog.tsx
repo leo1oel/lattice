@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { CircleAlert, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   registerConfirmActionHandler,
   type ConfirmActionChoice,
@@ -113,9 +113,9 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
             data-destructive={copy.destructive}
             data-has-alternative={Boolean(current.options.alternativeLabel)}
           >
-            <div className="modal-icon" data-tone={copy.destructive ? "danger" : undefined} aria-hidden="true">
-              {copy.destructive ? <Trash2 size={18} /> : <CircleAlert size={18} />}
-            </div>
+            {copy.destructive && (
+              <div className="modal-icon" data-tone="danger" aria-hidden="true"><Trash2 size={18} /></div>
+            )}
             <h2>{copy.title}</h2>
             <p id={descriptionId}>{copy.description}</p>
             <div className="modal-actions">

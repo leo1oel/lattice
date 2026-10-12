@@ -11,6 +11,12 @@ not to force every surface into one density.
   the fonts (see Private interface fonts).
   Long-form reading surfaces use `--reading-font`; code never leaves
   `--editor-font`.
+- Lattice has one serif voice: the Display and Title roles are set in
+  `--display-font` (Timeless Serif, or Instrument Serif without the private
+  fonts) at regular weight. Chinese falls through to Songti SC, the macOS
+  system serif, so a title stays a serif in either language. It is used for
+  titles only: the welcome title, dialog and Settings page titles, the guided
+  tour's card and the error page.
 - The product accent is neutral by default (Graphite). Settings → Appearance
   offers six accent presets and a custom color; each reads at 4.6:1 as text on
   every surface of every tint, and a custom pick is fitted to that floor.
@@ -28,21 +34,23 @@ not to force every surface into one density.
 - Papers titles use the interface font at 13/18px regular weight, as the
   Project tree sets a filename. Literature results beside them keep the reading
   font, as the paper reader sets a title. Author, year, venue, and other Papers
-  metadata remain in the interface font at 11/16px regular weight; a full-text
-  search hit is quoted in the reading font's italic.
-- Diff code uses the editor font at 11/18px. Diff paths, headers, and line
-  numbers remain in the interface font; compact metadata uses the 10/14px role.
-- Embedded Agent thread titles use the caption role (11/16) at regular
-  weight; Project filenames use their own 13/16px alias.
+  metadata remain in the interface font at the caption role (12/16) regular
+  weight; a full-text search hit is quoted in the reading font's italic.
+- Diff code uses the editor font at 12/18px. Diff paths, headers, and line
+  numbers remain in the interface font; compact metadata uses the micro role
+  (11/14).
+- Embedded Agent thread titles use the caption role at regular weight, from
+  the pinned Synara runtime's own copy of it; Project filenames use their own
+  13/16px alias.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
   chrome. At the default Graphite tint they use `#EFEFF0` in the light theme
-  and `#141416` in the dark theme. The titlebar lifts a step off that ground
+  and `#131315` in the dark theme. The titlebar lifts a step off that ground
   (`--surface-titlebar`, a white veil over the chrome, closed by a hairline),
   so it never reads as the same sheet as the gutters beneath it.
-- Default navigation text on the light chrome uses `#59595B`; selected and
+- Default navigation text on the chrome uses the secondary ink; selected and
   emphasized items use the primary text color.
-- Right-side feature drawers are a separate surface: `#F9F9FA` in the light
-  theme and `#1B1B1D` in the dark theme. Feature drawers must not introduce
+- Right-side feature drawers are a separate surface: `#FAFAFA` in the light
+  theme and `#1F1F22` in the dark theme. Feature drawers must not introduce
   their own white or gray outer background. Embedded routes receive their
   surface role explicitly rather than inferring it from feature-specific CSS.
 - New component styles use semantic tokens from
@@ -189,7 +197,35 @@ their row fill instead, which the fluid hover draws.
 | disabled | `:disabled`, `[data-disabled]` | not operable |
 
 Surface strength runs in one direction so two states never read the same:
-hover < pressed, and hover < selected < active.
+hover < pressed, and hover < selected < active. A control's hover is 5% of
+the text colour (`--control-hover-surface`) and its press 8%
+(`--control-pressed-surface`); a selected row is 8% and turns medium; a hover
+on the darker chrome is 6% (`--chrome-hover-surface`). Selection is a fill,
+never a second outline: the focus ring stays the only ring.
+
+## Ink, surfaces and icons
+
+- **Two inks.** Text is primary (`--text-primary`) or secondary
+  (`--text-secondary`, `#5F5F64`, `#A0A0A7` in dark), which clears 5.5:1 on
+  the chrome, the faintest surface it sits on, and 5.8:1 on the dark lift.
+  `--text-tertiary` and `--text-chrome` are kept as names for existing call
+  sites and resolve to secondary; new code takes one of the two. A status
+  colour is an icon's or a state's, never a third grey.
+- **Two neutrals and a lift (Graphite).** The ground is the chrome
+  (`#EFEFF0`, dark `#131315`); the panels, the editor and the fields share one
+  sheet (`#FAFAFA`, dark `#1A1A1C`, its fields `#1F1F22`); menus, popovers,
+  toasts and dialogs stand on the lift (`--surface-elevated`: white, dark
+  `#252528`, about 6% above the sheet), so in dark a menu reads off the sheet
+  by its fill and a quiet 10% ring rather than a bright edge. The other tints
+  keep their own surfaces.
+- **Icons** are Lucide line glyphs on the control ladder: 13px on a compact
+  control, 16px on a default one and in a toast or dialog mark, with a 1.5
+  stroke beside regular-weight text (menus) and the default 2 where they stand
+  alone. They take the secondary ink at rest and the primary when their
+  control is on, hovered or current; colour belongs to status (a toast's
+  level, a danger mark), to the accent, and to the file glyphs in the project
+  tree and pickers, which keep their own colours so a file's kind reads at a
+  glance.
 
 ## Embed and third-party boundaries
 
@@ -215,14 +251,21 @@ reads that message, the panel keeps its own copy of the Graphite palette.
 Six roles, each a size with its own leading. Take both: a size on another
 role's leading (or on `normal`) is a missing role, not a choice.
 
-| Role | Chrome | Settings | Weight | Typical use |
-| --- | --- | --- | --- | --- |
-| Display | 24 / 30 | 26 / 32 | 600 | the one title on a page that has only one: the welcome screen, a paper's title, the error page |
-| Title | 18 / 22 | 20 / 24 | 600 | dialog, sheet and Settings page titles; the guided tour's card |
-| Subtitle | 13 / 18 | 14 / 20 | 600 | panel, drawer and group headings; the project switcher |
-| Body | 13 / 20 | 14 / 22 | 400 | menus, popovers, copy, the Agent's messages and composer |
-| Caption | 11 / 16 | 12 / 18 | 400 | metadata, paths, descriptions, helper text |
-| Micro | 10 / 14 | 11 / 16 | 500 | badges, counters, compact status; one line only |
+| Role | Chrome | Settings | Weight | Family | Typical use |
+| --- | --- | --- | --- | --- | --- |
+| Display | 30 / 36 | 30 / 36 | 400 | serif | the one title on a page that has only one: the welcome screen, a paper's title, the error page |
+| Title | 18 / 24 | 24 / 30 | 400 | serif | dialog and Settings page titles; the guided tour's card |
+| Subtitle | 13 / 18 | 14 / 20 | 600 | interface | panel, drawer, sheet and group headings; the project switcher |
+| Body | 13 / 20 | 14 / 22 | 400 | interface | menus, popovers, copy, the Agent's messages and composer |
+| Caption | 12 / 16 | 12 / 18 | 400 | interface | metadata, paths, descriptions, helper text, menu group labels |
+| Micro | 11 / 14 | 12 / 16 | 500 | interface | badges, counters, compact status; one line only |
+
+- **Display and Title carry their family** (`--type-display-font`,
+  `--type-title-font`, both the serif). Take it with the size: the serif at
+  400 is the title's weight, and the interface font at 400 would read as body
+  copy. The other roles inherit the interface font.
+- **Nothing in the interface is set below 11px**, and metadata (caption) is
+  12px, the size Fluid Functionalism holds as its floor for text that is read.
 
 - **Body has a compact step**, `--type-body-compact-*` (12/16, 500; 13/18 in
   Settings): the text inside a control, whether a button, field, select, tab,
@@ -239,11 +282,14 @@ role's leading (or on `normal`) is a missing role, not a choice.
   18px leading, for code).
 - **Settings runs one step up.** `.settings-modal` (and a select portalled out
   of it) redeclares every role and alias, so the same CSS reads larger there.
+  Display does not step up: it is already the one title on its page.
 - **The Synara iframe mirrors four of these.** The pinned runtime sets its own
-  title, subtitle, body-compact and caption, at both steps, and the 30px
-  Settings control height (`apps/web/src/embedMode.ts`), so the Agent panel and
-  the Providers, MCP and Skills pages line up with the native ones. Those values
-  move only together with a Synara pin.
+  title, subtitle, body-compact and caption, at both steps, and its Settings
+  control height (`apps/web/src/embedMode.ts`), so the Agent panel and the
+  Providers, MCP and Skills pages line up with the native ones. Those values
+  move only together with a Synara pin; until the pin that takes this scale,
+  the runtime keeps the earlier one (sans titles at 600, an 11px caption,
+  30px Settings controls).
 - In a Tailwind class list, name the role's two values,
   `text-[length:var(--type-caption-size)] leading-[var(--type-caption-line-height)]`,
   never Tailwind's own `text-xs`/`text-sm` scale. A `text-<name>` theme key
@@ -261,10 +307,12 @@ A description, subtitle, or explainer paragraph appears only when it says someth
 
 ## Geometry
 
-- Spacing follows the 2px scale defined by `--space-*`. Distances inside a
-  control that the grid cannot express are named roles rather than literals:
-  `--gap-hairline`, `--gap-tight`, `--gap-inline-tight`, `--gap-inline`,
-  `--pad-inline-control`, `--pad-inline-control-tight`.
+- Spacing follows the scale defined by `--space-*`. Layout lands on its 4px
+  steps; 2px and 6px are for distances inside a control. Distances inside a
+  control are named roles rather than literals, and they sit on the same
+  grid: `--gap-hairline` (1), `--gap-tight` (2), `--gap-inline-tight` (4),
+  `--gap-inline` (8), `--pad-inline-control` (10),
+  `--pad-inline-control-tight` (8).
 - A surface nested flush inside another does not choose its own radius. The
   container declares `--surface-radius` and `--surface-inset`, and the child uses
   `border-radius: var(--nested-radius)`, which resolves to
@@ -277,13 +325,13 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   are exempt where the adjacent text field is an equivalent control.
 - **Controls stand on a two-step ladder.** Every control a pointer lands on
   is compact (`--control-height-compact`, 28px) or default
-  (`--control-height-default`, 30px), so a button next to a select next to a
+  (`--control-height-default`, 32px), so a button next to a select next to a
   tab lands on one height:
 
   | Step | Height | Text | Icons | Where |
   | --- | --- | --- | --- | --- |
   | compact | 28px | caption | 13px | dense chrome: panel headers, toolbars, filters, the titlebar, popover forms |
-  | default | 30px | body-compact | 16px | forms, dialogs, Settings |
+  | default | 32px | body-compact | 16px | forms, dialogs, Settings |
 
   Buttons (`Button` `size`), fields (`Input` `controlSize`), selects
   (`SelectTrigger` `size`), `SearchField` and `SegmentedControl` take
@@ -292,17 +340,22 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   buttons are 24px wide on the compact height. The 24px
   `--control-size-icon-compact` is an action inside a row or a field (a
   toast's dismiss, a search's clear), and counts as part of that row.
-  The default is 30px rather than Fluid Functionalism's 36px: it is the height
-  the chrome was drawn around, and the embedded Synara Settings pages pin their
-  controls to it. Width remains layout-owned.
-- Text buttons use an 8px control radius.
+  The default is 32px rather than Fluid Functionalism's 36px: the chrome is
+  denser than a web page, and 4px is a step from compact the eye can see
+  (28 against 30 was not). The embedded Synara Settings pages keep 30px until
+  the pinned runtime moves. Width remains layout-owned.
+- Text buttons, fields and selects use the 6px control radius.
 - Switches use a 28 × 16px track and a 12px thumb.
 - Checkboxes use a 14px native input surface with shared checked, mixed, focus,
   and disabled states.
 - Badges use a 20px height and 6px radius; compact badges use a 16px height.
 - Rows use 32px compact, 40px data, or 44px store height.
-- Radius roles are 4px compact, 6px icon/item, 7px chrome, 8px control,
-  9px panel, 10px surface, 14px dialog, and pill.
+- Radius has four steps and the pill: 4px for a chip (`--radius-compact`), 6px
+  for anything a pointer lands on, whether a control, row, tab or icon button
+  (`--radius-icon`, `--radius-chrome`, `--radius-control`), 10px for a surface:
+  a panel, popover, menu or toast (`--radius-panel`, `--radius-surface`), and
+  14px for a dialog (`--radius-dialog`). The role names say what holds the
+  corner; a new radius picks one of the steps, never a value between them.
 - The titlebar is 40px and hosts the traffic lights, the project switcher and
   the panel controls; the sidebar navigation header matches that height.
 - Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
@@ -325,7 +378,7 @@ takes a level from `foundations.css`.
 | Panel | `--elevation-panel` | `--surface-panel` | half a hairline | docked Trellis panels |
 | Raised | `--elevation-raised` | `--surface-elevated` | ring and a contact shadow | a plate lifted inside a surface: the chosen segment, zoom controls over a figure, a resize handle |
 | Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar, the PDF preview's loading status and notices |
-| Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts (frosted), the build's diagnostics card, a dragged item |
+| Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts, the build's diagnostics card, a dragged item |
 | Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, the guided tour's card |
 
 - The ring (`--elevation-ring`) is the edge; a floating surface does not add a
@@ -333,9 +386,8 @@ takes a level from `foundations.css`.
 - A level's shadow does not change with nesting, so a popover inside a dialog
   still reads as a popover.
 - A surface that colours its edge composes the same two parts:
-  `box-shadow: 0 0 0 1px <edge>, var(--elevation-floating-shadow)`. Toasts
-  colour theirs by severity; a Trellis panel held mid-drag takes the strong
-  border over the dialog shadow.
+  `box-shadow: 0 0 0 1px <edge>, var(--elevation-floating-shadow)`. A Trellis
+  panel held mid-drag takes the strong border over the dialog shadow.
 - `surfaces.css` assigns the shared surfaces their level; Radix menus,
   selects and popovers take theirs through `menu-surface.ts`.
 - Radii nest by the rule under Geometry: a level's surface declares
@@ -484,13 +536,19 @@ all take it.
 
 ## Dialogs, notifications and empty states
 
-- **A small dialog has one anatomy** (`.modal` in `dialogs.css`): an optional
-  36px mark (`.modal-icon`, the accent, or `data-tone="danger"` /
-  `"warning"` for what the dialog asks), the title role, one line of copy in
-  the body role, fields labelled in the caption role at medium weight and
-  standing 12px apart, and the action row 24px below. It closes on Escape, a
-  backdrop click and its Cancel; it draws no X. A tool too large for that
-  shape is a `SheetDialog`, whose title row is a `PanelHeader`.
+- **A small dialog has one anatomy** (`.modal` in `dialogs.css`): a 36px mark
+  only when the dialog asks something risky (`.modal-icon` with
+  `data-tone="danger"` or `"warning"`; a neutral dialog has none), the serif
+  title role, one line of copy in the body role, fields labelled in the
+  caption role at medium weight in the primary ink and standing 12px apart,
+  default (32px) fields, and the action row 24px below. It stands in the upper
+  third of the window (18vh), so its top stays put as a list in it changes;
+  one taller than the room below rises to keep a 20px margin. It closes on
+  Escape, a backdrop click and its Cancel; it draws no X. A tool too large for
+  that shape is a `SheetDialog`, whose title row is a `PanelHeader`; a dialog
+  that holds a whole tool without being a sheet (a review, a conflict, the
+  Overleaf project browser) adds `modal-large` and stays centred, as sheets
+  and Settings do.
 - **One dark slab per dialog at most.** The `primary` Button, filled with the
   text colour, is the one answer of a dialog or sheet (Save, Create, Apply and
   sync) or the single way out of a whole page (Restart). Every other lead
@@ -512,19 +570,23 @@ all take it.
   sideways to fit a name. A label that should stay on one line opts out with
   `truncate` and shows the full name in a tooltip or `title`.
 - **Every notification is a toast** (`app-notify.ts`, drawn by
-  `telemetry/toast-stack.tsx` on Base UI's Toast), the app update included: a
-  frosted floating card, 320px, `--radius-surface`, a title in the
-  body-compact role, detail in the caption role, the first action as a compact
-  tinted Button and the rest compact secondary, and a compact `CloseButton`.
-  Only the edge's tint changes with severity. Toasts stack into a pile, the
+  `telemetry/toast-stack.tsx` on Base UI's Toast), the app update included: an
+  opaque card on the lift at the floating level, 320px, `--radius-surface`, a
+  16px level icon, a title at the subtitle's size and leading (13/18) in medium
+  weight, detail in the caption role, the first action as a compact tinted
+  Button and the rest compact secondary, and a compact `CloseButton`. Only the
+  icon's colour changes with severity; the page behind never shows through the
+  words. Toasts stack into a pile, the
   newest in front with up to two slivers beneath, and fan out while the
   pointer or keyboard focus (F6) is on them. The clock (6 s, 9 s for an
   error) holds while the stack is hovered or focused and while the window is
   in the background; swipe, Esc and × dismiss. A toast with `progress` (a
   fraction, or `"indeterminate"`) shows a bar and no clock until its owner
   settles it, moves through `updateAppToastProgress` without a log line per
-  step, and plays the success or error cue when it settles. Settings →
-  Appearance moves the stack to any corner but the traffic lights'.
+  step, and plays the success or error cue when it settles. The stack stands
+  at the bottom right by default, clear of the PDF toolbar and the build's
+  diagnostics card; Settings → Appearance moves it to any corner but the
+  traffic lights', and a stored choice is kept.
 - **Asked for by name, always answered.** An action the writer invoked must
   show a result even when there is nothing to do: Install LaTeX tools opens the
   wizard when something is missing and otherwise says LaTeX is ready.

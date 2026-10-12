@@ -2,7 +2,6 @@ import { useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
-import { ImagePlus } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { buttonClassName } from "../../components/ui/button-styles";
 import { Input } from "../../components/ui/input";
@@ -41,7 +40,6 @@ export function FigureInsertDialog(props: {
           insert();
         }}
       >
-        <div className="modal-icon"><ImagePlus size={18} /></div>
         <h2>{t`Insert figure`}</h2>
         <p>{count === 1 ? props.paths[0] : t`${count} figures`}</p>
         {FIELDS.map(([key, name, placeholder], index) => (

@@ -318,6 +318,7 @@
 .ui-settings-section-header-title {
   margin: 0;
   color: var(--text-primary);
+  font-family: var(--type-title-font);
   font-size: var(--type-title-size);
   line-height: var(--type-title-line-height);
   font-weight: var(--type-title-weight);

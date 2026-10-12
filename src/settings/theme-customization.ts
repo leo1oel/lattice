@@ -79,12 +79,13 @@ function fromOklch(lightness: number, chroma: number, hue: number): Rgb | null {
 /**
  * The accent luminance each theme allows. The accent colors text on every
  * surface, so it must read at 4.6:1 (the presets' floor) on the surface
- * closest to it: Dusk's chrome (#f0edf7) in light, Mist's raised panel
- * (#1d2125) in dark. Each theme's --accent-contrast label then clears 5:1.
+ * closest to it: Dusk's chrome (#f0edf7) in light, Graphite's lift (#252528,
+ * menus and dialogs) in dark. Each theme's --accent-contrast label then
+ * clears 5:1.
  */
 const ACCENT_LUMINANCE_LIMIT: Record<Theme, (value: number) => boolean> = {
   light: (value) => (0.8581 + 0.05) / (value + 0.05) >= 4.6,
-  dark: (value) => (value + 0.05) / (0.01483 + 0.05) >= 4.6,
+  dark: (value) => (value + 0.05) / (0.01871 + 0.05) >= 4.6,
 };
 
 /**

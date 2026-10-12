@@ -299,9 +299,16 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* A short window keeps the actions and drops the list rather than clipping the title. */
 @media (max-height: 620px) { .welcome-recent-list, .welcome-recents-title { display: none; } }
 .busy-label { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
-.modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
+.modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: var(--scrim-dialog-surface); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
 .modal-dialog-content { position: fixed; top: 50%; left: 50%; z-index: var(--z-modal); width: max-content; transform: translate(-50%, -50%); }
+/* A small dialog or picker stands in the upper third, where the eye already
+   is, and its top stays put as a list under it grows or shrinks. One taller
+   than the room below rises just enough to keep a 20px margin. Sheets,
+   Settings and a dialog that holds a whole tool (`modal-large`: a review, a
+   conflict, a project browser) stay centred. The leaving picture is the same
+   element, so it leaves from where it stood. */
+.modal-dialog-content:has(> .modal:not(.sheet-dialog, .modal-large)) { top: 18vh; transform: translate(-50%, min(0px, calc(82vh - 100% - 20px))); }
 /* Dialogs arrive: the scrim fades in while the card rises a few pixels and
    settles. `translate` and `scale` are their own properties, so they compose
    with the centring transform above instead of replacing it. A closed dialog
@@ -339,29 +346,31 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    another dialog, so both stack above it. */
 .tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }
 .tex-setup-backdrop + .modal-dialog-content, .confirm-action-backdrop + .modal-dialog-content { z-index: var(--z-nested-modal); }
-/* The anatomy every small dialog shares: an optional mark, a title, one line
-   of copy, the fields, and the action row. Fields stand 12px apart; a title
-   followed straight by a field keeps the copy's distance from it. */
-.modal { width: min(390px, calc(100vw - 40px)); border-radius: var(--radius-dialog); padding: var(--space-12); text-align: left; }
+/* The anatomy every small dialog shares: a mark only when the dialog asks
+   something dangerous, a serif title, one line of copy, the fields, and the
+   action row. Fields stand 12px apart; a title followed straight by a field
+   keeps the copy's distance from it. */
+.modal { width: min(390px, calc(100vw - 40px)); border-radius: var(--radius-dialog); padding: var(--space-10) var(--space-10) var(--space-8); text-align: left; }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
 .venue-picker { display: grid; gap: var(--space-3); }
-.venue-picker-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.venue-picker-label { color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .venue-picker-content { min-width: var(--radix-select-trigger-width); }
 .venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-/* One mark for every dialog: the accent by default, or the tone of what the
-   dialog asks (a deletion, a conflict). */
-.modal-icon { width: 36px; height: 36px; flex: none; border-radius: var(--radius-surface); display: grid; place-items: center; color: var(--control-active); background: var(--control-active-soft); }
+/* The mark says what a dialog asks when that is a risk (a deletion, a
+   conflict), in the tone of the risk. A neutral dialog has no mark: its title
+   says enough. */
+.modal-icon { width: 36px; height: 36px; flex: none; border-radius: var(--radius-surface); display: grid; place-items: center; }
 .modal-icon[data-tone="danger"] { color: var(--status-danger); background: var(--status-danger-soft); }
 .modal-icon[data-tone="warning"] { color: var(--status-warning); background: var(--status-warning-soft); }
-.modal h2 { margin: var(--space-8) 0 var(--space-2); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
+.modal h2 { margin: var(--space-8) 0 var(--space-2); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
 .modal > h2:first-child { margin-top: 0; }
 /* `:where` keeps this at one class, so an InlineMessage (also a <p>) and a
    field error keep their own type. */
 .modal > p:where(:not(.ui-inline-message)) { margin: 0 0 var(--space-10); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); text-wrap: pretty; }
 .modal > h2 + :not(p) { margin-top: var(--space-8); }
-.modal label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.modal label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .modal > :is(label, .venue-picker) + :is(label, .venue-picker) { margin-top: var(--space-6); }
 .modal .field-error { margin: var(--space-3) 0 0; color: var(--status-danger); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .modal .field-error + .modal-actions { margin-top: var(--space-8); }

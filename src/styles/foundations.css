@@ -19,36 +19,41 @@
  *   disabled   `:disabled`, `[data-disabled]`     not operable
  *
  * Surface strength runs in one direction, so two states are never confusable:
- * hover < pressed, and hover < selected < active.
+ * hover < pressed, and hover < selected < active. A hover is 5% of the text
+ * colour and a press 8%; a selected row is 8% and turns medium.
  */
 :root {
   /* Typography: six roles.
    *
-   *   display    24/30  600  the one title on a page that has only one
-   *   title      18/22  600  dialog, sheet and settings-page titles
-   *   subtitle   13/18  600  panel, drawer and group headings
-   *   body       13/20  400  menus, copy, popovers; its compact step (12/16,
-   *                          500) is the text inside a control: buttons,
-   *                          fields, tabs, compact lists
-   *   caption    11/16  400  metadata, paths, descriptions
-   *   micro      10/14  500  badges, counters, compact status; one line only
+   *   display    30/36  400  serif  the one title on a page that has only one
+   *   title      18/24  400  serif  dialog, sheet and settings-page titles
+   *   subtitle   13/18  600         panel, drawer and group headings
+   *   body       13/20  400         menus, copy, popovers; its compact step
+   *                                 (12/16, 500) is the text inside a control:
+   *                                 buttons, fields, tabs, compact lists
+   *   caption    12/16  400         metadata, paths, descriptions
+   *   micro      11/14  500         badges, counters, compact status; one line only
    *
-   * Each role is a size and its own leading; take both. A region that is read
-   * rather than scanned (Settings, below) runs every role one step up. The
-   * embedded Synara runtime mirrors title, subtitle, body-compact and caption
-   * at both steps (its embedMode.ts), so those values only move together with
-   * the pinned runtime.
+   * Each role is a size and its own leading; take both. Display and Title are
+   * Lattice's one serif voice and also carry their family (`--type-*-font`);
+   * the rest stay in the interface font. Nothing in the interface is set below
+   * 11px. A region that is read rather than scanned (Settings, below) runs
+   * every role one step up. The embedded Synara runtime mirrors title,
+   * subtitle, body-compact and caption at both steps (its embedMode.ts), so it
+   * keeps its own copy of those values until the pinned runtime moves.
    *
    * `typeset` is prose: the visual Markdown surface, the source editor's
    * default size and long-form notes. The roles under it are thin aliases for
    * surfaces that name their own contract.
    */
-  --type-display-size: 24px;
-  --type-display-line-height: 30px;
-  --type-display-weight: 600;
+  --type-display-font: var(--display-font);
+  --type-display-size: 30px;
+  --type-display-line-height: 36px;
+  --type-display-weight: 400;
+  --type-title-font: var(--display-font);
   --type-title-size: 18px;
-  --type-title-line-height: 22px;
-  --type-title-weight: 600;
+  --type-title-line-height: 24px;
+  --type-title-weight: 400;
   --type-subtitle-size: 13px;
   --type-subtitle-line-height: 18px;
   --type-subtitle-weight: 600;
@@ -58,10 +63,10 @@
   --type-body-compact-size: 12px;
   --type-body-compact-line-height: 16px;
   --type-body-compact-weight: 500;
-  --type-caption-size: 11px;
+  --type-caption-size: 12px;
   --type-caption-line-height: 16px;
   --type-caption-weight: 400;
-  --type-micro-size: 10px;
+  --type-micro-size: 11px;
   --type-micro-line-height: 14px;
   --type-micro-weight: 500;
   --type-typeset-size: 14px;
@@ -89,7 +94,8 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* A compact 2px spacing grid. */
+  /* A compact 2px spacing grid. Layout lands on its 4px steps; 2px and 6px
+     are for distances inside a control. */
   --space-1: 2px;
   --space-2: 4px;
   --space-3: 6px;
@@ -108,11 +114,11 @@
    * and one edit changes all of them.
    */
   --gap-hairline: 1px; /* Seam between adjacent segments in one track. */
-  --gap-tight: 3px; /* Stacked lines that read as a single block. */
-  --gap-inline-tight: 5px; /* Icon to its label inside a compact control. */
-  --gap-inline: 7px; /* Members of one inline group. */
-  --pad-inline-control: 9px; /* Chrome control side padding. */
-  --pad-inline-control-tight: 7px; /* The same, on a shorter control. */
+  --gap-tight: 2px; /* Stacked lines that read as a single block. */
+  --gap-inline-tight: 4px; /* Icon to its label inside a compact control. */
+  --gap-inline: 8px; /* Members of one inline group. */
+  --pad-inline-control: 10px; /* Chrome control side padding. */
+  --pad-inline-control-tight: 8px; /* The same, on a shorter control. */
   --drawer-content-inset: 14px; /* Shared edge for drawer headers and first-level content. */
   --drawer-section-gap: var(--space-5); /* Vertical rhythm between first-level drawer sections. */
 
@@ -167,13 +173,17 @@
   --motion-draw: var(--duration-draw) var(--ease-moderate);
   --motion-flourish: var(--duration-flourish) var(--ease-moderate);
 
-  /* Radius roles. Special asymmetric message bubbles remain component-owned. */
+  /* Radius: four steps and the pill. 4 for a chip, 6 for anything a pointer
+     lands on (a control, a row, a tab, an icon button), 10 for a surface (a
+     panel, popover, menu or toast) and 14 for a dialog. The role names say
+     what holds the corner; the steps they share are the system. Special
+     asymmetric message bubbles remain component-owned. */
   --radius-compact: 4px;
   --radius-icon: 6px;
-  --radius-chrome: 7px;
-  --radius-control: 8px;
-  --radius-panel: 9px;
-  --radius-surface: 10px;
+  --radius-chrome: var(--radius-icon);
+  --radius-control: var(--radius-icon);
+  --radius-panel: 10px;
+  --radius-surface: var(--radius-panel);
   --radius-dialog: 14px;
   --radius-pill: 999px;
 
@@ -184,16 +194,17 @@
 
      compact  28px  caption text, 13px icons   dense chrome: panel headers,
                                                 toolbars, filters, titlebar
-     default  30px  compact-body text, 16px    forms, dialogs, Settings
+     default  32px  compact-body text, 16px    forms, dialogs, Settings
                     icons
 
-   30px, not Fluid Functionalism's 36: it is the default the chrome was drawn
-   around, and the embedded Synara Settings pages pin their controls to it.
-   Square icon controls use the same two heights; the 24px inline size is an
-   action inside a row or a field (a toast's dismiss, a search's clear), and
-   counts as part of that row. */
+   32px, not Fluid Functionalism's 36: the chrome is drawn denser than a web
+   page, and a 4px step from compact is one the eye can see. The embedded
+   Synara Settings pages pin their own controls to 30px until the pinned
+   runtime moves. Square icon controls use the same two heights; the 24px
+   inline size is an action inside a row or a field (a toast's dismiss, a
+   search's clear), and counts as part of that row. */
   --control-height-compact: 28px;
-  --control-height-default: 30px;
+  --control-height-default: 32px;
   --control-size-icon-compact: 24px;
   --control-size-icon: var(--control-height-compact);
   --control-size-icon-large: var(--control-height-default);
@@ -228,11 +239,11 @@
   --search-control-gap: var(--space-3);
   --search-control-icon-size: 14px;
   --search-control-interactive-border-color: var(--field-control-interactive-border-color);
-  --form-control-select-radius: 9px;
+  --form-control-select-radius: var(--radius-control);
   --form-control-textarea-min-height: 88px;
   --form-control-disabled-opacity: 0.45;
-  --control-hover-surface: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --control-pressed-surface: color-mix(in srgb, var(--text-primary) 11%, transparent);
+  --control-hover-surface: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --control-pressed-surface: color-mix(in srgb, var(--text-primary) 8%, transparent);
   --control-disabled-opacity: 0.42;
   --control-off-surface: var(--border-strong);
   --control-on-surface: var(--control-active);
@@ -363,7 +374,7 @@
   --settings-group-gap: 28px;
   --settings-control-width: 170px;
   --settings-control-height: var(--control-height-default);
-  --settings-control-radius: 9px;
+  --settings-control-radius: var(--radius-control);
   --settings-control-font-family: var(--ui-font);
   --settings-control-font-size: var(--type-body-compact-size);
   --settings-control-line-height: var(--type-body-compact-line-height);
@@ -374,7 +385,7 @@
   --settings-frame-radius: var(--radius-control);
   --settings-control-hover-surface: color-mix(
     in srgb,
-    var(--text-primary) 7%,
+    var(--text-primary) 5%,
     var(--surface-panel-raised)
   );
 
@@ -487,10 +498,13 @@
   --surface-input: var(--side-surface);
   --border-subtle: var(--line);
   --border-strong: var(--line-strong);
+  /* Two inks. Tertiary and chrome text were two more greys the eye could not
+     tell from secondary; they remain as names for existing call sites and
+     resolve to it. New code takes primary or secondary. */
   --text-primary: var(--text);
   --text-secondary: var(--muted);
-  --text-tertiary: var(--faint);
-  --text-chrome: var(--chrome-text);
+  --text-tertiary: var(--text-secondary);
+  --text-chrome: var(--text-secondary);
   --control-active: var(--accent);
   --control-active-soft: var(--accent-soft);
   /* The editor's current line stays neutral under any accent: the syntax
@@ -498,8 +512,9 @@
   --editor-active-line-surface: var(--editor-line);
   --control-active-contrast: var(--accent-contrast);
   /* One hover wash for chrome affordances that sit directly on a chrome or
-     sidebar surface: titlebar buttons, navigation actions, toolbar icons. */
-  --chrome-hover-surface: var(--border-subtle);
+     sidebar surface: titlebar buttons, navigation actions, toolbar icons. A
+     step above a control's hover, since the ground under it is darker. */
+  --chrome-hover-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
   /* Keyboard focus is one ring, declared once and drawn by the global
      `:focus-visible` rule in styles/app-shell.css. Components size it through
      these roles instead of hand-rolling a per-component shadow. */
@@ -516,6 +531,7 @@
   --highlight-match-current-surface: rgba(255, 142, 0, 0.48);
   --highlight-match-current-border: rgba(202, 94, 0, 0.72);
   --scrim-surface: rgba(0, 0, 0, 0.18);
+  --scrim-dialog-surface: var(--dialog-scrim);
 
   /* A rendered page stays paper-colored in both themes. */
   /* Text selection in the editor reads as a system selection rather than as
@@ -576,10 +592,11 @@
    its items would fall back to the chrome size its trigger no longer uses. */
 .settings-modal,
 [data-slot="select-content"][data-settings-control="true"] {
-  --type-display-size: 26px;
-  --type-display-line-height: 32px;
-  --type-title-size: 20px;
-  --type-title-line-height: 24px;
+  /* Display is already the one title on its page; it does not step up. */
+  --type-display-size: 30px;
+  --type-display-line-height: 36px;
+  --type-title-size: 24px;
+  --type-title-line-height: 30px;
   --type-subtitle-size: 14px;
   --type-subtitle-line-height: 20px;
   --type-body-size: 14px;
@@ -588,7 +605,7 @@
   --type-body-compact-line-height: 18px;
   --type-caption-size: 12px;
   --type-caption-line-height: 18px;
-  --type-micro-size: 11px;
+  --type-micro-size: 12px;
   --type-micro-line-height: 16px;
   --type-typeset-size: 15px;
   --type-typeset-line-height: 24px;

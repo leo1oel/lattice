@@ -161,12 +161,12 @@ export function spreadsheetAppearance(container: HTMLElement) {
     return value && value !== "rgba(0, 0, 0, 0)" && value !== "transparent" ? value : fallback;
   };
   return {
-    background: visible("--editor-bg", styles.backgroundColor, "#f9f9fa"),
+    background: visible("--editor-bg", styles.backgroundColor, "#fafafa"),
     foreground: visible("--text-primary", styles.color, "#242426"),
-    surface: resolvedToken(root, "--surface-panel-raised", resolvedToken(root, "--panel-strong", "#f9f9fa")),
+    surface: resolvedToken(root, "--surface-panel-raised", resolvedToken(root, "--panel-strong", "#ffffff")),
     border: visible("--border-subtle", styles.borderColor, "rgba(28, 28, 31, 0.09)"),
     gridline: visible("--border-strong", styles.borderColor, "rgba(28, 28, 31, 0.14)"),
-    muted: visible("--text-tertiary", styles.outlineColor, "#6c6c72"),
+    muted: visible("--text-tertiary", styles.outlineColor, "#5f5f64"),
     dark: document.documentElement.dataset.theme === "dark",
   };
 }
