@@ -104,14 +104,14 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
     onFocus={cancelClose}
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) closeSoon(); }}
   >
-    <small>{citation.key}</small>
+    <span className="citation-card-key">{citation.key}</span>
     {onOpenCitation && canOpenCitation?.(citation.key)
-      ? <button type="button" className="citation-hover-open" onClick={() => {
+      ? <button type="button" className="citation-card-title" onClick={() => {
         setTarget(null);
         onOpenCitation(citation.key);
       }}>{citation.title || citation.key}</button>
-      : <strong>{citation.title || citation.key}</strong>}
-    {citation.authors && <span>{citation.authors.replace(/ and /g, " · ")}</span>}
-    {publication && <em>{publication}</em>}
+      : <strong className="citation-card-title">{citation.title || citation.key}</strong>}
+    {citation.authors && <span className="citation-card-authors">{citation.authors.replace(/ and /g, " · ")}</span>}
+    {publication && <em className="citation-card-venue">{publication}</em>}
   </div>, document.body);
 }
