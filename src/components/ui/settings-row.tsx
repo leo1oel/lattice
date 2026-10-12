@@ -12,8 +12,9 @@ export type SettingsGroupProps = Omit<ComponentPropsWithoutRef<"section">, "titl
 /**
  * A titled band of settings rows.
  *
- * The group heading carries the only rule on a settings page; rows below it are
- * separated by their own height rather than by more lines.
+ * Rows sit in one bordered card under the heading, a hairline between each,
+ * so a page reads as a few groups rather than a column of loose lines. A group
+ * that holds no row (a log, a checklist) keeps its contents unframed.
  */
 export function SettingsGroup({ children, className, title, ...props }: SettingsGroupProps) {
   return (
@@ -23,7 +24,7 @@ export function SettingsGroup({ children, className, title, ...props }: Settings
       {...props}
     >
       {title && <h3 className="ui-settings-group-title">{title}</h3>}
-      {children}
+      <div className="ui-settings-group-body">{children}</div>
     </section>
   );
 }

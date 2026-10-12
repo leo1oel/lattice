@@ -822,6 +822,10 @@ msgstr "全部函数…"
 msgid "All levels"
 msgstr "全部级别"
 
+#: src/project/paper-library.tsx
+msgid "All papers"
+msgstr "全部论文"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "All references"
 msgstr "全部文献"
@@ -1040,6 +1044,7 @@ msgstr "Attention Is All You Need、扩散模型…"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Author"
 msgstr "作者"
 
@@ -1937,14 +1942,9 @@ msgid "Close"
 msgstr "关闭"
 
 #: src/components/ui/panel-header.tsx
-#: src/components/ui/search-picker-dialog.tsx
 #: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "关闭 {title}"
-
-#: src/app/command-palette.tsx
-msgid "Close command palette"
-msgstr "关闭"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Close find"
@@ -1961,10 +1961,6 @@ msgstr "关闭其他"
 #: src/components/ui/icon-button.tsx
 #: src/components/ui/panel-header.tsx
 msgid "Close panel"
-msgstr "关闭"
-
-#: src/project/quick-open-dialog.tsx
-msgid "Close quick search"
 msgstr "关闭"
 
 #: src/editor/latex/search-panel.ts
@@ -2995,6 +2991,10 @@ msgstr "下载 JSON"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
+#: src/project/paper-library.tsx
+msgid "Downloaded"
+msgstr "已下载"
+
 #: src/App.tsx
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
@@ -3678,6 +3678,10 @@ msgstr "改好剩下的再保存"
 #: src/papers/bib-visual-editor.tsx
 msgid "Fix it in the source and the list comes back."
 msgstr "在源码中修正后，列表会恢复显示。"
+
+#: src/project/paper-library.tsx
+msgid "Flagged"
+msgstr "有警示"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
@@ -5733,6 +5737,7 @@ msgid "New…"
 msgstr "新建…"
 
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Newest first"
 msgstr "最新优先"
 
@@ -6068,6 +6073,10 @@ msgstr "未按引用名引用，但 {nociteAll} 会收录所有条目"
 #: src/papers/bib-visual-editor.tsx
 msgid "Not cited in any .tex file"
 msgstr "未在任何 .tex 文件中引用"
+
+#: src/project/paper-library.tsx
+msgid "Not downloaded"
+msgstr "未下载"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not enabled · add your own API key in Settings"
@@ -8578,6 +8587,10 @@ msgstr "面板开关"
 msgid "Show outline"
 msgstr "显示大纲"
 
+#: src/project/paper-library.tsx
+msgid "Show papers"
+msgstr "显示论文"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "显示文献"
@@ -8722,6 +8735,10 @@ msgstr "部分来源不可用"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
 msgstr "行排序"
+
+#: src/project/paper-library.tsx
+msgid "Sort papers"
+msgstr "论文排序"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Sort references"
@@ -9753,6 +9770,7 @@ msgstr "提示"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Title"
 msgstr "标题"
 
@@ -9871,6 +9889,10 @@ msgstr "换个更短或不同的词试试"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "重试"
+
+#: src/project/paper-library.tsx
+msgid "Try another filter"
+msgstr "换个筛选条件试试"
 
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"

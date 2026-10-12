@@ -246,14 +246,42 @@
   margin-top: 0;
 }
 
+/* The heading sits over its group's card; the card, not a rule under the
+   heading, says which rows belong together. */
 .ui-settings-group-title {
-  margin: 0 0 var(--space-2);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+  margin: 0 0 var(--space-4);
   color: var(--text-primary);
   font-size: var(--type-subtitle-size);
   line-height: var(--type-subtitle-line-height);
   font-weight: var(--weight-semibold);
+}
+
+/* A group's rows share one card: a hairline edge, a hairline between rows,
+   and one height for every single-line row (a 32px control and its inset), so
+   the dividers fall at a single rhythm down the page. What sits among the rows without being one (a key's
+   form, a notice) takes the same inset. A group holding no row at all is laid
+   out by its feature. */
+.ui-settings-group-body:has(> :is(.ui-settings-row, .ui-switch-field)) {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--settings-card-radius);
+  background: var(--settings-card-surface);
+  overflow: clip;
+}
+
+.ui-settings-group-body:has(> :is(.ui-settings-row, .ui-switch-field)) > * {
+  margin: 0;
+  padding: var(--space-6) var(--settings-card-padding-inline);
+}
+
+/* Drawn inside the row rather than as a border, so a divider never adds to
+   the height of the row under it. */
+.ui-settings-group-body:has(> :is(.ui-settings-row, .ui-switch-field)) > * + * {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+
+.ui-settings-group-body:has(> :is(.ui-settings-row, .ui-switch-field)) > :is(.ui-settings-row, .ui-switch-field) {
+  min-height: var(--settings-row-min-height);
+  padding-block: var(--space-5);
 }
 
 .ui-row {
@@ -687,4 +715,25 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
   line-height: var(--type-caption-line-height);
+}
+
+/* In a long list (a picker or the palette) a combination reads as one quiet
+   word, ⌘⇧K, as a menu writes it: a column of boxed caps on every row was
+   the loudest thing in the list. The caps stay `kbd`s, so the markup still
+   says which keys they are. */
+.ui-keycaps-run {
+  gap: 1px;
+  color: var(--text-secondary);
+}
+
+.ui-keycaps-run .ui-keycap {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
 }

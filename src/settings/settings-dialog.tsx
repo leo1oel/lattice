@@ -1,4 +1,3 @@
-import { Settings } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
@@ -7,7 +6,7 @@ import { ReloadButton } from "../components/ui/activity-icons";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { spring } from "../components/ui/motion-values";
-import { PanelHeader } from "../components/ui/panel-header";
+import { CloseButton } from "../components/ui/icon-button";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
@@ -216,15 +215,17 @@ export function SettingsDialog(props: SettingsDialogProps) {
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >
       <div className="settings-modal">
-        <PanelHeader
-          className="settings-header"
-          icon={<Settings size={17} />}
-          title={t`Settings`}
-          closeLabel={t`Close settings`}
-          onClose={props.onClose}
+        {/* No title bar: each page's own title names it, and the dialog is
+            labelled for assistive technology. What the bar did stays: its
+            top edge still drags the window, and the close floats in the
+            corner above the page. */}
+        <div
+          className="settings-drag-strip"
+          aria-hidden="true"
           onMouseDown={beginWindowDrag}
           onDoubleClick={toggleWindowFullscreen}
         />
+        <CloseButton className="settings-close" label={t`Close settings`} tooltip={false} onClick={props.onClose} />
         <div className="settings-body">
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
             <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection follow={null} transition={spring.moderate} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
@@ -167,42 +167,65 @@ export function ProjectFindDialog(props: {
         {hits.map((hit, index) => {
           const paper = hit.kind === "paper";
           const paperTitle = hit.title;
+          // A file's hits gather under one header naming it, with a count of
+          // its run, so each hit is only its line and text. Papers keep their
+          // own rows: their title is what tells one hit from the next.
+          const startsGroup = !paper && hits[index - 1]?.path !== hit.path;
+          let runLength = 0;
+          if (startsGroup) {
+            while (hits[index + runLength]?.path === hit.path) runLength += 1;
+          }
           return (
-            <li key={`${hit.kind}:${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
-              <button
-                type="button"
-                className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
-                data-highlighted={offset + index === activeIndex ? "" : undefined}
-                onMouseMove={(event) => {
-                  if (!pointerMoved(event)) return;
-                  if (offset + index !== activeIndex) setActiveIndex(offset + index);
-                }}
-                aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
-                title={paper ? undefined : `${hit.path}${hit.line ? `:${hit.line}` : ""}`}
-                onClick={() => {
-                  setActiveIndex(offset + index);
-                  props.onOpenHit(hit.path, hit.line ?? undefined);
-                }}
-              >
-                {/* The icon says what kind of result it is; the name leads, its
-                    folder and line follow it, quieter. */}
-                <span className="project-find-hit-icon" aria-hidden="true">{fileIcon(hit.path, paper ? "paper" : "file")}</span>
-                <span className="project-find-hit-heading">
+            <Fragment key={`${hit.kind}:${hit.path}:${hit.line ?? 0}:${index}:${hit.snippet}`}>
+              {startsGroup && (
+                // The hits below still say their file to a screen reader.
+                <li className="project-find-group" aria-hidden="true" title={hit.path}>
+                  <span className="project-find-hit-icon">{fileIcon(hit.path, "file")}</span>
+                  <span className="project-find-hit-name">{fileName(hit.path)}</span>
+                  {folderOf(hit.path) && <span className="project-find-hit-folder">{folderOf(hit.path)}</span>}
+                  <span className="project-find-group-count">{runLength}</span>
+                </li>
+              )}
+              <li>
+                <button
+                  type="button"
+                  className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
+                  data-grouped={paper ? undefined : ""}
+                  data-highlighted={offset + index === activeIndex ? "" : undefined}
+                  onMouseMove={(event) => {
+                    if (!pointerMoved(event)) return;
+                    if (offset + index !== activeIndex) setActiveIndex(offset + index);
+                  }}
+                  aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
+                  title={paper ? undefined : `${hit.path}${hit.line ? `:${hit.line}` : ""}`}
+                  onClick={() => {
+                    setActiveIndex(offset + index);
+                    props.onOpenHit(hit.path, hit.line ?? undefined);
+                  }}
+                >
                   {paper ? (
-                    <span className="project-find-hit-name">{hit.title}</span>
-                  ) : (
                     <>
-                      <span className="project-find-hit-name">{fileName(hit.path)}</span>
-                      {folderOf(hit.path) && <span className="project-find-hit-folder">{folderOf(hit.path)}</span>}
-                      {hit.line ? <span className="project-find-hit-line">{hit.line}</span> : null}
+                      {/* The icon says what kind of result it is; the title leads. */}
+                      <span className="project-find-hit-icon" aria-hidden="true">{fileIcon(hit.path, "paper")}</span>
+                      <span className="project-find-hit-heading">
+                        <span className="project-find-hit-name">{hit.title}</span>
+                      </span>
                     </>
+                  ) : (
+                    // The header shows the file; here it is spoken only, then
+                    // the line number in its own column before the text.
+                    <span className="project-find-hit-heading">
+                      <span className="sr-only">{fileName(hit.path)}</span>
+                      {folderOf(hit.path) && <span className="sr-only">{folderOf(hit.path)}</span>}
+                      {hit.line ? <span className="project-find-hit-line">{hit.line}</span> : null}
+                    </span>
                   )}
-                </span>
-                <span className="project-replace-hit-preview">
-                  {hit.snippet ? markTerms(hit.snippet, query) : paper ? hit.path : hit.title}
-                </span>
-              </button>
-            </li>
+                  <span className="project-replace-hit-preview">
+                    {hit.snippet ? markTerms(hit.snippet, query) : paper ? hit.path : hit.title}
+                  </span>
+                </button>
+              </li>
+            </Fragment>
           );
         })}
       </ul>

@@ -375,12 +375,12 @@ describe("welcome screen", () => {
     expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
   });
 
-  it("keeps Settings draggable from its header and the top window strip", async () => {
+  it("keeps Settings draggable from its top edge and the top window strip", async () => {
     renderApp();
     await openSettings();
     const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    const header = dialog.querySelector<HTMLElement>(".settings-header")!;
-    fireEvent.mouseDown(header, { button: 0, buttons: 1, detail: 1 });
+    const topEdge = dialog.querySelector<HTMLElement>(".settings-drag-strip")!;
+    fireEvent.mouseDown(topEdge, { button: 0, buttons: 1, detail: 1 });
     await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
     windowApi.startDragging.mockClear();
     const topStrip = document.querySelector<HTMLElement>("[data-modal-window-drag]")!;

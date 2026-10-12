@@ -196,50 +196,53 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
 /* `.modal` (dialogs.css) loads later with its own width and padding, so these
    carry the base class too or they silently lose to it. */
-.modal.quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
-.quick-open-header { position: relative; padding: var(--space-4) var(--space-5); display: flex; align-items: center; }
-.quick-open-header::after { content: ""; position: absolute; inset-inline: var(--space-5); bottom: 0; height: 1px; background: var(--border-subtle); }
-/* The divider already frames the query, so the field drops its own box. */
-.quick-open-header .ui-search-field { height: var(--control-height-default); border-color: transparent; background: transparent; }
+.modal.quick-open-modal { width: min(560px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+.quick-open-header { position: relative; padding: var(--space-3) var(--space-4); display: flex; align-items: center; }
+.quick-open-header::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 1px; background: var(--border-subtle); }
+/* The divider already frames the query, so the field drops its own box; it
+   stands a row taller than the results, so the query reads as the way in. */
+.quick-open-header .ui-search-field { height: var(--row-height-default); border-color: transparent; background: transparent; }
+.quick-open-header .ui-search-field-input { font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
 /* Pickers whose details are short (the command palette's shortcuts) keep each
    row to one line, with the detail trailing at the end. */
 .quick-open-modal[data-detail="end"] .quick-open-list button { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
 .quick-open-modal[data-detail="end"] .picker-label { flex: 1 1 auto; }
 .quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
-.quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
-.quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-body-compact-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
+.quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; }
+.quick-open-list button { min-height: var(--row-height-compact); border: 0; border-radius: var(--nested-radius); padding: var(--space-3) var(--space-5); background: transparent; color: var(--text-primary); text-align: left; font-size: var(--type-body-size); line-height: var(--type-body-line-height); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 /* The pointer moves the current row too (on a real move), so `.active` is the
    only highlight; a :hover fill would light a second row under a resting
    pointer while the arrows move on. */
 .quick-open-list { --fluid-hover-fill: var(--control-active-soft); }
-.quick-open-list button.active { background: var(--control-active-soft); color: var(--control-active); }
+.quick-open-list button.active { background: var(--control-active-soft); color: var(--text-primary); }
 .quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* One heading per section, quiet enough that the rows stay the thing to read. */
-.quick-open-list .picker-section { padding: var(--space-4) var(--space-5) var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
+/* One heading per section at the caption role, quiet enough that the rows
+   stay the thing to read. */
+.quick-open-list .picker-section { padding: var(--space-6) var(--space-5) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .quick-open-list .picker-section:first-of-type { padding-top: var(--space-2); }
 .quick-open-list .picker-file { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
-.quick-open-list .picker-file-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
-.quick-open-list button.active .picker-file-icon { color: inherit; }
+.quick-open-list .picker-file-icon { flex: none; display: inline-flex; color: var(--text-secondary); }
+.quick-open-list button.active .picker-file-icon { color: var(--text-primary); }
 .quick-open-list .picker-file-name { flex: none; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 .quick-open-list button.active .picker-file-name { color: inherit; }
-.quick-open-list .picker-file-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.quick-open-list .picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-open-list .picker-file-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); }
+.quick-open-list .picker-detail { color: var(--text-secondary); font-size: var(--type-caption-size); font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A row with an icon or a shortcut: icon, then its text, then the keycaps at
    the end, all on one line whatever the detail placement. */
 .quick-open-list button:has(> .picker-text) { flex-direction: row; align-items: center; gap: var(--space-4); }
-.quick-open-list .picker-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
+.quick-open-list .picker-icon { flex: none; display: inline-flex; color: var(--text-secondary); }
 /* The palette's icon symbols: in the document for <use>, never on screen. */
 .picker-icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-.quick-open-list button.active .picker-icon { color: inherit; }
+.quick-open-list button.active .picker-icon { color: var(--text-primary); }
 .quick-open-list .picker-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--gap-tight); }
 .quick-open-modal[data-detail="end"] .picker-text { flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--space-8); }
 .quick-open-list .picker-shortcut { flex: none; margin-inline-start: var(--space-2); }
 /* The command palette reaches files, papers and settings as well as
    commands, so it gives its rows more room than the single-purpose pickers. */
-.modal.quick-open-modal.command-palette-modal { width: min(600px, calc(100vw - 40px)); }
-.command-palette-modal .quick-open-list { max-height: min(420px, 56vh); }
-.command-palette-footer { position: relative; padding: var(--space-4) var(--space-8); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
-.command-palette-footer::before { content: ""; position: absolute; inset-inline: var(--space-5); top: 0; height: 1px; background: var(--border-subtle); }
+.modal.quick-open-modal.command-palette-modal { width: min(640px, calc(100vw - 40px)); }
+.command-palette-modal .quick-open-list { max-height: min(460px, 60vh); }
+.command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.command-palette-footer::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--border-subtle); }
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
@@ -357,6 +360,19 @@ input[type="search"]:focus-visible {
 .project-find-results { flex: 0 1 auto; min-height: 0; }
 .project-replace-hit-preview mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
 .project-find .project-replace-hits { max-height: none; overflow: visible; padding-right: var(--space-5); }
+/* A file's hits sit under one header (its name, folder and how many hits it
+   holds), so a hit is only its line number, in a right-aligned column, and
+   its text: about twice as many fit on screen as when every hit restated its
+   file. */
+.project-find-group { display: flex; align-items: center; gap: var(--space-4); min-width: 0; padding: var(--space-6) var(--space-5) var(--space-2); color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.project-find-group:first-child { padding-top: var(--space-2); }
+.project-find-group .project-find-hit-icon { color: var(--text-secondary); }
+.project-find-group .project-find-hit-name { font-size: inherit; font-weight: var(--weight-medium); }
+.project-find-group .project-find-hit-folder { color: var(--text-secondary); font-size: var(--type-caption-size); }
+.project-find-group-count { flex: none; margin-inline-start: auto; color: var(--text-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; }
+.project-find .project-replace-hit[data-grouped] { position: relative; grid-template-columns: 40px minmax(0, 1fr); align-items: center; min-height: var(--control-height-compact); padding-block: var(--space-2); }
+.project-replace-hit[data-grouped] .project-find-hit-heading { justify-content: flex-end; padding-inline-end: var(--space-4); }
+.project-replace-hit[data-grouped] .project-find-hit-line { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .project-find-papers { flex: 0 1 auto; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 /* Scope tabs lead the results, the live status trailing them on one line. A
    tab's count is a quiet numeral beside its name, solid on the tab you are on. */
@@ -690,7 +706,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:is(:hover, :focus-visible):not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
-.paper-list { min-height: 0; flex: 1; }
+/* The count, then the sort and the filter at the end, on the search field's
+   measure; in a narrow panel their labels give way before the count does. */
+.paper-list-toolbar { width: calc(100% - var(--space-6)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+.paper-list-count { flex: none; margin: 0 auto 0 0; padding-inline: var(--space-4); white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.paper-list-toolbar .paper-list-select { flex: 0 1 auto; width: auto; gap: var(--space-2); padding-inline: var(--space-4) var(--space-3); }
+.paper-list-select > svg:first-child { color: var(--text-secondary); }
+.paper-list { min-height: 0; flex: 1; container: paper-list / inline-size; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* A paper is a short stack: its title and a byline of who and when, then any
    flags (citation only, a citation-health notice).
@@ -713,11 +735,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row > :is(.paper-title, .paper-meta, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
 /* A paper's title is set in the interface face, as the Project tree sets a
-   file's name; a narrow panel gets a third line before the ellipsis. */
-.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
-.paper-row.active .paper-title { color: var(--text-primary); }
-.paper-row.cited-only .paper-title { color: var(--text-secondary); }
-.paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+   file's name, and in the primary ink whether or not it has been downloaded:
+   the byline's mark and the Citation only flag say that. A narrow panel gets
+   a third line before the ellipsis. */
+.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
 /* The byline line. At rest it is only who and when; a lit row (hovered,
    focused or open) shows its citation key and actions on the same line, one
    line tall whatever it holds, so revealing them never moves the rows below.
@@ -729,7 +751,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-byline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .paper-byline > :is(.paper-year, .paper-state-icon) { flex: none; }
 .paper-byline > :is(.paper-year, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
-.paper-list .paper-authors { color: var(--text-secondary); }
 .paper-year { font-variant-numeric: tabular-nums; }
 /* A full-text hit is a line quoted from the paper, so it reads as one. */
 .paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
@@ -746,7 +767,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-list .paper-citation-health > .paper-tag { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); }
 .paper-citation-health > .paper-tag > svg { stroke-width: 1.75; }
 .paper-row.citation-retracted .paper-citation-health > .paper-tag { background-color: var(--status-danger-soft); color: var(--status-danger); }
-.paper-citation-health-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--badge-height-compact); }
+.paper-citation-health-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--badge-height-compact); }
 button.paper-citation-health { position: relative; z-index: 1; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
 button.paper-citation-health:hover > .paper-tag { background-image: linear-gradient(var(--tone-hover-surface), var(--tone-hover-surface)); }
 button.paper-citation-health:hover > .paper-citation-health-detail { color: var(--text-secondary); }
@@ -775,7 +796,16 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .row-delete svg, .row-edit-bib svg, .row-open-link svg { stroke-width: 1.5; }
 .row-edit-bib:hover, .row-open-link:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
-.paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; text-align: center; }
+/* A wide list (a maximised panel) reads as a table: title and byline on the
+   left, the flags in a right-hand column, so a retraction lines up with the
+   others instead of adding a third line under its paper. */
+@container paper-list (width >= 680px) {
+  .paper-row { --paper-row-padding-inline: var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); grid-template-areas: "title tags" "meta tags" "snippet tags"; column-gap: var(--space-12); align-items: center; }
+  .paper-row > .paper-title { grid-area: title; -webkit-line-clamp: 1; line-clamp: 1; }
+  .paper-row > .paper-meta { grid-area: meta; }
+  .paper-row > .paper-snippet { grid-area: snippet; }
+  .paper-row > .paper-tags { grid-area: tags; margin: 0; justify-content: flex-end; }
+}
 /* Drawing beside the text, straight on the panel: the panel is already the
    card, so a plate here would be a card inside it. */
 .papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
