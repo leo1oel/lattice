@@ -58,8 +58,11 @@ textarea {
   --editor-line: rgba(48, 48, 51, 0.045);
   --accent-soft: var(--neutral-soft);
   --accent-contrast: #ffffff;
-  /* The keyboard focus ring; an accent preset swaps in the accent. */
-  --focus: color-mix(in srgb, var(--text) 55%, transparent);
+  /* The keyboard focus ring, and where a dragged tab or panel lands: weft
+     blue, the mark's own thread, so focus never reads as the grey of a
+     selected row (5.5:1 on the sheet, 5:1 on the chrome). An accent preset
+     swaps in the accent. */
+  --focus: #3b5bd6;
   --danger: #bc413e;
   --success: #2c785c;
   --warning: #8d6400;
@@ -162,6 +165,7 @@ textarea {
   --success: #66bd99;
   --warning: #d7a62b;
   --info: #8fabd8;
+  --focus: #7f97ff;
   --brand-weft: #7f97ff;
   --brand-warp: #4fd2c6;
   --brand-glint: rgba(255, 255, 255, 0.7);
@@ -304,7 +308,7 @@ textarea {
  * in its theme, because the accent also colors text (outline links, roles,
  * active toolbar icons); its label color clears 4.5:1 on it. A custom accent
  * is fitted to the same floor in theme-customization.ts and set inline.
- * Graphite, the default, keeps the neutral accent and the neutral focus ring.
+ * Graphite, the default, keeps the neutral accent and the weft-blue focus ring.
  */
 [data-accent="graphite"] { --accent: var(--accent-graphite); }
 [data-accent="blue"] { --accent: #096acb; }

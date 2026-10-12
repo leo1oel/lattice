@@ -121,12 +121,6 @@
   background: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app));
 }
 
-/* Press feedback only on the primary variant — dense toolbar icons would
- * move less than a pixel and pay motion cost on every click. */
-.ui-button--primary:active:not(:disabled) {
-  scale: 0.96;
-}
-
 .ui-button--secondary:hover:not(:disabled),
 .ui-button--ghost:hover:not(:disabled) {
   background: var(--control-hover-surface);
@@ -139,6 +133,31 @@
 
 .ui-button--danger:hover:not(:disabled) {
   background: var(--status-danger-soft-hover);
+}
+
+/* Pressed is one step deeper than hover in every variant, and a text button
+ * gives under the pointer. Icon buttons keep still: dense toolbar icons would
+ * move less than a pixel and pay motion cost on every click. */
+.ui-button:active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.97;
+}
+
+.ui-button--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 82%, var(--surface-app));
+}
+
+.ui-button--secondary:active:not(:disabled),
+.ui-button--ghost:active:not(:disabled) {
+  background: var(--control-pressed-surface);
+  color: var(--text-primary);
+}
+
+.ui-button--tinted:active:not(:disabled) {
+  background: var(--control-tinted-pressed-surface);
+}
+
+.ui-button--danger:active:not(:disabled) {
+  background: var(--status-danger-soft-pressed);
 }
 
 /* Shared visual language for dense selectors. Interaction semantics stay with
@@ -582,11 +601,17 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 }
 
 .ui-icon-button:disabled,
-.ui-button:disabled,
-.ui-button[aria-disabled="true"],
 .ui-compact-selectable:disabled,
 .ui-checkbox:disabled {
   opacity: var(--control-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* One disabled Button for every variant (foundations.css). */
+.ui-button:is(:disabled, [aria-disabled="true"], [data-disabled]) {
+  border-color: var(--control-disabled-border);
+  background: var(--control-disabled-surface);
+  color: var(--control-disabled-ink);
   cursor: not-allowed;
 }
 
@@ -682,11 +707,11 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   .ui-tooltip-content { pointer-events: none; }
 }
 
-/* A tooltip's shortcut (Tip's `shortcut`) is text, as in a menu: quieter
-   than the label it follows, and never wrapped away from it. */
+/* A tooltip's shortcut (Tip's `shortcut`) is text, as in a menu: the
+   secondary ink after the label it follows, and never wrapped away from it. */
 .ui-tooltip-shortcut {
-  margin-left: var(--space-4);
-  color: var(--text-tertiary);
+  margin-inline-start: var(--space-4);
+  color: var(--text-secondary);
   font-weight: var(--weight-regular);
   white-space: nowrap;
 }

@@ -334,7 +334,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
           const name = title(kind);
           const label = spaceMixedScript(shown ? t`Hide ${name}` : t`Show ${name}`);
           return (
-            <Tip key={kind} label={label}>
+            <Tip key={kind} label={label} shortcut={controller.bridge?.shortcut(`panel-${kind}`) ?? undefined}>
               <button
                 type="button"
                 className="trellis-titlebar-toggle"

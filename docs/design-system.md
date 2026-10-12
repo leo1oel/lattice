@@ -178,7 +178,11 @@ Rules that follow from this:
 
 Keyboard focus is one ring for the whole product. Its selector lives in
 `src/styles/app-shell.css`; `--focus-ring`, `--focus-ring-width`, and
-`--focus-ring-offset` live in `src/styles/foundations.css`.
+`--focus-ring-offset` live in `src/styles/foundations.css`. The ring is 2px
+at a 2px offset, in weft blue under Graphite (`--focus`, `#3B5BD6`, 5.5:1 on
+the sheet; `#7F97FF` in dark) and in the accent under a colored preset, so
+focus never reads as the grey of a selected row. A drop target (Trellis's
+drop slot) takes the same colour as its edge and a faint wash of it.
 Components do not add a second ring. The native `:focus` halo stays suppressed,
 and text entry is deliberately excluded from the ring because a field already
 answers with the border treatment in its `--field-control-*` contract. Menu
@@ -204,6 +208,13 @@ the text colour (`--control-hover-surface`) and its press 8%
 (`--control-pressed-surface`); a selected row is 8% and turns medium; a hover
 on the darker chrome is 6% (`--chrome-hover-surface`). Selection is a fill,
 never a second outline: the focus ring stays the only ring.
+
+A Button's press is one step deeper than its hover in every variant (the
+tinted and danger washes 12% → 18% → 24%) and scales it to 0.97; icon buttons
+do not move. A disabled Button has one look whatever its variant: a faint
+outlined slab with the ink stepped back (`--control-disabled-*`), never a
+dimmed copy of its fill. Icon-only controls, switches and checkboxes have no
+slab and fade to `--control-disabled-opacity`.
 
 ## Ink, surfaces and icons
 
@@ -674,7 +685,9 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   `shortcut` (quiet text after the label, outside the accessible name), and
   the shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists every
   key from the keymaps that bind them, grouped by where they work, so a moved
-  key moves everywhere.
+  key moves everywhere. The titlebar's Project, Papers and Agent toggles are
+  ⌘⌥1 to ⌘⌥3 in their order (⌘1 to ⌘9 are the workspaces); in a visual
+  Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a
   second theme: the open documents fill the window in one panel without
   their tab bar, the PDF beside them if the writer last asked for it, and the

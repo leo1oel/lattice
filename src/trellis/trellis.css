@@ -72,9 +72,10 @@
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
-   held mid-drag rises to the dialog level's shadow behind a firmer edge. */
+   held mid-drag rises to the dialog level's shadow behind the drop target's
+   blue edge. */
 .lattice-trellis [data-trellis-part="panel"][data-floating] { box-shadow: var(--elevation-floating); }
-.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px var(--border-strong), var(--elevation-dialog-shadow); }
+.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--drop-target-edge) 45%, var(--border-subtle)), var(--elevation-dialog-shadow); }
 
 /* ---------------------------------------------------------------- header
    Browser-style tabs. Every panel's header is the same strip, a shade darker
@@ -381,9 +382,31 @@
 .lattice-trellis [data-trellis-part="divider"][data-axis="x"]::after { left: calc(50% - 1px); width: var(--space-1); }
 .lattice-trellis [data-trellis-part="divider"][data-axis="y"]::after { top: calc(50% - 1px); height: var(--space-1); }
 
-/* ---------------------------------------------------------------- drop previews */
-.lattice-trellis [data-trellis-part="drop-slot"] { border-radius: var(--radius-surface); }
-.lattice-trellis [data-trellis-part="drop-label"] { border-radius: var(--radius-pill); font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
+/* ---------------------------------------------------------------- drop previews
+   Where a dragged tab or panel will land takes the drop target's wash and a
+   blue edge, a tab's target and a split's alike, and its label ("Add as
+   tab") sits in a lifted pill, so it reads over a page of PDF text. */
+.lattice-trellis [data-trellis-part="drop-slot"] {
+  border-radius: var(--radius-surface);
+  background: var(--drop-target-surface);
+  box-shadow: inset 0 0 0 var(--focus-ring-width) var(--drop-target-edge);
+}
+.lattice-trellis [data-trellis-part="drop-label"] {
+  max-width: calc(100% - 2 * var(--space-6));
+  padding: var(--space-3) var(--space-6);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A split's slot keeps the label element with no text; it draws no pill. */
+.lattice-trellis [data-trellis-part="drop-label"]:empty { display: none; }
 .lattice-trellis [data-trellis-part="snap-preview"] span,
 .lattice-trellis [data-trellis-part="marquee-target"] span { font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
 
