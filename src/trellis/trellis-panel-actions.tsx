@@ -78,7 +78,7 @@ export function PanelActions({ mode, synara, ...props }: PanelActionsProps) {
                 props.openProjectFind();
               }}
             >
-              <Search size={13} />
+              <Search size={14} />
             </button>
           </Tip>
         </>

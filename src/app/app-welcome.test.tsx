@@ -189,7 +189,7 @@ describe("welcome screen", () => {
     renderApp({ ...projectCommands(), build_project: () => answer });
     const showing = () => buildButton().querySelector(".trellis-build-label > span:not(.trellis-build-label-off)")?.textContent;
     await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
-    expect(showing()).toBe("3.2s");
+    expect(showing()).toBe("3.2 s");
     answer = failedBuild("Undefined control sequence.")();
     fireEvent.keyDown(window, { key: "s", metaKey: true });
     await waitFor(() => expect(buildButton()).toHaveClass("is-failed"));
@@ -198,7 +198,7 @@ describe("welcome screen", () => {
     fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
     fireEvent.click(await screen.findByRole("option", { name: /Build project/i }));
     await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
-    expect(showing()).toBe("1.5s");
+    expect(showing()).toBe("1.5 s");
     expect(buildButton()).not.toHaveAttribute("aria-busy");
     expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });

@@ -1425,12 +1425,12 @@ msgid "Build project"
 msgstr "Build project"
 
 #: src/build/build-log-messages.ts
-msgid "Build stopped after {seconds}s. The log below is how far it got."
-msgstr "Build stopped after {seconds}s. The log below is how far it got."
+msgid "Build stopped after {seconds} s. The log below is how far it got."
+msgstr "Build stopped after {seconds} s. The log below is how far it got."
 
 #: src/app/use-build-pipeline.ts
-msgid "Build succeeded in {seconds}s"
-msgstr "Build succeeded in {seconds}s"
+msgid "Build succeeded in {seconds} s"
+msgstr "Build succeeded in {seconds} s"
 
 #: src/app/use-build-pipeline.ts
 msgid "Build superseded"
@@ -6632,8 +6632,8 @@ msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
 
 #: src/overleaf/use-overleaf-realtime.ts
-msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
-msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
+msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
+msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
@@ -8369,6 +8369,10 @@ msgstr "Search logs…"
 #: src/project/paper-library.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "Search or add by title, arXiv ID, DOI, or URL"
+
+#: src/project/paper-library.tsx
+msgid "Search or add papers"
+msgstr "Search or add papers"
 
 #: src/project/paper-library.tsx
 msgid "Search or import papers"

@@ -67,7 +67,7 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
                 disabled={building || importing}
               >
                 <span>{project.manifest.name}</span>
-                <ChevronDown size={13} />
+                <ChevronDown size={12} />
               </button>
             </DropdownMenuTrigger>
             <ProjectMenu currentPath={project.root} {...menu} onSettings={() => onSettings(triggerRef.current)} />

@@ -1422,11 +1422,11 @@ msgid "Build project"
 msgstr "编译"
 
 #: src/build/build-log-messages.ts
-msgid "Build stopped after {seconds}s. The log below is how far it got."
+msgid "Build stopped after {seconds} s. The log below is how far it got."
 msgstr "编译在 {seconds} 秒后停止。下方日志显示了停止前的进度。"
 
 #: src/app/use-build-pipeline.ts
-msgid "Build succeeded in {seconds}s"
+msgid "Build succeeded in {seconds} s"
 msgstr "编译成功，用时 {seconds} 秒"
 
 #: src/app/use-build-pipeline.ts
@@ -6629,7 +6629,7 @@ msgid "Overleaf keeps its copy"
 msgstr "Overleaf 上保留"
 
 #: src/overleaf/use-overleaf-realtime.ts
-msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
+msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
 msgstr "实时协作断开（{reason}），{seconds} 秒后重连…"
 
 #: src/overleaf/use-overleaf-realtime.ts
@@ -8364,6 +8364,10 @@ msgstr "搜索日志…"
 #: src/project/paper-library.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "搜索或添加：标题、arXiv、DOI、网址"
+
+#: src/project/paper-library.tsx
+msgid "Search or add papers"
+msgstr "搜索或添加论文"
 
 #: src/project/paper-library.tsx
 msgid "Search or import papers"

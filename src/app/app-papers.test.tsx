@@ -254,7 +254,7 @@ describe("papers", () => {
         return { paperPath: "", arxivId: "", title, citationKey: "he2016deep", citationOutput: "", alreadyImported: false };
       },
     });
-    const box = await screen.findByPlaceholderText("Search or add by title, arXiv ID, DOI, or URL");
+    const box = await screen.findByPlaceholderText("Search or add papers");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
     fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
 

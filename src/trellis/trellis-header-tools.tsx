@@ -28,6 +28,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
+import { formatSeconds } from "../i18n";
 
 /**
  * When each build outcome was first shown. Its flourish belongs to the moment
@@ -130,7 +131,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // Build (构建) also reads as "building", so an unchanged label after a
     // build read as one that never finished.
     const { building, lastBuild } = tools;
-    const seconds = lastBuild?.status === "succeeded" ? lastBuild.seconds.toFixed(1) : null;
+    const seconds = lastBuild?.status === "succeeded" ? formatSeconds(lastBuild.seconds) : null;
     // Warnings never turn a build into a failure; they only mark its check.
     const warned = lastBuild?.status === "succeeded" && lastBuild.counts.error + lastBuild.counts.warning > 0;
     const headline = building
@@ -139,14 +140,14 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // What happened is followed by which document, how long the compile took
     // and how long ago it ended.
     const facts = !building && lastBuild
-      ? [lastBuild.rootDocument, seconds && `${seconds}s`, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)]
+      ? [lastBuild.rootDocument, seconds, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)]
         .filter((fact): fact is string => Boolean(fact))
       : [];
     const reach = () => setReachedAt(Date.now());
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
       const fresh = state !== "idle" && state !== "building" && isFreshOutcome(lastBuild);
-      const labels = { build: t`Build`, failed: t`Failed`, time: seconds ? `${seconds}s` : "" };
+      const labels = { build: t`Build`, failed: t`Failed`, time: seconds ?? "" };
       const shown = state === "succeeded" ? "time" : state === "failed" ? "failed" : "build";
       return (
         <button
@@ -169,7 +170,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
               <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
             ))}
-            <span className="trellis-build-label-off">{"000.0"}s</span>
+            <span className="trellis-build-label-off">{formatSeconds(999.9)}</span>
           </span>
           {live && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
         </button>
@@ -193,9 +194,9 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   if (which === null) return null;
   // Edit, Split and Preview: a Markdown, HTML or .bib file's, and a Paper's beside its Blog/Paper switch.
   const modeItems = [
-    { value: "source" as const, label: <><PenLine size={13} /><span className="trellis-mode-name">{t`Edit`}</span></> },
-    { value: "split" as const, label: <><Columns2 size={13} /><span className="trellis-mode-name">{t`Split`}</span></> },
-    { value: "pdf" as const, label: <><Eye size={13} /><span className="trellis-mode-name">{t`Preview`}</span></> },
+    { value: "source" as const, label: <><PenLine size={14} /><span className="trellis-mode-name">{t`Edit`}</span></> },
+    { value: "split" as const, label: <><Columns2 size={14} /><span className="trellis-mode-name">{t`Split`}</span></> },
+    { value: "pdf" as const, label: <><Eye size={14} /><span className="trellis-mode-name">{t`Preview`}</span></> },
   ];
   const modes = active && tools.viewModes ? (
     <SegmentedControl<TrellisViewMode>
@@ -215,8 +216,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   ) : <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={modeItems} /></Reserve>;
   if (which === "views") return modes;
   const items = [
-    { value: "blog" as const, label: <><Newspaper size={13} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
-    { value: "fulltext" as const, label: <><FileText size={13} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
+    { value: "blog" as const, label: <><Newspaper size={14} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
+    { value: "fulltext" as const, label: <><FileText size={14} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
   ];
   // A Paper with only its full text or only its blog has nothing to switch
   // between, but keeps the switch's room like any other Paper. Short of

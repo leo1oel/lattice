@@ -5,6 +5,8 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary } from "../app-types";
+import { formatCount } from "../i18n";
+import { spaceMixedScript } from "../trellis/trellis-titles";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -130,7 +132,7 @@ export function ManuscriptChecklistPanel(props: {
   const pagesOk = pageLimit == null || countedPages == null ? null : countedPages <= pageLimit;
   const wordLimitNote = wordLimit == null
     ? null
-    : wordLimit === 1 ? t`Limit 1 word` : t({ message: `Limit ${{ wordLimit: wordLimit.toLocaleString() }} words` });
+    : wordLimit === 1 ? t`Limit 1 word` : spaceMixedScript(t({ message: `Limit ${{ wordLimit: formatCount(wordLimit) }} words` }));
   const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
   const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || undefined;
   const wordDetail = words == null
@@ -149,10 +151,10 @@ export function ManuscriptChecklistPanel(props: {
           : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);
-    const amount = gap.toLocaleString();
+    const amount = formatCount(gap);
     if (gap === 0) return t`At the limit`;
-    if (count < limit) return gap === 1 ? t`1 word remaining` : t`${amount} words remaining`;
-    return gap === 1 ? t`1 word over` : t`${amount} words over`;
+    if (count < limit) return gap === 1 ? t`1 word remaining` : spaceMixedScript(t`${amount} words remaining`);
+    return gap === 1 ? t`1 word over` : spaceMixedScript(t`${amount} words over`);
   };
   const pageDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);
@@ -206,8 +208,8 @@ export function ManuscriptChecklistPanel(props: {
             value={words == null
               ? t`Unavailable`
               : wordsEstimated
-                ? `≈${words.toLocaleString()}`
-                : `${words.toLocaleString()}${wordLimit != null ? ` / ${wordLimit.toLocaleString()}` : ""}`}
+                ? `≈${formatCount(words)}`
+                : `${formatCount(words)}${wordLimit != null ? ` / ${formatCount(wordLimit)}` : ""}`}
             ok={wordsOk}
             meter={countedWords != null && wordLimit != null
               ? { value: countedWords, limit: wordLimit, distance: wordDistance(countedWords, wordLimit) }

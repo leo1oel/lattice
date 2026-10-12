@@ -488,7 +488,7 @@ export function useBuildPipeline({
           // leaving it on screen to time out on its own.
           trace.clear();
           const seconds = (result.durationMs / 1000).toFixed(1);
-          trace.finish("success", t`Build succeeded in ${seconds}s`);
+          trace.finish("success", t`Build succeeded in ${seconds} s`);
           completionSound = "success";
         }
       } while (takeQueuedBuild());

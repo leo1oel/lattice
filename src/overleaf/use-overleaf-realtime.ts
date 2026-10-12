@@ -684,7 +684,7 @@ export function useOverleafRealtime(options: {
       const seconds = Math.ceil(delay / 1_000);
       setDetail(delay === 0
         ? i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting now…`)
-        : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds}s…`));
+        : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds} s…`));
       retryTimer = setTimeout(() => {
         retryTimer = null;
         void connect();

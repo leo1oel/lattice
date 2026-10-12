@@ -156,11 +156,13 @@ export function PaperLibrary(props: PaperLibraryProps) {
             aria-label={t`Search or import papers`}
             aria-busy={progressActive}
             readOnly={progressActive}
-            title={progressActive ? props.importStage ?? t`Working…` : undefined}
+            // The placeholder is short enough never to truncate at the panel's
+            // narrowest; what can be pasted to add a paper is in the tip.
+            title={progressActive ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
             aria-describedby={progressActive ? "paper-import-status" : undefined}
             containerClassName="import-box"
             controlSize="compact"
-            placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
+            placeholder={t`Search or add papers`}
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
             onClear={progressActive ? undefined : () => props.setImportInput("")}

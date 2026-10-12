@@ -53,7 +53,7 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       return i18n._(msg`Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again.`);
     case "build-cancelled": {
       const seconds = params.seconds ?? "";
-      return i18n._(msg`Build stopped after ${seconds}s. The log below is how far it got.`);
+      return i18n._(msg`Build stopped after ${seconds} s. The log below is how far it got.`);
     }
     case "pdf-fonts-not-times":
       return pdfFontsText(params, params.upToDate === "true");

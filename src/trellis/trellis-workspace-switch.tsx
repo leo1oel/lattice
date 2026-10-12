@@ -297,7 +297,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
         >
           {!preset && pill}
           <span className="sliding-tab-label">
-            <LayoutDashboard size={13} aria-hidden="true" />
+            <LayoutDashboard size={14} aria-hidden="true" />
             <span className="trellis-workspace-menu-name">{currentEntry.name}</span>
             {dirty && dirtyDot}
             <ChevronDown size={12} aria-hidden="true" />
@@ -346,7 +346,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
       {!compact && (
         // A title like its neighbours', not a Tip: a tooltip's tree is a cost every startup pays.
         <button type="button" className="trellis-workspace-add" aria-label={t`New workspace`} title={t`New workspace`} onClick={create}>
-          <Plus size={13} />
+          <Plus size={14} />
         </button>
       )}
       {/* Says where a menu's move put a workspace: a live region, not role="status", which the app keeps for loading states. */}
