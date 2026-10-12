@@ -17,7 +17,7 @@
  * whichever tab is selected and whatever kind of document it holds, so tabs
  * never change width and never run under the header's actions.
  */
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useView } from "@danfessler/trellis-react";
 import { Columns2, Eye, FileText, Newspaper, PenLine, Play } from "lucide-react";
@@ -123,6 +123,12 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   // The build's age is read when the writer reaches the button, by pointer or
   // by focus, so neither the tip nor the description is older than that.
   const [reachedAt, setReachedAt] = useState(Date.now);
+  // The Build card. A press shuts it, as it shuts a tooltip, and it stays
+  // shut until the pointer leaves: pressing Build is for building, and a card
+  // laid over the editor on every press (⌘S's too, with the pointer resting
+  // there) would be in the way. Hovering again shows the build filling in.
+  const [cardOpen, setCardOpen] = useState(false);
+  const pressedRef = useRef(false);
   if (which === "build") {
     // Gray and labelled Build while idle; a running build shows a spinner in
     // place of the play icon, and another press queues a fresh build. Once it
@@ -158,6 +164,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           aria-busy={state === "building" || undefined}
           onPointerEnter={live ? reach : undefined}
           onFocus={live ? reach : undefined}
+          onPointerDown={live ? () => { pressedRef.current = true; setCardOpen(false); } : undefined}
+          onPointerLeave={live ? () => { pressedRef.current = false; } : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
           {state === "building" ? <InfinityLoader size={13} />
@@ -180,13 +188,12 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // The card gives the same result as the description, pass by pass, then
     // how to build again; before any build, only what the button does. It is
     // one card in every state, so the first build does not remount the button
-    // under the press that started it, and it stays open through a click, so
-    // pressing Build shows the new build fill it in.
+    // under the press that started it.
     const place = !building && lastBuild
       ? [lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)].filter(Boolean).join(" · ")
       : null;
     return (
-      <HoverCard openDelay={280} closeDelay={120}>
+      <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>
         <HoverCardTrigger asChild>{button(true)}</HoverCardTrigger>
         <HoverCardContent align="end" className="trellis-build-card">
           <BuildSequence

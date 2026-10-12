@@ -15,7 +15,7 @@ import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis"
 import type { AssetPreview, FileViewState } from "../app-types";
 import type { AgentPdfDocumentPlace } from "../agent/agent-host-context";
 import { isBibFilePath, isHtmlFilePath } from "../app-utils";
-import type { BuildOutcome, BuildProgress } from "../app/use-build-pipeline";
+import type { BuildOutcome, BuildProgressStore } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
 import type { SwitchState } from "../canvas/after-switch";
@@ -118,8 +118,8 @@ export type TrellisBridge = {
 /** What the tools in a document panel's header show; App keeps it current. */
 export type TrellisDocToolsState = {
   building: boolean;
-  /** The running build's passes so far, for the Build button's live sequence. */
-  buildProgress: BuildProgress | null;
+  /** The running build's passes so far, for the Build button's live sequence (one store for the app's life). */
+  buildProgress: BuildProgressStore | null;
   /** How the last build ended: its time on a success, a failure, or null when there is nothing to show. */
   lastBuild: BuildOutcome | null;
   /** The active document's view, and whether it has Edit/Split/Preview at all. */

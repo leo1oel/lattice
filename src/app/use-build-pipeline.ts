@@ -54,6 +54,33 @@ export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status:
  */
 export type BuildProgress = { steps: BuildStep[]; startedAt: number };
 
+/**
+ * The running build's progress, held outside React state: only the Build
+ * button's card reads it, and only while it is open, so a pass starting
+ * re-renders that card and nothing else (App, the panels' headers).
+ */
+export type BuildProgressStore = {
+  get: () => BuildProgress | null;
+  subscribe: (listener: () => void) => () => void;
+};
+
+function createProgressStore(): BuildProgressStore & { set: (next: BuildProgress | null) => void } {
+  let value: BuildProgress | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    set: (next) => {
+      if (next === value) return;
+      value = next;
+      for (const listener of [...listeners]) listener();
+    },
+  };
+}
+
 const BUILD_PROGRESS_EVENT = "build-progress";
 type BuildProgressEvent = { projectRoot: string; progressId: number | null; elapsedMs: number; steps: BuildStep[] };
 
@@ -161,7 +188,7 @@ export function useBuildPipeline({
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
   const [building, , buildingRef, setBuilding] = useRefState(false);
-  const [progress, setProgress] = useState<BuildProgress | null>(null);
+  const [progress] = useState(createProgressStore);
   /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
   const progressIdRef = useRef(0);
   const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
@@ -323,9 +350,9 @@ export function useBuildPipeline({
     (deliver) => listenInThisWindow(BUILD_PROGRESS_EVENT, deliver),
     ({ projectRoot: root, progressId, elapsedMs, steps }) => {
       if (progressId !== progressIdRef.current || root !== projectRef.current?.root || !buildingRef.current) return;
-      setProgress({ steps, startedAt: performance.now() - elapsedMs });
+      progress.set({ steps, startedAt: performance.now() - elapsedMs });
     },
-  ), [buildingRef, projectRef]);
+  ), [buildingRef, progress, projectRef]);
 
   const { takePendingCompiles, reportCompiles } = agent;
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
@@ -416,7 +443,7 @@ export function useBuildPipeline({
         const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex") ? activeFileRef.current : null;
         // Each pass starts its sequence afresh; the backend fills it in as latexmk runs.
         const progressId = ++progressIdRef.current;
-        setProgress({ steps: [], startedAt: performance.now() });
+        progress.set({ steps: [], startedAt: performance.now() });
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
         const result = await diagnosticInvoke<BuildResult>(
           "build_project", { force: currentForce, projectRoot, documentPath, progressId }, { operationId: trace.id },
@@ -548,7 +575,7 @@ export function useBuildPipeline({
       const queued = queue.force === null ? null : { ...queue, force: queue.force };
       Object.assign(queue, IDLE_QUEUE);
       setBuilding(false);
-      setProgress(null);
+      progress.set(null);
       runningBuildRef.current = null;
       settle();
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) playInterfaceSound(completionSound);
@@ -560,7 +587,7 @@ export function useBuildPipeline({
       }
     }
   }, [
-    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
+    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef, reportCompiles,
     savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
 

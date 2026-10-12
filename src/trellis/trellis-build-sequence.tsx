@@ -14,11 +14,11 @@
  * description, and its one action (the first problem) is F8 and the
  * diagnostics bar's too.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, ChevronRight, Minus, X } from "lucide-react";
 import type { BuildStep } from "../app-types";
-import type { BuildOutcome, BuildProgress } from "../app/use-build-pipeline";
+import type { BuildOutcome, BuildProgressStore } from "../app/use-build-pipeline";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { diagnosticCountsText } from "../build/build-result-text";
 
@@ -61,9 +61,12 @@ function StepMark({ state }: { state: StepState }) {
   );
 }
 
-export function BuildSequence({ building, progress, outcome, place, idle, hint, onProblem }: {
+const noSubscription = () => () => {};
+const noProgress = () => null;
+
+export function BuildSequence({ building, progress: progressStore, outcome, place, idle, hint, onProblem }: {
   building: boolean;
-  progress: BuildProgress | null;
+  progress: BuildProgressStore | null;
   outcome: BuildOutcome | null;
   /** The document it compiled and how long ago, when it has finished. */
   place: string | null;
@@ -73,6 +76,8 @@ export function BuildSequence({ building, progress, outcome, place, idle, hint, 
   onProblem: () => void;
 }) {
   const { t } = useLingui();
+  const live = useSyncExternalStore(progressStore?.subscribe ?? noSubscription, progressStore?.get ?? noProgress);
+  const progress = building ? live : null;
   const now = useTicking(building);
   if (!building && !outcome) {
     return (
