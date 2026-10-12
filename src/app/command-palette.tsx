@@ -12,9 +12,9 @@
 import { useId, useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
-  BookOpen, Cloud, Compass, Eye, FolderOpen, Hammer, LayoutPanelLeft, Library, PenLine, Settings, SunMoon, type LucideIcon,
+  BookOpen, Cloud, Compass, Eye, FolderOpen, Hammer, LayoutPanelLeft, Library, PenLine, Search, Settings, SunMoon, type LucideIcon,
 } from "lucide-react";
-import { PickerDialog, type SearchPickerItem } from "../components/ui/search-picker-dialog";
+import { PickerDialog, type PickerNoMatch, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { searchPickerRow } from "../components/ui/picker-row";
 import { scoreItem, scorePath } from "../components/ui/picker-ranking";
 import { renderKeycaps } from "../components/ui/render-keycaps";
@@ -32,11 +32,12 @@ const SECTION_ICONS: Record<PaletteSection, LucideIcon> = {
   navigate: Compass, edit: PenLine, build: Hammer, view: Eye, layout: LayoutPanelLeft,
   research: Library, overleaf: Cloud, project: FolderOpen, appearance: SunMoon,
 };
-/** Every icon a row repeats: the sections', a Paper's and a setting's. */
-const ROW_ICONS: Record<PaletteSection | "paper" | "setting", LucideIcon> = {
+/** Every icon a row repeats: the sections', a Paper's, a setting's and Find in project's. */
+const ROW_ICONS: Record<PaletteSection | "paper" | "setting" | "find", LucideIcon> = {
   ...SECTION_ICONS,
   paper: BookOpen,
   setting: Settings,
+  find: Search,
 };
 type RowIcon = keyof typeof ROW_ICONS;
 
@@ -73,13 +74,15 @@ type PaletteItem = SearchPickerItem & { order: number } & (
   | { kind: "file"; path: string }
   | { kind: "paper"; paper: PaperSummary }
   | { kind: "setting"; entry: SettingsSearchEntry }
+  | { kind: "find"; query: string }
 );
 
 export type PaletteChoice =
   | { kind: "command"; id: string }
   | { kind: "file"; path: string }
   | { kind: "paper"; paper: PaperSummary }
-  | { kind: "setting"; entry: SettingsSearchEntry };
+  | { kind: "setting"; entry: SettingsSearchEntry }
+  | { kind: "find"; query: string };
 
 /** The best `limit` of `items` that score at least `floor`, with their scores. */
 function topScoring(items: readonly PaletteItem[], score: (item: PaletteItem) => number, limit: number, floor = 1) {
@@ -174,6 +177,17 @@ export function CommandPalette(props: {
         .map((entry) => entry.item);
     };
   }, [commands, files, i18n, iconPrefix, leading, papers, recentFiles, settings, t]);
+  // A query that found nothing says so, and in a project hands itself to
+  // Find in project, which also reads every source file's text.
+  const findCommand = commands.find((command) => command.id === "find");
+  const noMatch = useMemo(() => (query: string): PickerNoMatch<PaletteItem> => (findCommand ? {
+    title: t`No commands, files or papers match “${query}”`,
+    description: t`Try other words, or search every source file`,
+    fallback: {
+      kind: "find", query, id: "find-in-project", label: t`Search the project for “${query}”`,
+      icon: rowIcon(iconPrefix, "find"), keys: commandKeys(findCommand) ?? undefined, order: 0,
+    },
+  } : { title: t`No commands or settings match “${query}”` }), [findCommand, iconPrefix, t]);
   const intent = useMemo(() => (onFileIntent
     ? (item: PaletteItem) => { if (item.kind === "file") onFileIntent(item.path); }
     : undefined), [onFileIntent]);
@@ -185,6 +199,7 @@ export function CommandPalette(props: {
       className="command-palette-modal"
       detailPlacement="end"
       emptyText={t`No matches`}
+      noMatch={noMatch}
       rank={rank}
       itemKey={(item) => item.id}
       // A file's row shows its name and folder apart; its full path names it.
@@ -197,6 +212,7 @@ export function CommandPalette(props: {
         if (item.kind === "command") props.onChoose({ kind: "command", id: item.id });
         else if (item.kind === "file") props.onChoose({ kind: "file", path: item.path });
         else if (item.kind === "paper") props.onChoose({ kind: "paper", paper: item.paper });
+        else if (item.kind === "find") props.onChoose({ kind: "find", query: item.query });
         else props.onChoose({ kind: "setting", entry: item.entry });
       }}
       footer={(

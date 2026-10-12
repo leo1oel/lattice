@@ -152,6 +152,7 @@ export function AppProjectSearchDialogs({ search, ...props }: {
         busy={find.busy}
         error={find.error}
         hits={find.hits}
+        seed={find.seed}
         onClose={search.closeFind}
         onSearch={search.search}
         onOpenHit={(path, line) => {

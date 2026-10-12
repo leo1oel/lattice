@@ -2538,6 +2538,10 @@ msgstr "日志打不开"
 msgid "Couldn’t open this spreadsheet"
 msgstr "表格打不开"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Couldn’t reach Overleaf"
+msgstr "连不上 Overleaf"
+
 #: src/settings/literature-settings.tsx
 msgid "Couldn’t reach the service"
 msgstr "连不上服务"
@@ -5817,6 +5821,14 @@ msgstr "上次保存后没有改动"
 msgid "No changes suggested"
 msgstr "无需修改"
 
+#: src/app/command-palette.tsx
+msgid "No commands or settings match “{query}”"
+msgstr "没有命令或设置与“{query}”匹配"
+
+#: src/app/command-palette.tsx
+msgid "No commands, files or papers match “{query}”"
+msgstr "没有命令、文件或论文与“{query}”匹配"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "还没有评论"
@@ -6684,6 +6696,7 @@ msgstr "同步已取消"
 msgid "Overleaf sync is finishing. Try switching projects again in a moment."
 msgstr "Overleaf 还在同步，请稍后再切换"
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf sync paused"
 msgstr "同步已暂停"
@@ -8385,6 +8398,10 @@ msgstr "搜索文献"
 msgid "Search settings"
 msgstr "搜索设置"
 
+#: src/app/command-palette.tsx
+msgid "Search the project for “{query}”"
+msgstr "在项目中搜索“{query}”"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
 msgstr "搜索第三方软件"
@@ -8680,6 +8697,7 @@ msgstr "登录 {linkedHost} 后继续同步"
 msgid "Sign in to {linkedHost}, then resume"
 msgstr "登录 {linkedHost} 后继续"
 
+#: src/app/use-overleaf-workspace.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
@@ -9136,6 +9154,10 @@ msgstr "Git"
 msgid "Sync"
 msgstr "同步"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Sync again"
+msgstr "再次同步"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sync behavior"
 msgstr "同步规则"
@@ -9199,6 +9221,10 @@ msgstr "目录"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Table preview"
 msgstr "预览"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "Taking longer than usual"
+msgstr "比平时慢"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Task list"
@@ -9316,6 +9342,10 @@ msgstr "AI 助手背后的智能体运行时，由 T3 Tools Inc. 和 Emanuele Di
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "AI 助手暂不可用"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "The Agent started {seconds} s ago and hasn’t answered yet"
+msgstr "AI 助手已启动 {seconds} 秒，还没有响应"
 
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
@@ -9934,6 +9964,10 @@ msgstr "换个筛选条件试试"
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
+
+#: src/app/command-palette.tsx
+msgid "Try other words, or search every source file"
+msgstr "换个说法，或在全部源文件里搜索"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
@@ -10631,6 +10665,10 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 msgid "You’re on the latest version"
 msgstr "已是最新版"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Your edits stay on this Mac until the next sync"
+msgstr "你的修改留在这台 Mac 上，下次同步时上传"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Your first PDF starts here"
 msgstr "从这里预览论文"
@@ -10647,6 +10685,10 @@ msgstr "你的名字"
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "你的 Overleaf 账户"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
+msgstr "Overleaf 登录已失效。重新登录前，你的修改留在这台 Mac 上"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"

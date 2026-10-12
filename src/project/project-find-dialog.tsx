@@ -65,6 +65,8 @@ export function ProjectFindDialog(props: {
   busy: boolean;
   error: string | null;
   hits: ProjectFindHit[];
+  /** A query to open on, replacing the kept one; a new object per opening. */
+  seed?: { query: string } | null;
   onClose: () => void;
   onSearch: (query: string) => void;
   onOpenHit: (path: string, line?: number) => void;
@@ -80,6 +82,15 @@ export function ProjectFindDialog(props: {
   // Kept out of the debounce effect's deps so a new callback identity does not
   // restart the timer mid-typing.
   const onSearchRef = useLatestRef(props.onSearch);
+
+  const [seenSeed, setSeenSeed] = useState(props.seed);
+  if (seenSeed !== props.seed) {
+    setSeenSeed(props.seed);
+    if (props.seed) {
+      setQuery(props.seed.query);
+      setDebouncing(Boolean(props.seed.query.trim()));
+    }
+  }
 
   // New hits, or reopening, start again from the first hit.
   const resetKey = props.open ? props.hits : null;
@@ -310,7 +321,6 @@ export function ProjectFindDialog(props: {
       <div className="project-replace-preview">
         {!trimmedQuery && (
           <EmptyState
-            align="start"
             density="compact"
             icon={<EmptyIllustration kind="search" size="compact" />}
             description={t`Search your files and saved papers.`}
@@ -319,7 +329,6 @@ export function ProjectFindDialog(props: {
         {showResults && !selectableHits.length && (
           fileHits.length + paperHits.length ? (
             <EmptyState
-              align="start"
               density="compact"
               icon={<EmptyIllustration kind="search" size="compact" />}
               title={scope === "file" ? t`No files match “${trimmedQuery}”` : t`No papers match “${trimmedQuery}”`}
@@ -327,7 +336,6 @@ export function ProjectFindDialog(props: {
             />
           ) : (
             <EmptyState
-              align="start"
               density="compact"
               icon={<EmptyIllustration kind="search" size="compact" />}
               title={t`No results for “${trimmedQuery}”`}

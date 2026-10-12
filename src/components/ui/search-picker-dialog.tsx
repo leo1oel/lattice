@@ -20,6 +20,15 @@ export type SearchPickerItem = {
   keywords?: string;
 };
 
+/** What a query that found nothing says, and the one row that may still answer it. */
+export type PickerNoMatch<T> = {
+  /** What was not found, naming the query. */
+  title: string;
+  description?: string;
+  /** Listed alone, so Enter runs it: the search the picker could not make (the palette's Find in project). */
+  fallback?: T;
+};
+
 /** Gather ranked results by section, keeping each section where its best match ranked. */
 function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefined) {
   if (!groupOf) return { results: ranked, sectioned: false };
@@ -47,6 +56,8 @@ export function PickerDialog<T>(props: {
   /** Where an item's detail goes: under its label, or trailing it on one line. */
   detailPlacement?: "below" | "end";
   emptyText: string;
+  /** Replaces `emptyText` when a typed query found nothing. */
+  noMatch?: (query: string) => PickerNoMatch<T> | null;
   rank: (query: string) => T[];
   itemKey: (item: T) => string;
   renderItem: (item: T) => ReactNode;
@@ -67,10 +78,15 @@ export function PickerDialog<T>(props: {
   /** The highlighted item, whenever it changes (for prefetching). */
   onIntent?: (item: T) => void;
 }) {
-  const { rank, onIntent, groupOf } = props;
+  const { rank, onIntent, groupOf, noMatch: describeNoMatch } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const { results, sectioned } = useMemo(() => sectionResults(rank(query.trim()), groupOf), [rank, query, groupOf]);
+  const { results, sectioned, noMatch } = useMemo(() => {
+    const trimmed = query.trim();
+    const found = sectionResults(rank(trimmed), groupOf);
+    const missing = !found.results.length && trimmed ? describeNoMatch?.(trimmed) ?? null : null;
+    return missing?.fallback ? { results: [missing.fallback], sectioned: false, noMatch: missing } : { ...found, noMatch: missing };
+  }, [rank, query, groupOf, describeNoMatch]);
   const lastIndex = Math.max(0, results.length - 1);
   const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
   useEffect(() => {
@@ -126,7 +142,13 @@ export function PickerDialog<T>(props: {
             }}
           />
         </div>
-        <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox">
+        {noMatch && (
+          <div className="picker-no-match" role="status">
+            <strong>{noMatch.title}</strong>
+            {noMatch.description && <span>{noMatch.description}</span>}
+          </div>
+        )}
+        <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox" hidden={Boolean(noMatch && !results.length)}>
           <FluidHoverSurface follow='[aria-selected="true"]' />
           {results.map((item, index) => {
             const group = sectioned ? groupOf?.(item) : undefined;
@@ -154,7 +176,7 @@ export function PickerDialog<T>(props: {
               </Fragment>
             );
           })}
-          {!results.length && <EmptyState density="compact" description={props.emptyText} />}
+          {!results.length && !noMatch && <EmptyState density="compact" description={props.emptyText} />}
         </div>
         {props.footer}
       </div>
