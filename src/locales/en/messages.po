@@ -6678,6 +6678,7 @@ msgstr "Origins and adapted work"
 msgid "Other projects"
 msgstr "Other projects"
 
+#: src/canvas/document-canvas.tsx
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "Outline"
@@ -6821,6 +6822,14 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
+
+#: src/editor/latex/latex-outline-rail.tsx
+msgid "p.{page}"
+msgstr "p.{page}"
+
+#: src/editor/latex/latex-outline-rail.tsx
+msgid "Page {page}"
+msgstr "Page {page}"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"

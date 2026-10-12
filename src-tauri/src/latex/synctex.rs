@@ -128,6 +128,44 @@ pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String
     }))
 }
 
+/// A heading the outline lists: its file (relative to the project) and line.
+#[derive(Debug, Deserialize)]
+pub struct SourceLine {
+    pub path: String,
+    pub line: u32,
+}
+
+/// The page of the compiled PDF each of `headings` is typeset on, in order;
+/// `None` for one SyncTeX did not record. One read of the SyncTeX data
+/// answers every heading, rather than a `synctex view` run for each.
+pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<u32>>, String> {
+    let (_, pdf) = synced_pdf(root, "Build the project before locating its sections.")?;
+    let count = headings.len();
+    let Some(synctex) = records::read(&root.join(&pdf)) else { return Ok(vec![None; count]) };
+    let headings: Vec<(PathBuf, usize, u32)> = headings
+        .iter()
+        .enumerate()
+        .filter_map(|(index, heading)| {
+            let path = project::safe_path(root, &heading.path).ok()?.canonicalize().ok()?;
+            Some((path, index, heading.line))
+        })
+        .collect();
+    Ok(records::heading_pages(&synctex, count, |input| {
+        // SyncTeX names its inputs as TeX opened them, absolute or from the
+        // project root; most are the TeX installation's.
+        let input = root.join(input);
+        if !headings.iter().any(|(path, ..)| path.file_name() == input.file_name()) {
+            return Vec::new();
+        }
+        let Ok(input) = input.canonicalize() else { return Vec::new() };
+        headings
+            .iter()
+            .filter(|(path, ..)| *path == input)
+            .map(|(_, index, line)| (*index, *line))
+            .collect()
+    }))
+}
+
 /// The default root document and its PDF (relative to `root`), once that PDF
 /// exists and has SyncTeX data to search.
 fn synced_pdf(root: &Path, unbuilt: &str) -> Result<(String, PathBuf), String> {

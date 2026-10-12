@@ -10,10 +10,16 @@ export type OutlineNode = {
   line: number;
   path: string;
   kind?: "section" | "input";
+  /** `\section*` and its kin: listed, never numbered. */
+  starred?: true;
+  /** After `\appendix` (or inside an `appendices` environment). */
+  appendix?: true;
   children: OutlineNode[];
 };
 
-const SECTION_COMMAND = /\\(part|chapter|section|subsection|subsubsection)\*?\{([^{}]*)\}/g;
+const SECTION_COMMAND = /\\(part|chapter|section|subsection|subsubsection)(\*?)\{([^{}]*)\}/g;
+/** Where the appendix starts: `\appendix`, or the appendix package's environment. */
+const APPENDIX = /\\(?:appendix(?![A-Za-z@])|begin\{appendices\})/g;
 const LEVELS: Record<string, OutlineLevel> = { part: 1, chapter: 2, section: 3, subsection: 4, subsubsection: 5 };
 
 /** What ends the body: an appendix, or the references. */
@@ -81,6 +87,56 @@ export function flattenOutline(nodes: OutlineNode[]): OutlineNode[] {
   return nodes.flatMap((node) => [node, ...flattenOutline(node.children)]);
 }
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- Roman numeral glyphs, as TeX numbers parts
+const ROMAN: Array<[number, string]> = [[50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+function roman(value: number): string {
+  let rest = value;
+  let out = "";
+  for (const [step, glyph] of ROMAN) {
+    for (; rest >= step; rest -= step) out += glyph;
+  }
+  return out;
+}
+/** A, B, … Z, AA, AB: the appendix counter as `\Alph` would set it, past Z too. */
+const letters = (value: number): string => value <= 0 ? "" : letters(Math.floor((value - 1) / 26)) + String.fromCharCode(65 + (value - 1) % 26);
+
+/**
+ * Each section's number as the standard classes print it, by node id; a
+ * starred heading has none. Chapters, when the document has any, lead every
+ * number below them (a book's 2.1), and three levels are numbered from the
+ * first (`secnumdepth`: a book's subsubsections and an article's paragraphs
+ * are not). After `\appendix` the leading level counts again in letters.
+ * Parts take Roman numerals and lead nothing. The source cannot see a class
+ * that numbers differently or a counter set by hand; the PDF shows those.
+ */
+export function outlineNumbers(nodes: OutlineNode[]): Map<string, string> {
+  const sections = flattenOutline(nodes).filter((node) => node.kind !== "input");
+  const top = sections.some((node) => node.level === LEVELS.chapter) ? LEVELS.chapter : LEVELS.section;
+  const deepest = top + 2;
+  const counters = [0, 0, 0, 0, 0, 0];
+  let parts = 0;
+  let lettered = false;
+  const numbers = new Map<string, string>();
+  for (const node of sections) {
+    if (node.starred) continue;
+    if (node.level === LEVELS.part) {
+      parts += 1;
+      numbers.set(node.id, roman(parts));
+      continue;
+    }
+    if (node.level < top || node.level > deepest) continue;
+    if (node.appendix && !lettered && node.level === top) {
+      lettered = true;
+      counters[top] = 0;
+    }
+    counters[node.level] += 1;
+    for (let level = node.level + 1; level < counters.length; level += 1) counters[level] = 0;
+    const lead = lettered ? letters(counters[top]) : String(counters[top]);
+    numbers.set(node.id, [lead, ...counters.slice(top + 1, node.level + 1)].join("."));
+  }
+  return numbers;
+}
+
 /** The sections still open after `nodes` (in document order), outermost first. */
 function innermostSections(nodes: OutlineNode[]): OutlineNode[] {
   const stack: OutlineNode[] = [];
@@ -110,22 +166,25 @@ export function parseLatexOutline(source: string, path = ""): OutlineNode[] {
 }
 
 type OutlineEvent =
-  | { kind: "section"; offset: number; level: OutlineLevel; title: string }
-  | { kind: "input"; offset: number; raw: string };
+  | { kind: "section"; offset: number; level: OutlineLevel; title: string; starred: boolean }
+  | { kind: "input"; offset: number; raw: string }
+  | { kind: "appendix"; offset: number };
 
 function outlineEvents(source: string): OutlineEvent[] {
   const sections = [...source.matchAll(SECTION_COMMAND)].map((match): OutlineEvent => ({
     kind: "section",
     offset: match.index,
     level: LEVELS[match[1]],
-    title: match[2].replace(/\s+/g, " ").trim() || `(${match[1]})`,
+    title: match[3].replace(/\s+/g, " ").trim() || `(${match[1]})`,
+    starred: match[2] === "*",
   }));
   const inputs = [...source.matchAll(INCLUDE)].map((match): OutlineEvent => ({
     kind: "input",
     offset: match.index,
     raw: match[1],
   }));
-  return [...sections, ...inputs].sort((left, right) => left.offset - right.offset);
+  const appendices = [...source.matchAll(APPENDIX)].map((match): OutlineEvent => ({ kind: "appendix", offset: match.index }));
+  return [...sections, ...inputs, ...appendices].sort((left, right) => left.offset - right.offset);
 }
 
 export function parseProjectOutline(
@@ -138,6 +197,9 @@ export function parseProjectOutline(
   const roots: OutlineNode[] = [];
   const stack: OutlineNode[] = [];
   const visiting = new Set<string>();
+  // Read in reading order across files, as TeX does: an \appendix in an
+  // included file turns every heading after it into an appendix.
+  let inAppendix = false;
 
   const walk = (path: string, depth: number) => {
     const source = sources[path];
@@ -146,6 +208,10 @@ export function parseProjectOutline(
     // One line counter per source, so nested includes cannot disturb the parent's position.
     const lineAt = lineCounter(source);
     for (const event of outlineEvents(source)) {
+      if (event.kind === "appendix") {
+        inAppendix = true;
+        continue;
+      }
       if (event.kind === "section") {
         const node: OutlineNode = {
           id: `${path}:${event.level}:${event.offset}:${event.title}`,
@@ -154,6 +220,8 @@ export function parseProjectOutline(
           line: lineAt(event.offset),
           path,
           kind: "section",
+          ...(event.starred ? { starred: true as const } : {}),
+          ...(inAppendix ? { appendix: true as const } : {}),
           children: [],
         };
         while (stack.length && stack[stack.length - 1].level >= event.level) stack.pop();

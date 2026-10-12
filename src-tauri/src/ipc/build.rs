@@ -173,6 +173,15 @@ pub async fn synctex_body_pages(
     run_blocking("The SyncTeX page count", move || latex::body_pages(&root, &spans)).await
 }
 
+/// The page of the compiled PDF each outline heading is typeset on.
+#[tauri::command]
+pub async fn synctex_heading_pages(
+    state: State<'_, AppState>, window: Window, headings: Vec<latex::SourceLine>,
+) -> Result<Vec<Option<u32>>, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("The SyncTeX section lookup", move || latex::heading_pages(&root, &headings)).await
+}
+
 #[tauri::command]
 pub async fn run_doctor(
     state: State<'_, AppState>, window: Window,

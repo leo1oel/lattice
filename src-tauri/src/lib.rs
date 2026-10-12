@@ -427,6 +427,7 @@ pub fn run() {
             ipc::build::synctex_edit,
             ipc::build::synctex_view,
             ipc::build::synctex_body_pages,
+            ipc::build::synctex_heading_pages,
             ipc::build::run_doctor,
             ipc::build::harper_lint,
             ipc::build::format_latex,

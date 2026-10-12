@@ -45,6 +45,7 @@ import { editorDiagnosticsForFile, type CompileDiagnostic } from "../build/compi
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
 import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
+import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
@@ -268,6 +269,8 @@ export function DocumentCanvas(props: {
   onOutlineOpenChange: (open: boolean) => void;
   outlineNodes: OutlineNode[];
   activeOutlineId: string | null;
+  /** The manuscript's root document, which `outlineNodes` is the outline of. */
+  outlineRootPath?: string;
   onOutlineNavigate: (path: string, line: number) => void;
   tableGeneratorOpen: boolean;
   onTableGeneratorOpenChange: (open: boolean) => void;
@@ -1370,6 +1373,8 @@ export function DocumentCanvas(props: {
     </div>
   ) : null;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
+  // The rail mounts with the editor's view: it reads the viewport from the start.
+  const railView = activeFile.endsWith(".tex") ? primaryScrollbarView?.deref() ?? null : null;
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
       <div className="source-main">
@@ -1421,6 +1426,18 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
+          {railView && (
+            <LatexOutlineRail
+              view={railView}
+              path={activeFile}
+              source={settledSource}
+              nodes={outlineNodes}
+              rootPath={props.outlineRootPath ?? ""}
+              label={t`Outline`}
+              pdfUrl={props.pdfUrl}
+              onSelect={onOutlineNavigate}
+            />
+          )}
           <ProofreadLayer
             bridge={proofread}
             projectRoot={props.projectRoot}
