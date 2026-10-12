@@ -31,11 +31,13 @@ not to force every surface into one density.
   adjustable.
 - Project filenames and folders use the interface font at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.
-- Papers titles use the interface font at 13/18px regular weight, as the
-  Project tree sets a filename. Literature results beside them keep the reading
-  font, as the paper reader sets a title. Author, year, venue, and other Papers
-  metadata remain in the interface font at the caption role (12/16) regular
-  weight; a full-text search hit is quoted in the reading font's italic.
+- Papers titles use the interface font at 13/18px regular weight in the
+  primary ink, as the Project tree sets a filename. Literature results beside
+  them keep the reading font at 14/20, as the paper reader sets a title. Author,
+  year, venue, and other Papers metadata remain in the interface font at the
+  caption role (12/16) regular weight in the secondary ink; a full-text search
+  hit is quoted in the reading font's italic. A wide Papers list (680px and up)
+  moves its flags into a right-hand column.
 - Diff code uses the editor font at 12/18px. Diff paths, headers, and line
   numbers remain in the interface font; compact metadata uses the micro role
   (11/14).

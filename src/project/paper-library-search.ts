@@ -41,12 +41,15 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
 /**
  * Metadata matches, full-text matches, and the just-confirmed import, with the
  * import first and title matches ahead of the rest; ties keep library order.
+ * An `order` (a sort the writer chose) replaces the title-match ranking; the
+ * import still leads.
  */
 export function rankPapers(
   papers: readonly PaperSummary[],
   input: string,
   textHits: ReadonlyMap<string, PaperLibrarySearchHit>,
   recentImport: RecentPaperImport | null | undefined,
+  order?: (a: PaperSummary, b: PaperSummary) => number,
 ): PaperSummary[] {
   const query = input.trim();
   const metadataMatches = new Set(filterPapers(papers, input).map(paperKey));
@@ -67,7 +70,7 @@ export function rankPapers(
       metadataMatches.has(paperKey(paper)) || textHits.has(paperSearchIdentity(paper)) || isRecent(paper)
     ))
     .sort((a, b) => Number(isRecent(b.paper)) - Number(isRecent(a.paper))
-      || relevance(b.paper) - relevance(a.paper)
+      || (order ? order(a.paper, b.paper) : relevance(b.paper) - relevance(a.paper))
       || a.index - b.index)
     .map(({ paper }) => paper);
 }
