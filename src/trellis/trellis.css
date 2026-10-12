@@ -536,6 +536,33 @@
    secondary, and neither a filled tile. */
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { color: var(--text-primary); }
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="false"]:not(:hover) { color: var(--titlebar-toggle-off-ink); }
+/* The command palette's home: a quiet well in the bar's middle, centred on
+   the window as far as its margins reach (useWindowCentred). It gives up its
+   width before anything else (the steep shrink), down to where the
+   placeholder still reads, then the titlebar folds it to its icon at the
+   start of the controls on the right. */
+.trellis-titlebar .trellis-titlebar-search {
+  flex: 0 100 320px;
+  min-width: 200px;
+  margin-inline: auto;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  transition: background-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.trellis-titlebar .trellis-titlebar-search:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.trellis-titlebar-search > svg { flex: none; }
+.trellis-titlebar-search-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: start; }
+.trellis-titlebar-search-keys { flex: none; }
+.trellis-titlebar[data-search-folded] .trellis-titlebar-search {
+  flex: none; width: var(--control-height-compact); min-width: 0;
+  margin-inline: auto 0; padding: 0; justify-content: center;
+  background: transparent; box-shadow: none;
+}
+.trellis-titlebar[data-search-folded] .trellis-titlebar-search:hover { background: var(--chrome-hover-surface); }
+.trellis-titlebar[data-search-folded] :is(.trellis-titlebar-search-label, .trellis-titlebar-search-keys) { display: none; }
 /* The layout switch: a hairline track beside the panel controls, the chosen
    workspace a raised plate that slides between them. Short of room (measured
    by the titlebar, which marks itself data-compact), the workspaces fold into
@@ -609,14 +636,16 @@
   outline: none;
 }
 .trellis-workspace-name-input[aria-invalid="true"] { box-shadow: 0 0 0 var(--focus-ring-width) var(--control-invalid-border); }
+/* Each step leaves room for the search field folded to its icon, which no
+   step sheds: the palette has no other place in the bar. */
 /* Maximize and Reset layout close the Panels menu. */
-@container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
+@container trellis-titlebar (max-width: 444px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */
-@container trellis-titlebar (max-width: 330px) { .trellis-titlebar-panel-toggles { display: none; } }
+@container trellis-titlebar (max-width: 374px) { .trellis-titlebar-panel-toggles { display: none; } }
 /* The Panels menu switches the layout too. */
-@container trellis-titlebar (max-width: 220px) { .trellis-titlebar-presets { display: none; } }
+@container trellis-titlebar (max-width: 264px) { .trellis-titlebar-presets { display: none; } }
 /* The menu keeps its accessible name when only its icon is left. */
-@container trellis-titlebar (max-width: 115px) { .trellis-titlebar-menu > span { display: none; } }
+@container trellis-titlebar (max-width: 159px) { .trellis-titlebar-menu > span { display: none; } }
 .trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: clip; }
 /* Chips shrink to an ellipsis each rather than clip, so every visible chip
    keeps its own pointer target. */

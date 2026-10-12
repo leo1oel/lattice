@@ -8354,6 +8354,14 @@ msgstr "Search emoji"
 msgid "Search failed."
 msgstr "Search failed."
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands"
+msgstr "Search files, papers and commands"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands…"
+msgstr "Search files, papers and commands…"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
