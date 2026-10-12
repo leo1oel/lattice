@@ -30,7 +30,17 @@ export interface AgentPresentationContext {
   slideTitle: string;
   view: "slides" | "assets";
   pagePath: string;
-  pendingComments: Array<{ id: string; line: number; ts: string; note: string; hint?: string }>;
+  pendingComments: Array<{
+    id: string;
+    line: number;
+    ts: string;
+    note: string;
+    hint?: string;
+    /** Region the note covers, in pixels on the 1920 x 1080 page; absent for an element comment. */
+    rect?: { x: number; y: number; w: number; h: number };
+    /** 0-based page index the comment was left on. */
+    page?: number;
+  }>;
   selection: { line: number; column: number; tagName: string; text: string } | null;
   /** Opens this page alone, without editor chrome, for the agent's post-edit screenshot. */
   previewUrl?: string;
