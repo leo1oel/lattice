@@ -350,9 +350,10 @@
   /* The widest a menu or tooltip grows for a long name (a workspace, project
      or file) before wrapping or truncating it (menu-surface.ts, tooltip.tsx). */
   --menu-max-width: 22rem;
-  /* Settings layout contract. A settings page is an unframed column: page
-     heading, then groups whose own heading carries the only rule, then rows of
-     copy on the left and one control on the right.
+  /* Settings layout contract. A settings page is a column on the sheet: page
+     heading, then groups, each a heading over one card of rows, every row copy
+     on the left and one control on the right. The card lifts off the sheet the
+     way the Settings dialog lifts off the window.
 
      The embedded Synara runtime mirrors these roles from its own copy of the
      values, so changing a number here only lands in Providers/MCP/Skills once
@@ -364,14 +365,17 @@
   --settings-content-padding-top-compact: 24px;
   --settings-content-padding-inline-compact: 20px;
   --settings-content-padding-bottom-compact: 32px;
-  --settings-header-height: 50px;
-  --settings-nav-width: 172px;
+  --settings-nav-width: 200px;
   --settings-nav-width-compact: 132px;
-  --settings-nav-padding-block: var(--space-6);
+  --settings-nav-padding-block: var(--space-8);
   --settings-nav-padding-inline: 9px;
   --settings-nav-group-gap: 14px;
   --settings-embed-min-height: 470px;
   --settings-group-gap: 28px;
+  --settings-card-surface: var(--surface-panel-raised);
+  --settings-card-radius: var(--radius-panel);
+  --settings-card-padding-inline: var(--space-8);
+  --settings-row-min-height: 52px;
   --settings-control-width: 170px;
   --settings-control-height: var(--control-height-default);
   --settings-control-radius: var(--radius-control);

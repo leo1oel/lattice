@@ -392,24 +392,28 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* Surfaces with their own scrolling results scroll the list instead of the dialog. */
 .modal.sheet-dialog:is(.project-find, .bibliography-audit) { overflow: hidden; }
 .modal.sheet-dialog.bibliography-audit { gap: 0; }
-.settings-modal { width: var(--dialog-large-width); height: var(--dialog-large-height); border-radius: var(--radius-dialog); overflow: hidden; text-align: left; }
-.settings-header { height: var(--settings-header-height); padding: 0 14px 0 17px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-chrome); }
-.settings-header [data-slot="panel-header-title"] > svg { color: var(--control-active); }
-.settings-body { height: calc(100% - var(--settings-header-height)); display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); }
+.settings-modal { position: relative; width: var(--dialog-large-width); height: var(--dialog-large-height); border-radius: var(--radius-dialog); overflow: hidden; text-align: left; }
+/* The band above the search field and the page title: empty in both columns,
+   so it can take the window drag a title bar would. */
+.settings-drag-strip { position: absolute; z-index: 1; inset: 0 0 auto; height: var(--settings-nav-padding-block); user-select: none; }
+.settings-close { position: absolute; z-index: 2; top: var(--space-5); right: var(--space-5); }
+.settings-body { height: 100%; display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); }
 .settings-nav { padding: var(--settings-nav-padding-block) var(--settings-nav-padding-inline); border-right: 1px solid var(--border-subtle); background: var(--surface-chrome); overflow-y: auto; }
 .settings-nav-group + .settings-nav-group { margin-top: var(--settings-nav-group-gap); }
-/* The margin equalizes optical rhythm, not box gaps: nav buttons are 30px tall
-   around a ~14px line box, so adjacent item labels sit ~16px apart, while the
+/* The margin equalizes optical rhythm, not box gaps: nav buttons are 32px tall
+   around an 18px line box, so adjacent item labels sit 14px apart, while the
    group label's own 20px line box leaves only ~4px under its text. The extra
-   4px puts the label the same distance from the first item as the items are
-   from each other. */
+   4px puts the label about the same distance from the first item as the items
+   are from each other. */
 .settings-nav-group-label { padding: 0 var(--space-5); margin-bottom: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 600; line-height: 20px; }
-.settings-nav :is(.settings-nav-group, .settings-search-results) > button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
+.settings-nav :is(.settings-nav-group, .settings-search-results) > button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); text-align: left; }
 .settings-nav button > .animated-product-icon { width: 15px; flex: none; }
 .settings-nav .animated-product-icon--sparkle { transform: translateY(-1px); }
 .settings-nav :is(.settings-nav-group, .settings-search-results) > button:hover { background: var(--border-subtle); color: var(--text-primary); }
 .settings-nav-group > button.active { background: var(--control-active-soft); color: var(--control-active); font-weight: 600; }
-.settings-content { min-width: 0; background: var(--surface-panel-raised); }
+/* The pages sit on the sheet, a step under the dialog, so their cards can
+   lift off it. */
+.settings-content { min-width: 0; background: var(--surface-panel); }
 /* Search sits above the page list and, while it holds a query, replaces it.
    A result reads as its setting first and its page second; the keyboard's
    result is lit like a hovered page, the one open now carries the accent. */
@@ -441,11 +445,11 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   100% { opacity: 0; }
 }
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
-.synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--motion-fast); }
+.synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel); opacity: 1; transition: opacity var(--motion-fast); }
 .synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; }
 .synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .synara-settings-state { position: relative; min-height: var(--settings-embed-min-height); }
-.synara-settings-state > .synara-loading-surface { background: var(--surface-panel-raised); }
+.synara-settings-state > .synara-loading-surface { background: var(--surface-panel); }
 .settings-section {
   --form-control-border-width: var(--settings-frame-border-width);
   --form-control-border-color: var(--settings-control-border-color);

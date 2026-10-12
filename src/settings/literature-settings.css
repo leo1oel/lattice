@@ -10,3 +10,10 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* A key's field belongs to the row naming it: no hairline between them in
+   the card. */
+.literature-settings .ui-settings-row + .literature-credential-form {
+  padding-top: 0;
+  box-shadow: none;
+}
