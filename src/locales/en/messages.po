@@ -825,6 +825,10 @@ msgstr "All Functions…"
 msgid "All levels"
 msgstr "All levels"
 
+#: src/project/paper-library.tsx
+msgid "All papers"
+msgstr "All papers"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "All references"
 msgstr "All references"
@@ -1043,6 +1047,7 @@ msgstr "Attention Is All You Need, diffusion, …"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Author"
 msgstr "Author"
 
@@ -2989,6 +2994,10 @@ msgstr "Download JSON"
 msgid "Download PDF"
 msgstr "Download PDF"
 
+#: src/project/paper-library.tsx
+msgid "Downloaded"
+msgstr "Downloaded"
+
 #: src/App.tsx
 msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
@@ -3672,6 +3681,10 @@ msgstr "Fix anything left, then save"
 #: src/papers/bib-visual-editor.tsx
 msgid "Fix it in the source and the list comes back."
 msgstr "Fix it in the source and the list comes back."
+
+#: src/project/paper-library.tsx
+msgid "Flagged"
+msgstr "Flagged"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
@@ -5727,6 +5740,7 @@ msgid "New…"
 msgstr "New…"
 
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Newest first"
 msgstr "Newest first"
 
@@ -6062,6 +6076,10 @@ msgstr "Not cited by key, but {nociteAll} includes every entry"
 #: src/papers/bib-visual-editor.tsx
 msgid "Not cited in any .tex file"
 msgstr "Not cited in any .tex file"
+
+#: src/project/paper-library.tsx
+msgid "Not downloaded"
+msgstr "Not downloaded"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not enabled · add your own API key in Settings"
@@ -8574,6 +8592,10 @@ msgstr "Show or hide panels"
 msgid "Show outline"
 msgstr "Show outline"
 
+#: src/project/paper-library.tsx
+msgid "Show papers"
+msgstr "Show papers"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "Show references"
@@ -8720,6 +8742,10 @@ msgstr "Some sources unavailable"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
 msgstr "Sort lines"
+
+#: src/project/paper-library.tsx
+msgid "Sort papers"
+msgstr "Sort papers"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Sort references"
@@ -9751,6 +9777,7 @@ msgstr "Tip"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Title"
 msgstr "Title"
 
@@ -9869,6 +9896,10 @@ msgstr "Try a shorter phrase or different terms"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "Try again"
+
+#: src/project/paper-library.tsx
+msgid "Try another filter"
+msgstr "Try another filter"
 
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"

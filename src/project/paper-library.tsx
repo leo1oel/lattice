@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useId, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowUpRight, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, X } from "lucide-react";
+import { ArrowDownUp, ArrowUpRight, Check, Download, ExternalLink, FolderOpen, ListFilter, Pencil, Plus, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { Badge } from "../components/ui/badge";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
@@ -27,6 +28,9 @@ import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 type PaperFetchState = "loading" | "success";
+/** "title" is the library's own order (by title), or best match first while searching. */
+type PaperSort = "title" | "year" | "author";
+type PaperFilter = "all" | "downloaded" | "notDownloaded" | "flagged";
 
 export type PaperLibraryProps = {
   projectKey: string;
@@ -50,6 +54,30 @@ export type PaperLibraryProps = {
   recentImport?: RecentPaperImport | null;
 };
 
+const readablePaper = (paper: PaperSummary) => paper.hasFullText || paper.hasBlog;
+
+const PAPER_FILTERS: Record<PaperFilter, (paper: PaperSummary) => boolean> = {
+  all: () => true,
+  downloaded: readablePaper,
+  notDownloaded: (paper) => !readablePaper(paper),
+  flagged: (paper) => Boolean(citationHealthLabel(paper.citationHealth)),
+};
+
+/**
+ * The chosen sort as a comparison, or none for the library's own order (by
+ * title, best match first while searching). A paper with no year or author
+ * goes last.
+ */
+function paperOrder(sort: PaperSort): ((a: PaperSummary, b: PaperSummary) => number) | undefined {
+  if (sort === "title") return undefined;
+  const key = (paper: PaperSummary) => (sort === "year" ? paper.year?.trim() : paperShortAuthors(paper)) || "";
+  return (a, b) => {
+    const [left, right] = [key(a), key(b)];
+    return Number(!left) - Number(!right)
+      || (sort === "year" ? right.localeCompare(left, undefined, { numeric: true }) : left.localeCompare(right));
+  };
+}
+
 function paperStateIcon(paper: PaperSummary, fetchState: PaperFetchState | undefined, downloadable: boolean) {
   if (fetchState === "loading") return <InfinityLoader size={12} />;
   if (fetchState === "success") return <Check size={12} />;
@@ -71,13 +99,17 @@ export function PaperLibrary(props: PaperLibraryProps) {
     if (props.recentImport?.query === query && viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [props.recentImport, query]);
   const { hits: textHits, searchNow } = usePaperTextSearch(query);
+  // Sort and filter last for the panel's life; a search narrows what they show.
+  const [sort, setSort] = useState<PaperSort>("title");
+  const [filter, setFilter] = useState<PaperFilter>("all");
   const filteredPapers = useMemo(
-    () => rankPapers(props.papers, props.importInput, textHits, props.recentImport),
-    [props.importInput, props.papers, props.recentImport, textHits],
+    () => rankPapers(props.papers, props.importInput, textHits, props.recentImport, paperOrder(sort))
+      .filter(PAPER_FILTERS[filter]),
+    [filter, props.importInput, props.papers, props.recentImport, sort, textHits],
   );
 
   const activatePaper = (paper: PaperSummary) => {
-    if (paper.hasFullText || paper.hasBlog) props.onPaper(paper);
+    if (readablePaper(paper)) props.onPaper(paper);
     else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
   };
   const addPaper = () => {
@@ -90,7 +122,14 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const emptyState = !total
     ? [t`Your paper library`, t`Keep sources beside your writing`]
     : filteredPapers.length ? null
-      : [t`No matching papers`, t`Press + to import it`];
+      : [t`No matching papers`, filter === "all" ? t`Press + to import it` : t`Try another filter`];
+  const sortLabels: Record<PaperSort, string> = { title: t`Title`, year: t`Newest first`, author: t`Author` };
+  const filterLabels: Record<PaperFilter, string> = {
+    all: t`All papers`,
+    downloaded: t`Downloaded`,
+    notDownloaded: t`Not downloaded`,
+    flagged: t`Flagged`,
+  };
 
   // Tab walks every control of every paper; the arrows, Home and End move
   // between papers, landing where a click on the row would.
@@ -155,13 +194,49 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </>
           )}
         </div>
+        {/* How many papers the list holds, and how it is ordered and narrowed.
+            The count stands for what is shown, so a search or a filter reads
+            as "3 of 7". */}
+        {!!total && (
+          <div className="paper-list-toolbar">
+            <p className="paper-list-count">
+              {filteredPapers.length !== total
+                ? filteredPapers.length === 1
+                  ? t({ message: `1 of ${{ total }} papers` })
+                  : t({ message: `${{ filtered: filteredPapers.length }} of ${{ total }} papers` })
+                : total === 1
+                  ? t`1 paper`
+                  : t({ message: `${{ count: total }} papers` })}
+            </p>
+            <Select value={sort} onValueChange={(value) => setSort(value as PaperSort)}>
+              <SelectTrigger size="compact" aria-label={t`Sort papers`} title={t`Sort papers`} className="paper-list-select">
+                <ArrowDownUp className="size-3.5" aria-hidden="true" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                {(Object.keys(sortLabels) as PaperSort[]).map((value) => <SelectItem key={value} value={value}>{sortLabels[value]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filter} onValueChange={(value) => setFilter(value as PaperFilter)}>
+              <SelectTrigger size="compact" aria-label={t`Show papers`} title={t`Show papers`} className="paper-list-select">
+                <ListFilter className="size-3.5" aria-hidden="true" />
+                {/* At rest the filter is its icon alone, so the count keeps its
+                    room in a narrow panel; once it narrows, it says how. */}
+                <SelectValue>{filter === "all" ? null : filterLabels[filter]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                {(Object.keys(filterLabels) as PaperFilter[]).map((value) => <SelectItem key={value} value={value}>{filterLabels[value]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <ScrollArea
           className="paper-list"
           viewportRef={viewportRef}
           orientation="both"
           contentClassName="paper-list-content"
         >
-          {/* Only the papers are list items; the empty state and the count sit after the list. */}
+          {/* Only the papers are list items; the empty state sits after the list. */}
           <div
             role="list"
             aria-label={t`Papers`}
@@ -172,7 +247,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
             <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {filteredPapers.map((paper, index) => {
               const fetchState = props.paperFetchStates[paperKey(paper)];
-              const readable = paper.hasFullText || paper.hasBlog;
+              const readable = readablePaper(paper);
               const downloadable = canDownloadPaper(paper);
               const healthLabel = citationHealthLabel(paper.citationHealth);
               const health = citationHealthParts(paper.citationHealth);
@@ -355,17 +430,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 {!total && <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
               </div>
             </div>
-          )}
-          {!!filteredPapers.length && (
-            <p className="paper-list-end">
-              {filteredPapers.length !== total
-                ? filteredPapers.length === 1
-                  ? t({ message: `1 of ${{ total }} papers` })
-                  : t({ message: `${{ filtered: filteredPapers.length }} of ${{ total }} papers` })
-                : total === 1
-                  ? t`1 paper`
-                  : t({ message: `${{ count: total }} papers` })}
-            </p>
           )}
         </ScrollArea>
       </div>

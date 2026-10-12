@@ -300,11 +300,10 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .literature-result + .literature-result::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--space-4); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .literature-result:is(:hover, :focus-within)::before, .literature-result:is(:hover, :focus-within) + .literature-result::before { opacity: 0; transition-duration: var(--duration-fast); }
 .literature-result:is(:hover, :focus-within) { --literature-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
-.literature-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.literature-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .literature-meta { position: relative; height: var(--type-tree-line-height); min-width: 0; margin-top: var(--space-2); display: flex; align-items: center; }
-.literature-byline { min-width: 0; display: flex; align-items: center; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); white-space: nowrap; }
+.literature-byline { min-width: 0; display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); white-space: nowrap; }
 .literature-byline > span:not(.literature-imported) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.literature-byline > span:first-child:not(:last-child) { color: var(--text-secondary); }
 .literature-byline > span + span:not(.literature-imported) { flex: none; font-variant-numeric: tabular-nums; }
 .literature-byline > span + span:not(.literature-imported)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .literature-imported { margin-inline-start: var(--space-3); flex: none; display: grid; place-items: center; color: var(--status-success); }
