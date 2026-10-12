@@ -1448,6 +1448,11 @@ function App() {
     { id: "settings", label: t`Open settings`, group: "project", key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
+  // The titlebar's search field is the palette's visible home. The titlebar
+  // only re-renders with the workspace, so it gets one stable opener.
+  const openCommandPaletteRef = useLatestRef(openCommandPalette);
+  const openPaletteFromTitlebar = useCallback(() => openCommandPaletteRef.current(), [openCommandPaletteRef]);
+  const paletteShortcut = commandShortcutText(commands, "palette") ?? undefined;
   // The welcome screen's shortcuts are listed too.
   const shortcutSheet = commandOverlay?.kind === "shortcuts" && (
     <Suspense fallback={null}>
@@ -1825,7 +1830,7 @@ function App() {
           onExportZip: () => void exportProjectZip(),
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
-        panelControls={<TrellisTitlebar controller={trellis} />}
+        panelControls={<TrellisTitlebar controller={trellis} onSearch={openPaletteFromTitlebar} searchShortcut={paletteShortcut} />}
         focusBar={focusMode ? (
           <FocusModeBar
             controller={trellis}

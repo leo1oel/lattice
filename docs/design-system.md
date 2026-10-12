@@ -363,7 +363,10 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   14px for a dialog (`--radius-dialog`). The role names say what holds the
   corner; a new radius picks one of the steps, never a value between them.
 - The titlebar is 40px and hosts the traffic lights, the project switcher and
-  the panel controls; the sidebar navigation header matches that height.
+  the panel controls, with the command palette's search field (⌘K) centred on
+  the window between them; the sidebar navigation header matches that height.
+  Short of room the field narrows, then folds to its icon before any control
+  is shed.
 - Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
   the compact control height. A tab's trailing slot (its close button or
   unsaved dot) is one width whatever it holds, so hovering, saving or

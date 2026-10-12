@@ -8349,6 +8349,14 @@ msgstr "搜索表情"
 msgid "Search failed."
 msgstr "搜索失败"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands"
+msgstr "搜索文件、论文、命令"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Search files, papers and commands…"
+msgstr "搜索文件、论文、命令…"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索论文"
