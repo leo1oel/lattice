@@ -94,24 +94,9 @@ The project supplies a license key through the `VITE_TLDRAW_LICENSE_KEY` environ
 
 An earlier revision of this file asserted that Lattice "ships under a tldraw Hobby license key". That claim is withdrawn: the license text defines only Development, Trial and Commercial categories and never uses the word "Hobby". A "Hobby" tier exists on tldraw's pricing page as a free, application-gated offering, but its watermark and commercial-use conditions are not published in the legal text, so nothing here can state what they are.
 
-## Material Icons
+## Lucide file glyphs (`src/components/ui/file-glyphs.ts`, `src/project/project-tree-css.ts`)
 
-The project file tree's board (pencil) icon is adapted from [Material Icons](https://github.com/google/material-design-icons), licensed under the Apache License, Version 2.0.
-
-## Material Icon Theme
-
-The project file tree includes adapted PDF, TeX, bibliography, and BibTeX style icons from [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme).
-
-The MIT License (MIT)
-
-Copyright (c) 2025 Material Extensions
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The file and folder glyphs in the project tree, the workspace tabs and the pickers are adapted from [Lucide](https://lucide.dev) icons (ISC). Lucide's license and copyright notice are reproduced with the `lucide-react` package in the generated notices below.
 
 ## Fluid Functionalism and Lina (`src/components/ui/`)
 

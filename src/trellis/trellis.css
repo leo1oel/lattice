@@ -31,9 +31,10 @@
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"])) {
   --lattice-panel-surface: var(--surface-input);
 }
-/* An unfocused panel's edge is half a hairline: the surfaces already separate
-   panels from the workspace, and a full outline on every one competed with
-   the document inside. The focused panel's ring (below) stays whole. */
+/* Every panel has the same quiet edge, short of a full hairline: the surfaces
+   already separate panels from the workspace, and a full outline on every one
+   competed with the document inside. The focused panel is told by its tab's
+   ink (below), not a second outline. */
 .lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: var(--elevation-panel); }
 @media (prefers-contrast: more) {
   .lattice-trellis [data-trellis-part="panel"] { box-shadow: 0 0 0 1px var(--border-strong); }
@@ -68,9 +69,6 @@
    gutter keeps its numbers' color, mixed from the opaque ground. A file view
    that draws its own page (a spreadsheet, an image) keeps it. */
 :root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-workspace, .source-editor, .cm-editor, .cm-scroller, .cm-gutters, .markdown-preview) { background: transparent; }
-
-/* The focused panel carries a quiet ring; its selected tab, an accent underline. */
-.lattice-trellis [data-trellis-part="panel"][data-focused] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--control-active) 28%, var(--border-subtle)); }
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
@@ -118,6 +116,9 @@
   color: var(--text-primary);
   box-shadow: none;
 }
+/* Only the focused panel's selected tab is in the primary ink; another
+   panel's keeps its surface but drops to the secondary. */
+.lattice-trellis [data-trellis-part="panel"]:not([data-focused]) [data-trellis-part="tab"][data-selected] { color: var(--text-secondary); }
 .lattice-trellis [data-trellis-part="tab-icon"] { color: var(--text-tertiary); }
 .lattice-trellis [data-trellis-part="tab"][data-selected] [data-trellis-part="tab-icon"] { color: var(--text-secondary); }
 .lattice-trellis [data-trellis-part="tab-icon"] svg { width: 14px; height: 14px; }
@@ -512,9 +513,10 @@
    groups whose actions the Panels menu also offers, in order, as room runs
    out. They measure this bar rather than the viewport, so interface zoom, the
    native traffic lights and a long project name all count. */
-.trellis-titlebar { container: trellis-titlebar / inline-size; display: flex; align-items: center; gap: var(--space-4); min-width: 0; flex: 1 1 auto; align-self: stretch; padding-inline: var(--space-3); overflow: clip; }
+.trellis-titlebar { container: trellis-titlebar / inline-size; display: flex; align-items: center; gap: var(--space-6); min-width: 0; flex: 1 1 auto; align-self: stretch; padding-inline: var(--space-3); overflow: clip; }
 .trellis-titlebar .trellis-titlebar-menu { flex: none; white-space: nowrap; }
-.trellis-titlebar-group { flex: none; display: flex; align-items: center; gap: var(--space-1); padding-left: var(--space-4); border-left: 1px solid var(--border-subtle); }
+/* Groups stand apart by the bar's gap, not by rules between them. */
+.trellis-titlebar-group { flex: none; display: flex; align-items: center; gap: 0; }
 .trellis-titlebar button {
   height: var(--control-height-compact);
   display: inline-flex; align-items: center; gap: var(--space-3);
@@ -530,14 +532,18 @@
 }
 .trellis-titlebar .trellis-titlebar-toggle { width: var(--control-height-compact); justify-content: center; padding: 0; }
 .trellis-titlebar button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
-.trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
-/* The layout switch: a quiet track beside the panel controls, the chosen
+/* A panel toggle is a ghost icon: on is the primary ink, off a quieter
+   secondary, and neither a filled tile. */
+.trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { color: var(--text-primary); }
+.trellis-titlebar .trellis-titlebar-toggle[aria-pressed="false"]:not(:hover) { color: var(--titlebar-toggle-off-ink); }
+/* The layout switch: a hairline track beside the panel controls, the chosen
    workspace a raised plate that slides between them. Short of room (measured
    by the titlebar, which marks itself data-compact), the workspaces fold into
    one menu button. */
 .trellis-titlebar .trellis-presets.ui-segmented {
   height: var(--control-height-compact);
-  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 .trellis-titlebar .trellis-presets .trellis-preset {
   height: 100%;

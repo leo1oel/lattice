@@ -6875,10 +6875,6 @@ msgstr "PDF 加载超时。请再点“编译”，或用“预览”打开"
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
 
-#: src/settings/acknowledged-software.ts
-msgid "PDF, TeX and bibliography icons in the file tree"
-msgstr "文件树中的 PDF、TeX 和参考文献图标"
-
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX 引擎"
@@ -9295,10 +9291,6 @@ msgstr "这条已不存在"
 #: src/settings/acknowledged-software.ts
 msgid "The board editor"
 msgstr "白板编辑器"
-
-#: src/settings/acknowledged-software.ts
-msgid "The board icon in the file tree"
-msgstr "文件树中的白板图标"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"

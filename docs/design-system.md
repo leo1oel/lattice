@@ -29,8 +29,8 @@ not to force every surface into one density.
   Ioskeley Mono (OFL), with system monospace faces as fallback. Local and
   embedded code surfaces share this stack; editor font size remains
   adjustable.
-- Project filenames and folders use the interface font at 13/16px. Project rows use the
-  compact 32px row role; selected items move from regular to medium weight.
+- Project filenames and folders use the interface font at 13/16px. Project rows are
+  28px, the compact control height; selected items move from regular to medium weight.
 - Papers titles use the interface font at 13/18px regular weight in the
   primary ink, as the Project tree sets a filename. Literature results beside
   them keep the reading font at 14/20, as the paper reader sets a title. Author,
@@ -225,9 +225,13 @@ never a second outline: the focus ring stays the only ring.
   stroke beside regular-weight text (menus) and the default 2 where they stand
   alone. They take the secondary ink at rest and the primary when their
   control is on, hovered or current; colour belongs to status (a toast's
-  level, a danger mark), to the accent, and to the file glyphs in the project
-  tree and pickers, which keep their own colours so a file's kind reads at a
-  glance.
+  level, a danger mark), to the accent, and to the file glyphs. A file glyph
+  (`src/components/ui/file-glyphs.ts`) is one icon per kind of file, the same
+  in the project tree, the tabs and the pickers: a page for what you write, an
+  object for what you collect or insert, stroked in the kind's hue
+  (`--file-glyph-*`, at least 3:1 on the sheet, the lift and a selected row)
+  over a tint of it, so a file's kind reads at a glance. Folders are manila and
+  open when expanded.
 
 ## Embed and third-party boundaries
 

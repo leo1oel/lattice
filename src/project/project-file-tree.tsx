@@ -33,8 +33,8 @@ import {
 import { notifyCopied } from "../telemetry/app-notify";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
-// design-system `--row-height-tree` / compact 32px row role.
-const PROJECT_TREE_ITEM_HEIGHT = 32;
+// design-system `--row-height-tree` (28px, the compact control height).
+const PROJECT_TREE_ITEM_HEIGHT = 28;
 
 export type ProjectFileTreeProps = {
   projectKey: string;

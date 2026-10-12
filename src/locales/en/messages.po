@@ -6878,10 +6878,6 @@ msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
 
-#: src/settings/acknowledged-software.ts
-msgid "PDF, TeX and bibliography icons in the file tree"
-msgstr "PDF, TeX and bibliography icons in the file tree"
-
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX engine"
@@ -9302,10 +9298,6 @@ msgstr "The bibliography entry no longer exists."
 #: src/settings/acknowledged-software.ts
 msgid "The board editor"
 msgstr "The board editor"
-
-#: src/settings/acknowledged-software.ts
-msgid "The board icon in the file tree"
-msgstr "The board icon in the file tree"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "The bundled Agent service could not start"

@@ -57,8 +57,6 @@ export const DESIGN_CREDITS: readonly Credit[] = [
   { name: "IBM Plex and Shantell Sans", role: msg`Board typefaces`, url: "https://github.com/IBM/plex", license: "OFL-1.1" },
   { name: "Lucide", role: msg`Interface icons`, url: "https://lucide.dev", pkg: { closure: "npm", name: "lucide-react" } },
   { name: "Phosphor Icons", role: msg`Animated interface icons, redrawn from Phosphor glyphs`, url: "https://phosphoricons.com", license: "MIT" },
-  { name: "Material Icons", role: msg`The board icon in the file tree`, url: "https://github.com/google/material-design-icons", license: "Apache-2.0" },
-  { name: "Material Icon Theme", role: msg`PDF, TeX and bibliography icons in the file tree`, url: "https://github.com/material-extensions/vscode-material-icon-theme", license: "MIT" },
   { name: "Cuelume", role: msg`Interface sounds, by Daniel Belyi`, url: "https://github.com/Danilaa1/cuelume", pkg: { closure: "npm", name: "cuelume" } },
 ];
 
