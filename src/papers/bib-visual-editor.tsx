@@ -52,7 +52,7 @@ import "./bib-visual-editor.css";
 const selectedByPath = new Map<string, string>();
 
 /** Every row is this tall, so the list knows which rows are in view without measuring them. */
-const ROW_HEIGHT = 64;
+const ROW_HEIGHT = 60;
 /** Rows drawn beyond each edge of the view, so a fast scroll does not show blank rows. */
 const OVERSCAN = 8;
 
@@ -426,7 +426,6 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                 const { entry, summary } = row;
                 const unused = isUnused(entry.key);
                 const citedCount = usageOf(entry.key).length;
-                const meta = [summary.shortAuthors, summary.year, summary.venue].filter(Boolean).join(" · ");
                 return (
                   <div
                     key={row.index}
@@ -437,14 +436,27 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                     style={{ top: (first + offset) * ROW_HEIGHT, height: ROW_HEIGHT }}
                     onClick={() => select(entry.key)}
                   >
+                    <span className="bib-row-year">{summary.year}</span>
                     <span className="bib-row-title">{summary.title || <em>{t`Untitled`}</em>}</span>
-                    <span className="bib-row-meta">{meta}</span>
+                    <span className="bib-row-meta">
+                      {summary.shortAuthors && <span className="bib-row-authors">{summary.shortAuthors}</span>}
+                      {summary.venue && <i className="bib-row-venue">{summary.venue}</i>}
+                    </span>
+                    {/* The type is left to the detail: a reference list does not set it. */}
                     <span className="bib-row-foot">
                       <code className="bib-row-key">{entry.key}</code>
-                      <span className="bib-row-type">{entry.kind}</span>
                       {unused
                         ? <Badge size="compact" tone="warning" className="bib-row-badge">{t`Unused`}</Badge>
-                        : citedCount > 0 && <span className="bib-row-cited" title={t`Citations in the manuscript: ${citedCount}`}>{t`Cited ×${citedCount}`}</span>}
+                        : citedCount > 0 && (
+                          <span className="bib-row-cited" title={t`Citations in the manuscript: ${citedCount}`}>
+                            {/* One dot a citation, up to five; the count says the rest. */}
+                            <span className="bib-row-dots" aria-hidden="true">
+                              {Array.from({ length: Math.min(citedCount, 5) }, (_, dot) => <i key={dot} />)}
+                            </span>
+                            <span aria-hidden="true">{citedCount}</span>
+                            <span className="sr-only">{t`Cited ×${citedCount}`}</span>
+                          </span>
+                        )}
                     </span>
                   </div>
                 );
