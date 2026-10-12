@@ -11,8 +11,14 @@
   /* Labels wrap here at their spaces. A single word wider than the column
      ("Acknowledgements") hyphenates instead of pushing the nav sideways; an
      engine without hyphenation for the language ends it in an ellipsis, and
-     the full label shows on hover. */
-  .settings-nav-group > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; hyphens: auto; }
+     the full label shows on hover. The inherited break-word would otherwise
+     split it mid-word with no mark. */
+  .settings-nav-group > button > span { min-width: 0; overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; hyphens: auto; }
+  /* The narrow page's inset is less than the floating close needs, so a page
+     action keeps clear of the close's corner. */
+  .settings-section .ui-settings-section-header-actions {
+    margin-inline-end: calc(var(--space-5) + var(--control-size-icon) + var(--space-2) - var(--settings-content-padding-inline-compact));
+  }
   .settings-section {
     padding: var(--settings-content-padding-top-compact)
       var(--settings-content-padding-inline-compact)
@@ -52,7 +58,9 @@
   html .app-toast-progress[data-indeterminate] .app-toast-progress-fill { animation: none; transform: translateX(95%); }
 }
 
-.app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); overflow-x: auto; flex: none; }
+/* The actions drop under the search when the page is too narrow for one line,
+   rather than scrolling out of sight. */
+.app-log-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); flex: none; }
 .app-log-action-row, .app-log-query-row { display: flex; align-items: center; gap: var(--space-3); }
 .app-log-query-row { flex: 1 0 260px; min-width: 0; }
 .app-log-action-row { flex: none; }
