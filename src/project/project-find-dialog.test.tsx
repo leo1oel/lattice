@@ -96,7 +96,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByRole("status")).toHaveTextContent("1 hit · 1 paper");
     expect(screen.getByTitle("sections/method.tex:2")).toHaveTextContent("method.texsections2");
     expect(screen.getByRole("button", { name: "Open paper result: Latent alignment" })).toBeInTheDocument();
-    fireEvent.click(screen.getByText("method.tex"));
+    fireEvent.click(screen.getByTitle("sections/method.tex:2"));
     expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
   });
 
