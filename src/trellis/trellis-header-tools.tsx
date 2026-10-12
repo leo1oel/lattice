@@ -17,18 +17,19 @@
  * whichever tab is selected and whatever kind of document it holds, so tabs
  * never change width and never run under the header's actions.
  */
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useView } from "@danfessler/trellis-react";
 import { Columns2, Eye, FileText, Newspaper, PenLine, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tip } from "../components/icon-tip";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card";
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import { buildHeadline } from "../build/build-result-text";
 import { formatSeconds } from "../i18n";
+import { BuildSequence } from "./trellis-build-sequence";
 
 /**
  * When each build outcome was first shown. Its flourish belongs to the moment
@@ -123,6 +124,12 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   // The build's age is read when the writer reaches the button, by pointer or
   // by focus, so neither the tip nor the description is older than that.
   const [reachedAt, setReachedAt] = useState(Date.now);
+  // The Build card. A press shuts it, as it shuts a tooltip, and it stays
+  // shut until the pointer leaves: pressing Build is for building, and a card
+  // laid over the editor on every press (⌘S's too, with the pointer resting
+  // there) would be in the way. Hovering again shows the build filling in.
+  const [cardOpen, setCardOpen] = useState(false);
+  const pressedRef = useRef(false);
   if (which === "build") {
     // Gray and labelled Build while idle; a running build shows a spinner in
     // place of the play icon, and another press queues a fresh build. Once it
@@ -158,6 +165,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           aria-busy={state === "building" || undefined}
           onPointerEnter={live ? reach : undefined}
           onFocus={live ? reach : undefined}
+          onPointerDown={live ? () => { pressedRef.current = true; setCardOpen(false); } : undefined}
+          onPointerLeave={live ? () => { pressedRef.current = false; } : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
           {state === "building" ? <InfinityLoader size={13} />
@@ -177,19 +186,29 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
       );
     };
     if (!active) return <Reserve>{button(false)}</Reserve>;
-    // The tip gives the same result as the description, then how to build again.
-    const label = (
-      <span className="trellis-build-tip">
-        <span className="trellis-build-tip-headline">{headline}</span>
-        {facts.length > 0 && (
-          <span className="trellis-build-tip-facts">
-            {facts.map((fact, index) => <span key={index}>{fact}</span>)}
-          </span>
-        )}
-        <span className="trellis-build-tip-hint">{t`⌘S · ⇧-click for a clean rebuild`}</span>
-      </span>
+    // The card gives the same result as the description, pass by pass, then
+    // how to build again; before any build, only what the button does. It is
+    // one card in every state, so the first build does not remount the button
+    // under the press that started it.
+    const place = !building && lastBuild
+      ? [lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)].filter(Boolean).join(" · ")
+      : null;
+    return (
+      <HoverCard open={cardOpen} onOpenChange={(open) => setCardOpen(open && !pressedRef.current)} openDelay={280} closeDelay={120}>
+        <HoverCardTrigger asChild>{button(true)}</HoverCardTrigger>
+        <HoverCardContent align="end" className="trellis-build-card">
+          <BuildSequence
+            building={building}
+            progress={tools.buildProgress}
+            outcome={building ? null : lastBuild}
+            place={place}
+            idle={headline}
+            hint={t`⌘S · ⇧-click for a clean rebuild`}
+            onProblem={() => controller.bridge?.nextBuildProblem()}
+          />
+        </HoverCardContent>
+      </HoverCard>
     );
-    return <Tip label={label}>{button(true)}</Tip>;
   }
   if (which === null) return null;
   // Edit, Split and Preview: a Markdown, HTML or .bib file's, and a Paper's beside its Blog/Paper switch.

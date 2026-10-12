@@ -90,6 +90,11 @@ msgstr "{0} inline references, compared but not edited"
 msgid "{0} packages"
 msgstr "{0} packages"
 
+#. placeholder {0}: formatCount(outcome.pages)
+#: src/trellis/trellis-build-sequence.tsx
+msgid "{0} pages"
+msgstr "{0} pages"
+
 #. placeholder {0}: tally.verified
 #. placeholder {1}: tally.updates
 #. placeholder {2}: tally.review
@@ -520,6 +525,10 @@ msgstr "1 line"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "1 page"
+msgstr "1 page"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 page over"
@@ -1209,6 +1218,7 @@ msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "Bibliographic citation (requires natbib or compatible package)"
 
 #: src/editor/latex/latex-diagnostics.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "bibliography"
 msgstr "bibliography"
 
@@ -1406,6 +1416,7 @@ msgid "Build and show the PDF"
 msgstr "Build and show the PDF"
 
 #: src/build/build-result-text.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "Build failed"
 msgstr "Build failed"
 
@@ -1474,6 +1485,7 @@ msgid "Build your LaTeX project to see the typeset paper"
 msgstr "Build your LaTeX project to see the typeset paper"
 
 #: src/pdf/pdf-viewer.tsx
+#: src/trellis/trellis-build-sequence.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
 msgstr "Building…"
@@ -1489,6 +1501,7 @@ msgid "Builds 1.2 s after you stop typing"
 msgstr "Builds 1.2 s after you stop typing"
 
 #: src/build/build-result-text.ts
+#: src/trellis/trellis-build-sequence.tsx
 msgid "Built"
 msgstr "Built"
 
@@ -3101,6 +3114,10 @@ msgstr "Downloading full text and figures…"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "draft pass {run}"
+msgstr "draft pass {run}"
+
 #: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "Drop figures onto a TeX or Markdown editor, or the Project pane"
@@ -3958,6 +3975,10 @@ msgstr "Git workspace"
 msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "glossary"
+msgstr "glossary"
+
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "go"
@@ -4418,6 +4439,10 @@ msgstr "Indented blockquote for citations."
 #: src/papers/bibliography-audit.tsx
 msgid "Independent metadata unavailable"
 msgstr "Independent metadata unavailable"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "index"
+msgstr "index"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Indigo"
@@ -6224,6 +6249,10 @@ msgstr "Not synced yet"
 msgid "Not verified"
 msgstr "Not verified"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "not written"
+msgstr "not written"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "Note"
@@ -6240,6 +6269,10 @@ msgstr "Nothing is sent or fetched until you resume"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "Nothing matches “{0}”."
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "Nothing to rerun"
+msgstr "Nothing to rerun"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
@@ -6924,6 +6957,10 @@ msgstr "Partial derivative"
 msgid "Partial results for {completed} of {progressTotal} references"
 msgstr "Partial results for {completed} of {progressTotal} references"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "pass {run}"
+msgstr "pass {run}"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Paste"
@@ -6992,6 +7029,10 @@ msgstr "PDF fonts are not the Times that {venue} requires."
 #: src/pdf/pdf-loading.tsx
 msgid "PDF loading progress"
 msgstr "PDF loading progress"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "PDF output"
+msgstr "PDF output"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF page {pageNumber}"
@@ -7094,6 +7135,10 @@ msgstr "Polish suggestion"
 #: src/canvas/proofread-card.tsx
 msgid "Polishing…"
 msgstr "Polishing…"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "PostScript output"
+msgstr "PostScript output"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
@@ -8291,6 +8336,10 @@ msgstr "Row options"
 msgid "Rows"
 msgstr "Rows"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "run {run}"
+msgstr "run {run}"
+
 #: src/App.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
@@ -8921,6 +8970,10 @@ msgstr "sound"
 msgid "Source"
 msgstr "Source"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "source ↔ PDF"
+msgstr "source ↔ PDF"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Source and PDF, linked"
 msgstr "Source and PDF, linked"
@@ -9077,6 +9130,10 @@ msgstr "Start tracking versions"
 #: src/telemetry/app-log.tsx
 msgid "Started"
 msgstr "Started"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "starting"
+msgstr "starting"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Starting Agent"
@@ -9609,6 +9666,10 @@ msgstr "The PDF took too long to load. Try again, or open the article in your br
 #: src/settings/acknowledged-software.ts
 msgid "The PDF viewer"
 msgstr "The PDF viewer"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "the PDF was already up to date"
+msgstr "the PDF was already up to date"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."

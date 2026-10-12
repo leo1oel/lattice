@@ -189,6 +189,19 @@ type EditorNavigation = SyncTexTarget & { id: string };
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
+/** One pass a build ran, as latexmk announced it (`src-tauri/src/latex/build_steps.rs`). */
+export type BuildStep = {
+  /** The program: pdflatex, xelatex, lualatex, bibtex, biber, makeindex, xdvipdfmx, … */
+  tool: string;
+  /** Which run of that tool within the build, from 1. */
+  run: number;
+  /** A draft pass of the cold-build prewarm, which writes no PDF. */
+  draft: boolean;
+  startedMs: number;
+  /** Null while it runs. */
+  durationMs: number | null;
+};
+
 export type BuildResult = {
   success: boolean;
   hasPdf: boolean;
@@ -199,6 +212,12 @@ export type BuildResult = {
   rootDocument: string;
   /** The conference template that document loaded ("NeurIPS"), read from the build's log. */
   venue?: string;
+  /** The passes it ran, in order; none when latexmk found the PDF up to date. */
+  steps: BuildStep[];
+  /** How many pages the last pass wrote, when TeX's log says. */
+  pages: number | null;
+  /** Whether the PDF has its SyncTeX map beside it; null without a PDF. */
+  synctex: boolean | null;
 };
 
 export type PaperSummary = {

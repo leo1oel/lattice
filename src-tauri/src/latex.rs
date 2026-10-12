@@ -1,7 +1,8 @@
 //! LaTeX builds through latexmk, and what they leave behind.
 //!
 //! - `build` runs latexmk for a project's default root document, one build at
-//!   a time and abortable from the UI; `prewarm` shortens a cold first build.
+//!   a time and abortable from the UI; `prewarm` shortens a cold first build;
+//!   `build_steps` times the passes it runs.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab.
 //! - `synctex` maps positions between the compiled PDF and its sources.
@@ -17,6 +18,7 @@ use std::path::{Path, PathBuf};
 
 mod build;
 mod build_log;
+mod build_steps;
 mod engine_mismatch;
 mod prewarm;
 mod synctex;
@@ -29,6 +31,7 @@ mod venue;
 pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
+pub use build_steps::{BuildStep, BuildSteps};
 pub use synctex::{
     body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
 };
@@ -92,6 +95,12 @@ pub struct BuildResult {
     /// project's first page.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub venue: Option<&'static str>,
+    /// The passes latexmk (and any draft prewarm) ran, in order.
+    pub steps: Vec<BuildStep>,
+    /// How many pages the last pass wrote, as TeX's log says.
+    pub pages: Option<u32>,
+    /// Whether the PDF has its SyncTeX map beside it; absent with no PDF.
+    pub synctex: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

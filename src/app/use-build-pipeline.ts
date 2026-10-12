@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type { BuildResult, ProjectSnapshot } from "../app-types";
+import type { BuildResult, BuildStep, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import {
   diagnosticsFingerprint, flattenProjectPaths, missingTexDependencyFile, resolveDiagnosticPath, sortDiagnostics,
@@ -15,7 +15,8 @@ import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
-import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
+import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./effect-helpers";
+import { listenInThisWindow } from "./window-events";
 import { showError, showNotice } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
@@ -38,7 +39,50 @@ export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status:
   counts: DiagnosticCounts;
   rootDocument: string | null;
   finishedAt: number;
+  /** The passes it ran, how many pages it wrote and whether SyncTeX came with them (see BuildResult). */
+  steps: BuildStep[];
+  pages: number | null;
+  synctex: boolean | null;
+  /** The problem the writer meets first (an error before a warning), for the Build button's sequence. */
+  issue: CompileDiagnostic | null;
 };
+
+/**
+ * The passes of the build running now, as the backend announces them
+ * (`build-progress`), and when it started on `performance.now()`'s clock, so
+ * the pass still running can count its own time.
+ */
+export type BuildProgress = { steps: BuildStep[]; startedAt: number };
+
+/**
+ * The running build's progress, held outside React state: only the Build
+ * button's card reads it, and only while it is open, so a pass starting
+ * re-renders that card and nothing else (App, the panels' headers).
+ */
+export type BuildProgressStore = {
+  get: () => BuildProgress | null;
+  subscribe: (listener: () => void) => () => void;
+};
+
+function createProgressStore(): BuildProgressStore & { set: (next: BuildProgress | null) => void } {
+  let value: BuildProgress | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    set: (next) => {
+      if (next === value) return;
+      value = next;
+      for (const listener of [...listeners]) listener();
+    },
+  };
+}
+
+const BUILD_PROGRESS_EVENT = "build-progress";
+type BuildProgressEvent = { projectRoot: string; progressId: number | null; elapsedMs: number; steps: BuildStep[] };
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
 type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
@@ -144,6 +188,9 @@ export function useBuildPipeline({
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
   const [building, , buildingRef, setBuilding] = useRefState(false);
+  const [progress] = useState(createProgressStore);
+  /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
+  const progressIdRef = useRef(0);
   const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
   const [cleaning, setCleaning] = useState(false);
   /** The text each build compiled, so diagnostics only show against the text they describe. */
@@ -299,6 +346,14 @@ export function useBuildPipeline({
     else queueRef.current.consumeAgentAssociations = false;
   }, []);
 
+  useEffect(() => subscribeTauriEvent<BuildProgressEvent>(
+    (deliver) => listenInThisWindow(BUILD_PROGRESS_EVENT, deliver),
+    ({ projectRoot: root, progressId, elapsedMs, steps }) => {
+      if (progressId !== progressIdRef.current || root !== projectRef.current?.root || !buildingRef.current) return;
+      progress.set({ steps, startedAt: performance.now() - elapsedMs });
+    },
+  ), [buildingRef, progress, projectRef]);
+
   const { takePendingCompiles, reportCompiles } = agent;
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
     const queue = queueRef.current;
@@ -386,9 +441,12 @@ export function useBuildPipeline({
         // it when it is a compilable root — recomputed each pass because a
         // queued rebuild may run after the editor moved to another document.
         const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex") ? activeFileRef.current : null;
+        // Each pass starts its sequence afresh; the backend fills it in as latexmk runs.
+        const progressId = ++progressIdRef.current;
+        progress.set({ steps: [], startedAt: performance.now() });
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
         const result = await diagnosticInvoke<BuildResult>(
-          "build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id },
+          "build_project", { force: currentForce, projectRoot, documentPath, progressId }, { operationId: trace.id },
         ).catch((reason) => {
           if (!scopeIsCurrent()) return null;
           compiledRef.current = null;
@@ -425,7 +483,16 @@ export function useBuildPipeline({
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
-        const report = { counts: summarizeDiagnostics(result.diagnostics), rootDocument: result.rootDocument || null, finishedAt: Date.now() };
+        const issue = sortDiagnostics(result.diagnostics).find((item) => item.level === "error" || item.level === "warning") ?? null;
+        const report = {
+          counts: summarizeDiagnostics(result.diagnostics),
+          rootDocument: result.rootDocument || null,
+          finishedAt: Date.now(),
+          steps: result.steps,
+          pages: result.pages,
+          synctex: result.synctex,
+          issue,
+        };
         setOutcome(result.success
           ? { status: "succeeded", seconds: result.durationMs / 1000, ...report }
           : cancelled ? null : { status: "failed", ...report });
@@ -496,7 +563,10 @@ export function useBuildPipeline({
       if (scopeIsCurrent()) {
         compiledRef.current = null;
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
-        setOutcome({ status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now() });
+        setOutcome({
+          status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now(),
+          steps: [], pages: null, synctex: null, issue: null,
+        });
         completionSound = "error";
         if (isMissingTexBuildError(toMessage(reason))) onMissingTex();
       }
@@ -505,6 +575,7 @@ export function useBuildPipeline({
       const queued = queue.force === null ? null : { ...queue, force: queue.force };
       Object.assign(queue, IDLE_QUEUE);
       setBuilding(false);
+      progress.set(null);
       runningBuildRef.current = null;
       settle();
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) playInterfaceSound(completionSound);
@@ -516,7 +587,7 @@ export function useBuildPipeline({
       }
     }
   }, [
-    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
+    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef, reportCompiles,
     savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
 
@@ -591,6 +662,7 @@ export function useBuildPipeline({
     build,
     setBuild,
     building,
+    progress,
     outcome,
     cleaning,
     compiledSources,
@@ -610,7 +682,7 @@ export function useBuildPipeline({
     cleanProject,
     cleanAndRebuild,
   }), [
-    abortBuild, build, building, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
+    abortBuild, build, building, progress, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
     diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl,
     resetForProject, resetQueue, runBuild,
   ]);
