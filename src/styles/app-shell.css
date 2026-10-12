@@ -790,16 +790,16 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
   .paper-row > .paper-snippet { grid-area: snippet; }
   .paper-row > .paper-tags { grid-area: tags; margin: 0; justify-content: flex-end; }
 }
-/* Drawing beside the text, both on a quiet plate that reads as part of the
-   list rather than a drop zone. */
-.papers-empty-state { margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
+/* Drawing beside the text, straight on the panel: the panel is already the
+   card, so a plate here would be a card inside it. */
+.papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
 .papers-empty-text { min-width: 0; display: grid; gap: var(--space-1); }
-.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: 600; }
-.papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.45; }
-/* The empty library: the card box on the plate's own raised paper, and the
-   action that takes the writer to the import field above. */
-.papers-empty-state[data-library="empty"] { --art-paper: var(--surface-panel-raised); padding: var(--space-4); gap: var(--space-3); }
-.papers-empty-state[data-library="empty"] .research-art { width: 52px; }
+.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
+.papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* The empty library: the card box, and the action that takes the writer to
+   the import field above. */
+.papers-empty-state[data-library="empty"] { padding: var(--space-4); gap: var(--space-4); }
+.papers-empty-state[data-library="empty"] .research-art { width: 64px; }
 .papers-empty-state[data-library="empty"] p { margin-bottom: var(--space-1); }
 .papers-empty-state .ui-button { justify-self: start; max-width: 100%; }
 .import-box { overflow: hidden; }
