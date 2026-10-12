@@ -83,18 +83,18 @@ The read-only `read_editor_comments` tool uses the authenticated host relay to q
 Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
 Neither the context nor the tool mutates comments.
 
-The fork as a whole is **not** small. Measured on 2026-10-08 against upstream
-`v1.0.1` (`f44ce959bdeedf5e2dfe117d362ef4e08386b3c3`), the current integration changes
-**624 files, +60,298 / −6,976 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-12 against upstream
+`v1.0.3` (`9e01962e0b1e8fec9fb0e17f17a64017bc4eaf94`), the current integration changes
+**652 files, +62,676 / −7,169 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.1 HEAD
+git diff --shortstat v1.0.3 HEAD
 ```
 
-The current pin is the upstream **1.0.1 stable release**, merged with the complete previous
-`amp/lattice-v1.0.0-sync` history. Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.3 stable release**, merged with the complete previous
+`amp/lattice-v1.0.1-sync` history (which carries the earlier `amp/lattice-v1.0.0-sync` history). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -180,8 +180,17 @@ Lattice uses the Stable feature boundary on both the server and embedded web sur
 Upstream otherwise treats a loopback HTTP host without a Synara desktop bundle identity as a standalone host and enables Beta-only features.
 OMP remains unavailable in Lattice, and the embedded UI does not show the Beta welcome or installation surfaces.
 Synara 1.0.0 moved Inbox and Auto-fix CI into Stable, so Lattice's embedded pull-request controls now offer upstream's opt-in Auto-fix CI watcher.
-Synara 1.0.1 moved Tasks into Stable as well; it lives in the standalone sidebar and Inbox, which Lattice does not embed. Groups remain Beta-only.
+Synara 1.0.1 moved Tasks into Stable as well; it lives in the standalone sidebar and Inbox, which Lattice does not embed.
+Synara 1.0.2 moved Hubs (formerly Groups) and their Library into Stable, so no feature is Beta-only any more; Hubs live in the standalone rail and sidebar, which Lattice does not embed either.
 Standalone Synara retains its upstream flavor behavior, and the Computer Use boundary above remains unchanged.
+
+### Synara 1.0.3 compatibility
+
+The 1.0.3 integration (through 1.0.2) adds compact subagent run cards and background-task rows to the transcript, turn headers for stopped and interrupted turns, a follow-up queue that pauses after Stop, an error or a usage limit, faster transcript recovery, and Claude's optional cold-cache resume prompt (**Ask before resuming a long idle session**, under the Claude provider settings).
+Their embedded-panel copy is in the zh-CN catalog.
+Upstream's chat-managed Tasks tools (`synara_create_todo`, `synara_list_todos`, `synara_update_todo`) have no Lattice alias, so `adaptToolsForActiveHost` drops them: Tasks has no surface in Lattice, and a to-do list the writer cannot see would only confuse the agent's task vocabulary.
+Provider enablement stays ungated in the Lattice profile; the new per-account instance list still reaches the gateway and External MCP callers.
+The fork treats `defaults read com.openai.codex` answering "Domain … not found" (macOS 27's wording for a user who never ran Codex) as no managed preference, so Proofread's isolated Codex path no longer fails closed there.
 
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **28** names that pass the filter *without* being
 renamed. They are not all Lattice code:
@@ -368,10 +377,9 @@ Keep the previous checkout available until the upgrade audit passes.
 4. Run `oxfmt --check`, then the workspace type checks, then the tests.
    Before changing the pin, run the Lattice browser regressions from the fork root (subject to the fork's `AGENTS.md` verification permissions):
    ```sh
-   bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t 'embedded sidebar'
-   bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx
+   bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx src/components/chat/MessageTrail.browser.tsx
    ```
-   The sidebar checks must cover widening and shrinking the same mounted view, loaded and loading model controls, responsive history popups, and attachment minimums.
+   The fork's `ChatView.browser.tsx` no longer has its `embedded sidebar` checks, so verify the narrow-panel behavior in the app instead. It must cover widening and shrinking the same mounted view, loaded and loading model controls, responsive history popups, and attachment minimums.
    Verify minimum-width reports against rendered geometry; unused toolbar space must remain compressible, without clipping the send control.
    A closed history menu must not reserve its preferred width, and Lattice must accept measured widths below its bootstrap minimum.
    Keep these regressions with the fork changes through merges; successful compilation alone does not verify Lattice's embedding behavior.
