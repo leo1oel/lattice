@@ -245,6 +245,13 @@
   --form-control-disabled-opacity: 0.45;
   --control-hover-surface: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --control-pressed-surface: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  /* A disabled Button, whatever its variant: the shape stays as a faint
+     outlined slab and the ink steps back, so a disabled primary never reads
+     as a grey button that still works. Icon-only controls, switches and
+     checkboxes have no slab to keep and fade by the opacity instead. */
+  --control-disabled-surface: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  --control-disabled-border: color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  --control-disabled-ink: color-mix(in srgb, var(--text-secondary) 62%, transparent);
   --control-disabled-opacity: 0.42;
   --control-off-surface: var(--border-strong);
   --control-on-surface: var(--control-active);
@@ -260,6 +267,7 @@
      wash, so the label stays --text-primary (9:1 or more in every preset). */
   --control-tinted-surface: color-mix(in srgb, var(--control-active) 12%, transparent);
   --control-tinted-hover-surface: color-mix(in srgb, var(--control-active) 18%, transparent);
+  --control-tinted-pressed-surface: color-mix(in srgb, var(--control-active) 24%, transparent);
   --search-clear-width: 20px;
   --search-clear-height: 22px;
   --segmented-surface: var(--border-subtle);
@@ -526,10 +534,16 @@
   --chrome-hover-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
   /* Keyboard focus is one ring, declared once and drawn by the global
      `:focus-visible` rule in styles/app-shell.css. Components size it through
-     these roles instead of hand-rolling a per-component shadow. */
+     these roles instead of hand-rolling a per-component shadow. The 2px gap
+     keeps the ring off a filled control's own edge. */
   --focus-ring: var(--focus);
   --focus-ring-width: 2px;
-  --focus-ring-offset: 1px;
+  --focus-ring-offset: 2px;
+  /* Where a dragged tab or panel will land (Trellis's drop slot): the focus
+     ring's colour as a faint wash over a veil of the panel, so the drop
+     label reads over a page, and the same colour as its edge. */
+  --drop-target-edge: var(--focus);
+  --drop-target-surface: color-mix(in srgb, var(--drop-target-edge) 8%, color-mix(in srgb, var(--surface-panel) 80%, transparent));
   --status-success: var(--success);
   --status-success-soft: color-mix(in srgb, var(--success) 12%, transparent);
   --status-warning: var(--warning);
@@ -577,6 +591,7 @@
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
   --status-danger-soft-hover: color-mix(in srgb, var(--danger) 18%, transparent);
+  --status-danger-soft-pressed: color-mix(in srgb, var(--danger) 24%, transparent);
 
   /* Tone-relative surfaces.
    *

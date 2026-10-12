@@ -72,9 +72,10 @@
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
-   held mid-drag rises to the dialog level's shadow behind a firmer edge. */
+   held mid-drag rises to the dialog level's shadow behind the drop target's
+   blue edge. */
 .lattice-trellis [data-trellis-part="panel"][data-floating] { box-shadow: var(--elevation-floating); }
-.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px var(--border-strong), var(--elevation-dialog-shadow); }
+.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--drop-target-edge) 45%, var(--border-subtle)), var(--elevation-dialog-shadow); }
 
 /* ---------------------------------------------------------------- header
    Browser-style tabs. Every panel's header is the same strip, a shade darker
@@ -384,9 +385,31 @@
 .lattice-trellis [data-trellis-part="divider"][data-axis="x"]::after { left: calc(50% - 1px); width: var(--space-1); }
 .lattice-trellis [data-trellis-part="divider"][data-axis="y"]::after { top: calc(50% - 1px); height: var(--space-1); }
 
-/* ---------------------------------------------------------------- drop previews */
-.lattice-trellis [data-trellis-part="drop-slot"] { border-radius: var(--radius-surface); }
-.lattice-trellis [data-trellis-part="drop-label"] { border-radius: var(--radius-pill); font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
+/* ---------------------------------------------------------------- drop previews
+   Where a dragged tab or panel will land takes the drop target's wash and a
+   blue edge, a tab's target and a split's alike, and its label ("Add as
+   tab") sits in a lifted pill, so it reads over a page of PDF text. */
+.lattice-trellis [data-trellis-part="drop-slot"] {
+  border-radius: var(--radius-surface);
+  background: var(--drop-target-surface);
+  box-shadow: inset 0 0 0 var(--focus-ring-width) var(--drop-target-edge);
+}
+.lattice-trellis [data-trellis-part="drop-label"] {
+  max-width: calc(100% - 2 * var(--space-6));
+  padding: var(--space-3) var(--space-6);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A split's slot keeps the label element with no text; it draws no pill. */
+.lattice-trellis [data-trellis-part="drop-label"]:empty { display: none; }
 .lattice-trellis [data-trellis-part="snap-preview"] span,
 .lattice-trellis [data-trellis-part="marquee-target"] span { font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
 
@@ -539,6 +562,33 @@
    secondary, and neither a filled tile. */
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { color: var(--text-primary); }
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="false"]:not(:hover) { color: var(--titlebar-toggle-off-ink); }
+/* The command palette's home: a quiet well in the bar's middle, centred on
+   the window as far as its margins reach (useWindowCentred). It gives up its
+   width before anything else (the steep shrink), down to where the
+   placeholder still reads, then the titlebar folds it to its icon at the
+   start of the controls on the right. */
+.trellis-titlebar .trellis-titlebar-search {
+  flex: 0 100 320px;
+  min-width: 200px;
+  margin-inline: auto;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  transition: background-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.trellis-titlebar .trellis-titlebar-search:hover { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.trellis-titlebar-search > svg { flex: none; }
+.trellis-titlebar-search-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: start; }
+.trellis-titlebar-search-keys { flex: none; }
+.trellis-titlebar[data-search-folded] .trellis-titlebar-search {
+  flex: none; width: var(--control-height-compact); min-width: 0;
+  margin-inline: auto 0; padding: 0; justify-content: center;
+  background: transparent; box-shadow: none;
+}
+.trellis-titlebar[data-search-folded] .trellis-titlebar-search:hover { background: var(--chrome-hover-surface); }
+.trellis-titlebar[data-search-folded] :is(.trellis-titlebar-search-label, .trellis-titlebar-search-keys) { display: none; }
 /* The layout switch: a hairline track beside the panel controls, the chosen
    workspace a raised plate that slides between them. Short of room (measured
    by the titlebar, which marks itself data-compact), the workspaces fold into
@@ -612,14 +662,16 @@
   outline: none;
 }
 .trellis-workspace-name-input[aria-invalid="true"] { box-shadow: 0 0 0 var(--focus-ring-width) var(--control-invalid-border); }
+/* Each step leaves room for the search field folded to its icon, which no
+   step sheds: the palette has no other place in the bar. */
 /* Maximize and Reset layout close the Panels menu. */
-@container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
+@container trellis-titlebar (max-width: 444px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */
-@container trellis-titlebar (max-width: 330px) { .trellis-titlebar-panel-toggles { display: none; } }
+@container trellis-titlebar (max-width: 374px) { .trellis-titlebar-panel-toggles { display: none; } }
 /* The Panels menu switches the layout too. */
-@container trellis-titlebar (max-width: 220px) { .trellis-titlebar-presets { display: none; } }
+@container trellis-titlebar (max-width: 264px) { .trellis-titlebar-presets { display: none; } }
 /* The menu keeps its accessible name when only its icon is left. */
-@container trellis-titlebar (max-width: 115px) { .trellis-titlebar-menu > span { display: none; } }
+@container trellis-titlebar (max-width: 159px) { .trellis-titlebar-menu > span { display: none; } }
 .trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: clip; }
 /* Chips shrink to an ellipsis each rather than clip, so every visible chip
    keeps its own pointer target. */

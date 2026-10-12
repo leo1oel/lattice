@@ -35,6 +35,7 @@ export const LATEX_SHORTCUTS = {
   definition: { key: "F12", label: msg`Go to definition` },
   references: { key: "Shift-F12", label: msg`Find references` },
   renameSymbol: { key: "F2", label: msg`Rename label or citation` },
+  citationCard: { key: "Mod-Alt-k", label: msg`Show the citation card` },
   // Bound by the Proofread card's own keymap (proofread-anchor), which also takes ⌘↵ and Escape while a card is open.
   proofread: { key: "Mod-Alt-p", label: msg`Proofread the selection` },
 } satisfies Record<string, { key: string; label: MessageDescriptor; scope?: "search-panel" }>;

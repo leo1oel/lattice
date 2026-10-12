@@ -191,6 +191,8 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
+/** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
+const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
@@ -1351,15 +1353,17 @@ function App() {
       label: preset === "writing" ? t`Switch to the Writing layout` : t`Switch to the Reading layout`,
       run: () => trellis.setPreset(preset),
     })),
-    // Project, Papers and the Agent toggle, as their titlebar buttons do; every other panel and tool is shown.
+    // Project, Papers and the Agent toggle, as their titlebar buttons do, on ⌘⌥1 to ⌘⌥3 in the
+    // titlebar's order (⌘1 to ⌘9 are the workspaces); every other panel and tool is shown.
     ...SINGLETON_PANELS.map((kind): AppCommand => {
       const name = i18n._(PANEL_TITLES[kind]);
-      const toggled = kind === "project" || kind === "papers" || kind === "agent";
-      const hide = toggled && trellis.panelState(kind) === "shown";
+      const toggleKey = PANEL_TOGGLE_KEYS[kind];
+      const hide = toggleKey !== undefined && trellis.panelState(kind) === "shown";
       return {
         id: `panel-${kind}`, when: inProject, group: "layout",
         label: spaceMixedScript(hide ? t({ message: `Hide ${name} panel` }) : t({ message: `Show ${name} panel` })),
-        run: () => (toggled ? trellis.togglePanel(kind) : trellis.showPanel(kind)),
+        ...(toggleKey ? { key: toggleKey, alt: true } : {}),
+        run: () => (toggleKey ? trellis.togglePanel(kind) : trellis.showPanel(kind)),
       };
     }),
     // A Markdown or HTML file's or a Paper's Edit, Split and Preview, under the names their switch gives them.
@@ -1448,6 +1452,11 @@ function App() {
     { id: "settings", label: t`Open settings`, group: "project", key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
+  // The titlebar's search field is the palette's visible home. The titlebar
+  // only re-renders with the workspace, so it gets one stable opener.
+  const openCommandPaletteRef = useLatestRef(openCommandPalette);
+  const openPaletteFromTitlebar = useCallback(() => openCommandPaletteRef.current(), [openCommandPaletteRef]);
+  const paletteShortcut = commandShortcutText(commands, "palette") ?? undefined;
   // The welcome screen's shortcuts are listed too.
   const shortcutSheet = commandOverlay?.kind === "shortcuts" && (
     <Suspense fallback={null}>
@@ -1825,7 +1834,7 @@ function App() {
           onExportZip: () => void exportProjectZip(),
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
-        panelControls={<TrellisTitlebar controller={trellis} />}
+        panelControls={<TrellisTitlebar controller={trellis} onSearch={openPaletteFromTitlebar} searchShortcut={paletteShortcut} />}
         focusBar={focusMode ? (
           <FocusModeBar
             controller={trellis}

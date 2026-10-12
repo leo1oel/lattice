@@ -10,6 +10,7 @@ import {
   proofreadContext,
   protectedChange,
   reviewProofread,
+  withReasons,
   type ProofreadContext,
 } from "../agent/proofread-edits";
 import { proofreadAnchor, setProofreadAnchorEffect } from "../editor/proofread-anchor";
@@ -88,7 +89,10 @@ type PendingRequest = { view: EditorView; mode: ProofreadMode };
  * new one replaces it.
  */
 function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject<PendingRequest | null> }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
+  // The agent writes its notes on each edit in the interface's language.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- model input, not interface copy
+  const language = i18n.locale.startsWith("zh") ? "Simplified Chinese" : "English";
   const { bridge, pendingRef, viewRef } = options;
   const [session, setSession] = useState<ProofreadSession | null>(null);
   const sessionRef = useLatestRef(session);
@@ -128,8 +132,13 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
       return;
     }
     const { projectRoot } = optionsRef.current;
-    proofreadWithAgent({ projectRoot, path, text: original, mode, signal: controller.signal }).then(
-      ({ text, model }) => settle({ status: "ready", review: reviewProofread(original, text, context), rejected: new Set(), model }),
+    proofreadWithAgent({ projectRoot, path, text: original, mode, language, signal: controller.signal }).then(
+      ({ text, reasons = [], model }) => settle({
+        status: "ready",
+        review: withReasons(reviewProofread(original, text, context), original, reasons),
+        rejected: new Set(),
+        model,
+      }),
       (error: unknown) => {
         if (controller.signal.aborted) return;
         // Asking again cannot help a runtime that has no text tasks.
@@ -137,7 +146,7 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
         settle({ status: "error", message: failureMessage(error), retryable });
       },
     );
-  }, [failureMessage, optionsRef, t, viewRef]);
+  }, [failureMessage, language, optionsRef, t, viewRef]);
 
   const close = useCallback(() => {
     const active = runRef.current;
@@ -244,7 +253,6 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
 
   return session && session.path === options.activeFile ? createPortal(
     <ProofreadCard
-      path={session.path}
       original={session.original}
       mode={session.mode}
       state={session.state}

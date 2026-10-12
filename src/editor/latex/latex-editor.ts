@@ -7,6 +7,7 @@ import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchK
 import { Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, tooltips, type Command, type KeyBinding } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
+import type { PaperSummary } from "../../app-types";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { withoutAppShortcuts } from "../editor-app-shortcuts";
@@ -25,7 +26,9 @@ import {
 import {
   beginEnvironmentClose, enclosingEnvironment, enclosingEnvironmentRange, environmentAt, matchingEnvironmentTarget,
 } from "./latex-environments";
-import { citationTooltips, citationTooltipSpace, graphicsTooltips, referenceTooltips } from "./latex-hover-cards";
+import {
+  citationCardAtCursor, citationTooltips, citationTooltipSpace, graphicsTooltips, referenceTooltips,
+} from "./latex-hover-cards";
 import {
   CITATION_COMMANDS, citationCompletionRange, definitionTargetAt, shouldInsertCommandBraces, symbolAt,
 } from "./latex-symbols";
@@ -73,6 +76,12 @@ export type LatexEditorLiveData = {
   projectPaths: string[];
   onOpenCitation?: (key: string) => void;
   canOpenCitation?: (key: string) => boolean;
+  /** The library, for a citation card's Crossref health; matched by citation key. */
+  papers?: PaperSummary[];
+  /** With the revision below, what a citation card's count of uses was scanned for. */
+  projectRoot?: string;
+  /** Changes after the manuscript was saved, so a citation card counts its uses again. */
+  citationUsageRevision?: unknown;
   spellingWords: string[];
   onAddSpellingWord?: (word: string) => boolean | Promise<boolean>;
 };
@@ -242,6 +251,7 @@ export function latexCommandKeymap(host: {
   gotoDefinition: Command;
   findReferences: Command;
   renameSymbol: Command;
+  citationCard?: Command;
   wrapEnvironment?: () => void;
   renameEnvironment?: (currentName: string) => void;
 }): KeyBinding[] {
@@ -271,6 +281,7 @@ export function latexCommandKeymap(host: {
     bind("definition", host.gotoDefinition),
     bind("references", host.findReferences),
     bind("renameSymbol", host.renameSymbol),
+    bind("citationCard", host.citationCard ?? (() => false)),
     bind("matchingEnvironment", (view) => {
       const text = view.state.doc.toString();
       const head = view.state.selection.main.head;
@@ -325,7 +336,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
   };
   return [
     ...textEditorExtensions(options.spellcheck, options.live, options.onPasteImage),
-    citationTooltips(live),
+    citationTooltips(live, onGotoDefinition),
     referenceTooltips(live, options.loadReferenceImage),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
@@ -389,6 +400,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       gotoDefinition: (view) => gotoDefinition(view, view.state.selection.main.head),
       findReferences: symbolCommand(onFindReferences),
       renameSymbol: symbolCommand(onRenameSymbol),
+      citationCard: citationCardAtCursor(live, onGotoDefinition),
       wrapEnvironment: onWrapEnvironment,
       renameEnvironment: onRenameEnvironment,
     }))),
