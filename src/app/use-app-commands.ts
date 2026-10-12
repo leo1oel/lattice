@@ -6,7 +6,7 @@ import type { PaletteSection } from "./palette-sections";
 /**
  * One app-level action, as the command palette lists it (entries with a
  * label) and as the window's shortcuts reach it (entries with a key: with ⌘
- * or Ctrl unless `mod` is false; `shift` must match). `when: false` hides an
+ * or Ctrl unless `mod` is false; `shift` and `alt` must match). `when: false` hides an
  * entry and disables its key. The shortcut sheet lists every keyed entry
  * under its label, so a key without one is a key nobody can find.
  */
@@ -22,6 +22,8 @@ export type AppCommand = {
   /** The key as KeyboardEvent.key names it, lower-cased: "s", "?", "enter", "f8". */
   key?: string;
   shift?: boolean;
+  /** ⌥ (Option) is held too. */
+  alt?: boolean;
   /** False for a key pressed alone (F8), without ⌘ or Ctrl. */
   mod?: false;
   /**
@@ -43,8 +45,8 @@ export type AppCommand = {
 };
 
 /** A keyed command's combination, for the palette, the sheet and any menu that repeats it. */
-export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "mod">): KeyCombo | null {
-  return command.key ? { key: command.key, mod: command.mod !== false, shift: command.shift } : null;
+export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod">): KeyCombo | null {
+  return command.key ? { key: command.key, mod: command.mod !== false, shift: command.shift, alt: command.alt } : null;
 }
 
 /** A command's keys as one string ("⌘P"), for a hint beside another control that runs it. */
@@ -55,7 +57,7 @@ export function commandShortcutText(commands: readonly AppCommand[], id: string)
 }
 
 /** The keycaps the palette draws beside `command`: its key's, else the `shortcut` bound elsewhere. */
-export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "mod" | "shortcut">): string[] | null {
+export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod" | "shortcut">): string[] | null {
   const combo = commandCombo(command) ?? command.shortcut;
   return combo ? comboKeys(combo) : null;
 }
@@ -82,12 +84,16 @@ export function useAppCommands(commands: AppCommand[]) {
     const onKeyDown = (event: KeyboardEvent) => {
       // A key an IME is composing, or one a focused surface already handled
       // (a spreadsheet cell's ⌘⇧L, a board's ⌘G), is not the app's to run.
-      if (event.isComposing || event.defaultPrevented || event.altKey) return;
+      if (event.isComposing || event.defaultPrevented) return;
       const mod = event.metaKey || event.ctrlKey;
       // ⌘? is ⌘⇧/; a keyboard that reports the unshifted key still means it.
-      const key = event.key === "/" && event.shiftKey ? "?" : event.key.toLocaleLowerCase();
+      // ⌥ types another character on a Mac (⌥1 is ¡), so with ⌥ held a digit
+      // or letter is read from the key's position instead.
+      const key = event.altKey && /^(Digit\d|Key[A-Z])$/.test(event.code)
+        ? event.code.slice(-1).toLocaleLowerCase()
+        : event.key === "/" && event.shiftKey ? "?" : event.key.toLocaleLowerCase();
       const command = commandsRef.current.find((item) => (
-        item.key === key && Boolean(item.shift) === event.shiftKey && (item.mod !== false) === mod
+        item.key === key && Boolean(item.shift) === event.shiftKey && Boolean(item.alt) === event.altKey && (item.mod !== false) === mod
       ));
       if (!command || command.when === false) return;
       event.preventDefault();
