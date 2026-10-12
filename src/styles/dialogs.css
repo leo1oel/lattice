@@ -131,20 +131,41 @@
 .status-todos.has-todos { color: var(--control-active); font-weight: 600; }
 .status-todos:hover { color: var(--text-primary); }
 .checklist-drawer { width: min(420px, 100%); }
+/* The verdict first, in the title serif: whether anything stands between the
+   manuscript and submission. The track below it gives each check one segment
+   in the order of the rows, so a glance finds which ones are holding it. */
+.checklist-summary {
+  margin-bottom: var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  border-radius: var(--radius-panel);
+  background: var(--surface-panel-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.checklist-verdict { margin: 0; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
+.checklist-summary-detail { margin: var(--space-1) 0 var(--space-5); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.checklist-track { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); height: 4px; }
+.checklist-track > span { border-radius: var(--radius-pill); background: var(--border-strong); }
+.checklist-track > [data-state="ok"] { background: var(--status-success); }
+.checklist-track > [data-state="warn"] { background: var(--status-warning); }
 /* One grouped list, divided by hairlines, rather than a stack of outlined
-   cards; a result's color lives on its value alone. */
+   cards. Each row leads with its result as a mark; the values stay in ink, so
+   colour is the mark's alone and never the only carrier of a result. */
 .checklist-rows {
   margin-bottom: var(--space-8);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  background: var(--surface-app);
+  background: var(--surface-panel-raised);
   overflow: hidden;
   display: grid;
+  container: checklist-rows / inline-size;
 }
 .checklist-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
+  /* The label keeps its words whole and the value gives way first, wrapping
+     at its " / ", so a narrow panel or a large budget never breaks a label
+     letter by letter. */
+  grid-template-columns: 18px minmax(min-content, 1fr) auto;
+  align-items: center;
   gap: var(--space-1) var(--space-5);
   padding: var(--space-5) var(--space-6);
   border: 0;
@@ -156,17 +177,27 @@
 .checklist-row + .checklist-row { border-top: 1px solid var(--border-subtle); }
 button.checklist-row { cursor: pointer; transition: background-color var(--motion-fast); }
 button.checklist-row:hover { background: var(--control-hover-surface); }
-.checklist-row strong { font-size: var(--type-caption-size); font-weight: 600; }
-.checklist-row span { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: end; font-size: var(--type-caption-size); font-weight: 650; font-variant-numeric: tabular-nums; }
-.checklist-row span svg { color: var(--text-tertiary); }
-.checklist-row small { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.checklist-row.ok span { color: var(--status-success); }
-.checklist-row.warn span { color: var(--status-danger); }
-/* A quiet hairline gauge: the fill takes the row's result color at reduced
-   strength, and an overshoot past the limit mark reads in full danger. */
+/* On the label's first line, centred on its 20px leading, even when the label wraps. */
+.checklist-status { align-self: start; position: relative; top: 1px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--border-subtle); color: var(--text-secondary); }
+.checklist-status svg { stroke-width: 2.25; }
+.checklist-row.ok .checklist-status { background: var(--status-success-soft); color: var(--status-success); }
+.checklist-row.warn .checklist-status { background: var(--status-warning-soft); color: var(--status-warning); }
+.checklist-row strong { font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); word-break: keep-all; overflow-wrap: break-word; }
+.checklist-row span { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: end; text-align: end; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
+.checklist-row span svg { color: var(--text-secondary); }
+/* Too narrow for a label and its value side by side (a tool panel at its
+   minimum width, or a large budget): the value drops under its label. */
+@container checklist-rows (width < 240px) {
+  .checklist-row { grid-template-columns: 18px minmax(0, 1fr); }
+  .checklist-row > span { grid-column: 2; justify-self: start; text-align: start; }
+}
+.checklist-row small { grid-column: 2 / -1; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* A quiet hairline gauge under the label: the fill takes the row's result
+   colour at reduced strength, and an overshoot past the limit mark reads in
+   the full warning the row's mark carries. */
 .checklist-row .checklist-meter {
-  --meter-tone: var(--text-tertiary);
-  grid-column: 1 / -1;
+  --meter-tone: var(--text-secondary);
+  grid-column: 2 / -1;
   justify-self: stretch;
   position: relative;
   display: block;
@@ -177,16 +208,15 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   overflow: hidden;
 }
 .checklist-row.ok .checklist-meter { --meter-tone: var(--status-success); }
-.checklist-row.warn .checklist-meter { --meter-tone: var(--status-danger); }
+.checklist-row.warn .checklist-meter { --meter-tone: var(--status-warning); }
 .checklist-row .checklist-meter > span { position: absolute; inset-block: 0; left: 0; display: block; }
 .checklist-row .checklist-meter-fill { border-radius: inherit; background: color-mix(in srgb, var(--meter-tone) 56%, transparent); }
 /* Over the limit, the allowance itself is not the problem: it greys out and
    only the excess, past a notch at the limit, carries the warning. */
-.checklist-row .checklist-meter.over .checklist-meter-fill { border-radius: var(--radius-pill) 0 0 var(--radius-pill); background: color-mix(in srgb, var(--text-tertiary) 42%, transparent); }
+.checklist-row .checklist-meter.over .checklist-meter-fill { border-radius: var(--radius-pill) 0 0 var(--radius-pill); background: color-mix(in srgb, var(--text-secondary) 42%, transparent); }
 .checklist-row .checklist-meter-over { background: var(--meter-tone); }
-.checklist-row .checklist-meter-over:not(:first-child) { border-left: 2px solid var(--surface-app); }
-.checklist-row small b { color: var(--text-secondary); font-weight: var(--weight-semibold); }
-.checklist-row.warn small b { color: var(--status-danger); }
+.checklist-row .checklist-meter-over:not(:first-child) { border-left: 2px solid var(--surface-panel-raised); }
+.checklist-row small b { color: var(--text-primary); font-weight: var(--weight-semibold); }
 /* One row when the drawer has room; in a narrow one the button wraps to a row
    of its own rather than squeezing the two fields down to an ellipsis. */
 .checklist-budgets {
@@ -201,8 +231,9 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   display: grid;
   gap: var(--space-2);
   color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  font-weight: 600;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--weight-medium);
 }
 .checklist-budgets input {
   height: var(--control-height-default);
@@ -211,7 +242,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   padding: 0 var(--space-4);
   background: var(--field-control-background);
   color: var(--text-primary);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-body-compact-size);
 }
 .checklist-budgets button {
   /* A field's basis, so it never pairs up with a lone field. */
@@ -222,8 +253,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   padding: 0 var(--space-6);
   background: var(--control-active-soft);
   color: var(--control-active);
-  font-size: var(--type-micro-size);
-  font-weight: 650;
+  font-size: var(--type-body-compact-size);
+  font-weight: var(--type-body-compact-weight);
 }
 
 .welcome-screen { width: 100%; height: 100%; background: var(--surface-backdrop); position: relative; overflow: hidden; }

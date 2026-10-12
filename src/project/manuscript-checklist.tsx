@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronRight, ClipboardCheck } from "lucide-react";
+import { Check, ChevronRight, ClipboardCheck, Minus } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -51,6 +51,28 @@ function BudgetMeter(props: { value: number; limit: number }) {
   );
 }
 
+/**
+ * A check's result as a mark, so colour never carries it alone: a tick when it
+ * passes, an exclamation when it needs attention, a dash when it cannot be
+ * settled. Lucide has no bare exclamation, so that one is drawn here from the
+ * strokes of its CircleAlert.
+ */
+function CheckStatus(props: { ok: boolean | null }) {
+  return (
+    <i className="checklist-status" aria-hidden="true">
+      {props.ok == null
+        ? <Minus size={12} />
+        : props.ok
+          ? <Check size={12} />
+          : (
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M12 5v9M12 19h.01" />
+            </svg>
+          )}
+    </i>
+  );
+}
+
 function BudgetRow(props: {
   label: string;
   value: string;
@@ -67,6 +89,7 @@ function BudgetRow(props: {
       className={`checklist-row ${tone}`}
       onClick={props.onClick}
     >
+      <CheckStatus ok={props.ok} />
       <strong>{props.label}</strong>
       <span>{props.value}{props.onClick ? <ChevronRight size={13} aria-hidden="true" /> : null}</span>
       {props.meter ? <BudgetMeter value={props.meter.value} limit={props.meter.limit} /> : null}
@@ -138,6 +161,28 @@ export function ManuscriptChecklistPanel(props: {
     return gap === 1 ? t`1 page over` : t`${gap} pages over`;
   };
 
+  // The verdict reads the same results the rows show. A result that cannot be
+  // settled (no budget, an unmeasured count, no build yet) never counts as a
+  // pass, so "Ready" needs every check to pass, and without a failure the
+  // verdict only says that nothing blocks.
+  const checks = [
+    wordsOk,
+    pagesOk,
+    props.data.todos === 0,
+    props.data.unusedLabels + props.data.unusedCitations === 0,
+    props.data.buildOk,
+  ];
+  const failing = checks.filter((check) => check === false).length;
+  const passing = checks.filter((check) => check === true).length;
+  const unsettled = checks.length - passing - failing;
+  const verdict = failing
+    ? failing === 1 ? t`1 check needs attention` : t`${failing} checks need attention`
+    : unsettled ? t`Nothing blocks submission` : t`Ready to submit`;
+  const summary = notes(
+    t`${passing} of ${checks.length} checks pass`,
+    unsettled ? t`${unsettled} can't be checked yet` : null,
+  );
+
   return (
     <ResizableDrawer className="checklist-drawer" onClose={props.onClose}>
         <PanelHeader
@@ -146,6 +191,15 @@ export function ManuscriptChecklistPanel(props: {
           title={t`Submission checklist`}
           onClose={props.onClose}
         />
+        <div className="checklist-summary">
+          <p className="checklist-verdict">{verdict}</p>
+          <p className="checklist-summary-detail">{summary}</p>
+          <span className="checklist-track" aria-hidden="true">
+            {checks.map((check, index) => (
+              <span key={index} data-state={check == null ? "none" : check ? "ok" : "warn"} />
+            ))}
+          </span>
+        </div>
         <div className="checklist-rows">
           <BudgetRow
             label={t`Body words`}
