@@ -29,7 +29,9 @@ mod venue;
 pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
-pub use synctex::{body_pages, forward_search, inverse_search, BodySpan};
+pub use synctex::{
+    body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
+};
 pub(crate) use venue::document_venue;
 
 /// The document a build compiles: the one marked default, else the first.

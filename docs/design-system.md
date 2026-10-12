@@ -724,6 +724,11 @@ reuse its vocabulary so the product reads as one thing:
   arguments and prose in ink, numbers and operators the one warm voice. Every
   token reads at 4.5:1 or more on the editor, its active line and a focused
   selection, in both themes and under every tint.
+- The source editor's outline rail (`latex-outline-rail.tsx`) marks the
+  section being read in the weft's blue: a place in the paper, like the
+  syntax, not a control's state. The other marks take the secondary ink, and
+  the outline the rail opens selects its current row with a fill as any list
+  does.
 - `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
   empty-state drawings: neutral line work in the host's text color with one
   weft or warp thread. Pass one to `EmptyState`'s `icon`.

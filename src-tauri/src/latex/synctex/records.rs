@@ -259,6 +259,79 @@ pub(super) fn last_page_before(
     last
 }
 
+/// The page each heading is typeset on, by its index among `count`: asked
+/// once per input as SyncTeX declares it, with that input's path, `headings`
+/// answers the index and line of each heading the input holds.
+///
+/// A heading's line is recorded on its own page, and also on the page before
+/// when that page broke at the heading: its header and footer are tagged with
+/// the line TeX was reading then. LaTeX never ends a page on a heading (it
+/// keeps the heading with the first line of text after it), so the heading's
+/// page is the first one where a record of its line is followed by a later
+/// line of the same input. One with no such page (its text comes from an
+/// `\input` or a macro, or runs on along the heading's own line) takes the
+/// last page that records its line, the first time TeX read it.
+pub(super) fn heading_pages(
+    synctex: &str, count: usize, mut headings: impl FnMut(&str) -> Vec<(usize, u32)>,
+) -> Vec<Option<u32>> {
+    // An input TeX opens twice (an `\input` repeated) is declared under two tags.
+    let mut asked: HashMap<(u32, u32), Vec<usize>> = HashMap::new();
+    let mut pages = vec![None; count];
+    let mut recorded = vec![None; count];
+    // Headings this page has recorded the line of (index, tag, line), waiting
+    // for a later line of the same input.
+    let mut waiting: Vec<(usize, u32, u32)> = Vec::new();
+    let mut page = None;
+    for record in synctex.lines() {
+        if let Some((tag, path)) =
+            record.strip_prefix("Input:").and_then(|rest| rest.split_once(':'))
+        {
+            let Ok(tag) = tag.parse::<u32>() else { continue };
+            for (index, line) in headings(path) {
+                if index < count {
+                    asked.entry((tag, line)).or_default().push(index);
+                }
+            }
+            continue;
+        }
+        if let Some(number) = record.strip_prefix('{') {
+            page = number.parse::<u32>().ok();
+            waiting.clear();
+            continue;
+        }
+        if record.starts_with('}') {
+            page = None;
+            continue;
+        }
+        let Some(page) = page else { continue };
+        let Some(node) = record.get(1..).and_then(Node::parse) else { continue };
+        if node.line == 0 {
+            continue;
+        }
+        waiting.retain(|&(index, tag, line)| {
+            let followed = tag == node.tag && node.line > line;
+            if followed && pages[index].is_none() {
+                pages[index] = Some(page);
+            }
+            !followed
+        });
+        for &index in asked.get(&(node.tag, node.line)).into_iter().flatten() {
+            // The fallback stays with the first time TeX read the heading.
+            if pages[index].is_none() && recorded[index].is_none_or(|(tag, _)| tag == node.tag) {
+                recorded[index] = Some((node.tag, page));
+                if !waiting.iter().any(|&(waiting, tag, _)| waiting == index && tag == node.tag) {
+                    waiting.push((index, node.tag, node.line));
+                }
+            }
+        }
+    }
+    pages
+        .into_iter()
+        .zip(recorded)
+        .map(|(page, recorded)| page.or(recorded.map(|(_, page)| page)))
+        .collect()
+}
+
 /// How well a record answers for a point: its distance from it, its area,
 /// then the deepest box first.
 type Rank = (f64, f64, Reverse<usize>);

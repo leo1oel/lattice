@@ -6643,6 +6643,7 @@ msgid "Other projects"
 msgstr "其他项目"
 
 #: src/canvas/document-outline.tsx
+#: src/editor/latex/latex-outline-rail.tsx
 msgid "Outline"
 msgstr "大纲"
 
@@ -6785,6 +6786,14 @@ msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个，合并 {merged} �
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个"
+
+#: src/editor/latex/latex-outline-rail.tsx
+msgid "p.{page}"
+msgstr "{page} 页"
+
+#: src/editor/latex/latex-outline-rail.tsx
+msgid "Page {page}"
+msgstr "第 {page} 页"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"

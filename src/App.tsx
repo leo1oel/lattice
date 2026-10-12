@@ -808,8 +808,9 @@ function App() {
     project, activeFile, references, diskTodos, editorPosition,
     // With a Paper in front, the primary buffer is not being edited.
     settledSource: activePaper ? source : settledCanvasSource,
-    // Go to symbol lists the same outline, so it reads the included files too.
-    outlineWanted: outlineOpen || searchDialog === "goto-symbol",
+    // Go to symbol and the source editor's outline rail list the same
+    // outline, so they read the included files too.
+    outlineWanted: outlineOpen || searchDialog === "goto-symbol" || activeFile.endsWith(".tex"),
     pdfShown: pdfUrl != null,
     compiledPdf: build?.success ? pdfUrl : null,
   });
@@ -1738,6 +1739,7 @@ function App() {
       onOutlineOpenChange={setOutlineOpen}
       outlineNodes={outlineNodes}
       activeOutlineId={latex.activeOutlineId}
+      outlineRootPath={rootDocumentPath}
       onOutlineNavigate={(path, line) => {
         setOutlineOpen(false);
         void syncTex.navigateOutline(path, line);

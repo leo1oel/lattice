@@ -1103,6 +1103,62 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .visual-heading-rail-preview-anchor { position: absolute; z-index: var(--z-editor-popover); top: 50%; inset-inline-start: calc(100% + var(--space-3)); width: max-content; max-width: min(320px, calc(100vw - 96px)); translate: 0 -50%; }
 .visual-heading-rail-preview-card { box-shadow: var(--elevation-popover); max-width: inherit; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 96%, transparent); color: var(--text-primary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); overflow-wrap: anywhere; backdrop-filter: blur(14px); }
 
+/* The source editor's outline rail (latex-outline-rail.tsx): a column of marks
+   between the text and the overlay scrollbar, which keeps its own 10px edge
+   and stacks above the rail (--z-editor-scrollbar), so dragging the thumb never
+   lands on the rail or its outline. The rail spans the pane without taking its
+   pointer; only the marks and the open outline do. The text gives up the
+   rail's width (on the scroller, as focus mode pads it, so the gutter and
+   the editor's layers keep measuring from its edge). */
+.source-editor { --outline-rail-clearance: calc(var(--space-16) + var(--space-2)); }
+.source-editor:has(> .latex-outline-rail) .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
+.focus-mode .trellis-editor-host .source-editor:has(> .latex-outline-rail) .cm-scroller {
+  padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--focus-mode-measure)) / 2));
+}
+.latex-outline-rail { position: absolute; z-index: var(--z-editor-popover); inset-block: var(--space-10) var(--space-6); inset-inline: var(--space-6) 10px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+.latex-outline-rail-marks { display: grid; grid-auto-rows: minmax(var(--space-1), var(--space-4)); align-items: center; justify-items: end; width: var(--hit-area-min); min-height: 0; max-height: 100%; padding: var(--space-2) var(--space-3); overflow: hidden; border: 0; border-radius: var(--radius-compact); background: transparent; color: color-mix(in srgb, var(--text-secondary) 60%, transparent); pointer-events: auto; cursor: default; }
+.latex-outline-rail-marks:hover, .latex-outline-rail-marks:focus-visible, .latex-outline-rail[data-open] .latex-outline-rail-marks { color: var(--text-secondary); }
+.latex-outline-rail-mark { display: block; width: calc(var(--space-6) + var(--space-1)); height: var(--space-1); border-radius: var(--radius-pill); background: currentColor; }
+.latex-outline-rail-mark[data-depth="1"] { width: var(--space-4); }
+.latex-outline-rail-mark[data-depth="2"] { width: var(--space-2); }
+.latex-outline-rail-mark[data-current] { background: var(--mark-weft); }
+.latex-outline-rail-panel {
+  --surface-radius: var(--radius-panel);
+  --surface-inset: var(--space-2);
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(280px, 100%);
+  max-height: 100%;
+  padding: var(--surface-inset);
+  border-radius: var(--surface-radius);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font: var(--type-body-weight) var(--type-body-size)/var(--type-body-line-height) var(--ui-font);
+  pointer-events: auto;
+}
+.latex-outline-rail-header { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: var(--gap-inline); padding: var(--space-3) var(--pad-inline-control-tight) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.latex-outline-rail-header > span:first-child { flex: none; }
+.latex-outline-rail-document { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.latex-outline-rail-scroll { --fluid-hover-fill: var(--control-hover-surface); flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.latex-outline-rail-list { margin: 0; padding: 0; list-style: none; }
+.latex-outline-rail-row { display: grid; grid-template-columns: 2.5ch minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--gap-inline); width: 100%; min-height: var(--control-height-compact); padding: var(--space-2) var(--pad-inline-control-tight); border: 0; border-radius: var(--nested-radius); background: transparent; color: inherit; font: inherit; text-align: start; }
+.latex-outline-rail-row[data-depth="1"], .latex-outline-rail-row[data-depth="2"] { grid-template-columns: max-content minmax(0, 1fr) auto; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.latex-outline-rail-row[data-depth="1"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-8)); }
+.latex-outline-rail-row[data-depth="2"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-16)); }
+.latex-outline-rail-row:hover:not(.active) { background: var(--control-hover-surface); }
+.latex-outline-rail-row:focus-visible { outline-offset: calc(0px - var(--focus-ring-width)); }
+.latex-outline-rail-row.active { background: var(--control-pressed-surface); font-weight: 500; }
+.latex-outline-rail-number, .latex-outline-rail-page { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.latex-outline-rail-page { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.latex-outline-rail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-contrast: more) {
+  .latex-outline-rail-marks { color: var(--text-secondary); }
+}
+
 .editor-comment-draft {
   background-color: var(--control-active-soft);
   border-bottom: 2px solid var(--control-active);
@@ -1134,6 +1190,9 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 @media (forced-colors: active) {
   .visual-heading-rail-item:focus-visible { outline-color: Highlight; }
   .visual-heading-rail-preview-card { border: 1px solid CanvasText; }
+  .latex-outline-rail-marks { color: CanvasText; }
+  .latex-outline-rail-mark[data-current] { background: Highlight; }
+  .latex-outline-rail-panel { border: 1px solid CanvasText; }
 }
 .html-preview { position: relative; height: 100%; background: white; }
 .html-preview-frame { display: block; width: 100%; height: 100%; border: 0; background: white; }

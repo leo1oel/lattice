@@ -454,6 +454,9 @@ function answer(command: string, args: Args): unknown {
       return buildResult();
     case "read_compiled_pdf":
       return copyBuffer(fixture.compiledPdf);
+    case "synctex_heading_pages":
+      // The fixture PDF has no SyncTeX map: about a page per 45 source lines.
+      return (args?.headings as Array<{ line: number }> | undefined ?? []).map(({ line }) => Math.max(1, Math.ceil(line / 45)));
     case "stat_project_file":
       return { exists: current.files.has(pathArg(args)), mtimeMs: 1_700_000_000_000 };
     case "search_project":
