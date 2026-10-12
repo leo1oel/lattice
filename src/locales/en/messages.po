@@ -261,6 +261,10 @@ msgstr "{errors} error"
 msgid "{errors} errors"
 msgstr "{errors} errors"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{failing} checks need attention"
+msgstr "{failing} checks need attention"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -380,6 +384,11 @@ msgstr "{operation} request success"
 msgid "{operation}: {pathname}"
 msgstr "{operation}: {pathname}"
 
+#. placeholder {0}: checks.length
+#: src/project/manuscript-checklist.tsx
+msgid "{passing} of {0} checks pass"
+msgstr "{passing} of {0} checks pass"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} reference"
@@ -436,6 +445,10 @@ msgstr "{totalPages} total · end of the body not located in the PDF"
 msgid "{totalPages} total · included files not read"
 msgstr "{totalPages} total · included files not read"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{unsettled} can't be checked yet"
+msgstr "{unsettled} can't be checked yet"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"
@@ -467,6 +480,10 @@ msgstr "↑↓ to navigate · Enter to open"
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧-click for a clean rebuild"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 check needs attention"
+msgstr "1 check needs attention"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -6117,6 +6134,10 @@ msgstr "Not verified"
 msgid "Note"
 msgstr "Note"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Nothing blocks submission"
+msgstr "Nothing blocks submission"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "Nothing is sent or fetched until you resume"
@@ -7330,6 +7351,10 @@ msgstr "Ready to compile"
 #: src/telemetry/app-updater.tsx
 msgid "Ready to install"
 msgstr "Ready to install"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Ready to submit"
+msgstr "Ready to submit"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Real part"

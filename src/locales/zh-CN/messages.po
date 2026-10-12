@@ -259,6 +259,10 @@ msgstr "{errors} 个错误"
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{failing} checks need attention"
+msgstr "{failing} 项需要处理"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} 个文件"
@@ -377,6 +381,11 @@ msgstr "{operation} 请求成功"
 msgid "{operation}: {pathname}"
 msgstr "{operation}：{pathname}"
 
+#. placeholder {0}: checks.length
+#: src/project/manuscript-checklist.tsx
+msgid "{passing} of {0} checks pass"
+msgstr "{0} 项中 {passing} 项通过"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -433,6 +442,10 @@ msgstr "共 {totalPages} 页 · 没在 PDF 里找到正文结尾"
 msgid "{totalPages} total · included files not read"
 msgstr "共 {totalPages} 页 · 未计入引用的文件"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{unsettled} can't be checked yet"
+msgstr "{unsettled} 项暂时无法检查"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}。Crossref 类型：{updateType}"
@@ -464,6 +477,10 @@ msgstr "↑↓ 选择 · Enter 打开"
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · 按住 ⇧ 点击从头编译"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 check needs attention"
+msgstr "1 项需要处理"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -6114,6 +6131,10 @@ msgstr "未确认"
 msgid "Note"
 msgstr "备注"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Nothing blocks submission"
+msgstr "没有阻碍投稿的问题"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "继续前不会收发任何内容"
@@ -7327,6 +7348,10 @@ msgstr "可以编译了"
 #: src/telemetry/app-updater.tsx
 msgid "Ready to install"
 msgstr "可以安装"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Ready to submit"
+msgstr "可以投稿"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Real part"
