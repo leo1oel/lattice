@@ -35,6 +35,12 @@
   background: var(--surface-panel);
 }
 
+/* In Settings the cards stand on the sheet like the row cards around them. */
+.settings-section :is(.overleaf-status-row, .overleaf-connect-card) {
+  padding-inline: var(--settings-card-padding-inline);
+  background: var(--settings-card-surface);
+}
+
 /* A spinner beside a line of what is happening. */
 .overleaf-waiting,
 .overleaf-loading,
