@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { MessageSquareText } from "lucide-react";
-import type { AnnotationStatus, PdfRect } from "../editor/comments/editor-comment-data";
+import type { AnnotationRounds } from "../app/annotation-rounds";
+import { PdfAnnotationComposer } from "../canvas/pdf-annotation-composer";
+import { annotationStatus, type AnnotationStatus, type EditorComment, type PdfRect } from "../editor/comments/editor-comment-data";
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
 import { pdfSelectedPlainTextWithin } from "./pdf-text-layer-selection";
@@ -56,17 +58,20 @@ function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElem
 
 /**
  * Annotating the compiled PDF: after text is selected on a page, an Annotate
- * button appears at the selection's end; choosing it hands the selection to
- * the host, which maps it to the source with SyncTeX. Every annotation made
- * on the PDF is drawn on its page as an amber highlight with its pin, which
- * opens it. Returns the button, for the preview's scroll area.
+ * button appears at the selection's end; choosing it opens the note, which
+ * maps the selection to the source with SyncTeX. Every annotation made on the
+ * PDF is drawn on its page as an amber highlight with its pin, which opens it.
+ *
+ * Loaded and mounted by the preview only once the PDF holds such a mark or
+ * the writer has selected text on it, so a PDF nobody annotates runs none of it.
  */
-export function usePdfAnnotations(recordRef: ActiveViewerRef, previewRef: RefObject<HTMLDivElement | null>, {
-  marks, onAnnotate, onOpenMark, generation, pageRenderGeneration, textLayerGeneration, scale,
+export default function PdfAnnotationLayer({
+  recordRef, previewRef, rounds, annotations, generation, pageRenderGeneration, textLayerGeneration, scale,
 }: {
-  marks: readonly PdfAnnotationMark[] | undefined;
-  onAnnotate: ((selection: PdfTextSelection) => void) | undefined;
-  onOpenMark: ((id: string) => void) | undefined;
+  recordRef: ActiveViewerRef;
+  previewRef: RefObject<HTMLDivElement | null>;
+  rounds: AnnotationRounds;
+  annotations: readonly EditorComment[];
   generation: number;
   pageRenderGeneration: number;
   textLayerGeneration: number;
@@ -77,12 +82,18 @@ export function usePdfAnnotations(recordRef: ActiveViewerRef, previewRef: RefObj
   const [placed, setOffer] = useState<{ left: number; top: number; selection: PdfTextSelection; scale: number; generation: number } | null>(null);
   const offer = placed && placed.scale === scale && placed.generation === generation ? placed : null;
   const scaleRef = useLatestRef(scale);
+  /** The selection being annotated, keyed so a new one starts a fresh note. */
+  const [composing, setComposing] = useState<{ selection: PdfTextSelection; nonce: string } | null>(null);
+  const marks = useMemo((): PdfAnnotationMark[] => annotations.flatMap((annotation) => annotation.pdf && annotation.number && !annotation.resolved
+    ? [{ id: annotation.id, number: annotation.number, page: annotation.pdf.page, rects: annotation.pdf.rects, status: annotationStatus(annotation) }]
+    : []), [annotations]);
+  const annotatable = rounds.canAnnotatePdf();
 
   // A finished drag offers Annotate where the selection ends.
   useEffect(() => {
     const record = recordRef.current;
     const preview = previewRef.current;
-    if (!record || !preview || !onAnnotate || !generation) return;
+    if (!record || !preview || !annotatable || !generation) return;
     let frame: number | null = null;
     const read = () => {
       frame = null;
@@ -129,17 +140,19 @@ export function usePdfAnnotations(recordRef: ActiveViewerRef, previewRef: RefObj
       },
     });
     const removeScroll = addListeners(record.root, { scroll: dismiss }, { passive: true });
+    // Mounted by the drag that just ended: offer for its selection too.
+    schedule();
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       removeRoot();
       removeScroll();
     };
-  }, [generation, onAnnotate, previewRef, recordRef, scaleRef]);
+  }, [annotatable, generation, previewRef, recordRef, scaleRef]);
 
   // Each annotation's highlight and pin, drawn again whenever a page re-renders.
   useEffect(() => {
     const record = recordRef.current;
-    if (!record || !marks?.length) return;
+    if (!record || !marks.length) return;
     const drawn: HTMLElement[] = [];
     for (const mark of marks) {
       const pageDiv = pdfPageView(record.slick, mark.page)?.div;
@@ -168,7 +181,7 @@ export function usePdfAnnotations(recordRef: ActiveViewerRef, previewRef: RefObj
         Object.assign(pin.style, { left: `${first.x * 100}%`, top: `${(first.y + first.height / 2) * 100}%` });
         pin.addEventListener("click", (event) => {
           event.stopPropagation();
-          onOpenMark?.(mark.id);
+          rounds.openById(mark.id);
         });
         layer.append(pin);
       }
@@ -181,24 +194,33 @@ export function usePdfAnnotations(recordRef: ActiveViewerRef, previewRef: RefObj
     return () => {
       for (const layer of drawn) layer.remove();
     };
-  }, [generation, marks, onOpenMark, pageRenderGeneration, recordRef, scale, t, textLayerGeneration]);
+  }, [generation, marks, pageRenderGeneration, recordRef, rounds, scale, t, textLayerGeneration]);
 
-  const annotate = useCallback(() => {
-    if (!offer) return;
-    onAnnotate?.(offer.selection);
-    setOffer(null);
-  }, [offer, onAnnotate]);
-
-  return offer ? (
-    <button
-      type="button"
-      className="pdf-annotate-offer"
-      style={{ left: offer.left, top: offer.top }}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={annotate}
-    >
-      <MessageSquareText size={13} />
-      {t`Annotate`}
-    </button>
-  ) : null;
+  return (
+    <>
+      {offer && (
+        <button
+          type="button"
+          className="pdf-annotate-offer"
+          style={{ left: offer.left, top: offer.top }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setComposing({ selection: offer.selection, nonce: crypto.randomUUID() });
+            setOffer(null);
+          }}
+        >
+          <MessageSquareText size={13} />
+          {t`Annotate`}
+        </button>
+      )}
+      {composing && (
+        <PdfAnnotationComposer
+          key={composing.nonce}
+          selection={composing.selection}
+          rounds={rounds}
+          onDone={() => setComposing(null)}
+        />
+      )}
+    </>
+  );
 }

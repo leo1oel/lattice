@@ -22,8 +22,7 @@ import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
-import { useAnnotations } from "./app/use-annotations";
-import type { AnnotationToolHost } from "./agent/agent-annotations";
+import { annotationRounds, revisable } from "./app/annotation-rounds";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -198,6 +197,8 @@ const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], strin
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
+/** No revision in flight, for counting what the palette's Revise would ask about. */
+const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
 
 function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
@@ -291,10 +292,6 @@ function App() {
   const overleafSyncSettledRef = useRef<Promise<void> | null>(null);
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
   const agentCommentsOptionsRef = useRef<(() => BuildAgentCommentsOptions | null) | null>(null);
-  /** The conversation's annotation tools, once the annotations below exist; null without a project. */
-  const annotationToolsRef = useRef<AnnotationToolHost | null>(null);
-  /** Stops the agent's revisions in flight; set once the annotations below exist. */
-  const resetAnnotationRoundsRef = useRef<() => void>(() => {});
   const flushWholeFilesBeforeProjectTransitionRef = useRef<() => Promise<void>>(async () => {});
   const openOverleafSettingsRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -433,7 +430,7 @@ function App() {
         flush();
       },
       agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
-      annotationTools: () => annotationToolsRef.current,
+      annotationTools: () => projectRootRef.current ? annotationRounds.toolHost : null,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
       onHistorySnapshot: (snapshot) => agentCheckpoints.handleSnapshot(snapshot),
       onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
@@ -704,7 +701,7 @@ function App() {
       endGuidedTour();
       resetAgentSelection();
       resetEditorComments();
-      resetAnnotationRoundsRef.current();
+      annotationRounds.reset();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -749,14 +746,20 @@ function App() {
     commentsOpen: editorComments.panelOpen || overleaf.overleafCollabOpen,
     refreshTodos, refreshWordCount,
   });
-  const annotations = useAnnotations({
-    comments: editorComments, projectRootRef, activeFileRef, sourceRef, openFile, citations,
-    openTool: tools.open, overleafLinked: overleafLink !== null,
-  });
   useLayoutEffect(() => {
-    annotationToolsRef.current = project ? annotations.rounds.toolHost : null;
-    resetAnnotationRoundsRef.current = annotations.rounds.reset;
-  }, [annotations.rounds.reset, annotations.rounds.toolHost, project]);
+    annotationRounds.attach({
+      store: editorComments, projectRootRef, activeFileRef, sourceRef, openProjectFile: openFile,
+      author: { id: editorCommentAuthorId, name: authorName }, overleafLinked: overleafLink !== null,
+      openPanel: () => tools.open("comments"),
+      openHistoryEntry: (historyEntry) => tools.open("history", { historyEntry }),
+      save,
+      reloadAfterRestore: async () => {
+        await refreshProject();
+        if (activeFileRef.current) await loadFile(activeFileRef.current);
+        await refreshHistory();
+      },
+    });
+  });
   const { clearStage: clearImportStage } = referenceImport;
   const { openForMissingPaperTools } = texSetup;
 
@@ -1315,6 +1318,7 @@ function App() {
     }),
   };
   /** Every app-level action: the palette entries, the window's shortcuts and the shortcut sheet (see AppCommand). */
+  const revisableAnnotations = editorComments.comments.filter((annotation) => revisable(annotation, NO_RUNNING_REVISIONS)).length;
   const commands: AppCommand[] = [
     // ⌘S reaches it through Save, which builds what it saved.
     { id: "build", when: inProject, label: t`Build project`, shortcut: commandCombo(saveCommand) ?? undefined, group: "build", run: () => void compileAndShowPdf(false, true) },
@@ -1418,9 +1422,9 @@ function App() {
     },
     { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
     {
-      id: "annotations-revise", when: inProject && annotations.panel.revisable > 0, label: t`Revise from annotations`,
-      detail: annotations.panel.revisable === 1 ? t`1 annotation` : t`${annotations.panel.revisable} annotations`, group: "edit",
-      run: annotations.panel.onRevise,
+      id: "annotations-revise", when: inProject && revisableAnnotations > 0, label: t`Revise from annotations`,
+      detail: revisableAnnotations === 1 ? t`1 annotation` : t`${revisableAnnotations} annotations`, group: "edit",
+      run: () => annotationRounds.revise(),
     },
     { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: "edit", run: () => void tree.pasteClipboardImage() },
     { id: "format", when: latexSource, label: t`Format document`, detail: "latexindent", group: "edit", run: formatFocusedDocument },
@@ -1799,7 +1803,7 @@ function App() {
       commentAuthorName={authorName.trim() || "Anonymous"}
       commentAuthorId={editorCommentAuthorId}
       onCreateEditorComment={editorComments.create}
-      annotations={annotations.canvas}
+      annotationRounds={annotationRounds}
       onOpenEditorComments={() => tools.open("comments")}
       onResolveEditorComment={editorComments.toggleResolved}
       onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
@@ -2033,13 +2037,7 @@ function App() {
 
       <AppEditorPanels
         comments={editorComments}
-        annotations={annotations}
-        reloadAfterRestore={async () => {
-          await refreshProject();
-          if (activeFile) await loadFile(activeFile);
-          await refreshHistory();
-        }}
-        saveBeforeRestore={save}
+        annotationRounds={annotationRounds}
         renderCommentsSurface={overleafLink ? (localComments) => (
           <AppOverleafCollabDrawer
             key={`${project.root}:${editorComments.panelFocusId ? editorComments.panelFocus?.nonce : "comments"}`}

@@ -21,6 +21,14 @@ export type AnnotationsState = { annotations: EditorComment[]; rounds: Annotatio
 
 const EMPTY: AnnotationsState = { annotations: [], rounds: [] };
 
+/** A change to the annotations alone, as `commit` takes one. */
+function withAnnotations(change: (annotations: EditorComment[]) => EditorComment[]) {
+  return (current: AnnotationsState): AnnotationsState => {
+    const annotations = change(current.annotations);
+    return annotations === current.annotations ? current : { ...current, annotations };
+  };
+}
+
 /** How many annotation saves this session has sent, which orders them (`save_annotations`). */
 const annotationSaves = { sent: 0 };
 
@@ -32,7 +40,7 @@ export function overleafThreadOf(commentId: string): string | null {
 /**
  * Notes anchored in the editor. This project's own are annotations, kept in
  * `.research/annotations.json` with the revision rounds that asked the agent
- * about them (see `use-annotation-rounds.ts`); a document edited live with
+ * about them (see `annotation-rounds.ts`); a document edited live with
  * Overleaf uses Overleaf's comment threads instead, so collaborators in the
  * browser see them. Both kinds show together.
  */
@@ -88,12 +96,6 @@ export function useEditorComments({
       .catch((reason: unknown) => showError(toMessage(reason)));
   }, [projectRootRef]);
 
-  const setAnnotations = useCallback((change: (annotations: EditorComment[]) => EditorComment[]) => {
-    commit((current) => {
-      const annotations = change(current.annotations);
-      return annotations === current.annotations ? current : { ...current, annotations };
-    });
-  }, [commit]);
 
   /**
    * Delete a comment and its replies at once, with an Undo toast rather than a
@@ -107,7 +109,7 @@ export function useEditorComments({
     if (index < 0) return;
     const removed = before[index];
     const root = projectRootRef.current;
-    setAnnotations((current) => current.filter((comment) => comment.id !== id));
+    commit(withAnnotations((current) => current.filter((comment) => comment.id !== id)));
     setActiveId((current) => (current === id ? null : current));
     notifyInfo(t`Annotations`, t`Annotation deleted`, {
       dedupeKey: `editor-comment-deleted:${id}`,
@@ -115,19 +117,19 @@ export function useEditorComments({
         label: t`Undo`,
         onClick: () => {
           if (projectRootRef.current !== root) return;
-          setAnnotations((current) => current.some((comment) => comment.id === id)
+          commit(withAnnotations((current) => current.some((comment) => comment.id === id)
             ? current
-            : [...current.slice(0, index), removed, ...current.slice(index)]);
+            : [...current.slice(0, index), removed, ...current.slice(index)]));
         },
       },
     });
-  }, [projectRootRef, setAnnotations, t]);
+  }, [commit, projectRootRef, t]);
 
   const update = useCallback((id: string, change: (comment: EditorComment) => Partial<EditorComment>) => {
-    setAnnotations((current) => current.map((item) => (
+    commit(withAnnotations((current) => current.map((item) => (
       item.id === id ? { ...item, ...change(item), updatedAt: new Date().toISOString() } : item
-    )));
-  }, [setAnnotations]);
+    ))));
+  }, [commit]);
 
   const toggleResolved = useCallback((id: string) => {
     const threadId = overleafThreadOf(id);
@@ -160,7 +162,7 @@ export function useEditorComments({
     const docId = [...overleafDocPaths.entries()].find(([, path]) => path === comment.path)?.[0] ?? null;
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
-      setAnnotations((current) => [...current, annotation]);
+      commit(withAnnotations((current) => [...current, annotation]));
       setActiveId(annotation.id);
       return annotation;
     }
@@ -172,7 +174,7 @@ export function useEditorComments({
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
       .catch((reason) => showError(toMessage(reason)));
     return null;
-  }, [overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, setAnnotations, t]);
+  }, [overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);

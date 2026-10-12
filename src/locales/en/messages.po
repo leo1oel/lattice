@@ -72,8 +72,6 @@ msgid "{0} → {1}"
 msgstr "{0} → {1}"
 
 #. placeholder {0}: Object.keys(version.round!.outcomes).length
-#. placeholder {0}: annotations.panel.revisable
-#: src/App.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} annotations"
 msgstr "{0} annotations"
@@ -468,6 +466,10 @@ msgstr "{replacementCount} match"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} matches"
+
+#: src/App.tsx
+msgid "{revisableAnnotations} annotations"
+msgstr "{revisableAnnotations} annotations"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -1035,7 +1037,7 @@ msgstr "Animated interface icons, redrawn from Phosphor glyphs"
 msgid "Annotate"
 msgstr "Annotate"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Annotate at most {limit} characters for the agent to revise."
 msgstr "Annotate at most {limit} characters for the agent to revise."
 
@@ -1065,8 +1067,8 @@ msgstr "Annotation {pin}"
 msgid "Annotation deleted"
 msgstr "Annotation deleted"
 
+#: src/app/annotation-rounds.ts
 #: src/app/app-editor-panels.tsx
-#: src/app/use-annotation-rounds.ts
 #: src/app/use-editor-comments.ts
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
@@ -2359,7 +2361,7 @@ msgstr "Comments"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Compare"
 msgstr "Compare"
 
@@ -5135,7 +5137,7 @@ msgid "Lattice could not confirm whether Overleaf accepted the latest edit to th
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 
 #. placeholder {0}: target.path
-#: src/app/use-annotations.ts
+#: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice could not read {0}."
 
@@ -8636,7 +8638,7 @@ msgstr "Round {0} · {1} proposals to review"
 msgid "Round {0} · 1 proposal to review"
 msgstr "Round {0} · 1 proposal to review"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Round {number} is saved as a version"
 msgstr "Round {number} is saved as a version"
 
@@ -8736,7 +8738,7 @@ msgstr "Save PDF as…"
 msgid "Save pending edits before checking references."
 msgstr "Save pending edits before checking references."
 
-#: src/app/app-editor-panels.tsx
+#: src/app/annotation-rounds.ts
 msgid "Save pending edits before restoring a round."
 msgstr "Save pending edits before restoring a round."
 
@@ -9695,7 +9697,7 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
 #. placeholder {0}: target.path
-#: src/app/use-annotations.ts
+#: src/app/annotation-rounds.ts
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 msgstr "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 
@@ -9845,11 +9847,11 @@ msgstr "The agent could not proofread the selection: {detail}"
 msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage: {detail}"
 msgstr "The agent could not revise this passage: {detail}"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage."
 msgstr "The agent could not revise this passage."
 
@@ -9881,7 +9883,7 @@ msgstr "The agent suggests leaving the passage as it is."
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "The agent's reply did not contain a proofread version of the selection."
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "The agent's reply held neither a revision nor a question."
 
@@ -9889,7 +9891,7 @@ msgstr "The agent's reply held neither a revision nor a question."
 msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
 msgstr "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
 msgstr "The annotated text changed or moved. Select it again and annotate it to ask about it."
 
@@ -10373,7 +10375,7 @@ msgstr "This value joins strings with #; keep it valid BibTeX."
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 

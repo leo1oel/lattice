@@ -36,7 +36,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
 import {
-  createEditorComment, resolveCommentAnchor, type AnnotationIntent, type EditorComment, type PdfAnchor,
+  createEditorComment, resolveCommentAnchor, type AnnotationIntent, type EditorComment,
 } from "../editor/comments/editor-comment-data";
 import {
   editorCommentsExtension, setEditorCommentsEffect, setEditorCommentDraftEffect, type EditorCommentLocalization,
@@ -50,7 +50,7 @@ import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
-import type { PdfSyncTarget, PdfTextSelection } from "../pdf/pdf-viewer";
+import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import {
   SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH,
 } from "../app/window-layout";
@@ -74,8 +74,7 @@ import {
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer, type AnnotationDraft } from "./annotation-composer";
 import { AnnotationReviewLayer } from "./annotation-review";
-import { createAnnotationReviewBridge } from "./annotation-review-bridge";
-import { PdfAnnotationComposer, type CanvasAnnotations } from "./pdf-annotation-composer";
+import type { AnnotationRounds } from "../app/annotation-rounds";
 import { annotationReviewExtension } from "../editor/annotation-review-anchor";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
@@ -305,8 +304,8 @@ export function DocumentCanvas(props: {
   /** Saves a new note; resolves to the local annotation it became, or null (an Overleaf thread, or none). */
   onCreateEditorComment: (comment: EditorComment) => EditorComment | null;
   onOpenEditorComments: () => void;
-  /** Local annotations and their revision rounds, as the editor and the PDF show them. */
-  annotations: CanvasAnnotations;
+  /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
+  annotationRounds: AnnotationRounds;
   onResolveEditorComment: (id: string) => void;
   onReplyEditorComment: (commentId: string) => void;
   commentFocusRequest: { id: string; nonce: string } | null;
@@ -483,12 +482,6 @@ export function DocumentCanvas(props: {
   const commentComposerViewRef = useRef<EditorView | null>(null);
   const commentComposerRef = useLatestRef(commentComposer);
   const [proofread] = useState(createProofreadBridge);
-  const [annotationReview] = useState(createAnnotationReviewBridge);
-  /** Text selected on the PDF that the writer is annotating, keyed so a new selection starts a fresh note. */
-  const [pdfAnnotation, setPdfAnnotationState] = useState<{ selection: PdfTextSelection; nonce: string } | null>(null);
-  const setPdfAnnotation = useCallback((selection: PdfTextSelection | null) => {
-    setPdfAnnotationState(selection ? { selection, nonce: crypto.randomUUID() } : null);
-  }, []);
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
@@ -755,16 +748,14 @@ export function DocumentCanvas(props: {
    */
   const createComment = (path: string, source: string, from: number, to: number, body: string, extra: {
     intent?: AnnotationIntent;
-    pdf?: PdfAnchor;
     revise?: boolean;
   } = {}) => {
     const comment = createEditorComment({
-      path, source, from, to, body, authorId: commentAuthorId, authorName: commentAuthorName,
-      number: 0, intent: extra.intent, pdf: extra.pdf,
+      path, source, from, to, body, authorId: commentAuthorId, authorName: commentAuthorName, intent: extra.intent,
     });
     if (!comment) return false;
     const created = onCreateEditorComment(comment);
-    if (created && extra.revise) props.annotations.onRevise();
+    if (created && extra.revise) props.annotationRounds.revise();
     return true;
   };
   const closeCommentComposer = () => {
@@ -832,7 +823,7 @@ export function DocumentCanvas(props: {
       getLocalization: () => editorCommentLocalizationRef.current,
       onResolve: (id) => latestRef.current.onResolveEditorComment(id),
       onReply: (comment) => latestRef.current.onReplyEditorComment(comment.id),
-      onOpenAnnotation: (comment) => latestRef.current.annotations.onOpen(comment),
+      onOpenAnnotation: (comment) => latestRef.current.annotationRounds.open(comment),
       ...comments,
     }),
     linter((view) => editorDiagnosticsForFile(latestRef.current.buildDiagnostics, path, view.state.doc), { delay: 150 }),
@@ -853,7 +844,7 @@ export function DocumentCanvas(props: {
       { getComments: () => commentsForActiveFileRef.current, getDraft: () => commentComposerRef.current },
       [
         proofread.extension,
-        annotationReviewExtension({ accept: annotationReview.accept, dismiss: annotationReview.dismiss }),
+        annotationReviewExtension(props.annotationRounds.reviewBridge),
         overleafCursorsExtension({ getCursors: () => latestRef.current.overleafPresenceCursors }),
         overleafTrackChangesExtension({
           getChanges: () => latestRef.current.overleafChanges,
@@ -1482,20 +1473,13 @@ export function DocumentCanvas(props: {
             viewRef={primaryViewRef}
           />
           <AnnotationReviewLayer
-            bridge={annotationReview}
+            bridge={props.annotationRounds.reviewBridge}
             activeFile={activeFile}
             editorKey={editorKey}
             editable={props.editorEditable}
             viewRef={primaryViewRef}
-            annotations={props.annotations.local}
-            proposals={props.annotations.proposals}
-            running={props.annotations.running}
-            request={props.annotations.review}
-            onAccepted={props.annotations.onAccepted}
-            onRejected={props.annotations.onRejected}
-            onRetry={props.annotations.onRetry}
-            onNavigate={props.annotations.onNavigate}
-            onClose={props.annotations.onCloseReview}
+            annotations={editorComments}
+            rounds={props.annotationRounds}
           />
           {commentComposer && (
             <AnnotationComposer
@@ -1503,7 +1487,7 @@ export function DocumentCanvas(props: {
               // eslint-disable-next-line react-hooks-js/refs -- the view the draft was opened in, fixed while it is open
               view={commentComposerViewRef.current}
               anchorKey={`${activeFile}\n${editorKey}`}
-              canRevise={props.annotations.canRevise}
+              canRevise
               onChange={(change) => setCommentComposer((current) => current ? { ...current, ...change } : current)}
               onCancel={closeCommentComposer}
               onSave={saveCommentComposer}
@@ -1590,9 +1574,8 @@ export function DocumentCanvas(props: {
             // Under Trellis a reverse jump always has a file panel to land in.
             onSource={props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}
-            annotations={props.annotations.pdfMarks}
-            onAnnotateSelection={props.annotations.canAnnotatePdf ? setPdfAnnotation : undefined}
-            onOpenAnnotation={props.annotations.onOpenById}
+            annotations={editorComments}
+            annotationRounds={props.annotationRounds}
             onNumPages={props.onPdfPageCount}
             onPageChange={props.onPdfPageChange}
             {...viewStateBinding(previewPath, "pdf")}
@@ -1608,22 +1591,6 @@ export function DocumentCanvas(props: {
             )}
           />
         </Suspense>
-        {pdfAnnotation && (
-          <PdfAnnotationComposer
-            key={pdfAnnotation.nonce}
-            selection={pdfAnnotation.selection}
-            map={props.annotations.mapPdfSelection}
-            canRevise={props.annotations.canRevise}
-            onCancel={() => setPdfAnnotation(null)}
-            onSave={(mapped, body, intent, revise) => {
-              const saved = createComment(mapped.path, mapped.source, mapped.from, mapped.to, body, {
-                intent, revise, pdf: { page: pdfAnnotation.selection.page, rects: pdfAnnotation.selection.rects, text: pdfAnnotation.selection.text },
-              });
-              if (saved) setPdfAnnotation(null);
-              return saved;
-            }}
-          />
-        )}
       </div>
     );
   };

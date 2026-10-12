@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { isolateHistory } from "@codemirror/commands";
@@ -14,7 +14,7 @@ import {
 } from "../agent/proofread-edits";
 import { comboText, parseKeyName } from "../app/key-combos";
 import { showWarning } from "../app/notify";
-import type { AcceptedRevision } from "../app/use-annotation-rounds";
+import { pendingProposals, type AcceptedRevision, type AnnotationRounds } from "../app/annotation-rounds";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { InlineEdits, type InlineEdit } from "../components/ui/inline-edits";
@@ -39,18 +39,9 @@ export type AnnotationReviewProps = {
   editorKey: string;
   editable: boolean;
   viewRef: RefObject<EditorView | null>;
-  /** Every local annotation; the card follows the one under review as it changes. */
+  /** Every annotation; the card follows the one under review as it changes. */
   annotations: readonly EditorComment[];
-  /** The proposals still waiting, in review order, for "1 of 4". */
-  proposals: readonly EditorComment[];
-  /** Annotations the agent is answering now. */
-  running: ReadonlySet<string>;
-  request: { id: string; nonce: string } | null;
-  onAccepted: (id: string, applied: AcceptedRevision) => void;
-  onRejected: (id: string) => void;
-  onRetry: (id: string, guidance: string) => void;
-  onNavigate: (from: string, step: 1 | -1) => void;
-  onClose: () => void;
+  rounds: AnnotationRounds;
 };
 
 /**
@@ -59,10 +50,22 @@ export type AnnotationReviewProps = {
  * note it answers and the agent's reason. Accept writes the edits still
  * chosen as one undo step; Reject keeps the passage; Try again asks for
  * another with what the writer wants instead; ↓ moves to the next proposal.
+ *
+ * Only a subscription until a review is asked for: the canvas renders often,
+ * and the review's state and effects would otherwise run on every render for
+ * a card most sessions never open.
  */
 export const AnnotationReviewLayer = memo(function AnnotationReviewLayer(props: AnnotationReviewProps) {
+  const { rounds } = props;
+  const request = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().review);
+  return request ? <AnnotationReviewSession {...props} request={request} /> : null;
+});
+
+function AnnotationReviewSession(props: AnnotationReviewProps & { request: { id: string; nonce: string } }) {
   const { t } = useLingui();
-  const { bridge, request, viewRef } = props;
+  const { bridge, request, rounds, viewRef } = props;
+  const running = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().running);
+  const proposals = useMemo(() => pendingProposals(props.annotations), [props.annotations]);
   /** The card on screen: its annotation, the element it renders into, and the LaTeX around its passage. */
   const [open, setOpen] = useState<{ id: string; host: HTMLElement; context: ProofreadContext } | null>(null);
   const openRef = useLatestRef(open);
@@ -72,6 +75,11 @@ export const AnnotationReviewLayer = memo(function AnnotationReviewLayer(props: 
     const view = viewRef.current;
     if (view && annotationReviewAnchor(view.state)) view.dispatch({ effects: setAnnotationReviewEffect.of(null) });
     setOpen(null);
+  }, [viewRef]);
+  // The review ended: its card leaves the editor.
+  useLayoutEffect(() => () => {
+    const view = viewRef.current;
+    if (view && annotationReviewAnchor(view.state)) view.dispatch({ effects: setAnnotationReviewEffect.of(null) });
   }, [viewRef]);
 
   // A rebuilt editor (another file, a reload) has lost the card's widget.
@@ -85,11 +93,6 @@ export const AnnotationReviewLayer = memo(function AnnotationReviewLayer(props: 
   // once its file is the one in the editor.
   const handledRef = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (!request) {
-      handledRef.current = null;
-      if (openRef.current) close();
-      return;
-    }
     if (handledRef.current === request.nonce) return;
     const { activeFile, annotations } = propsRef.current;
     const annotation = annotations.find((item) => item.id === request.id);
@@ -112,7 +115,7 @@ export const AnnotationReviewLayer = memo(function AnnotationReviewLayer(props: 
       ],
     });
     setOpen({ id: annotation.id, host, context: proofreadContext(view.state.doc.toString(), range.from, range.to) });
-  }, [close, openRef, props.activeFile, props.editorKey, propsRef, request, t, viewRef]);
+  }, [close, props.activeFile, props.editorKey, propsRef, request, t, viewRef]);
 
   useLayoutEffect(() => bridge.connect({
     accept: () => {
@@ -123,36 +126,32 @@ export const AnnotationReviewLayer = memo(function AnnotationReviewLayer(props: 
     },
     dismiss: () => {
       if (!openRef.current) return false;
-      propsRef.current.onClose();
+      rounds.closeReview();
       viewRef.current?.focus();
       return true;
     },
-  }), [bridge, openRef, propsRef, viewRef]);
+  }), [bridge, openRef, rounds, viewRef]);
 
   const annotation = open ? props.annotations.find((item) => item.id === open.id) : undefined;
-  return (
-    <>
-      {open && annotation && createPortal(
-        <AnnotationReviewCard
-          key={`${annotation.id}:${annotation.revision?.round ?? 0}:${annotation.revision?.text ?? annotation.revision?.state ?? ""}`}
-          annotation={annotation}
-          context={open.context}
-          viewRef={viewRef}
-          editable={props.editable}
-          running={props.running.has(annotation.id)}
-          position={props.proposals.findIndex((item) => item.id === annotation.id)}
-          total={props.proposals.length}
-          onAccepted={props.onAccepted}
-          onRejected={props.onRejected}
-          onRetry={props.onRetry}
-          onNavigate={props.onNavigate}
-          onClose={props.onClose}
-        />,
-        open.host,
-      )}
-    </>
-  );
-});
+  return open && annotation ? createPortal(
+    <AnnotationReviewCard
+      key={`${annotation.id}:${annotation.revision?.round ?? 0}:${annotation.revision?.text ?? annotation.revision?.state ?? ""}`}
+      annotation={annotation}
+      context={open.context}
+      viewRef={viewRef}
+      editable={props.editable}
+      running={running.has(annotation.id)}
+      position={proposals.findIndex((item) => item.id === annotation.id)}
+      total={proposals.length}
+      onAccepted={rounds.accepted}
+      onRejected={rounds.rejected}
+      onRetry={rounds.retry}
+      onNavigate={rounds.navigate}
+      onClose={rounds.closeReview}
+    />,
+    open.host,
+  ) : null;
+}
 
 function AnnotationReviewCard(props: {
   annotation: EditorComment;

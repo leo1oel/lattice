@@ -70,8 +70,6 @@ msgid "{0} → {1}"
 msgstr "{0} → {1}"
 
 #. placeholder {0}: Object.keys(version.round!.outcomes).length
-#. placeholder {0}: annotations.panel.revisable
-#: src/App.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} annotations"
 msgstr "{0} 条批注"
@@ -465,6 +463,10 @@ msgstr "{replacementCount} 处"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} 处"
+
+#: src/App.tsx
+msgid "{revisableAnnotations} annotations"
+msgstr "{revisableAnnotations} 条批注"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -1032,7 +1034,7 @@ msgstr "动画界面图标，依 Phosphor 字形重绘"
 msgid "Annotate"
 msgstr "批注"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Annotate at most {limit} characters for the agent to revise."
 msgstr "交给 AI 助手修改的批注最多 {limit} 个字符。"
 
@@ -1062,8 +1064,8 @@ msgstr "批注 {pin}"
 msgid "Annotation deleted"
 msgstr "已删除批注"
 
+#: src/app/annotation-rounds.ts
 #: src/app/app-editor-panels.tsx
-#: src/app/use-annotation-rounds.ts
 #: src/app/use-editor-comments.ts
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
@@ -2356,7 +2358,7 @@ msgstr "评论"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "评论署名：{0}（取自 Git 或 Overleaf）"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Compare"
 msgstr "对比"
 
@@ -5132,7 +5134,7 @@ msgid "Lattice could not confirm whether Overleaf accepted the latest edit to th
 msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}）"
 
 #. placeholder {0}: target.path
-#: src/app/use-annotations.ts
+#: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice 无法读取 {0}。"
 
@@ -8631,7 +8633,7 @@ msgstr "第 {0} 轮 · {1} 条建议待审阅"
 msgid "Round {0} · 1 proposal to review"
 msgstr "第 {0} 轮 · 1 条建议待审阅"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "Round {number} is saved as a version"
 msgstr "第 {number} 轮已存为一个版本"
 
@@ -8731,7 +8733,7 @@ msgstr "PDF 另存为…"
 msgid "Save pending edits before checking references."
 msgstr "请先保存，再检查引用"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/annotation-rounds.ts
 msgid "Save pending edits before restoring a round."
 msgstr "恢复某一轮之前，请先保存未保存的修改。"
 
@@ -9688,7 +9690,7 @@ msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
 #. placeholder {0}: target.path
-#: src/app/use-annotations.ts
+#: src/app/annotation-rounds.ts
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 msgstr "SyncTeX 把这段文字定位到了 {0} 之外。请重新构建 PDF 后再批注。"
 
@@ -9838,11 +9840,11 @@ msgstr "AI 校对失败：{detail}"
 msgid "The agent could not proofread the selection."
 msgstr "AI 校对失败"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage: {detail}"
 msgstr "AI 助手没能修改这一段：{detail}"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage."
 msgstr "AI 助手没能修改这一段。"
 
@@ -9874,7 +9876,7 @@ msgstr "AI 助手建议这一段保持不变。"
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "AI 没返回校对结果"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "AI 助手的回复里既没有修改，也没有问题。"
 
@@ -9882,7 +9884,7 @@ msgstr "AI 助手的回复里既没有修改，也没有问题。"
 msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
 msgstr "批注的段落已改动或移动，无法放置这条建议。请在批注面板中重新请 AI 助手修改。"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
 msgstr "批注的文字已改动或移动。请重新选中并批注后再请 AI 助手修改。"
 
@@ -10366,7 +10368,7 @@ msgstr "此值用 # 拼接字符串，请保持为有效的 BibTeX。"
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "请更新 Lattice 后使用校对"
 
-#: src/app/use-annotation-rounds.ts
+#: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
 

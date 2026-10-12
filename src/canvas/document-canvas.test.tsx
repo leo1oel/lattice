@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
+import { AnnotationRounds } from "../app/annotation-rounds";
 import { DocumentCanvas } from "./document-canvas";
 import { splitGridTemplate } from "./use-split-layout";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
@@ -187,11 +188,7 @@ function baseProps(): CanvasProps {
       switchState: { subscribe: () => () => {}, switching: () => false },
     },
     openPaths: [],
-    annotations: {
-      local: [], proposals: [], running: new Set(), review: null, canRevise: true, canAnnotatePdf: true, pdfMarks: [],
-      onRevise: vi.fn(), onOpen: vi.fn(), onOpenById: vi.fn(), onAccepted: vi.fn(), onRejected: vi.fn(), onRetry: vi.fn(),
-      onNavigate: vi.fn(), onCloseReview: vi.fn(), mapPdfSelection: vi.fn(),
-    },
+    annotationRounds: new AnnotationRounds(),
   };
 }
 

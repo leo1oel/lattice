@@ -1,43 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
-import type { AcceptedRevision } from "../app/use-annotation-rounds";
-import type { AnnotationIntent, EditorComment } from "../editor/comments/editor-comment-data";
-import type { PdfAnnotationMark, PdfTextSelection } from "../pdf/pdf-viewer";
+import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
+import type { AnnotationIntent } from "../editor/comments/editor-comment-data";
+import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { clamp } from "../settings/app-settings";
 import { AnnotationForm } from "./annotation-composer";
-
-/** A PDF selection placed in the source: the file and span SyncTeX and its text led to. */
-export type MappedPdfSelection = { path: string; line: number; from: number; to: number; source: string };
-
-/** What the canvas shows and asks of local annotations and their revision rounds. */
-export type CanvasAnnotations = {
-  /** Every local annotation. */
-  local: readonly EditorComment[];
-  /** Proposals waiting for the writer, in review order. */
-  proposals: readonly EditorComment[];
-  /** Annotations the agent is answering now. */
-  running: ReadonlySet<string>;
-  /** The proposal to review in the editor. */
-  review: { id: string; nonce: string } | null;
-  /** The agent can be asked now (a project the writer can edit). */
-  canRevise: boolean;
-  /** Text on the compiled PDF can be annotated. */
-  canAnnotatePdf: boolean;
-  /** Annotations made on the PDF, as its pages draw them. */
-  pdfMarks: readonly PdfAnnotationMark[];
-  onRevise: () => void;
-  /** Show an annotation: its card in the panel, its passage in the editor. */
-  onOpen: (comment: EditorComment) => void;
-  onOpenById: (id: string) => void;
-  onAccepted: (id: string, applied: AcceptedRevision) => void;
-  onRejected: (id: string) => void;
-  onRetry: (id: string, guidance: string) => void;
-  onNavigate: (from: string, step: 1 | -1) => void;
-  onCloseReview: () => void;
-  /** Find a PDF selection's place in the source; rejects with why it cannot. */
-  mapPdfSelection: (selection: PdfTextSelection) => Promise<MappedPdfSelection>;
-};
 
 /**
  * The note for text selected on the PDF: it maps the selection to the source
@@ -46,10 +14,8 @@ export type CanvasAnnotations = {
  */
 export function PdfAnnotationComposer(props: {
   selection: PdfTextSelection;
-  map: (selection: PdfTextSelection) => Promise<MappedPdfSelection>;
-  canRevise: boolean;
-  onCancel: () => void;
-  onSave: (mapped: MappedPdfSelection, body: string, intent: AnnotationIntent | undefined, revise: boolean) => boolean;
+  rounds: AnnotationRounds;
+  onDone: () => void;
 }) {
   const { t } = useLingui();
   const { selection } = props;
@@ -58,11 +24,11 @@ export function PdfAnnotationComposer(props: {
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [intent, setIntent] = useState<AnnotationIntent | undefined>();
-  const { map } = props;
+  const { rounds } = props;
 
   useEffect(() => {
     let cancelled = false;
-    map(selection).then(
+    rounds.mapPdfSelection(selection).then(
       (place) => {
         if (!cancelled) setMapped(place);
       },
@@ -71,7 +37,7 @@ export function PdfAnnotationComposer(props: {
       },
     );
     return () => { cancelled = true; };
-  }, [map, selection]);
+  }, [rounds, selection]);
 
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
   useLayoutEffect(() => {
@@ -79,7 +45,7 @@ export function PdfAnnotationComposer(props: {
     const column = popup?.parentElement;
     if (!popup || !column) return;
     const place = () => {
-      const page = column.querySelector<HTMLElement>(`.pdf-preview [data-page-number="${selection.page}"]`);
+      const page = column.querySelector<HTMLElement>(`[data-page-number="${selection.page}"]`);
       const last = selection.rects.at(-1);
       const first = selection.rects[0];
       if (!page || !last || !first) {
@@ -128,15 +94,14 @@ export function PdfAnnotationComposer(props: {
         error={error}
         ready={Boolean(mapped)}
         footnote={mapped ? t`Mapped to the source with SyncTeX` : error ? undefined : t`Finding it in the source…`}
-        canRevise={props.canRevise}
+        canRevise
         onBodyChange={setBody}
         onIntentChange={setIntent}
-        onCancel={props.onCancel}
+        onCancel={props.onDone}
         onSave={(revise) => {
           if (!mapped) return;
-          if (!props.onSave(mapped, body, intent, revise)) {
-            setError(t`The source changed since the PDF was built. Build again, then annotate.`);
-          }
+          if (rounds.createFromPdf(selection, mapped, body, intent, revise)) props.onDone();
+          else setError(t`The source changed since the PDF was built. Build again, then annotate.`);
         }}
       />
     </div>

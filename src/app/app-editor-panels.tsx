@@ -7,7 +7,7 @@
  * than sharing one with the other drawers — a `null` fallback that covered
  * all of them would unmount an open TODO panel while an unrelated chunk loads.
  */
-import { lazy, Suspense, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
@@ -17,8 +17,8 @@ import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
 import { showError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
-import type { Annotations } from "./use-annotations";
-import { useIntentLabels } from "../editor/comments/use-intent-labels";
+import type { AnnotationRounds } from "./annotation-rounds";
+import type { AnnotationRound, EditorComment } from "../editor/comments/editor-comment-data";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
@@ -38,13 +38,33 @@ const AnnotationRoundsDialog = lazy(() =>
   import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
 );
 
-export function AppEditorPanels({ comments, annotations, renderCommentsSurface, ...props }: {
+/**
+ * The Revision rounds sheet, loaded once it is first opened: the rounds'
+ * own state says when, so nothing here runs while it stays closed.
+ */
+const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, roundsList, annotations }: {
+  rounds: AnnotationRounds;
+  roundsList: readonly AnnotationRound[];
+  annotations: readonly EditorComment[];
+}) {
+  const open = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().roundsOpen);
+  return open ? (
+    <Suspense fallback={null}>
+      <AnnotationRoundsDialog
+        rounds={roundsList}
+        annotations={annotations}
+        readSource={rounds.readSource}
+        onOpenInHistory={rounds.openInHistory}
+        onRestore={rounds.restore}
+        onClose={rounds.closeRounds}
+      />
+    </Suspense>
+  ) : null;
+});
+
+export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurface, ...props }: {
   comments: EditorComments;
-  annotations: Annotations;
-  /** Saves pending edits before a round is restored over the files. */
-  saveBeforeRestore: () => Promise<boolean>;
-  /** Brings the project, the open file and history up to date after a restore. */
-  reloadAfterRestore: () => Promise<void>;
+  annotationRounds: AnnotationRounds;
   /** Wraps the comment list in the Overleaf drawer when the project is linked. */
   renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
@@ -65,7 +85,6 @@ export function AppEditorPanels({ comments, annotations, renderCommentsSurface, 
   unusedSymbols: UnusedSymbols;
 }) {
   const { t } = useLingui();
-  const intentLabels = useIntentLabels();
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
@@ -97,8 +116,8 @@ export function AppEditorPanels({ comments, annotations, renderCommentsSurface, 
       focusCommentId={comments.panelFocusId}
       activeCommentId={comments.activeId}
       sourceFor={sourceFor}
-      rounds={annotations.panel}
-      intentLabels={intentLabels}
+      annotationRounds={annotationRounds}
+      roundsList={comments.rounds}
       onClose={comments.closePanel}
       onOpen={comments.openComment}
       onDelete={comments.deleteComment}
@@ -132,26 +151,8 @@ export function AppEditorPanels({ comments, annotations, renderCommentsSurface, 
       )}
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
-        {annotations.roundsOpen && (
-          <AnnotationRoundsDialog
-            rounds={comments.rounds}
-            annotations={comments.comments}
-            readSource={annotations.readSource}
-            onOpenInHistory={(historyEntry) => {
-              annotations.setRoundsOpen(false);
-              tools.open("history", { historyEntry });
-            }}
-            onRestore={async (label, files) => {
-              if (!await props.saveBeforeRestore()) throw new Error(t`Save pending edits before restoring a round.`);
-              await invoke("restore_annotation_round", {
-                projectRoot: project.root, label, files: files.map(({ path, text }) => ({ path, before: null, after: text })),
-              });
-              await props.reloadAfterRestore();
-            }}
-            onClose={() => annotations.setRoundsOpen(false)}
-          />
-        )}
       </Suspense>
+      <AnnotationRoundsHost rounds={annotationRounds} roundsList={comments.rounds} annotations={comments.comments} />
       {tools.isOpen.todos && (
         <TodoScavengerPanel
           hits={todoHits}

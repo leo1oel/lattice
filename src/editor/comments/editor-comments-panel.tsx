@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, CornerDownLeft, FileSearch, History, Pencil, Reply, RotateCcw, Search } from "lucide-react";
 import { comboText, parseKeyName } from "../../app/key-combos";
@@ -17,11 +17,13 @@ import {
   annotationStatus,
   editorCommentAuthorDisplayName,
   resolveCommentAnchor,
-  type AnnotationIntent,
+  type AnnotationRound,
   type AnnotationStatus,
   type EditorComment,
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
+import { useIntentLabels } from "./use-intent-labels";
+import { pendingProposals, revisable, roundProgress, type AnnotationRounds } from "../../app/annotation-rounds";
 import "./annotations.css";
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names, drawn as glyphs */
@@ -31,7 +33,7 @@ const STORAGE_PATH = ".research/annotations.json";
 
 type Filter = "open" | "resolved" | "all";
 
-/** What the panel shows and asks of a revision round (`use-annotation-rounds.ts`). */
+/** What the panel shows and asks of the revision rounds (`app/annotation-rounds.ts`). */
 export type AnnotationRoundsView = {
   /** Annotations the agent is answering now. */
   running: ReadonlySet<string>;
@@ -49,6 +51,35 @@ export type AnnotationRoundsView = {
   onAnswer: (id: string, answer: string) => void;
   onOpenRounds: () => void;
 };
+
+const NO_RUNNING: ReadonlySet<string> = new Set();
+const NO_ROUNDS: readonly AnnotationRound[] = [];
+const noSubscription = () => () => {};
+const noRunning = () => NO_RUNNING;
+
+/** The rounds as the panel shows them, read from the rounds while the panel is on screen. */
+function useRoundsView(
+  annotationRounds: AnnotationRounds | undefined,
+  roundsList: readonly AnnotationRound[] = NO_ROUNDS,
+  comments: readonly EditorComment[],
+): AnnotationRoundsView | undefined {
+  const running = useSyncExternalStore(
+    annotationRounds?.subscribe ?? noSubscription,
+    annotationRounds ? () => annotationRounds.getSnapshot().running : noRunning,
+  );
+  return useMemo(() => annotationRounds && {
+    running,
+    progress: roundProgress(roundsList, comments, running),
+    proposals: pendingProposals(comments),
+    revisable: comments.filter((annotation) => revisable(annotation, running)).length,
+    hasRounds: roundsList.some((round) => round.settledAt),
+    onRevise: () => annotationRounds.revise(),
+    onReview: annotationRounds.openReview,
+    onRetry: (id: string) => annotationRounds.retry(id),
+    onAnswer: annotationRounds.answer,
+    onOpenRounds: annotationRounds.openRounds,
+  }, [annotationRounds, comments, roundsList, running]);
+}
 
 /** A heading of the source, as the panel groups annotations under it. */
 type Section = { offset: number; label: string };
@@ -97,8 +128,9 @@ export function EditorCommentsPanel(props: {
   activeCommentId?: string | null;
   /** A file's live text, when the panel can read it, for line numbers and sections. */
   sourceFor?: (path: string) => string | undefined;
-  rounds?: AnnotationRoundsView;
-  intentLabels?: Record<AnnotationIntent, string>;
+  /** The revision rounds behind Revise, and the project's rounds; without them the panel only lists notes. */
+  annotationRounds?: AnnotationRounds;
+  roundsList?: readonly AnnotationRound[];
   onClose: () => void;
   onOpen: (comment: EditorComment) => void;
   onDelete: (id: string) => void;
@@ -118,7 +150,9 @@ export function EditorCommentsPanel(props: {
   const focusRef = useRef<HTMLElement | null>(null);
   const activeRef = useRef<HTMLElement | null>(null);
   const anonymousAuthor = t`Anonymous`;
-  const { rounds, activePath, sourceFor } = props;
+  const { activePath, sourceFor } = props;
+  const rounds = useRoundsView(props.annotationRounds, props.roundsList, props.comments);
+  const intentLabels = useIntentLabels();
 
   // When opened from the editor's hover "Reply…", jump to that note and open
   // its reply box straight away.
@@ -312,7 +346,7 @@ export function EditorCommentsPanel(props: {
           // The card's parts run together as inline text; its name reads them as sentences.
           aria-label={[
             pin ? t`Annotation ${pin}` : author,
-            comment.body || (comment.intent && props.intentLabels?.[comment.intent]),
+            comment.body || (comment.intent && intentLabels[comment.intent]),
             `“${comment.quote.trim()}”`,
             status === null ? t`Revising…` : status === "open" ? null : statusLabels[status],
             location,
@@ -325,7 +359,7 @@ export function EditorCommentsPanel(props: {
           <span className="annotation-card-quote">{comment.quote.trim() || t`(empty span)`}</span>
           {comment.body
             ? <span className="annotation-card-note">{comment.body}</span>
-            : comment.intent && props.intentLabels && <span className="annotation-card-note">{props.intentLabels[comment.intent]}</span>}
+            : comment.intent && <span className="annotation-card-note">{intentLabels[comment.intent]}</span>}
           <span className="annotation-card-meta">
             {status === null ? (
               <span className="annotation-status" data-annotation-status="running"><InfinityLoader size={11} />{t`Revising…`}</span>
