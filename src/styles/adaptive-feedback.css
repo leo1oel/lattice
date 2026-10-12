@@ -80,7 +80,7 @@
 .app-log-scroll [data-slot="scroll-area-viewport"] { overscroll-behavior-y: contain; }
 .app-log-list { display: flex; flex-direction: column; padding-block: var(--space-4); font: var(--type-body-compact-size)/1.8 var(--editor-font); user-select: text; }
 .app-log-entry { user-select: text; }
-.app-log-entry-summary, .app-log-operation > summary { display: grid; grid-template-columns: 24ch 6ch minmax(0, 1fr) 13px; align-items: baseline; gap: var(--space-5); padding: var(--space-1) var(--space-5); list-style: none; cursor: pointer; font: inherit; color: var(--text-secondary); }
+.app-log-entry-summary, .app-log-operation > summary { display: grid; grid-template-columns: 24ch 6ch minmax(0, 1fr) 13px; align-items: baseline; gap: var(--space-5); padding: var(--space-1) var(--space-5); list-style: none; cursor: pointer; font: inherit; color: var(--text-secondary); transition: background-color var(--motion-fast); }
 .app-log-entry-summary::-webkit-details-marker, .app-log-operation > summary::-webkit-details-marker { display: none; }
 .app-log-entry-summary:hover, .app-log-operation > summary:hover { background: var(--control-hover-surface); }
 .app-log-entry-summary time, .app-log-operation > summary time { color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -99,7 +99,7 @@
 .app-log-context button:hover { color: var(--text-primary); }
 .app-log-message, .app-log-fields { margin: var(--space-4) 0 0; color: var(--text-primary); font: var(--type-micro-size)/1.6 var(--editor-font); white-space: pre-wrap; overflow-wrap: anywhere; }
 .app-log-fields { padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); }
-.app-log-chevron { align-self: center; opacity: 0; transition: transform var(--motion-fast); }
+.app-log-chevron { align-self: center; opacity: 0; transition: transform var(--motion-fast), opacity var(--motion-fast); }
 .app-log-entry-summary:is(:hover, :focus-visible) .app-log-chevron, .app-log-operation > summary:is(:hover, :focus-visible) .app-log-chevron, details[open] > summary .app-log-chevron { opacity: 1; }
 .app-log-entry[open] > summary .app-log-chevron, .app-log-operation[open] > summary .app-log-chevron { transform: rotate(90deg); }
 .app-log-operation-timeline { margin-block: var(--space-3); border-inline-start: 1px solid var(--border-strong); background: var(--surface-panel); }

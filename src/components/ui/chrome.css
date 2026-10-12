@@ -685,21 +685,21 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   }
 }
 
-/* The tooltip's entrance: a short fade and grow from 95%, drifting in from
-   the side it opens on. Only open states animate, so a closed tooltip
-   unmounts at once and never lingers under the next one. */
+/* The tooltip's entrance: a short fade and grow from 98%, drifting a few
+   pixels in from the side it opens on. Only open states animate, so a closed
+   tooltip unmounts at once and never lingers under the next one. */
 @keyframes ui-tooltip-enter {
   from {
     opacity: 0;
-    transform: translate3d(var(--ui-tooltip-enter-x, 0), var(--ui-tooltip-enter-y, 0), 0) scale3d(0.95, 0.95, 0.95);
+    transform: translate3d(var(--ui-tooltip-enter-x, 0), var(--ui-tooltip-enter-y, 0), 0) scale3d(0.98, 0.98, 0.98);
   }
 }
 @layer components {
   .ui-tooltip-content:is([data-state="delayed-open"], [data-state="instant-open"]) { animation: ui-tooltip-enter var(--motion-fast); }
-  .ui-tooltip-content[data-side="bottom"] { --ui-tooltip-enter-y: -0.5rem; }
-  .ui-tooltip-content[data-side="top"] { --ui-tooltip-enter-y: 0.5rem; }
-  .ui-tooltip-content[data-side="left"] { --ui-tooltip-enter-x: 0.5rem; }
-  .ui-tooltip-content[data-side="right"] { --ui-tooltip-enter-x: -0.5rem; }
+  .ui-tooltip-content[data-side="bottom"] { --ui-tooltip-enter-y: calc(-1 * var(--space-2)); }
+  .ui-tooltip-content[data-side="top"] { --ui-tooltip-enter-y: var(--space-2); }
+  .ui-tooltip-content[data-side="left"] { --ui-tooltip-enter-x: var(--space-2); }
+  .ui-tooltip-content[data-side="right"] { --ui-tooltip-enter-x: calc(-1 * var(--space-2)); }
   /* A tooltip only describes its trigger and floats above every other layer,
      menus included, so neither it nor Radix's positioning wrapper may take
      pointer input from a control it happens to cover. */

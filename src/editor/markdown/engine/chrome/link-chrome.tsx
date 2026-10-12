@@ -26,6 +26,7 @@ import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
 import { PAPER_HREF } from "../inline-syntax";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { loadLinkPreview, type LinkMetadata } from "./link-preview";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 
 const UNSAFE_URL = /^\s*(?:javascript|vbscript|data|file):/i;
 const EXTERNAL_URL = /^(?:https?:|mailto:)/i;
@@ -36,9 +37,11 @@ function place(element: HTMLElement, rect: DOMRect) {
     placement: "bottom-start",
     strategy: "fixed",
     middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
-  }).then(({ x, y }) => {
+  }).then(({ x, y, placement }) => {
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
+    // The side it landed on, after any flip: the entrance travels from it.
+    element.dataset.side = placement.split("-")[0];
   });
 }
 
@@ -160,7 +163,7 @@ function TextLinkEditor({ editor, host, from, to }: { editor: Editor; host: Chro
   useOutsideCommit(element, true, commit);
 
   return createPortal(
-    <div ref={setElement} className="lx-md-link-editor" role="dialog" aria-label={t`Edit link`} style={{ position: "fixed", left: 0, top: 0 }}>
+    <div ref={setElement} className={`lx-md-link-editor ${popupMotionClassName}`} role="dialog" aria-label={t`Edit link`} style={{ position: "fixed", left: 0, top: 0 }}>
       <Input
         autoFocus
         controlSize="compact"
@@ -370,7 +373,7 @@ export function LinkHoverCard({ editor, host }: { editor: Editor; host: ChromeHo
   return createPortal(
     <div
       ref={setElement}
-      className="lx-md-link-card"
+      className={`lx-md-link-card ${popupMotionClassName}`}
       style={{ position: "fixed", left: 0, top: 0 }}
       onMouseEnter={() => clearTimeout(timers.current.close)}
       onMouseLeave={() => {

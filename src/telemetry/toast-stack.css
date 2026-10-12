@@ -82,9 +82,18 @@
 [data-position^="bottom"] > .app-toast::after { top: auto; bottom: 100%; }
 
 /* Arriving, a card drops in from the stack's edge; leaving, it lifts back out,
-   or carries on the way it was swiped. */
+   or carries on the way it was swiped. The leaving card takes the exit tweens:
+   the slow tier's spring overshoots, and a dismissal must not bounce. */
 .app-toast[data-starting-style] { opacity: 0; transform: translateY(calc(var(--toast-dir) * -100%)) scale(0.96); }
-.app-toast[data-ending-style] { opacity: 0; transform: translateY(calc(var(--toast-dir) * -40% + var(--toast-swipe-movement-y))) scale(0.96); }
+.app-toast[data-ending-style] {
+  opacity: 0;
+  transform: translateY(calc(var(--toast-dir) * -40% + var(--toast-swipe-movement-y))) scale(0.96);
+  transition:
+    transform var(--motion-slow-exit),
+    opacity var(--motion-moderate-exit),
+    height var(--motion-moderate-exit),
+    box-shadow var(--motion-fast-exit);
+}
 .app-toast[data-ending-style][data-swipe-direction="right"] { transform: translateX(calc(var(--toast-swipe-movement-x) + 110%)) translateY(var(--toast-swipe-movement-y)); }
 .app-toast[data-ending-style][data-swipe-direction="up"] { transform: translateY(calc(var(--toast-swipe-movement-y) - 120%)); }
 .app-toast[data-ending-style][data-swipe-direction="down"] { transform: translateY(calc(var(--toast-swipe-movement-y) + 120%)); }

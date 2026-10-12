@@ -122,7 +122,7 @@ export function LatexSelectionToolbar(props: {
         if (!(event.target as HTMLElement).closest("input")) event.preventDefault();
       }}
     >
-      <PopIn className="latex-selection-toolbar">
+      <PopIn className="latex-selection-toolbar" side={props.position.below ? "bottom" : "top"}>
         {visibleActions.map(({ action, label: descriptor, icon: Icon, separated, shortcut }, index) => {
           const label = i18n._(descriptor);
           return (

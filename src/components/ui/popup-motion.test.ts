@@ -60,7 +60,8 @@ describe("shared popup motion", () => {
     expect([...new Set(source.match(/\.[a-z][a-z0-9-]*/g))]).toEqual([".popup-motion"])
     expect(source).toMatch(/popup-motion-open var\(--motion-moderate\)/)
     expect(source).toMatch(/popup-motion-close var\(--motion-moderate-exit\)/)
-    expect(source).toContain("translateY(-4px) scale(.97)")
+    expect(source).toContain("--popup-motion-from: translateY(-4px)")
+    expect(source).toContain("transform: var(--popup-motion-from) scale(.97)")
     // Durations come off the shared scale, never as a local number.
     expect(source).not.toMatch(/\d+ms/)
   })

@@ -454,6 +454,7 @@
   font-variant-numeric: tabular-nums;
   text-decoration: none;
   cursor: pointer;
+  transition: background-color var(--motion-fast);
 }
 .lx-md-editor .lx-md-surface .lx-md-footnote-ref-link:hover { background: color-mix(in srgb, var(--lx-md-link) 12%, transparent); }
 .lx-md-editor .lx-md-footnote-ref.is-selected .lx-md-footnote-ref-link { background: var(--editor-selection-surface); }
@@ -483,6 +484,7 @@
   color: var(--text-tertiary);
   text-decoration: none;
   user-select: none;
+  transition: color var(--motion-fast);
 }
 .lx-md-editor .lx-md-surface .lx-md-footnote-backref:hover { color: var(--lx-md-link); }
 .lx-md-editor .lx-md-footnote-backref svg { width: 13px; height: 13px; }

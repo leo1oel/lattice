@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--surface-window); }
 button, input, textarea, select { font: inherit; color: inherit; }
-button { border: 0; cursor: pointer; transition: background-color var(--motion-moderate), border-color var(--motion-moderate), color var(--motion-moderate); }
+button { border: 0; cursor: pointer; transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast); }
 button:disabled { cursor: default; opacity: 0.45; }
 input[type="search"] { -webkit-appearance: none; appearance: none; }
 input[type="search"]::-webkit-search-cancel-button,
@@ -133,7 +133,7 @@ input[type="search"]:focus-visible {
 .compile-diagnostic-item.warning > svg { color: var(--status-warning); }
 .compile-diagnostic-message { min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
 .compile-diagnostic-line { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.compile-diagnostic-copy { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; }
+.compile-diagnostic-copy { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; transition: background-color var(--motion-fast), opacity var(--motion-fast); }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
 .compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Without field-sizing a textarea is two rows tall; give it the old cap. */
@@ -301,9 +301,9 @@ input[type="search"]:focus-visible {
 .bib-entry-preview { margin: var(--space-4) 0 0; min-height: 96px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); background: var(--surface-app); color: var(--text-secondary); font: var(--type-caption-size)/1.45 var(--editor-font); white-space: pre-wrap; }
 .venue-combobox { position: relative; }
 .venue-combobox input { width: 100%; }
-/* Motion comes from the shared `.popup-motion` class, applied in
-   `bib-entry-dialog.tsx`. Only the origin is surface-specific. */
-.venue-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: var(--z-menu-inline-raised); max-height: 232px; overflow: auto; transform-origin: top; }
+/* Motion, and its origin under the field, come from the shared `.popup-motion`
+   class, applied in `bib-entry-dialog.tsx`. */
+.venue-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: var(--z-menu-inline-raised); max-height: 232px; overflow: auto; }
 /* 8 outer + 4 pad → 4 item (concentric). */
 .venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 28px; border: 0; border-radius: var(--nested-radius); background: transparent; color: var(--text-primary); padding: 5px var(--space-4); text-align: left; font: var(--type-caption-size)/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
 .venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }

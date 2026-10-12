@@ -341,7 +341,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   border-radius: var(--radius-compact);
   background: var(--pdf-page-surface);
   box-shadow: 0 0 0 1px var(--elevation-ring), var(--pdf-page-shadow);
-  transition: transform var(--motion-moderate), box-shadow var(--motion-moderate);
+  transition: transform var(--motion-moderate), box-shadow var(--motion-moderate), opacity var(--motion-moderate);
 }
 .welcome-desk-card:hover:not(:disabled) .welcome-desk-sheet { transform: translateY(-2px); box-shadow: 0 0 0 1px var(--elevation-ring), var(--elevation-floating-shadow); }
 /* The top of the page: the title, the authors and the abstract. */
@@ -366,7 +366,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
 }
-/* The stored pages are a moment away; an empty card would flash in between. */
+/* The stored pages are a moment away; an empty card would flash in between.
+   The page fades in when it lands instead of appearing in one frame. */
 .welcome-desk-sheet[data-kind="loading"] { opacity: 0; }
 .welcome-desk-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-overflow: ellipsis; white-space: nowrap; }
 .welcome-desk-when { min-width: 0; min-height: var(--type-caption-line-height); overflow: hidden; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }

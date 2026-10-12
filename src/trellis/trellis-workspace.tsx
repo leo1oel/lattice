@@ -818,8 +818,23 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
 }
 
 function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => void }) {
+  // Closing plays the shared exit (`.popup-motion[data-state="closed"]`) and
+  // drops the request when it ends: unmounting the menu with its owner would
+  // cut it. With no exit to play, Radix has already removed the content, so the
+  // request goes at once. A new request opens at once, even over one leaving.
+  const [open, setOpen] = useState(true);
+  const [shown, setShown] = useState(request);
+  if (shown !== request) {
+    setShown(request);
+    setOpen(true);
+  }
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open && !content.current) onClose();
+  }, [open, onClose]);
+  const close = () => setOpen(false);
   return (
-    <MenuPrimitive.Root open modal={false} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <MenuPrimitive.Root open={open} modal={false} onOpenChange={(next) => { if (!next) close(); }}>
       <MenuPrimitive.Trigger asChild>
         <span aria-hidden="true" style={{ position: "fixed", left: request.x, top: request.y, width: 0, height: 0 }} />
       </MenuPrimitive.Trigger>
@@ -830,9 +845,13 @@ function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => 
           sideOffset={4}
           className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
           onCloseAutoFocus={(event) => event.preventDefault()}
+          ref={content}
+          onAnimationEnd={(event) => {
+            if (!open && event.target === event.currentTarget) onClose();
+          }}
         >
           <FluidHoverSurface />
-          <MenuEntries entries={request.entries} onRun={onClose} />
+          <MenuEntries entries={request.entries} onRun={close} />
         </MenuPrimitive.Content>
       </MenuPrimitive.Portal>
     </MenuPrimitive.Root>
