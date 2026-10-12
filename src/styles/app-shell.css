@@ -216,7 +216,9 @@ input[type="search"]:focus-visible {
    pointer while the arrows move on. */
 .quick-open-list { --fluid-hover-fill: var(--control-active-soft); }
 .quick-open-list button.active { background: var(--control-active-soft); color: var(--text-primary); }
-.quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A block: labels are plain text, and an ellipsis draws only in a block
+   container, so a long file name ends in "…" rather than mid-letter. */
+.quick-open-list .picker-label { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* One heading per section at the caption role, quiet enough that the rows
    stay the thing to read. */
 .quick-open-list .picker-section { padding: var(--space-6) var(--space-5) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
@@ -254,7 +256,11 @@ input[type="search"]:focus-visible {
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
-.editor-status-bar .editor-breadcrumb i { color: var(--text-tertiary); font-style: normal; }
+.editor-status-bar .editor-breadcrumb i { flex: none; color: var(--text-tertiary); font-style: normal; }
+/* Each crumb (separator and button) is the flex item, so it is the one that
+   must be allowed under its text's width: then the button ellipsizes, where a
+   crumb wider than the bar was cut at both ends of the centred row. */
+.editor-status-bar .editor-breadcrumb > span { min-width: 0; display: flex; align-items: center; }
 .modal:is(.goto-line-modal, .figure-insert-modal) { width: min(420px, calc(100vw - 40px)); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
@@ -275,6 +281,15 @@ input[type="search"]:focus-visible {
    a panel narrower than both Split minimums shrinks the source below that. */
 @container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
 @container (max-width: 510px) { .editor-status-bar .status-body-words { display: none; } }
+/* Named, the two counters and a long caret ("Ln 135, Col 41", "4 annotations",
+   "TODOs") need about 320px with the breadcrumb gone; under that they keep
+   their icons, in the accent while anything is open, and still say their
+   counts to a screen reader. Without this step the bar cut "TODOs" mid-word
+   in a document panel at its minimum. */
+@container (max-width: 320px) {
+  .editor-status-bar .status-todos { gap: 0; }
+  .editor-status-bar .status-todos .status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 @container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
 @container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
@@ -896,6 +911,15 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .papers-empty-state[data-library="empty"] .research-art { width: 64px; }
 .papers-empty-state[data-library="empty"] p { margin-bottom: var(--space-1); }
 .papers-empty-state .ui-button { justify-self: start; max-width: 100%; }
+/* Too narrow for the button beside the drawing ("Add your first paper" needs
+   about 140px), the button takes a row of its own under both; the heading and
+   its line stay beside the drawing, so the card grows by no more than that. */
+@container paper-list (width < 260px) {
+  .papers-empty-state[data-library="empty"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; row-gap: var(--space-1); }
+  .papers-empty-state[data-library="empty"] .research-art { grid-row: span 2; }
+  .papers-empty-state[data-library="empty"] .papers-empty-text { display: contents; }
+  .papers-empty-state[data-library="empty"] .ui-button { grid-column: 1 / -1; margin-top: var(--space-4); }
+}
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
 .import-box button:hover:not(:disabled) { background: var(--control-active-soft); }
