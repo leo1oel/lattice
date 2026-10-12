@@ -18,7 +18,7 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
   dropActive: boolean;
 }) {
   const { t } = useLingui();
-  const { origin, runtime, frameMounted, frameReady, frameRef, retry } = synara;
+  const { origin, runtime, frameMounted, frameAttempt, frameReady, frameRef, retryAgent } = synara;
   // Recording navigation must not change src and reload an in-progress turn.
   const src = useMemo(() => origin
     ? synaraEmbedUrl({ origin, authToken: runtime.authToken, projectRoot, theme, locale: appLocale })
@@ -27,7 +27,7 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
   return (
     <div className={`synara-frame-shell ${dropActive ? "agent-drop-active" : ""}`} data-tour="agent-panel" data-ready={frameReady || undefined}>
       {frameMounted && origin && <iframe
-        key={projectRoot}
+        key={`${projectRoot}\0${frameAttempt}`}
         ref={frameRef}
         className="synara-poc-frame"
         src={src}
@@ -35,7 +35,7 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
         allow="clipboard-read; clipboard-write; microphone"
         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
       />}
-      {!frameReady && <SynaraLoadingSurface runtime={runtime} preparingWorkspace={Boolean(origin)} onRetry={retry} />}
+      {!frameReady && <SynaraLoadingSurface thread waiting={frameMounted} runtime={runtime} preparingWorkspace={Boolean(origin)} onRetry={retryAgent} />}
     </div>
   );
 }

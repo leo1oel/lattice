@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { EMPTY_SYNARA_RUNTIME, type AgentGitWorkspaceView, type SynaraRuntimeInfo } from "../agent/synara-runtime";
@@ -39,7 +39,9 @@ it("shows the Git skeleton and a polite status from the first frame, while the r
   renderFrames({ frame: null, runtime: EMPTY_SYNARA_RUNTIME });
   expect(shell()).not.toBeNull();
   expect(document.querySelector("iframe")).toBeNull();
-  expect(await screen.findByRole("status")).toHaveTextContent("Loading changes…");
+  // The live region fills a frame after it mounts (LoadingAnnouncement), so
+  // wait for its words, not just for the region.
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Loading changes…"));
   // The controls' own icons are drawn at once, before any Git data.
   expect(document.querySelectorAll(".git-workspace-skeleton svg").length).toBeGreaterThanOrEqual(2);
 });

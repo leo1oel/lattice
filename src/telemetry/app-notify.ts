@@ -53,6 +53,8 @@ export type NotifyOptions = {
 type ActionFailureOptions = NotifyOptions & {
   /** Record the failed outcome without adding a second surface beside inline diagnostics. */
   toast?: boolean;
+  /** What happened, when the action knows better than "<action> failed". */
+  title?: string;
 };
 
 /** Composite map keys, joined on a separator no message can contain. */
@@ -176,9 +178,10 @@ export function logAction(source: string, action: string, detail?: string, opera
       if (completed) return;
       completed = true;
       const message = toMessage(reason);
-      const failedTitle = i18n._(msg`${action} failed`);
+      const { title, ...failure } = options ?? {};
+      const failedTitle = title ?? i18n._(msg`${action} failed`);
       notify("error", source, failedTitle, {
-        ...options,
+        ...failure,
         detail: withTraceTag(id, options?.detail ?? message),
         copyText: options?.copyText ?? `${failedTitle}\n${message}`,
         dedupeKey: options?.dedupeKey ?? outcomeKey,

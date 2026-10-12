@@ -74,7 +74,7 @@ it("drops a search that answers after the project changed or the dialog closed",
   act(() => { running = view.result.current.search("beta"); });
   act(() => view.result.current.closeFind());
   await act(() => running);
-  expect(view.result.current.find).toEqual({ open: false, busy: false, error: null, hits: [] });
+  expect(view.result.current.find).toEqual({ open: false, busy: false, error: null, hits: [], seed: null });
 });
 
 it("writes unsaved edits before replacing, then reloads the project and reports the count", async () => {

@@ -290,6 +290,7 @@ function App() {
   const resolveOverleafSyncRef = useRef<(() => void) | null>(null);
   const agentCommentsOptionsRef = useRef<(() => BuildAgentCommentsOptions | null) | null>(null);
   const flushWholeFilesBeforeProjectTransitionRef = useRef<() => Promise<void>>(async () => {});
+  const openOverleafSettingsRef = useRef<() => void>(() => {});
   useEffect(() => {
     const listening = new AbortController();
     const enableInteractivePreviews = () => {
@@ -334,7 +335,7 @@ function App() {
       await refreshHistory();
     },
   });
-  const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
+  const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
   const openMarkdownProjectPathRef = useRef<(path: string) => void>(() => undefined);
@@ -569,7 +570,7 @@ function App() {
     source, sourceRef, savedSourceRef, accept, editorPosition,
     editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
     save, compile, loadFile, refreshProject, openProjectFile: openFile,
-    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
+    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef, openOverleafSettingsRef,
   });
   const {
     overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode, setOverleafSyncMode,
@@ -1084,6 +1085,7 @@ function App() {
     setSettingsEntry({ returnFocus, reveal });
     startSettingsOpen(() => setSettingsOpen(true));
   }, [showSettingsTab]);
+  useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
 
   // An urgent update after the opening transition's: it also withdraws a
   // pending open, so a Settings closed from its loading shell stays closed.
@@ -1497,6 +1499,7 @@ function App() {
             if (isProjectAssetFilePath(choice.path)) void openAsset(choice.path);
             else void openFile(choice.path);
           } else if (choice.kind === "paper") readDraggedPaper(choice.paper);
+          else if (choice.kind === "find") openProjectFindFor(choice.query);
           else openSettings(choice.entry.tab, null, choice.entry);
         }, 0), 0);
       }}
@@ -1946,7 +1949,7 @@ function App() {
         {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
         {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
         {agentPresent && createPortal(
-          <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface runtime={synara.runtime} onRetry={synara.retry} /></div>}>
+          <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface thread waiting={synara.frameMounted} runtime={synara.runtime} onRetry={synara.retryAgent} /></div>}>
             <TrellisAgentSurface
               synara={synara}
               projectRoot={project.root}
