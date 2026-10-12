@@ -452,10 +452,14 @@
 .trellis-empty-art { width: min(112px, 50cqw); margin-bottom: var(--space-2); }
 .trellis-empty-art .research-art { width: 100%; }
 @container (max-height: 240px) { .trellis-empty-art { display: none; } }
-.trellis-empty strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trellis-empty strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
-/* With every panel closed, how to get them back sits under the drawing as a
-   short, even block rather than one long line across the window. */
+/* With every panel closed the empty is the whole window, so it speaks as a
+   page does: the desk drawing larger and the title in the serif. How to get
+   the panels back sits under it as a short, even block rather than one long
+   line across the window. */
+.trellis-workspace-empty .trellis-empty-art { width: min(136px, 50cqw); margin-bottom: var(--space-4); }
+.trellis-workspace-empty strong { font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); }
 .trellis-workspace-empty .trellis-empty-detail { max-width: 34ch; text-wrap: balance; }
 .trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .trellis-empty-button {

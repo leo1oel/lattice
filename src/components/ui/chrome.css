@@ -372,9 +372,9 @@
 .ui-empty-state-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--type-body-compact-size);
-  line-height: var(--type-body-compact-line-height);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
+  font-weight: var(--type-subtitle-weight);
 }
 
 .ui-empty-state-description {
