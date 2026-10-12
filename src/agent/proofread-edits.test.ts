@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { inlineEditSpans } from "../components/ui/inline-edit-spans";
 import {
   applyProofreadEdits,
   proofreadContext,
-  proofreadEditPreview,
   protectedChange,
   reviewProofread,
   type ProofreadEdit,
@@ -22,14 +22,14 @@ describe("reviewProofread", () => {
   it("keeps changes inside one run of non-space characters together", () => {
     const original = "methods achieve state of the art results ,which";
     const review = reviewProofread(original, "methods achieves state-of-the-art results, which", none);
-    expect(review.edits.map((edit) => proofreadEditPreview(original, edit)).map(({ deleted, inserted }) => [deleted, inserted]))
+    expect(inlineEditSpans(original, review.edits).map(({ deleted, inserted }) => [deleted, inserted]))
       .toEqual([["achieve", "achieves"], ["state of the art", "state-of-the-art"], ["results ,which", "results, which"]]);
   });
 
   it("joins a dropped or added word to the rewording next to it", () => {
     const original = "In this paper we show that it works.";
     const review = reviewProofread(original, "This paper shows that it works.", none);
-    expect(review.edits.map((edit) => proofreadEditPreview(original, edit)).map(({ deleted, inserted }) => [deleted, inserted]))
+    expect(inlineEditSpans(original, review.edits).map(({ deleted, inserted }) => [deleted, inserted]))
       .toEqual([["In this", "This"], ["we show", "shows"]]);
   });
 
@@ -97,15 +97,5 @@ describe("reviewProofread", () => {
     const doc = "\\LaTeX: is great";
     expect(proofreadContext(doc, 6, doc.length)).toEqual({ before: "\\LaTeX", after: "" });
     expect(protectedChange(": is great", "is great", proofreadContext(doc, 6, doc.length))).toBe("command");
-  });
-});
-
-describe("proofreadEditPreview", () => {
-  it("shows a few words of context and makes whitespace-only edits visible", () => {
-    const original = "One two three four  five six seven eight.";
-    const { edits } = reviewProofread(original, "One two three four five six seven eight.", none);
-    expect(proofreadEditPreview(original, edits[0]!)).toEqual({
-      before: "…two three four", deleted: "␣", inserted: "", after: " five six seven…",
-    });
   });
 });
