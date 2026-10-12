@@ -197,6 +197,8 @@ export type BuildResult = {
   diagnostics: CompileDiagnostic[];
   /** Project-relative path of the document the build actually compiled. */
   rootDocument: string;
+  /** The conference template that document loaded ("NeurIPS"), read from the build's log. */
+  venue?: string;
 };
 
 export type PaperSummary = {

@@ -15,6 +15,8 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import { LatticeMark } from "../components/ui/lattice-mark";
 import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
+import { welcomeDeskProjects } from "./first-pages";
+import { WelcomeDesk } from "./welcome-desk";
 
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
@@ -22,15 +24,6 @@ export type UnopenedProject = RecentProject & { reason: string };
 /** The backend's errors for a folder that is not there any more (project::classify_open_error's not_found). */
 function isMissingFolder(reason: string) {
   return /no such file|not a folder/i.test(reason);
-}
-
-/** The welcome screen lists a few projects to reopen; the switcher in a project goes deeper. */
-const MAX_WELCOME_RECENTS = 4;
-
-/** Where a project lives, as a writer reads it: its parent folder, home written as ~. */
-function parentFolderLabel(path: string) {
-  const parent = path.replace(/\/+$/, "").replace(/\/[^/]*$/, "") || "/";
-  return parent.replace(/^\/Users\/[^/]+(?=\/|$)/, "~");
 }
 
 export function Welcome(props: {
@@ -56,9 +49,8 @@ export function Welcome(props: {
   onOpenOverleaf?: () => void;
 }) {
   const { t } = useLingui();
-  const recents = props.recentProjects
-    .filter((item) => item.path !== props.unopenedProject?.path)
-    .slice(0, MAX_WELCOME_RECENTS);
+  // The welcome screen lays out a few projects to reopen; the switcher in a project goes deeper.
+  const recents = welcomeDeskProjects(props.recentProjects, props.unopenedProject?.path);
   const unopened = props.unopenedProject;
   const unopenedName = unopened?.name;
   const unopenedReason = unopened?.reason ?? "";
@@ -104,26 +96,7 @@ export function Welcome(props: {
               </InlineMessage>
             )}
             {recents.length > 0 && (
-              <>
-                <h2 className="welcome-recents-title">{t`Recent projects`}</h2>
-                <ul className="welcome-recent-list">
-                  {recents.map((item) => (
-                    <li key={item.path}>
-                      <button
-                        type="button"
-                        className="welcome-recent"
-                        title={item.path}
-                        disabled={Boolean(props.busyLabel)}
-                        onClick={() => props.onRecent(item.path)}
-                      >
-                        <Folder size={15} aria-hidden="true" />
-                        <span className="welcome-recent-name">{item.name}</span>
-                        <span className="welcome-recent-place">{parentFolderLabel(item.path)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
+              <WelcomeDesk projects={recents} disabled={Boolean(props.busyLabel)} onOpen={props.onRecent} />
             )}
           </section>
         )}
