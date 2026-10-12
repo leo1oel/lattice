@@ -544,6 +544,16 @@
      label reads over a page, and the same colour as its edge. */
   --drop-target-edge: var(--focus);
   --drop-target-surface: color-mix(in srgb, var(--drop-target-edge) 8%, color-mix(in srgb, var(--surface-panel) 80%, transparent));
+  /* Local annotations (editor/comments/annotations.css): the amber of an open
+     note, the blue of the agent's proposal, the violet of its question and the
+     green of an accepted one. Every pin's figure takes `--annotation-pin-text`. */
+  --annotation-ink: var(--annotation);
+  --annotation-proposed-ink: var(--glyph-tex);
+  --annotation-asked-ink: var(--glyph-style);
+  --annotation-accepted-ink: var(--success);
+  --annotation-pin-text: var(--annotation-contrast);
+  --annotation-highlight: color-mix(in srgb, var(--annotation) 14%, transparent);
+  --annotation-highlight-edge: color-mix(in srgb, var(--annotation) 70%, transparent);
   --status-success: var(--success);
   --status-success-soft: color-mix(in srgb, var(--success) 12%, transparent);
   --status-warning: var(--warning);

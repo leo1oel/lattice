@@ -1,6 +1,7 @@
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import type { CodeViewItem } from "@pierre/diffs";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { historyFocus, subscribeHistoryFocus } from "./history-focus";
 import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -105,6 +106,23 @@ export function HistoryDrawer(props: {
       entryLoad.load(item.id, () => invoke<TransactionRecord>("get_history_entry", { transactionId: item.id }));
     } else entryLoad.clear();
   };
+
+  // Asked to open on an entry (a revision round's): show the changes with it expanded.
+  const focusEntry = useSyncExternalStore(subscribeHistoryFocus, historyFocus);
+  const focusNonce = focusEntry?.nonce;
+  const focusId = focusEntry?.id;
+  const handledFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusNonce || !focusId || handledFocusRef.current === focusNonce) return;
+    handledFocusRef.current = focusNonce;
+    lastUsedTab = "changes";
+    setTab("changes");
+    setFilter("all");
+    setActiveChangeIndex(0);
+    setExpandedId(focusId);
+    entryLoad.load(focusId, () => invoke<TransactionRecord>("get_history_entry", { transactionId: focusId }));
+    requestAnimationFrame(() => document.querySelector(`[data-history-entry="${CSS.escape(focusId)}"]`)?.scrollIntoView({ block: "start" }));
+  }, [entryLoad, focusId, focusNonce]);
 
   const changePaths = useMemo(() => entry?.changes.map((change) => change.path) ?? [], [entry]);
   const resources = usePierreResources(changePaths);
@@ -306,7 +324,7 @@ export function HistoryDrawer(props: {
                     ? t`Undo this Agent turn's file changes`
                     : t`Restore the state before this change`;
                 return (
-                  <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id}>
+                  <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id} data-history-entry={item.id}>
                     <div className="history-body">
                       <button
                         type="button"

@@ -1405,7 +1405,7 @@ const COLD_TOOLS = {
   },
   comments: {
     load: () => import("../editor/comments/editor-comments-panel"),
-    button: 'button[aria-label="Editor comments"]',
+    button: 'button[aria-label="Annotations"]',
     content: ".editor-comments-drawer:not(.tool-loading-shell)",
     close: () => document.querySelector('.editor-comments-drawer [data-slot="panel-header-actions"] button:last-child')?.click(),
   },

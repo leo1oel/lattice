@@ -1,5 +1,7 @@
 import {
   Fragment,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -59,6 +61,9 @@ import { utf8ToBase64 } from "./pdf-bytes";
 import type { ViewerRecord } from "./pdf-slick";
 import { usePdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./pdf-source-targets";
 import { usePdfSelectionReport } from "./pdf-text-layer-selection";
+import type { PdfAnnotationMark, PdfTextSelection } from "./pdf-annotations";
+import type { AnnotationRounds } from "../app/annotation-rounds";
+import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
 import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./project-pdf";
@@ -71,7 +76,11 @@ import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-widt
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
 
-export type { PdfSourceQuote, PdfSyncTarget };
+export type { PdfAnnotationMark, PdfSourceQuote, PdfSyncTarget, PdfTextSelection };
+
+// Keep import expressions outside the component: React Compiler cannot lower them.
+const PdfAnnotationLayer = lazy(() => import("./pdf-annotations"));
+const NO_ANNOTATIONS: readonly EditorComment[] = [];
 
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
@@ -336,6 +345,8 @@ export function PdfPreview({
   citations,
   canOpenCitation,
   onOpenCitation,
+  annotations,
+  annotationRounds,
   ...callbackProps
 }: PdfCitationProps & PdfViewerCallbacks & {
   url: string | null;
@@ -368,6 +379,10 @@ export function PdfPreview({
   building?: boolean;
   /** The build command's keys, from the command table. */
   buildShortcut?: string;
+  /** The project's annotations: those made on this PDF are drawn on their pages. */
+  annotations?: readonly EditorComment[];
+  /** Annotating the PDF: the Annotate offer on a selection, its note, and the marks' pins. */
+  annotationRounds?: AnnotationRounds;
 }) {
   const { t } = useLingui();
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -411,6 +426,23 @@ export function PdfPreview({
     syncTarget, sourceQuote, numPages, scale, generation,
     pageRenderGeneration: doc.pageRenderGeneration, textLayerGeneration: doc.textLayerGeneration,
   });
+  // Annotating loads with the first selection made on the PDF, or with the
+  // first annotation it has to draw; until then the preview carries none of it.
+  const [annotating, setAnnotating] = useState(false);
+  const annotationLayer = annotationRounds && (annotating || annotations?.some((annotation) => annotation.pdf && !annotation.resolved)) ? (
+    <Suspense fallback={null}>
+      <PdfAnnotationLayer
+        recordRef={recordRef}
+        previewRef={previewRef}
+        rounds={annotationRounds}
+        annotations={annotations ?? NO_ANNOTATIONS}
+        generation={generation}
+        pageRenderGeneration={doc.pageRenderGeneration}
+        textLayerGeneration={doc.textLayerGeneration}
+        scale={scale}
+      />
+    </Suspense>
+  ) : null;
 
   const goToPage = (nextPage: number) => {
     const slick = recordRef.current?.slick;
@@ -695,7 +727,7 @@ export function PdfPreview({
           </div>
         </div>
       </div>
-      <div className="pdf-scroll-area">
+      <div className="pdf-scroll-area" onMouseUp={annotationRounds && !annotating ? () => setAnnotating(true) : undefined}>
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
         {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
@@ -717,6 +749,7 @@ export function PdfPreview({
           ? <PdfLoading label={loadLabel} percent={loadPercent} quiet={showQuietLoader} />
           : null}
       </div>
+      {annotationLayer}
     </div>
   );
 }

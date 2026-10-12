@@ -366,7 +366,9 @@ creates it.
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
-| `.research/editor-comments.json` | `project/manifest.rs` (`EDITOR_COMMENTS_PATH`) | editor comment threads |
+| `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
+| `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
+| `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
 | `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
 | `.research/tutorial.json` | `project/create.rs` | tutorial-project state |
 | `.research/omp-*` | agent runtime | agent runtime scratch; excluded from export and from agent reads |

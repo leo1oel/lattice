@@ -2,7 +2,9 @@
 //!
 //! - [`create`] — new projects from venue templates and the tutorial.
 //! - [`manifest`] — opening a folder, `.research/project.json`, root documents,
-//!   compile roots, and the editor-comments sidecar.
+//!   and compile roots.
+//! - [`annotations`] — local annotations, their revision rounds and the
+//!   rounds' snapshots.
 //! - [`paths`] — the path guards every file operation goes through, and the
 //!   table of text source kinds.
 //! - [`tree`] — file-tree views, content classification, and reading text
@@ -19,6 +21,7 @@
 //! Content changes go through `history` (atomic writes via
 //! `crate::project_fs::ProjectDir`, an undo record, a search-index refresh).
 
+mod annotations;
 mod archive;
 mod assets;
 mod bibliography;
@@ -36,6 +39,10 @@ mod symbols;
 pub(crate) mod test_support;
 mod tree;
 
+pub use annotations::{
+    read_annotation_round, read_annotations, save_annotation_round, write_annotations,
+    AnnotationRound, Annotations, EditorComment,
+};
 pub(crate) use archive::safe_zip_entry_name;
 pub use archive::{export_project_zip, import_project_zip};
 pub use assets::AssetPreview;
@@ -51,19 +58,19 @@ pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
 pub use history::{
-    apply_citation_transaction, apply_citation_transaction_checked, apply_editor_transaction,
-    delete_history, get_history_entry, history, revert, EditorWriteResult,
+    apply_annotation_restore, apply_citation_transaction, apply_citation_transaction_checked,
+    apply_editor_transaction, delete_history, get_history_entry, history, revert,
+    EditorWriteResult,
 };
 pub use history::{HistoryItem, TransactionRecord};
 pub use imports::{
     import_assets, import_files, import_files_with_copy, import_image_bytes, import_sources,
     read_agent_composer_files, write_bytes, AgentComposerFile, ImportedProjectFile,
 };
-pub use manifest::EditorComment;
 pub use manifest::{
-    classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_editor_comments,
-    read_manifest, resolve_compile_root, set_compile_root, set_spelling_words, tex_program_engine,
-    update_manifest_settings, write_editor_comments,
+    classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
+    resolve_compile_root, set_compile_root, set_spelling_words, tex_program_engine,
+    update_manifest_settings,
 };
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};

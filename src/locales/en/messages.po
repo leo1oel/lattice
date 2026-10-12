@@ -39,9 +39,14 @@ msgstr "“{title}” is already in Papers — cite it with {citationCommand}."
 msgid "“{title}” is already in Papers."
 msgstr "“{title}” is already in Papers."
 
+#: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "(empty span)"
 msgstr "(empty span)"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "(new paragraph)"
+msgstr "(new paragraph)"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments.ts
@@ -52,14 +57,34 @@ msgstr "(no comment text)"
 msgid "(no text)"
 msgstr "(no text)"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "(removed)"
+msgstr "(removed)"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "(this comment's text was removed)"
 msgstr "(this comment's text was removed)"
+
+#. placeholder {0}: label(older)
+#. placeholder {1}: label(newer)
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} → {1}"
+msgstr "{0} → {1}"
+
+#. placeholder {0}: Object.keys(version.round!.outcomes).length
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} annotations"
+msgstr "{0} annotations"
 
 #. placeholder {0}: file.entries
 #: src/papers/bibliography-audit.tsx
 msgid "{0} BibTeX entries"
 msgstr "{0} BibTeX entries"
+
+#. placeholder {0}: changes.length
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} changes"
+msgstr "{0} changes"
 
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
@@ -107,6 +132,10 @@ msgstr "{0} verified · {1} with updates · {2} need review · {3} incomplete (n
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} votes"
 msgstr "{0} votes"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{accepted} accepted"
+msgstr "{accepted} accepted"
 
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
@@ -157,20 +186,20 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} needs your decision"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} annotation"
+msgstr "{count} annotation"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} annotations"
+msgstr "{count} annotations"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} character"
 msgstr "{count} character"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} characters"
 msgstr "{count} characters"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "{count} comment"
-msgstr "{count} comment"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "{count} comments"
-msgstr "{count} comments"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "{count} figures"
@@ -389,6 +418,14 @@ msgstr "{offered} edits · clarity and flow"
 msgid "{offered} edits · errors only"
 msgstr "{offered} edits · errors only"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{open} open"
+msgstr "{open} open"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "{openCount} open"
+msgstr "{openCount} open"
+
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
 msgstr "{operation} request error"
@@ -406,6 +443,10 @@ msgstr "{operation}: {pathname}"
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
 
+#: src/canvas/annotation-review.tsx
+msgid "{position} of {total}"
+msgstr "{position} of {total}"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} reference"
@@ -414,6 +455,10 @@ msgstr "{references} reference"
 msgid "{references} references"
 msgstr "{references} references"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{rejected} rejected"
+msgstr "{rejected} rejected"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} match"
 msgstr "{replacementCount} match"
@@ -421,6 +466,10 @@ msgstr "{replacementCount} match"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} matches"
+
+#: src/App.tsx
+msgid "{revisableAnnotations} annotations"
+msgstr "{revisableAnnotations} annotations"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -486,6 +535,7 @@ msgstr "{where} (reconnecting…)"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "% comment"
 msgstr "% comment"
@@ -501,6 +551,15 @@ msgstr "↑↓ to navigate · Enter to open"
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧-click for a clean rebuild"
+
+#: src/App.tsx
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "1 annotation"
+msgstr "1 annotation"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "1 change"
+msgstr "1 change"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
@@ -525,6 +584,10 @@ msgstr "1 line"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "1 open"
+msgstr "1 open"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "1 page"
@@ -624,6 +687,7 @@ msgstr "Abstract environment"
 msgid "Accent"
 msgstr "Accent"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
@@ -647,6 +711,14 @@ msgstr "Accept all ({0})"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "Accept all updates"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Accept or reject each one in the editor; the round is saved as a version"
+msgstr "Accept or reject each one in the editor; the round is saved as a version"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Accepted"
+msgstr "Accepted"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -687,6 +759,10 @@ msgstr "Add {title} to Papers"
 msgid "Add a bibliography entry for {title}"
 msgstr "Add a bibliography entry for {title}"
 
+#: src/editor/comments/use-intent-labels.ts
+msgid "Add a citation"
+msgstr "Add a citation"
+
 #: src/editor/editor-keymap.ts
 msgid "Add a cursor above or below"
 msgstr "Add a cursor above or below"
@@ -714,7 +790,6 @@ msgstr "Add bibliography entry and cache the arXiv paper"
 msgid "Add block below"
 msgstr "Add block below"
 
-#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Add comment"
 msgstr "Add comment"
@@ -792,6 +867,12 @@ msgstr "Administrator approval was cancelled, so nothing was installed."
 msgid "Agent"
 msgstr "Agent"
 
+#. placeholder {0}: progress.answered
+#. placeholder {1}: progress.total
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Agent is revising · {0} of {1} answered"
+msgstr "Agent is revising · {0} of {1} answered"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
@@ -825,6 +906,11 @@ msgstr "Agent unavailable"
 msgid "Agent version {build}"
 msgstr "Agent version {build}"
 
+#. placeholder {0}: revision.reason
+#: src/canvas/annotation-review.tsx
+msgid "Agent: {0}"
+msgstr "Agent: {0}"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "Aleph"
@@ -849,6 +935,7 @@ msgstr "Align right"
 msgid "Alignment"
 msgstr "Alignment"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/history/history-drawer.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
@@ -944,6 +1031,58 @@ msgstr "Angle"
 msgid "Animated interface icons, redrawn from Phosphor glyphs"
 msgstr "Animated interface icons, redrawn from Phosphor glyphs"
 
+#: src/canvas/annotation-composer.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+#: src/pdf/pdf-annotations.tsx
+msgid "Annotate"
+msgstr "Annotate"
+
+#: src/app/annotation-rounds.ts
+msgid "Annotate at most {limit} characters for the agent to revise."
+msgstr "Annotate at most {limit} characters for the agent to revise."
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Annotate the PDF"
+msgstr "Annotate the PDF"
+
+#: src/canvas/annotation-composer.tsx
+msgid "Annotation"
+msgstr "Annotation"
+
+#. placeholder {0}: mark.number
+#: src/pdf/pdf-annotations.tsx
+msgid "Annotation {0}"
+msgstr "Annotation {0}"
+
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments.ts
+msgid "Annotation {list}"
+msgstr "Annotation {list}"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Annotation {pin}"
+msgstr "Annotation {pin}"
+
+#: src/app/use-editor-comments.ts
+msgid "Annotation deleted"
+msgstr "Annotation deleted"
+
+#: src/app/annotation-rounds.ts
+#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
+#: src/canvas/canvas-toolbar.tsx
+#: src/canvas/editor-status-bar.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Annotations"
+msgstr "Annotations"
+
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments.ts
+msgid "Annotations {list}"
+msgstr "Annotations {list}"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -965,6 +1104,14 @@ msgstr "Another file in this project"
 #: src/papers/bib-visual-editor.tsx
 msgid "Another reference already uses “{key}”."
 msgstr "Another reference already uses “{key}”."
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Answer and revise"
+msgstr "Answer and revise"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Answer the agent"
+msgstr "Answer the agent"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -1047,9 +1194,17 @@ msgstr "Article entry uses booktitle instead of journal."
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "As the last round left it"
+msgstr "As the last round left it"
+
 #: src/papers/bibliography-audit.tsx
 msgid "As written"
 msgstr "As written"
+
+#: src/canvas/annotation-review.tsx
+msgid "Ask again"
+msgstr "Ask again"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
@@ -1074,6 +1229,10 @@ msgstr "Ask it to explain, revise or check the paper. It works inside your proje
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask only for potentially unsafe actions"
 msgstr "Ask only for potentially unsafe actions"
+
+#: src/canvas/annotation-review.tsx
+msgid "Asking the agent again…"
+msgstr "Asking the agent again…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -1192,6 +1351,14 @@ msgstr "Batch result reused"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Beamer slide"
 msgstr "Beamer slide"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Before revisions"
+msgstr "Before revisions"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Before the first section"
+msgstr "Before the first section"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
@@ -1545,7 +1712,8 @@ msgid "Can take up to 15 minutes"
 msgstr "Can take up to 15 minutes"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/comment-composer.tsx
+#: src/canvas/annotation-composer.tsx
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -1860,6 +2028,7 @@ msgstr "Circled slash"
 msgid "Circled times / tensor"
 msgstr "Circled times / tensor"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "citation"
 msgstr "citation"
@@ -1940,6 +2109,10 @@ msgstr "Cited in"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "Cited in the manuscript"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Clarify"
+msgstr "Clarify"
 
 #: src/canvas/proofread-card.tsx
 msgid "clarity"
@@ -2136,6 +2309,7 @@ msgstr "Combines automatically"
 msgid "Coming from Overleaf"
 msgstr "Coming from Overleaf"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "command"
 msgstr "command"
@@ -2149,15 +2323,10 @@ msgstr "Command palette"
 msgid "comment"
 msgstr "comment"
 
-#: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
 msgstr "Comment"
-
-#: src/app/use-editor-comments.ts
-msgid "Comment deleted"
-msgstr "Comment deleted"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
@@ -2179,12 +2348,9 @@ msgstr "Comment visibility"
 msgid "comments"
 msgstr "comments"
 
-#: src/app/use-editor-comments.ts
-#: src/canvas/editor-status-bar.tsx
 #: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
-#: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "Comments"
 
@@ -2194,6 +2360,18 @@ msgstr "Comments"
 #: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
+
+#: src/app/annotation-rounds.ts
+msgid "Compare"
+msgstr "Compare"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Compare versions"
+msgstr "Compare versions"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Compare with"
+msgstr "Compare with"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Compare with the verified record"
@@ -2542,6 +2720,10 @@ msgstr "Could not render this diff: {errorMessage}"
 msgid "Could not render this file: {0}"
 msgstr "Could not render this file: {0}"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Could not revise"
+msgstr "Could not revise"
+
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
@@ -2765,7 +2947,6 @@ msgstr "Definition"
 
 #: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -3263,6 +3444,10 @@ msgstr "Edited {edited}"
 msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 msgstr "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Edited since the last round"
+msgstr "Edited since the last round"
+
 #: src/canvas/proofread-card.tsx
 msgid "Editing strength"
 msgstr "Editing strength"
@@ -3275,14 +3460,6 @@ msgstr "Editor"
 #: src/settings/settings-search-index.ts
 msgid "Editor & builds"
 msgstr "Editor & builds"
-
-#: src/app/app-editor-panels.tsx
-#: src/canvas/canvas-toolbar.tsx
-#: src/canvas/editor-status-bar.tsx
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/settings/settings-dialog.tsx
-msgid "Editor comments"
-msgstr "Editor comments"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3434,6 +3611,7 @@ msgstr "Entry changed"
 msgid "Entry type"
 msgstr "Entry type"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "environment"
 msgstr "environment"
@@ -3662,17 +3840,17 @@ msgstr "Files in this change"
 msgid "Filled square"
 msgstr "Filled square"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter annotations"
+msgstr "Filter annotations"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter annotations…"
+msgstr "Filter annotations…"
+
 #: src/app/shortcut-sheet.tsx
 msgid "Filter by name or key"
 msgstr "Filter by name or key"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Filter comments…"
-msgstr "Filter comments…"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Filter editor comments"
-msgstr "Filter editor comments"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
@@ -3741,6 +3919,10 @@ msgstr "Find text to replace"
 msgid "Find your next source"
 msgstr "Find your next source"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Finding it in the source…"
+msgstr "Finding it in the source…"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "Finish"
@@ -3768,6 +3950,10 @@ msgstr "Fit page to height"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "Fit page to width"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Fix"
+msgstr "Fix"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
@@ -4416,10 +4602,6 @@ msgstr "Include app and Agent runtime logs"
 msgid "Include raw diagnostic text"
 msgstr "Include raw diagnostic text"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Include resolved"
-msgstr "Include resolved"
-
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
 msgstr "Incomplete history"
@@ -4954,6 +5136,11 @@ msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 
+#. placeholder {0}: target.path
+#: src/app/annotation-rounds.ts
+msgid "Lattice could not read {0}."
+msgstr "Lattice could not read {0}."
+
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice could not write to the TeX installation folder."
@@ -5012,10 +5199,6 @@ msgstr "Leave a code block"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Leave a comment"
 msgstr "Leave a comment"
-
-#: src/canvas/comment-composer.tsx
-msgid "Leave a comment for collaborators…"
-msgstr "Leave a comment for collaborators…"
 
 #: src/App.tsx
 #: src/app/shortcut-groups.ts
@@ -5246,6 +5429,10 @@ msgstr "Load a package"
 msgid "Load more"
 msgstr "Load more"
 
+#: src/app/app-editor-panels.tsx
+msgid "Loading annotations…"
+msgstr "Loading annotations…"
+
 #: src/app/git-workspace-frames.tsx
 msgid "Loading changes…"
 msgstr "Loading changes…"
@@ -5259,10 +5446,6 @@ msgstr "Loading comments…"
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading diff…"
 msgstr "Loading diff…"
-
-#: src/app/app-editor-panels.tsx
-msgid "Loading editor comments…"
-msgstr "Loading editor comments…"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Loading figure preview…"
@@ -5413,6 +5596,10 @@ msgstr "Manuscript"
 msgid "Manuscript TODOs"
 msgstr "Manuscript TODOs"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Mapped to the source with SyncTeX"
+msgstr "Mapped to the source with SyncTeX"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Maps to"
 msgstr "Maps to"
@@ -5445,6 +5632,7 @@ msgstr "Match the system theme"
 msgid "Matching settings"
 msgstr "Matching settings"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/latex/math-region.ts
 msgid "math"
@@ -5764,6 +5952,10 @@ msgstr "Needs a root document to count from"
 msgid "Needs approval"
 msgstr "Needs approval"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Needs your answer"
+msgstr "Needs your answer"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Needs your decision"
 msgstr "Needs your decision"
@@ -5876,6 +6068,7 @@ msgstr "New…"
 msgid "Newest first"
 msgstr "Newest first"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "next"
@@ -5887,6 +6080,10 @@ msgstr "Next"
 #: src/App.tsx
 msgid "Next build problem"
 msgstr "Next build problem"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Next change"
+msgstr "Next change"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -5912,6 +6109,14 @@ msgstr "Next search result"
 #: src/agent/synara-loading-surface.tsx
 msgid "No Agent logs yet"
 msgstr "No Agent logs yet"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No annotations yet. Open a file, select text and click Annotate"
+msgstr "No annotations yet. Open a file, select text and click Annotate"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No annotations yet. Select text in the editor or the PDF and click Annotate"
+msgstr "No annotations yet. Select text in the editor or the PDF and click Annotate"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -5940,14 +6145,6 @@ msgstr "No commands, files or papers match “{query}”"
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "No comments yet"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "No comments yet. Open a file, select text and click Comment"
-msgstr "No comments yet. Open a file, select text and click Comment"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "No comments yet. Select text in the editor and click Comment"
-msgstr "No comments yet. Select text in the editor and click Comment"
 
 #: src/project/citation-health.ts
 msgid "No Crossref update metadata found (checked {checkedDate})"
@@ -6082,6 +6279,9 @@ msgid "No occurrences found"
 msgstr "No occurrences found"
 
 #: src/editor/comments/editor-comments-panel.tsx
+msgid "No open annotations"
+msgstr "No open annotations"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "No open comments"
@@ -6133,6 +6333,10 @@ msgstr "No references to check"
 #: src/papers/bib-visual-editor.tsx
 msgid "No references yet"
 msgstr "No references yet"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No resolved annotations"
+msgstr "No resolved annotations"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
@@ -6291,6 +6495,10 @@ msgstr "Notifications"
 msgid "Notify me (manual)"
 msgstr "Notify me (manual)"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Now"
+msgstr "Now"
+
 #: src/history/versions-timeline.tsx
 msgid "Now tracking versions of this project."
 msgstr "Now tracking versions of this project."
@@ -6383,6 +6591,11 @@ msgstr "Opacity value"
 msgid "Open"
 msgstr "Open"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgctxt "annotation filter"
+msgid "Open"
+msgstr "Open"
+
 #: src/App.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
@@ -6453,10 +6666,6 @@ msgstr "Open article in browser"
 msgid "Open by default"
 msgstr "Open by default"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Open comments"
-msgstr "Open comments"
-
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
 msgstr "Open file…"
@@ -6479,6 +6688,10 @@ msgstr "Open guided tutorial"
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
 msgstr "Open in browser"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Open in History"
+msgstr "Open in History"
 
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
@@ -6917,6 +7130,7 @@ msgstr "Paper switch"
 msgid "Papers"
 msgstr "Papers"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "paragraph break"
 msgstr "paragraph break"
@@ -7033,6 +7247,22 @@ msgstr "PDF loading progress"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "PDF output"
 msgstr "PDF output"
+
+#. placeholder {0}: comment.pdf.page
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "PDF p.{0}"
+msgstr "PDF p.{0}"
+
+#. placeholder {0}: selection.page
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "PDF p.{0} → …"
+msgstr "PDF p.{0} → …"
+
+#. placeholder {0}: selection.page
+#. placeholder {1}: mapped.line
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "PDF p.{0} → {name}:{1}"
+msgstr "PDF p.{0} → {name}:{1}"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF page {pageNumber}"
@@ -7246,6 +7476,10 @@ msgstr "previous"
 msgid "Previous build problem"
 msgstr "Previous build problem"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Previous change"
+msgstr "Previous change"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Previous match"
@@ -7382,6 +7616,15 @@ msgstr "Proofreading…"
 msgid "Proportional to"
 msgstr "Proportional to"
 
+#. placeholder {0}: annotation.number
+#: src/canvas/annotation-review.tsx
+msgid "Proposal for annotation {0}"
+msgstr "Proposal for annotation {0}"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Proposed"
+msgstr "Proposed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Proposed BibTeX"
 msgstr "Proposed BibTeX"
@@ -7502,6 +7745,10 @@ msgstr "Reading"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "Reading the file…"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Reading the rounds…"
+msgstr "Reading the rounds…"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Reading the third-party notices…"
@@ -7640,6 +7887,7 @@ msgstr "Regex"
 msgid "Regular expression"
 msgstr "Regular expression"
 
+#: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -7649,6 +7897,10 @@ msgstr "Reject"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "Reject all"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Rejected"
+msgstr "Rejected"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -7797,10 +8049,6 @@ msgstr "Rendering first page…"
 msgid "Reopen"
 msgstr "Reopen"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Reopen comment"
-msgstr "Reopen comment"
-
 #: src/App.tsx
 msgid "Reopen the closed tab"
 msgstr "Reopen the closed tab"
@@ -7937,8 +8185,8 @@ msgid "Reply"
 msgstr "Reply"
 
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Reply to {displayedCommentAuthor}"
-msgstr "Reply to {displayedCommentAuthor}"
+msgid "Reply to {author}"
+msgstr "Reply to {author}"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
@@ -8021,6 +8269,7 @@ msgstr "Resize panels"
 msgid "Resize right panel"
 msgstr "Resize right panel"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
 msgstr "Resolve"
@@ -8036,7 +8285,6 @@ msgid "Resolve changes to {path}"
 msgstr "Resolve changes to {path}"
 
 #: src/canvas/document-canvas.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
 
@@ -8089,6 +8337,8 @@ msgid "Restore"
 msgstr "Restore"
 
 #. placeholder {0}: entry.title
+#. placeholder {0}: label(newer)
+#: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore {0}"
 msgstr "Restore {0}"
@@ -8099,6 +8349,10 @@ msgstr "Restore {0}"
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore {0} to this version"
 msgstr "Restore {0} to this version"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore {name}"
+msgstr "Restore {name}"
 
 #: src/history/versions-timeline.tsx
 msgid "Restore {path} to this version? Your current file will be overwritten."
@@ -8137,6 +8391,10 @@ msgstr "Restore project to this version"
 #: src/trellis/trellis-labels.ts
 msgid "Restore size"
 msgstr "Restore size"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore the files the rounds touched to {name}? The restore is added to the project history, so it can be undone there."
+msgstr "Restore the files the rounds touched to {name}? The restore is added to the project history, so it can be undone there."
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
@@ -8247,6 +8505,15 @@ msgstr "Reverse turnstile"
 msgid "Revert to saved"
 msgstr "Revert to saved"
 
+#. placeholder {0}: rounds.proposals.length
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Review {0} proposals"
+msgstr "Review {0} proposals"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Review 1 proposal"
+msgstr "Review 1 proposal"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
 msgstr "Review candidate"
@@ -8266,6 +8533,33 @@ msgstr "Review proposed changes"
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "Review the final file before saving"
+
+#. placeholder {0}: rounds.revisable
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from {0} annotations"
+msgstr "Revise from {0} annotations"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from 1 annotation"
+msgstr "Revise from 1 annotation"
+
+#: src/App.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from annotations"
+msgstr "Revise from annotations"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revising…"
+msgstr "Revising…"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revision rounds"
+msgstr "Revision rounds"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Rewrite"
+msgstr "Rewrite"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
@@ -8328,6 +8622,26 @@ msgstr "Root document and its includes, via texcount"
 msgid "Root document only, estimated without texcount"
 msgstr "Root document only, estimated without texcount"
 
+#. placeholder {0}: version.round!.number
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Round {0}"
+msgstr "Round {0}"
+
+#. placeholder {0}: progress.round
+#. placeholder {1}: rounds!.proposals.length
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Round {0} · {1} proposals to review"
+msgstr "Round {0} · {1} proposals to review"
+
+#. placeholder {0}: progress.round
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Round {0} · 1 proposal to review"
+msgstr "Round {0} · 1 proposal to review"
+
+#: src/app/annotation-rounds.ts
+msgid "Round {number} is saved as a version"
+msgstr "Round {number} is saved as a version"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
 msgstr "Row options"
@@ -8371,6 +8685,7 @@ msgid "Sans-serif text"
 msgstr "Sans-serif text"
 
 #: src/app/use-open-documents.ts
+#: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -8382,6 +8697,10 @@ msgstr "Save"
 #: src/App.tsx
 msgid "Save and build"
 msgstr "Save and build"
+
+#: src/canvas/annotation-composer.tsx
+msgid "Save and revise now"
+msgstr "Save and revise now"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
@@ -8419,6 +8738,10 @@ msgstr "Save PDF as…"
 msgid "Save pending edits before checking references."
 msgstr "Save pending edits before checking references."
 
+#: src/app/annotation-rounds.ts
+msgid "Save pending edits before restoring a round."
+msgstr "Save pending edits before restoring a round."
+
 #: src/App.tsx
 msgid "Save pending edits before updating references."
 msgstr "Save pending edits before updating references."
@@ -8447,6 +8770,10 @@ msgstr "Saved to {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "Saved version"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Saved with the project in {STORAGE_PATH}; no server involved"
+msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
 
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -8743,6 +9070,10 @@ msgstr "Shell escape during builds"
 msgid "shortcuts"
 msgstr "shortcuts"
 
+#: src/editor/comments/use-intent-labels.ts
+msgid "Shorten"
+msgstr "Shorten"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
 msgstr "Show {name}"
@@ -8763,6 +9094,11 @@ msgstr "Show all references"
 #: src/project/project-find-dialog.tsx
 msgid "Show all results"
 msgstr "Show all results"
+
+#: src/App.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Show annotations"
+msgstr "Show annotations"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Show archived"
@@ -8940,6 +9276,10 @@ msgstr "Smile relation"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Soft {name}"
 msgstr "Soft {name}"
+
+#: src/canvas/annotation-review.tsx
+msgid "Some changes would alter LaTeX the note did not ask about, so Lattice holds them back."
+msgstr "Some changes would alter LaTeX the note did not ask about, so Lattice holds them back."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
@@ -9356,6 +9696,11 @@ msgstr "Syncing with Overleaf…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
+#. placeholder {0}: target.path
+#: src/app/annotation-rounds.ts
+msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
+msgstr "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
@@ -9485,6 +9830,15 @@ msgstr "the acknowledgement did not arrive in time"
 msgid "The Agent"
 msgstr "The Agent"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "The agent asks"
+msgstr "The agent asks"
+
+#. placeholder {0}: revision.question ?? ""
+#: src/canvas/annotation-review.tsx
+msgid "The agent asks: {0}"
+msgstr "The agent asks: {0}"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection: {detail}"
 msgstr "The agent could not proofread the selection: {detail}"
@@ -9492,6 +9846,14 @@ msgstr "The agent could not proofread the selection: {detail}"
 #: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
+
+#: src/app/annotation-rounds.ts
+msgid "The agent could not revise this passage: {detail}"
+msgstr "The agent could not revise this passage: {detail}"
+
+#: src/app/annotation-rounds.ts
+msgid "The agent could not revise this passage."
+msgstr "The agent could not revise this passage."
 
 #: src/canvas/proofread-card.tsx
 msgid "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
@@ -9513,9 +9875,25 @@ msgstr "The agent service is unavailable."
 msgid "The Agent started {seconds} s ago and hasn’t answered yet"
 msgstr "The Agent started {seconds} s ago and hasn’t answered yet"
 
+#: src/canvas/annotation-review.tsx
+msgid "The agent suggests leaving the passage as it is."
+msgstr "The agent suggests leaving the passage as it is."
+
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "The agent's reply did not contain a proofread version of the selection."
+
+#: src/app/annotation-rounds.ts
+msgid "The agent's reply held neither a revision nor a question."
+msgstr "The agent's reply held neither a revision nor a question."
+
+#: src/canvas/annotation-review.tsx
+msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
+msgstr "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
+
+#: src/app/annotation-rounds.ts
+msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
+msgstr "The annotated text changed or moved. Select it again and annotate it to ask about it."
 
 #: src/App.tsx
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
@@ -9599,6 +9977,10 @@ msgstr "the documents area"
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "The files already read as {name}."
+msgstr "The files already read as {name}."
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
@@ -9654,6 +10036,10 @@ msgstr "The Overleaf project connection is no longer active."
 #: src/build/tex-setup.ts
 msgid "The package repository does not have this package."
 msgstr "The package repository does not have this package."
+
+#: src/canvas/annotation-review.tsx
+msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
+msgstr "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
@@ -9752,6 +10138,10 @@ msgstr "The selection already reads well."
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "The source changed since the PDF was built. Build again, then annotate."
+msgstr "The source changed since the PDF was built. Build again, then annotate."
+
 #: src/settings/acknowledged-software.ts
 msgid "The source editor"
 msgstr "The source editor"
@@ -9763,6 +10153,10 @@ msgstr "The spreadsheet editor"
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "The third-party notices could not be read from the app bundle."
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "The two versions read the same"
+msgstr "The two versions read the same"
 
 #: src/papers/audit-messages.ts
 msgid "The verified record differs from this inline reference. Inline references are edited by hand."
@@ -9911,6 +10305,10 @@ msgstr "this group"
 msgid "This is not a native Open Slide deck."
 msgstr "This is not a native Open Slide deck."
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "This is the earliest version"
+msgstr "This is the earliest version"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "This match information describes the retrieved record; you have edited its fields."
@@ -9945,6 +10343,10 @@ msgstr "This project syncs with “{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "This project uses {linkedHost}. Sign out and connect to it to resume"
 
+#: src/canvas/annotation-review.tsx
+msgid "This proposal has been decided."
+msgstr "This proposal has been decided."
+
 #: src/papers/bib-visual-editor.tsx
 msgid "This reference already has a “{name}” field."
 msgstr "This reference already has a “{name}” field."
@@ -9972,6 +10374,10 @@ msgstr "This value joins strings with #; keep it valid BibTeX."
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
+
+#: src/app/annotation-rounds.ts
+msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -10122,10 +10528,15 @@ msgstr "Try a shorter phrase or different terms"
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "Try again"
+
+#: src/canvas/annotation-review.tsx
+msgid "Try again…"
+msgstr "Try again…"
 
 #: src/project/paper-library.tsx
 msgid "Try another filter"
@@ -10356,6 +10767,10 @@ msgstr "Up-down arrow"
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Update annotation…"
+msgstr "Update annotation…"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Update applied"
 msgstr "Update applied"
@@ -10363,10 +10778,6 @@ msgstr "Update applied"
 #: src/papers/bibliography-audit.tsx
 msgid "Update available"
 msgstr "Update available"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Update comment…"
-msgstr "Update comment…"
 
 #: src/telemetry/app-updater.tsx
 msgid "Update now"
@@ -10487,6 +10898,7 @@ msgstr "Venue template"
 msgid "Venue unavailable"
 msgstr "Venue unavailable"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "verbatim"
 msgstr "verbatim"
@@ -10559,6 +10971,7 @@ msgstr "Version saved."
 msgid "Version to keep for spot {0}"
 msgstr "Version to keep for spot {0}"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 msgid "Versions"
@@ -10661,6 +11074,22 @@ msgstr "Welcome back"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
+
+#: src/canvas/annotation-composer.tsx
+msgid "What should change here?"
+msgstr "What should change here?"
+
+#: src/canvas/annotation-review.tsx
+msgid "What should the agent change?"
+msgstr "What should the agent change?"
+
+#: src/canvas/annotation-review.tsx
+msgid "What should the agent change? (optional)"
+msgstr "What should the agent change? (optional)"
+
+#: src/canvas/annotation-composer.tsx
+msgid "What the agent should do"
+msgstr "What the agent should do"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -10848,6 +11277,10 @@ msgstr "You sign in on Overleaf. Lattice never sees your password"
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Your answer…"
+msgstr "Your answer…"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

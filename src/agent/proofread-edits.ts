@@ -113,8 +113,12 @@ function backtrack(trace: Int32Array[], distance: number, n: number, m: number):
 
 type Hunk = { from: number; to: number; insert: string };
 
-/** The token-level changes from `original` to `revised`, in original offsets. */
-function tokenHunks(original: string, revised: string): Hunk[] {
+/**
+ * The token-level changes from `original` to `revised`, in original offsets:
+ * words, LaTeX commands, spaces and line breaks. A revision round's compare
+ * draws two versions of a paragraph from these.
+ */
+export function tokenHunks(original: string, revised: string): Hunk[] {
   const a = tokenize(original);
   const b = tokenize(revised);
   let start = 0;

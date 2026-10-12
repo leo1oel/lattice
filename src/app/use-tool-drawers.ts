@@ -6,6 +6,7 @@ import type { EditorComments } from "./use-editor-comments";
 import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
 import { useLoadingShell } from "./use-loading-shell";
+import { focusHistoryEntry } from "../history/history-focus";
 
 /** The tool drawers whose open state App itself keeps; comments and literature keep theirs in their own hooks. */
 export type AppToolDrawer = "history" | "git" | "todos" | "checklist";
@@ -17,6 +18,8 @@ export type OpenToolOptions = {
   turnReview?: AgentTurnReview;
   /** Comments: open with this comment's reply box focused. */
   replyTo?: string;
+  /** History: open on this entry of the project's changes (a revision round's). */
+  historyEntry?: string;
 };
 
 const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, todos: false, checklist: false };
@@ -94,6 +97,8 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
           requestRuntime();
           if (options.turnReview) setTurnReview(options.turnReview);
           if (options.gitView) setGitView(options.gitView);
+        } else if (kind === "history") {
+          focusHistoryEntry(options.historyEntry ?? null);
         } else if (kind === "todos") {
           void refreshTodos();
         } else if (kind === "checklist") {

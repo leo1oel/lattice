@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
+import { AnnotationRounds } from "../app/annotation-rounds";
 import { DocumentCanvas } from "./document-canvas";
 import { splitGridTemplate } from "./use-split-layout";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
@@ -187,6 +188,7 @@ function baseProps(): CanvasProps {
       switchState: { subscribe: () => () => {}, switching: () => false },
     },
     openPaths: [],
+    annotationRounds: new AnnotationRounds(),
   };
 }
 
@@ -227,8 +229,8 @@ async function composeCommentOnBold(bounds: DOMRect, coords: () => { left: numbe
     view.focus();
     view.dispatch({ selection: { anchor: 6, head: 10 } });
   });
-  fireEvent.click(await screen.findByRole("button", { name: "Comment" }));
-  return { view, composer: await screen.findByRole("dialog", { name: "Add comment" }) };
+  fireEvent.click(await screen.findByRole("button", { name: "Annotate" }));
+  return { view, composer: await screen.findByRole("dialog", { name: "Annotate" }) };
 }
 
 beforeEach(() => {
@@ -418,7 +420,7 @@ describe("DocumentCanvas / mode", () => {
     fireEvent.scroll(view.scrollDOM);
     await waitFor(() => expect(composer).toBeVisible());
     expect(within(composer).getByRole("textbox")).toHaveValue("Keep this draft");
-    fireEvent.click(within(composer).getByRole("button", { name: "Add comment" }));
+    fireEvent.click(within(composer).getByRole("button", { name: /^Save(?! and)/ }));
     expect(props.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ quote: "bold", body: "Keep this draft", from: 6, to: 10 }));
   });
 

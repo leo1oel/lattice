@@ -1,6 +1,5 @@
 //! Opening a folder as a project and keeping `.research/project.json` honest:
 //! root documents, compile roots, TeX magic comments, and project settings.
-//! Also the editor-comments sidecar.
 
 use super::create::{default_brief, default_manifest, RESEARCH_GITIGNORE};
 use super::history::{
@@ -11,7 +10,7 @@ use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
 use crate::models::{FileNode, ProjectManifest, ProjectSnapshot, RootDocument};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -19,7 +18,6 @@ use walkdir::WalkDir;
 const MANIFEST_PATH: &str = ".research/project.json";
 /// The manifest's format; 2 is the first without a seeded word budget.
 pub(super) const MANIFEST_SCHEMA_VERSION: u32 = 2;
-const EDITOR_COMMENTS_PATH: &str = ".research/editor-comments.json";
 
 pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     let root = root.canonicalize().map_err(err)?;
@@ -180,21 +178,6 @@ pub(super) fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> Result<
     }
     let raw = serde_json::to_string_pretty(value).map_err(err)?;
     fs::write(path, format!("{raw}\n")).map_err(err)
-}
-
-/// The comments sidecar, empty until the first comment is written.
-pub fn read_editor_comments(root: &Path) -> Result<Vec<EditorComment>, String> {
-    let path = root.join(EDITOR_COMMENTS_PATH);
-    if !path.is_file() {
-        return Ok(Vec::new());
-    }
-    let raw = fs::read_to_string(path).map_err(err)?;
-    Ok(serde_json::from_str::<EditorCommentsFile>(&raw).map_err(err)?.comments)
-}
-
-pub fn write_editor_comments(root: &Path, comments: Vec<EditorComment>) -> Result<(), String> {
-    let file = EditorCommentsFile { schema_version: 1, comments };
-    write_pretty_json(&root.join(EDITOR_COMMENTS_PATH), &file)
 }
 
 /// The document builds compile: the marked default, else the first listed.
@@ -485,46 +468,6 @@ pub fn set_spelling_words(root: &Path, words: Vec<String>) -> Result<ProjectMani
     manifest.spelling_words = normalized;
     write_manifest(root, &manifest)?;
     Ok(manifest)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorCommentReply {
-    pub id: String,
-    pub author_id: String,
-    pub author_name: String,
-    pub body: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorComment {
-    pub id: String,
-    pub path: String,
-    pub from: u32,
-    pub to: u32,
-    pub quote: String,
-    #[serde(default)]
-    pub prefix: String,
-    #[serde(default)]
-    pub suffix: String,
-    pub body: String,
-    pub author_id: String,
-    pub author_name: String,
-    #[serde(default)]
-    pub resolved: bool,
-    #[serde(default)]
-    pub replies: Vec<EditorCommentReply>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorCommentsFile {
-    pub schema_version: u32,
-    pub comments: Vec<EditorComment>,
 }
 
 #[cfg(test)]

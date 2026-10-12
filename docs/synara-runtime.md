@@ -307,6 +307,14 @@ Lattice does not trust the reply to keep LaTeX intact: `src/agent/proofread-edit
 A status answer may carry an optional `model` string naming the model that answered; the card shows it when present. The pinned route does not send one yet.
 A runtime without the route (one pinned before `fb759c3eb`) answers the router's bare 404. The relay reports that as `agent_route_unavailable`, and the card says the runtime cannot proofread yet.
 
+**Annotation revisions** (the Annotations panel's "Revise from N annotations", or ⌘⇧↩ in an annotation's composer) run over the same relay, one text task per open annotation and at most three at once, so one slot stays free for Proofread.
+Lattice owns the prompt and the reply contract (`src/agent/agent-annotations.ts`): the agent reads the writer's note, its intent, the annotated passage and the text around it, and answers with the revised passage between `<revision>` markers and its reason between `<reason>` markers, or with one `<question>` when it needs the writer first.
+An "Add a citation" annotation also lists the bibliography's keys, and the agent may cite only those.
+As with Proofread, nothing is written by the agent: `src/canvas/annotation-review.tsx` splits the revision into edits with `proofread-edits.ts`, holds back changes to protected LaTeX (citations are allowed when the note asks for one), and the writer accepts or rejects each proposal in the editor.
+
+A conversation can answer an annotation too, through two host tools Lattice already handles as `synara:annotations-tool-request` / `lattice:annotations-tool-result` (`parseAgentAnnotationsToolRequest`): `propose_annotation_edit {annotation, edits: [{find, replace}], reason}` (each `find` occurs exactly once in the annotated passage) and `ask_about_annotation {annotation, question}`, where `annotation` is the pin number `read_editor_comments` now reports (`number`, `intent`, `status`, `question`, `pdfPage`).
+The pinned runtime does not declare these tools yet; until a Synara pin adds them beside `read_editor_comments` (a native Lattice tool relayed through the shared host-tools poll, in `LATTICE_NATIVE_TOOL_NAMES`), proposals come only from the panel's revision rounds.
+
 ## Offline quality evaluation
 
 Run `pnpm eval:agent` to replay the checked-in schema-version-1 research fixtures, or pass one or

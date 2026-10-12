@@ -227,7 +227,7 @@ describe("Overleaf sync", () => {
       createdAt: "2026-09-18T00:00:00Z", updatedAt: "2026-09-18T00:00:00Z",
     }));
     renderApp({
-      ...refreshableProject(snapshot, "alpha beta"), list_editor_comments: comments, save_editor_comments: undefined,
+      ...refreshableProject(snapshot, "alpha beta"), list_annotations: { annotations: comments, rounds: [] }, save_annotations: undefined,
       overleaf_link: () => overleafLink({ projectId: "remote-project", projectName: "Review paper" }),
       ...OVERLEAF_EMPTY_FEEDS,
       overleaf_threads: () => [{
@@ -237,7 +237,7 @@ describe("Overleaf sync", () => {
       overleaf_probe: () => overleafProbe(), overleaf_status: () => overleafStatus(),
     });
     const toolbar = await screen.findByRole("button", { name: "Overleaf comments and chat · 2 waiting" });
-    expect(document.querySelector('.canvas-toolbar button[aria-label="Editor comments"]')).toBeNull();
+    expect(document.querySelector('.canvas-toolbar button[aria-label="Annotations"]')).toBeNull();
     fireEvent.click(toolbar);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
     // A slow chunk shows the drawer's loading shell, which docks in the same
@@ -247,26 +247,26 @@ describe("Overleaf sync", () => {
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
     expect(await screen.findByText("Local review")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Include resolved" }));
+    fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
     expect(screen.getByText("Local history")).toBeInTheDocument();
     expect(screen.getByText("unsynced.tex")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /main.tex alpha Local review/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Local review\. “alpha”/ }));
     await waitFor(() => expect(document.querySelector(".overleaf-collab-drawer")).toBeNull());
     fireEvent.click(document.querySelector<HTMLButtonElement>(".status-comments")!);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith("save_editor_comments", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
     fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Reply" }));
     fireEvent.change(screen.getByPlaceholderText("Reply to Reviewer"), { target: { value: "Local-only reply" } });
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
-    await expectInvoked("save_editor_comments", {
-      comments: [
+    await expectInvoked("save_annotations", expect.objectContaining({
+      annotations: [
         expect.objectContaining({ id: "local-0", replies: [expect.objectContaining({ body: "Local-only reply" })] }),
         comments[1],
       ],
-    });
+    }));
     expect(invoke).not.toHaveBeenCalledWith("overleaf_reply_to_thread", expect.anything());
   });
 

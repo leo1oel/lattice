@@ -1,12 +1,13 @@
 /**
- * The panels that hang off the editor rather than the project: the editor
- * comment thread list, the TODO scavenger, and the submission checklist.
+ * The panels that hang off the editor rather than the project: the
+ * Annotations panel and its Revision rounds sheet, the TODO scavenger, and
+ * the submission checklist.
  *
- * Only the comment list is lazy, so it carries its own `Suspense` rather than
- * sharing one with the other drawers — a `null` fallback that covered all of
- * them would unmount an open TODO panel while an unrelated chunk loads.
+ * Only the annotations are lazy, so they carry their own `Suspense` rather
+ * than sharing one with the other drawers — a `null` fallback that covered
+ * all of them would unmount an open TODO panel while an unrelated chunk loads.
  */
-import { lazy, Suspense, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
@@ -16,6 +17,8 @@ import { isWholeFileEditorPath, toMessage } from "../app-utils";
 import { useTrellisController } from "../trellis/trellis-controller";
 import { showError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
+import type { AnnotationRounds } from "./annotation-rounds";
+import type { AnnotationRound, EditorComment } from "../editor/comments/editor-comment-data";
 import type { ToolDrawers } from "./use-tool-drawers";
 import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
@@ -31,12 +34,42 @@ import type {
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
+const AnnotationRoundsDialog = lazy(() =>
+  import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
+);
 
-export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
+/**
+ * The Revision rounds sheet, loaded once it is first opened: the rounds'
+ * own state says when, so nothing here runs while it stays closed.
+ */
+const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, roundsList, annotations }: {
+  rounds: AnnotationRounds;
+  roundsList: readonly AnnotationRound[];
+  annotations: readonly EditorComment[];
+}) {
+  const open = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().roundsOpen);
+  return open ? (
+    <Suspense fallback={null}>
+      <AnnotationRoundsDialog
+        rounds={roundsList}
+        annotations={annotations}
+        readSource={rounds.readSource}
+        onOpenInHistory={rounds.openInHistory}
+        onRestore={rounds.restore}
+        onClose={rounds.closeRounds}
+      />
+    </Suspense>
+  ) : null;
+});
+
+export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurface, ...props }: {
   comments: EditorComments;
+  annotationRounds: AnnotationRounds;
   /** Wraps the comment list in the Overleaf drawer when the project is linked. */
   renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
+  /** The active file's text, for the panel's line numbers and sections. */
+  activeSource: string;
   /** The document tabs still open; closing the last one leaves `activeFile` set but nothing to return to. */
   openTabs: readonly string[];
   build: BuildResult | null;
@@ -52,7 +85,8 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   unusedSymbols: UnusedSymbols;
 }) {
   const { t } = useLingui();
-  const { openProjectFile, project, todoHits, tools, unusedSymbols } = props;
+  const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
+  const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
   // Where the writer was writing: the active file, still active while a Paper
   // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
@@ -80,6 +114,10 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       onReturnToEditor={() => void returnToEditor()}
       currentAuthorId={props.editorCommentAuthorId}
       focusCommentId={comments.panelFocusId}
+      activeCommentId={comments.activeId}
+      sourceFor={sourceFor}
+      annotationRounds={annotationRounds}
+      roundsList={comments.rounds}
       onClose={comments.closePanel}
       onOpen={comments.openComment}
       onDelete={comments.deleteComment}
@@ -105,8 +143,8 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
           ) : (
             <ToolLoadingShell
               className="editor-comments-drawer"
-              label={t`Editor comments`}
-              message={t`Loading editor comments…`}
+              label={t`Annotations`}
+              message={t`Loading annotations…`}
               onClose={() => tools.close("comments")}
             />
           )
@@ -114,6 +152,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
+      <AnnotationRoundsHost rounds={annotationRounds} roundsList={comments.rounds} annotations={comments.comments} />
       {tools.isOpen.todos && (
         <TodoScavengerPanel
           hits={todoHits}

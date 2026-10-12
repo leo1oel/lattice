@@ -37,9 +37,14 @@ msgstr "“{title}”已在论文库，用 {citationCommand} 引用"
 msgid "“{title}” is already in Papers."
 msgstr "“{title}”已在论文库"
 
+#: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "(empty span)"
 msgstr "（空）"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "(new paragraph)"
+msgstr "（新增段落）"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments.ts
@@ -50,14 +55,34 @@ msgstr "（无内容）"
 msgid "(no text)"
 msgstr "（无内容）"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "(removed)"
+msgstr "（已删除）"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "(this comment's text was removed)"
 msgstr "（原文已被删除）"
+
+#. placeholder {0}: label(older)
+#. placeholder {1}: label(newer)
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} → {1}"
+msgstr "{0} → {1}"
+
+#. placeholder {0}: Object.keys(version.round!.outcomes).length
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} annotations"
+msgstr "{0} 条批注"
 
 #. placeholder {0}: file.entries
 #: src/papers/bibliography-audit.tsx
 msgid "{0} BibTeX entries"
 msgstr "{0} 条 BibTeX 条目"
+
+#. placeholder {0}: changes.length
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{0} changes"
+msgstr "{0} 处改动"
 
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
@@ -105,6 +130,10 @@ msgstr "{0} 条已核实 · {1} 条有更新 · {2} 条需人工核对 · {3} �
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} votes"
 msgstr "{0} 票"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{accepted} accepted"
+msgstr "{accepted} 条已接受"
 
 #: src/telemetry/app-notify.ts
 msgid "{action} cancelled"
@@ -155,20 +184,20 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} 处要你选"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} annotation"
+msgstr "{count} 条批注"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} annotations"
+msgstr "{count} 条批注"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} character"
 msgstr "{count} 字符"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} characters"
 msgstr "{count} 字符"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "{count} comment"
-msgstr "{count} 条评论"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "{count} comments"
-msgstr "{count} 条评论"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "{count} figures"
@@ -386,6 +415,14 @@ msgstr "{offered} 处修改 · 清晰流畅"
 msgid "{offered} edits · errors only"
 msgstr "{offered} 处修改 · 只改错误"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{open} open"
+msgstr "{open} 条待处理"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "{openCount} open"
+msgstr "{openCount} 条待处理"
+
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
 msgstr "{operation} 请求出错"
@@ -403,6 +440,10 @@ msgstr "{operation}：{pathname}"
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
 
+#: src/canvas/annotation-review.tsx
+msgid "{position} of {total}"
+msgstr "第 {position}/{total} 条"
+
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -411,6 +452,10 @@ msgstr "{references} 处引用"
 msgid "{references} references"
 msgstr "{references} 处引用"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "{rejected} rejected"
+msgstr "{rejected} 条已拒绝"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} match"
 msgstr "{replacementCount} 处"
@@ -418,6 +463,10 @@ msgstr "{replacementCount} 处"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} 处"
+
+#: src/App.tsx
+msgid "{revisableAnnotations} annotations"
+msgstr "{revisableAnnotations} 条批注"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -483,6 +532,7 @@ msgstr "{where}（重连中…）"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "% comment"
 msgstr "% 注释"
@@ -498,6 +548,15 @@ msgstr "↑↓ 选择 · Enter 打开"
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · 按住 ⇧ 点击从头编译"
+
+#: src/App.tsx
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "1 annotation"
+msgstr "1 条批注"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "1 change"
+msgstr "1 处改动"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
@@ -522,6 +581,10 @@ msgstr "1 行"
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "1 open"
+msgstr "1 条待处理"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "1 page"
@@ -621,6 +684,7 @@ msgstr "摘要环境"
 msgid "Accent"
 msgstr "主题色"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
@@ -644,6 +708,14 @@ msgstr "全部接受（{0}）"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "全部更新"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Accept or reject each one in the editor; the round is saved as a version"
+msgstr "在编辑器里逐条接受或拒绝；这一轮会存成一个版本"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Accepted"
+msgstr "已接受"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -684,6 +756,10 @@ msgstr "把 {title} 加入论文库"
 msgid "Add a bibliography entry for {title}"
 msgstr "为 {title} 添加文献"
 
+#: src/editor/comments/use-intent-labels.ts
+msgid "Add a citation"
+msgstr "补引用"
+
 #: src/editor/editor-keymap.ts
 msgid "Add a cursor above or below"
 msgstr "多加光标"
@@ -711,7 +787,6 @@ msgstr "加入文献并保存论文"
 msgid "Add block below"
 msgstr "加一段"
 
-#: src/canvas/comment-composer.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Add comment"
 msgstr "添加评论"
@@ -789,6 +864,12 @@ msgstr "已取消管理员授权，未安装任何内容。"
 msgid "Agent"
 msgstr "AI 助手"
 
+#. placeholder {0}: progress.answered
+#. placeholder {1}: progress.total
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Agent is revising · {0} of {1} answered"
+msgstr "AI 助手正在修改 · 已答复 {0}/{1}"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "AI 权限：{label}"
@@ -822,6 +903,11 @@ msgstr "AI 助手不可用"
 msgid "Agent version {build}"
 msgstr "AI 助手版本 {build}"
 
+#. placeholder {0}: revision.reason
+#: src/canvas/annotation-review.tsx
+msgid "Agent: {0}"
+msgstr "AI 助手：{0}"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "阿列夫"
@@ -846,6 +932,7 @@ msgstr "靠右"
 msgid "Alignment"
 msgstr "对齐"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/history/history-drawer.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
@@ -941,6 +1028,58 @@ msgstr "角"
 msgid "Animated interface icons, redrawn from Phosphor glyphs"
 msgstr "动画界面图标，依 Phosphor 字形重绘"
 
+#: src/canvas/annotation-composer.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+#: src/pdf/pdf-annotations.tsx
+msgid "Annotate"
+msgstr "批注"
+
+#: src/app/annotation-rounds.ts
+msgid "Annotate at most {limit} characters for the agent to revise."
+msgstr "交给 AI 助手修改的批注最多 {limit} 个字符。"
+
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Annotate the PDF"
+msgstr "在 PDF 上批注"
+
+#: src/canvas/annotation-composer.tsx
+msgid "Annotation"
+msgstr "批注"
+
+#. placeholder {0}: mark.number
+#: src/pdf/pdf-annotations.tsx
+msgid "Annotation {0}"
+msgstr "批注 {0}"
+
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments.ts
+msgid "Annotation {list}"
+msgstr "批注 {list}"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Annotation {pin}"
+msgstr "批注 {pin}"
+
+#: src/app/use-editor-comments.ts
+msgid "Annotation deleted"
+msgstr "已删除批注"
+
+#: src/app/annotation-rounds.ts
+#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
+#: src/canvas/canvas-toolbar.tsx
+#: src/canvas/editor-status-bar.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Annotations"
+msgstr "批注"
+
+#: src/canvas/document-canvas.tsx
+#: src/editor/comments/editor-comments.ts
+msgid "Annotations {list}"
+msgstr "批注 {list}"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -962,6 +1101,14 @@ msgstr "项目里另一个文件"
 #: src/papers/bib-visual-editor.tsx
 msgid "Another reference already uses “{key}”."
 msgstr "已有另一条文献使用“{key}”。"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Answer and revise"
+msgstr "回答并修改"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Answer the agent"
+msgstr "回答 AI 助手"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -1044,9 +1191,17 @@ msgstr "article 应写 journal，而不是 booktitle"
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "As the last round left it"
+msgstr "与最近一轮结束时相同"
+
 #: src/papers/bibliography-audit.tsx
 msgid "As written"
 msgstr "原文"
+
+#: src/canvas/annotation-review.tsx
+msgid "Ask again"
+msgstr "重新请求"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
@@ -1071,6 +1226,10 @@ msgstr "让它解释、修改或检查论文，直接在项目里干活"
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask only for potentially unsafe actions"
 msgstr "只在有风险时问我"
+
+#: src/canvas/annotation-review.tsx
+msgid "Asking the agent again…"
+msgstr "正在重新请 AI 助手修改…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
@@ -1189,6 +1348,14 @@ msgstr "沿用批量结果"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Beamer slide"
 msgstr "Beamer 幻灯片"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Before revisions"
+msgstr "修改之前"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Before the first section"
+msgstr "第一节之前"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
@@ -1542,7 +1709,8 @@ msgid "Can take up to 15 minutes"
 msgstr "最多 15 分钟"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/comment-composer.tsx
+#: src/canvas/annotation-composer.tsx
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -1857,6 +2025,7 @@ msgstr "圈斜线"
 msgid "Circled times / tensor"
 msgstr "圈乘 / 张量积"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "citation"
 msgstr "引用"
@@ -1937,6 +2106,10 @@ msgstr "引用位置"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "在稿件中被引用"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Clarify"
+msgstr "解释清楚"
 
 #: src/canvas/proofread-card.tsx
 msgid "clarity"
@@ -2133,6 +2306,7 @@ msgstr "自动合并"
 msgid "Coming from Overleaf"
 msgstr "来自 Overleaf"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "command"
 msgstr "命令"
@@ -2146,15 +2320,10 @@ msgstr "命令面板"
 msgid "comment"
 msgstr "评论"
 
-#: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
 msgstr "评论"
-
-#: src/app/use-editor-comments.ts
-msgid "Comment deleted"
-msgstr "已删除"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
@@ -2176,12 +2345,9 @@ msgstr "评论筛选"
 msgid "comments"
 msgstr "注释"
 
-#: src/app/use-editor-comments.ts
-#: src/canvas/editor-status-bar.tsx
 #: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
-#: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "评论"
 
@@ -2191,6 +2357,18 @@ msgstr "评论"
 #: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "评论署名：{0}（取自 Git 或 Overleaf）"
+
+#: src/app/annotation-rounds.ts
+msgid "Compare"
+msgstr "对比"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Compare versions"
+msgstr "对比版本"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Compare with"
+msgstr "对比的版本"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Compare with the verified record"
@@ -2539,6 +2717,10 @@ msgstr "无法显示改动：{errorMessage}"
 msgid "Could not render this file: {0}"
 msgstr "无法显示：{0}"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Could not revise"
+msgstr "未能修改"
+
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "无法安全保留此条目中的 BibTeX 表达式。"
@@ -2762,7 +2944,6 @@ msgstr "定义"
 
 #: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -3260,6 +3441,10 @@ msgstr "{edited}编辑"
 msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 msgstr "两边改了同一处，同步后会标出来让你选"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Edited since the last round"
+msgstr "最近一轮之后有改动"
+
 #: src/canvas/proofread-card.tsx
 msgid "Editing strength"
 msgstr "修改程度"
@@ -3272,14 +3457,6 @@ msgstr "编辑器"
 #: src/settings/settings-search-index.ts
 msgid "Editor & builds"
 msgstr "编辑编译"
-
-#: src/app/app-editor-panels.tsx
-#: src/canvas/canvas-toolbar.tsx
-#: src/canvas/editor-status-bar.tsx
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/settings/settings-dialog.tsx
-msgid "Editor comments"
-msgstr "批注"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3431,6 +3608,7 @@ msgstr "条目已变"
 msgid "Entry type"
 msgstr "类型"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "environment"
 msgstr "环境"
@@ -3659,17 +3837,17 @@ msgstr "改动文件"
 msgid "Filled square"
 msgstr "实心方块"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter annotations"
+msgstr "筛选批注"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter annotations…"
+msgstr "筛选批注…"
+
 #: src/app/shortcut-sheet.tsx
 msgid "Filter by name or key"
 msgstr "按名称或按键搜索"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Filter comments…"
-msgstr "筛选批注…"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Filter editor comments"
-msgstr "筛选批注"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
@@ -3738,6 +3916,10 @@ msgstr "要替换的文字"
 msgid "Find your next source"
 msgstr "找到下一篇参考文献"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Finding it in the source…"
+msgstr "正在源码中查找…"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "完成"
@@ -3765,6 +3947,10 @@ msgstr "适合高度"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "适合宽度"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Fix"
+msgstr "修正"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
@@ -4413,10 +4599,6 @@ msgstr "包含应用和 AI 日志"
 msgid "Include raw diagnostic text"
 msgstr "包含完整诊断内容"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Include resolved"
-msgstr "含已解决"
-
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
 msgstr "记录不全"
@@ -4951,6 +5133,11 @@ msgstr "{path} 暂停同步，正在确认 Overleaf 是否已收到（{detail}�
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}）"
 
+#. placeholder {0}: target.path
+#: src/app/annotation-rounds.ts
+msgid "Lattice could not read {0}."
+msgstr "Lattice 无法读取 {0}。"
+
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
 msgstr "Lattice 无法写入 TeX 安装文件夹。"
@@ -5009,10 +5196,6 @@ msgstr "跳出代码"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Leave a comment"
 msgstr "留个评论"
-
-#: src/canvas/comment-composer.tsx
-msgid "Leave a comment for collaborators…"
-msgstr "给协作者留言…"
 
 #: src/App.tsx
 #: src/app/shortcut-groups.ts
@@ -5243,6 +5426,10 @@ msgstr "加载宏包"
 msgid "Load more"
 msgstr "加载更多"
 
+#: src/app/app-editor-panels.tsx
+msgid "Loading annotations…"
+msgstr "正在加载批注…"
+
 #: src/app/git-workspace-frames.tsx
 msgid "Loading changes…"
 msgstr "正在加载改动…"
@@ -5256,10 +5443,6 @@ msgstr "正在加载评论…"
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading diff…"
 msgstr "正在加载改动…"
-
-#: src/app/app-editor-panels.tsx
-msgid "Loading editor comments…"
-msgstr "正在加载批注…"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Loading figure preview…"
@@ -5410,6 +5593,10 @@ msgstr "正文"
 msgid "Manuscript TODOs"
 msgstr "待办"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "Mapped to the source with SyncTeX"
+msgstr "已用 SyncTeX 对应到源码"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Maps to"
 msgstr "映射到"
@@ -5442,6 +5629,7 @@ msgstr "跟随系统"
 msgid "Matching settings"
 msgstr "匹配的设置"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/latex/math-region.ts
 msgid "math"
@@ -5761,6 +5949,10 @@ msgstr "需先设主文件才能统计"
 msgid "Needs approval"
 msgstr "等你同意"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Needs your answer"
+msgstr "等你回答"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Needs your decision"
 msgstr "要你选"
@@ -5873,6 +6065,7 @@ msgstr "新建…"
 msgid "Newest first"
 msgstr "最新优先"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "下一个"
@@ -5884,6 +6077,10 @@ msgstr "下一步"
 #: src/App.tsx
 msgid "Next build problem"
 msgstr "下个错误"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Next change"
+msgstr "下一处改动"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -5909,6 +6106,14 @@ msgstr "下个结果"
 #: src/agent/synara-loading-surface.tsx
 msgid "No Agent logs yet"
 msgstr "还没有 AI 日志"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No annotations yet. Open a file, select text and click Annotate"
+msgstr "还没有批注。打开文件，选中文字点“批注”"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No annotations yet. Select text in the editor or the PDF and click Annotate"
+msgstr "还没有批注。在编辑器或 PDF 中选中文字点“批注”"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -5937,14 +6142,6 @@ msgstr "没有命令、文件或论文与“{query}”匹配"
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "还没有评论"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "No comments yet. Open a file, select text and click Comment"
-msgstr "还没有批注。打开文件，选中文字点“批注”"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "No comments yet. Select text in the editor and click Comment"
-msgstr "还没有批注。选中文字点“批注”"
 
 #: src/project/citation-health.ts
 msgid "No Crossref update metadata found (checked {checkedDate})"
@@ -6079,6 +6276,9 @@ msgid "No occurrences found"
 msgstr "没找到"
 
 #: src/editor/comments/editor-comments-panel.tsx
+msgid "No open annotations"
+msgstr "没有待处理的批注"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "没有待处理的批注"
@@ -6130,6 +6330,10 @@ msgstr "没有要检查的引用"
 #: src/papers/bib-visual-editor.tsx
 msgid "No references yet"
 msgstr "还没有文献"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No resolved annotations"
+msgstr "没有已解决的批注"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
@@ -6288,6 +6492,10 @@ msgstr "通知"
 msgid "Notify me (manual)"
 msgstr "提醒我（手动装）"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Now"
+msgstr "现在"
+
 #: src/history/versions-timeline.tsx
 msgid "Now tracking versions of this project."
 msgstr "已开启版本记录"
@@ -6380,6 +6588,11 @@ msgstr "不透明度值"
 msgid "Open"
 msgstr "打开"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgctxt "annotation filter"
+msgid "Open"
+msgstr "待处理"
+
 #: src/App.tsx
 msgid "Open {name}"
 msgstr "打开 {name}"
@@ -6450,10 +6663,6 @@ msgstr "在浏览器打开原文"
 msgid "Open by default"
 msgstr "默认展开"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Open comments"
-msgstr "打开批注"
-
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
 msgstr "打开文件…"
@@ -6476,6 +6685,10 @@ msgstr "新手教程"
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Open in History"
+msgstr "在历史中打开"
 
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
@@ -6914,6 +7127,7 @@ msgstr "切换论文"
 msgid "Papers"
 msgstr "论文库"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "paragraph break"
 msgstr "分段"
@@ -7030,6 +7244,22 @@ msgstr "PDF 加载进度"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "PDF output"
 msgstr "生成 PDF"
+
+#. placeholder {0}: comment.pdf.page
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "PDF p.{0}"
+msgstr "PDF 第 {0} 页"
+
+#. placeholder {0}: selection.page
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "PDF p.{0} → …"
+msgstr "PDF 第 {0} 页 → …"
+
+#. placeholder {0}: selection.page
+#. placeholder {1}: mapped.line
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "PDF p.{0} → {name}:{1}"
+msgstr "PDF 第 {0} 页 → {name}:{1}"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF page {pageNumber}"
@@ -7243,6 +7473,10 @@ msgstr "上一个"
 msgid "Previous build problem"
 msgstr "上个错误"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Previous change"
+msgstr "上一处改动"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Previous match"
@@ -7379,6 +7613,15 @@ msgstr "正在校对…"
 msgid "Proportional to"
 msgstr "正比于"
 
+#. placeholder {0}: annotation.number
+#: src/canvas/annotation-review.tsx
+msgid "Proposal for annotation {0}"
+msgstr "批注 {0} 的修改建议"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Proposed"
+msgstr "已提议"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Proposed BibTeX"
 msgstr "建议条目"
@@ -7499,6 +7742,10 @@ msgstr "阅读"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "正在读取…"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Reading the rounds…"
+msgstr "正在读取各轮修改…"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Reading the third-party notices…"
@@ -7637,6 +7884,7 @@ msgstr "高级匹配"
 msgid "Regular expression"
 msgstr "高级匹配（正则）"
 
+#: src/canvas/annotation-review.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -7646,6 +7894,10 @@ msgstr "拒绝"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "全部拒绝"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Rejected"
+msgstr "已拒绝"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -7794,10 +8046,6 @@ msgstr "正在显示第一页…"
 msgid "Reopen"
 msgstr "重新打开"
 
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Reopen comment"
-msgstr "重新打开"
-
 #: src/App.tsx
 msgid "Reopen the closed tab"
 msgstr "重开标签"
@@ -7934,8 +8182,8 @@ msgid "Reply"
 msgstr "回复"
 
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Reply to {displayedCommentAuthor}"
-msgstr "回复 {displayedCommentAuthor}"
+msgid "Reply to {author}"
+msgstr "回复 {author}"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
@@ -8018,6 +8266,7 @@ msgstr "调整大小"
 msgid "Resize right panel"
 msgstr "调整右侧面板大小"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
 msgstr "查找"
@@ -8033,7 +8282,6 @@ msgid "Resolve changes to {path}"
 msgstr "处理 {path} 的改动"
 
 #: src/canvas/document-canvas.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 msgid "Resolve comment"
 msgstr "标为解决"
 
@@ -8086,6 +8334,8 @@ msgid "Restore"
 msgstr "恢复"
 
 #. placeholder {0}: entry.title
+#. placeholder {0}: label(newer)
+#: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore {0}"
 msgstr "恢复{0}"
@@ -8096,6 +8346,10 @@ msgstr "恢复{0}"
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore {0} to this version"
 msgstr "把 {0} 恢复到此版本"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore {name}"
+msgstr "恢复到{name}"
 
 #: src/history/versions-timeline.tsx
 msgid "Restore {path} to this version? Your current file will be overwritten."
@@ -8134,6 +8388,10 @@ msgstr "恢复此版"
 #: src/trellis/trellis-labels.ts
 msgid "Restore size"
 msgstr "恢复大小"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Restore the files the rounds touched to {name}? The restore is added to the project history, so it can be undone there."
+msgstr "把各轮改动过的文件恢复到{name}？这次恢复会记入项目历史，可以在那里撤销。"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
@@ -8242,6 +8500,15 @@ msgstr "反向断言符"
 msgid "Revert to saved"
 msgstr "还原布局"
 
+#. placeholder {0}: rounds.proposals.length
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Review {0} proposals"
+msgstr "审阅 {0} 条建议"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Review 1 proposal"
+msgstr "审阅 1 条建议"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
 msgstr "查看匹配"
@@ -8261,6 +8528,33 @@ msgstr "查看建议"
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "保存前再看一遍"
+
+#. placeholder {0}: rounds.revisable
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from {0} annotations"
+msgstr "根据 {0} 条批注修改"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from 1 annotation"
+msgstr "根据 1 条批注修改"
+
+#: src/App.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revise from annotations"
+msgstr "根据批注修改"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revising…"
+msgstr "修改中…"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Revision rounds"
+msgstr "修改轮次"
+
+#: src/editor/comments/use-intent-labels.ts
+msgid "Rewrite"
+msgstr "重写"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
@@ -8323,6 +8617,26 @@ msgstr "主文件及其引用的文件，精确统计"
 msgid "Root document only, estimated without texcount"
 msgstr "仅主文件，估算"
 
+#. placeholder {0}: version.round!.number
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "Round {0}"
+msgstr "第 {0} 轮"
+
+#. placeholder {0}: progress.round
+#. placeholder {1}: rounds!.proposals.length
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Round {0} · {1} proposals to review"
+msgstr "第 {0} 轮 · {1} 条建议待审阅"
+
+#. placeholder {0}: progress.round
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Round {0} · 1 proposal to review"
+msgstr "第 {0} 轮 · 1 条建议待审阅"
+
+#: src/app/annotation-rounds.ts
+msgid "Round {number} is saved as a version"
+msgstr "第 {number} 轮已存为一个版本"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
 msgstr "行选项"
@@ -8366,6 +8680,7 @@ msgid "Sans-serif text"
 msgstr "无衬线文本"
 
 #: src/app/use-open-documents.ts
+#: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -8377,6 +8692,10 @@ msgstr "保存"
 #: src/App.tsx
 msgid "Save and build"
 msgstr "保存编译"
+
+#: src/canvas/annotation-composer.tsx
+msgid "Save and revise now"
+msgstr "保存并立即修改"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
@@ -8414,6 +8733,10 @@ msgstr "PDF 另存为…"
 msgid "Save pending edits before checking references."
 msgstr "请先保存，再检查引用"
 
+#: src/app/annotation-rounds.ts
+msgid "Save pending edits before restoring a round."
+msgstr "恢复某一轮之前，请先保存未保存的修改。"
+
 #: src/App.tsx
 msgid "Save pending edits before updating references."
 msgstr "请先保存，再更新引用"
@@ -8442,6 +8765,10 @@ msgstr "已保存到 {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "手动保存"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Saved with the project in {STORAGE_PATH}; no server involved"
+msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -8738,6 +9065,10 @@ msgstr "编译时允许运行命令"
 msgid "shortcuts"
 msgstr "快捷键"
 
+#: src/editor/comments/use-intent-labels.ts
+msgid "Shorten"
+msgstr "缩短"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
 msgstr "显示{name}"
@@ -8758,6 +9089,11 @@ msgstr "显示全部文献"
 #: src/project/project-find-dialog.tsx
 msgid "Show all results"
 msgstr "显示全部"
+
+#: src/App.tsx
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Show annotations"
+msgstr "显示批注"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Show archived"
@@ -8933,6 +9269,10 @@ msgstr "上弧关系"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Soft {name}"
 msgstr "浅{name}"
+
+#: src/canvas/annotation-review.tsx
+msgid "Some changes would alter LaTeX the note did not ask about, so Lattice holds them back."
+msgstr "有些改动会改变批注没要求改的 LaTeX，Lattice 已将其保留不改。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
@@ -9349,6 +9689,11 @@ msgstr "正在同步…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
+#. placeholder {0}: target.path
+#: src/app/annotation-rounds.ts
+msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
+msgstr "SyncTeX 把这段文字定位到了 {0} 之外。请重新构建 PDF 后再批注。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
@@ -9478,6 +9823,15 @@ msgstr "确认超时"
 msgid "The Agent"
 msgstr "AI 助手"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "The agent asks"
+msgstr "AI 助手问"
+
+#. placeholder {0}: revision.question ?? ""
+#: src/canvas/annotation-review.tsx
+msgid "The agent asks: {0}"
+msgstr "AI 助手问：{0}"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection: {detail}"
 msgstr "AI 校对失败：{detail}"
@@ -9485,6 +9839,14 @@ msgstr "AI 校对失败：{detail}"
 #: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection."
 msgstr "AI 校对失败"
+
+#: src/app/annotation-rounds.ts
+msgid "The agent could not revise this passage: {detail}"
+msgstr "AI 助手没能修改这一段：{detail}"
+
+#: src/app/annotation-rounds.ts
+msgid "The agent could not revise this passage."
+msgstr "AI 助手没能修改这一段。"
 
 #: src/canvas/proofread-card.tsx
 msgid "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
@@ -9506,9 +9868,25 @@ msgstr "AI 助手暂不可用"
 msgid "The Agent started {seconds} s ago and hasn’t answered yet"
 msgstr "AI 助手已启动 {seconds} 秒，还没有响应"
 
+#: src/canvas/annotation-review.tsx
+msgid "The agent suggests leaving the passage as it is."
+msgstr "AI 助手建议这一段保持不变。"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "AI 没返回校对结果"
+
+#: src/app/annotation-rounds.ts
+msgid "The agent's reply held neither a revision nor a question."
+msgstr "AI 助手的回复里既没有修改，也没有问题。"
+
+#: src/canvas/annotation-review.tsx
+msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
+msgstr "批注的段落已改动或移动，无法放置这条建议。请在批注面板中重新请 AI 助手修改。"
+
+#: src/app/annotation-rounds.ts
+msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
+msgstr "批注的文字已改动或移动。请重新选中并批注后再请 AI 助手修改。"
 
 #: src/App.tsx
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
@@ -9592,6 +9970,10 @@ msgstr "文档区"
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "保存时文件变了，请看最新内容再保存"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "The files already read as {name}."
+msgstr "文件已与{name}一致。"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处：{path}:{line}"
@@ -9647,6 +10029,10 @@ msgstr "与 Overleaf 的连接已断开"
 #: src/build/tex-setup.ts
 msgid "The package repository does not have this package."
 msgstr "组件仓库中没有此组件。"
+
+#: src/canvas/annotation-review.tsx
+msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
+msgstr "AI 助手读过之后这一段又改了。请重试，让它按现在的内容修改。"
 
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
@@ -9745,6 +10131,10 @@ msgstr "这段已经很好"
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "显示的是共享版本，你的草稿已保留，可复制或恢复后重试"
 
+#: src/canvas/pdf-annotation-composer.tsx
+msgid "The source changed since the PDF was built. Build again, then annotate."
+msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
+
 #: src/settings/acknowledged-software.ts
 msgid "The source editor"
 msgstr "源码编辑器"
@@ -9756,6 +10146,10 @@ msgstr "电子表格编辑器"
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "无法从应用包中读取第三方声明。"
+
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "The two versions read the same"
+msgstr "两个版本内容相同"
 
 #: src/papers/audit-messages.ts
 msgid "The verified record differs from this inline reference. Inline references are edited by hand."
@@ -9904,6 +10298,10 @@ msgstr "这一组"
 msgid "This is not a native Open Slide deck."
 msgstr "这不是 Lattice 幻灯片文件"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
+msgid "This is the earliest version"
+msgstr "这是最早的版本"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "这些匹配信息针对原记录，你已改过字段"
@@ -9938,6 +10336,10 @@ msgstr "此项目同步到“{0}”"
 msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgstr "此项目用的是 {linkedHost}，请退出并重新连接它"
 
+#: src/canvas/annotation-review.tsx
+msgid "This proposal has been decided."
+msgstr "这条建议已处理。"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "This reference already has a “{name}” field."
 msgstr "这条文献已有“{name}”字段。"
@@ -9965,6 +10367,10 @@ msgstr "此值用 # 拼接字符串，请保持为有效的 BibTeX。"
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "请更新 Lattice 后使用校对"
+
+#: src/app/annotation-rounds.ts
+msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -10115,10 +10521,15 @@ msgstr "换个更短或不同的词试试"
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"
 msgstr "重试"
+
+#: src/canvas/annotation-review.tsx
+msgid "Try again…"
+msgstr "重试…"
 
 #: src/project/paper-library.tsx
 msgid "Try another filter"
@@ -10349,6 +10760,10 @@ msgstr "上下箭头"
 msgid "Up-down double arrow"
 msgstr "上下双线箭头"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Update annotation…"
+msgstr "修改批注…"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Update applied"
 msgstr "已更新"
@@ -10356,10 +10771,6 @@ msgstr "已更新"
 #: src/papers/bibliography-audit.tsx
 msgid "Update available"
 msgstr "有更新"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Update comment…"
-msgstr "修改批注…"
 
 #: src/telemetry/app-updater.tsx
 msgid "Update now"
@@ -10478,6 +10889,7 @@ msgstr "投稿模板"
 msgid "Venue unavailable"
 msgstr "无发表信息"
 
+#: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "verbatim"
 msgstr "原样"
@@ -10550,6 +10962,7 @@ msgstr "版本已保存"
 msgid "Version to keep for spot {0}"
 msgstr "第 {0} 处保留哪个"
 
+#: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 msgid "Versions"
@@ -10652,6 +11065,22 @@ msgstr "欢迎回来"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "欢迎使用 Lattice"
+
+#: src/canvas/annotation-composer.tsx
+msgid "What should change here?"
+msgstr "这里要怎么改？"
+
+#: src/canvas/annotation-review.tsx
+msgid "What should the agent change?"
+msgstr "要 AI 助手怎么改？"
+
+#: src/canvas/annotation-review.tsx
+msgid "What should the agent change? (optional)"
+msgstr "要 AI 助手怎么改？（可选）"
+
+#: src/canvas/annotation-composer.tsx
+msgid "What the agent should do"
+msgstr "要 AI 助手做什么"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -10839,6 +11268,10 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "已是最新版"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Your answer…"
+msgstr "你的回答…"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

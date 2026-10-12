@@ -20,11 +20,11 @@ describe("EditorCommentsPanel", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const field = screen.getByPlaceholderText("Update comment…") as HTMLTextAreaElement;
+    const field = screen.getByPlaceholderText("Update annotation…") as HTMLTextAreaElement;
     expect(field).toHaveFocus();
     expect([field.selectionStart, field.selectionEnd]).toEqual([12, 12]);
     fireEvent.keyDown(field, { key: "Escape" });
-    expect(screen.queryByPlaceholderText("Update comment…")).toBeNull();
+    expect(screen.queryByPlaceholderText("Update annotation…")).toBeNull();
     expect(onUpdateBody).not.toHaveBeenCalled();
   });
 
@@ -38,11 +38,11 @@ describe("EditorCommentsPanel", () => {
       />
     );
     const { rerender } = render(panel("chapters/intro.tex"));
-    expect(screen.getByText("No comments yet. Select text in the editor and click Comment")).toBeInTheDocument();
+    expect(screen.getByText("No annotations yet. Select text in the editor or the PDF and click Annotate")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Return to intro.tex" }));
     expect(onReturnToEditor).toHaveBeenCalledTimes(1);
     rerender(panel(null));
-    expect(screen.getByText("No comments yet. Open a file, select text and click Comment")).toBeInTheDocument();
+    expect(screen.getByText("No annotations yet. Open a file, select text and click Annotate")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a file" }));
     expect(onReturnToEditor).toHaveBeenCalledTimes(2);
   });
@@ -58,7 +58,7 @@ describe("EditorCommentsPanel", () => {
         onUpdateBody={vi.fn()} onReply={vi.fn()}
       />,
     );
-    expect(screen.getByText("No open comments")).toBeInTheDocument();
+    expect(screen.getByText("No open annotations")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Return to/ })).not.toBeInTheDocument();
   });
 });

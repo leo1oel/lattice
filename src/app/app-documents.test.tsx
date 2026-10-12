@@ -174,7 +174,7 @@ describe("documents and editors", () => {
     // empty state still offered “Return to main.tex” and the click went nowhere.
     renderApp(refreshableProject());
     await waitForSelectedTab("main.tex");
-    fireEvent.click(await screen.findByTitle("Editor comments"));
+    fireEvent.click(await screen.findByTitle("Annotations"));
     expect(await screen.findByRole("button", { name: "Return to main.tex" })).toBeInTheDocument();
 
     const close = screen.getByRole("tab", { name: "main.tex" }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
