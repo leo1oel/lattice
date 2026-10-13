@@ -64,8 +64,14 @@ const CEILINGS: Record<string, number> = {
   // Split out of the viewer, which had 5. Each remaining one is a tagged
   // template or a preserved memo, not a ref write; the viewer itself compiles.
   "src/pdf/pdf-viewer.tsx": 0,
-  "src/pdf/use-pdf-document.ts": 1,
+  "src/pdf/use-pdf-document.ts": 0,
   "src/pdf/use-pdf-view.ts": 1,
+  // Lists that scroll: the .bib reference list was skipped whole (a catch
+  // binding in a closure) and re-rendered its toolbar on every scrolled
+  // frame; the Papers list's rows rely on compiling to skip unchanged rows.
+  "src/papers/bib-visual-editor.tsx": 0,
+  "src/project/paper-library.tsx": 0,
+  "src/project/paper-list-window.ts": 0,
   // Cleared August 2026 by moving render-phase ref writes into every-commit
   // layout effects (model: src/editor/codemirror-host.tsx). Pinned at 0 so the
   // pattern cannot creep back.
