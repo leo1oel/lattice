@@ -48,26 +48,40 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/** The section the frame's document opens on; later switches are messages, not navigations. */
+function settingsFrameSrc(url: string, section: string) {
+  const src = new URL(url);
+  src.searchParams.set("section", section);
+  return src.toString();
+}
+
 /**
  * Providers, MCP and Skills are Synara's own settings pages, embedded without
  * their own scrolling: the iframe reports its content height and forwards wheel
  * gestures, and the host settings viewport does all of the scrolling.
  *
- * Stays mounted for the whole dialog so measured heights and the ready
- * handshake survive visits to the other tabs.
+ * One frame serves all three for the whole dialog, from the first visit to one
+ * of them: it stays loaded (hidden) on the other tabs, so returning to the page
+ * it shows is instant, and switching between them never reloads it. A switch
+ * hides the frame at once and shows it again only when Synara answers that very
+ * request with the section rendered and its first data loaded; until then the
+ * pane is an empty sheet. Revealing on anything earlier showed the previous
+ * section, a blank document, or rows that filled in a moment later.
  */
 export function SynaraSettingsPane(props: {
   runtime: SynaraRuntimeInfo;
-  /** Set only on a Synara tab; null there while no project is open. */
+  /** Set only on a Synara tab. */
   section: string | undefined;
+  /** Synara's settings page for the open project, without a section; null while none is open. */
   url: string | null;
+  /** The Synara tab's label; undefined on the other tabs. */
   synaraSettingsLabel: string | undefined;
   viewportRef: RefObject<HTMLDivElement | null>;
   /** The page paints with the host's palette, as the agent panel does. */
   appearance: Parameters<typeof readAgentHostTheme>[0];
   onRetry: () => void;
 }) {
-  const { runtime, section, url, synaraSettingsLabel, viewportRef } = props;
+  const { runtime, section, url, viewportRef } = props;
   const { t } = useLingui();
   const embedRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -79,17 +93,49 @@ export function SynaraSettingsPane(props: {
   const frameHeightRef = useRef(DEFAULT_FRAME_HEIGHT);
   const bottomPinFrameRef = useRef<number | null>(null);
   const navigationFrameRef = useRef<number | null>(null);
-  const [readyUrl, setReadyUrl] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
   const origin = runtime.state === "ready" && runtime.origin ? new URL(runtime.origin).origin : null;
-  const key = url && section ? `${url}#${section}` : null;
-  const ready = Boolean(url && readyUrl === url);
+
+  // The Synara page last visited, which the frame keeps showing on other tabs.
+  const [visited, setVisited] = useState<{ section: string; label: string | undefined } | null>(null);
+  if (section && (visited?.section !== section || visited.label !== props.synaraSettingsLabel)) {
+    setVisited({ section, label: props.synaraSettingsLabel });
+  }
+  // A new document only when the page itself changes (project, theme, language).
+  const frameSection = section ?? visited?.section;
+  const frameUrl = frameSection ? url : null;
+  const [frame, setFrame] = useState<{ url: string; src: string } | null>(null);
+  if ((frame?.url ?? null) !== frameUrl) {
+    setFrame(frameUrl && frameSection ? { url: frameUrl, src: settingsFrameSrc(frameUrl, frameSection) } : null);
+  }
+  const src = frame?.src ?? null;
+  // Each is tagged with the document it belongs to, so a reload resets them all.
+  const [embedReadySrc, setEmbedReadySrc] = useState<string | null>(null);
+  const [request, setRequest] = useState<{ src: string; id: number; section: string } | null>(null);
+  const [answer, setAnswer] = useState<{ src: string; id: number; section: string } | null>(null);
+  const currentRequest = request?.src === src ? request : null;
+  const ready = Boolean(
+    section && currentRequest?.section === section &&
+    answer?.src === src && answer.id === currentRequest.id && answer.section === section,
+  );
+  const key = frame && section ? `${frame.url}#${section}` : null;
   useSynaraNotificationBridge({ frameRef, origin, source: t`Synara settings` });
   useSynaraConfirmationBridge({ frameRef, origin });
 
-  const postSection = useCallback(() => {
-    if (!origin || !section) return;
-    frameRef.current?.contentWindow?.postMessage({ type: "lattice:set-settings-section", section }, origin);
-  }, [origin, section]);
+  // Ask for the tab's section once the page listens; the page it already shows
+  // needs no request.
+  useEffect(() => {
+    if (!origin || !src || embedReadySrc !== src || !section || currentRequest?.section === section) return;
+    requestIdRef.current += 1;
+    const next = { src, id: requestIdRef.current, section };
+    // Its list and detail views are the section's own, not the previous one's.
+    detailKeysRef.current.clear();
+    setRequest(next);
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "lattice:set-settings-section", section, request: next.id },
+      origin,
+    );
+  }, [currentRequest, embedReadySrc, origin, section, src]);
 
   // The page's insets live in the frame, which cannot see this window's
   // width: its own is the dialog's content column, and the same column width
@@ -124,11 +170,16 @@ export function SynaraSettingsPane(props: {
 
   useLayoutEffect(() => {
     cancelFrame(bottomPinFrameRef);
-    detailKeysRef.current.clear();
     pendingRestoreRef.current = null;
-    showHeight(key ? heightsRef.current[key] ?? DEFAULT_FRAME_HEIGHT : DEFAULT_FRAME_HEIGHT);
-    postSection();
-  }, [key, postSection, showHeight]);
+    if (key) {
+      showHeight(heightsRef.current[key] ?? DEFAULT_FRAME_HEIGHT);
+    } else {
+      // On another tab the hidden frame keeps its size but takes no room.
+      applySynaraSettingsHeight({
+        container: embedRef.current, frame: frameRef.current, height: frameHeightRef.current, active: false,
+      });
+    }
+  }, [key, showHeight]);
 
   useEffect(() => () => {
     cancelFrame(bottomPinFrameRef);
@@ -136,7 +187,7 @@ export function SynaraSettingsPane(props: {
   }, []);
 
   useEffect(() => {
-    if (!origin || !url || !key) return;
+    if (!origin || !frame) return;
     const restoreListScroll = (top: number) => {
       const viewport = viewportRef.current;
       if (!viewport) return;
@@ -152,8 +203,8 @@ export function SynaraSettingsPane(props: {
         case "synara:settings-content-height": {
           if (!isFiniteNumber(data.height) || typeof data.section !== "string") return;
           const height = normalizeSynaraSettingsHeight(data.height);
-          heightsRef.current[`${url}#${data.section}`] = height;
-          if (data.section !== section) return;
+          heightsRef.current[`${frame.url}#${data.section}`] = height;
+          if (!key || data.section !== section) return;
           const keepPinnedToBottom = Boolean(
             viewport &&
             height > frameHeightRef.current &&
@@ -175,7 +226,7 @@ export function SynaraSettingsPane(props: {
           return;
         }
         case "synara:settings-navigation": {
-          if (data.section !== section || (data.view !== "detail" && data.view !== "list") || !viewport) return;
+          if (!key || data.section !== section || (data.view !== "detail" && data.view !== "list") || !viewport) return;
           cancelFrame(bottomPinFrameRef);
           cancelFrame(navigationFrameRef);
           // A detail page replaces its list; returning restores the list's
@@ -194,15 +245,19 @@ export function SynaraSettingsPane(props: {
           return;
         }
         case "synara:embed-ready":
-          setReadyUrl(url);
+          setEmbedReadySrc(frame.src);
           postHostTheme();
           postLayout();
+          return;
+        case "synara:settings-section-ready":
+          if (typeof data.section !== "string" || !Number.isSafeInteger(data.request)) return;
+          setAnswer({ src: frame.src, id: data.request, section: data.section });
           return;
         case LATTICE_HOST_THEME_REQUEST:
           postHostTheme();
           return;
         case "synara:settings-wheel":
-          if (!isFiniteNumber(data.deltaY) || !viewport) return;
+          if (!key || !isFiniteNumber(data.deltaY) || !viewport) return;
           if (isFiniteNumber(data.contentHeight) && data.section === section) {
             const height = normalizeSynaraSettingsHeight(data.contentHeight);
             heightsRef.current[key] = height;
@@ -223,7 +278,7 @@ export function SynaraSettingsPane(props: {
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [key, origin, postHostTheme, postLayout, section, showHeight, url, viewportRef]);
+  }, [frame, key, origin, postHostTheme, postLayout, section, showHeight, viewportRef]);
 
   useEffect(() => {
     // WKWebView delivers wheel to the iframe element when scrolling="no", not
@@ -239,10 +294,9 @@ export function SynaraSettingsPane(props: {
     };
     container.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => container.removeEventListener("wheel", onWheel, { capture: true });
-  }, [section, url, viewportRef]);
+  }, [section, src, viewportRef]);
 
-  if (!section) return null;
-  if (!url) {
+  if (section && !url) {
     return (
       <div className="synara-settings-state">
         {runtime.state === "ready"
@@ -251,22 +305,27 @@ export function SynaraSettingsPane(props: {
       </div>
     );
   }
+  if (!frame || !visited) return null;
+  const synaraSettingsLabel = visited.label;
   return (
-    <div ref={embedRef} className="synara-settings-embed" data-ready={ready} aria-busy={!ready}>
+    <div
+      ref={embedRef}
+      className="synara-settings-embed"
+      data-active={Boolean(section)}
+      data-ready={ready}
+      aria-busy={section ? !ready : undefined}
+    >
       <iframe
         ref={frameRef}
         className="synara-settings-frame"
-        src={url}
+        src={frame.src}
         title={t`Synara ${synaraSettingsLabel} settings`}
         allow="clipboard-read; clipboard-write"
         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
         scrolling="no"
-        onLoad={() => {
-          postSection();
-          postLayout();
-        }}
+        onLoad={postLayout}
       />
-      {!ready && (
+      {section && !ready && (
         <div className="synara-settings-loading" role="status">
           <InfinityLoader size={14} /> {t`Loading settings…`}
         </div>

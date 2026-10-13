@@ -107,17 +107,21 @@ resolve after the effect has already been torn down.
 The Synara agent UI is **not** a React component. It is the sidecar's own web
 application, loaded into a cross-origin `<iframe>`:
 
-- URL construction: `synaraFrameUrl()` at `src/agent/synara-runtime.ts:239`. It
-  encodes `embed=1`, `workspaceRoot`, `theme`, `locale`, `surface`,
-  `hostOrigin` and `section` as query params, and puts the auth token in the
-  URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:259`) so it never
+- URL construction: `synaraFrameUrl()` at `src/agent/synara-runtime.ts:244`. It
+  encodes `embed=1`, `workspaceRoot`, `theme`, `locale`, `surface` and
+  `hostOrigin` as query params, and puts the auth token in the
+  URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:262`) so it never
   reaches a server log.
 - Mount points: the Agent panel (`src/trellis/trellis-agent-surface.tsx`),
   the source-control / review drawer (`src/app/git-workspace-frames.tsx`, one
   `<iframe>` per view visited — Changes, Pull requests, an agent turn — kept
   mounted under the selected one, behind a loading shell until that frame
   posts `synara:embed-ready`), and the agent settings pane in
-  `src/settings/synara-settings-pane.tsx`. The first two get their URLs from
+  `src/settings/synara-settings-pane.tsx` (one `<iframe>` for Providers, MCP
+  and Skills, opened on the first of them visited with a `section` param and
+  kept loaded under the native tabs; a switch hides it until the frame answers
+  that `lattice:set-settings-section` request with `synara:settings-section-ready`).
+  The first two get their URLs from
   `src/app/app-synara-embed.ts`. All of them use
   `sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"`.
   Grep for `synaraFrameUrl`.
@@ -147,7 +151,7 @@ file:
 | `src/agent/agent-presentation-tools.ts:16-18` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
 | `src/agent/agent-composer-files.ts:1` | `lattice:composer-files` |
 | `src/app/use-synara-host.ts:22-25` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
-| `src/settings/synara-settings-pane.tsx:77` | `lattice:set-settings-section` |
+| `src/settings/synara-settings-pane.tsx:135` | `lattice:set-settings-section` |
 
 `rg '"lattice:' src` enumerates the whole protocol in one pass.
 

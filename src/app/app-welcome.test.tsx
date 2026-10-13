@@ -261,6 +261,63 @@ describe("welcome screen", () => {
     await waitFor(() => expect(document.querySelector(providersFrame)).not.toBeNull());
   }, 60_000);
 
+  it("shows a Synara settings page only once Synara answers the request for it, in one frame for all three", async () => {
+    renderApp(projectCommands());
+    await chooseProjectMenuItem("Settings");
+    await findSettingsDialog(10_000);
+    const nav = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+    nav("Providers");
+    const frame = await findFrame("Synara Providers settings");
+    const src = frame.src;
+    const embed = frame.closest<HTMLElement>(".synara-settings-embed")!;
+    expect(new URL(src).searchParams.get("section")).toBe("providers");
+    const posted = vi.spyOn(frame.contentWindow!, "postMessage");
+    const requests = () => posted.mock.calls.map(([data]) => data as { type: string; section: string; request: number })
+      .filter((data) => data.type === "lattice:set-settings-section");
+    const answer = (section: string, request: number) =>
+      postWindowMessage(frame.contentWindow, { type: "synara:settings-section-ready", section, request });
+
+    // The document's own first paint is not an answer to anything.
+    postWindowMessage(frame.contentWindow, { type: "synara:settings-section-ready", section: "providers" });
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
+    await waitFor(() => expect(requests()).toEqual([expect.objectContaining({ section: "providers" })]));
+    expect(embed).toHaveAttribute("data-ready", "false");
+    answer("providers", requests()[0].request);
+    await waitFor(() => expect(embed).toHaveAttribute("data-ready", "true"));
+
+    // A switch hides the page at once and never reloads it; an answer to an
+    // earlier request, or from the section it is leaving, does not show it.
+    nav("MCP");
+    expect(embed).toHaveAttribute("data-ready", "false");
+    expect(frame.src).toBe(src);
+    await waitFor(() => expect(requests().at(-1)).toMatchObject({ section: "integrations" }));
+    const mcp = requests().at(-1)!.request;
+    answer("providers", requests()[0].request);
+    answer("providers", mcp);
+    await act(() => nextFrames(2));
+    expect(embed).toHaveAttribute("data-ready", "false");
+    answer("integrations", mcp);
+    await waitFor(() => expect(embed).toHaveAttribute("data-ready", "true"));
+
+    // A native page hides it without unloading it; back on the page it shows,
+    // it is there at once with nothing to ask.
+    nav("Appearance");
+    expect(embed).toHaveAttribute("data-active", "false");
+    expect(frame.isConnected).toBe(true);
+    const asked = requests().length;
+    nav("MCP");
+    expect(embed).toHaveAttribute("data-ready", "true");
+    expect(requests()).toHaveLength(asked);
+
+    nav("Skills");
+    expect(embed).toHaveAttribute("data-ready", "false");
+    await waitFor(() => expect(requests().at(-1)).toMatchObject({ section: "skills" }));
+    answer("skills", requests().at(-1)!.request);
+    await waitFor(() => expect(embed).toHaveAttribute("data-ready", "true"));
+    expect(frame).toHaveAttribute("title", "Synara Skills settings");
+    expect(frame.src).toBe(src);
+  });
+
   it("keeps successful TeX checks compact while retaining failure details", async () => {
     renderApp({ initial_project: null, run_doctor: { ok: true, summary: "ready", checks: [
       { name: "latexmk", detail: "LaTeX build driver: /Library/TeX/texbin/latexmk", ok: true },
