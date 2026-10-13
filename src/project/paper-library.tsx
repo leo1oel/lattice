@@ -482,7 +482,7 @@ function PaperShelf(props: PaperLibraryProps & {
     const from = paperRows.findIndex((row) => row.contains(event.target as Node));
     if (from < 0) return;
     // Past the last row drawn, draw the rest first.
-    if (step > 0 && from + step >= paperRows.length - 1 && rows.spacer) {
+    if (step > 0 && from + step >= paperRows.length - 1 && rows.more) {
       flushSync(rows.showAll);
       paperRows = drawnRows();
     }
