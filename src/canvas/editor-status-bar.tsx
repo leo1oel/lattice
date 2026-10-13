@@ -70,11 +70,13 @@ export function EditorStatusBar(props: {
         onClick={props.onOpenComments}
       >
         <MessageSquareText size={12} />
-        {!openComments
-          ? t`Annotations`
-          : openComments === 1
-            ? t({ message: `${{ count: openComments }} annotation` })
-            : t({ message: `${{ count: openComments }} annotations` })}
+        <span className="status-label">
+          {!openComments
+            ? t`Annotations`
+            : openComments === 1
+              ? t({ message: `${{ count: openComments }} annotation` })
+              : t({ message: `${{ count: openComments }} annotations` })}
+        </span>
       </button>
       <button
         type="button"
@@ -83,11 +85,13 @@ export function EditorStatusBar(props: {
         onClick={props.onOpenTodos}
       >
         <ListTodo size={12} />
-        {!todoCount
-          ? t`TODOs`
-          : todoCount === 1
-            ? t({ message: `${{ count: todoCount }} TODO` })
-            : t({ message: `${{ count: todoCount }} TODOs` })}
+        <span className="status-label">
+          {!todoCount
+            ? t`TODOs`
+            : todoCount === 1
+              ? t({ message: `${{ count: todoCount }} TODO` })
+              : t({ message: `${{ count: todoCount }} TODOs` })}
+        </span>
       </button>
       <StatusWordCount
         projectWordCount={props.projectWordCount}

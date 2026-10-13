@@ -143,7 +143,7 @@
 .lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); }
 
-/* Tabs use the space left after the action row and compress together to 80px,
+/* Tabs use the space left after the action row and compress together to 100px,
    which the Trellis patch (planHeader) keeps free as the panel's minimum, up
    to a 480px cap. A panel held under that (more tabs than the cap, or a window
    too narrow for every panel's minimum) never lets its tabs run under the
@@ -151,9 +151,12 @@
    tabs toward their icon and close button, then takes the row's text labels
    off (data-tools="icon"), then the row itself (data-tools="hidden"; the panel
    menu repeats it), and only then do the tabs scroll. Labels are never hidden
-   just because a panel crossed a guessed breakpoint. */
+   just because a panel crossed a guessed breakpoint. The minimum leaves the
+   selected tab, which keeps its close button, room for two letters and an
+   ellipsis ("ma…"); at 80px its title had 12px, too little for an ellipsis,
+   and a document panel at its minimum showed "m" cut mid-letter. */
 .lattice-trellis [data-trellis-part="tabs"] { flex: 1 1 0; min-width: 0; }
-.lattice-trellis [data-trellis-part="tabbar"] { --trellis-tab-min: 80px; }
+.lattice-trellis [data-trellis-part="tabbar"] { --trellis-tab-min: 100px; }
 .lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: var(--trellis-tab-min); }
 .lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
 /* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch

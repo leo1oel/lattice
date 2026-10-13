@@ -92,7 +92,12 @@
   opacity: 0.55;
 }
 
+/* A block, over the trigger's flex and line-clamp utilities: an ellipsis
+   draws only in a block container, so a value too wide for a narrow trigger
+   ("Title" in a Papers panel at its minimum) ends in "…" instead of being
+   cut mid-letter. Every value is plain text. */
 [data-slot="select-trigger"] [data-slot="select-value"] {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
