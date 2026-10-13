@@ -52,10 +52,16 @@ it("hands focus to the real Settings only once its loading card has gone, and ba
   };
   document.addEventListener("focusin", onFocusIn);
   settingsChunk.release();
-  const search = await screen.findByRole("searchbox", { name: "Search settings", hidden: true });
   // Settings is in, under the card for the rest of the card's minimum time.
-  expect(shellCard()).not.toBeNull();
-  expect(search.closest("[inert]")).not.toBeNull();
+  // Read as Settings is found: `findByRole` settles a macrotask later, and a
+  // loaded runner can spend the rest of that time in the role query itself,
+  // so the card's timer is due first.
+  const { search, card, inert } = await waitFor(() => {
+    const search = screen.getByRole("searchbox", { name: "Search settings", hidden: true });
+    return { search, card: shellCard(), inert: search.closest("[inert]") };
+  });
+  expect(card).not.toBeNull();
+  expect(inert).not.toBeNull();
   await waitFor(() => expect(shellCard()).toBeNull());
   expect(search.closest("[inert]")).toBeNull();
   await waitFor(() => expect(search).toHaveFocus());
