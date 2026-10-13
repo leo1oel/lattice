@@ -38,19 +38,20 @@
       "hooks": 111298
     },
     "pdf-open": {
-      "commits": 25,
+      "commits": 15,
       "renders": 705,
       "hooks": 4282,
       "mutations": 346
     },
     "pdf-scroll": {
-      "commits": 33,
+      "commits": 22,
       "renders": 905,
       "hooks": 11274
     },
     "pdf-zoom": {
-      "commits": 16,
+      "commits": 9,
       "renders": 33,
+      "hooks": 464,
       "mutations": 455
     },
     "source-scroll": {

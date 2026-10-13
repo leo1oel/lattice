@@ -33,13 +33,13 @@
       "hooks": 109108
     },
     "pdf-open": {
-      "commits": 19,
+      "commits": 11,
       "renders": 683,
       "hooks": 4163,
       "mutations": 566
     },
     "pdf-scroll": {
-      "commits": 34,
+      "commits": 22,
       "renders": 914,
       "hooks": 11553
     },
@@ -67,8 +67,9 @@
       "mutations": 557
     },
     "pdf-zoom": {
-      "commits": 14,
+      "commits": 10,
       "renders": 30,
+      "hooks": 464,
       "mutations": 1300
     }
   }

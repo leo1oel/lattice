@@ -34,6 +34,7 @@ import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PaperInspector } from "./paper-inspector";
+import { usePaperListWindow, type RowSpan } from "./paper-list-window";
 import type { SymbolOccurrence } from "./references-panel";
 
 type PaperFetchState = "loading" | "success";
@@ -110,6 +111,9 @@ function paperGlyph(paper: PaperSummary, fetchState: PaperFetchState | undefined
   const state = paperReadingState(paper);
   return state === "fullText" ? <FileText size={14} /> : state === "downloadable" ? <FileDown size={14} /> : <File size={14} />;
 }
+
+/** Whether a click on `paper` opens or fetches something. */
+const canActivate = (paper: PaperSummary) => readablePaper(paper) || Boolean(paper.arxivId || paper.url);
 
 /** The width of the list and inspector together from which a selected paper shows its inspector. */
 const INSPECTOR_MIN_WIDTH = 860;
@@ -424,7 +428,6 @@ function PaperShelf(props: PaperLibraryProps & {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const inspected = wide && selectedKey ? props.papers.find((paper) => paperKey(paper) === selectedKey) ?? null : null;
 
-  const canActivate = (paper: PaperSummary) => readablePaper(paper) || Boolean(paper.arxivId || paper.url);
   const activatePaper = (paper: PaperSummary) => {
     if (props.paperFetchStates[paperKey(paper)] === "loading") return;
     if (readablePaper(paper)) props.onPaper(paper);
@@ -437,7 +440,8 @@ function PaperShelf(props: PaperLibraryProps & {
   };
   // Closing the inspector (or Escape) leaves the keyboard on the paper it showed.
   const closeInspector = () => {
-    bodyRef.current?.querySelector<HTMLElement>('.paper-row[data-item-selected="true"] > .paper-open')?.focus();
+    const index = selectedKey === null ? -1 : rowKeys.indexOf(selectedKey);
+    if (index >= 0) rowWindow.reveal(index, (row) => row.querySelector<HTMLElement>(":scope > .paper-open")?.focus({ preventScroll: true }));
     setSelectedKey(null);
   };
   const inspectedLink = inspected && paperLinkUrl(inspected);
@@ -459,21 +463,60 @@ function PaperShelf(props: PaperLibraryProps & {
     group === "state" ? stateLabels[value] : value || (group === "year" ? t`No year` : t`No venue`)
   ));
   const sortOn = sort !== "title" || group !== "none";
+  // Every paper's key in the order the list shows them, and where each group
+  // starts: a long list draws only the rows near the view.
+  const rowKeys = sections.flatMap((section) => section.papers.map(paperKey));
+  const groupStarts = sections.map((_, sectionIndex) => sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0));
+  const rowWindow = usePaperListWindow(viewportRef, rowKeys, groupStarts);
 
   // Tab walks every control of every paper; the arrows, Home and End move
   // between papers, across groups, landing where a click on the row would.
+  // A paper the list has not drawn yet is drawn first.
   const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[event.key];
     if (step === undefined || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
-    const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(".paper-row"));
-    const from = rows.findIndex((row) => row.contains(event.target as Node));
+    const from = rowKeys.indexOf((event.target as Element).closest<HTMLElement>(".paper-row[data-paper-key]")?.dataset.paperKey ?? "");
     if (from < 0) return;
-    const to = Math.max(0, Math.min(rows.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rows.length - 1 : 0));
-    const target = rows[to].querySelector<HTMLElement>(".paper-open:not(:disabled)")
-      ?? rows[to].querySelector<HTMLElement>("button:not(:disabled)");
-    if (!target) return;
+    const to = Math.max(0, Math.min(rowKeys.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rowKeys.length - 1 : 0));
+    const controlIn = (row: HTMLElement) => row.querySelector<HTMLElement>(".paper-open:not(:disabled)")
+      ?? row.querySelector<HTMLElement>("button:not(:disabled)");
+    const drawn = rowWindow.rowOf(rowKeys[to]!);
+    if (drawn && !controlIn(drawn)) return;
     event.preventDefault();
-    target.focus();
+    rowWindow.reveal(to, (row) => controlIn(row)?.focus({ preventScroll: true }));
+  };
+  /** Rows `from`…`to` of the list as the window draws them: the rows near the view, and gaps for the rest. */
+  const drawRows = (papers: readonly PaperSummary[], from: number) => {
+    const to = from + papers.length;
+    // The gaps keep their keys while the window moves, so each is resized in
+    // place rather than replaced, and no drawn row is moved past one: the
+    // first and the last are always there (empty, and without the class
+    // that spaces the row after it, when no rows stand behind them), and one
+    // between two drawn spans is keyed by the row after it. A replaced gap
+    // left the list briefly shorter than the view's scroll position, and a
+    // moved row lost focus; either way the browser, reading layout
+    // mid-commit, pulled the view back up.
+    const drawn: ReactNode[] = [];
+    const gap = (span: RowSpan, key: string) => (
+      <div
+        key={key}
+        className={span.to > span.from ? "paper-rows-gap" : undefined}
+        aria-hidden="true"
+        style={{ height: rowWindow.gapHeight(span) }}
+      />
+    );
+    const spans = rowWindow.drawn
+      .map((span) => ({ from: Math.max(span.from, from), to: Math.min(span.to, to) }))
+      .filter((span) => span.from < span.to);
+    if (rowWindow.active) drawn.push(gap({ from, to: spans[0]?.from ?? to }, "gap-start"));
+    let at = spans[0]?.from ?? to;
+    for (const span of spans) {
+      if (span.from > at) drawn.push(gap({ from: at, to: span.from }, `gap-${paperKey(papers[span.from - from]!)}`));
+      for (let index = span.from; index < span.to; index += 1) drawn.push(renderRow(papers[index - from]!, index, index - from, papers.length));
+      at = span.to;
+    }
+    if (rowWindow.active) drawn.push(gap({ from: at, to }, "gap-end"));
+    return drawn;
   };
 
   // A wide list's column headers; each sorts by its column.
@@ -490,200 +533,33 @@ function PaperShelf(props: PaperLibraryProps & {
     </button>
   );
 
-  const renderRow = (paper: PaperSummary, index: number) => {
-    const fetchState = props.paperFetchStates[paperKey(paper)];
-    const readable = readablePaper(paper);
-    const readingState = paperReadingState(paper);
-    const healthLabel = citationHealthLabel(paper.citationHealth);
-    const health = citationHealthParts(paper.citationHealth);
-    const healthTitle = citationHealthTitle(paper.citationHealth);
-    const authors = paperShortAuthors(paper);
-    const year = paper.year?.trim();
-    const venue = facts.venue(paper);
-    const uses = facts.uses(paper);
-    // A row names its paper by title, authors and year alone; where
-    // it came from stands in only when the entry records neither.
-    const source = authors || year ? null : paperSourceLabel(paper);
-    const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
-    const citeKey = paper.citationKey;
-    const link = paperLinkUrl(paper);
-    const reportIntent = () => {
-      if (readable) props.onLikelyPaper?.(paper);
-    };
-    const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
-    const selected = wide && selectedKey === paperKey(paper);
-    // Added from this window: the row says so and keeps its key out to copy, in place of a toast.
-    const recent = isJustAdded(paper, props.justAdded);
-    const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
-    // A short chip says what happened; who reported it and when
-    // follows in quiet type, which may give way to an ellipsis.
-    const healthBody = health && (
-      <>
-        <Badge size="compact" tone="warning" className="paper-tag">
-          {health.kind}
-          {noticeLink && <ArrowUpRight size={11} aria-hidden="true" />}
-        </Badge>
-        {health.detail && <span className="paper-citation-health-detail">{health.detail}</span>}
-      </>
-    );
-    const healthNotice = health && (noticeLink ? (
-      <button
-        className="paper-citation-health"
-        title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
-        aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
-        onClick={() => void openUrl(noticeLink).catch(() => undefined)}
-      >
-        {healthBody}
-      </button>
-    ) : (
-      <span className="paper-citation-health" role="status" title={healthTitle}>{healthBody}</span>
-    ));
-    const titleId = `${rowId}-${index}-title`;
-    const bylineId = `${rowId}-${index}-byline`;
-    const snippetId = `${rowId}-${index}-snippet`;
-    const factsId = `${rowId}-${index}-facts`;
-    const byline = Boolean(authors || year || venue || source);
-    // What the glyph and the count at the end say, for a screen reader.
-    const stateText = webPagePaper(paper)
-      ? t`Web page`
-      : readingState === "fullText" ? t`Full text in Papers`
-        : readingState === "downloadable" ? t`Full text downloads on click` : t`Citation only, no full text`;
-    const usesText = uses === null ? null
-      : uses ? t({ message: `Cited ${{ count: formatCount(uses) }}× in this paper` }) : t`Not cited in this paper yet`;
-    const row = (
-      <div
-        role="listitem"
-        className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${recent ? "just-added " : ""}${active ? "active" : ""}`}
-        data-citation-health={paper.citationHealth?.kind}
-        data-reading={readingState}
-        data-item-selected={selected || undefined}
-        draggable
-        onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
-      >
-        {/* The button lies over the whole row, under its other
-            controls, and takes its name from the text beside it
-            (hidden, so it is read once); so the flags line opens the
-            paper too, and the notice there can be a link of its own.
-            What it holds, how often it is cited and its citation key
-            are its description, since the eye sees the key only on a
-            lit row. */}
-        <button
-          data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
-          title={readable
-            ? paper.title
-            : readingState === "citation" && paper.url
-              ? t`Open source page — no downloadable full text found`
-              : paper.arxivId
-                ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
-                : paper.url
-                  ? t({ message: `Download ${{ url: paper.url }}` })
-                  : t({ message: `${{ title: paper.title }} — no local reading available` })}
-          className="paper-open"
-          aria-labelledby={[titleId, byline && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
-          aria-describedby={factsId}
-          aria-current={active || undefined}
-          // Knowing the preprint is as good as having it: clicking
-          // fetches. A cited webpage is fetchable the same way. Wide, every
-          // paper can be selected, so none is disabled; the keyboard selects
-          // as it moves, as a pointer's first click does.
-          disabled={!wide && (fetchState === "loading" || !canActivate(paper))}
-          onPointerEnter={reportIntent}
-          onFocus={() => {
-            reportIntent();
-            if (wide) setSelectedKey(paperKey(paper));
-          }}
-          onClick={(event) => {
-            if (wide && event.detail === 1) setSelectedKey(paperKey(paper));
-            else activatePaper(paper);
-          }}
-        />
-        <span className="paper-glyph" data-fetch={fetchState} aria-hidden="true">{paperGlyph(paper, fetchState)}</span>
-        <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
-        {/* A wide list's columns; a narrow one folds them into the byline. */}
-        <span className="paper-cell paper-cell-authors" aria-hidden="true">{authors || source}</span>
-        <span className="paper-cell paper-cell-year" aria-hidden="true">{year}</span>
-        <span className="paper-cell paper-cell-venue" aria-hidden="true">{venue}</span>
-        <span className="paper-uses" data-zero={uses === 0 || undefined} aria-hidden="true">
-          {uses === null ? null : uses ? `${formatCount(uses)}×` : "—"}
-        </span>
-        {/* The line under the title is the byline at rest. Hovered,
-            focused or open, the row's citation key (a button that
-            copies it) and its actions join it at the end, so they
-            never cover the title or change the row's height. */}
-        <div className="paper-meta">
-          {byline && (
-            <small id={bylineId} className="paper-byline" aria-hidden="true">
-              {authors && <span className="paper-authors">{authors}</span>}
-              {year && <span className="paper-year">{year}</span>}
-              {venue && <span className="paper-venue">{venue}</span>}
-              {source && <span className="paper-source">{source}</span>}
-            </small>
-          )}
-          <div className="paper-row-actions">
-            {citeKey && (
-              <CopyButton
-                className="paper-cite-key"
-                text={citeKey}
-                iconSize={11}
-                title={t`Copy citation key`}
-                aria-label={t({ message: `Copy citation key ${{ key: citeKey }}` })}
-              >
-                <code>{citeKey}</code>
-              </CopyButton>
-            )}
-            {link && (
-              <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={() => openLink(link)}><ExternalLink size={14} /></button>
-            )}
-            {citeKey && (
-              <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={14} /></button>
-            )}
-            <DestructiveButton
-              className="row-delete"
-              title={t({ message: `Remove ${{ title: paper.title }}` })}
-              iconSize={14}
-              onClick={() => props.onDeletePaper(paper)}
-            />
-          </div>
-        </div>
-        {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
-        {(health || recent) && (
-          <div className="paper-tags">
-            {recent && <Badge size="compact" tone="success" className="paper-tag">{t`Just added`}</Badge>}
-            {healthNotice}
-          </div>
-        )}
-        <span id={factsId} className="sr-only">
-          {[stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
-            .filter(Boolean).join(". ")}
-        </span>
-      </div>
-    );
-    // The right-click menu opens the paper's web page, and one with a
-    // local file reveals it as a tree file's menu does; a paper with
-    // neither stays bare.
-    const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
-    return (
-      <Fragment key={paperKey(paper)}>
-        {readable || link ? (
-          <ContextMenu>
-            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-            <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-              {link && (
-                <ContextMenuItem onSelect={() => openLink(link)}>
-                  <ExternalLink size={14} />{t`Open link in browser`}
-                </ContextMenuItem>
-              )}
-              {readable && (
-                <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
-                  <FolderOpen size={14} />{t`Show in Finder`}
-                </ContextMenuItem>
-              )}
-            </ContextMenuContent>
-          </ContextMenu>
-        ) : row}
-      </Fragment>
-    );
-  };
+  const renderRow = (paper: PaperSummary, index: number, position: number, groupSize: number) => (
+    <PaperRow
+      key={paperKey(paper)}
+      paper={paper}
+      index={index}
+      rowId={rowId}
+      projectKey={props.projectKey}
+      fetchState={props.paperFetchStates[paperKey(paper)]}
+      venue={facts.venue(paper)}
+      uses={facts.uses(paper)}
+      snippet={textHits.get(paperSearchIdentity(paper))?.snippet.trim()}
+      active={Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper))}
+      selected={wide && selectedKey === paperKey(paper)}
+      wide={wide}
+      recent={isJustAdded(paper, props.justAdded)}
+      observe={rowWindow.active ? rowWindow.observeRow : undefined}
+      position={rowWindow.active ? position : undefined}
+      groupSize={rowWindow.active ? groupSize : undefined}
+      onLikely={props.onLikelyPaper}
+      onSelect={setSelectedKey}
+      onActivate={activatePaper}
+      onOpenLink={openLink}
+      onEditBibEntry={props.onEditBibEntry}
+      onDelete={props.onDeletePaper}
+      onReveal={props.onReveal}
+    />
+  );
 
   const shown = formatCount(filteredPapers.length);
   const totalText = formatCount(total);
@@ -799,6 +675,7 @@ function PaperShelf(props: PaperLibraryProps & {
         <ScrollArea
           className="paper-list"
           viewportRef={viewportRef}
+          viewportProps={{ "data-windowed": rowWindow.active ? "" : undefined }}
           orientation="both"
           contentClassName="paper-list-content"
         >
@@ -819,12 +696,14 @@ function PaperShelf(props: PaperLibraryProps & {
             {/* Tab reaches each paper's own controls, which answer with the focus ring. */}
             <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {group === "none" ? (
-              <div role="list" aria-label={t`Papers`} className="paper-group-list">
-                {sections[0]?.papers.map((paper, index) => renderRow(paper, index))}
-              </div>
+              sections[0] && (
+                <div role="list" aria-label={t`Papers`} className="paper-group-list" data-paper-rows-from={0} data-paper-rows-to={sections[0].papers.length}>
+                  {drawRows(sections[0].papers, 0)}
+                </div>
+              )
             ) : sections.map((section, sectionIndex) => {
               const nameId = `${rowId}-${sectionIndex}-group`;
-              const offset = sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0);
+              const offset = groupStarts[sectionIndex]!;
               return (
                 <Fragment key={section.id}>
                   {/* A label to the hover fill, which fades across it rather than sliding. */}
@@ -832,8 +711,8 @@ function PaperShelf(props: PaperLibraryProps & {
                     <span id={nameId} className="paper-group-name">{section.name}</span>
                     <span className="paper-group-count">{formatCount(section.papers.length)}</span>
                   </div>
-                  <div role="list" aria-labelledby={nameId} className="paper-group-list">
-                    {section.papers.map((paper, index) => renderRow(paper, offset + index))}
+                  <div role="list" aria-labelledby={nameId} className="paper-group-list" data-paper-rows-from={offset} data-paper-rows-to={offset + section.papers.length}>
+                    {drawRows(section.papers, offset)}
                   </div>
                 </Fragment>
               );
@@ -864,6 +743,233 @@ function PaperShelf(props: PaperLibraryProps & {
           />
         )}
         </div>
+    </>
+  );
+}
+
+type PaperRowProps = {
+  paper: PaperSummary;
+  /** The row's place in the whole list, for its ids. */
+  index: number;
+  rowId: string;
+  projectKey: string;
+  fetchState: PaperFetchState | undefined;
+  venue: string;
+  uses: number | null;
+  snippet: string | undefined;
+  active: boolean;
+  selected: boolean;
+  wide: boolean;
+  /** Added from this window: the row says so and keeps its key out to copy, in place of a toast. */
+  recent: boolean;
+  /** Set when the list draws only some rows: the ref that measures the row, and its place in its group for a screen reader. */
+  observe: ((row: HTMLElement | null) => (() => void) | undefined) | undefined;
+  position: number | undefined;
+  groupSize: number | undefined;
+  onLikely: ((paper: PaperSummary) => void) | undefined;
+  onSelect: (key: string) => void;
+  onActivate: (paper: PaperSummary) => void;
+  onOpenLink: (link: string) => void;
+  onEditBibEntry: (paper: PaperSummary) => void;
+  onDelete: (paper: PaperSummary) => void;
+  onReveal: (path: string) => void;
+};
+
+/**
+ * One paper in the list. Its own component, so the rows a list re-render
+ * leaves as they were are not drawn again: a long list's window moving as it
+ * scrolls draws only the rows it brings in.
+ */
+function PaperRow(props: PaperRowProps) {
+  const { t } = useLingui();
+  const { paper, index, rowId, fetchState, venue, uses, snippet, active, selected, wide, recent, observe, position, groupSize } = props;
+  const readable = readablePaper(paper);
+  const readingState = paperReadingState(paper);
+  const healthLabel = citationHealthLabel(paper.citationHealth);
+  const health = citationHealthParts(paper.citationHealth);
+  const healthTitle = citationHealthTitle(paper.citationHealth);
+  const authors = paperShortAuthors(paper);
+  const year = paper.year?.trim();
+  // A row names its paper by title, authors and year alone; where
+  // it came from stands in only when the entry records neither.
+  const source = authors || year ? null : paperSourceLabel(paper);
+  const citeKey = paper.citationKey;
+  const link = paperLinkUrl(paper);
+  const reportIntent = () => {
+    if (readable) props.onLikely?.(paper);
+  };
+  const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
+  // A short chip says what happened; who reported it and when
+  // follows in quiet type, which may give way to an ellipsis.
+  const healthBody = health && (
+    <>
+      <Badge size="compact" tone="warning" className="paper-tag">
+        {health.kind}
+        {noticeLink && <ArrowUpRight size={11} aria-hidden="true" />}
+      </Badge>
+      {health.detail && <span className="paper-citation-health-detail">{health.detail}</span>}
+    </>
+  );
+  const healthNotice = health && (noticeLink ? (
+    <button
+      className="paper-citation-health"
+      title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
+      aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
+      onClick={() => void openUrl(noticeLink).catch(() => undefined)}
+    >
+      {healthBody}
+    </button>
+  ) : (
+    <span className="paper-citation-health" role="status" title={healthTitle}>{healthBody}</span>
+  ));
+  const titleId = `${rowId}-${index}-title`;
+  const bylineId = `${rowId}-${index}-byline`;
+  const snippetId = `${rowId}-${index}-snippet`;
+  const factsId = `${rowId}-${index}-facts`;
+  const byline = Boolean(authors || year || venue || source);
+  // What the glyph and the count at the end say, for a screen reader.
+  const stateText = webPagePaper(paper)
+    ? t`Web page`
+    : readingState === "fullText" ? t`Full text in Papers`
+      : readingState === "downloadable" ? t`Full text downloads on click` : t`Citation only, no full text`;
+  const usesText = uses === null ? null
+    : uses ? t({ message: `Cited ${{ count: formatCount(uses) }}× in this paper` }) : t`Not cited in this paper yet`;
+  const row = (
+    <div
+      ref={observe}
+      role="listitem"
+      // A list that draws only some rows tells a screen reader how many it holds.
+      aria-setsize={groupSize}
+      aria-posinset={position === undefined ? undefined : position + 1}
+      data-paper-key={paperKey(paper)}
+      className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${recent ? "just-added " : ""}${active ? "active" : ""}`}
+      data-citation-health={paper.citationHealth?.kind}
+      data-reading={readingState}
+      data-item-selected={selected || undefined}
+      draggable
+      onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
+    >
+      {/* The button lies over the whole row, under its other
+          controls, and takes its name from the text beside it
+          (hidden, so it is read once); so the flags line opens the
+          paper too, and the notice there can be a link of its own.
+          What it holds, how often it is cited and its citation key
+          are its description, since the eye sees the key only on a
+          lit row. */}
+      <button
+        data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
+        title={readable
+          ? paper.title
+          : readingState === "citation" && paper.url
+            ? t`Open source page — no downloadable full text found`
+            : paper.arxivId
+              ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
+              : paper.url
+                ? t({ message: `Download ${{ url: paper.url }}` })
+                : t({ message: `${{ title: paper.title }} — no local reading available` })}
+        className="paper-open"
+        aria-labelledby={[titleId, byline && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
+        aria-describedby={factsId}
+        aria-current={active || undefined}
+        // Knowing the preprint is as good as having it: clicking
+        // fetches. A cited webpage is fetchable the same way. Wide, every
+        // paper can be selected, so none is disabled; the keyboard selects
+        // as it moves, as a pointer's first click does.
+        disabled={!wide && (fetchState === "loading" || !canActivate(paper))}
+        onPointerEnter={reportIntent}
+        onFocus={() => {
+          reportIntent();
+          if (wide) props.onSelect(paperKey(paper));
+        }}
+        onClick={(event) => {
+          if (wide && event.detail === 1) props.onSelect(paperKey(paper));
+          else props.onActivate(paper);
+        }}
+      />
+      <span className="paper-glyph" data-fetch={fetchState} aria-hidden="true">{paperGlyph(paper, fetchState)}</span>
+      <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
+      {/* A wide list's columns; a narrow one folds them into the byline. */}
+      <span className="paper-cell paper-cell-authors" aria-hidden="true">{authors || source}</span>
+      <span className="paper-cell paper-cell-year" aria-hidden="true">{year}</span>
+      <span className="paper-cell paper-cell-venue" aria-hidden="true">{venue}</span>
+      <span className="paper-uses" data-zero={uses === 0 || undefined} aria-hidden="true">
+        {uses === null ? null : uses ? `${formatCount(uses)}×` : "—"}
+      </span>
+      {/* The line under the title is the byline at rest. Hovered,
+          focused or open, the row's citation key (a button that
+          copies it) and its actions join it at the end, so they
+          never cover the title or change the row's height. */}
+      <div className="paper-meta">
+        {byline && (
+          <small id={bylineId} className="paper-byline" aria-hidden="true">
+            {authors && <span className="paper-authors">{authors}</span>}
+            {year && <span className="paper-year">{year}</span>}
+            {venue && <span className="paper-venue">{venue}</span>}
+            {source && <span className="paper-source">{source}</span>}
+          </small>
+        )}
+        <div className="paper-row-actions">
+          {citeKey && (
+            <CopyButton
+              className="paper-cite-key"
+              text={citeKey}
+              iconSize={11}
+              title={t`Copy citation key`}
+              aria-label={t({ message: `Copy citation key ${{ key: citeKey }}` })}
+            >
+              <code>{citeKey}</code>
+            </CopyButton>
+          )}
+          {link && (
+            <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={() => props.onOpenLink(link)}><ExternalLink size={14} /></button>
+          )}
+          {citeKey && (
+            <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={14} /></button>
+          )}
+          <DestructiveButton
+            className="row-delete"
+            title={t({ message: `Remove ${{ title: paper.title }}` })}
+            iconSize={14}
+            onClick={() => props.onDelete(paper)}
+          />
+        </div>
+      </div>
+      {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
+      {(health || recent) && (
+        <div className="paper-tags">
+          {recent && <Badge size="compact" tone="success" className="paper-tag">{t`Just added`}</Badge>}
+          {healthNotice}
+        </div>
+      )}
+      <span id={factsId} className="sr-only">
+        {[stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
+          .filter(Boolean).join(". ")}
+      </span>
+    </div>
+  );
+  // The right-click menu opens the paper's web page, and one with a
+  // local file reveals it as a tree file's menu does; a paper with
+  // neither stays bare.
+  const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
+  return (
+    <>
+      {readable || link ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+          <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
+            {link && (
+              <ContextMenuItem onSelect={() => props.onOpenLink(link)}>
+                <ExternalLink size={14} />{t`Open link in browser`}
+              </ContextMenuItem>
+            )}
+            {readable && (
+              <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
+                <FolderOpen size={14} />{t`Show in Finder`}
+              </ContextMenuItem>
+            )}
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : row}
     </>
   );
 }

@@ -178,7 +178,8 @@
       "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch",
       "@pdfslick/core@4.0.2": "patches/@pdfslick__core@4.0.2.patch",
       "pdfjs-dist@6.4.299": "patches/pdfjs-dist@6.4.299.patch",
-      "@tiptap/react@3.32.0": "patches/@tiptap__react@3.32.0.patch"
+      "@tiptap/react@3.32.0": "patches/@tiptap__react@3.32.0.patch",
+      "prosemirror-view@1.42.6": "patches/prosemirror-view@1.42.6.patch"
     }
   }
 }

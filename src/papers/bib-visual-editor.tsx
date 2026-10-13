@@ -40,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../components/ui/textarea";
 import { resizeTextareaToContent } from "../components/ui/auto-resize-textarea";
 import { notifySuccess } from "../telemetry/app-notify";
+import { toMessage } from "../app-utils";
 import { formatCount } from "../i18n";
 import { BIB_LIST_RATIO_DEFAULT, clamp, loadBibListRatio, persistBibListRatio } from "../settings/app-settings";
 import type { SymbolOccurrence } from "../project/references-panel";
@@ -48,7 +49,7 @@ import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
 import {
   addFieldEdit, applyBibEdit, bibUnreadableReason, changeTypeEdit, deleteEntryEdit, editableValue, encodeValue,
   readBibDocument, removeFieldEdit, renameKeyEdit, replaceValueEdit, summarizeEntries, validCitationKey,
-  type BibEdit, type BibEntry, type BibField, type BibSummary,
+  type BibEdit, type BibEntry, type BibField, type BibParseError, type BibSummary,
 } from "./bib-document";
 import "./bib-visual-editor.css";
 
@@ -71,6 +72,12 @@ const DETAIL_MIN_WIDTH = 320;
 const DIVIDER_STEP = 0.03;
 /** Rows drawn beyond each edge of the view, so a fast scroll does not show blank rows. */
 const OVERSCAN = 8;
+/**
+ * The view may scroll this close to either end of the rows drawn before they
+ * are drawn again around it: a scroll re-renders the list once every few
+ * rows, not on every frame.
+ */
+const REDRAW_MARGIN = 2;
 
 /** The types the type menu offers; an entry of another type keeps it and lists it too. */
 const ENTRY_TYPES = [
@@ -115,6 +122,17 @@ const leaveField = (field: HTMLElement) => field.closest<HTMLElement>(".bib-visu
 const sameField = (entry: BibEntry, index: number, field: BibField) => entry.fields[index]?.name === field.name;
 
 const sameKey = (a: string | undefined, b: string) => a?.toLocaleLowerCase() === b.toLocaleLowerCase();
+
+/** The rows drawn for a view `height` tall scrolled to `top`: those in it and OVERSCAN either side. */
+function drawnRows(top: number, height: number, rowHeight: number, count: number) {
+  return {
+    first: Math.max(0, Math.floor(top / rowHeight) - OVERSCAN),
+    last: Math.min(count, Math.ceil((top + height) / rowHeight) + OVERSCAN),
+  };
+}
+
+/** The key of the last entry in `source`, such as one just appended. */
+const lastEntryKey = (source: string) => readBibDocument(source).document?.entries.at(-1)?.key;
 
 function groupUsages(list: SymbolOccurrence[]): Usages {
   const byKey = new Map<string, SymbolOccurrence[]>();
@@ -267,7 +285,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
       const base = latestRef.current.source;
       const next = appendBibEntry(base, bibtex);
       if (!onChange(next, base)) return;
-      const added = readBibDocument(next).document?.entries.at(-1)?.key;
+      const added = lastEntryKey(next);
       if (added) {
         setQuery("");
         setFilter("all");
@@ -275,7 +293,11 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
       }
       setAdding(null);
     } catch (reason) {
-      setAdding((current) => current && { ...current, error: reason instanceof Error ? reason.message : String(reason) });
+      // Read outside the updater: a catch binding that a closure captures
+      // keeps the React Compiler off this whole component, as does a
+      // conditional or optional chain inside the try.
+      const error = toMessage(reason);
+      setAdding((current) => current && { ...current, error });
     }
   };
 
@@ -387,20 +409,13 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
 
   if (parse.error) {
     // The canvas shows the source in place of a list it cannot draw; this is
-    // what Split shows beside it.
-    return (
-      <div className="bib-visual" data-state="unreadable">
-        <EmptyState
-          title={t`This bibliography can't be shown as a list`}
-          description={<>{bibUnreadableReason(parse.error)} {t`Fix it in the source and the list comes back.`}</>}
-          actions={<Button size="compact" variant="secondary" onClick={() => props.onOpenLine(props.path, parse.error.line)}>{t`Go to the error`}</Button>}
-        />
-      </div>
-    );
+    // what Split shows beside it. Its own component: to the React Compiler a
+    // call here with the error could change the parse the memos above read,
+    // which would keep it off this whole component.
+    return <UnreadableBibliography error={parse.error} onOpenLine={(line) => props.onOpenLine(props.path, line)} />;
   }
 
-  const first = Math.max(0, Math.floor(viewport.top / rowHeight) - OVERSCAN);
-  const last = Math.min(shown.length, Math.ceil((viewport.top + viewport.height) / rowHeight) + OVERSCAN);
+  const { first, last } = drawnRows(viewport.top, viewport.height, rowHeight, shown.length);
   const optionId = (row: Row) => `bib-row-${row.index}`;
   const sortLabels: Record<Sort, string> = { file: t`File order`, year: t`Newest first`, author: t`Author`, title: t`Title` };
   const filterLabels: Record<Filter, string> = { all: t`All`, cited: t`Cited`, unused: t`Unused` };
@@ -505,7 +520,12 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             onKeyDown: onListKeyDown,
             onScroll: (event) => {
               const { scrollTop, clientHeight } = event.currentTarget;
-              setViewport((current) => current.top === scrollTop && current.height === clientHeight ? current : { ...current, top: scrollTop, height: clientHeight });
+              // Draw again only once the view nears the end of the rows drawn.
+              const view = drawnRows(scrollTop, clientHeight, rowHeight, shown.length);
+              const covered = clientHeight === viewport.height
+                && (first === 0 || view.first + OVERSCAN - REDRAW_MARGIN >= first)
+                && (last === shown.length || view.last - OVERSCAN + REDRAW_MARGIN <= last);
+              if (!covered) setViewport({ ...viewport, top: scrollTop, height: clientHeight });
             },
           }}
         >
@@ -522,45 +542,20 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             />
           ) : (
             <div className="bib-visual-rows" style={{ height: shown.length * rowHeight }}>
-              {shown.slice(first, last).map((row, offset) => {
-                const { entry, summary } = row;
-                const unused = isUnused(entry.key);
-                const citedCount = usageOf(entry.key).length;
-                return (
-                  <div
-                    key={row.index}
-                    id={optionId(row)}
-                    role="option"
-                    aria-selected={row === selected}
-                    className="bib-row"
-                    style={{ top: (first + offset) * rowHeight, height: rowHeight }}
-                    onClick={() => select(entry.key)}
-                  >
-                    <span className="bib-row-year">{summary.year}</span>
-                    <span className="bib-row-title">{summary.title || <em>{t`Untitled`}</em>}</span>
-                    <span className="bib-row-meta">
-                      {summary.shortAuthors && <span className="bib-row-authors">{summary.shortAuthors}</span>}
-                      {summary.venue && <i className="bib-row-venue">{summary.venue}</i>}
-                    </span>
-                    {/* The type is left to the detail: a reference list does not set it. */}
-                    <span className="bib-row-foot">
-                      <code className="bib-row-key">{entry.key}</code>
-                      {unused
-                        ? <Badge size="compact" tone="warning" className="bib-row-badge">{t`Unused`}</Badge>
-                        : citedCount > 0 && (
-                          <span className="bib-row-cited" title={t`Citations in the manuscript: ${citedCount}`}>
-                            {/* One dot a citation, up to five; the count says the rest. */}
-                            <span className="bib-row-dots" aria-hidden="true">
-                              {Array.from({ length: Math.min(citedCount, 5) }, (_, dot) => <i key={dot} />)}
-                            </span>
-                            <span aria-hidden="true">{citedCount}</span>
-                            <span className="sr-only">{t`Cited ×${citedCount}`}</span>
-                          </span>
-                        )}
-                    </span>
-                  </div>
-                );
-              })}
+              {shown.slice(first, last).map((row, offset) => (
+                <BibRow
+                  key={row.index}
+                  id={optionId(row)}
+                  summary={row.summary}
+                  citationKey={row.entry.key}
+                  selected={row === selected}
+                  unused={isUnused(row.entry.key)}
+                  citedCount={usageOf(row.entry.key).length}
+                  top={(first + offset) * rowHeight}
+                  height={rowHeight}
+                  onSelect={select}
+                />
+              ))}
             </div>
           )}
         </ScrollArea>
@@ -620,6 +615,72 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
           onSave={(draft) => addEntry(formatBibEntry(draft))}
         />
       )}
+    </div>
+  );
+}
+
+function UnreadableBibliography(props: { error: BibParseError; onOpenLine: (line: number) => void }) {
+  const { t } = useLingui();
+  return (
+    <div className="bib-visual" data-state="unreadable">
+      <EmptyState
+        title={t`This bibliography can't be shown as a list`}
+        description={<>{bibUnreadableReason(props.error)} {t`Fix it in the source and the list comes back.`}</>}
+        actions={<Button size="compact" variant="secondary" onClick={() => props.onOpenLine(props.error.line)}>{t`Go to the error`}</Button>}
+      />
+    </div>
+  );
+}
+
+/**
+ * One reference in the list. Its own component, so moving the window of rows
+ * drawn renders only the rows it brings in, and a row whose reference, flags
+ * and place are unchanged is not drawn again.
+ */
+function BibRow(props: {
+  id: string;
+  summary: BibSummary;
+  citationKey: string;
+  selected: boolean;
+  unused: boolean;
+  citedCount: number;
+  top: number;
+  height: number;
+  onSelect: (key: string) => void;
+}) {
+  const { t } = useLingui();
+  const { summary, citationKey, citedCount } = props;
+  return (
+    <div
+      id={props.id}
+      role="option"
+      aria-selected={props.selected}
+      className="bib-row"
+      style={{ top: props.top, height: props.height }}
+      onClick={() => props.onSelect(citationKey)}
+    >
+      <span className="bib-row-year">{summary.year}</span>
+      <span className="bib-row-title">{summary.title || <em>{t`Untitled`}</em>}</span>
+      <span className="bib-row-meta">
+        {summary.shortAuthors && <span className="bib-row-authors">{summary.shortAuthors}</span>}
+        {summary.venue && <i className="bib-row-venue">{summary.venue}</i>}
+      </span>
+      {/* The type is left to the detail: a reference list does not set it. */}
+      <span className="bib-row-foot">
+        <code className="bib-row-key">{citationKey}</code>
+        {props.unused
+          ? <Badge size="compact" tone="warning" className="bib-row-badge">{t`Unused`}</Badge>
+          : citedCount > 0 && (
+            <span className="bib-row-cited" title={t`Citations in the manuscript: ${citedCount}`}>
+              {/* One dot a citation, up to five; the count says the rest. */}
+              <span className="bib-row-dots" aria-hidden="true">
+                {Array.from({ length: Math.min(citedCount, 5) }, (_, dot) => <i key={dot} />)}
+              </span>
+              <span aria-hidden="true">{citedCount}</span>
+              <span className="sr-only">{t`Cited ×${citedCount}`}</span>
+            </span>
+          )}
+      </span>
     </div>
   );
 }

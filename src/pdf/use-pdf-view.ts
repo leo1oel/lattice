@@ -4,10 +4,20 @@ import { applyPdfZoom, type ViewerRecord } from "./pdf-slick";
 import { clampPdfScale, pdfFitMode, toAppScale, type PdfFitMode } from "./pdf-viewer-utils";
 
 const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
+/**
+ * A page change this soon after the last one is part of a scroll through the
+ * document: `onPageChange` hears of it once the page has held this long.
+ */
+const PAGE_REPORT_QUIET_MS = 200;
 
 export type PdfViewerCallbacks = {
   onTextSelect?: (text: string) => void;
   onNumPages?: (pages: number | null) => void;
+  /**
+   * The page in view: at once after a pause, and while scrolling through a
+   * document, once the page holds (the App re-renders for it, for the agent's
+   * context).
+   */
   onPageChange?: (page: number) => void;
   /** Complete bytes assembled by PDF.js after a URL load, for host actions such as download. */
   onDocumentData?: (bytes: ArrayBuffer) => void;
@@ -63,9 +73,34 @@ export function usePdfViewState(
     viewRef.current = { page: pageNumber, scale, fitMode };
   }, [fitMode, pageNumber, scale]);
 
+  const pageReportRef = useRef<{ changedAt: number; pending: number | null; timer: number | null }>({
+    changedAt: -Infinity, pending: null, timer: null,
+  });
   useEffect(() => {
-    callbacks.current.onPageChange?.(pageNumber);
+    const report = pageReportRef.current;
+    const now = performance.now();
+    const scrolling = now - report.changedAt < PAGE_REPORT_QUIET_MS;
+    report.changedAt = now;
+    if (report.timer !== null) window.clearTimeout(report.timer);
+    report.timer = null;
+    const send = () => {
+      report.timer = null;
+      report.pending = null;
+      callbacks.current.onPageChange?.(pageNumber);
+    };
+    if (!scrolling) {
+      send();
+      return;
+    }
+    report.pending = pageNumber;
+    report.timer = window.setTimeout(send, PAGE_REPORT_QUIET_MS);
   }, [callbacks, pageNumber]);
+  // A viewer going away reports the page it was on, held or not.
+  useEffect(() => () => {
+    const report = pageReportRef.current;
+    if (report.timer !== null) window.clearTimeout(report.timer);
+    if (report.pending !== null) callbacks.current.onPageChange?.(report.pending);
+  }, [callbacks]);
 
   const scrollRef = useRef({ scrollTop: initialViewState?.scrollTop ?? 0, scrollLeft: initialViewState?.scrollLeft ?? 0 });
   const report = useCallback(() => {
