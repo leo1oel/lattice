@@ -88,6 +88,9 @@ export function AddPapersSheet(props: {
   const [chosen, setChosen] = useState<Record<string, number>>({});
   const [choosing, setChoosing] = useState<{ id: string; index: number } | null>(null);
   const [tab, setTab] = useState<Tab>("all");
+  // The cards as they were when the writer added: once a paper lands in the
+  // library its card must not turn into "Already in Papers" under its own progress.
+  const [addedFrom, setAddedFrom] = useState<Row[]>([]);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -165,6 +168,7 @@ export function AddPapersSheet(props: {
 
   const add = () => {
     if (!addable.length || adding || props.importing) return;
+    setAddedFrom(addable);
     props.onAdd(addable.map((row) => ({ id: row.reference.id, input: row.importInput ?? row.reference.input, label: row.title })));
   };
   const moveTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -180,7 +184,7 @@ export function AddPapersSheet(props: {
   // While a batch runs (or once it ran), the sheet shows the batch: the rows
   // it was added from, or, reopened later, the queue's own labels.
   const batch = queued
-    ? props.queue.map((item) => rows.find((row) => row.reference.id === item.id)
+    ? props.queue.map((item) => addedFrom.find((row) => row.reference.id === item.id)
       ?? { reference: { id: item.id, kind: "title" as const, input: item.input, label: item.label }, state: "new" as const, title: item.label, byline: "" })
     : null;
   const listed = batch ?? shown;

@@ -174,7 +174,11 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Web page`, bibtex: "BibTeX", title: t`Title` };
   const bibliography = props.bibliographyName || "references.bib";
   const duplicateCite = duplicate?.citationKey ? `\\cite{${duplicate.citationKey}}` : null;
-  const addRow = !props.importing && kind && (duplicate ? (
+  // The paper the box just added is its own row now, marked so; saying it is
+  // already in Papers as well would be saying it twice.
+  const isJustAdded = (paper: PaperSummary) => Boolean(props.justAdded
+    && ((paper.citationKey && props.justAdded.has(paper.citationKey)) || (paper.arxivId && props.justAdded.has(paper.arxivId))));
+  const addRow = !props.importing && kind && !(duplicate && isJustAdded(duplicate)) && (duplicate ? (
     <div className="paper-add-row" data-duplicate="">
       <Check size={13} className="paper-add-icon" aria-hidden="true" />
       <button type="button" className="paper-add-text" title={duplicate.title} onClick={addPaper}>
@@ -362,7 +366,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
               };
               const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
               // Added from this window: the row says so and keeps its key out to copy, in place of a toast.
-              const recent = Boolean(props.justAdded && ((citeKey && props.justAdded.has(citeKey)) || (paper.arxivId && props.justAdded.has(paper.arxivId))));
+              const recent = isJustAdded(paper);
               // Readable papers open on click and need no mark; the rest say,
               // at the end of their byline, what a click does there (download,
               // visit) or that it is under way.

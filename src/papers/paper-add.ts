@@ -161,7 +161,10 @@ export function recordOfResolved(resolved: ResolvedRecordFields): ReferenceRecor
 /** "John Hewitt and Percy Liang": people as a reader names them, not as BibTeX sorts them. */
 export function readableAuthors(field: string): string {
   const names = paperAuthorNames({ authors: field }).map(bibTextToPlain).filter(Boolean);
-  return new Intl.ListFormat(i18n.locale, { type: "conjunction" }).format(names);
+  // Chinese joins with 和 and no spaces; Latin names either side of it get
+  // the space a CJK word takes from a Latin one.
+  return new Intl.ListFormat(i18n.locale, { type: "conjunction" }).format(names)
+    .replace(/(?<=[\p{Script=Latin}.])和(?=\p{Script=Latin})/gu, " 和 ");
 }
 
 /** The record's venue as printed; empty for a record that names none. */
