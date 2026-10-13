@@ -1258,7 +1258,6 @@ msgstr "Attention Is All You Need, diffusion, …"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
 msgid "Author"
 msgstr "Author"
 
@@ -1267,6 +1266,7 @@ msgid "Authorization failed"
 msgstr "Authorization failed"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Authors"
 msgstr "Authors"
 
@@ -2072,6 +2072,10 @@ msgstr "Citation key {key}"
 msgid "Citation only"
 msgstr "Citation only"
 
+#: src/project/paper-library.tsx
+msgid "Citation only, no full text"
+msgstr "Citation only, no full text"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
 msgstr "Citation resolve query"
@@ -2101,8 +2105,13 @@ msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
 
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Cited"
 msgstr "Cited"
+
+#: src/project/paper-library.tsx
+msgid "Cited {count}× in this paper"
+msgstr "Cited {count}× in this paper"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Cited {times}× here"
@@ -2119,6 +2128,10 @@ msgstr "Cited in"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "Cited in the manuscript"
+
+#: src/project/paper-library.tsx
+msgid "Cited in this paper"
+msgstr "Cited in this paper"
 
 #: src/editor/comments/use-intent-labels.ts
 msgid "Clarify"
@@ -2153,6 +2166,14 @@ msgstr "Cleaning…"
 #: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "Clear"
+
+#: src/project/paper-library.tsx
+msgid "Clear filter"
+msgstr "Clear filter"
+
+#: src/project/paper-library.tsx
+msgid "Clear filter: {filter}"
+msgstr "Clear filter: {filter}"
 
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
@@ -3289,10 +3310,6 @@ msgstr "Download JSON"
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/project/paper-library.tsx
-msgid "Downloaded"
-msgstr "Downloaded"
-
 #: src/App.tsx
 msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
@@ -3860,6 +3877,10 @@ msgstr "Files in this change"
 msgid "Filled square"
 msgstr "Filled square"
 
+#: src/project/paper-library.tsx
+msgid "Filter"
+msgstr "Filter"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter annotations"
 msgstr "Filter annotations"
@@ -3875,6 +3896,14 @@ msgstr "Filter by name or key"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
 msgstr "Filter languages"
+
+#: src/project/paper-library.tsx
+msgid "Filter papers"
+msgstr "Filter papers"
+
+#: src/project/paper-library.tsx
+msgid "Filter papers: {filter}"
+msgstr "Filter papers: {filter}"
 
 #: src/history/history-drawer.tsx
 msgid "Filter project changes"
@@ -3962,6 +3991,10 @@ msgstr "Finishing setup…"
 #: src/settings/literature-settings.tsx
 msgid "Firecrawl"
 msgstr "Firecrawl"
+
+#: src/project/paper-library.tsx
+msgid "First author"
+msgstr "First author"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -4131,6 +4164,18 @@ msgstr "Full access"
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
 
+#: src/project/paper-library.tsx
+msgid "Full text"
+msgstr "Full text"
+
+#: src/project/paper-library.tsx
+msgid "Full text downloads on click"
+msgstr "Full text downloads on click"
+
+#: src/project/paper-library.tsx
+msgid "Full text in Papers"
+msgstr "Full text in Papers"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Full-width floating figure"
 msgstr "Full-width floating figure"
@@ -4298,6 +4343,10 @@ msgstr "Grid generator"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
+
+#: src/project/paper-library.tsx
+msgid "Group by"
+msgstr "Group by"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Grouped numbered equations"
@@ -5874,6 +5923,10 @@ msgstr "Monospaced text"
 msgid "More PDF actions"
 msgstr "More PDF actions"
 
+#: src/project/paper-library.tsx
+msgid "Most cited here"
+msgstr "Most cited here"
+
 #: src/app/command-palette.tsx
 msgid "Move"
 msgstr "Move"
@@ -6209,6 +6262,10 @@ msgstr "No file changes recorded for this update"
 msgid "No files match “{trimmedQuery}”"
 msgstr "No files match “{trimmedQuery}”"
 
+#: src/project/paper-library.tsx
+msgid "No grouping"
+msgstr "No grouping"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
 msgstr "No history yet"
@@ -6424,9 +6481,17 @@ msgstr "No update found"
 msgid "No upgrade check was performed for this entry."
 msgstr "No upgrade check was performed for this entry."
 
+#: src/project/paper-library.tsx
+msgid "No venue"
+msgstr "No venue"
+
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
 msgstr "No versions yet"
+
+#: src/project/paper-library.tsx
+msgid "No year"
+msgstr "No year"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
@@ -6459,6 +6524,14 @@ msgstr "Not cited by key, but {nociteAll} includes every entry"
 #: src/papers/bib-visual-editor.tsx
 msgid "Not cited in any .tex file"
 msgstr "Not cited in any .tex file"
+
+#: src/project/paper-library.tsx
+msgid "Not cited in this paper yet"
+msgstr "Not cited in this paper yet"
+
+#: src/project/paper-library.tsx
+msgid "Not cited yet"
+msgstr "Not cited yet"
 
 #: src/project/paper-library.tsx
 msgid "Not downloaded"
@@ -7780,6 +7853,10 @@ msgstr "Read-only preview · click to edit"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
 msgstr "Reading"
+
+#: src/project/paper-library.tsx
+msgid "Reading state"
+msgstr "Reading state"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
@@ -9172,10 +9249,6 @@ msgstr "Show or hide panels"
 msgid "Show outline"
 msgstr "Show outline"
 
-#: src/project/paper-library.tsx
-msgid "Show papers"
-msgstr "Show papers"
-
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "Show references"
@@ -9327,6 +9400,18 @@ msgstr "Some sources could not complete the lookup. This does not mean the refer
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
+
+#: src/project/paper-library.tsx
+msgid "Sort and group"
+msgstr "Sort and group"
+
+#: src/project/paper-library.tsx
+msgid "Sort and group: {order}"
+msgstr "Sort and group: {order}"
+
+#: src/project/paper-library.tsx
+msgid "Sort by"
+msgstr "Sort by"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
@@ -10439,6 +10524,10 @@ msgstr "Time derivative mark"
 msgid "Times / cross product"
 msgstr "Times / cross product"
 
+#: src/project/paper-library.tsx
+msgid "Times cited in this paper"
+msgstr "Times cited in this paper"
+
 #: src/build/build-log-messages.ts
 msgid "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
 msgstr "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
@@ -10931,6 +11020,7 @@ msgstr "Vector arrow over a symbol"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Venue"
 msgstr "Venue"
 
@@ -11107,6 +11197,10 @@ msgstr "WARN"
 msgid "Warning"
 msgstr "Warning"
 
+#: src/project/paper-library.tsx
+msgid "Web page"
+msgstr "Web page"
+
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Weft & Warp"
@@ -11179,6 +11273,10 @@ msgstr "Wiki link suggestions"
 msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "Window"
+
+#: src/project/paper-library.tsx
+msgid "With full text"
+msgstr "With full text"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
@@ -11294,6 +11392,7 @@ msgstr "Xi"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Year"
 msgstr "Year"
 
