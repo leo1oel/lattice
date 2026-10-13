@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { EmptyState } from "../components/ui/empty-state";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
+import { LATTICE_HOST_THEME_REQUEST, readAgentHostTheme } from "../agent/agent-host-theme";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
@@ -16,6 +17,17 @@ import {
 } from "../agent/synara-settings-layout";
 
 const DEFAULT_FRAME_HEIGHT = 470;
+/** Where Settings narrows its nav and page insets (adaptive-feedback.css). */
+const COMPACT_SETTINGS_QUERY = "(max-width: 680px)";
+const SETTINGS_LAYOUT = "lattice:settings-layout";
+
+function subscribeCompactSettings(onChange: () => void) {
+  const media = window.matchMedia(COMPACT_SETTINGS_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+const isCompactSettings = () => window.matchMedia(COMPACT_SETTINGS_QUERY).matches;
 
 type FrameSlot = { current: number | null };
 
@@ -51,6 +63,8 @@ export function SynaraSettingsPane(props: {
   url: string | null;
   synaraSettingsLabel: string | undefined;
   viewportRef: RefObject<HTMLDivElement | null>;
+  /** The page paints with the host's palette, as the agent panel does. */
+  appearance: Parameters<typeof readAgentHostTheme>[0];
   onRetry: () => void;
 }) {
   const { runtime, section, url, synaraSettingsLabel, viewportRef } = props;
@@ -76,6 +90,28 @@ export function SynaraSettingsPane(props: {
     if (!origin || !section) return;
     frameRef.current?.contentWindow?.postMessage({ type: "lattice:set-settings-section", section }, origin);
   }, [origin, section]);
+
+  // The page's insets live in the frame, which cannot see this window's
+  // width: its own is the dialog's content column, and the same column width
+  // occurs on both sides of the compact breakpoint.
+  const compact = useSyncExternalStore(subscribeCompactSettings, isCompactSettings);
+  const postLayout = useCallback(() => {
+    if (!origin) return;
+    frameRef.current?.contentWindow?.postMessage({ type: SETTINGS_LAYOUT, compact }, origin);
+  }, [compact, origin]);
+  useEffect(postLayout, [compact, postLayout]);
+
+  // Read after use-appearance's layout effects have applied the theme, so the
+  // snapshot is the cascade the native panes beside this one are painted with.
+  const { theme, tint, accent, translucency, translucent } = props.appearance;
+  const hostThemeRef = useRef<ReturnType<typeof readAgentHostTheme> | null>(null);
+  const postHostTheme = useCallback(() => {
+    if (origin && hostThemeRef.current) frameRef.current?.contentWindow?.postMessage(hostThemeRef.current, origin);
+  }, [origin]);
+  useEffect(() => {
+    hostThemeRef.current = readAgentHostTheme({ theme, tint, accent, translucency, translucent });
+    postHostTheme();
+  }, [theme, tint, accent, translucency, translucent, postHostTheme]);
 
   // The geometry is written straight to the DOM rather than through state:
   // height and wheel messages from the iframe are ordered, but a React update
@@ -159,6 +195,11 @@ export function SynaraSettingsPane(props: {
         }
         case "synara:embed-ready":
           setReadyUrl(url);
+          postHostTheme();
+          postLayout();
+          return;
+        case LATTICE_HOST_THEME_REQUEST:
+          postHostTheme();
           return;
         case "synara:settings-wheel":
           if (!isFiniteNumber(data.deltaY) || !viewport) return;
@@ -182,7 +223,7 @@ export function SynaraSettingsPane(props: {
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [key, origin, section, showHeight, url, viewportRef]);
+  }, [key, origin, postHostTheme, postLayout, section, showHeight, url, viewportRef]);
 
   useEffect(() => {
     // WKWebView delivers wheel to the iframe element when scrolling="no", not
@@ -220,7 +261,10 @@ export function SynaraSettingsPane(props: {
         allow="clipboard-read; clipboard-write"
         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
         scrolling="no"
-        onLoad={postSection}
+        onLoad={() => {
+          postSection();
+          postLayout();
+        }}
       />
       {!ready && (
         <div className="synara-settings-loading" role="status">

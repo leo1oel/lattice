@@ -106,7 +106,9 @@ new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their f
 The inbox, detail panes, sidechat dock, and portalled menus inherit Lattice's embed-theme surface
 tokens; code and diff renderers also resolve the host theme without changing standalone Synara's
 stored appearance preferences.
-The agent panel also accepts the `lattice:host-theme` version-1 palette (tint, accent, and translucency as computed role colors) over `postMessage` and asks for it with `lattice:request-host-theme`; without one it keeps the Graphite palette, and it stays opaque whatever the translucency.
+The agent panel and the Settings frame also accept the `lattice:host-theme` version-1 palette (tint, accent, and translucency as computed role colors) over `postMessage` and ask for it with `lattice:request-host-theme`; without one they keep the Graphite palette, and they stay opaque whatever the translucency.
+Its optional `panel` role is the Settings sheet, under group cards on `elevated`; a runtime that predates it leaves the page on `elevated`.
+Providers, MCP and Skills follow the native Settings layout (a serif page title, each group's rows in one bordered card at 52px), and Settings tells their frame `lattice:settings-layout` `{compact}` when the window crosses its 680px breakpoint, since the frame sees only its own column width.
 
 ## Agent tool boundary
 

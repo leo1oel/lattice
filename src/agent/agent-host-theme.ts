@@ -5,8 +5,9 @@ import type { ThemeAccent, ThemeTint, Translucency } from "../settings/theme-cus
  * The host's theme, for the embedded agent to paint with. Synara's embed
  * still carries its own copy of the Graphite palette and only reads `theme`
  * from the frame URL; this message is the contract that replaces that copy.
- * Lattice posts it when the agent frame reports `synara:embed-ready`,
- * whenever any of it changes, and in answer to LATTICE_HOST_THEME_REQUEST.
+ * Lattice posts it to the agent frame and to the Settings frame when either
+ * reports `synara:embed-ready`, whenever any of it changes, and in answer to
+ * LATTICE_HOST_THEME_REQUEST.
  * An embed that predates it ignores it.
  */
 const LATTICE_HOST_THEME = "lattice:host-theme";
@@ -20,8 +21,10 @@ export const LATTICE_HOST_THEME_REQUEST = "lattice:request-host-theme";
 interface AgentHostThemeColors {
   /** The agent panel's own surface (the `chrome` embed surface). */
   chrome: string;
-  /** Right-hand drawers and the Settings dialog (the `drawer` embed surface). */
+  /** Right-hand drawers and the Settings dialog's fields (the `drawer` embed surface). */
   drawer: string;
+  /** The Settings page's sheet, under its cards (which stand on `elevated`). */
+  panel: string;
   /** Menus, popovers, the composer and code blocks. */
   elevated: string;
   foreground: string;
@@ -53,6 +56,7 @@ export interface AgentHostThemeSnapshot {
 const COLOR_ROLES: Record<keyof AgentHostThemeColors, string> = {
   chrome: "--surface-sidebar",
   drawer: "--surface-input",
+  panel: "--surface-panel",
   elevated: "--surface-panel-raised",
   foreground: "--text-primary",
   muted: "--text-secondary",
