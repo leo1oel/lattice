@@ -182,7 +182,8 @@
 .overleaf-thread-tools .ui-icon-button { color: var(--text-secondary); }
 .overleaf-thread-tools .overleaf-thread-resolve:hover:not(:disabled) { color: var(--status-success); }
 .overleaf-thread-danger:hover:not(:disabled) { color: var(--status-danger); }
-.overleaf-thread-danger { opacity: 0; transition: opacity var(--motion-fast); }
+/* The icon button's own transition fades it in, and its hover colours ease too. */
+.overleaf-thread-danger { opacity: 0; }
 .overleaf-thread:hover .overleaf-thread-tools .overleaf-thread-danger,
 .overleaf-thread-tools:focus-within .overleaf-thread-danger,
 .overleaf-thread-message:hover .overleaf-thread-danger,
@@ -308,6 +309,7 @@
   white-space: nowrap;
   font-family: var(--reading-font);
   font-style: italic;
+  transition: color var(--motion-fast);
 }
 .overleaf-thread-disclosure:hover .overleaf-thread-resolved-quote { color: var(--text-primary); }
 .overleaf-thread.resolved .overleaf-thread-tools { margin-top: 0; }

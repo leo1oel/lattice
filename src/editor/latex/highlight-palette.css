@@ -13,6 +13,7 @@
   border-radius: var(--radius-pill);
   box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--text-primary) 24%, transparent);
   pointer-events: none;
+  transition: background-color var(--motion-fast);
 }
 .latex-selection-tool button.hl-caret { width: 16px; margin-left: -2px; }
 .latex-selection-tool button.hl-caret[aria-expanded="true"] { background: var(--control-active-soft); color: var(--text-primary); }
@@ -107,4 +108,4 @@
 .hl-edit-actions { padding-top: var(--space-2); display: flex; justify-content: flex-end; gap: var(--space-2); }
 
 /* Reduced motion is the one global clamp's (adaptive-feedback.css). */
-.hl-item, .hl-row, .hl-dot { transition: background-color var(--motion-fast), box-shadow var(--motion-fast); }
+.hl-item, .hl-row, .hl-dot { transition: background-color var(--motion-fast), box-shadow var(--motion-fast), color var(--motion-fast); }

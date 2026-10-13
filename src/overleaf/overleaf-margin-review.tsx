@@ -32,13 +32,15 @@
  * walk the pips or cards from one that has focus; "Review here" in the
  * palette starts the walk at the caret.
  */
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
 import { X } from "lucide-react";
 import type { OverleafThread } from "../app-types";
+import { useExitPicture } from "../components/ui/exit-picture";
 import { IconButton } from "../components/ui/icon-button";
+import { popupMotionClassName } from "../components/ui/popup-motion";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { formatCount } from "../i18n";
 import { OverleafChangeCard } from "./overleaf-changes";
@@ -90,6 +92,16 @@ function place(element: HTMLElement, x: number, y: number) {
   element.style.setProperty("--margin-y", `${y}px`);
 }
 
+/**
+ * Mounted for as long as `surface` is open: closed, the surface leaves as a
+ * picture of itself on its stylesheet's exit (`useExitPicture`) instead of
+ * vanishing. Its owner, not the surface, so the hook sees the ref still set.
+ */
+function LeavesOnClose({ surface, children }: { surface: RefObject<HTMLElement | null>; children: ReactNode }) {
+  useExitPicture([surface]);
+  return children;
+}
+
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || target.matches("textarea, input, select"));
 
@@ -120,6 +132,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const elements = useRef(new Map<string, HTMLElement>());
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const railRef = useRef<HTMLElement | null>(null);
   const timer = useRef<number | null>(null);
 
   const items: Item[] = [
@@ -298,7 +311,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
     }
     // In the rail, the card stands in for the pip.
     const target = latest.current.opened?.via === "rail"
-      ? document.querySelector<HTMLElement>(`.margin-review-rail [data-review-key="${CSS.escape(key)}"]`)
+      ? railRef.current?.querySelector<HTMLElement>(`[data-review-key="${CSS.escape(key)}"]`)
       : element;
     target?.focus({ preventScroll: true });
   };
@@ -335,7 +348,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const railKey = opened?.via === "rail" ? opened.key : null;
   useEffect(() => {
     if (!railKey) return;
-    document.querySelector(`.margin-review-rail [data-review-key="${CSS.escape(railKey)}"]`)?.scrollIntoView({ block: "nearest" });
+    railRef.current?.querySelector(`[data-review-key="${CSS.escape(railKey)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [railKey]);
 
   /** J and K, or the arrows, walk to the next or previous item; Escape steps back out. */
@@ -504,61 +517,66 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
             ))}
           </div>
           {openItem && opened?.via !== "rail" && (
-            <div
-              ref={popoverRef}
-              className="margin-review-popover"
-              role="dialog"
-              aria-label={describe(openItem)}
-              onPointerEnter={() => {
-                clearTimer();
-                setLinked(openItem.key);
-              }}
-              onPointerLeave={() => {
-                if (opened?.via === "hover" && !popoverRef.current?.contains(document.activeElement)) later(CLOSE_DELAY_MS, () => setOpened(null));
-              }}
-              onFocus={() => {
-                // A keyboard (or a click) in the card keeps it open.
-                if (opened?.via === "hover") setOpened({ key: openItem.key, via: "click" });
-              }}
-              onKeyDown={(event) => walk(event, openItem.key)}
-            >
-              {card(openItem)}
-            </div>
+            <LeavesOnClose surface={popoverRef}>
+              <div
+                ref={popoverRef}
+                className={`margin-review-popover ${popupMotionClassName}`}
+                role="dialog"
+                aria-label={describe(openItem)}
+                onPointerEnter={() => {
+                  clearTimer();
+                  setLinked(openItem.key);
+                }}
+                onPointerLeave={() => {
+                  if (opened?.via === "hover" && !popoverRef.current?.contains(document.activeElement)) later(CLOSE_DELAY_MS, () => setOpened(null));
+                }}
+                onFocus={() => {
+                  // A keyboard (or a click) in the card keeps it open.
+                  if (opened?.via === "hover") setOpened({ key: openItem.key, via: "click" });
+                }}
+                onKeyDown={(event) => walk(event, openItem.key)}
+              >
+                {card(openItem)}
+              </div>
+            </LeavesOnClose>
           )}
         </div>,
         view.scrollDOM,
       )}
       {opened?.via === "rail" && (
-        <aside
-          className="margin-review-rail"
-          aria-label={t({ message: "On screen", context: "margin review" })}
-          onKeyDown={(event) => {
-            const key = (event.target as HTMLElement).closest<HTMLElement>("[data-review-key]")?.dataset.reviewKey ?? opened.key;
-            walk(event, key);
-          }}
-        >
-          <header className="margin-review-rail-head">
-            <h2>{t({ message: "On screen", context: "margin review" })}</h2>
-            <span>{railSummary}</span>
-            <IconButton size="compact" label={t`Close`} onClick={() => close(true)}>
-              <X size={14} aria-hidden="true" />
-            </IconButton>
-          </header>
-          <div className="margin-review-rail-list">
-            {railItems.map((item) => (
-              <div
-                key={item.key}
-                className="margin-review-rail-item"
-                data-review-key={item.key}
-                data-current={item.key === opened.key ? "" : undefined}
-                tabIndex={item.key === focusKey ? 0 : -1}
-                {...linkHandlers(item.key)}
-              >
-                {card(item)}
-              </div>
-            ))}
-          </div>
-        </aside>
+        <LeavesOnClose surface={railRef}>
+          <aside
+            ref={railRef}
+            className="margin-review-rail"
+            aria-label={t({ message: "On screen", context: "margin review" })}
+            onKeyDown={(event) => {
+              const key = (event.target as HTMLElement).closest<HTMLElement>("[data-review-key]")?.dataset.reviewKey ?? opened.key;
+              walk(event, key);
+            }}
+          >
+            <header className="margin-review-rail-head">
+              <h2>{t({ message: "On screen", context: "margin review" })}</h2>
+              <span>{railSummary}</span>
+              <IconButton size="compact" label={t`Close`} onClick={() => close(true)}>
+                <X size={14} aria-hidden="true" />
+              </IconButton>
+            </header>
+            <div className="margin-review-rail-list">
+              {railItems.map((item) => (
+                <div
+                  key={item.key}
+                  className="margin-review-rail-item"
+                  data-review-key={item.key}
+                  data-current={item.key === opened.key ? "" : undefined}
+                  tabIndex={item.key === focusKey ? 0 : -1}
+                  {...linkHandlers(item.key)}
+                >
+                  {card(item)}
+                </div>
+              ))}
+            </div>
+          </aside>
+        </LeavesOnClose>
       )}
     </>
   );

@@ -12,7 +12,7 @@
 .list-tool-text { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--gap-inline-tight); overflow: hidden; }
 .list-tool-label { flex: none; }
 .list-tool-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); font-weight: var(--weight-medium); }
-.list-tool-caret { color: var(--text-tertiary); }
+.list-tool-caret { color: var(--text-tertiary); transition: color var(--motion-fast-exit); }
 .list-tool:is(:hover, [data-state="open"]) .list-tool-caret { color: var(--text-secondary); }
 /* Folded, a tool set away from its default keeps a dot on its icon. */
 .list-tool[data-on]::after { content: ""; position: absolute; top: 5px; inset-inline-end: 5px; width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--mark-weft); box-shadow: 0 0 0 2px var(--list-tool-dot-ring, var(--surface-panel)); display: none; }

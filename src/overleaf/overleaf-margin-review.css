@@ -100,7 +100,9 @@
 .margin-review-pip:is(:hover, [data-linked]) { scale: 1.15; }
 .margin-review-pip[data-open] { box-shadow: 0 0 0 2px var(--surface-panel), 0 0 0 3.5px var(--text-primary); }
 
-/* A pip's card, over the text beside its line. */
+/* A pip's card, over the text beside its line, left of its pip: it grows
+   from the pip's side (`.popup-motion`, as every popup does) and leaves on
+   the popups' exit. */
 .margin-review-popover {
   position: absolute;
   top: 0;
@@ -112,15 +114,16 @@
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
   box-shadow: var(--elevation-popover);
-  animation: margin-review-in var(--motion-fast) both;
 }
+.margin-review-popover.popup-motion { --popup-motion-from: translateX(4px); --popup-motion-origin: top right; }
 .margin-review-popover > :is(.overleaf-thread, .overleaf-change) { border: 0; background: transparent; }
 .margin-review-popover > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
-@keyframes margin-review-in { from { opacity: 0; } }
 
 /* ---------------------------------------------------------------- narrow */
 /* What is on screen, over the editor's right side: it covers the text and
-   never reflows it. Above the outline rail and the editor's scrollbar. */
+   never reflows it. Above the outline rail and the editor's scrollbar. It
+   arrives as the overlay drawers do (surfaces.css) and, closed, leaves as a
+   picture of itself (`useExitPicture`) toward the edge it came from. */
 .margin-review-rail {
   position: absolute;
   z-index: calc(var(--z-editor-scrollbar) + 1);
@@ -134,8 +137,10 @@
   flex-direction: column;
   background: var(--surface-elevated);
   box-shadow: var(--elevation-floating);
-  animation: margin-review-in var(--motion-moderate) both;
+  animation: drawer-in var(--motion-slow) both;
 }
+.margin-review-rail[data-leaving] { animation: margin-review-rail-out var(--motion-slow-exit) both; pointer-events: none; }
+@keyframes margin-review-rail-out { to { opacity: 0; transform: translateX(12px); } }
 .margin-review-rail-head {
   flex: none;
   min-width: 0;
@@ -173,6 +178,6 @@
   padding: 0 var(--space-4) var(--space-6);
 }
 .margin-review-rail-item { border-radius: var(--radius-surface); }
-.margin-review-rail-item > :is(.overleaf-thread, .overleaf-change) { border: 1px solid var(--border-subtle); border-radius: var(--radius-surface); background: var(--surface-panel); }
+.margin-review-rail-item > :is(.overleaf-thread, .overleaf-change) { border: 1px solid var(--border-subtle); border-radius: var(--radius-surface); background: var(--surface-panel); transition: border-color var(--motion-fast); }
 .margin-review-rail-item > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
 .margin-review-rail-item:is([data-current], :hover, :focus-within) > :is(.overleaf-thread, .overleaf-change) { border-color: var(--border-strong); }

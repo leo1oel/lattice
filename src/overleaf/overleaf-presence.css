@@ -7,12 +7,17 @@
    enough that two initials never clip, and ringed in the titlebar's surface so
    each chip reads as cut out of the one beneath. */
 .avatar-group.overleaf-presence-avatars { padding-inline: var(--space-3); }
+/* Someone who joins arrives as a small growth into the stack; a dropped
+   connection fades the stack rather than snapping it. */
 .avatar-group.avatar-group.overleaf-presence-avatars > * {
   width: 22px;
   height: 22px;
   margin-left: calc(var(--space-1) * -1);
   overflow: visible;
+  transition: transform var(--motion-moderate), opacity var(--motion-moderate);
+  animation: overleaf-presence-arrive var(--motion-moderate) backwards;
 }
+@keyframes overleaf-presence-arrive { from { opacity: 0; scale: .8; } }
 .avatar-group.overleaf-presence-avatars > *:first-child { margin-left: 0; }
 .overleaf-presence-avatar {
   padding: 0;
