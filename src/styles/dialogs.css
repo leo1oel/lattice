@@ -503,8 +503,15 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 }
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
 .synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel); opacity: 1; transition: opacity var(--motion-fast); }
-.synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; }
-.synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* Hidden at once, with no fade: a fade-out is the previous page still on
+   screen under the new tab's name. Only the reveal fades. */
+.synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; transition: none; }
+/* On a native tab the page stays loaded, out of sight and out of the scroll range. */
+.synara-settings-embed[data-active="false"] { overflow: hidden; visibility: hidden; pointer-events: none; }
+/* A switch the page answers within a few frames shows only the empty sheet;
+   the label comes when the wait is long enough to need one. */
+.synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); animation: synara-settings-loading-in var(--motion-moderate) calc(var(--duration-slow) * 2) both; }
+@keyframes synara-settings-loading-in { from { opacity: 0; } }
 .synara-settings-state { position: relative; min-height: var(--settings-embed-min-height); }
 .synara-settings-state > .synara-loading-surface { background: var(--surface-panel); }
 .settings-section {

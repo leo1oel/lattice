@@ -250,7 +250,6 @@ export function synaraFrameUrl(input: {
   surface?: "chrome" | "drawer";
   hostOrigin: string;
   authToken?: string | null;
-  section?: string | null;
 }): string {
   const url = new URL(input.path || "/", input.origin);
   url.searchParams.set("embed", "1");
@@ -259,7 +258,6 @@ export function synaraFrameUrl(input: {
   if (input.locale) url.searchParams.set("locale", input.locale);
   if (input.surface) url.searchParams.set("surface", input.surface);
   url.searchParams.set("hostOrigin", input.hostOrigin);
-  if (input.section) url.searchParams.set("section", input.section);
   if (input.authToken) {
     url.hash = new URLSearchParams({ "lattice-auth": input.authToken }).toString();
   }
