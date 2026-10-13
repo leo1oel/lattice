@@ -131,7 +131,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(() => (props.reveal ? { entry: props.reveal } : null));
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
-  const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot && synaraSettingsSection
+  // On every tab, so the pane keeps its page loaded across the native ones.
+  const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot
     ? synaraFrameUrl({
       origin: synaraEmbedUrl,
       path: "/settings",
@@ -141,7 +142,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
       surface: "drawer",
       hostOrigin: window.location.origin,
       authToken: props.synaraRuntime.authToken,
-      section: synaraSettingsSection,
     })
     : null;
 
@@ -262,7 +262,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
               runtime={props.synaraRuntime}
               section={synaraSettingsSection}
               url={synaraSettingsUrl}
-              synaraSettingsLabel={settingsNavItems.find((item) => item.tab === props.tab)?.label}
+              synaraSettingsLabel={synaraSettingsSection ? settingsNavItems.find((item) => item.tab === props.tab)?.label : undefined}
               viewportRef={settingsViewportRef}
               appearance={{
                 theme: props.theme,
