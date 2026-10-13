@@ -1592,6 +1592,7 @@ function App() {
     onFetchFullText: (paper: PaperSummary) => void fetchAndOpenPaper(paper),
     onDeletePaper: deletePaper,
     onEditBibEntry: (paper: PaperSummary) => void referenceImport.editBibEntry(paper),
+    onOpenCitationUse: (usage: SymbolOccurrence) => void openSymbolOccurrence(usage),
     setImportInput: referenceImport.setInput,
     onImport: referenceImport.importFromInput,
     onCancelImport: referenceImport.cancelImport,

@@ -22,42 +22,46 @@ export function paperReadingState(paper: PaperSummary): PaperReadingState {
 
 /**
  * What the bibliography and the manuscript say about a paper beyond its own
- * record: the venue its entry names, and how often the manuscript cites it.
- * `uses` is null until the manuscript has been scanned (or when it cannot
- * be), so a paper is never called uncited on no evidence.
+ * record: the venue its entry names, and where the manuscript cites it.
+ * `uses` and `usages` are null until the manuscript has been scanned (or when
+ * it cannot be), so a paper is never called uncited on no evidence.
  */
 export type PaperFacts = {
   venue: (paper: PaperSummary) => string;
   uses: (paper: PaperSummary) => number | null;
+  /** Each citation of the paper, in file and line order, with its line. */
+  usages: (paper: PaperSummary) => readonly SymbolOccurrence[] | null;
 };
 
 /**
- * How many times the manuscript cites each key (lowercased, as LaTeX's keys
- * are matched), rescanned when the project or its saved revision changes;
- * null until the first scan lands, or when it fails.
+ * Where the manuscript cites each key (lowercased, as LaTeX's keys are
+ * matched), rescanned when the project or its saved revision changes; null
+ * until the first scan lands, or when it fails.
  */
-function useCitationUses(projectKey: string, revision: unknown): ReadonlyMap<string, number> | null {
-  const [scan, setScan] = useState<{ projectKey: string; counts: ReadonlyMap<string, number> | null } | null>(null);
+function useCitationUses(projectKey: string, revision: unknown): ReadonlyMap<string, SymbolOccurrence[]> | null {
+  const [scan, setScan] = useState<{ projectKey: string; uses: ReadonlyMap<string, SymbolOccurrence[]> | null } | null>(null);
   useEffect(() => {
     let disposed = false;
     invoke<SymbolOccurrence[]>("list_citation_usages")
       .then((list) => {
-        const counts = new Map<string, number>();
+        const uses = new Map<string, SymbolOccurrence[]>();
         // `\nocite{*}` lists every entry without citing any of them.
-        for (const { symbol } of Array.isArray(list) ? list : []) {
-          if (symbol === "*") continue;
-          const key = symbol.toLocaleLowerCase();
-          counts.set(key, (counts.get(key) ?? 0) + 1);
+        for (const usage of Array.isArray(list) ? list : []) {
+          if (usage.symbol === "*") continue;
+          const key = usage.symbol.toLocaleLowerCase();
+          const found = uses.get(key);
+          if (found) found.push(usage);
+          else uses.set(key, [usage]);
         }
-        if (!disposed) setScan({ projectKey, counts });
+        if (!disposed) setScan({ projectKey, uses });
       })
       .catch(() => {
-        if (!disposed) setScan({ projectKey, counts: null });
+        if (!disposed) setScan({ projectKey, uses: null });
       });
     return () => { disposed = true; };
   }, [projectKey, revision]);
-  // Another project's counts are never shown while this one's scan runs.
-  return scan?.projectKey === projectKey ? scan.counts : null;
+  // Another project's uses are never shown while this one's scan runs.
+  return scan?.projectKey === projectKey ? scan.uses : null;
 }
 
 export function usePaperFacts(
@@ -70,7 +74,8 @@ export function usePaperFacts(
     const venues = new Map((citations ?? []).map((citation) => [citation.key, citation.venue.trim()]));
     return {
       venue: (paper) => (paper.citationKey && venues.get(paper.citationKey)) || "",
-      uses: (paper) => uses && (paper.citationKey ? uses.get(paper.citationKey.toLocaleLowerCase()) ?? 0 : 0),
+      uses: (paper) => uses && (paper.citationKey ? uses.get(paper.citationKey.toLocaleLowerCase())?.length ?? 0 : 0),
+      usages: (paper) => uses && ((paper.citationKey && uses.get(paper.citationKey.toLocaleLowerCase())) || []),
     };
   }, [citations, uses]);
 }
