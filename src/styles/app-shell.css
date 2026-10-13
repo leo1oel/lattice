@@ -292,11 +292,26 @@ input[type="search"]:focus-visible {
 }
 @container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
 @container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
-.bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
-.bib-entry-form label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); font-family: var(--ui-font); }
-.bib-entry-form .bib-resolve-field { grid-column: 1 / -1; }
-.bib-entry-form > .ui-checkbox-field { grid-column: 1 / -1; }
-.bib-citation-records { grid-column: 1 / -1; display: grid; gap: var(--space-4); font: var(--type-caption-size)/1.5 var(--ui-font); }
+/* The bibliography entry editor shares the Add papers sheet's frame (see
+   --dialog-sheet-width) so "Enter manually" swaps contents, not sizes. The
+   form is a column: the lookup, the entry as it reads, the work (title,
+   authors, year beside venue), then the record (DOI, URL, type, key) past a
+   hairline. Each field's label sits at its start, the way a reference
+   manager's info pane reads, so the whole entry fits the sheet unscrolled. */
+.modal.sheet-dialog.bib-entry-dialog { width: var(--dialog-sheet-width); container: bib-entry / inline-size; }
+.bib-entry-form { display: grid; gap: var(--space-8); }
+.bib-entry-form label { min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); font-family: var(--ui-font); }
+/* Four columns: a label, its field, and on a shared row a second label and
+   field; a label on a row of its own spans them and its field takes the rest. */
+.bib-entry-group { display: grid; text-align: start; grid-template-columns: 64px minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-5) var(--space-5); align-items: center; }
+.bib-entry-form .bib-entry-group > label { grid-column: span 2; display: grid; grid-template-columns: subgrid; align-items: center; gap: inherit; }
+.bib-entry-label { min-width: 0; overflow-wrap: anywhere; }
+/* A year is four digits: its column holds them and the stepper, and the venue takes the rest. */
+.bib-entry-work { grid-template-columns: 64px 112px auto minmax(0, 1fr); }
+.bib-entry-form .bib-entry-work > label:nth-child(-n + 2) { grid-column: 1 / -1; }
+.bib-entry-work > label:nth-child(-n + 2) > :last-child { grid-column: 2 / -1; }
+.bib-entry-record { padding-top: var(--space-8); border-top: 1px solid var(--border-subtle); }
+.bib-citation-records { display: grid; gap: var(--space-4); font: var(--type-caption-size)/1.5 var(--ui-font); }
 .bib-citation-records p { margin: 0; }
 /* How a record was matched: one quiet line, its parts set off by middle dots;
    the source links to the record without leaving the type's own ink. */
@@ -306,7 +321,7 @@ input[type="search"]:focus-visible {
 .bib-evidence-source:hover { color: var(--text-primary); text-decoration-color: currentColor; }
 /* Records a lookup could not tell apart: one radio list in a raised card, each
    record read as it would be cited, the chosen one washed and edged in the accent. */
-.bib-candidates { grid-column: 1 / -1; display: grid; gap: var(--space-5); }
+.bib-candidates { display: grid; gap: var(--space-5); }
 .bib-candidates-lead { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-candidate-list { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); overflow: hidden; background: var(--surface-panel-raised); }
 .bib-candidate-list .bib-candidate { padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: var(--space-5); cursor: pointer; color: var(--text-primary); font-weight: var(--weight-regular); }
@@ -324,19 +339,33 @@ input[type="search"]:focus-visible {
 .bib-candidates-actions { display: flex; justify-content: flex-end; }
 /* The entry as a reference list prints it, its key floated at the corner so
    the lines beside it wrap around it at any width. */
-.bib-typeset { grid-column: 1 / -1; margin: 0; padding: var(--space-6) var(--space-8); border-radius: var(--radius-panel); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); overflow-wrap: anywhere; }
+.bib-typeset { margin: 0; padding: var(--space-6) var(--space-8); border-radius: var(--radius-panel); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); overflow-wrap: anywhere; }
 .bib-typeset > * { display: block; }
 .bib-typeset-key { float: right; max-width: 45%; margin: 0 0 var(--space-2) var(--space-6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--space-3); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-secondary); font: var(--type-micro-size)/18px var(--editor-font); }
 .bib-typeset-authors { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-typeset > strong { margin-block: var(--space-1); color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); text-wrap: pretty; }
 .bib-typeset-venue { color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-typeset-doi { font-family: var(--ui-font); }
-.bib-typeset-venue > .bib-typeset-doi:not(:first-child)::before { content: "·"; padding-inline: var(--space-3); }
+.bib-typeset-doi[data-joined]::before { content: "·"; padding-inline: var(--space-3); }
+/* A line not filled yet names its field in the faint ink. */
+.bib-typeset > [data-unfilled] { color: var(--text-tertiary); }
 /* The lookup is one field and a way past it: the sheet fits it, and grows to the form when that appears. */
 .modal.sheet-dialog.bib-entry-lookup { height: auto; max-height: var(--dialog-large-height); }
-.bib-entry-manual { grid-column: 1 / -1; display: flex; margin-top: calc(-1 * var(--space-3)); }
+.bib-entry-manual { display: flex; margin-top: calc(-1 * var(--space-6)); }
 .bib-entry-manual > button { margin-left: calc(-1 * var(--space-4)); color: var(--text-secondary); }
-.bib-entry-form > .bib-entry-lookup-error { grid-column: 1 / -1; margin: 0; }
+.bib-entry-form > .bib-entry-lookup-error { margin: 0; }
+/* The footer holds the one choice about after saving at its start, the actions at its end. */
+.bib-entry-footer { align-items: center; }
+/* Past the checkbox field's own `margin: 0`. */
+.sheet-dialog > .bib-entry-footer > label.bib-entry-cite { margin-inline-end: auto; }
+.bib-entry-footer > button { flex: none; }
+/* A narrow window: every field takes a row of its own, and the footer's choice its own line. */
+@container bib-entry (width < 480px) {
+  .bib-entry-group, .bib-entry-work { grid-template-columns: 64px minmax(0, 1fr); }
+  .bib-entry-form .bib-entry-group > label { grid-column: 1 / -1; }
+  .bib-entry-footer { flex-wrap: wrap; }
+  .sheet-dialog > .bib-entry-footer > label.bib-entry-cite { flex-basis: 100%; }
+}
 /* The BibTeX the form will write, a click away rather than a block of empty braces under it. */
 .bib-entry-preview-disclosure { flex: none; }
 .bib-entry-preview-disclosure > summary { display: inline-flex; align-items: center; gap: var(--space-2); list-style: none; cursor: pointer; border-radius: var(--radius-compact); color: var(--text-secondary); font: 600 var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font); }
