@@ -1,19 +1,24 @@
 /**
  * The modal forms that create or rename something: the new-project dialog, the
- * rename dialog (files, folders, labels, citation keys, environments), and the
- * bibliography entry editor with the literature discovery panel that feeds it;
- * plus the TeX toolchain setup and package-install dialogs.
+ * rename dialog (files, folders, labels, citation keys, environments), the Add
+ * papers sheet and the bibliography entry editor, with the literature
+ * discovery panel that feeds them; plus the TeX toolchain setup and
+ * package-install dialogs.
  */
 import { lazy, Suspense } from "react";
 import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 import { TexDependencyInstaller } from "../build/tex-dependency-installer";
 import { TexSetupWizard } from "../build/tex-setup-wizard";
+import type { PaperSummary } from "../app-types";
 import type { ReferenceImport } from "./use-reference-import";
 import type { TexSetup } from "./use-tex-setup";
 
 const BibEntryDialog = lazy(() =>
   import("../papers/bib-entry-dialog").then((module) => ({ default: module.BibEntryDialog })),
+);
+const AddPapersSheet = lazy(() =>
+  import("../papers/add-papers-sheet").then((module) => ({ default: module.AddPapersSheet })),
 );
 const LiteratureDiscoveryPanel = lazy(() =>
   import("../papers/literature-discovery-panel").then((module) => ({ default: module.LiteratureDiscoveryPanel })),
@@ -22,8 +27,9 @@ const LiteratureDiscoveryPanel = lazy(() =>
 /** The new-project form; every edit clears the previous attempt's error. */
 export type CreateProjectForm = { open: boolean; error: string | null; name: string; venue: ProjectVenue };
 
-export function AppProjectDialogs({ references, importedArxivIds, createForm, updateCreateForm, createProject, rename }: {
+export function AppProjectDialogs({ references, papers, importedArxivIds, createForm, updateCreateForm, createProject, rename }: {
   references: ReferenceImport;
+  papers: readonly PaperSummary[];
   importedArxivIds: Set<string>;
   createForm: CreateProjectForm;
   updateCreateForm: (update: Partial<CreateProjectForm>) => void;
@@ -35,9 +41,27 @@ export function AppProjectDialogs({ references, importedArxivIds, createForm, up
     close: () => void;
   };
 }) {
-  const { bibEntry, setLiteratureOpen } = references;
+  const { bibEntry, setLiteratureOpen, addSheet } = references;
   return (
     <>
+      {addSheet.open && (
+        <Suspense fallback={null}>
+          <AddPapersSheet
+            key={addSheet.key}
+            seed={addSheet.seed}
+            papers={papers}
+            importing={references.importing}
+            onResolve={references.resolveBibQuery}
+            onAdd={references.addPapers}
+            onStop={references.cancelImport}
+            onEnterManually={() => {
+              references.closeAddSheet();
+              references.enterBibEntryManually();
+            }}
+            onClose={references.closeAddSheet}
+          />
+        </Suspense>
+      )}
       <Suspense fallback={null}>
         <BibEntryDialog
           key={bibEntry.key}
@@ -57,6 +81,8 @@ export function AppProjectDialogs({ references, importedArxivIds, createForm, up
       {references.literatureOpen && (
         <Suspense fallback={null}>
           <LiteratureDiscoveryPanel
+            key={references.literatureSeed.key}
+            initialQuery={references.literatureSeed.query}
             onClose={() => setLiteratureOpen(false)}
             importedIds={importedArxivIds}
             onImportArxiv={async (arxivId) => { await references.importReference(arxivId); }}

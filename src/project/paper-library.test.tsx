@@ -45,6 +45,8 @@ function baseProps(): PaperLibraryProps {
     setImportInput: vi.fn(),
     onImport: vi.fn(),
     onCancelImport: vi.fn(),
+    onAddPapers: vi.fn(),
+    onSearchLiterature: vi.fn(),
     importing: false,
   };
 }
@@ -72,8 +74,10 @@ function renderLibrary(overrides?: Partial<PaperLibraryProps>) {
 }
 
 const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });
+/** The full-text searches, apart from the scan of where the manuscript cites each paper. */
+const searchCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "search_paper_library");
 
-/** While an import or fetch runs, the search box is the read-only progress surface. */
+/** While a download runs, the search box is the read-only progress surface. */
 function expectImportProgress(active: boolean) {
   const input = searchbox();
   expect(input).toHaveAttribute("aria-busy", String(active));
@@ -102,18 +106,23 @@ beforeEach(() => {
 });
 
 describe("PaperLibrary", () => {
-  // Only a paper already held with full text opens instead; every other
-  // submission imports, which also repairs a missing full text.
+  // A paper already held is said to be, with its \cite to copy, and opens
+  // (or fetches its full text) instead of importing twice; anything else
+  // the add row offers to add.
   it.each([
-    ["https://arxiv.org/pdf/1706.03762v3", true],
-    ["https://arxiv.org/pdf/2010.11929", false],
-    ["https://example.org/1706.03762", false],
-    ["A study of 1706.03762", false],
-  ])("opens rather than reimports %s only when it is readable (%s)", (input, opens) => {
+    ["https://arxiv.org/pdf/1706.03762v3", "open"],
+    ["arXiv:1706.03762", "open"],
+    ["https://arxiv.org/pdf/2010.11929", "fetch"],
+    ["https://example.org/1706.03762", "import"],
+    ["A study of 1706.03762", "import"],
+  ])("adds %s only when the library does not hold it (%s)", (input, action) => {
     const { props } = renderLibrary({ importInput: input });
-    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
-    expect(vi.mocked(props.onPaper).mock.calls).toEqual(opens ? [[attention]] : []);
-    expect(props.onImport).toHaveBeenCalledTimes(opens ? 0 : 1);
+    const held = action !== "import";
+    if (held) expect(screen.getByText("Already in Papers")).toBeInTheDocument();
+    fireEvent.click(held ? screen.getByRole("button", { name: /Already in Papers/ }) : document.querySelector<HTMLElement>("button.paper-add-row")!);
+    expect(vi.mocked(props.onPaper).mock.calls).toEqual(action === "open" ? [[attention]] : []);
+    expect(vi.mocked(props.onFetchFullText).mock.calls).toEqual(action === "fetch" ? [[vit]] : []);
+    expect(props.onImport).toHaveBeenCalledTimes(held ? 0 : 1);
   });
 
   it("lists the whole library until something is typed, and says when the library is empty", () => {
@@ -138,10 +147,10 @@ describe("PaperLibrary", () => {
     ]);
     // The opening button is named by the title and byline it lies under,
     // which are hidden themselves so they are read once, and described by
-    // the citation key the eye sees only on a lit row.
+    // what its glyph says and the citation key the eye sees only on a lit row.
     // (jsdom draws no separators, which the browser takes from CSS.)
     expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer$/);
-    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleDescription("Citation key vaswani2017");
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleDescription("Full text in Papers. Citation key vaswani2017");
     expect(within(items[0]).queryByText("Attention Is All You Need")).toHaveAttribute("aria-hidden", "true");
     expect(list.querySelectorAll("[aria-current]")).toHaveLength(0);
 
@@ -168,43 +177,48 @@ describe("PaperLibrary", () => {
 
     search(query);
     expect(paperTitles()).toEqual(titles);
-    expect(screen.getByText(titles.length ? "1 of 2 papers" : "No matching papers")).toBeInTheDocument();
+    // A query nothing matches is offered for adding instead.
+    expect(screen.getByText(titles.length ? "1 of 2 papers" : "Look up and add")).toBeInTheDocument();
   });
 
-  it("starts empty and shows pipeline stages without changing the submitted query", () => {
+  it("starts empty and shows pipeline stages in a pending row without changing the submitted query", () => {
     const { props, rerenderWith } = renderLibrary({
       importInput: "graph transformers",
+      importLabel: "graph transformers",
       importing: true,
       importStage: "Resolving citation metadata…",
       importStageId: "resolving",
     });
 
-    const fill = () => document.querySelector(".paper-import-track > span");
+    const fill = () => document.querySelector(".paper-pending-track > span");
+    const steps = () => Array.from(document.querySelectorAll(".paper-pending-steps > li")).map((step) => step.getAttribute("data-state"));
     expect(fill()).toHaveStyle({ width: "0%" });
     const input = searchbox();
-    expectImportProgress(true);
+    // The box stays a search box: the import is the row under it.
+    expectImportProgress(false);
+    expect(document.querySelector(".paper-pending .paper-add-title")).toHaveTextContent("graph transformers");
+    expect(steps()).toEqual(["current", "next", "next"]);
     expect(screen.getByRole("status")).toHaveTextContent("Resolving citation metadata…");
-    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
     fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onImport).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onCancelImport).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
-    for (const [importStageId, importStage] of [
-      ["fulltext", "Downloading full text and figures…"],
-      ["overview", "Fetching the paper overview…"],
+    for (const [importStageId, importStage, states] of [
+      ["fulltext", "Downloading full text and figures…", ["done", "current", "next"]],
+      ["overview", "Fetching the paper overview…", ["done", "done", "current"]],
     ] as const) {
       rerenderWith({ importStage, importStageId });
       expect(screen.getByRole("status").textContent).toBe(importStage);
+      expect(steps()).toEqual(states);
       expect(fill()).toHaveStyle({ width: "0%" });
       expect(input).toHaveValue("graph transformers");
     }
     rerenderWith({ importStage: undefined, importStageId: "future-stage" });
     expect(screen.getByRole("status")).toHaveTextContent("Working…");
     expect(fill()).not.toHaveStyle({ width: "100%" });
-    expect(document.querySelector(".paper-import-step")).toBeNull();
     rerenderWith({ importing: false });
     expect(screen.queryByRole("status")).toBeNull();
-    expectImportProgress(false);
+    expect(document.querySelector(".paper-pending")).toBeNull();
     expect(input).toHaveValue("graph transformers");
   });
 
@@ -225,7 +239,7 @@ describe("PaperLibrary", () => {
       pending.forEach((callback) => callback(time));
     });
     const { rerenderWith } = renderLibrary({ importing: true, importStageId: "resolving" });
-    const width = () => parseFloat(document.querySelector<HTMLElement>(".paper-import-track > span")!.style.width);
+    const width = () => parseFloat(document.querySelector<HTMLElement>(".paper-pending-track > span")!.style.width);
     tick(2000);
     expect(width()).toBeCloseTo(14.85);
     tick(3000);
@@ -247,7 +261,6 @@ describe("PaperLibrary", () => {
       importStage: "Downloading full text and figures…",
     });
     expectImportProgress(true);
-    expect(screen.getByRole("button", { name: "Add paper" })).toBeDisabled();
     fireEvent.keyDown(searchbox(), { key: "Enter" });
     expect(props.onImport).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
@@ -259,7 +272,6 @@ describe("PaperLibrary", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expectImportProgress(false);
     expect(searchbox()).toHaveValue("Adam");
-    expect(screen.getByRole("button", { name: "Add paper" })).toBeEnabled();
   });
 
   it("ranks a title prefix ahead of metadata and full-text matches", async () => {
@@ -328,16 +340,16 @@ describe("PaperLibrary", () => {
     const input = searchbox();
     fireEvent.compositionStart(input);
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(invoke).not.toHaveBeenCalled();
+    expect(searchCalls()).toHaveLength(0);
     fireEvent.compositionEnd(input);
     act(() => vi.advanceTimersByTime(0));
     // No pause in typing needed: Enter is the request to search now.
     await act(async () => { fireEvent.keyDown(input, { key: "Enter" }); });
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("search_paper_library", { query: "dot-product" });
+    expect(searchCalls()).toEqual([["search_paper_library", { query: "dot-product" }]]);
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     // The debounced pass this replaced must not search a second time.
     await settleTextSearch();
-    expect(invoke).toHaveBeenCalledOnce();
+    expect(searchCalls()).toHaveLength(1);
   });
 
   it("moves between papers with the arrows, Home and End, from any of a row's controls", () => {
@@ -363,16 +375,21 @@ describe("PaperLibrary", () => {
     expect(first).toHaveFocus();
   });
 
-  it("adds only through the labeled + button", () => {
+  it("adds an identifier on Enter, a title only from its add row, and anything more through the sheet", () => {
     const { props, search } = renderLibrary();
     expect(document.querySelector(".import-box .ui-search-field-icon")).not.toBeNull();
-    const add = screen.getByRole("button", { name: "Add paper" });
-    expect(add).toBeDisabled();
     search("something nobody has");
     fireEvent.keyDown(searchbox(), { key: "Enter" });
     expect(props.onImport).not.toHaveBeenCalled();
-    fireEvent.click(add);
+    fireEvent.click(screen.getByRole("button", { name: /^Search the literature for/ }));
+    expect(props.onSearchLiterature).toHaveBeenCalledExactlyOnceWith("something nobody has");
+    fireEvent.click(screen.getByRole("button", { name: /^Look up and add/ }));
     expect(props.onImport).toHaveBeenCalledOnce();
+    search("10.1038/nature14539");
+    fireEvent.keyDown(searchbox(), { key: "Enter" });
+    expect(props.onImport).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "Add papers…" }));
+    expect(props.onAddPapers).toHaveBeenCalledExactlyOnceWith("10.1038/nature14539");
   });
 
   it("bylines a paper with its authors and year, and with its source only when it records neither", () => {
@@ -385,8 +402,8 @@ describe("PaperLibrary", () => {
       .map((button) => button.closest<HTMLElement>(".paper-row")!);
     const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
     expect(byline(first)).toEqual(["Vaswani and Shazeer", "2017"]);
-    // The preprint downloads on click, which its glyph says.
-    expect(byline(second)).toEqual(["2021", ""]);
+    // The preprint downloads on click, which its glyph says, not the byline.
+    expect(byline(second)).toEqual(["2021"]);
     // A captured page's bundle key is never presented as an arXiv id.
     expect(byline(third)).toEqual(["example.org"]);
   });
@@ -398,15 +415,17 @@ describe("PaperLibrary", () => {
     expect(writeText).toHaveBeenCalledWith("vaswani2017");
     const row = screen.getAllByRole("button", { name: /Keyless/ })[0].closest<HTMLElement>(".paper-row")!;
     expect(row.querySelector(".paper-cite-key")).toBeNull();
-    expect(within(row).getAllByRole("button")[0]).not.toHaveAttribute("aria-describedby");
+    expect(within(row).getAllByRole("button")[0]).not.toHaveAccessibleDescription(/Citation key/);
   });
 
-  it("tags a paper with nothing to download as a citation", () => {
+  it("marks a paper with nothing to download as a citation", () => {
     const cited: PaperSummary = { arxivId: "", title: "Cited Work", citationKey: "cited2020", hasFullText: false, hasBlog: false };
     renderLibrary({ papers: [vit, cited] });
-    // An arXiv preprint downloads on click, so it is not tagged.
-    const tags = [...document.querySelectorAll<HTMLElement>(".paper-row .paper-tags")];
-    expect(tags.map((line) => [...line.children].map((tag) => tag.textContent))).toEqual([["Citation only"]]);
+    // An arXiv preprint downloads on click, which its glyph says too; neither row carries a chip.
+    const rows = [...document.querySelectorAll<HTMLElement>(".paper-row")];
+    expect(rows.map((row) => row.dataset.reading)).toEqual(["downloadable", "citation"]);
+    expect(document.querySelector(".paper-row .paper-tags")).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Cited Work/ })[0]).toHaveAccessibleDescription(/^Citation only, no full text/);
   });
 
   it("names a corporate author whole, and finds it without its braces", () => {
@@ -434,8 +453,7 @@ describe("PaperLibrary", () => {
 
     await settleTextSearch();
 
-    expect(invoke).toHaveBeenCalledOnce();
-    expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "dot-product" });
+    expect(searchCalls()).toEqual([["search_paper_library", { query: "dot-product" }]]);
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     // The matching line replaces the usual subtitle, so the hit is visible.
     expect(screen.getByText("scaled dot-product")).toBeInTheDocument();

@@ -1407,7 +1407,7 @@ function App() {
       shortcut: mode === "proofread" ? { key: "p", mod: true, alt: true } : undefined,
       run: () => updateCanvasRequest("proofread", { mode, id: crypto.randomUUID() }),
     })),
-    { id: "bib", when: inProject, label: t`Add bibliography entry`, group: "research", run: () => referenceImport.openBibEntry() },
+    { id: "bib", when: inProject, label: t`Add papers`, detail: t`DOIs, arXiv IDs, links, titles or BibTeX`, group: "research", run: () => referenceImport.openAddSheet() },
     { id: "discover", when: inProject, label: t`Discover literature`, detail: t`OpenAlex search`, group: "research", run: () => tools.open("literature") },
     { id: "check-references", when: inProject, label: t`Check references`, group: "research", run: checkReferences },
     { id: "find", when: inProject, label: t`Find in project`, detail: t`source files and papers`, group: "edit", key: "f", shift: true, run: openProjectFind },
@@ -1554,7 +1554,7 @@ function App() {
       <PanelActions
         mode={mode}
         synara={{ origin: synaraOrigin, permissionMode, autoModeAvailable, changePermissionMode }}
-        openBibEntryDialog={referenceImport.openBibEntry}
+        openAddPapers={referenceImport.openAddSheet}
         {...panelActionHandlers}
         openProjectFind={openProjectFind}
         setProjectSearchOpen={setProjectSearchOpen}
@@ -1565,7 +1565,7 @@ function App() {
     // `synara` is rebuilt each render; the row reads only the fields listed.
   }, [
     autoModeAvailable, changePermissionMode, openProjectFind, panelActionHandlers, permissionMode,
-    referenceImport.openBibEntry, requestNewEntry, setProjectSearchOpen, synaraOrigin,
+    referenceImport.openAddSheet, requestNewEntry, setProjectSearchOpen, synaraOrigin,
   ]);
   // The sidebar panels' callbacks are mostly inline, so they change on every
   // App render; the memoized panels get stable forwarders instead.
@@ -1595,6 +1595,11 @@ function App() {
     setImportInput: referenceImport.setInput,
     onImport: referenceImport.importFromInput,
     onCancelImport: referenceImport.cancelImport,
+    onAddPapers: (seed: string) => referenceImport.openAddSheet(seed),
+    onSearchLiterature: (query: string) => {
+      referenceImport.searchLiterature(query);
+      tools.open("literature");
+    },
   });
 
   if (!project) {
@@ -1962,12 +1967,18 @@ function App() {
             <PaperLibrary
               projectKey={project.root}
               papers={papers}
+              citations={citations}
+              // Refreshed after every save, so the counts follow the manuscript.
+              citationUsageRevision={unusedSymbols}
               activePaper={activePaper}
               paperFetchStates={paperFetchStates}
               importInput={referenceImport.input}
               recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
               importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
               importStageId={referenceImport.stage}
+              importLabel={referenceImport.importLabel}
+              justAdded={referenceImport.justAdded?.projectRoot === project.root ? referenceImport.justAdded.keys : undefined}
+              bibliographyName={project.manifest.primaryBibliography?.split("/").pop()}
               importing={referenceImport.importing}
               {...paperLibraryHandlers}
             />
@@ -2137,6 +2148,7 @@ function App() {
 
       <AppProjectDialogs
         references={referenceImport}
+        papers={papers}
         importedArxivIds={importedArxivIds}
         createForm={createForm}
         updateCreateForm={updateCreateForm}

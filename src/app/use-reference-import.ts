@@ -8,6 +8,7 @@ import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bi
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery } from "../papers/paper-source";
+import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddItem } from "../papers/add-papers-queue";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { showError, showNotice } from "./notify";
 
@@ -20,6 +21,9 @@ type ImportResult = {
   cancelled?: boolean;
   paperPath?: string;
 };
+
+/** How much an import says when it ends: everything, only what went wrong or differently, or nothing (its row says it). */
+type ImportNotices = "all" | "problems" | "none";
 
 type BibEntryDialog = {
   open: boolean;
@@ -74,6 +78,18 @@ export function useReferenceImport({
   // spinner; agent-driven imports run in a separate process and never emit.
   const [stage, setStage] = useState<string | null>(null);
   useEffect(() => subscribeTauriEvent<string>(PAPER_IMPORT_PROGRESS_EVENT, setStage), []);
+  // Adding papers, in one state so startup pays one hook for it: what the
+  // running import was given (the Papers pending row names it by this); the
+  // papers this window added since the last batch began, by citation key or
+  // arXiv id, whose rows say "Just added" with the key to copy instead of a
+  // toast; and the Add papers sheet's opening and the query handed to Find
+  // literature, each new one remounting its surface.
+  const [adding, setAdding] = useState<{
+    label: string | null;
+    justAdded: { projectRoot: string; keys: ReadonlySet<string> } | null;
+    sheet: { open: boolean; key: number; seed: string };
+    literature: { query: string; key: number };
+  }>({ label: null, justAdded: null, sheet: { open: false, key: 0, seed: "" }, literature: { query: "", key: 0 } });
   const [literatureOpen, setLiteratureOpen] = useState(false);
   const [bibEntry, setBibEntryState] = useState<BibEntryDialog>({
     open: false, busy: false, error: null, key: 0, mode: "add", initial: undefined,
@@ -92,10 +108,14 @@ export function useReferenceImport({
     ...current, open: true, error: null, key: current.key + 1, mode, initial, resolveSeed, importRoot,
   })), []);
 
-  const importReference = useCallback(async (query: string) => {
+  const importReference = useCallback(async (
+    query: string,
+    { notices = "all", label }: { notices?: ImportNotices; label?: string } = {},
+  ) => {
     const trimmed = query.trim();
     if (!trimmed || inFlightRef.current) return;
     inFlightRef.current = true;
+    setAdding((current) => ({ ...current, label: label ?? trimmed }));
     const requestId = crypto.randomUUID();
     requestIdRef.current = requestId;
     const importRoot = projectRootRef.current;
@@ -118,6 +138,16 @@ export function useReferenceImport({
       if (projectRootRef.current !== importRoot) return;
       if (importRoot) {
         setRecentImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
+        const added = result.citationKey || result.arxivId;
+        if (notices !== "all" && added && !result.cancelled && !result.alreadyImported) {
+          setAdding((current) => ({
+            ...current,
+            justAdded: {
+              projectRoot: importRoot,
+              keys: new Set([...(current.justAdded?.projectRoot === importRoot ? current.justAdded.keys : []), added]),
+            },
+          }));
+        }
       }
       const snapshot = await refreshProject();
       // papers.rs writes the bibliography directly; hand it to Overleaf sync
@@ -137,7 +167,12 @@ export function useReferenceImport({
       const cited = Boolean(result.citationKey);
       const title = result.title;
       const citationCommand = `\\cite{${result.citationKey}}`;
-      showNotice(result.cancelled
+      // The Papers box's own adds settle as a "Just added" row with the key
+      // to copy, so only a cancellation, a duplicate or a missing full text
+      // still needs saying; the sheet's rows say even those.
+      const quiet = notices === "none"
+        || (notices === "problems" && !result.cancelled && !result.alreadyImported && !result.fetchError);
+      if (!quiet) showNotice(result.cancelled
         ? result.citationKey
           ? result.paperPath
             ? t({ message: `Cancellation arrived after “${result.title}” was added — cite it with ${citationCommand}; its full text had already finished importing.` })
@@ -161,27 +196,64 @@ export function useReferenceImport({
       if (isTitleQuery(trimmed) && superseded()) return;
       const message = toMessage(reason);
       if (isMissingPaperToolsError(message)) onMissingPaperTools(message);
-      else showError(message);
+      else if (notices !== "none") showError(message);
       throw reason instanceof Error ? reason : new Error(message);
     } finally {
       inFlightRef.current = false;
       if (requestIdRef.current === requestId) requestIdRef.current = null;
       setImporting(false);
+      setAdding((current) => ({ ...current, label: null }));
       setStage(null);
     }
   }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits, onMissingPaperTools]);
 
+  // Cancel stops the paper being imported and, in a batch, every one still waiting.
   const cancelImport = useCallback(() => {
+    cancelAddQueue();
     const requestId = requestIdRef.current;
     if (!requestId) return;
     requestIdRef.current = null;
     void invoke("cancel_reference_import", { requestId }).catch((reason) => showError(toMessage(reason)));
   }, []);
 
+  // Setters only, so built once: openers for the sheet, Find literature and
+  // the entry form, and the start of a batch, which retires "Just added".
+  const [requestActions] = useState(() => ({
+    openAddSheet: (seed = "") => setAdding((current) => ({ ...current, sheet: { open: true, key: current.sheet.key + 1, seed } })),
+    closeAddSheet: () => setAdding((current) => ({ ...current, sheet: { ...current.sheet, open: false } })),
+    searchLiterature: (query: string) => setAdding((current) => ({
+      ...current, literature: { query: query.trim(), key: current.literature.key + 1 },
+    })),
+    // The sheet's way to the form: straight to the fields, no lookup first.
+    enterBibEntryManually: () => setBibEntryState((current) => ({
+      ...current, open: true, error: null, key: current.key + 1, mode: "add", resolveSeed: "", importRoot: null,
+      initial: { key: "", title: "", author: "", year: "", journal: "", booktitle: "", publisher: "", url: "", doi: "", entryType: "article" },
+    })),
+    startBatch: () => {
+      const root = projectRootRef.current;
+      setAdding((current) => ({ ...current, justAdded: root ? { projectRoot: root, keys: new Set() } : null }));
+    },
+  }));
+  const { startBatch } = requestActions;
+
   const importFromInput = useCallback(async () => {
+    if (addQueueRunning()) return;
+    startBatch();
     // importReference has already surfaced any failure.
-    await importReference(input).catch(() => undefined);
-  }, [importReference, input]);
+    await importReference(input, { notices: "problems" }).catch(() => undefined);
+  }, [importReference, input, startBatch]);
+
+  /**
+   * The Add papers sheet's batch (papers/add-papers-queue.ts): one import
+   * after another, so each gets the pipeline's progress and its own Cancel,
+   * while the writer keeps writing with the sheet closed.
+   */
+  const addPapers = (items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label">>) => {
+    if (inFlightRef.current || addQueueRunning()) return;
+    const root = projectRootRef.current;
+    startBatch();
+    void runAddQueue(items, (item) => importReference(item.input, { notices: "none", label: item.label }), () => projectRootRef.current === root);
+  };
 
   const openBibEntry = useCallback((resolveSeed = "") => showBibEntry("add", undefined, resolveSeed), [showBibEntry]);
 
@@ -227,7 +299,9 @@ export function useReferenceImport({
     try {
       if (dirty && !(await save())) return;
       if (importRoot !== null && mode === "add") {
-        const result = await importReference(formatBibEntry(draft));
+        // The record a title from the Papers box resolved to: it settles in
+        // the list as "Just added", like the box's other adds.
+        const result = await importReference(formatBibEntry(draft), { notices: "problems", label: draft.title });
         if (!result || projectRootRef.current !== importRoot) return;
         setBibEntry({ open: false, importRoot: null });
         if (insertCite && result.citationKey) onCite(result.citationKey);
@@ -265,9 +339,10 @@ export function useReferenceImport({
   const clearStage = useCallback(() => setStage(null), []);
 
   return {
-    input, setInput, importing, stage, clearStage, recentImport,
+    input, setInput, importing, stage, clearStage, recentImport, importLabel: adding.label, justAdded: adding.justAdded,
     importReference, importFromInput, cancelImport,
-    literatureOpen, setLiteratureOpen,
+    addSheet: adding.sheet, addPapers, ...requestActions,
+    literatureOpen, setLiteratureOpen, literatureSeed: adding.literature,
     bibEntry, setBibEntry, openBibEntry, editBibEntry, resolveBibQuery, saveBibEntry,
   };
 }

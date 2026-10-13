@@ -31,7 +31,7 @@ export type TrellisBridgeApp = {
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild" | "cycleDiagnostic" | "progress">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "mountFrame" | "notifyPanelOpened">;
   tools: Pick<ToolDrawers, "open">;
-  referenceImport: Pick<ReturnType<typeof useReferenceImport>, "openBibEntry">;
+  referenceImport: Pick<ReturnType<typeof useReferenceImport>, "openAddSheet">;
   referenceImages: ReturnType<typeof useReferenceImages>;
   projectSearch: Pick<ReturnType<typeof useProjectSearch>, "openFind">;
   compile: (force?: boolean, sound?: boolean) => Promise<void>;
@@ -128,7 +128,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         if (kind === "papers") {
           return [
             { id: "discover", label: t`Discover literature`, run: () => tools.open("literature") },
-            { id: "bib-entry", label: t`Add bibliography entry`, run: () => referenceImport.openBibEntry() },
+            { id: "bib-entry", label: t`Add papers`, run: () => referenceImport.openAddSheet() },
             {
               id: "check-references", label: t`Check references`, run: () => {
                 const root = projectRef.current?.root;
