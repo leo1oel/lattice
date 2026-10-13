@@ -746,8 +746,9 @@ reuse its vocabulary so the product reads as one thing:
 - `ResearchArt` (`src/components/ui/research-art.tsx`) draws the larger empty
   states as static isometric objects from a research desk: the clipboard of an
   empty document panel and of a workspace with every panel closed, the first
-  PDF's proof tray, the empty library's card box, and literature search's
-  reading folio before a first search.
+  PDF's proof tray, the empty library's card box, literature search's
+  reading folio before a first search, and the reading glass of a reference
+  check with nothing left to review.
   They are monochrome, with no thread, and the host sets `--art-paper` to the
   surface they sit on.
 - The welcome screen's lattice field (`src/project/welcome-lattice.tsx`)

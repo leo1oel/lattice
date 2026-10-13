@@ -18,6 +18,8 @@ use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 pub(super) struct InlineReference {
     pub path: String,
     pub key: String,
+    /// The 1-based line of its `\bibitem`.
+    pub line: usize,
     /// The item as written, for display.
     pub text: String,
     pub title: String,
@@ -48,22 +50,26 @@ pub(super) fn inline_references(root: &Path) -> Result<Vec<InlineReference>, Str
 }
 
 fn read_list(path: &str, source: &str) -> Vec<InlineReference> {
+    // Removing comments keeps every line break, so offsets here count the
+    // same lines as the file.
     let source = without_comments(source);
     let mut references = Vec::new();
-    let mut rest = source.as_str();
-    while let Some(start) = rest.find("\\begin{thebibliography}") {
-        let list = &rest[start..];
+    let mut offset = 0;
+    while let Some(start) = source[offset..].find("\\begin{thebibliography}") {
+        let list_start = offset + start;
+        let list = &source[list_start..];
         let end = list.find("\\end{thebibliography}").unwrap_or(list.len());
         let items = &list[..end];
         let starts = items.match_indices("\\bibitem").map(|(at, _)| at).collect::<Vec<_>>();
         for (index, at) in starts.iter().enumerate() {
             let item =
                 &items[at + "\\bibitem".len()..starts.get(index + 1).copied().unwrap_or(end)];
-            if let Some(reference) = read_item(path, item) {
+            let line = source[..list_start + at].matches('\n').count() + 1;
+            if let Some(reference) = read_item(path, line, item) {
                 references.push(reference);
             }
         }
-        rest = &list[end..];
+        offset = list_start + end;
     }
     references
 }
@@ -99,7 +105,7 @@ static YEAR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(?:19|20)\d{2}\b"
 static EMPH: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\(?:emph|textit|textsl)\s*\{([^}]*)\}").unwrap());
 
-fn read_item(path: &str, item: &str) -> Option<InlineReference> {
+fn read_item(path: &str, line: usize, item: &str) -> Option<InlineReference> {
     let mut rest = item.trim_start();
     if let Some(label) = rest.strip_prefix('[') {
         rest = label[label.find(']')? + 1..].trim_start();
@@ -172,6 +178,7 @@ fn read_item(path: &str, item: &str) -> Option<InlineReference> {
     };
     Some(InlineReference {
         path: path.to_string(),
+        line,
         bibtex: render_entry(kind, &key, values),
         key,
         text: crate::util::collapse_whitespace(&body),

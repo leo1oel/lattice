@@ -296,6 +296,7 @@ mod tests {
             bibtex: bibtex.into(),
             issues: vec![],
             inline: None,
+            line: None,
         };
         let checked =
             check_entry(root, entry("ranzinger2024amradio", "AM-RADIO", before), None).unwrap();

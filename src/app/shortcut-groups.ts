@@ -2,8 +2,9 @@
  * What the shortcut sheet lists, built from the keymaps themselves: App's
  * command table (every keyed command, under its palette group), Trellis's
  * keymap as the workspace configures it, the source editors' base keymap,
- * and the LaTeX and visual Markdown editors' key tables. A key that moves in
- * one of those moves here, so the sheet cannot drift from what the keys do.
+ * the LaTeX and visual Markdown editors' key tables, and Check references'
+ * review queue. A key that moves in one of those moves here, so the sheet
+ * cannot drift from what the keys do.
  */
 import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
@@ -11,6 +12,7 @@ import { DEFAULT_KEYMAP } from "@danfessler/trellis";
 import { editorShortcuts } from "../editor/editor-keymap";
 import { LATEX_SHORTCUTS } from "../editor/latex/latex-shortcuts";
 import { ENGINE_SHORTCUTS } from "../editor/markdown/engine/engine-shortcuts";
+import { REFERENCE_CHECK_SHORTCUTS } from "../papers/reference-check-keys";
 import { FOCUS_MODE_EXIT_KEY, TRELLIS_KEYMAP, TRELLIS_SHORTCUTS } from "../trellis/trellis-keymap";
 import { comboKeys, parseKeyName } from "./key-combos";
 import { commandCombo, type AppCommand } from "./use-app-commands";
@@ -29,6 +31,7 @@ const GROUP_TITLES: Record<string, MessageDescriptor> = {
   editor: msg`Text editing`,
   latex: msg`LaTeX`,
   markdown: msg`Visual Markdown`,
+  references: msg`Check references`,
 };
 
 const keysOf = (name: string) => comboKeys(parseKeyName(name));
@@ -63,7 +66,8 @@ export function shortcutGroups(commands: readonly AppCommand[], i18n: I18n): Sho
   const editorRows = editorShortcuts().map(({ label, keys }) => ({ label: i18n._(label), combos: keys.map(keysOf) }));
   const latexRows = Object.values(LATEX_SHORTCUTS).map(({ label, key }) => ({ label: i18n._(label), combos: [keysOf(key)] }));
   const markdownRows = Object.values(ENGINE_SHORTCUTS).map(({ label, keys }) => ({ label: i18n._(label), combos: keys.map(keysOf) }));
-  for (const [id, entries] of [["panels", panelRows], ["editor", editorRows], ["latex", latexRows], ["markdown", markdownRows]] as const) {
+  const referenceRows = Object.values(REFERENCE_CHECK_SHORTCUTS).map(({ label, key }) => ({ label: i18n._(label), combos: [keysOf(key)] }));
+  for (const [id, entries] of [["panels", panelRows], ["editor", editorRows], ["latex", latexRows], ["markdown", markdownRows], ["references", referenceRows]] as const) {
     groups.push({ id, title: i18n._(GROUP_TITLES[id]), rows: mergedRows(entries) });
   }
   return groups;

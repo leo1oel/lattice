@@ -97,7 +97,7 @@ describe("Overleaf sync", () => {
     const syncCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync");
     // The drawer is a lazy chunk; a cold, busy test runner can take a while.
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_scan", { projectRoot: snapshot.root }), { timeout: 60_000 });
-    const apply = await screen.findByRole("button", { name: "Apply this update" }, { timeout: 20_000 });
+    const apply = await screen.findByRole("button", { name: "Apply" }, { timeout: 20_000 });
     expect(syncCalls()).toHaveLength(0);
     fireEvent.click(apply);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("bibliography_audit_apply", expect.objectContaining({

@@ -63,6 +63,10 @@ pub struct AuditEntry {
     /// as a record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inline: Option<String>,
+    /// The 1-based line the entry (or the `\bibitem`) starts on, so the
+    /// report can open it in the editor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
