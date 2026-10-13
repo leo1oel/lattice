@@ -8,7 +8,7 @@
  */
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GitBranch, GitCommitHorizontal, RotateCcw, Save, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GitBranch, GitCommitHorizontal, GitCompareArrows, RotateCcw, Save, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "../app-types";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -28,17 +28,21 @@ import { PROSE_FILE, prosePassages } from "./version-prose";
 import { HistoryPerson, HistoryRow } from "./history-row";
 import { clockTime, fullTime } from "./history-time";
 
-/** One version on the timeline; opening it reads what it changed. */
+/** One version on the timeline; opening it reads what it changed, or how it differs from now. */
 export function VersionRow(props: {
   entry: GitLogEntry;
   versions: GitVersions;
+  /** The project the files are read from when comparing with now. */
+  projectRoot?: string;
   expanded: boolean;
+  /** Opened to compare with the files as they are now rather than to read this version's own changes. */
+  compare: boolean;
   onToggle: () => void;
+  onCompare: () => void;
   source?: string;
-  tools?: ReactNode;
 }) {
   const { i18n, t } = useLingui();
-  const { entry } = props;
+  const { entry, versions } = props;
   const at = new Date(entry.timestamp).getTime();
   const count = entry.files.length;
   return (
@@ -58,9 +62,25 @@ export function VersionRow(props: {
       source={props.source}
       expanded={props.expanded}
       onToggle={props.onToggle}
-      tools={props.tools}
+      tools={(
+        <>
+          <button type="button" className="history-tool" title={t`Compare with now`} aria-label={t`Compare with now`} aria-pressed={props.expanded && props.compare} onClick={props.onCompare}>
+            <GitCompareArrows size={13} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="history-tool"
+            title={t`Restore project to this version`}
+            aria-label={t`Restore project to this version`}
+            disabled={versions.busy}
+            onClick={() => void versions.restoreProject(entry.hash)}
+          >
+            <RotateCcw size={13} aria-hidden="true" />
+          </button>
+        </>
+      )}
     >
-      <VersionBody entry={entry} versions={props.versions} />
+      <VersionBody key={props.compare ? "now" : "version"} entry={entry} versions={versions} projectRoot={props.projectRoot} compare={props.compare} onCompare={props.onCompare} />
     </HistoryRow>
   );
 }
@@ -71,6 +91,7 @@ export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: bool
   const newest = new Date(props.entries[0]!.timestamp).getTime();
   const oldest = new Date(props.entries.at(-1)!.timestamp).getTime();
   const count = formatCount(props.entries.length);
+  const since = clockTime(oldest, i18n.locale);
   const Chevron = props.open ? ChevronDown : ChevronRight;
   return (
     <HistoryRow
@@ -79,8 +100,8 @@ export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: bool
       weight="quiet"
       tone="version"
       title={t`${count} automatic versions`}
-      meta={<span className="history-row-detail">{t`Saved by Lattice after syncs and builds`}</span>}
-      time={`${clockTime(oldest, i18n.locale)}–${clockTime(newest, i18n.locale)}`}
+      meta={<span className="history-row-detail">{t`Saved by Lattice after syncs and builds since ${since}`}</span>}
+      time={clockTime(newest, i18n.locale)}
       timeTitle={`${fullTime(oldest, i18n.locale)} – ${fullTime(newest, i18n.locale)}`}
       source={props.source}
       expanded={props.open}
@@ -93,7 +114,7 @@ export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: bool
 const FILE_CHIPS = 12;
 
 /** An opened version: its files, the open file's changes read as prose (or its source diff), and the restores. */
-function VersionBody(props: { entry: GitLogEntry; versions: GitVersions }) {
+function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; projectRoot?: string; compare: boolean; onCompare: () => void }) {
   const { t } = useLingui();
   const { entry, versions } = props;
   // Git's own file-status words, read in each chip's tooltip.
@@ -115,13 +136,27 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions }) {
       return;
     }
     setActivePath(path);
-    fileDiff.load(`${entry.hash}:${path}`, () => invoke<GitFileDiff>("git_show_diff", { rev: entry.hash, path }));
+    const atVersion = () => invoke<GitFileDiff>("git_show_diff", { rev: entry.hash, path });
+    fileDiff.load(`${entry.hash}:${path}`, props.compare
+      // Compared with now: the file as this version left it, against the file on disk (null once deleted).
+      ? () => Promise.all([
+        atVersion(),
+        invoke<string>("read_project_file", { path, projectRoot: props.projectRoot }).catch(() => null),
+      ]).then(([version, now]) => ({ before: version.after, after: now, binary: version.binary }))
+      : atVersion);
   };
 
   const files = allFiles ? entry.files : entry.files.slice(0, FILE_CHIPS);
   const hidden = formatCount(entry.files.length - files.length);
   return (
     <div className="version-body">
+      {props.compare && (
+        <p className="version-mode-note">
+          {t`These files as this version left them, compared with now`}
+          {" · "}
+          <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
+        </p>
+      )}
       <div className="version-files" role="group" aria-label={t`Files in this version`}>
         {files.map((file) => (
           <button
@@ -151,6 +186,11 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions }) {
         />
       )}
       <div className="version-actions">
+        {!props.compare && (
+          <button type="button" className="version-action" onClick={props.onCompare}>
+            <GitCompareArrows size={12} aria-hidden="true" /> {t`Compare with now`}
+          </button>
+        )}
         {activePath && (
           <button
             type="button"
@@ -207,7 +247,7 @@ function VersionFileChanges(props: { path: string; diff: GitFileDiff | null; err
     <div className="version-reader">
       <ReaderModeSwitch mode={mode} onMode={setMode} />
       <div className="version-prose" aria-label={t`Changes in ${path}`}>
-        <div className="version-prose-head">
+        {passages.length > 0 && <div className="version-prose-head">
           <span>{passages.length === 1 ? t`1 change` : t`${count} changes`}</span>
           {passages.length > 1 && (
             <span className="version-prose-steps">
@@ -219,7 +259,7 @@ function VersionFileChanges(props: { path: string; diff: GitFileDiff | null; err
               </button>
             </span>
           )}
-        </div>
+        </div>}
         {!passages.length && <p className="version-prose-empty">{t`No textual changes`}</p>}
         {passages.map((passage, index) => (
           <div
@@ -255,7 +295,7 @@ function ReaderModeSwitch(props: { mode: "text" | "source"; onMode: (mode: "text
   );
 }
 
-/** Save a version, with an optional name; the count and a refresh beside it. */
+/** The views (`children`), then Save version and a refresh; saving opens a field for the version's name under them. */
 export function VersionsToolbar(props: { versions: GitVersions; children?: ReactNode }) {
   const { t } = useLingui();
   const { versions } = props;
@@ -269,45 +309,58 @@ export function VersionsToolbar(props: { versions: GitVersions; children?: React
     event.preventDefault();
     if (await versions.saveVersion(label.trim())) close();
   };
-  if (open) {
-    return (
-      <form className="versions-save-form" onSubmit={(event) => void submit(event)}>
-        <Input
-          className="versions-save-input"
-          controlSize="compact"
-          autoFocus
-          placeholder={t`Name this version, e.g. Sent to co-authors`}
-          aria-label={t`Version label`}
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-        />
-        <button type="submit" className="versions-save" disabled={versions.busy}>
-          <Save size={12} /> {t`Save`}
-        </button>
-        <button type="button" className="versions-icon-button" title={t`Cancel`} aria-label={t`Cancel`} onClick={close}>
-          <X size={13} />
-        </button>
-      </form>
-    );
-  }
   return (
-    <div className="versions-toolbar">
-      {props.children}
-      {versions.phase === "ready" && (
-        <button type="button" className="versions-save" disabled={versions.busy} title={t`Save version`} onClick={() => setOpen(true)}>
-          <Save size={12} aria-hidden="true" /> <span className="versions-save-label">{t`Save version`}</span>
-        </button>
+    <>
+      <div className="versions-toolbar">
+        {props.children}
+        {versions.phase === "ready" && (
+          <button
+            type="button"
+            className="versions-save"
+            disabled={versions.busy || open}
+            title={t`Save version`}
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+          >
+            <Save size={12} aria-hidden="true" /> <span className="versions-save-label">{t`Save version`}</span>
+          </button>
+        )}
+        <ReloadIconButton
+          className="versions-icon-button"
+          label={t`Refresh history`}
+          tooltip={t`Refresh history`}
+          busy={versions.refreshing}
+          disabled={versions.refreshing || versions.busy}
+          onClick={() => void versions.reload()}
+          iconSize={13}
+        />
+      </div>
+      {open && (
+        <form className="versions-save-form" onSubmit={(event) => void submit(event)}>
+          <Input
+            className="versions-save-input"
+            controlSize="compact"
+            autoFocus
+            placeholder={t`Name this version, e.g. Sent to co-authors`}
+            aria-label={t`Version label`}
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              // Escape closes the field, not the drawer around it.
+              event.stopPropagation();
+              close();
+            }}
+          />
+          <button type="submit" className="versions-save" disabled={versions.busy}>
+            <Save size={12} /> {t`Save`}
+          </button>
+          <button type="button" className="versions-icon-button" title={t`Cancel`} aria-label={t`Cancel`} onClick={close}>
+            <X size={13} />
+          </button>
+        </form>
       )}
-      <ReloadIconButton
-        className="versions-icon-button"
-        label={t`Refresh history`}
-        tooltip={t`Refresh history`}
-        busy={versions.refreshing}
-        disabled={versions.refreshing || versions.busy}
-        onClick={() => void versions.reload()}
-        iconSize={13}
-      />
-    </div>
+    </>
   );
 }
 
@@ -374,4 +427,28 @@ export function VersionsState(props: { versions: GitVersions }) {
     );
   }
   return versions.error ? <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage> : null;
+}
+
+/**
+ * The versions' state as one quiet line above the whole stream, where a full
+ * empty state would crowd out the activity and Overleaf rows: tracking off
+ * (with the switch) or Git unreachable. Nothing while loading or when fine.
+ */
+export function VersionsNotice(props: { versions: GitVersions }) {
+  const { t } = useLingui();
+  const { versions } = props;
+  if (versions.phase === "error") {
+    return <InlineMessage level="error" className="versions-inline">{t`Version history is unavailable: ${versions.error}`}</InlineMessage>;
+  }
+  if (versions.phase !== "no-repo") {
+    return versions.phase === "ready" && versions.error ? <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage> : null;
+  }
+  return (
+    <div className="versions-notice">
+      <span>{t`Version tracking is off for this project`}</span>
+      <button type="button" className="version-mode-switch" disabled={versions.busy} onClick={() => void versions.enableTracking()}>
+        {t`Enable version tracking`}
+      </button>
+    </div>
+  );
 }

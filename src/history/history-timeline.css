@@ -7,11 +7,33 @@
 
 .project-history-drawer { container: history / inline-size; }
 
-/* ---- The view switch and the versions toolbar */
-.versions-tabs { margin-top: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+/* ---- The views and the versions toolbar: which records to show, pills that
+   wrap under each other in a narrow panel, and Save version with refresh at
+   the right (Save drops its label below 300px). */
 .versions-toolbar,
-.versions-save-form { display: flex; align-items: center; gap: var(--space-3); min-width: 0; margin: var(--space-6) 0 var(--space-2); }
-.versions-count { min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
+.versions-save-form { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.versions-toolbar { align-items: flex-start; margin: var(--space-6) 0 var(--space-2); }
+.versions-save-form { margin: var(--space-4) 0 var(--space-2); }
+.history-views { display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.history-view {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--control-height-compact);
+  padding: 0 var(--space-5);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+.history-view:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.history-view[aria-pressed="true"] { background: var(--control-pressed-surface); box-shadow: none; color: var(--text-primary); font-weight: var(--weight-medium); }
+.versions-notice { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); margin-top: var(--space-4); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); background: var(--control-hover-surface); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .versions-toolbar .versions-save { margin-left: auto; }
 .versions-save {
   flex: none;
@@ -208,6 +230,13 @@
   .history-empty .research-art { width: 96px; }
   .versions-save-label { display: none; }
 }
+/* A narrow panel gives the meta line the whole row: the glyph already says
+   where a row came from, so its source tag goes, and names give way sooner. */
+@container history (width < 340px) {
+  .history-row-source { display: none; }
+  .history-row-meta { grid-column: 1 / -1; }
+  .history-person { min-width: 2.5em; }
+}
 
 /* ---- An opened version */
 .version-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); min-width: 0; }
@@ -281,6 +310,9 @@
 .version-action:hover:not(:disabled) { background: var(--control-hover-surface); }
 .version-action:active:not(:disabled) { background: var(--control-pressed-surface); }
 .version-action:disabled { border-color: var(--control-disabled-border); background: var(--control-disabled-surface); color: var(--control-disabled-ink); }
+.version-mode-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.version-mode-switch { padding: 0; background: transparent; color: var(--text-primary); font: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.version-mode-switch:hover:not(:disabled) { text-decoration-color: currentColor; }
 .version-note { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 
 /* ---- An opened activity entry */

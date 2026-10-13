@@ -13,13 +13,12 @@ import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { formatCount } from "../i18n";
 import type { GitLogEntry } from "../app-types";
 import { OverleafHistoryRow, OverleafHistoryState, type OverleafHistory } from "../overleaf/overleaf-history";
 import { useOverleafHistory, type OverleafUpdate } from "../overleaf/use-overleaf-history";
-import { AutomaticVersionsRow, VersionRow, VersionsState, VersionsToolbar } from "./versions-timeline";
+import { AutomaticVersionsRow, VersionRow, VersionsNotice, VersionsState, VersionsToolbar } from "./versions-timeline";
 import { isAutomaticVersion } from "./version-messages";
 import { useGitVersions, type GitVersions } from "./use-git-versions";
 import { HistoryDay, HistoryRow, HistoryStat } from "./history-row";
@@ -62,13 +61,17 @@ export type HistoryItem = {
 /** The part of a `get_history_entry` transaction record the diff view reads. */
 type TransactionRecord = { id: string; changes: DiffFileChange[] };
 
-/** Which record the timeline shows: git versions, Lattice's own activity, or Overleaf's history. */
-type HistoryView = "versions" | "activity" | "overleaf";
+/**
+ * What the timeline shows: everything in one stream, or one record alone —
+ * git versions, Lattice's own activity, or Overleaf's history.
+ */
+type HistoryView = "everything" | "versions" | "activity" | "overleaf";
 type ActivityFilter = "all" | "user" | "agent" | "citation";
 
-// Session-scoped memory of the last-used view. Versions is the default; the
+// Session-scoped memory of the last-used view. Everything is the default; the
 // choice is intentionally not persisted to localStorage.
-let lastUsedView: HistoryView = "versions";
+let lastUsedView: HistoryView = "everything";
+const rememberView = (view: HistoryView) => { lastUsedView = view; };
 
 /** One line of the timeline, whichever record it came from. */
 type TimelineRow =
@@ -113,10 +116,12 @@ export function HistoryDrawer(props: {
   // A project that was linked last time may not be now, and the remembered view
   // would otherwise land on an Overleaf list with nothing behind it.
   const [view, setView] = useState<HistoryView>(
-    lastUsedView === "overleaf" && !props.overleafLinked ? "versions" : lastUsedView,
+    lastUsedView === "overleaf" && !props.overleafLinked ? "everything" : lastUsedView,
   );
   const userPickedView = useRef(false);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  /** The open row, when it was opened to compare with now rather than to read its own changes. */
+  const [compareKey, setCompareKey] = useState<string | null>(null);
   const [openFolds, setOpenFolds] = useState<ReadonlySet<string>>(new Set());
   const entryLoad = useLatestLoad<TransactionRecord>();
   const entry = entryLoad.value;
@@ -133,22 +138,32 @@ export function HistoryDrawer(props: {
     onVersionsChanged: props.onVersionsChanged,
     onGitUnreachable: () => {
       // The git commands are missing entirely (e.g. an older backend build).
-      // If the user hasn't picked a view themselves, fall back to Activity so
-      // the drawer stays useful.
+      // If the user hasn't picked a view themselves, fall back to the whole
+      // stream so the drawer stays useful.
       if (userPickedView.current) return;
-      lastUsedView = "activity";
-      setView("activity");
+      rememberView("everything");
+      setView((current) => (current === "versions" ? "everything" : current));
     },
   });
 
   const selectView = (next: HistoryView) => {
     userPickedView.current = true;
-    lastUsedView = next;
+    rememberView(next);
     setView(next);
   };
 
-  const toggleRow = (key: string) => setExpandedKey((current) => (current === key ? null : key));
+  const toggleRow = (key: string) => {
+    setCompareKey(null);
+    setExpandedKey((current) => (current === key ? null : key));
+  };
+  /** Open `key` compared with now; asked again while it is, close it. */
+  const compareRow = (key: string) => {
+    const closing = expandedKey === key && compareKey === key;
+    setExpandedKey(closing ? null : key);
+    setCompareKey(closing ? null : key);
+  };
   const toggleActivity = (item: HistoryItem) => {
+    setCompareKey(null);
     setActiveChangeIndex(0);
     const expanding = expandedKey !== `activity:${item.id}`;
     setExpandedKey(expanding ? `activity:${item.id}` : null);
@@ -165,9 +180,10 @@ export function HistoryDrawer(props: {
   useEffect(() => {
     if (!focusNonce || !focusId || handledFocusRef.current === focusNonce) return;
     handledFocusRef.current = focusNonce;
-    lastUsedView = "activity";
+    rememberView("activity");
     setView("activity");
     setFilter("all");
+    setCompareKey(null);
     setActiveChangeIndex(0);
     setExpandedKey(`activity:${focusId}`);
     entryLoad.load(focusId, () => invoke<TransactionRecord>("get_history_entry", { transactionId: focusId }));
@@ -202,7 +218,7 @@ export function HistoryDrawer(props: {
   }), [onClose, onOpenFile, theme, themeName]);
   const scrollToChange = (id: string) => codeViewRef.current?.scrollTo({ type: "item", id, align: "start", behavior: "smooth" });
   useEffect(() => {
-    if (view !== "activity" || !resources.ready || !entry || entry.changes.length < 2) return;
+    if (view === "versions" || view === "overleaf" || !resources.ready || !entry || entry.changes.length < 2) return;
     const activeItem = codeViewItems[activeChangeIndexRef.current];
     if (activeItem) scrollToChange(activeItem.id);
   }, [codeViewItems, entry, resources.ready, view]);
@@ -370,7 +386,47 @@ export function HistoryDrawer(props: {
     );
   };
 
-  /** The rows of `view`'s record, newest first, grouped by day with automatic versions folded. */
+  const sourceLabels = { version: t`Version`, activity: t({ message: "Activity", context: "history source" }), overleaf: "Overleaf" };
+  /** Rows name their record only when the timeline mixes them. */
+  const source = (kind: keyof typeof sourceLabels) => (view === "everything" ? sourceLabels[kind] : undefined);
+
+  const renderVersion = (entry: GitLogEntry, git: GitVersions) => {
+    const key = `version:${entry.hash}`;
+    return (
+      <VersionRow
+        key={key}
+        entry={entry}
+        versions={git}
+        projectRoot={props.overleafProjectRoot}
+        expanded={expandedKey === key}
+        compare={compareKey === key}
+        onToggle={() => toggleRow(key)}
+        onCompare={() => compareRow(key)}
+        source={source("version")}
+      />
+    );
+  };
+  const renderOverleaf = (update: OverleafUpdate, overleaf: OverleafHistory) => {
+    const key = `overleaf:${update.toVersion}`;
+    return (
+      <OverleafHistoryRow
+        key={key}
+        update={update}
+        history={overleaf}
+        projectRoot={props.overleafProjectRoot ?? ""}
+        expanded={expandedKey === key}
+        compare={compareKey === key}
+        onToggle={() => toggleRow(key)}
+        onCompare={() => compareRow(key)}
+        source={source("overleaf")}
+        onClose={props.onClose}
+        onOpenFile={props.onOpenFile}
+        onRestored={props.onOverleafRestored}
+      />
+    );
+  };
+
+  /** `rows`, newest first, grouped by day, with each run of automatic versions folded. */
   const renderTimeline = (rows: TimelineRow[], overleaf: OverleafHistory | null) => {
     const sorted = [...rows].sort((left, right) => right.at - left.at);
     return groupByDay(sorted, (row) => row.at).map((day) => (
@@ -378,7 +434,7 @@ export function HistoryDrawer(props: {
         {foldAutomatic(day.items).flatMap((row): ReactNode[] => {
           switch (row.kind) {
             case "activity":
-              return [renderActivity(row.item, row.at)];
+              return [renderActivity(row.item, row.at, source("activity"))];
             case "version":
               return [renderVersion(row.entry, versions)];
             case "automatic": {
@@ -389,7 +445,7 @@ export function HistoryDrawer(props: {
                 return next;
               });
               return [
-                <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} />,
+                <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} source={source("version")} />,
                 ...(open ? row.entries.map((entry) => renderVersion(entry, versions)) : []),
               ];
             }
@@ -400,31 +456,11 @@ export function HistoryDrawer(props: {
       </HistoryDay>
     ));
   };
-  const renderVersion = (entry: GitLogEntry, git: GitVersions) => (
-    <VersionRow
-      key={`version:${entry.hash}`}
-      entry={entry}
-      versions={git}
-      expanded={expandedKey === `version:${entry.hash}`}
-      onToggle={() => toggleRow(`version:${entry.hash}`)}
-    />
-  );
-  const renderOverleaf = (update: OverleafUpdate, overleaf: OverleafHistory) => (
-    <OverleafHistoryRow
-      key={`overleaf:${update.toVersion}`}
-      update={update}
-      history={overleaf}
-      projectRoot={props.overleafProjectRoot ?? ""}
-      expanded={expandedKey === `overleaf:${update.toVersion}`}
-      onToggle={() => toggleRow(`overleaf:${update.toVersion}`)}
-      onClose={props.onClose}
-      onOpenFile={props.onOpenFile}
-      onRestored={props.onOverleafRestored}
-    />
-  );
 
-  const visibleHistory = props.history.filter((item) => filter === "all" || (item.actor ?? "user") === filter);
-  const activityRows = (): TimelineRow[] => visibleHistory.map((item) => ({
+  const shownHistory = view === "activity"
+    ? props.history.filter((item) => filter === "all" || (item.actor ?? "user") === filter)
+    : props.history;
+  const activityRows = (): TimelineRow[] => shownHistory.map((item) => ({
     kind: "activity", key: `activity:${item.id}`, at: new Date(item.timestamp).getTime(), item,
   }));
   const versionRows = (): TimelineRow[] => (versions.phase === "ready" ? versions.entries : []).map((entry) => ({
@@ -433,6 +469,95 @@ export function HistoryDrawer(props: {
   const overleafRows = (overleaf: OverleafHistory): TimelineRow[] => overleaf.updates.map((update) => ({
     kind: "overleaf", key: `overleaf:${update.toVersion}`, at: update.endTs, update,
   }));
+
+  /** The stream for the current view; Overleaf's history arrives only for a linked project. */
+  const renderBody = (overleaf: OverleafHistory | null) => {
+    if (view === "versions") {
+      return (
+        <>
+          <VersionsState versions={versions} />
+          <div className="history-timeline">{renderTimeline(versionRows(), null)}</div>
+        </>
+      );
+    }
+    if (view === "overleaf") {
+      if (!overleaf) return null;
+      return (
+        <>
+          <OverleafHistoryState history={overleaf} alone />
+          <div className="history-timeline">{renderTimeline(overleafRows(overleaf), overleaf)}</div>
+          <LoadMoreOverleaf history={overleaf} label={t`Load more`} />
+        </>
+      );
+    }
+    if (view === "activity") {
+      return (
+        <>
+          <div className="ui-segmented ui-segmented--compact history-filters" role="group" aria-label={t`Filter project changes`}>
+            {([
+              ["all", t`All`],
+              ["user", t`You`],
+              ["agent", t`Agent`],
+              ["citation", t`Citations`],
+            ] as const).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className="ui-segmented-tab"
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="history-timeline">{renderTimeline(activityRows(), null)}</div>
+          {!shownHistory.length && (
+            props.history.length ? (
+              <EmptyState icon={<EmptyIllustration kind="search" />} description={t`No changes match this filter`} />
+            ) : (
+              <EmptyState
+                className="history-empty"
+                icon={<ResearchArt drawing={DATED_DRAFTS} />}
+                title={t`Nothing has changed yet`}
+                description={t`Every edit you, the agent or the citation tool make shows here, and each can be undone`}
+              />
+            )
+          )}
+        </>
+      );
+    }
+    // Everything: the three records interleaved by time. While Overleaf has
+    // older pages to read, the stream stops at the oldest one read, so a gap
+    // in its history never reads as nothing having happened there.
+    const cutoff = overleaf?.hasMore ? overleaf.updates.at(-1)?.endTs ?? Infinity : -Infinity;
+    const rows = [...activityRows(), ...versionRows(), ...(overleaf ? overleafRows(overleaf) : [])].filter((row) => row.at >= cutoff);
+    const waiting = versions.phase === "loading" || (overleaf?.loading && !overleaf.updates.length);
+    return (
+      <>
+        <VersionsNotice versions={versions} />
+        {overleaf && <OverleafHistoryState history={overleaf} alone={false} />}
+        <div className="history-timeline">{renderTimeline(rows, overleaf)}</div>
+        {!rows.length && !waiting && (
+          <EmptyState
+            className="history-empty"
+            icon={<ResearchArt drawing={DATED_DRAFTS} />}
+            title={t`Nothing has changed yet`}
+            description={t`Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here`}
+          />
+        )}
+        {overleaf && <LoadMoreOverleaf history={overleaf} label={t`Show older history`} />}
+      </>
+    );
+  };
+
+  const views: Array<[HistoryView, string]> = [
+    ["everything", t`Everything`],
+    ["versions", t`Versions`],
+    // Lattice's own change log (动态): not "Changes", which reads 修订 and means Overleaf's suggestions.
+    ["activity", t({ message: "Activity", context: "history tab" })],
+    ...(props.overleafLinked ? [["overleaf", "Overleaf"] as [HistoryView, string]] : []),
+  ];
 
   return (
     <ResizableDrawer className="project-history-drawer" onClose={props.onClose}>
@@ -448,90 +573,41 @@ export function HistoryDrawer(props: {
           viewportClassName="project-history-scroll-viewport"
           viewportProps={{ "aria-label": t`Project history content` }}
         >
-        <SlidingTabs
-          value={view}
-          onChange={(next) => selectView(next as HistoryView)}
-          ariaLabel={t`History views`}
-          variant="none"
-          className="versions-tabs drawer-view-tabs"
-          tabClassName="drawer-view-tab"
-          items={[
-            { value: "versions", label: t`Versions` },
-            // Lattice's own change log (动态): not "Changes", which reads 修订 and means Overleaf's suggestions.
-            { value: "activity", label: t({ message: "Activity", context: "history tab" }) },
-            ...(props.overleafLinked ? [{ value: "overleaf", label: "Overleaf" }] : []),
-          ]}
-        />
-        {view === "versions" && (
-          <>
-            <VersionsToolbar versions={versions}>
-              {versions.phase === "ready" && versions.entries.length > 0 && (
-                <span className="versions-count">
-                  {versions.entries.length === 1 ? t`1 version` : t`${formatCount(versions.entries.length)} versions`}
-                </span>
-              )}
-            </VersionsToolbar>
-            <VersionsState versions={versions} />
-            <div className="history-timeline">{renderTimeline(versionRows(), null)}</div>
-          </>
-        )}
-        {view === "overleaf" && props.overleafLinked && (
-          <OverleafHistorySource projectRoot={props.overleafProjectRoot ?? ""}>
-            {(overleaf) => (
-              <>
-                <OverleafHistoryState history={overleaf} alone />
-                <div className="history-timeline">{renderTimeline(overleafRows(overleaf), overleaf)}</div>
-                {overleaf.hasMore && (
-                  <button type="button" className="history-load-more" disabled={overleaf.loadingMore} onClick={() => void overleaf.loadMore()}>
-                    {overleaf.loadingMore && <InfinityLoader size={12} />} {t`Load more`}
-                  </button>
-                )}
-              </>
-            )}
-          </OverleafHistorySource>
-        )}
-        {view === "activity" && (
-          <>
-            <div className="ui-segmented ui-segmented--compact history-filters" role="group" aria-label={t`Filter project changes`}>
-              {([
-                ["all", t`All`],
-                ["user", t`You`],
-                ["agent", t`Agent`],
-                ["citation", t`Citations`],
-              ] as const).map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  className="ui-segmented-tab"
-                  aria-pressed={filter === value}
-                  onClick={() => setFilter(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="history-timeline">{renderTimeline(activityRows(), null)}</div>
-            {!visibleHistory.length && (
-              props.history.length ? (
-                <EmptyState icon={<EmptyIllustration kind="search" />} description={t`No changes match this filter`} />
-              ) : (
-                <EmptyState
-                  className="history-empty"
-                  icon={<ResearchArt drawing={DATED_DRAFTS} />}
-                  title={t`Nothing has changed yet`}
-                  description={t`Every edit you, the agent or the citation tool make shows here, and each can be undone`}
-                />
-              )
-            )}
-          </>
-        )}
+        <VersionsToolbar versions={versions}>
+          <div className="history-views" role="group" aria-label={t`Show in history`}>
+            {views.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className="history-view"
+                aria-pressed={view === value}
+                onClick={() => selectView(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </VersionsToolbar>
+        {props.overleafLinked ? (
+          <OverleafHistorySource projectRoot={props.overleafProjectRoot ?? ""}>{renderBody}</OverleafHistorySource>
+        ) : renderBody(null)}
         </ScrollArea>
     </ResizableDrawer>
   );
 }
 
-/** Overleaf's history read for the linked project; its hook only runs while a view needs it. */
+/** Overleaf's history read for the linked project. */
 function OverleafHistorySource(props: { projectRoot: string; children: (history: OverleafHistory) => ReactNode }) {
   const history = useOverleafHistory(props.projectRoot);
   return <>{props.children(history)}</>;
+}
+
+/** Read Overleaf's next page of history, while it has one. */
+function LoadMoreOverleaf(props: { history: OverleafHistory; label: string }) {
+  if (!props.history.hasMore) return null;
+  return (
+    <button type="button" className="history-load-more" disabled={props.history.loadingMore} onClick={() => void props.history.loadMore()}>
+      {props.history.loadingMore && <InfinityLoader size={12} />} {props.label}
+    </button>
+  );
 }

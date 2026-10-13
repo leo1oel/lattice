@@ -175,11 +175,6 @@ msgstr "已选 {0} 条"
 msgid "{0} things to tidy in the bibliography"
 msgstr "文献库里有 {0} 处要整理"
 
-#. placeholder {0}: formatCount(versions.entries.length)
-#: src/history/history-drawer.tsx
-msgid "{0} versions"
-msgstr "{0} 个版本"
-
 #. placeholder {0}: compactCount(votes, i18n.locale)
 #. placeholder {0}: formatCount(votes, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
@@ -738,10 +733,6 @@ msgstr "“{shownQuery}”共 1 条结果"
 msgid "1 thing to tidy in the bibliography"
 msgstr "文献库里有 1 处要整理"
 
-#: src/history/history-drawer.tsx
-msgid "1 version"
-msgstr "1 个版本"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 vote"
 msgstr "1 票"
@@ -886,6 +877,11 @@ msgstr "折叠块"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "致谢"
+
+#: src/history/history-drawer.tsx
+msgctxt "history source"
+msgid "Activity"
+msgstr "动态"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -2690,6 +2686,11 @@ msgstr "对比版本"
 msgid "Compare with"
 msgstr "对比的版本"
 
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Compare with now"
+msgstr "与现在对比"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "正在和 Overleaf 对比…"
@@ -4055,6 +4056,10 @@ msgstr "全部选好了"
 msgid "Every tool Lattice needs is installed"
 msgstr "Lattice 所需的工具均已安装"
 
+#: src/history/history-drawer.tsx
+msgid "Everything"
+msgstr "全部"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "已和 Overleaf 一致"
@@ -4847,10 +4852,6 @@ msgstr "高亮代码"
 #: src/trellis/trellis-titles.ts
 msgid "History"
 msgstr "历史"
-
-#: src/history/history-drawer.tsx
-msgid "History views"
-msgstr "历史视图"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
@@ -7031,6 +7032,10 @@ msgstr "备注"
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
+
+#: src/overleaf/overleaf-history.tsx
+msgid "Nothing has changed on Overleaf since this version"
+msgstr "此版本之后 Overleaf 上没有改动"
 
 #: src/history/history-drawer.tsx
 msgid "Nothing has changed yet"
@@ -9418,8 +9423,8 @@ msgid "Saved"
 msgstr "已保存"
 
 #: src/history/versions-timeline.tsx
-msgid "Saved by Lattice after syncs and builds"
-msgstr "Lattice 在同步和编译后自动保存"
+msgid "Saved by Lattice after syncs and builds since {since}"
+msgstr "Lattice 自 {since} 起在同步和编译后自动保存"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -9779,6 +9784,10 @@ msgstr "显示隐藏文件"
 msgid "Show in Finder"
 msgstr "在访达中显示"
 
+#: src/history/history-drawer.tsx
+msgid "Show in history"
+msgstr "历史中显示"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Show in source"
 msgstr "在源码中显示"
@@ -9786,6 +9795,10 @@ msgstr "在源码中显示"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "显示预览"
+
+#: src/history/history-drawer.tsx
+msgid "Show older history"
+msgstr "显示更早的历史"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
@@ -9821,6 +9834,11 @@ msgstr "并排看 PDF"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "定位原文"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Show this version's changes"
+msgstr "看此版本的改动"
 
 #: src/project/project-find-dialog.tsx
 msgid "Show:"
@@ -10914,6 +10932,10 @@ msgstr "磁盘空间不足，无法安装此组件。请释放一些空间后重
 msgid "These comments stay in Lattice and are not sent to Overleaf."
 msgstr "这些评论只存在 Lattice，不发到 Overleaf"
 
+#: src/history/versions-timeline.tsx
+msgid "These files as this version left them, compared with now"
+msgstr "这些文件在此版本时的样子，与现在对比"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
@@ -11667,6 +11689,7 @@ msgstr "核实记录（BibTeX）"
 msgid "Verifying installation…"
 msgstr "正在检查…"
 
+#: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Version"
@@ -11712,11 +11735,19 @@ msgstr "第 {0} 处保留哪个"
 msgid "Version tracking is off"
 msgstr "版本记录未开启"
 
+#: src/history/versions-timeline.tsx
+msgid "Version tracking is off for this project"
+msgstr "这个项目没有开启版本记录"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
 #: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "版本"
+
+#: src/history/history-drawer.tsx
+msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
+msgstr "你保存的版本，你、AI 助手和引用工具做的每次修改，以及 Overleaf 自己的历史，都会出现在这里"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
@@ -11832,6 +11863,10 @@ msgstr "欢迎回来"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "欢迎使用 Lattice"
+
+#: src/overleaf/overleaf-history.tsx
+msgid "What has changed on Overleaf since this version"
+msgstr "此版本之后 Overleaf 上的改动"
 
 #: src/canvas/annotation-composer.tsx
 msgid "What should change here?"

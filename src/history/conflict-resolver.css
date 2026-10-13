@@ -98,7 +98,7 @@
 .conflict-choices { display: grid; gap: var(--space-3); }
 .conflict-sides {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: var(--space-4);
 }
 .conflict-side {
@@ -119,7 +119,7 @@
 /* The side not kept steps back to the secondary ink, which still reads at 5.5:1. */
 .conflict-side[data-dropped] { color: var(--text-secondary); }
 .conflict-side-head { display: flex; align-items: center; gap: var(--space-3); min-width: 0; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.conflict-side-head strong { flex: none; font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
+.conflict-side-head strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
 .conflict-side-caption { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .conflict-side-radio {
   flex: none;

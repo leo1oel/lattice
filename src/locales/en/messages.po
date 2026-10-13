@@ -177,11 +177,6 @@ msgstr "{0} selected"
 msgid "{0} things to tidy in the bibliography"
 msgstr "{0} things to tidy in the bibliography"
 
-#. placeholder {0}: formatCount(versions.entries.length)
-#: src/history/history-drawer.tsx
-msgid "{0} versions"
-msgstr "{0} versions"
-
 #. placeholder {0}: compactCount(votes, i18n.locale)
 #. placeholder {0}: formatCount(votes, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
@@ -741,10 +736,6 @@ msgstr "1 result for “{shownQuery}”"
 msgid "1 thing to tidy in the bibliography"
 msgstr "1 thing to tidy in the bibliography"
 
-#: src/history/history-drawer.tsx
-msgid "1 version"
-msgstr "1 version"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 vote"
 msgstr "1 vote"
@@ -889,6 +880,11 @@ msgstr "Accordion"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
+
+#: src/history/history-drawer.tsx
+msgctxt "history source"
+msgid "Activity"
+msgstr "Activity"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -2693,6 +2689,11 @@ msgstr "Compare versions"
 msgid "Compare with"
 msgstr "Compare with"
 
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Compare with now"
+msgstr "Compare with now"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "Comparing this project with Overleaf…"
@@ -4058,6 +4059,10 @@ msgstr "Every spot decided"
 msgid "Every tool Lattice needs is installed"
 msgstr "Every tool Lattice needs is installed"
 
+#: src/history/history-drawer.tsx
+msgid "Everything"
+msgstr "Everything"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "Everything already matches Overleaf"
@@ -4850,10 +4855,6 @@ msgstr "Highlighted code"
 #: src/trellis/trellis-titles.ts
 msgid "History"
 msgstr "History"
-
-#: src/history/history-drawer.tsx
-msgid "History views"
-msgstr "History views"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
@@ -7034,6 +7035,10 @@ msgstr "Note"
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
+
+#: src/overleaf/overleaf-history.tsx
+msgid "Nothing has changed on Overleaf since this version"
+msgstr "Nothing has changed on Overleaf since this version"
 
 #: src/history/history-drawer.tsx
 msgid "Nothing has changed yet"
@@ -9421,8 +9426,8 @@ msgid "Saved"
 msgstr "Saved"
 
 #: src/history/versions-timeline.tsx
-msgid "Saved by Lattice after syncs and builds"
-msgstr "Saved by Lattice after syncs and builds"
+msgid "Saved by Lattice after syncs and builds since {since}"
+msgstr "Saved by Lattice after syncs and builds since {since}"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -9782,6 +9787,10 @@ msgstr "Show hidden files"
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
+#: src/history/history-drawer.tsx
+msgid "Show in history"
+msgstr "Show in history"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Show in source"
 msgstr "Show in source"
@@ -9789,6 +9798,10 @@ msgstr "Show in source"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
+
+#: src/history/history-drawer.tsx
+msgid "Show older history"
+msgstr "Show older history"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
@@ -9824,6 +9837,11 @@ msgstr "Show the PDF beside the editor"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "Show this in the editor"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Show this version's changes"
+msgstr "Show this version's changes"
 
 #: src/project/project-find-dialog.tsx
 msgid "Show:"
@@ -10919,6 +10937,10 @@ msgstr "There is not enough disk space to install the package. Free up some spac
 msgid "These comments stay in Lattice and are not sent to Overleaf."
 msgstr "These comments stay in Lattice and are not sent to Overleaf."
 
+#: src/history/versions-timeline.tsx
+msgid "These files as this version left them, compared with now"
+msgstr "These files as this version left them, compared with now"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
@@ -11674,6 +11696,7 @@ msgstr "Verified record (BibTeX)"
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
+#: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Version"
@@ -11719,11 +11742,19 @@ msgstr "Version to keep for spot {0}"
 msgid "Version tracking is off"
 msgstr "Version tracking is off"
 
+#: src/history/versions-timeline.tsx
+msgid "Version tracking is off for this project"
+msgstr "Version tracking is off for this project"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
 #: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "Versions"
+
+#: src/history/history-drawer.tsx
+msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
+msgstr "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
@@ -11839,6 +11870,10 @@ msgstr "Welcome back"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
+
+#: src/overleaf/overleaf-history.tsx
+msgid "What has changed on Overleaf since this version"
+msgstr "What has changed on Overleaf since this version"
 
 #: src/canvas/annotation-composer.tsx
 msgid "What should change here?"

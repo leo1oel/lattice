@@ -181,9 +181,8 @@ describe("design token contract", () => {
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
   })
 
-  it("shares flat drawer-view tabs between Project history and Git workspace", () => {
+  it("draws the Git workspace's views as flat drawer-view tabs", () => {
     expect(read("src/app/app-history-drawers.tsx")).toContain('tabClassName="drawer-view-tab"')
-    expect(read("src/history/history-drawer.tsx")).toContain('tabClassName="drawer-view-tab"')
     const workspacePanels = read("src/styles/workspace-panels.css")
     for (const rule of [
       /\.drawer-view-tab \{[^}]*border: 0;[^}]*background: transparent;/,

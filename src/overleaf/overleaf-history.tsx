@@ -10,9 +10,9 @@
  * rewrites Overleaf's copy, not the local files, so the caller is expected to
  * sync afterward (see `onRestored`).
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Leaf, RotateCcw, Tag } from "lucide-react";
+import { GitCompareArrows, Leaf, RotateCcw, Tag } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { FileKindIcon, HistoryDiff } from "../history/file-diff-view";
 import { useLatestLoad } from "../history/use-latest-load";
@@ -40,9 +40,11 @@ type OverleafRowProps = {
   /** The project this drawer was opened for; every request is scoped to it. */
   projectRoot: string;
   expanded: boolean;
+  /** Opened to compare with Overleaf's newest version rather than to read this entry's own changes. */
+  compare: boolean;
   onToggle: () => void;
+  onCompare: () => void;
   source?: string;
-  tools?: ReactNode;
   /** Close the whole drawer — jumping to a line from a diff gets out of the way. */
   onClose: () => void;
   /** Put the caret on a line from a rendered diff, the way Activity does. */
@@ -69,6 +71,17 @@ export function OverleafHistoryRow(props: OverleafRowProps) {
   const origin = update.origin && update.origin !== "web" && update.origin !== "editor"
     ? originNames[update.origin] ?? update.origin
     : null;
+  /** Rewind Overleaf's whole project to this entry, once the reader confirms what that deletes. */
+  const restoreProject = async () => {
+    const warning = t`Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore.`;
+    if (!await confirmAction(warning)) return;
+    await props.history.revertProject(update.toVersion)
+      .then(() => {
+        notifySuccess(t`Overleaf history`, t`Project restored.`);
+        props.onRestored?.();
+      })
+      .catch(() => undefined);
+  };
   const label = update.labels[0]?.comment;
   const others = update.authors.length - 1;
   return (
@@ -89,15 +102,31 @@ export function OverleafHistoryRow(props: OverleafRowProps) {
       source={props.source}
       expanded={props.expanded}
       onToggle={props.onToggle}
-      tools={props.tools}
+      tools={(
+        <>
+          <button type="button" className="history-tool" title={t`Compare with now`} aria-label={t`Compare with now`} aria-pressed={props.expanded && props.compare} onClick={props.onCompare}>
+            <GitCompareArrows size={13} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="history-tool"
+            title={t`Restore whole project to this version`}
+            aria-label={t`Restore whole project to this version`}
+            disabled={props.history.busy}
+            onClick={() => void restoreProject()}
+          >
+            <RotateCcw size={13} aria-hidden="true" />
+          </button>
+        </>
+      )}
     >
-      <OverleafHistoryBody {...props} />
+      <OverleafHistoryBody key={props.compare ? "now" : "version"} {...props} onRestoreProject={restoreProject} />
     </HistoryRow>
   );
 }
 
 /** An opened entry: its names, the files it changed with their diffs, and the restores. */
-function OverleafHistoryBody(props: OverleafRowProps) {
+function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () => Promise<void> }) {
   const { t } = useLingui();
   const fileOpLabel: Record<OverleafFileOperation, string> = {
     added: t`added`,
@@ -112,18 +141,24 @@ function OverleafHistoryBody(props: OverleafRowProps) {
   const [labelDraft, setLabelDraft] = useState<string | null>(null);
   // Opening the entry reads which files it changed. The read starts through a
   // ref so the effect body holds no traceable synchronous setState call.
-  const loadFiles = () => files.load(String(update.toVersion), () => invoke<{ diff: OverleafFileEntry[] }>("overleaf_history_files", {
-    projectRoot: props.projectRoot,
-    from: update.fromVersion,
-    to: update.toVersion,
-  }).then((result) => result.diff.filter((entry) => entry.operation !== undefined)));
+  // Its own changes run from the version before it; compared with now, from it to Overleaf's newest.
+  const newest = history.updates[0]?.toVersion ?? update.toVersion;
+  const range = props.compare ? { from: update.toVersion, to: newest } : { from: update.fromVersion, to: update.toVersion };
+  const unchanged = range.from >= range.to;
+  const loadFiles = () => {
+    if (unchanged) return;
+    files.load(`${range.from}:${range.to}`, () => invoke<{ diff: OverleafFileEntry[] }>("overleaf_history_files", {
+      projectRoot: props.projectRoot,
+      ...range,
+    }).then((result) => result.diff.filter((entry) => entry.operation !== undefined)));
+  };
   const loadFilesRef = useRef(loadFiles);
   useEffect(() => {
     loadFilesRef.current = loadFiles;
   });
   useEffect(() => {
     loadFilesRef.current();
-  }, [update.toVersion]);
+  }, [range.from, range.to]);
 
   const openDiff = (path: string) => {
     // A file is a toggle: clicking the open one closes it again.
@@ -131,8 +166,7 @@ function OverleafHistoryBody(props: OverleafRowProps) {
     diff.load(path, () => invoke<{ diff: OverleafDiffChunk[] | { binary: true } }>("overleaf_history_diff", {
       projectRoot: props.projectRoot,
       path,
-      from: update.fromVersion,
-      to: update.toVersion,
+      ...range,
     }).then((result) => result.diff));
   };
 
@@ -197,6 +231,13 @@ function OverleafHistoryBody(props: OverleafRowProps) {
 
   return (
     <div className="version-body">
+      {props.compare && (
+        <p className="version-mode-note">
+          {unchanged ? t`Nothing has changed on Overleaf since this version` : t`What has changed on Overleaf since this version`}
+          {" · "}
+          <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
+        </p>
+      )}
       <div className="overleaf-history-labels-row">
         {update.labels.map((label) => (
           <span className="overleaf-history-label-chip" key={label.id}>
@@ -254,16 +295,12 @@ function OverleafHistoryBody(props: OverleafRowProps) {
       {diff.key && renderDiff(diff.key)}
 
       <div className="version-actions">
-        <button
-          type="button"
-          className="version-action"
-          disabled={history.busy}
-          onClick={() => void confirmThenRun(
-            t`Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore.`,
-            t`Project restored.`,
-            () => history.revertProject(update.toVersion).then(restored),
-          )}
-        >
+        {!props.compare && (
+          <button type="button" className="version-action" onClick={props.onCompare}>
+            <GitCompareArrows size={12} aria-hidden="true" /> {t`Compare with now`}
+          </button>
+        )}
+        <button type="button" className="version-action" disabled={history.busy} onClick={() => void props.onRestoreProject()}>
           <RotateCcw size={12} /> {t`Restore whole project to this version`}
         </button>
         <span className="version-note">{t`Restoring changes Overleaf’s copy. Sync afterwards to bring it here`}</span>

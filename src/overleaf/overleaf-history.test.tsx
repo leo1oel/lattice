@@ -47,7 +47,7 @@ function renderPanel(props: { onRestored?: () => void } = {}) {
       onOverleafRestored={props.onRestored}
     />,
   );
-  fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Show in history" })).getByRole("button", { name: "Overleaf" }));
   return view;
 }
 
@@ -55,7 +55,7 @@ function renderPanel(props: { onRestored?: () => void } = {}) {
 async function openEntry(props: Parameters<typeof renderPanel>[0] = {}) {
   renderPanel(props);
   fireEvent.click(await screen.findByRole("button", { name: /Ada Lovelace/ }));
-  const body = document.querySelector<HTMLElement>(".history-row.expanded")!;
+  const body = document.querySelector<HTMLElement>(".history-row.expanded > .history-row-body")!;
   expect(body).not.toBeNull();
   // The header's own paths line can share a filename with a file row, so
   // file lookups are scoped to the list rather than the whole entry.
