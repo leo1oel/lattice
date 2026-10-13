@@ -23,7 +23,8 @@
 .source-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .document-outline-popover { width: 190px; max-height: min(420px, 65vh); padding: var(--space-2); overflow: hidden; }
 .document-outline-header { flex: none; height: 30px; padding: 0 var(--pad-inline-control-tight); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 650; }
-.document-outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: min(372px, 57vh); overflow: auto; }
+.document-outline-list { list-style: none; margin: 0; padding: var(--space-2) 0; }
+.document-outline-scroll [data-slot="scroll-area-viewport"] { max-height: min(372px, 57vh); overscroll-behavior: contain; }
 .document-outline-list ul { list-style: none; margin: 0; padding: 0 0 0 var(--space-3); }
 .document-outline-list button { width: 100%; min-height: 26px; border: 0; border-radius: var(--radius-compact); padding: var(--space-2) 7px; background: transparent; color: var(--text-primary); display: flex; align-items: center; gap: var(--space-3); text-align: left; font-size: var(--type-micro-size); }
 .document-outline-popover { --fluid-hover-fill: var(--control-active-soft); }
@@ -1192,9 +1193,14 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .latex-outline-rail-header { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: var(--gap-inline); padding: var(--space-3) var(--pad-inline-control-tight) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-header > span:first-child { flex: none; }
 .latex-outline-rail-document { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.latex-outline-rail-scroll { --fluid-hover-fill: var(--control-hover-surface); flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+/* The panel only caps its height, so the viewport's 100% would resolve to
+   nothing and the list would grow past the panel unscrolled: it flexes. */
+.latex-outline-rail-scroll { --fluid-hover-fill: var(--control-hover-surface); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.latex-outline-rail-scroll [data-slot="scroll-area-viewport"] { flex: 1 1 auto; height: auto; min-height: 0; overscroll-behavior: contain; }
 .latex-outline-rail-list { margin: 0; padding: 0; list-style: none; }
-.latex-outline-rail-row { display: grid; grid-template-columns: 2.5ch minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--gap-inline); width: 100%; min-height: var(--control-height-compact); padding: var(--space-2) var(--pad-inline-control-tight); border: 0; border-radius: var(--nested-radius); background: transparent; color: inherit; font: inherit; text-align: start; }
+/* align-content centres the one line in a row taller than it: baseline
+   alignment alone sets it at the top of the stretched track. */
+.latex-outline-rail-row { display: grid; grid-template-columns: 2.5ch minmax(0, 1fr) auto; align-items: baseline; align-content: center; column-gap: var(--gap-inline); width: 100%; min-height: var(--control-height-compact); padding: var(--space-2) var(--pad-inline-control-tight); border: 0; border-radius: var(--nested-radius); background: transparent; color: inherit; font: inherit; text-align: start; }
 .latex-outline-rail-row[data-depth="1"], .latex-outline-rail-row[data-depth="2"] { grid-template-columns: max-content minmax(0, 1fr) auto; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-row[data-depth="1"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-8)); }
 .latex-outline-rail-row[data-depth="2"] { padding-inline-start: calc(var(--pad-inline-control-tight) + var(--space-16)); }

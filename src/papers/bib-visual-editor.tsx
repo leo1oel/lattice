@@ -12,32 +12,36 @@
  * edited here; the canvas shows its source instead (see `bibUnreadableReason`).
  *
  * Thousands of entries stay quick: the list draws only the rows in view, all
- * rows one fixed height, and parses a deferred copy of the text, so typing in
- * the source beside it never waits for the list.
+ * rows one fixed height (a taller one when the list is narrow enough to stack
+ * a row's lines), and parses a deferred copy of the text, so typing in the
+ * source beside it never waits for the list.
  */
 import {
   useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, BookOpen, Code2, ExternalLink, Plus, Trash2, X } from "lucide-react";
+import { ArrowDownUp, ArrowLeft, BookOpen, Check, Code2, ExternalLink, ListFilter, Plus, Trash2, X } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { CopyButton } from "../components/copy-button";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { EmptyState } from "../components/ui/empty-state";
 import { IconButton } from "../components/ui/icon-button";
 import { InlineMessage } from "../components/ui/inline-message";
 import { Input } from "../components/ui/input";
+import { ListTool } from "../components/ui/list-tool";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
-import { SegmentedControl } from "../components/ui/segmented-control";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { resizeTextareaToContent } from "../components/ui/auto-resize-textarea";
 import { notifySuccess } from "../telemetry/app-notify";
+import { formatCount } from "../i18n";
+import { BIB_LIST_RATIO_DEFAULT, clamp, loadBibListRatio, persistBibListRatio } from "../settings/app-settings";
 import type { SymbolOccurrence } from "../project/references-panel";
 import { appendBibEntry, formatBibEntry } from "./bib-entry";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
@@ -53,6 +57,18 @@ const selectedByPath = new Map<string, string>();
 
 /** Every row is this tall, so the list knows which rows are in view without measuring them. */
 const ROW_HEIGHT = 60;
+/**
+ * A list this narrow (the narrowest panel, or the list beside the reference)
+ * has no room for the year's margin: each row stacks title, byline and key on
+ * three lines, and is this tall so they keep their leading.
+ */
+const NARROW_LIST_WIDTH = 380;
+const NARROW_ROW_HEIGHT = 80;
+/** The list and the reference beside it never get narrower than these, however the divider is dragged. */
+const LIST_MIN_WIDTH = 240;
+const DETAIL_MIN_WIDTH = 320;
+/** One arrow key's move of the divider, as a share of the width. */
+const DIVIDER_STEP = 0.03;
 /** Rows drawn beyond each edge of the view, so a fast scroll does not show blank rows. */
 const OVERSCAN = 8;
 
@@ -265,13 +281,15 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
 
   // ---- Keyboard: the list moves with the arrows; ⌘Z steps the file's history outside a field.
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState({ top: 0, height: 0 });
+  const [viewport, setViewport] = useState({ top: 0, height: 0, width: 0 });
+  const narrow = viewport.width > 0 && viewport.width <= NARROW_LIST_WIDTH;
+  const rowHeight = narrow ? NARROW_ROW_HEIGHT : ROW_HEIGHT;
   const revealIndex = (index: number) => {
     const list = listRef.current;
     if (!list) return;
-    const top = index * ROW_HEIGHT;
+    const top = index * rowHeight;
     if (top < list.scrollTop) list.scrollTop = top;
-    else if (top + ROW_HEIGHT > list.scrollTop + list.clientHeight) list.scrollTop = top + ROW_HEIGHT - list.clientHeight;
+    else if (top + rowHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + rowHeight - list.clientHeight;
   };
   const onListKeyDown = (event: ReactKeyboardEvent) => {
     if (!shown.length) return;
@@ -306,7 +324,8 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    const measure = () => setViewport({ top: list.scrollTop, height: list.clientHeight });
+    // A list hidden behind the reference (a narrow pane) keeps the width it had.
+    const measure = () => setViewport((current) => ({ top: list.scrollTop, height: list.clientHeight, width: list.clientWidth || current.width }));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(list);
@@ -317,13 +336,54 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
     const index = revealKey === null ? -1 : shown.findIndex((row) => row.entry.key === revealKey);
     if (!list || index === -1) return;
     setRevealKey(null);
-    list.scrollTop = Math.max(0, index * ROW_HEIGHT - (list.clientHeight - ROW_HEIGHT) / 2);
-  }, [revealKey, shown]);
+    list.scrollTop = Math.max(0, index * rowHeight - (list.clientHeight - rowHeight) / 2);
+  }, [revealKey, rowHeight, shown]);
   // A filter that shrinks the list below the scroll position starts it from the top.
   useLayoutEffect(() => {
     const list = listRef.current;
-    if (list && list.scrollTop > shown.length * ROW_HEIGHT) list.scrollTop = 0;
-  }, [shown.length]);
+    if (list && list.scrollTop > shown.length * rowHeight) list.scrollTop = 0;
+  }, [rowHeight, shown.length]);
+
+  // ---- The divider between the list and the reference: dragged, or moved
+  // with the arrow keys; the share it leaves the list is remembered.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [listRatio, setListRatio] = useState(loadBibListRatio);
+  const [resizing, setResizing] = useState(false);
+  /** `listWidth` px of the body's columns as a share, held where both sides keep their minimums. */
+  const fitListRatio = (listWidth: number) => {
+    const tracks = (bodyRef.current?.clientWidth ?? 0) - 1;
+    if (tracks <= 0) return listRatio;
+    return clamp(listWidth, LIST_MIN_WIDTH, tracks - DETAIL_MIN_WIDTH) / tracks;
+  };
+  const commitListRatio = (ratio: number) => {
+    setListRatio(ratio);
+    persistBibListRatio(ratio);
+  };
+  const beginResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setResizing(true);
+  };
+  const moveResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const body = bodyRef.current;
+    if (!body || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    // The drag moves the column outside React; letting go commits the same share.
+    body.style.setProperty("--bib-list-ratio", String(fitListRatio(event.clientX - body.getBoundingClientRect().left)));
+  };
+  const endResize = () => {
+    const ratio = Number(bodyRef.current?.style.getPropertyValue("--bib-list-ratio"));
+    setResizing(false);
+    if (Number.isFinite(ratio) && ratio > 0) commitListRatio(ratio);
+  };
+  const onDividerKeyDown = (event: ReactKeyboardEvent) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const tracks = (bodyRef.current?.clientWidth ?? 0) - 1;
+    // From where the divider is drawn, which a narrower pane may have moved off the remembered share.
+    const drawn = fitListRatio(listRatio * tracks);
+    commitListRatio(fitListRatio((drawn + (event.key === "ArrowLeft" ? -DIVIDER_STEP : DIVIDER_STEP)) * tracks));
+  };
 
   if (parse.error) {
     // The canvas shows the source in place of a list it cannot draw; this is
@@ -339,16 +399,18 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
     );
   }
 
-  const first = Math.max(0, Math.floor(viewport.top / ROW_HEIGHT) - OVERSCAN);
-  const last = Math.min(shown.length, Math.ceil((viewport.top + viewport.height) / ROW_HEIGHT) + OVERSCAN);
+  const first = Math.max(0, Math.floor(viewport.top / rowHeight) - OVERSCAN);
+  const last = Math.min(shown.length, Math.ceil((viewport.top + viewport.height) / rowHeight) + OVERSCAN);
   const optionId = (row: Row) => `bib-row-${row.index}`;
   const sortLabels: Record<Sort, string> = { file: t`File order`, year: t`Newest first`, author: t`Author`, title: t`Title` };
-  const counted = (label: string, count: number) => <>{label}<span className="bib-visual-count">{count}</span></>;
+  const filterLabels: Record<Filter, string> = { all: t`All`, cited: t`Cited`, unused: t`Unused` };
+  const filterTitles: Partial<Record<Filter, string>> = { cited: t`Cited in the manuscript`, unused: t`Not cited in any .tex file` };
 
   return (
     <div
       className="bib-visual"
       data-detail={detailOpen && selected ? "open" : undefined}
+      data-resizing={resizing || undefined}
       // Focusable, so a click anywhere in it keeps the keyboard here: ⌘Z then steps this file's history.
       tabIndex={-1}
       onKeyDown={onRootKeyDown}
@@ -369,44 +431,82 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             }
           }}
         />
-        <SegmentedControl<Filter>
-          size="compact"
-          value={filter}
-          onChange={setFilter}
-          ariaLabel={t`Show references`}
-          className="bib-visual-filter"
-          items={[
-            { value: "all", label: counted(t`All`, counts.all) },
-            { value: "cited", label: counted(t`Cited`, counts.cited), title: t`Cited in the manuscript` },
-            { value: "unused", label: counted(t`Unused`, counts.unused), title: t`Not cited in any .tex file` },
-          ]}
-        />
-        <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
-          <SelectTrigger size="compact" aria-label={t`Sort references`} className="bib-visual-sort"><SelectValue /></SelectTrigger>
-          <SelectContent position="popper" align="end">
-            {(Object.keys(sortLabels) as Sort[]).map((value) => <SelectItem key={value} value={value}>{sortLabels[value]}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Filter and sort as the Papers library sets them: each names what
+            it does, then what it is set to; a narrow pane folds them, and
+            Add, to their icons. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <ListTool
+              icon={<ListFilter size={14} aria-hidden="true" />}
+              label={t`Filter`}
+              value={filter === "all" ? undefined : <>{filterLabels[filter]}<span className="bib-visual-count">{formatCount(counts[filter])}</span></>}
+              on={filter !== "all"}
+              name={filter === "all" ? t`Show references` : t({ message: `Show references: ${{ filter: filterLabels[filter] }}` })}
+              title={t`Show references`}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bib-visual-menu">
+            {(Object.keys(filterLabels) as Filter[]).map((value) => (
+              <DropdownMenuItem key={value} role="menuitemradio" aria-checked={filter === value} title={filterTitles[value]} onSelect={() => setFilter(value)}>
+                <span className="bib-visual-menu-check">{filter === value && <Check size={14} />}</span>
+                <span className="bib-visual-menu-label">{filterLabels[value]}</span>
+                <span className="bib-visual-menu-count">{formatCount(counts[value])}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <ListTool
+              icon={<ArrowDownUp size={14} aria-hidden="true" />}
+              label={t`Sort`}
+              value={sortLabels[sort]}
+              on={sort !== "file"}
+              name={t({ message: `Sort references: ${{ order: sortLabels[sort] }}` })}
+              title={t`Sort references`}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bib-visual-menu">
+            {(Object.keys(sortLabels) as Sort[]).map((value) => (
+              <DropdownMenuItem key={value} role="menuitemradio" aria-checked={sort === value} onSelect={() => setSort(value)}>
+                <span className="bib-visual-menu-check">{sort === value && <Check size={14} />}</span>
+                <span className="bib-visual-menu-label">{sortLabels[value]}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {props.editable && (
-          <Button size="compact" variant="secondary" className="bib-visual-add" onClick={() => setAdding({ key: Date.now(), error: null })}>
+          <Button size="compact" variant="secondary" className="bib-visual-add" title={t`Add reference`} onClick={() => setAdding({ key: Date.now(), error: null })}>
             <Plus size={13} aria-hidden="true" />
-            {t`Add reference`}
+            <span className="bib-visual-add-label">{t`Add reference`}</span>
           </Button>
         )}
       </div>
-      <div className="bib-visual-body">
-        <div
-          ref={listRef}
-          className="bib-visual-list native-hover-scrollbar"
-          role="listbox"
-          tabIndex={0}
-          aria-label={t`References`}
-          // Only a drawn row can be named; the arrows scroll the one they reach into view.
-          aria-activedescendant={selected && selectedIndex >= first && selectedIndex < last ? optionId(selected) : undefined}
-          onKeyDown={onListKeyDown}
-          onScroll={(event) => {
-            const { scrollTop, clientHeight } = event.currentTarget;
-            setViewport((current) => current.top === scrollTop && current.height === clientHeight ? current : { top: scrollTop, height: clientHeight });
+      <div
+        ref={bodyRef}
+        className="bib-visual-body"
+        style={{
+          "--bib-list-ratio": listRatio,
+          "--bib-list-min": `${LIST_MIN_WIDTH}px`,
+          "--bib-detail-min": `${DETAIL_MIN_WIDTH}px`,
+        } as CSSProperties}
+      >
+        <ScrollArea
+          className="bib-visual-list"
+          viewportClassName="bib-visual-list-viewport"
+          viewportRef={listRef}
+          viewportProps={{
+            role: "listbox",
+            tabIndex: 0,
+            "aria-label": t`References`,
+            // Only a drawn row can be named; the arrows scroll the one they reach into view.
+            "aria-activedescendant": selected && selectedIndex >= first && selectedIndex < last ? optionId(selected) : undefined,
+            "data-narrow": narrow ? "" : undefined,
+            onKeyDown: onListKeyDown,
+            onScroll: (event) => {
+              const { scrollTop, clientHeight } = event.currentTarget;
+              setViewport((current) => current.top === scrollTop && current.height === clientHeight ? current : { ...current, top: scrollTop, height: clientHeight });
+            },
           }}
         >
           {shown.length === 0 ? (
@@ -421,7 +521,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                   : undefined}
             />
           ) : (
-            <div className="bib-visual-rows" style={{ height: shown.length * ROW_HEIGHT }}>
+            <div className="bib-visual-rows" style={{ height: shown.length * rowHeight }}>
               {shown.slice(first, last).map((row, offset) => {
                 const { entry, summary } = row;
                 const unused = isUnused(entry.key);
@@ -433,7 +533,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
                     role="option"
                     aria-selected={row === selected}
                     className="bib-row"
-                    style={{ top: (first + offset) * ROW_HEIGHT, height: ROW_HEIGHT }}
+                    style={{ top: (first + offset) * rowHeight, height: rowHeight }}
                     onClick={() => select(entry.key)}
                   >
                     <span className="bib-row-year">{summary.year}</span>
@@ -463,7 +563,23 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
               })}
             </div>
           )}
-        </div>
+        </ScrollArea>
+        <div
+          className="bib-visual-divider"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t`Resize reference list and details`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(listRatio * 100)}
+          tabIndex={0}
+          data-dragging={resizing || undefined}
+          onPointerDown={beginResize}
+          onPointerMove={moveResize}
+          onLostPointerCapture={endResize}
+          onKeyDown={onDividerKeyDown}
+          onDoubleClick={() => commitListRatio(BIB_LIST_RATIO_DEFAULT)}
+        />
         <div className="bib-visual-detail">
           {selected ? (
             <EntryDetail

@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popove
 import { Tip } from "../components/icon-tip";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { ScrollArea } from "../components/ui/scroll-area";
 
 function OutlineBranch({ nodes, activeId, onSelect }: {
   nodes: OutlineNode[];
@@ -62,17 +63,22 @@ export function DocumentOutline(props: {
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="start" sideOffset={7} className="document-outline-popover fluid-hover-surface" aria-label={t`Document outline`}
+      <PopoverContent align="start" sideOffset={7} className="document-outline-popover" aria-label={t`Document outline`}
         onCloseAutoFocus={(event) => {
           if (!choseRef.current) return;
           choseRef.current = false;
           event.preventDefault();
         }}
       >
-        <FluidHoverSurface selector=".document-outline-list button" preserveSelection follow={null} />
         <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
-          ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={select} />
+          // The hover fill sits in the scrolled content, not on the popover
+          // around it: measured from the popover, it stayed where its row had
+          // been before the list scrolled.
+          ? <ScrollArea className="document-outline-scroll" viewportProps={{ tabIndex: -1 }} contentClassName="fluid-hover-surface">
+              <FluidHoverSurface selector=".document-outline-list button" preserveSelection follow={null} />
+              <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={select} />
+            </ScrollArea>
           : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline`}</p>}
       </PopoverContent>
     </Popover>

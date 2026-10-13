@@ -33,6 +33,7 @@ export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
+const BIB_LIST_RATIO_KEY = "lattice.bib-list-ratio.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
@@ -196,6 +197,11 @@ export function loadBuildPreferences(): BuildPreferences {
 
 export const loadSplitRatio = () => readNumber(SPLIT_RATIO_KEY, 0.46, 0.2, 0.8);
 export const persistSplitRatio = (ratio: number) => persistSetting(SPLIT_RATIO_KEY, String(ratio));
+
+/** The share of a .bib file's visual form its reference list takes beside the reference in front. */
+export const BIB_LIST_RATIO_DEFAULT = 0.44;
+export const loadBibListRatio = () => readNumber(BIB_LIST_RATIO_KEY, BIB_LIST_RATIO_DEFAULT, 0.1, 0.9);
+export const persistBibListRatio = (ratio: number) => persistSetting(BIB_LIST_RATIO_KEY, String(ratio));
 
 // Unlike the other per-project maps, an unreadable last-file map is replaced
 // on the next write rather than preserved.
