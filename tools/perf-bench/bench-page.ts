@@ -214,7 +214,8 @@ const LIBRARY_PAPERS = [
 /**
  * What Discover literature finds: alphaXiv hits (year and votes, no authors)
  * ahead of OpenAlex works (authors, citation counts, DOIs), as the backend
- * merges them. Fictional apart from the first.
+ * merges them, with abstracts as OpenAlex gives them. Fictional apart from
+ * the first and the last (a six-figure citation count, for the row's width).
  */
 const LITERATURE_HITS = [
   { source: "alphaxiv", arxivId: "1706.03762", title: "Attention Is All You Need", year: 2017, authors: [], votes: 412,
@@ -222,9 +223,13 @@ const LITERATURE_HITS = [
   { source: "alphaxiv", arxivId: "2410.05258", title: "Differential Attention for Long-Context Retrieval with Sparse Multimodal Supervision", year: 2024, authors: [], votes: 87 },
   { source: "alphaxiv", arxivId: "2502.07890", title: "Scaling Laws for Sparse Mixture-of-Experts Decoders", year: 2025, authors: [], votes: 9 },
   { source: "openalex", title: "Effective Approaches to Attention-based Neural Machine Translation", year: 2015,
-    authors: ["Minh-Thang Luong", "Hieu Pham", "Christopher D. Manning"], citedByCount: 9214, doi: "10.18653/v1/d15-1166", landingUrl: "https://doi.org/10.18653/v1/d15-1166" },
+    authors: ["Minh-Thang Luong", "Hieu Pham", "Christopher D. Manning"], citedByCount: 9214, doi: "10.18653/v1/d15-1166", landingUrl: "https://doi.org/10.18653/v1/d15-1166",
+    abstract: "An attentional mechanism has lately been used to improve neural machine translation (NMT) by selectively focusing on parts of the source sentence during translation. This paper examines two simple and effective classes of attentional mechanism: a global approach which always attends to all source words and a local one that only looks at a subset of source words at a time." },
   { source: "openalex", title: "A Survey of Attention in Long-Form Document Understanding for the Proceedings of the International Symposium on Scholarly Communication", year: 2023,
     authors: ["Ada Example", "Grace Sample", "Kim Placeholder", "Lee Instance"], citedByCount: 31, doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4" },
+  { source: "openalex", arxivId: "1512.03385", title: "Deep Residual Learning for Image Recognition", year: 2016,
+    authors: ["Kaiming He", "Xiangyu Zhang", "Shaoqing Ren", "Jian Sun"], citedByCount: 228417, doi: "10.48550/arxiv.1512.03385", landingUrl: "https://arxiv.org/abs/1512.03385",
+    abstract: "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously." },
 ];
 
 /**
