@@ -107,6 +107,11 @@ msgstr "{0} comes in dark only"
 msgid "{0} comes in light only"
 msgstr "{0} comes in light only"
 
+#. placeholder {0}: formatCount(commentCount, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{0} comments"
+msgstr "{0} comments"
+
 #. placeholder {0}: counts.incomplete
 #: src/papers/bibliography-audit.tsx
 msgid "{0} couldn't finish"
@@ -177,6 +182,11 @@ msgstr "{0} records match. Choose the one you mean."
 msgid "{0} selected"
 msgstr "{0} selected"
 
+#. placeholder {0}: formatCount(changeCount, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{0} suggestions"
+msgstr "{0} suggestions"
+
 #. placeholder {0}: scan.issues.length
 #: src/papers/bibliography-audit.tsx
 msgid "{0} things to tidy in the bibliography"
@@ -220,6 +230,14 @@ msgstr "{amount} words over"
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words remaining"
 msgstr "{amount} words remaining"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{author} suggests deleting text"
+msgstr "{author} suggests deleting text"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{author} suggests inserting text"
+msgstr "{author} suggests inserting text"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
@@ -453,6 +471,10 @@ msgstr "{meaning}, {color}"
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "{more} more replies"
+msgstr "{more} more replies"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name} (reconnecting…)"
@@ -685,6 +707,10 @@ msgstr "1 check needs attention"
 msgid "1 cite"
 msgstr "1 cite"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "1 comment"
+msgstr "1 comment"
+
 #: src/canvas/proofread-card.tsx
 msgid "1 edit · clarity and flow"
 msgstr "1 edit · clarity and flow"
@@ -708,6 +734,10 @@ msgstr "1 fix to review"
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 hit"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "1 more reply"
+msgstr "1 more reply"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 needs your eyes"
@@ -756,6 +786,7 @@ msgid "1 result for “{shownQuery}”"
 msgstr "1 result for “{shownQuery}”"
 
 #: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 msgid "1 suggestion"
 msgstr "1 suggestion"
 
@@ -1340,6 +1371,7 @@ msgstr "Annotations {list}"
 #: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
+#: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
@@ -1542,6 +1574,11 @@ msgstr "Authors unavailable and unchecked"
 #: src/papers/citation-candidates.tsx
 msgid "Authors unchecked"
 msgstr "Authors unchecked"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Auto"
+msgstr "Auto"
 
 #: src/history/version-messages.ts
 msgid "Auto-saved version"
@@ -2128,6 +2165,10 @@ msgstr "Caption"
 msgid "Caption of a figure or table"
 msgstr "Caption of a figure or table"
 
+#: src/App.tsx
+msgid "cards beside the text when there is room"
+msgstr "cards beside the text when there is room"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "Caution"
@@ -2522,6 +2563,7 @@ msgstr "Clipboard"
 
 #: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
 msgid "Close"
 msgstr "Close"
@@ -2675,6 +2717,15 @@ msgstr "comment"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
 msgstr "Comment"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Comment from {opener}"
+msgstr "Comment from {opener}"
+
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Comment from {opener}, {0} messages"
+msgstr "Comment from {opener}, {0} messages"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
@@ -4607,6 +4658,10 @@ msgstr "Full-width floating figure"
 msgid "Full-width floating table"
 msgstr "Full-width floating table"
 
+#: src/App.tsx
+msgid "full-width text, cards on demand"
+msgstr "full-width text, cards on demand"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "Gamma"
@@ -6192,6 +6247,27 @@ msgstr "Mapped to the source with SyncTeX"
 msgid "Maps to"
 msgstr "Maps to"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Margin review"
+msgstr "Margin review"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Margin Review"
+msgstr "Margin Review"
+
+#: src/App.tsx
+msgid "Margin review: Auto"
+msgstr "Margin review: Auto"
+
+#: src/App.tsx
+msgid "Margin review: Markers only"
+msgstr "Margin review: Markers only"
+
+#: src/App.tsx
+msgid "Margin review: Off"
+msgstr "Margin review: Off"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
 msgstr "Markdown document editor"
@@ -6200,6 +6276,11 @@ msgstr "Markdown document editor"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown source"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Markers Only"
+msgstr "Markers Only"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -7240,6 +7321,11 @@ msgstr "Numbered single-line equation"
 msgid "Off"
 msgstr "Off"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Off"
+msgstr "Off"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Off while Reduce transparency is on in System Settings"
@@ -7269,6 +7355,11 @@ msgstr "Omega"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "On screen"
+msgstr "On screen"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -9322,6 +9413,10 @@ msgstr "Review again"
 msgid "Review changes"
 msgstr "Review changes"
 
+#: src/App.tsx
+msgid "Review here"
+msgstr "Review here"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
 msgstr "Review Overleaf changes"
@@ -10785,6 +10880,10 @@ msgstr "The bundled Agent service could not start"
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
 
+#: src/App.tsx
+msgid "the comment or suggestion by the caret"
+msgstr "the comment or suggestion by the caret"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
@@ -11091,6 +11190,7 @@ msgid "Third-party notices"
 msgstr "Third-party notices"
 
 #: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 msgid "This account cannot accept or reject suggestions here"
 msgstr "This account cannot accept or reject suggestions here"
 
