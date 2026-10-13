@@ -1,9 +1,10 @@
 /**
- * The Project history drawer holds three separate records of the same project,
- * and only two of them always exist. These cover the gating around the third:
- * Overleaf's server-side history is offered only when the project is linked,
- * and the remembered tab has to survive opening a project that isn't. The
- * Changes tab's multi-file review runs against a stubbed Pierre CodeView;
+ * The Project history drawer holds three separate records of the same project
+ * in one stream, and only two of them always exist. These cover the views
+ * over it and the gating around the third: Overleaf's server-side history is
+ * offered only when the project is linked, and the remembered view has to
+ * survive opening a project that isn't. Activity's multi-file review runs
+ * against a stubbed Pierre CodeView;
  * versions-timeline.test.tsx exercises the real renderer.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -50,6 +51,9 @@ const transaction = (id: string, label: string, paths: string[]) => ({
 });
 const smoothScrollTo = (id: string) => ({ type: "item", id, align: "start", behavior: "smooth" });
 
+/** The pill that shows one record, or all of them, in the timeline. */
+const view = (name: string) => within(screen.getByRole("group", { name: "Show in history" })).getByRole("button", { name });
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -59,10 +63,10 @@ afterEach(() => {
 describe("HistoryDrawer", () => {
   const historyItem = { id: "t1", label: "Edit main.tex", timestamp: "2026-07-16T00:00:00Z", files: ["main.tex"] };
 
-  // These two run first and in this order: the module-level last-used-tab memory
-  // must still hold its Versions default for the first, which ends by
-  // re-selecting Versions, and the git-unreachable fallback then moves it.
-  it("defaults to Versions and keeps Changes content across tab switches", async () => {
+  // These two run first and in this order: the module-level last-used-view
+  // memory must still hold its Everything default for the first, which ends
+  // by re-selecting Everything.
+  it("opens on one stream of versions and activity, and keeps each record across view switches", async () => {
     const commit: GitLogEntry = {
       hash: "aaa111", shortHash: "aaa111", authorName: "Robin",
       timestamp: "2026-07-24T00:00:00Z", message: "Tighten the abstract", files: [],
@@ -70,41 +74,46 @@ describe("HistoryDrawer", () => {
     mockBackend({ git_status: { available: true, repository: true, branch: "main", files: [] }, git_log: [commit] });
     render(<HistoryDrawer {...required} history={[historyItem]} />);
 
-    // Versions is the default tab.
+    // Everything is the default view: the version and the activity side by side in time.
     expect(await screen.findByText("Tighten the abstract")).toBeInTheDocument();
-    expect(screen.queryByText("Edit main.tex")).not.toBeInTheDocument();
-    // Switching away and back, twice, still shows the same Changes content.
+    expect(screen.getByText("Edit main.tex")).toBeInTheDocument();
+    expect(view("Everything")).toHaveAttribute("aria-pressed", "true");
+    // Narrowing to one record and back, twice, still shows the same rows.
     for (let pass = 0; pass < 2; pass += 1) {
-      fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+      fireEvent.click(view("Activity"));
       expect(screen.getByText("Edit main.tex")).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("tab", { name: "Versions" }));
+      expect(screen.queryByText("Tighten the abstract")).not.toBeInTheDocument();
+      fireEvent.click(view("Versions"));
       expect(await screen.findByText("Tighten the abstract")).toBeInTheDocument();
+      expect(screen.queryByText("Edit main.tex")).not.toBeInTheDocument();
     }
+    fireEvent.click(view("Everything"));
   });
 
-  it("falls back to the Changes tab when the git backend is unreachable", async () => {
+  it("keeps the activity in view when the git backend is unreachable", async () => {
     mockInvoke({});
     render(<HistoryDrawer {...required} history={[historyItem]} />);
 
     expect(await screen.findByText("Edit main.tex")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Changes" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText(/Version history is unavailable/)).toBeInTheDocument();
+    expect(view("Everything")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("offers Overleaf's history only when the project is linked", () => {
     mockBackend();
     const { rerender } = render(<HistoryDrawer {...required} />);
-    expect(screen.queryByRole("tab", { name: "Overleaf" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Overleaf" })).not.toBeInTheDocument();
 
     rerender(<HistoryDrawer {...required} overleafLinked />);
-    expect(screen.getByRole("tab", { name: "Overleaf" })).toBeInTheDocument();
+    expect(view("Overleaf")).toBeInTheDocument();
   });
 
-  it("shows Overleaf's own timeline on that tab, not the git one", async () => {
+  it("shows Overleaf's own timeline in its view, not the git one", async () => {
     mockBackend();
     render(<HistoryDrawer {...required} overleafLinked />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
-    expect(await screen.findByText(/Restoring changes Overleaf’s copy/)).toBeInTheDocument();
+    fireEvent.click(view("Overleaf"));
+    expect(await screen.findByText("No Overleaf history yet")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_history_updates", { projectRoot: "/tmp/project", count: 20 });
   });
 
@@ -117,30 +126,29 @@ describe("HistoryDrawer", () => {
     expect(viewport).not.toContainElement(header);
     expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass("project-history-scroll");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Versions" }));
+    fireEvent.click(view("Versions"));
     expect(screen.getByText("Project history").closest('[data-slot="panel-header"]')).toBe(header);
   });
 
-  it("uses the shared flat drawer tabs rather than button-like selected controls", () => {
+  it("marks the shown view on its pill", () => {
     mockBackend();
-    const { container } = render(<HistoryDrawer {...required} />);
+    render(<HistoryDrawer {...required} />);
 
-    expect(container.querySelector(".versions-tabs")).toHaveClass("drawer-view-tabs");
-    expect(container.querySelector(".versions-tabs")).toHaveStyle({ paddingBottom: "var(--space-3)" });
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
-    expect(screen.getByRole("tab", { name: "Changes" })).toHaveClass("drawer-view-tab", "active");
+    fireEvent.click(view("Activity"));
+    expect(view("Activity")).toHaveAttribute("aria-pressed", "true");
+    expect(view("Everything")).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("falls back off the remembered Overleaf tab for an unlinked project", () => {
+  it("falls back off the remembered Overleaf view for an unlinked project", () => {
     mockBackend();
-    // The tab choice is remembered across opens for the session, so pick it
-    // here and then reopen as an unlinked project.
+    // The view is remembered across opens for the session, so pick it here
+    // and then reopen as an unlinked project.
     const first = render(<HistoryDrawer {...required} overleafLinked />);
-    fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
+    fireEvent.click(view("Overleaf"));
     first.unmount();
 
     render(<HistoryDrawer {...required} />);
-    expect(screen.getByRole("tab", { name: "Versions" })).toHaveAttribute("aria-selected", "true");
+    expect(view("Everything")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("filters semantic Agent changes and restores them through their checkpoint", () => {
@@ -156,7 +164,7 @@ describe("HistoryDrawer", () => {
     const localEntry = { id: "local-1", label: "Edit methods.tex", timestamp: "2026-07-29T11:00:00Z", files: ["methods.tex"], actor: "user" };
     render(<HistoryDrawer {...required} history={[localEntry, agentEntry]} onRevert={onRevert} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    fireEvent.click(view("Activity"));
     const filters = within(screen.getByRole("group", { name: "Filter project changes" }));
     expect(filters.getByRole("button", { name: "All" })).toHaveClass("ui-segmented-tab");
     expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
@@ -192,7 +200,7 @@ describe("HistoryDrawer multi-file review", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    fireEvent.click(view("Activity"));
     fireEvent.click(screen.getByRole("button", { name: /Update two files/ }));
     expect(await screen.findByTestId("code-view")).toBeInTheDocument();
     expect(screen.getAllByTestId("code-view-item").map((item) => item.dataset.path)).toEqual(["main.tex", "methods.tex"]);
@@ -212,8 +220,8 @@ describe("HistoryDrawer multi-file review", () => {
     expect(screen.getByRole("button", { name: "methods.tex" })).toHaveAttribute("aria-pressed", "true");
 
     pierreView.scrollTo.mockClear();
-    fireEvent.click(screen.getByRole("tab", { name: "Versions" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    fireEvent.click(view("Versions"));
+    fireEvent.click(view("Activity"));
     await waitFor(() => expect(pierreView.scrollTo).toHaveBeenCalledWith(smoothScrollTo("history:tx-1:1")));
 
     fireEvent.click(screen.getAllByTestId("code-view-item")[1]!);
@@ -239,7 +247,7 @@ describe("HistoryDrawer multi-file review", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+    fireEvent.click(view("Activity"));
     fireEvent.click(screen.getByRole("button", { name: /First transaction/ }));
     fireEvent.click(screen.getByRole("button", { name: /Second transaction/ }));
     await act(async () => resolvers.get("tx-b")!(transaction("tx-b", "Second transaction", ["b.tex"])));

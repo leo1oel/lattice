@@ -39,29 +39,12 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .drawer-view-tab:hover:not(:disabled) { color: var(--text-primary); background: var(--border-subtle); }
 .drawer-view-tab.active { color: var(--text-primary); background: transparent; }
-.history-filters { width: fit-content; margin: var(--space-6) 0; }
-.history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); padding: var(--space-5) 0; border-top: 1px solid var(--border-subtle); }
-.history-item.expanded { align-items: start; }
-.history-body { min-width: 0; }
-.history-expand { width: 100%; border: 0; padding: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.history-body strong { display: block; font-size: var(--type-caption-size); font-weight: 600; }
-.history-body span { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.history-body .history-actor { display: inline-flex; margin: 0 var(--space-1) 0 0; border-radius: var(--radius-pill); padding: var(--space-1) var(--space-3); background: var(--border-subtle); color: var(--text-secondary); font-weight: 600; }
-.history-body .history-actor.agent { background: color-mix(in srgb, var(--status-success) 12%, transparent); color: var(--status-success); }
-.history-body .history-actor.citation { background: color-mix(in srgb, #a174d5 13%, transparent); color: #8a5ebe; }
-.history-body p { margin: 5px 0 0; color: var(--text-secondary); font-size: var(--type-micro-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-actions { display: flex; gap: var(--space-1); }
-.history-actions button { width: var(--control-size-icon); height: var(--control-size-icon); border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
-.history-actions button:hover { background: var(--control-active-soft); color: var(--control-active); }
-.history-actions button:disabled { opacity: .35; cursor: not-allowed; background: transparent; color: var(--text-secondary); }
-.history-actions .history-delete:hover { background: color-mix(in srgb, var(--status-danger) 9%, transparent); color: var(--status-danger); }
-.history-entry-preview { margin-top: var(--space-4); display: grid; gap: var(--space-4); }
+.history-filters { width: fit-content; max-width: 100%; margin: var(--space-6) 0; }
 .history-checkpoint-summary { display: grid; gap: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-4); background: var(--surface-app); }
 .history-checkpoint-summary > strong { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .history-checkpoint-summary > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-width: 0; }
 .history-checkpoint-summary > div > span { min-width: 0; margin: 0; overflow: hidden; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; }
 .history-checkpoint-summary small { flex: none; color: var(--text-tertiary); font-size: var(--type-micro-size); text-transform: capitalize; }
-.history-file-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .history-code-view-shell { height: min(420px, 60vh); min-height: 220px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); }
 .history-code-view { width: 100%; height: 100%; overflow: auto; }
 .history-code-view-metadata { display: inline-flex; align-items: center; gap: var(--space-2); }

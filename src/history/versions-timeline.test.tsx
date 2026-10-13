@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { VersionsTimeline } from "./versions-timeline";
+import { HistoryDrawer } from "./history-drawer";
 import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { GitLogEntry } from "../app-types";
@@ -12,6 +12,27 @@ import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => vi.fn()) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
+
+/** The history drawer, whose Versions view is the git timeline. */
+function VersionsTimeline(props: { projectRoot?: string; onVersionsChanged?: () => void | Promise<void> }) {
+  return (
+    <HistoryDrawer
+      history={[]}
+      onClose={() => undefined}
+      onRevert={() => undefined}
+      onDelete={() => undefined}
+      overleafProjectRoot={props.projectRoot}
+      onVersionsChanged={props.onVersionsChanged}
+    />
+  );
+}
+
+/** Render the drawer and narrow it to its versions. */
+function renderVersions(ui: Parameters<typeof render>[0]) {
+  const view = render(ui);
+  fireEvent.click(within(screen.getByRole("group", { name: "Show in history" })).getByRole("button", { name: "Versions" }));
+  return view;
+}
 
 const repoStatus = { available: true, repository: true, branch: "main", files: [] };
 
@@ -35,7 +56,7 @@ const lineDiff = { git_show_diff: { before: "old line\n", after: "new line\n", b
 
 async function expandFirstEntry() {
   fireEvent.click(await screen.findByRole("button", { name: /Tighten the abstract/ }));
-  const body = document.querySelector<HTMLElement>(".versions-entry.expanded");
+  const body = document.querySelector<HTMLElement>(".history-row.expanded > .history-row-body");
   expect(body).not.toBeNull();
   return body!;
 }
@@ -50,7 +71,7 @@ afterEach(() => {
 describe("VersionsTimeline", () => {
   it("shows a graceful note when git is unavailable", async () => {
     mockInvoke({ git_status: { available: false, repository: false, branch: null, files: [] } });
-    render(<VersionsTimeline />);
+    renderVersions(<VersionsTimeline />);
     expect(await screen.findByText("Version history needs Git, which isn’t available on this Mac")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save version/ })).not.toBeInTheDocument();
   });
@@ -62,7 +83,7 @@ describe("VersionsTimeline", () => {
       git_init: () => ({ ...repoStatus, repository: (repository = true) }),
       git_log: [],
     });
-    render(<VersionsTimeline />);
+    renderVersions(<VersionsTimeline />);
 
     expect(await screen.findByRole("button", { name: /Enable version tracking/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Enable version tracking/ }));
@@ -72,7 +93,7 @@ describe("VersionsTimeline", () => {
 
   it("renders timeline entries with authors, messages, and file counts", async () => {
     mockGitLog();
-    render(<VersionsTimeline />);
+    renderVersions(<VersionsTimeline />);
 
     expect(await screen.findByText("Tighten the abstract")).toBeInTheDocument();
     for (const text of ["Initial import", "Robin", "Mia", "2 files", "1 file"]) {
@@ -88,12 +109,14 @@ describe("VersionsTimeline", () => {
 
   it("loads a file diff via git_show_diff into one non-virtualized Pierre surface, and closes it on a second click", async () => {
     mockGitLog(lineDiff);
-    render(<VersionsTimeline />);
+    renderVersions(<VersionsTimeline />);
 
     const row = within(await expandFirstEntry()).getByRole("button", { name: /main\.tex/ });
     fireEvent.click(row);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_show_diff", { rev: "aaa111", path: "main.tex" }));
+    // A prose file opens on its changed text; the line diff is the Source view.
+    fireEvent.click(await screen.findByRole("tab", { name: "Source" }));
     const viewer = await screen.findByLabelText("Diff for main.tex");
     await waitFor(() => expect(viewer.querySelector("diffs-container")).not.toBeNull());
     expect(viewer.querySelectorAll("diffs-container")).toHaveLength(1);
@@ -105,7 +128,7 @@ describe("VersionsTimeline", () => {
 
   it("notes binary files instead of rendering a diff", async () => {
     mockGitLog({ git_show_diff: { before: null, after: null, binary: true } });
-    render(<VersionsTimeline />);
+    renderVersions(<VersionsTimeline />);
 
     fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /figs\/loss\.png/ }));
     expect(await screen.findByText("Binary file changed")).toBeInTheDocument();
@@ -113,8 +136,8 @@ describe("VersionsTimeline", () => {
 
   it("restores a file only after confirmation and reports the change", async () => {
     const onVersionsChanged = vi.fn();
-    mockGitLog({ ...lineDiff, git_restore_file: undefined });
-    render(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
+    mockGitLog({ ...lineDiff, git_restore_file: undefined, git_auto_commit: null });
+    renderVersions(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
 
     fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /main\.tex/ }));
     const restore = await screen.findByRole("button", { name: /Restore this file/ });
@@ -126,7 +149,7 @@ describe("VersionsTimeline", () => {
     vi.mocked(confirm).mockResolvedValueOnce(true);
     fireEvent.click(restore);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" }));
-    expect(confirm).toHaveBeenCalledWith("Restore main.tex to this version? Your current file will be overwritten.", expect.anything());
+    expect(confirm).toHaveBeenCalledWith("Restore main.tex to this version? The current state is saved as a version first.", expect.anything());
     await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
   });
 
@@ -135,7 +158,7 @@ describe("VersionsTimeline", () => {
     mockGitLog({ git_auto_commit: "ccc333" });
     // Outcomes are toasts now, so the shared stack has to be on screen for the
     // assertion below to mean what it did when the panel printed them inline.
-    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
+    renderVersions(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
 
     fireEvent.click(await screen.findByRole("button", { name: /Save version/ }));
     fireEvent.change(screen.getByLabelText("Version label"), { target: { value: "Before rebuttal" } });
@@ -148,7 +171,7 @@ describe("VersionsTimeline", () => {
 
   it("refreshes an open timeline when project files change", async () => {
     mockGitLog();
-    render(<VersionsTimeline projectRoot="/tmp/paper" />);
+    renderVersions(<VersionsTimeline projectRoot="/tmp/paper" />);
     await screen.findByRole("button", { name: /Tighten the abstract/ });
     const updated = { ...logEntries[0], hash: "new123", message: "Latest agent edits" };
     mockInvoke({ git_status: repoStatus, git_log: [updated, ...logEntries] });
@@ -164,9 +187,9 @@ describe("VersionsTimeline", () => {
   it("restores the whole project after confirmation, reporting success only after the reload and build", async () => {
     let finish!: () => void;
     const onVersionsChanged = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
-    mockGitLog({ git_restore_project: "ddd444" });
+    mockGitLog({ git_restore_project: "ddd444", git_auto_commit: null });
     vi.mocked(confirm).mockResolvedValue(true);
-    render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
+    renderVersions(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
     const restore = within(await expandFirstEntry()).getByRole("button", { name: /Restore project to this version/ });
     fireEvent.click(restore);
 

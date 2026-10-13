@@ -1251,7 +1251,7 @@ describe("project tree and projects", () => {
     });
     fireEvent.click(await screen.findByRole("button", { name: "Project history" }));
     // HistoryDrawer is lazy-loaded, so wait for its chunk to resolve.
-    fireEvent.click(await screen.findByRole("tab", { name: "Changes" }, { timeout: 15_000 }));
+    fireEvent.click(await screen.findByRole("button", { name: "Activity" }, { timeout: 15_000 }));
     fireEvent.click(await screen.findByRole("button", { name: /Edit main\.tex/i }));
     await screen.findByLabelText("Diff for main.tex");
     fireEvent.click(await screen.findByTitle("Delete this history entry"));

@@ -29,6 +29,16 @@ const LABELS: Record<string, MessageDescriptor> = {
 /** Written by the host (git.rs) when the whole project is restored. */
 const RESTORE_MESSAGE = /^Restore project to (\S+)$/;
 
+/** A version Lattice made on its own (after a sync or a build) rather than one someone saved or named. */
+export function isAutomaticVersion(message: string): boolean {
+  return message === AUTO_COMMIT_MESSAGES.autoSaved || message === AUTO_COMMIT_MESSAGES.overleafSync;
+}
+
+/** A version Lattice wrote while starting tracking or restoring, rather than one someone saved. */
+export function isBookkeepingVersion(message: string): boolean {
+  return message === AUTO_COMMIT_MESSAGES.initialized || RESTORE_MESSAGE.test(message);
+}
+
 /** A commit message as the versions list shows it: Lattice's own in the interface language, the rest as written. */
 export function versionMessageLabel(message: string): string {
   const known = Object.hasOwn(LABELS, message) ? LABELS[message] : undefined;

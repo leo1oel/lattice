@@ -11,12 +11,12 @@
  * Pierre's inline "Accept current/incoming change" links drew a whole-file
  * diff3 conflict with the local text under the `=======` line — where incoming
  * text normally sits — so the button that looked like "keep my text" emptied
- * the file. Each side is now shown under its own name, next to the choice that
- * keeps it.
+ * the file. Each side is now shown under its own name and is itself the choice
+ * that keeps it, with the words the two sides disagree on marked in both.
  */
 import { File, EditProvider } from "@pierre/diffs/react";
 import { Editor, type EditorChangeEvent, type EditorFactory } from "@pierre/diffs/edit";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft, Check, PencilLine, TriangleAlert } from "lucide-react";
@@ -28,6 +28,7 @@ import { buttonClassName } from "../components/ui/button-styles";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { conflictHunks, resolveConflicts, type ConflictChoice, type ConflictHunk } from "./conflict-markers";
+import { phraseHunks } from "../agent/proofread-edits";
 import { toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
 import { logAction } from "../telemetry/app-notify";
@@ -37,36 +38,66 @@ import "./conflict-resolver.css";
 const createEditor: EditorFactory<undefined, undefined> = (editorType, options, editStateKey) =>
   new Editor(editorType, options, editStateKey);
 
+/**
+ * `text` with the words that differ from `other` washed, so a two-word change
+ * is seen rather than hunted for. A side the other one removed has nothing to
+ * compare against and is left plain.
+ */
+function MarkedText(props: { text: string; other: string }) {
+  if (!props.other.trim()) return <>{props.text}</>;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const hunk of phraseHunks(props.text, props.other)) {
+    if (hunk.to <= hunk.from) continue;
+    parts.push(props.text.slice(cursor, hunk.from), <mark key={hunk.from}>{props.text.slice(hunk.from, hunk.to)}</mark>);
+    cursor = hunk.to;
+  }
+  parts.push(props.text.slice(cursor));
+  return <>{parts}</>;
+}
+
+/** One side of a spot, and the choice that keeps it: clicking the side is choosing it. */
 function ConflictSide(props: {
   label: string;
   caption: string;
-  lines: string[];
-  kept: boolean | null;
+  choiceLabel: string;
+  shortcut: string;
+  text: string;
+  other: string;
+  checked: boolean;
+  dropped: boolean;
+  disabled: boolean;
   emptyLabel: string;
+  onChoose: () => void;
 }) {
-  const { t } = useLingui();
-  const count = props.lines.length;
   return (
-    <section
+    <button
+      type="button"
+      role="radio"
       className="conflict-side"
-      aria-label={props.label}
-      data-kept={props.kept === null ? undefined : String(props.kept)}
+      aria-checked={props.checked}
+      aria-label={props.choiceLabel}
+      aria-keyshortcuts={props.shortcut}
+      data-dropped={props.dropped || undefined}
+      disabled={props.disabled}
+      onClick={props.onChoose}
     >
-      <header className="conflict-side-head">
+      <span className="conflict-side-head">
+        <span className="conflict-side-radio" aria-hidden="true">{props.checked ? <Check size={10} strokeWidth={3} /> : null}</span>
         <strong>{props.label}</strong>
-        <span>{props.caption}</span>
-        <span className="conflict-side-count">
-          {count === 0 ? t`Empty` : count === 1 ? t`1 line` : t`${count} lines`}
-        </span>
-      </header>
-      {count === 0 ? (
-        <p className="conflict-side-empty">{props.emptyLabel}</p>
+        <span className="conflict-side-caption">{props.caption}</span>
+        <kbd aria-hidden="true">{props.shortcut}</kbd>
+      </span>
+      {props.text ? (
+        <span className="conflict-side-text"><MarkedText text={props.text} other={props.other} /></span>
       ) : (
-        <pre className="conflict-side-code" tabIndex={0}>{props.lines.join("\n")}</pre>
+        <span className="conflict-side-empty">{props.emptyLabel}</span>
       )}
-    </section>
+    </button>
   );
 }
+
+const CHOICE_KEYS: Record<string, ConflictChoice> = { 1: "ours", 2: "theirs", 3: "both" };
 
 function ConflictSpot(props: {
   hunk: ConflictHunk;
@@ -78,61 +109,74 @@ function ConflictSpot(props: {
 }) {
   const { t } = useLingui();
   const { hunk, choice } = props;
-  const options: { value: ConflictChoice; label: string }[] = [
-    { value: "ours", label: t`Keep this computer's version` },
-    { value: "theirs", label: t`Keep Overleaf's version` },
-    { value: "both", label: t`Keep both` },
-  ];
-  const kept = (side: "ours" | "theirs") => choice === undefined
-    ? null
-    : choice === "both" || choice === side;
+  const ours = hunk.oursLines.join("\n");
+  const theirs = hunk.theirsLines.join("\n");
+  const keeps = (side: "ours" | "theirs") => choice === side || choice === "both";
+  const decision = { ours: t`Keeping this computer's`, theirs: t`Keeping Overleaf's`, both: t`Keeping both` };
   return (
-    <article className="conflict-spot" data-decided={choice ? "true" : "false"}>
+    <article
+      className="conflict-spot"
+      data-decided={choice ? "true" : "false"}
+      onKeyDown={(event) => {
+        // 1, 2 and 3 choose while focus is anywhere in the spot.
+        const picked = CHOICE_KEYS[event.key];
+        if (!picked || props.disabled || event.metaKey || event.ctrlKey || event.altKey) return;
+        event.preventDefault();
+        props.onChoose(picked);
+      }}
+    >
       <div className="conflict-spot-head">
         <div className="conflict-spot-title">
           <h3>{t`Spot ${props.position} of ${props.total}`}</h3>
-          <span>{t`Starts at line ${hunk.line}`}</span>
+          <span>{t`Line ${hunk.line}`}</span>
         </div>
         <Badge tone={choice ? "success" : "warning"} size="compact">
           {choice ? <Check size={11} aria-hidden="true" /> : null}
-          {choice ? t`Decided` : t`Needs a decision`}
+          {choice ? decision[choice] : t`Needs a decision`}
         </Badge>
       </div>
-      <div
-        className="conflict-choices"
-        role="radiogroup"
-        aria-label={t`Version to keep for spot ${props.position}`}
-      >
-        {options.map((option) => (
-          <Button
-            key={option.value}
-            role="radio"
-            aria-checked={choice === option.value}
-            size="compact"
-            variant={choice === option.value ? "tinted" : "secondary"}
-            disabled={props.disabled}
-            onClick={() => props.onChoose(option.value)}
-          >
-            {choice === option.value ? <Check size={12} aria-hidden="true" /> : null}
-            {option.label}
-          </Button>
-        ))}
-      </div>
-      <div className="conflict-sides">
+      <div className="conflict-choices" role="radiogroup" aria-label={t`Version to keep for spot ${props.position}`}>
+        <div className="conflict-sides">
         <ConflictSide
           label={t`This computer`}
           caption={t`Your Lattice copy`}
-          lines={hunk.oursLines}
-          kept={kept("ours")}
+          choiceLabel={t`Keep this computer's version`}
+          shortcut="1"
+          text={ours}
+          other={theirs}
+          checked={keeps("ours")}
+          dropped={choice === "theirs"}
+          disabled={props.disabled}
           emptyLabel={t`This computer removed this part.`}
+          onChoose={() => props.onChoose("ours")}
         />
         <ConflictSide
           label={t`Overleaf`}
           caption={t`The copy on Overleaf`}
-          lines={hunk.theirsLines}
-          kept={kept("theirs")}
+          choiceLabel={t`Keep Overleaf's version`}
+          shortcut="2"
+          text={theirs}
+          other={ours}
+          checked={keeps("theirs")}
+          dropped={choice === "ours"}
+          disabled={props.disabled}
           emptyLabel={t`Overleaf removed this part.`}
+          onChoose={() => props.onChoose("theirs")}
         />
+        </div>
+        <button
+          type="button"
+          role="radio"
+          className="conflict-both"
+          aria-checked={choice === "both"}
+          aria-keyshortcuts="3"
+          disabled={props.disabled}
+          onClick={() => props.onChoose("both")}
+        >
+          {choice === "both" ? <Check size={12} aria-hidden="true" /> : null}
+          {t`Keep both, yours first`}
+          <kbd aria-hidden="true">3</kbd>
+        </button>
       </div>
     </article>
   );

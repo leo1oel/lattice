@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
-import { OverleafHistoryPanel } from "./overleaf-history";
+import { HistoryDrawer } from "../history/history-drawer";
 import type { OverleafFileEntry, OverleafUpdate } from "./use-overleaf-history";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -20,6 +20,8 @@ const label = (id: string, comment: string, version: number) => ({ id, comment, 
 /** The panel's backend: one update, whose changed files are `files`. */
 function mockHistory(files: OverleafFileEntry[], extra: CommandTable = {}, updates = [update()]) {
   mockInvoke({
+    git_status: { available: true, repository: true, branch: "main", files: [] },
+    git_log: [],
     overleaf_history_updates: { updates, nextBefore: null },
     overleaf_history_files: { diff: files },
     overleaf_history_diff: { diff: [{ u: "kept\n" }, { d: "old claim\n" }, { i: "new claim\n" }] },
@@ -32,20 +34,34 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-const renderPanel = (props: Partial<Parameters<typeof OverleafHistoryPanel>[0]> = {}) =>
-  render(<OverleafHistoryPanel projectRoot="/tmp/project" onClose={() => undefined} {...props} />);
+/** The history drawer of a linked project, on its Overleaf view. */
+function renderPanel(props: { onRestored?: () => void } = {}) {
+  const view = render(
+    <HistoryDrawer
+      history={[]}
+      onClose={() => undefined}
+      onRevert={() => undefined}
+      onDelete={() => undefined}
+      overleafLinked
+      overleafProjectRoot="/tmp/project"
+      onOverleafRestored={props.onRestored}
+    />,
+  );
+  fireEvent.click(within(screen.getByRole("group", { name: "Show in history" })).getByRole("button", { name: "Overleaf" }));
+  return view;
+}
 
 /** Render, expand the first entry, and return it plus its changed-files list once that has loaded. */
 async function openEntry(props: Parameters<typeof renderPanel>[0] = {}) {
   renderPanel(props);
   fireEvent.click(await screen.findByRole("button", { name: /Ada Lovelace/ }));
-  const body = document.querySelector<HTMLElement>(".versions-entry.expanded")!;
+  const body = document.querySelector<HTMLElement>(".history-row.expanded > .history-row-body")!;
   expect(body).not.toBeNull();
   // The header's own paths line can share a filename with a file row, so
   // file lookups are scoped to the list rather than the whole entry.
   const files = await waitFor(() => {
-    const container = body.querySelector<HTMLElement>(".versions-files");
-    if (!container && !body.querySelector(".versions-note")) throw new Error("files have not loaded yet");
+    const container = body.querySelector<HTMLElement>(".overleaf-history-files");
+    if (!container && !body.querySelector(".overleaf-history-no-files")) throw new Error("files have not loaded yet");
     return container!;
   });
   return { body, files };

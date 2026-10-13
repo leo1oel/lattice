@@ -122,17 +122,8 @@ msgstr "{0} differ from a source's record"
 msgid "{0} entries"
 msgstr "{0} entries"
 
-#. placeholder {0}: entry.files.length
-#. placeholder {0}: update.paths.length
+#. placeholder {0}: formatCount(count)
 #: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
-msgid "{0} file"
-msgstr "{0} file"
-
-#. placeholder {0}: entry.files.length
-#. placeholder {0}: update.paths.length
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
 msgid "{0} files"
 msgstr "{0} files"
 
@@ -258,6 +249,14 @@ msgstr "{count} annotation"
 msgid "{count} annotations"
 msgstr "{count} annotations"
 
+#: src/history/versions-timeline.tsx
+msgid "{count} automatic versions"
+msgstr "{count} automatic versions"
+
+#: src/history/versions-timeline.tsx
+msgid "{count} changes"
+msgstr "{count} changes"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} character"
 msgstr "{count} character"
@@ -279,7 +278,6 @@ msgid "{count} line"
 msgstr "{count} line"
 
 #: src/canvas/editor-status-bar.tsx
-#: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} lines"
 
@@ -411,6 +409,10 @@ msgstr "{gap} pages over"
 #: src/project/manuscript-checklist.tsx
 msgid "{gap} pages remaining"
 msgstr "{gap} pages remaining"
+
+#: src/history/versions-timeline.tsx
+msgid "{hidden} more files"
+msgstr "{hidden} more files"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -671,6 +673,7 @@ msgid "1 annotation"
 msgstr "1 annotation"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "1 change"
 msgstr "1 change"
 
@@ -694,6 +697,10 @@ msgstr "1 edit · errors only"
 msgid "1 entry"
 msgstr "1 entry"
 
+#: src/history/versions-timeline.tsx
+msgid "1 file"
+msgstr "1 file"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 fix to review"
 msgstr "1 fix to review"
@@ -701,10 +708,6 @@ msgstr "1 fix to review"
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 hit"
-
-#: src/history/conflict-resolver.tsx
-msgid "1 line"
-msgstr "1 line"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 needs your eyes"
@@ -901,6 +904,16 @@ msgstr "Accordion"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
+
+#: src/history/history-drawer.tsx
+msgctxt "history source"
+msgid "Activity"
+msgstr "Activity"
+
+#: src/history/history-drawer.tsx
+msgctxt "history tab"
+msgid "Activity"
+msgstr "Activity"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
@@ -2161,9 +2174,13 @@ msgstr "Changed there, untouched here"
 
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
-#: src/history/history-drawer.tsx
+msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
+
+#: src/history/versions-timeline.tsx
+msgid "Changes in {path}"
+msgstr "Changes in {path}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Chapter"
@@ -2707,6 +2724,11 @@ msgstr "Compare versions"
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Compare with"
 msgstr "Compare with"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Compare with now"
+msgstr "Compare with now"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -3286,10 +3308,6 @@ msgstr "Dark only"
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
-
-#: src/history/conflict-resolver.tsx
-msgid "Decided"
-msgstr "Decided"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -3882,6 +3900,10 @@ msgstr "Editor status"
 msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Edits"
+msgstr "Edits"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
 msgstr "Edits on both sides merge when you resume"
@@ -3915,7 +3937,6 @@ msgstr "Emphasis (\\emph)"
 msgid "Emphasized text command"
 msgstr "Emphasized text command"
 
-#: src/history/conflict-resolver.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Empty"
 msgstr "Empty"
@@ -4068,6 +4089,14 @@ msgstr "Eta"
 msgid "Every comment is resolved. All shows the resolved ones"
 msgstr "Every comment is resolved. All shows the resolved ones"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Every edit made on Overleaf, by anyone, is kept here and can be restored"
+msgstr "Every edit made on Overleaf, by anyone, is kept here and can be restored"
+
+#: src/history/history-drawer.tsx
+msgid "Every edit you, the agent or the citation tool make shows here, and each can be undone"
+msgstr "Every edit you, the agent or the citation tool make shows here, and each can be undone"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
@@ -4091,6 +4120,10 @@ msgstr "Every tool Lattice needs is installed"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Everyone in the Overleaf project sees what you write here"
 msgstr "Everyone in the Overleaf project sees what you write here"
+
+#: src/history/history-drawer.tsx
+msgid "Everything"
+msgstr "Everything"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
@@ -4247,6 +4280,11 @@ msgstr "Files"
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
 msgstr "Files in this change"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Files in this version"
+msgstr "Files in this version"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
@@ -4902,10 +4940,6 @@ msgstr "Highlights"
 msgid "History"
 msgstr "History"
 
-#: src/history/history-drawer.tsx
-msgid "History views"
-msgstr "History views"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
 msgstr "Hook left arrow"
@@ -5446,8 +5480,8 @@ msgid "Keep"
 msgstr "Keep"
 
 #: src/history/conflict-resolver.tsx
-msgid "Keep both"
-msgstr "Keep both"
+msgid "Keep both, yours first"
+msgstr "Keep both, yours first"
 
 #: src/App.tsx
 msgid "Keep citations"
@@ -5477,9 +5511,21 @@ msgstr "Keep sources beside your writing"
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
 
+#: src/history/conflict-resolver.tsx
+msgid "Keeping both"
+msgstr "Keeping both"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keeping Overleaf's"
+msgstr "Keeping Overleaf's"
+
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
 msgstr "Keeping the citation commands will leave them unresolved."
+
+#: src/history/conflict-resolver.tsx
+msgid "Keeping this computer's"
+msgstr "Keeping this computer's"
 
 #: src/papers/audit-messages.ts
 msgid "Kept as a preprint because pubstate is explicitly preprint."
@@ -5535,10 +5581,6 @@ msgstr "Label <0>{symbol}</0>"
 #: src/overleaf/overleaf-history.tsx
 msgid "Label removed."
 msgstr "Label removed."
-
-#: src/history/versions-timeline.tsx
-msgid "Label this version (optional)"
-msgstr "Label this version (optional)"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Labeled description list"
@@ -5833,6 +5875,16 @@ msgstr "Limit 1 word"
 msgid "Line"
 msgstr "Line"
 
+#. placeholder {0}: hunk.line
+#: src/history/conflict-resolver.tsx
+msgid "Line {0}"
+msgstr "Line {0}"
+
+#. placeholder {0}: passage.line
+#: src/history/versions-timeline.tsx
+msgid "Line {0} of this version"
+msgstr "Line {0} of this version"
+
 #: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "line {line}"
@@ -5948,7 +6000,7 @@ msgstr "Ln {line}, Col {column}"
 msgid "Load a package"
 msgstr "Load a package"
 
-#: src/overleaf/overleaf-history.tsx
+#: src/history/history-drawer.tsx
 #: src/papers/literature-discovery-panel.tsx
 msgid "Load more"
 msgstr "Load more"
@@ -6456,6 +6508,10 @@ msgstr "Name already used"
 msgid "Name this version"
 msgstr "Name this version"
 
+#: src/history/versions-timeline.tsx
+msgid "Name this version, e.g. Sent to co-authors"
+msgstr "Name this version, e.g. Sent to co-authors"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version…"
 msgstr "Name this version…"
@@ -6651,6 +6707,7 @@ msgid "Next build problem"
 msgstr "Next build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "Next change"
 
@@ -6708,11 +6765,7 @@ msgstr "No answer from {0}"
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
 
-#: src/history/history-drawer.tsx
-msgid "No changes recorded yet"
-msgstr "No changes recorded yet"
-
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
@@ -6763,10 +6816,6 @@ msgstr "No grouping"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No highlights of this kind in {fileName}"
 msgstr "No highlights of this kind in {fileName}"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "No history yet"
-msgstr "No history yet"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
@@ -6888,6 +6937,10 @@ msgstr "No open comments"
 msgid "No other recent projects yet"
 msgstr "No other recent projects yet"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "No Overleaf history yet"
+msgstr "No Overleaf history yet"
+
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
 msgstr "No papers match “{trimmedQuery}”"
@@ -6964,6 +7017,7 @@ msgid "No suggestions in this file"
 msgstr "No suggestions in this file"
 
 #: src/history/file-diff-view.tsx
+#: src/history/versions-timeline.tsx
 msgid "No textual changes"
 msgstr "No textual changes"
 
@@ -6982,6 +7036,10 @@ msgstr "No upgrade check was performed for this entry."
 #: src/project/paper-library.tsx
 msgid "No venue"
 msgstr "No venue"
+
+#: src/history/versions-timeline.tsx
+msgid "No version history"
+msgstr "No version history"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
@@ -7090,6 +7148,14 @@ msgstr "Note"
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Nothing has changed on Overleaf since this version"
+msgstr "Nothing has changed on Overleaf since this version"
+
+#: src/history/history-drawer.tsx
+msgid "Nothing has changed yet"
+msgstr "Nothing has changed yet"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Nothing here"
 msgstr "Nothing here"
@@ -7141,7 +7207,7 @@ msgstr "Notify me (manual)"
 msgid "Now"
 msgstr "Now"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Now tracking versions of this project."
 msgstr "Now tracking versions of this project."
 
@@ -8171,6 +8237,7 @@ msgid "Previous build problem"
 msgstr "Previous build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "Previous change"
 
@@ -8276,7 +8343,7 @@ msgstr "Project name"
 msgid "project restore"
 msgstr "project restore"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 #: src/overleaf/overleaf-history.tsx
 msgid "Project restored."
 msgstr "Project restored."
@@ -8602,8 +8669,8 @@ msgid "Refresh"
 msgstr "Refresh"
 
 #: src/history/versions-timeline.tsx
-msgid "Refresh versions"
-msgstr "Refresh versions"
+msgid "Refresh history"
+msgstr "Refresh history"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Regex"
@@ -9079,25 +9146,27 @@ msgid "Restore {0}"
 msgstr "Restore {0}"
 
 #. placeholder {0}: file.pathname
-#. placeholder {0}: target.path
-#: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore {0} to this version"
 msgstr "Restore {0} to this version"
+
+#: src/history/versions-timeline.tsx
+msgid "Restore {activePath} to this version"
+msgstr "Restore {activePath} to this version"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Restore {name}"
 msgstr "Restore {name}"
 
-#: src/history/versions-timeline.tsx
-msgid "Restore {path} to this version? Your current file will be overwritten."
-msgstr "Restore {path} to this version? Your current file will be overwritten."
+#: src/history/use-git-versions.ts
+msgid "Restore {path} to this version? The current state is saved as a version first."
+msgstr "Restore {path} to this version? The current state is saved as a version first."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Restore draft and retry"
 msgstr "Restore draft and retry"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore file"
 msgstr "Restore file"
 
@@ -9111,7 +9180,7 @@ msgstr "Restore only “{path}” to the state before this change? The restore w
 msgid "Restore only {0}"
 msgstr "Restore only {0}"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore project"
 msgstr "Restore project"
 
@@ -9140,13 +9209,13 @@ msgstr "Restore the layout"
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
 msgstr "Restore the project to the state before this change? The restore will be added as a new history entry."
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore the project to this version?\n"
 "\n"
-"Nothing is lost: the restore is saved as a new version"
+"Nothing is lost: the current state is saved as a version first"
 msgstr "Restore the project to this version?\n"
 "\n"
-"Nothing is lost: the restore is saved as a new version"
+"Nothing is lost: the current state is saved as a version first"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -9171,7 +9240,7 @@ msgstr "Restore whole project to this version"
 msgid "Restored {0}."
 msgstr "Restored {0}."
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restored {path}."
 msgstr "Restored {path}."
 
@@ -9422,6 +9491,10 @@ msgstr "Sans-serif text"
 msgid "Save"
 msgstr "Save"
 
+#: src/history/versions-timeline.tsx
+msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
+msgstr "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
+
 #: src/App.tsx
 msgid "Save and build"
 msgstr "Save and build"
@@ -9487,6 +9560,7 @@ msgstr "Save the project before repairing."
 msgid "Save to workspace"
 msgstr "Save to workspace"
 
+#: src/history/use-git-versions.ts
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "Save version"
@@ -9494,6 +9568,10 @@ msgstr "Save version"
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
+
+#: src/history/versions-timeline.tsx
+msgid "Saved by Lattice after syncs and builds since {since}"
+msgstr "Saved by Lattice after syncs and builds since {since}"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -9836,6 +9914,10 @@ msgstr "Show annotations"
 msgid "Show archived"
 msgstr "Show archived"
 
+#: src/history/versions-timeline.tsx
+msgid "Show changes as"
+msgstr "Show changes as"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "Show document outline"
@@ -9849,6 +9931,10 @@ msgstr "Show hidden files"
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
+#: src/history/history-drawer.tsx
+msgid "Show in history"
+msgstr "Show in history"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Show in source"
 msgstr "Show in source"
@@ -9856,6 +9942,10 @@ msgstr "Show in source"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
+
+#: src/history/history-drawer.tsx
+msgid "Show older history"
+msgstr "Show older history"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
@@ -9891,6 +9981,11 @@ msgstr "Show the PDF beside the editor"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "Show this in the editor"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Show this version's changes"
+msgstr "Show this version's changes"
 
 #: src/project/project-find-dialog.tsx
 msgid "Show:"
@@ -10065,6 +10160,7 @@ msgid "sound"
 msgstr "sound"
 
 #: src/editor/markdown/engine/views/image-view.tsx
+#: src/history/versions-timeline.tsx
 msgid "Source"
 msgstr "Source"
 
@@ -10227,7 +10323,7 @@ msgstr "Start the appendices"
 msgid "Start tour"
 msgstr "Start tour"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Start tracking versions"
 msgstr "Start tracking versions"
 
@@ -10250,11 +10346,6 @@ msgstr "Starting Open Slide"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
-
-#. placeholder {0}: hunk.line
-#: src/history/conflict-resolver.tsx
-msgid "Starts at line {0}"
-msgstr "Starts at line {0}"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
@@ -10565,6 +10656,7 @@ msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab language server (optional editor diagnostics)"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/history/versions-timeline.tsx
 msgid "Text"
 msgstr "Text"
 
@@ -10709,6 +10801,10 @@ msgstr "the connection id needed to classify replayed updates is not available"
 #: src/history/conflict-resolver.tsx
 msgid "The copy on Overleaf"
 msgstr "The copy on Overleaf"
+
+#: src/history/versions-timeline.tsx
+msgid "The current state is saved as a version first"
+msgstr "The current state is saved as a version first"
 
 #: src/settings/acknowledged-software.ts
 msgid "The desktop app shell"
@@ -10978,6 +11074,10 @@ msgstr "There is not enough disk space to install the package. Free up some spac
 msgid "These comments stay in Lattice and are not sent to Overleaf."
 msgstr "These comments stay in Lattice and are not sent to Overleaf."
 
+#: src/history/versions-timeline.tsx
+msgid "These files as this version left them, compared with now"
+msgstr "These files as this version left them, compared with now"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
@@ -11239,10 +11339,6 @@ msgstr "To check"
 msgid "toast notification"
 msgstr "toast notification"
 
-#: src/overleaf/overleaf-history.tsx
-msgid "Today"
-msgstr "Today"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Today's date"
 msgstr "Today's date"
@@ -11345,6 +11441,10 @@ msgstr "Try other words, or search every source file"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "Try that again now"
+
+#: src/history/versions-timeline.tsx
+msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
+msgstr "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -11737,6 +11837,7 @@ msgstr "Verified record (BibTeX)"
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
+#: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Version"
@@ -11751,9 +11852,10 @@ msgstr "Version {0} is ready to install"
 msgid "Version {version}"
 msgstr "Version {version}"
 
+#. placeholder {0}: versions.error
 #: src/history/versions-timeline.tsx
-msgid "Version history is unavailable: {error}"
-msgstr "Version history is unavailable: {error}"
+msgid "Version history is unavailable: {0}"
+msgstr "Version history is unavailable: {0}"
 
 #: src/history/versions-timeline.tsx
 msgid "Version history needs Git, which isn’t available on this Mac"
@@ -11768,7 +11870,7 @@ msgstr "Version label"
 msgid "Version named."
 msgstr "Version named."
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Version saved."
 msgstr "Version saved."
 
@@ -11777,11 +11879,23 @@ msgstr "Version saved."
 msgid "Version to keep for spot {0}"
 msgstr "Version to keep for spot {0}"
 
+#: src/history/versions-timeline.tsx
+msgid "Version tracking is off"
+msgstr "Version tracking is off"
+
+#: src/history/versions-timeline.tsx
+msgid "Version tracking is off for this project"
+msgstr "Version tracking is off for this project"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "Versions"
+
+#: src/history/history-drawer.tsx
+msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
+msgstr "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
@@ -11897,6 +12011,10 @@ msgstr "Welcome back"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
+
+#: src/overleaf/overleaf-history.tsx
+msgid "What has changed on Overleaf since this version"
+msgstr "What has changed on Overleaf since this version"
 
 #: src/canvas/annotation-composer.tsx
 msgid "What should change here?"
@@ -12088,10 +12206,6 @@ msgstr "Year unavailable"
 #: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "Yellow"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "Yesterday"
-msgstr "Yesterday"
 
 #: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx

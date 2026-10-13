@@ -158,7 +158,7 @@ export function AppHistoryDrawers({ tools, synara: {
               tabClassName="drawer-view-tab"
               items={[
                 ...(agentTurnReview ? [{ value: "agent-turn", label: t`Agent turn` }] : []),
-                { value: "changes", label: t`Changes` },
+                { value: "changes", label: t({ message: "Changes", context: "git panel" }) },
                 { value: "pull-requests", label: t`Pull requests` },
               ]}
             />

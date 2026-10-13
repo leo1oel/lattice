@@ -112,7 +112,8 @@ export function GitWorkspaceFrames({ frame, view, turnReview, runtime, onRetryRu
   if (runtime.state === "stopped") return <SynaraLoadingSurface runtime={runtime} onRetry={onRetryRuntime} />;
 
   const titles: Record<GitWorkspaceFrameKey, string> = {
-    changes: t`Changes`,
+    // Git's working-tree changes (更改): its own word, so 修订 means only Overleaf's suggestions.
+    changes: t({ message: "Changes", context: "git panel" }),
     "pull-requests": t`Pull requests`,
     "agent-turn": t`Agent turn review`,
   };

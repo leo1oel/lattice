@@ -107,7 +107,7 @@ describe("Overleaf sync", () => {
     expect((syncCalls()[0][1] as { live: string[] }).live).not.toContain("references.bib");
 
     const dialog = await screen.findByRole("dialog", { name: "Resolve conflicts in references.bib" }, { timeout: 60_000 });
-    expect(await within(dialog).findByRole("region", { name: "Overleaf" }, { timeout: 10_000 }))
+    expect(await within(dialog).findByRole("radio", { name: "Keep Overleaf's version" }, { timeout: 10_000 }))
       .toHaveTextContent("Overleaf removed this part.");
     fireEvent.click(within(dialog).getByRole("radio", { name: "Keep this computer's version" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save resolved file" }));

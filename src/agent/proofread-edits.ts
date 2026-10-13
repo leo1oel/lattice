@@ -193,6 +193,16 @@ function trimSharedSpace(original: string, hunk: Hunk): Hunk {
   return { from, to, insert };
 }
 
+/**
+ * The changes from `original` to `revised` as the phrases a writer would
+ * name, the way a proofread offers them: `one.` → `.` reads as one deletion,
+ * not a word dropped and a full stop kept. An opened version reads its
+ * changes from these.
+ */
+export function phraseHunks(original: string, revised: string): Hunk[] {
+  return logicalGroups(original, tokenHunks(original, revised)).map((group) => trimSharedSpace(original, joinHunks(original, group)));
+}
+
 /** The offered edits the writer has not rejected, in order. */
 export function chosenEdits(review: ProofreadReview, rejected: ReadonlySet<number>): ProofreadEdit[] {
   return review.edits.filter((edit) => !rejected.has(edit.id));

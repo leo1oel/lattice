@@ -1,0 +1,152 @@
+/**
+ * The project's git-backed versions: the log the history timeline lists, and
+ * the actions on it — start tracking, save a version, restore a file or the
+ * whole project. Restores are forward-only (the host commits the restored
+ * tree as a new version), and each first saves the working tree as a version
+ * of its own, so nothing typed since the last version is lost either.
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useLingui } from "@lingui/react/macro";
+import type { GitLogEntry, GitStatus } from "../app-types";
+import { confirmAction, toMessage } from "../app-utils";
+import { logAction } from "../telemetry/app-notify";
+import { onProjectFilesChanged } from "../project/project-files-changed";
+import { AUTO_COMMIT_MESSAGES } from "./version-messages";
+
+export type GitVersionsPhase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
+
+export function useGitVersions(props: {
+  projectRoot?: string;
+  /** Called after any restore or manual save so the app can reload files. */
+  onVersionsChanged?: () => void | Promise<void>;
+  /** Called when the git backend itself is unreachable (`git_status` rejects). */
+  onGitUnreachable?: () => void;
+}) {
+  const { t } = useLingui();
+  const [phase, setPhase] = useState<GitVersionsPhase>("loading");
+  const [entries, setEntries] = useState<GitLogEntry[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const callbacksRef = useRef(props);
+  useEffect(() => {
+    callbacksRef.current = props;
+  });
+  const loadSeq = useRef(0);
+
+  const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
+    setRefreshing(true);
+    setError("");
+    try {
+      const status = await invoke<GitStatus>("git_status");
+      if (seq !== loadSeq.current) return;
+      if (!status.available || !status.repository) {
+        setPhase(status.available ? "no-repo" : "unavailable");
+        return;
+      }
+      try {
+        const entries = await invoke<GitLogEntry[]>("git_log", { limit: 100 });
+        if (seq !== loadSeq.current) return;
+        setEntries(entries);
+      } catch (reason) {
+        if (seq !== loadSeq.current) return;
+        setError(toMessage(reason));
+      }
+      setPhase("ready");
+    } catch (reason) {
+      if (seq !== loadSeq.current) return;
+      // The `git_*` commands themselves are missing or broken (e.g. an older
+      // backend build). Say so where the versions would be, and let the drawer
+      // fall back to the Activity view so it stays useful.
+      setError(toMessage(reason));
+      setPhase("error");
+      callbacksRef.current.onGitUnreachable?.();
+    } finally {
+      if (seq === loadSeq.current) setRefreshing(false);
+    }
+  }, []);
+
+  // Mount loads through a ref so the effect body holds no traceable synchronous setState call.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    const cancelLoad = () => { ++loadSeq.current; };
+    void loadRef.current();
+    const refresh = () => { void load(); };
+    const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
+    // Git commits can also arrive while the app is unfocused or its watcher
+    // is unavailable. Only poll while the timeline is mounted.
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelLoad();
+      stopListening();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [load, props.projectRoot]);
+
+  /** Run one logged action, then reload the timeline. */
+  const runAction = async (label: string, detail: string | undefined, action: () => Promise<string>) => {
+    setBusy(true);
+    const trace = logAction(t`Versions`, label, detail);
+    try {
+      const outcome = await action();
+      await load();
+      trace.ok(outcome);
+      return true;
+    } catch (reason) {
+      trace.fail(reason);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Commit the working tree before a restore overwrites it; a clean tree commits nothing. */
+  const saveCurrentState = () => invoke<string | null>("git_auto_commit", { message: AUTO_COMMIT_MESSAGES.autoSaved, author: null });
+
+  return {
+    phase,
+    entries,
+    error,
+    busy,
+    refreshing,
+    reload: load,
+    enableTracking: () => runAction(t`Start tracking versions`, undefined, async () => {
+      await invoke<GitStatus>("git_init");
+      return t`Now tracking versions of this project.`;
+    }),
+    /** Save the working tree as a version named `label` (or the plain "Saved version"). */
+    saveVersion: (label: string) => runAction(t`Save version`, label || undefined, async () => {
+      const hash = await invoke<string | null>("git_auto_commit", { message: label || AUTO_COMMIT_MESSAGES.saved, author: null });
+      if (hash) await callbacksRef.current.onVersionsChanged?.();
+      return hash ? t`Version saved.` : t`No changes since the last version.`;
+    }),
+    restoreFile: async (hash: string, path: string) => {
+      if (!await confirmAction(t`Restore ${path} to this version? The current state is saved as a version first.`)) return;
+      await runAction(t`Restore file`, `${path} @ ${hash}`, async () => {
+        await saveCurrentState();
+        await invoke("git_restore_file", { rev: hash, path });
+        await callbacksRef.current.onVersionsChanged?.();
+        return t`Restored ${path}.`;
+      });
+    },
+    restoreProject: async (hash: string) => {
+      const warning = t`Restore the project to this version?
+
+Nothing is lost: the current state is saved as a version first`;
+      if (!await confirmAction(warning)) return;
+      await runAction(t`Restore project`, hash, async () => {
+        await saveCurrentState();
+        await invoke<string>("git_restore_project", { rev: hash });
+        await callbacksRef.current.onVersionsChanged?.();
+        return t`Project restored.`;
+      });
+    },
+  };
+}
+
+export type GitVersions = ReturnType<typeof useGitVersions>;

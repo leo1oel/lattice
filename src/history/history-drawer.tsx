@@ -1,20 +1,28 @@
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import type { CodeViewItem } from "@pierre/diffs";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { historyFocus, subscribeHistoryFocus } from "./history-focus";
 import { invoke } from "@tauri-apps/api/core";
-import { Clock3, History, RotateCcw } from "lucide-react";
+import { ArrowDownUp, BookMarked, History, PenLine, RotateCcw, Sparkles } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { EmptyState } from "../components/ui/empty-state";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
+import { ResearchArt } from "../components/ui/research-art";
+import { DATED_DRAFTS } from "../components/ui/research-art-dated-drafts";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { VersionsTimeline, versionsTimelineCss } from "./versions-timeline";
-import { OverleafHistoryPanel } from "../overleaf/overleaf-history";
-import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import { formatCount } from "../i18n";
+import type { GitLogEntry } from "../app-types";
+import { OverleafHistoryRow, OverleafHistoryState, type OverleafHistory } from "../overleaf/overleaf-history";
+import { useOverleafHistory, type OverleafUpdate } from "../overleaf/use-overleaf-history";
+import { AutomaticVersionsRow, VersionRow, VersionsNotice, VersionsState, VersionsToolbar } from "./versions-timeline";
+import { isAutomaticVersion } from "./version-messages";
+import { useGitVersions, type GitVersions } from "./use-git-versions";
+import { HistoryDay, HistoryRow, HistoryStat } from "./history-row";
+import { clockTime, dayName, fullTime, groupByDay } from "./history-time";
 import { ChangeKindLabel, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
 import {
@@ -25,6 +33,7 @@ import {
   usePierreResources,
   type DiffFileChange,
 } from "./pierre-diff";
+import "./history-timeline.css";
 
 export type HistoryItem = {
   id: string;
@@ -52,12 +61,41 @@ export type HistoryItem = {
 /** The part of a `get_history_entry` transaction record the diff view reads. */
 type TransactionRecord = { id: string; changes: DiffFileChange[] };
 
-type HistoryTab = "changes" | "versions" | "overleaf";
-type HistoryFilter = "all" | "user" | "agent" | "citation";
+/**
+ * What the timeline shows: everything in one stream, or one record alone —
+ * git versions, Lattice's own activity, or Overleaf's history.
+ */
+type HistoryView = "everything" | "versions" | "activity" | "overleaf";
+type ActivityFilter = "all" | "user" | "agent" | "citation";
 
-// Session-scoped memory of the last-used tab. "Versions" is the default; the
+// Session-scoped memory of the last-used view. Everything is the default; the
 // choice is intentionally not persisted to localStorage.
-let lastUsedTab: HistoryTab = "versions";
+let lastUsedView: HistoryView = "everything";
+const rememberView = (view: HistoryView) => { lastUsedView = view; };
+
+/** One line of the timeline, whichever record it came from. */
+type TimelineRow =
+  | { kind: "activity"; key: string; at: number; item: HistoryItem }
+  | { kind: "version"; key: string; at: number; entry: GitLogEntry }
+  | { kind: "automatic"; key: string; at: number; entries: GitLogEntry[] }
+  | { kind: "overleaf"; key: string; at: number; update: OverleafUpdate };
+
+/** Runs of two or more automatic versions in a row become one folded line. */
+function foldAutomatic(rows: TimelineRow[]): TimelineRow[] {
+  const folded: TimelineRow[] = [];
+  for (const row of rows) {
+    const last = folded.at(-1);
+    const automatic = row.kind === "version" && isAutomaticVersion(row.entry.message);
+    if (automatic && last?.kind === "automatic") last.entries.push(row.entry);
+    else if (automatic && last?.kind === "version" && isAutomaticVersion(last.entry.message)) {
+      folded[folded.length - 1] = { kind: "automatic", key: `fold:${last.entry.hash}`, at: last.at, entries: [last.entry, row.entry] };
+    } else folded.push(row);
+  }
+  return folded;
+}
+
+/** The actor glyph in an activity row's gutter. */
+const ACTOR_GLYPHS: Record<string, typeof PenLine> = { user: PenLine, agent: Sparkles, citation: BookMarked, system: ArrowDownUp };
 
 export function HistoryDrawer(props: {
   history: HistoryItem[];
@@ -74,40 +112,67 @@ export function HistoryDrawer(props: {
   /** After a restore on Overleaf's side, which leaves the local files untouched. */
   onOverleafRestored?: () => void;
 }) {
-  const { t } = useLingui();
-  // A project that was linked last time may not be now, and the remembered tab
-  // would otherwise land on an Overleaf panel with nothing behind it.
-  const [tab, setTab] = useState<HistoryTab>(
-    lastUsedTab === "overleaf" && !props.overleafLinked ? "versions" : lastUsedTab,
+  const { i18n, t } = useLingui();
+  // A project that was linked last time may not be now, and the remembered view
+  // would otherwise land on an Overleaf list with nothing behind it.
+  const [view, setView] = useState<HistoryView>(
+    lastUsedView === "overleaf" && !props.overleafLinked ? "everything" : lastUsedView,
   );
-  const userPickedTab = useRef(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const userPickedView = useRef(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  /** The open row, when it was opened to compare with now rather than to read its own changes. */
+  const [compareKey, setCompareKey] = useState<string | null>(null);
+  const [openFolds, setOpenFolds] = useState<ReadonlySet<string>>(new Set());
   const entryLoad = useLatestLoad<TransactionRecord>();
   const entry = entryLoad.value;
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
-  const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [filter, setFilter] = useState<ActivityFilter>("all");
   const codeViewRef = useRef<CodeViewHandle<undefined, undefined>>(null);
   const activeChangeIndexRef = useRef(0);
   useEffect(() => {
     activeChangeIndexRef.current = activeChangeIndex;
   }, [activeChangeIndex]);
 
-  const selectTab = (next: HistoryTab) => {
-    userPickedTab.current = true;
-    lastUsedTab = next;
-    setTab(next);
+  const versions = useGitVersions({
+    projectRoot: props.overleafProjectRoot,
+    onVersionsChanged: props.onVersionsChanged,
+    onGitUnreachable: () => {
+      // The git commands are missing entirely (e.g. an older backend build).
+      // If the user hasn't picked a view themselves, fall back to the whole
+      // stream so the drawer stays useful.
+      if (userPickedView.current) return;
+      rememberView("everything");
+      setView((current) => (current === "versions" ? "everything" : current));
+    },
+  });
+
+  const selectView = (next: HistoryView) => {
+    userPickedView.current = true;
+    rememberView(next);
+    setView(next);
   };
 
-  const toggleEntry = (item: HistoryItem) => {
+  const toggleRow = (key: string) => {
+    setCompareKey(null);
+    setExpandedKey((current) => (current === key ? null : key));
+  };
+  /** Open `key` compared with now; asked again while it is, close it. */
+  const compareRow = (key: string) => {
+    const closing = expandedKey === key && compareKey === key;
+    setExpandedKey(closing ? null : key);
+    setCompareKey(closing ? null : key);
+  };
+  const toggleActivity = (item: HistoryItem) => {
+    setCompareKey(null);
     setActiveChangeIndex(0);
-    const expanding = expandedId !== item.id;
-    setExpandedId(expanding ? item.id : null);
+    const expanding = expandedKey !== `activity:${item.id}`;
+    setExpandedKey(expanding ? `activity:${item.id}` : null);
     if (expanding && item.kind !== "agent-checkpoint") {
       entryLoad.load(item.id, () => invoke<TransactionRecord>("get_history_entry", { transactionId: item.id }));
     } else entryLoad.clear();
   };
 
-  // Asked to open on an entry (a revision round's): show the changes with it expanded.
+  // Asked to open on an entry (a revision round's): show the activity with it expanded.
   const focusEntry = useSyncExternalStore(subscribeHistoryFocus, historyFocus);
   const focusNonce = focusEntry?.nonce;
   const focusId = focusEntry?.id;
@@ -115,11 +180,12 @@ export function HistoryDrawer(props: {
   useEffect(() => {
     if (!focusNonce || !focusId || handledFocusRef.current === focusNonce) return;
     handledFocusRef.current = focusNonce;
-    lastUsedTab = "changes";
-    setTab("changes");
+    rememberView("activity");
+    setView("activity");
     setFilter("all");
+    setCompareKey(null);
     setActiveChangeIndex(0);
-    setExpandedId(focusId);
+    setExpandedKey(`activity:${focusId}`);
     entryLoad.load(focusId, () => invoke<TransactionRecord>("get_history_entry", { transactionId: focusId }));
     requestAnimationFrame(() => document.querySelector(`[data-history-entry="${CSS.escape(focusId)}"]`)?.scrollIntoView({ block: "start" }));
   }, [entryLoad, focusId, focusNonce]);
@@ -152,12 +218,10 @@ export function HistoryDrawer(props: {
   }), [onClose, onOpenFile, theme, themeName]);
   const scrollToChange = (id: string) => codeViewRef.current?.scrollTo({ type: "item", id, align: "start", behavior: "smooth" });
   useEffect(() => {
-    if (tab !== "changes" || !resources.ready || !entry || entry.changes.length < 2) return;
+    if (view === "versions" || view === "overleaf" || !resources.ready || !entry || entry.changes.length < 2) return;
     const activeItem = codeViewItems[activeChangeIndexRef.current];
     if (activeItem) scrollToChange(activeItem.id);
-  }, [codeViewItems, entry, resources.ready, tab]);
-  const visibleHistory = props.history.filter((item) => filter === "all" || (item.actor ?? "user") === filter);
-  const actorLabels: Record<string, string> = { agent: t`Agent`, citation: t`Citation tool`, system: "Lattice" };
+  }, [codeViewItems, entry, resources.ready, view]);
   const openLine = props.onOpenFile
     ? (path: string, line: number) => {
         props.onOpenFile?.(path, line);
@@ -172,14 +236,16 @@ export function HistoryDrawer(props: {
         <>
           <HistoryDiff key={`${item.id}:${single.path}`} change={single} onOpenLine={openLine} />
           {props.onRevertFile && (
-            <button
-              type="button"
-              className="history-restore-file"
-              title={t`Restore only ${single.path}`}
-              onClick={() => props.onRevertFile?.(item.id, single.path)}
-            >
-              <RotateCcw size={12} /> {t`Restore this file`}
-            </button>
+            <div className="version-actions">
+              <button
+                type="button"
+                className="version-action"
+                title={t`Restore only ${single.path}`}
+                onClick={() => props.onRevertFile?.(item.id, single.path)}
+              >
+                <RotateCcw size={12} /> {t`Restore this file`}
+              </button>
+            </div>
           )}
         </>
       );
@@ -192,14 +258,14 @@ export function HistoryDrawer(props: {
             <button
               key={`${change.path}:${index}`}
               type="button"
-              className={`ui-compact-selectable${index === activeChangeIndex ? " active" : ""}`}
+              className={`version-file${index === activeChangeIndex ? " active" : ""}`}
               aria-pressed={index === activeChangeIndex}
               onClick={() => {
                 scrollToChange(`history:${record.id}:${index}`);
                 setActiveChangeIndex(index);
               }}
             >
-              {change.path}
+              <span>{change.path}</span>
             </button>
           ))}
         </div>
@@ -245,9 +311,256 @@ export function HistoryDrawer(props: {
     );
   };
 
+  const actorLabels: Record<string, string> = { agent: t`Agent`, citation: t`Citation tool`, system: "Lattice" };
+  const renderActivity = (item: HistoryItem, at: number, source?: string) => {
+    const key = `activity:${item.id}`;
+    const expanded = expandedKey === key;
+    const actor = item.actor ?? "user";
+    const Glyph = ACTOR_GLYPHS[actor] ?? PenLine;
+    const restoreTitle = item.restoreAvailable === false
+      ? item.restoreUnavailableReason || t`Open this Agent task before restoring its files`
+      : item.kind === "agent-checkpoint"
+        ? t`Undo this Agent turn's file changes`
+        : t`Restore the state before this change`;
+    const additions = item.fileSummaries?.reduce((sum, file) => sum + file.additions, 0) ?? 0;
+    const deletions = item.fileSummaries?.reduce((sum, file) => sum + file.deletions, 0) ?? 0;
+    return (
+      <HistoryRow
+        key={key}
+        data-history-entry={item.id}
+        glyph={<Glyph size={13} strokeWidth={1.75} />}
+        tone={actor}
+        title={item.label}
+        meta={(
+          <>
+            <span className="history-row-actor">{actorLabels[actor] ?? t`You`}</span>
+            {item.files.length > 0 && <span className="history-row-detail">{item.files.join(", ")}</span>}
+            <HistoryStat additions={additions} deletions={deletions} format={formatCount} />
+          </>
+        )}
+        time={clockTime(at, i18n.locale)}
+        timeTitle={fullTime(at, i18n.locale)}
+        source={source}
+        expanded={expanded}
+        onToggle={() => toggleActivity(item)}
+        tools={(
+          <>
+            <button
+              type="button"
+              className="history-tool"
+              title={restoreTitle}
+              aria-label={restoreTitle}
+              disabled={item.restoreAvailable === false}
+              onClick={() => props.onRevert(item)}
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+            </button>
+            {item.kind !== "agent-checkpoint" && (
+              <DestructiveButton className="history-tool history-tool-danger" title={t`Delete this history entry`} iconSize={13} onClick={() => props.onDelete(item.id)} />
+            )}
+          </>
+        )}
+      >
+        <div className="history-entry-preview">
+          {entryLoad.loading && entryLoad.key === item.id && <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>}
+          {entryLoad.error && entryLoad.key === item.id && <p className="history-diff-error" role="alert">{entryLoad.error}</p>}
+          {item.kind === "agent-checkpoint" && (
+            <div className="history-checkpoint-summary">
+              {item.threadTitle && <strong>{t`Agent task: ${item.threadTitle}`}</strong>}
+              {item.fileSummaries?.map((file) => (
+                <div key={file.path}>
+                  <span>{file.path}</span>
+                  <small>
+                    {file.kind}
+                    {file.additions || file.deletions
+                      ? ` · +${file.additions} −${file.deletions}`
+                      : ""}
+                  </small>
+                </div>
+              ))}
+            </div>
+          )}
+          {entry?.id === item.id && renderTransaction(item, entry)}
+        </div>
+      </HistoryRow>
+    );
+  };
+
+  const sourceLabels = { version: t`Version`, activity: t({ message: "Activity", context: "history source" }), overleaf: "Overleaf" };
+  /** Rows name their record only when the timeline mixes them. */
+  const source = (kind: keyof typeof sourceLabels) => (view === "everything" ? sourceLabels[kind] : undefined);
+
+  const renderVersion = (entry: GitLogEntry, git: GitVersions) => {
+    const key = `version:${entry.hash}`;
+    return (
+      <VersionRow
+        key={key}
+        entry={entry}
+        versions={git}
+        projectRoot={props.overleafProjectRoot}
+        expanded={expandedKey === key}
+        compare={compareKey === key}
+        onToggle={() => toggleRow(key)}
+        onCompare={() => compareRow(key)}
+        source={source("version")}
+      />
+    );
+  };
+  const renderOverleaf = (update: OverleafUpdate, overleaf: OverleafHistory) => {
+    const key = `overleaf:${update.toVersion}`;
+    return (
+      <OverleafHistoryRow
+        key={key}
+        update={update}
+        history={overleaf}
+        projectRoot={props.overleafProjectRoot ?? ""}
+        expanded={expandedKey === key}
+        compare={compareKey === key}
+        onToggle={() => toggleRow(key)}
+        onCompare={() => compareRow(key)}
+        source={source("overleaf")}
+        onClose={props.onClose}
+        onOpenFile={props.onOpenFile}
+        onRestored={props.onOverleafRestored}
+      />
+    );
+  };
+
+  /** `rows`, newest first, grouped by day, with each run of automatic versions folded. */
+  const renderTimeline = (rows: TimelineRow[], overleaf: OverleafHistory | null) => {
+    const sorted = [...rows].sort((left, right) => right.at - left.at);
+    return groupByDay(sorted, (row) => row.at).map((day) => (
+      <HistoryDay key={day.key} label={dayName(day.at, i18n.locale)}>
+        {foldAutomatic(day.items).flatMap((row): ReactNode[] => {
+          switch (row.kind) {
+            case "activity":
+              return [renderActivity(row.item, row.at, source("activity"))];
+            case "version":
+              return [renderVersion(row.entry, versions)];
+            case "automatic": {
+              const open = openFolds.has(row.key);
+              const toggle = () => setOpenFolds((current) => {
+                const next = new Set(current);
+                if (!next.delete(row.key)) next.add(row.key);
+                return next;
+              });
+              return [
+                <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} source={source("version")} />,
+                ...(open ? row.entries.map((entry) => renderVersion(entry, versions)) : []),
+              ];
+            }
+            case "overleaf":
+              return overleaf ? [renderOverleaf(row.update, overleaf)] : [];
+          }
+        })}
+      </HistoryDay>
+    ));
+  };
+
+  const shownHistory = view === "activity"
+    ? props.history.filter((item) => filter === "all" || (item.actor ?? "user") === filter)
+    : props.history;
+  const activityRows = (): TimelineRow[] => shownHistory.map((item) => ({
+    kind: "activity", key: `activity:${item.id}`, at: new Date(item.timestamp).getTime(), item,
+  }));
+  const versionRows = (): TimelineRow[] => (versions.phase === "ready" ? versions.entries : []).map((entry) => ({
+    kind: "version", key: `version:${entry.hash}`, at: new Date(entry.timestamp).getTime(), entry,
+  }));
+  const overleafRows = (overleaf: OverleafHistory): TimelineRow[] => overleaf.updates.map((update) => ({
+    kind: "overleaf", key: `overleaf:${update.toVersion}`, at: update.endTs, update,
+  }));
+
+  /** The stream for the current view; Overleaf's history arrives only for a linked project. */
+  const renderBody = (overleaf: OverleafHistory | null) => {
+    if (view === "versions") {
+      return (
+        <>
+          <VersionsState versions={versions} />
+          <div className="history-timeline">{renderTimeline(versionRows(), null)}</div>
+        </>
+      );
+    }
+    if (view === "overleaf") {
+      if (!overleaf) return null;
+      return (
+        <>
+          <OverleafHistoryState history={overleaf} alone />
+          <div className="history-timeline">{renderTimeline(overleafRows(overleaf), overleaf)}</div>
+          <LoadMoreOverleaf history={overleaf} label={t`Load more`} />
+        </>
+      );
+    }
+    if (view === "activity") {
+      return (
+        <>
+          <div className="ui-segmented ui-segmented--compact history-filters" role="group" aria-label={t`Filter project changes`}>
+            {([
+              ["all", t`All`],
+              ["user", t`You`],
+              ["agent", t`Agent`],
+              ["citation", t`Citations`],
+            ] as const).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className="ui-segmented-tab"
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="history-timeline">{renderTimeline(activityRows(), null)}</div>
+          {!shownHistory.length && (
+            props.history.length ? (
+              <EmptyState icon={<EmptyIllustration kind="search" />} description={t`No changes match this filter`} />
+            ) : (
+              <EmptyState
+                className="history-empty"
+                icon={<ResearchArt drawing={DATED_DRAFTS} />}
+                title={t`Nothing has changed yet`}
+                description={t`Every edit you, the agent or the citation tool make shows here, and each can be undone`}
+              />
+            )
+          )}
+        </>
+      );
+    }
+    // Everything: the three records interleaved by time. While Overleaf has
+    // older pages to read, the stream stops at the oldest one read, so a gap
+    // in its history never reads as nothing having happened there.
+    const cutoff = overleaf?.hasMore ? overleaf.updates.at(-1)?.endTs ?? Infinity : -Infinity;
+    const rows = [...activityRows(), ...versionRows(), ...(overleaf ? overleafRows(overleaf) : [])].filter((row) => row.at >= cutoff);
+    const waiting = versions.phase === "loading" || (overleaf?.loading && !overleaf.updates.length);
+    return (
+      <>
+        <VersionsNotice versions={versions} />
+        {overleaf && <OverleafHistoryState history={overleaf} alone={false} />}
+        <div className="history-timeline">{renderTimeline(rows, overleaf)}</div>
+        {!rows.length && !waiting && (
+          <EmptyState
+            className="history-empty"
+            icon={<ResearchArt drawing={DATED_DRAFTS} />}
+            title={t`Nothing has changed yet`}
+            description={t`Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here`}
+          />
+        )}
+        {overleaf && <LoadMoreOverleaf history={overleaf} label={t`Show older history`} />}
+      </>
+    );
+  };
+
+  const views: Array<[HistoryView, string]> = [
+    ["everything", t`Everything`],
+    ["versions", t`Versions`],
+    // Lattice's own change log (动态): not "Changes", which reads 修订 and means Overleaf's suggestions.
+    ["activity", t({ message: "Activity", context: "history tab" })],
+    ...(props.overleafLinked ? [["overleaf", "Overleaf"] as [HistoryView, string]] : []),
+  ];
+
   return (
     <ResizableDrawer className="project-history-drawer" onClose={props.onClose}>
-        <style>{versionsTimelineCss}</style>
         <PanelHeader
           className="drawer-header"
           icon={<History size={16} />}
@@ -260,140 +573,41 @@ export function HistoryDrawer(props: {
           viewportClassName="project-history-scroll-viewport"
           viewportProps={{ "aria-label": t`Project history content` }}
         >
-        <SlidingTabs
-          value={tab}
-          onChange={(next) => selectTab(next as HistoryTab)}
-          ariaLabel={t`History views`}
-          variant="none"
-          className="versions-tabs drawer-view-tabs"
-          tabClassName="drawer-view-tab"
-          items={[
-            { value: "changes", label: t`Changes` },
-            { value: "versions", label: t`Versions` },
-            ...(props.overleafLinked ? [{ value: "overleaf", label: "Overleaf" }] : []),
-          ]}
-        />
-        {tab === "overleaf" && props.overleafLinked && (
-          <OverleafHistoryPanel
-            projectRoot={props.overleafProjectRoot ?? ""}
-            onClose={props.onClose}
-            onOpenFile={props.onOpenFile}
-            onRestored={props.onOverleafRestored}
-          />
-        )}
-        {tab === "versions" && (
-          <VersionsTimeline
-            projectRoot={props.overleafProjectRoot}
-            onVersionsChanged={props.onVersionsChanged}
-            onGitUnreachable={() => {
-              // The git commands are missing entirely (e.g. an older backend
-              // build). If the user hasn't picked a tab themselves, fall back
-              // to the Changes tab so the drawer stays useful.
-              if (userPickedTab.current) return;
-              lastUsedTab = "changes";
-              setTab("changes");
-            }}
-          />
-        )}
-        {tab === "changes" && (
-          <>
-            <div className="ui-segmented ui-segmented--compact history-filters" role="group" aria-label={t`Filter project changes`}>
-              {([
-                ["all", t`All`],
-                ["user", t`You`],
-                ["agent", t`Agent`],
-                ["citation", t`Citations`],
-              ] as const).map(([value, label]) => (
-                <button
-                  type="button"
-                  key={value}
-                  className="ui-segmented-tab"
-                  aria-pressed={filter === value}
-                  onClick={() => setFilter(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="history-list">
-              {visibleHistory.map((item) => {
-                const expanded = expandedId === item.id;
-                const restoreTitle = item.restoreAvailable === false
-                  ? item.restoreUnavailableReason || t`Open this Agent task before restoring its files`
-                  : item.kind === "agent-checkpoint"
-                    ? t`Undo this Agent turn's file changes`
-                    : t`Restore the state before this change`;
-                return (
-                  <div className={`history-item ${expanded ? "expanded" : ""}`} key={item.id} data-history-entry={item.id}>
-                    <div className="history-body">
-                      <button
-                        type="button"
-                        className="history-expand"
-                        aria-expanded={expanded}
-                        onClick={() => toggleEntry(item)}
-                      >
-                        <strong>{item.label}</strong>
-                        <span>
-                          <span className={`history-actor ${item.actor ?? "user"}`}>{actorLabels[item.actor ?? ""] ?? t`You`}</span>
-                          <Clock3 size={11} /> {new Date(item.timestamp).toLocaleString()}
-                        </span>
-                        <p>{item.files.join(", ")}</p>
-                      </button>
-                      {expanded && (
-                        <div className="history-entry-preview">
-                          {entryLoad.loading && entryLoad.key === item.id && <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>}
-                          {entryLoad.error && entryLoad.key === item.id && <p className="history-diff-error" role="alert">{entryLoad.error}</p>}
-                          {item.kind === "agent-checkpoint" && (
-                            <div className="history-checkpoint-summary">
-                              {item.threadTitle && <strong>{t`Agent task: ${item.threadTitle}`}</strong>}
-                              {item.fileSummaries?.map((file) => (
-                                <div key={file.path}>
-                                  <span>{file.path}</span>
-                                  <small>
-                                    {file.kind}
-                                    {file.additions || file.deletions
-                                      ? ` · +${file.additions} −${file.deletions}`
-                                      : ""}
-                                  </small>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {entry?.id === item.id && renderTransaction(item, entry)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="history-actions">
-                      <button
-                        type="button"
-                        title={restoreTitle}
-                        disabled={item.restoreAvailable === false}
-                        onClick={() => props.onRevert(item)}
-                      >
-                        <RotateCcw size={14} />
-                      </button>
-                      {item.kind !== "agent-checkpoint" && (
-                        <DestructiveButton
-                          className="history-delete"
-                          title={t`Delete this history entry`}
-                          iconSize={13}
-                          onClick={() => props.onDelete(item.id)}
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              {!visibleHistory.length && (
-                <EmptyState
-                  icon={<EmptyIllustration kind={props.history.length ? "search" : "history"} />}
-                  description={props.history.length ? t`No changes match this filter` : t`No changes recorded yet`}
-                />
-              )}
-            </div>
-          </>
-        )}
+        <VersionsToolbar versions={versions}>
+          <div className="history-views" role="group" aria-label={t`Show in history`}>
+            {views.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className="history-view"
+                aria-pressed={view === value}
+                onClick={() => selectView(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </VersionsToolbar>
+        {props.overleafLinked ? (
+          <OverleafHistorySource projectRoot={props.overleafProjectRoot ?? ""}>{renderBody}</OverleafHistorySource>
+        ) : renderBody(null)}
         </ScrollArea>
     </ResizableDrawer>
+  );
+}
+
+/** Overleaf's history read for the linked project. */
+function OverleafHistorySource(props: { projectRoot: string; children: (history: OverleafHistory) => ReactNode }) {
+  const history = useOverleafHistory(props.projectRoot);
+  return <>{props.children(history)}</>;
+}
+
+/** Read Overleaf's next page of history, while it has one. */
+function LoadMoreOverleaf(props: { history: OverleafHistory; label: string }) {
+  if (!props.history.hasMore) return null;
+  return (
+    <button type="button" className="history-load-more" disabled={props.history.loadingMore} onClick={() => void props.history.loadMore()}>
+      {props.history.loadingMore && <InfinityLoader size={12} />} {props.label}
+    </button>
   );
 }
