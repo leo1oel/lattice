@@ -875,6 +875,11 @@ msgstr "折叠块"
 msgid "Acknowledgements"
 msgstr "致谢"
 
+#: src/history/history-drawer.tsx
+msgctxt "history tab"
+msgid "Activity"
+msgstr "动态"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
@@ -2126,10 +2131,9 @@ msgstr "Overleaf 改了，本机没动"
 
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
-#: src/history/history-drawer.tsx
-#: src/overleaf/overleaf-collab.tsx
+msgctxt "git panel"
 msgid "Changes"
-msgstr "修订"
+msgstr "更改"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Chapter"
@@ -10189,6 +10193,10 @@ msgstr "成功"
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Suggested change"
 msgstr "修改建议"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Suggestions"
+msgstr "修订"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"

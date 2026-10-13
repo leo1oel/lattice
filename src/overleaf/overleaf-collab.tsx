@@ -80,7 +80,7 @@ export function OverleafCollabDrawer(props: {
           className="overleaf-collab-tabs"
           items={[
             { value: "comments", label: <>{t`Comments`}{badge(openThreads)}</> },
-            { value: "changes", label: <>{t`Changes`}{badge(realtime.changes.length)}</> },
+            { value: "changes", label: <>{t`Suggestions`}{badge(realtime.changes.length)}</> },
             { value: "chat", label: <>{t`Chat`}{badge(chat.unread)}</> },
           ]}
         />

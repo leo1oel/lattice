@@ -268,8 +268,9 @@ export function HistoryDrawer(props: {
           className="versions-tabs drawer-view-tabs"
           tabClassName="drawer-view-tab"
           items={[
-            { value: "changes", label: t`Changes` },
             { value: "versions", label: t`Versions` },
+            // Lattice's own change log (动态): not "Changes", which reads 修订 and means Overleaf's suggestions.
+            { value: "changes", label: t({ message: "Activity", context: "history tab" }) },
             ...(props.overleafLinked ? [{ value: "overleaf", label: "Overleaf" }] : []),
           ]}
         />

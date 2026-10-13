@@ -878,6 +878,11 @@ msgstr "Accordion"
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
 
+#: src/history/history-drawer.tsx
+msgctxt "history tab"
+msgid "Activity"
+msgstr "Activity"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
@@ -2129,8 +2134,7 @@ msgstr "Changed there, untouched here"
 
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
-#: src/history/history-drawer.tsx
-#: src/overleaf/overleaf-collab.tsx
+msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
 
@@ -10196,6 +10200,10 @@ msgstr "Success"
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Suggested change"
 msgstr "Suggested change"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Suggestions"
+msgstr "Suggestions"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
