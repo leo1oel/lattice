@@ -882,3 +882,57 @@ Measured and left alone: the CodeMirror source (0 commits while scrolling the
 3.2 MB `long.tex`), the History timeline (no fade, 4 ms frames in WebKit), the
 palette and Find in project (their results are capped). The Agent chat scrolls
 inside Synara's embed.
+
+### Opening screens and long lists (October 2026)
+
+Measured on the bench page in Playwright's WebKit 26 at 1440×900 and 2×, each
+figure the median of five runs that alternate a build of main (`feb132b5`)
+with this change, from the input that opens a screen to the first frame with
+its content. A large project is the fixture plus `bibEntries=600`,
+`historyEntries=100` and `gitVersions=300`, query parameters the bench page
+now takes (with `paperCount` for the library).
+
+**First opens waited out React's reveal throttle.** The fix for Settings,
+History and Comments above left every other lazily loaded screen as it was:
+its first open committed an empty Suspense fallback, and React held the
+screen back until 300 ms after that commit. Add papers, Discover literature,
+Check references, the shortcut sheet, the Overleaf picker, review and conflict
+dialogs and the revision rounds sheet now open through `LazyMount`
+(`components/lazy-mount.tsx`), an always-mounted boundary whose opening render
+is deferred, so a deferred render that suspends leaves the screen as it was.
+First opens: the shortcut sheet 366 → 61 ms, Add papers 338 → 93, Discover
+literature 348 → 50, Check references 338 → 92; later opens were 31–46 ms
+before and after. The canvas's editors had the same delay even when the idle
+prewarm had loaded their chunk, because `React.lazy` suspends on its first
+render whatever the import's state; they are now `lazyChunk`s over shared
+chunks (`lib/lazy-chunk.ts`), which render at once when the chunk is in. A
+long Markdown document's first open went 620 → 378 ms, and the prewarm now
+includes a bibliography's reference list: the first Preview of a 600-entry
+`.bib` 535 → 114 ms.
+
+**Two more long lists drew every row.** The history timeline and Check
+references mounted all their rows on each open (the Papers list, above, now
+draws a window). `useProgressiveRows` (`hooks/use-progressive-rows.ts`) draws
+a first batch, then the next whenever the reader scrolls near the last row
+drawn, in a transition, with a spacer sized for the rest that is never a
+scroll anchor (a browser would carry a reader who jumped into it to the end
+of the list). Opening the history timeline with a hundred edits and a hundred
+versions shows them in 250 ms (778 before), 100 ms on a reopen (478); Check
+references over 600 entries opens in 129 ms (486), 80 ms on a reopen (470).
+
+**The history list read every record in full.** A history record holds the
+whole text of each file it changed, before and after, and the backend parsed
+all of them on every project open and after every save. A hundred edits of a
+3.2 MB thesis are 660 MB of JSON: 4.7–5.3 s per list. Each record's list row
+now lives in `.research/history-index.json` with the size and modification
+time its file had (`project/history.rs`), so a list reads only the records
+written or rewritten since: under 1 ms at a project open and 58–64 ms after a
+save (6 ms for a 60 KB chapter, from 115–160). The first list after the update
+builds the index once. These figures come from a scratch timing test over
+`history()`, built with the crate at `opt-level = 3`. The drawer also asks git
+for its status and log together and reopens on the last log read.
+
+Not done: git versions beyond the newest 100 and Overleaf chat older than its
+last 80 messages cannot be reached at all, which is a missing page, not a slow
+one; and the project open still loads unused symbols, history, annotations,
+TODOs and the word count one after another (`scanProject` in `App.tsx`).

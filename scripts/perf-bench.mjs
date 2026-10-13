@@ -327,7 +327,8 @@ async function serve(options) {
   console.log(`Lattice bench page (${options.dev ? "dev server, live reload" : `production build in ${vite.outDir}`}):`);
   console.log(`  ${url}`);
   console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext|library, build=clean|failed|running, keepStorage=1,");
-  console.log(`  and the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters).`);
+  console.log(`  the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters),`);
+  console.log("  and a large project's paperCount, bibEntries, historyEntries and gitVersions.");
   if (options.chrome) {
     console.log("Headless Chrome for chrome-devtools-axi:");
     console.log(`  export CHROME_DEVTOOLS_AXI_BROWSER_URL=${chrome.endpoint}`);

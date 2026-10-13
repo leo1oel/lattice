@@ -1,7 +1,8 @@
-import { lazy, useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { FileCode2 } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { lazyChunk } from "../lib/lazy-chunk";
 import { PdfLoading } from "../pdf/pdf-loading";
 import {
   isVisualMarkdownEditorWarmed, loadBibVisualEditorModule, loadBoardEditorModule, loadOpenSlideWorkspaceModule,
@@ -10,12 +11,12 @@ import {
 } from "./canvas-lazy-modules";
 
 /** The canvas's heavy editors, each behind its own chunk (see canvas-lazy-modules). */
-export const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({ default: module.PdfPreview })));
-const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((module) => ({ default: module.LatticeVisualMarkdownEditor })));
-export const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({ default: module.BoardEditor })));
-export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({ default: module.SpreadsheetEditor })));
-export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({ default: module.OpenSlideWorkspace })));
-export const BibVisualEditor = lazy(() => loadBibVisualEditorModule().then((module) => ({ default: module.BibVisualEditor })));
+export const PdfPreview = lazyChunk(loadPdfPreviewModule, (module) => module.PdfPreview);
+const VisualMarkdownEditor = lazyChunk(loadVisualMarkdownEditorModule, (module) => module.LatticeVisualMarkdownEditor);
+export const BoardEditor = lazyChunk(loadBoardEditorModule, (module) => module.BoardEditor);
+export const SpreadsheetEditor = lazyChunk(loadSpreadsheetEditorModule, (module) => module.SpreadsheetEditor);
+export const OpenSlideWorkspace = lazyChunk(loadOpenSlideWorkspaceModule, (module) => module.OpenSlideWorkspace);
+export const BibVisualEditor = lazyChunk(loadBibVisualEditorModule, (module) => module.BibVisualEditor);
 
 export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();

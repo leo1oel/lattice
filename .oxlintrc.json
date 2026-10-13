@@ -192,7 +192,8 @@
         // This compiler optimization diagnostic duplicates exhaustive-deps at
         // very high volume in App; keep correctness rules authoritative.
         "react-hooks-js/preserve-manual-memoization": "off",
-        "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }]
+        // `lazyChunk` (src/lib/lazy-chunk.ts) is React.lazy over a shared chunk.
+        "react-refresh/only-export-components": ["warn", { "allowConstantExport": true, "extraHOCs": ["lazyChunk"] }]
       }
     },
     {

@@ -81,6 +81,7 @@ import type {
   OpenSlideSyncOperation,
 } from "./editor/presentation/open-slide-bridge";
 import { InfinityLoader } from "./components/ui/activity-icons";
+import { LazyMount } from "./components/lazy-mount";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import { persistSynaraThread } from "./app/app-synara-embed";
@@ -1209,8 +1210,8 @@ function App() {
     </Suspense>
   </>);
 
-  const overleafPicker = overleafPickerOpen ? (
-    <Suspense fallback={null}>
+  const overleafPicker = (
+    <LazyMount when={overleafPickerOpen}>
       <OverleafPickerDialog
         open
         onClose={() => setOverleafPickerOpen(false)}
@@ -1224,22 +1225,22 @@ function App() {
         onPublish={publishProjectToOverleaf}
         onConnectionChanged={refreshOverleafLink}
       />
-    </Suspense>
-  ) : null;
+    </LazyMount>
+  );
 
-  const overleafReview = overleafReviewOpen || conflictPath !== null ? (
-    <Suspense fallback={null}>
-      {overleafReviewOpen && (
-        <OverleafReviewDialog
-          open
-          projectRoot={project?.root ?? null}
-          onClose={() => setOverleafReviewOpen(false)}
-          onApply={async () => {
-            await runOverleafSync();
-            setOverleafRemoteChanges(false);
-          }}
-        />
-      )}
+  const overleafReview = (<>
+    <LazyMount when={overleafReviewOpen}>
+      <OverleafReviewDialog
+        open
+        projectRoot={project?.root ?? null}
+        onClose={() => setOverleafReviewOpen(false)}
+        onApply={async () => {
+          await runOverleafSync();
+          setOverleafRemoteChanges(false);
+        }}
+      />
+    </LazyMount>
+    <LazyMount when={conflictPath !== null}>
       {conflictPath !== null && (
         <ConflictResolverDialog
           open
@@ -1256,8 +1257,8 @@ function App() {
           }}
         />
       )}
-    </Suspense>
-  ) : null;
+    </LazyMount>
+  </>);
 
   const primaryBibliography = project?.manifest.primaryBibliography ?? "";
   const protectedProjectPaths = useMemo(
@@ -1521,10 +1522,10 @@ function App() {
   const openPaletteFromTitlebar = useCallback(() => openCommandPaletteRef.current(), [openCommandPaletteRef]);
   const paletteShortcut = commandShortcutText(commands, "palette") ?? undefined;
   // The welcome screen's shortcuts are listed too.
-  const shortcutSheet = commandOverlay?.kind === "shortcuts" && (
-    <Suspense fallback={null}>
+  const shortcutSheet = (
+    <LazyMount when={commandOverlay?.kind === "shortcuts"}>
       <ShortcutSheet commands={commands} onClose={() => setCommandOverlay(null)} />
-    </Suspense>
+    </LazyMount>
   );
   const palette = commandOverlay?.kind === "palette" ? commandOverlay : null;
   const paletteCommands = palette ? paletteEntries(commands) : [];
@@ -2153,7 +2154,7 @@ function App() {
         }}
       />
 
-      {bibliographyAuditRoot === project.root && <Suspense fallback={null}>
+      <LazyMount when={bibliographyAuditRoot === project.root}>
         <BibliographyAudit
           key={project.root}
           open={bibliographyAuditOpen}
@@ -2187,7 +2188,7 @@ function App() {
             // apply action (including bulk), outside the durable-write path.
           }}
         />
-      </Suspense>}
+      </LazyMount>
       <AppProjectSearchDialogs
         search={projectSearch}
         openMarkdownProjectPath={openMarkdownProjectPath}

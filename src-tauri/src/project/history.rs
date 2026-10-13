@@ -465,31 +465,109 @@ fn history_records(root: &Path) -> Result<Vec<TransactionRecord>, String> {
     Ok(records)
 }
 
+/// The list row of each history record already read, by the record's file
+/// name, with the size and modification time the file had then; `None` for
+/// a record that does not parse or no longer changes a file. One per
+/// project, kept in memory and in `.research/history-index.json`.
+///
+/// A record embeds the whole text of every file it changed, before and after:
+/// a hundred edits of a 3 MB thesis are 660 MB of JSON, which took 5 s to read
+/// at every project open and again after every save. Records never change
+/// once written except the newest, which coalescing rewrites (a new size or
+/// modification time), so a save reads that one record, and an open reads
+/// only the records written since the index was last saved.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+struct HistoryIndex {
+    records: HashMap<String, IndexedRecord>,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+struct IndexedRecord {
+    size: u64,
+    /// Seconds and nanoseconds since the Unix epoch.
+    modified: Option<(u64, u32)>,
+    item: Option<HistoryItem>,
+}
+
+const HISTORY_INDEX: &str = ".research/history-index.json";
+
+static HISTORY_INDEXES: LazyLock<Mutex<HashMap<PathBuf, HistoryIndex>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn history_item(record: TransactionRecord) -> HistoryItem {
+    let (actor, kind, source) = history_metadata(&record);
+    HistoryItem {
+        files: record
+            .changes
+            .iter()
+            .filter(|change| file_change_has_effect(change))
+            .map(|change| change.path.clone())
+            .collect(),
+        actor: actor.to_string(),
+        kind: kind.to_string(),
+        source: source.to_string(),
+        id: record.id,
+        label: record.label,
+        timestamp: record.timestamp,
+        thread_id: record.thread_id,
+        checkpoint_ref: record.checkpoint_ref,
+        undo_of: record.undo_of,
+    }
+}
+
 pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
-    let mut items = history_records(root)?
-        .into_iter()
-        .map(|record| {
-            let (actor, kind, source) = history_metadata(&record);
-            HistoryItem {
-                files: record
-                    .changes
-                    .iter()
-                    .filter(|change| file_change_has_effect(change))
-                    .map(|change| change.path.clone())
-                    .collect(),
-                actor: actor.to_string(),
-                kind: kind.to_string(),
-                source: source.to_string(),
-                id: record.id,
-                label: record.label,
-                timestamp: record.timestamp,
-                thread_id: record.thread_id,
-                checkpoint_ref: record.checkpoint_ref,
-                undo_of: record.undo_of,
+    let directory = root.join(".research/history");
+    if !directory.exists() {
+        return Ok(Vec::new());
+    }
+    // Not held while reading records: a first read can take seconds.
+    let known = HISTORY_INDEXES.lock().unwrap().get(root).cloned().unwrap_or_else(|| {
+        fs::read(root.join(HISTORY_INDEX))
+            .ok()
+            .and_then(|raw| serde_json::from_slice(&raw).ok())
+            .unwrap_or_default()
+    });
+    let mut index = HistoryIndex::default();
+    for entry in fs::read_dir(&directory).map_err(err)? {
+        let entry = entry.map_err(err)?;
+        let path = entry.path();
+        if path.extension().is_none_or(|extension| extension != "json") {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else { continue };
+        let metadata = entry.metadata().map_err(err)?;
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|since| (since.as_secs(), since.subsec_nanos()));
+        let record = match known.records.get(name) {
+            Some(record) if record.size == metadata.len() && record.modified == modified => {
+                record.clone()
             }
-        })
-        .collect::<Vec<_>>();
-    items.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            _ => {
+                let raw = fs::read_to_string(&path).map_err(err)?;
+                let item = serde_json::from_str::<TransactionRecord>(&raw)
+                    .ok()
+                    .filter(|record| record.changes.iter().any(file_change_has_effect))
+                    .map(history_item);
+                IndexedRecord { size: metadata.len(), modified, item }
+            }
+        };
+        index.records.insert(name.to_string(), record);
+    }
+    let mut items =
+        index.records.values().filter_map(|record| record.item.clone()).collect::<Vec<_>>();
+    if index != known {
+        // Only a cache: a project that cannot take it reads its records again next time.
+        if let Ok(raw) = serde_json::to_vec(&index) {
+            let _ = ProjectDir::open(root)
+                .and_then(|project| project.atomic_write(HISTORY_INDEX, &raw));
+        }
+    }
+    HISTORY_INDEXES.lock().unwrap().insert(root.to_path_buf(), index);
+    // On equal timestamps the record with the smaller id first, whatever the directory's order.
+    items.sort_by(|a, b| b.timestamp.cmp(&a.timestamp).then_with(|| a.id.cmp(&b.id)));
     Ok(items)
 }
 
@@ -683,7 +761,7 @@ pub struct TransactionRecord {
     pub changes: Vec<FileChange>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryItem {
     pub id: String,

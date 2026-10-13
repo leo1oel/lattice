@@ -6,6 +6,7 @@
  * package-install dialogs.
  */
 import { lazy, Suspense } from "react";
+import { LazyMount } from "../components/lazy-mount";
 import { CreateProjectDialog, RenameDialog } from "../project/project-dialogs";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 import { TexDependencyInstaller } from "../build/tex-dependency-installer";
@@ -44,24 +45,22 @@ export function AppProjectDialogs({ references, papers, importedArxivIds, create
   const { bibEntry, setLiteratureOpen, addSheet } = references;
   return (
     <>
-      {addSheet.open && (
-        <Suspense fallback={null}>
-          <AddPapersSheet
-            key={addSheet.key}
-            seed={addSheet.seed}
-            papers={papers}
-            importing={references.importing}
-            onResolve={references.resolveBibQuery}
-            onAdd={references.addPapers}
-            onStop={references.cancelImport}
-            onEnterManually={() => {
-              references.closeAddSheet();
-              references.enterBibEntryManually();
-            }}
-            onClose={references.closeAddSheet}
-          />
-        </Suspense>
-      )}
+      <LazyMount when={addSheet.open}>
+        <AddPapersSheet
+          key={addSheet.key}
+          seed={addSheet.seed}
+          papers={papers}
+          importing={references.importing}
+          onResolve={references.resolveBibQuery}
+          onAdd={references.addPapers}
+          onStop={references.cancelImport}
+          onEnterManually={() => {
+            references.closeAddSheet();
+            references.enterBibEntryManually();
+          }}
+          onClose={references.closeAddSheet}
+        />
+      </LazyMount>
       <Suspense fallback={null}>
         <BibEntryDialog
           key={bibEntry.key}
@@ -78,21 +77,19 @@ export function AppProjectDialogs({ references, papers, importedArxivIds, create
           onSave={(draft, insertCite) => { void references.saveBibEntry(draft, insertCite); }}
         />
       </Suspense>
-      {references.literatureOpen && (
-        <Suspense fallback={null}>
-          <LiteratureDiscoveryPanel
-            key={references.literatureSeed.key}
-            initialQuery={references.literatureSeed.query}
-            onClose={() => setLiteratureOpen(false)}
-            importedIds={importedArxivIds}
-            onImportArxiv={async (arxivId) => { await references.importReference(arxivId); }}
-            onAddBib={(query) => {
-              setLiteratureOpen(false);
-              references.openBibEntry(query);
-            }}
-          />
-        </Suspense>
-      )}
+      <LazyMount when={references.literatureOpen}>
+        <LiteratureDiscoveryPanel
+          key={references.literatureSeed.key}
+          initialQuery={references.literatureSeed.query}
+          onClose={() => setLiteratureOpen(false)}
+          importedIds={importedArxivIds}
+          onImportArxiv={async (arxivId) => { await references.importReference(arxivId); }}
+          onAddBib={(query) => {
+            setLiteratureOpen(false);
+            references.openBibEntry(query);
+          }}
+        />
+      </LazyMount>
       {createForm.open && (
         <CreateProjectDialog
           projectName={createForm.name}

@@ -434,11 +434,21 @@ its header explains a subtlety worth repeating: **each loader is the identity of
 a chunk**. Import the loader; do not inline `import("./pdf-viewer")` at a call
 site, or that site gets its own copy of the module graph in a second chunk.
 
+A lazy component that suspends on its first render costs at least 300 ms
+however fast its chunk arrives: React commits the Suspense fallback and holds
+the content back until 300 ms after that commit (its reveal throttle). A
+lazily loaded dialog or drawer opens through `LazyMount`
+(`src/components/lazy-mount.tsx`), an always-mounted boundary whose opening
+render is deferred, or in a transition into one (`useToolDrawers`); a lazy
+component whose chunk something else may load first (an idle prewarm) is
+`lazyChunk` over a shared `chunk` (`src/lib/lazy-chunk.ts`), which renders
+without suspending once the chunk is in.
+
 ### 4.2 Never value-import `tldraw` from an eagerly-loaded module
 
 `tldraw`'s barrel has no `sideEffects` flag, so a single value import drags
 ~1.5 MB plus prosemirror into the startup chunk. The whiteboard lives behind
-`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:28`), and the
+`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:32`), and the
 agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` so that
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
