@@ -330,7 +330,12 @@ function StatusMore({ open, onOpenChange, openComments, todoCount, openersRef, .
               className="status-more-row"
               data-active={count > 0 || undefined}
               aria-label={name}
-              onClick={() => openersRef.current[className]()}
+              // Choosing a row closes More first, as a menu does, so focus
+              // goes back to its trigger before the drawer opens.
+              onClick={() => {
+                onOpenChange(false);
+                openersRef.current[className]();
+              }}
             >
               {icon}
               <span>{label}</span>
