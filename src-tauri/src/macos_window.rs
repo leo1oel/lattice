@@ -766,6 +766,12 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
 }
 
 /// Strip Gatekeeper quarantine from our bundle (and an enclosing Lattice folder when present).
+///
+/// Runs before the launch window exists, so a folder is walked only while it
+/// still carries the quarantine flag: `xattr -cr` visits every file below it,
+/// and the bundled runtimes are about 30,000 files, 0.6 s on every launch with
+/// nothing left to clear. After the first launch clears it, this is one
+/// attribute read.
 pub fn clear_launch_quarantine() {
     let Ok(exe) = std::env::current_exe() else {
         return;
@@ -788,8 +794,36 @@ pub fn clear_launch_quarantine() {
     }
 }
 
+/// `path`'s own attributes are cleared last, so its flag stays until
+/// everything inside is clear and a walk cut short runs again next launch.
 fn clear_quarantine_path(path: &Path) {
-    let _ = Command::new("xattr").args(["-cr"]).arg(path).status();
+    if !is_quarantined(path) {
+        return;
+    }
+    for entry in std::fs::read_dir(path).into_iter().flatten().flatten() {
+        let _ = Command::new("xattr").args(["-cr"]).arg(entry.path()).status();
+    }
+    let _ = Command::new("xattr").args(["-c"]).arg(path).status();
+}
+
+fn is_quarantined(path: &Path) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    let Ok(path) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
+        return false;
+    };
+    // SAFETY: both strings are NUL-terminated and outlive the call; a null
+    // buffer of size 0 only asks for the attribute's length.
+    let length = unsafe {
+        libc::getxattr(
+            path.as_ptr(),
+            c"com.apple.quarantine".as_ptr(),
+            std::ptr::null_mut(),
+            0,
+            0,
+            libc::XATTR_NOFOLLOW,
+        )
+    };
+    length >= 0
 }
 
 #[cfg(test)]
