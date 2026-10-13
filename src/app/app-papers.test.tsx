@@ -273,7 +273,7 @@ describe("papers", () => {
     // to open, its key out to copy.
     const row = (await screen.findByText(title, { selector: ".paper-row .paper-title" })).closest<HTMLElement>(".paper-row")!;
     expect(within(row).getByText("Just added")).toBeInTheDocument();
-    expect(within(row).getByText("Citation only")).toBeInTheDocument();
+    expect(row).toHaveAttribute("data-reading", "citation");
     expect(within(row).getByRole("button", { name: "Copy citation key he2016deep" })).toBeInTheDocument();
     const checkReferences = screen.getByRole("button", { name: "Check references" });
     expect(checkReferences.closest(".trellis-accessory-host")).toBeInTheDocument();
