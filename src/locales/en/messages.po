@@ -4191,6 +4191,7 @@ msgstr "Files in this change"
 msgid "Filled square"
 msgstr "Filled square"
 
+#: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Filter"
 msgstr "Filter"
@@ -4671,6 +4672,10 @@ msgstr "Grid generator"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
+
+#: src/project/paper-library.tsx
+msgid "Group"
+msgstr "Group"
 
 #: src/project/paper-library.tsx
 msgid "Group by"
@@ -8849,6 +8854,10 @@ msgstr "Resize editor and reference list"
 msgid "Resize panels"
 msgstr "Resize panels"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Resize reference list and details"
+msgstr "Resize reference list and details"
+
 #: src/components/ui/resizable-drawer.tsx
 msgid "Resize right panel"
 msgstr "Resize right panel"
@@ -9710,6 +9719,10 @@ msgstr "Show outline"
 msgid "Show references"
 msgstr "Show references"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show references: {filter}"
+msgstr "Show references: {filter}"
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
 msgstr "Show replace"
@@ -9866,6 +9879,11 @@ msgstr "Some sources could not complete the lookup. This does not mean the refer
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
+#: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
+msgid "Sort"
+msgstr "Sort"
+
 #: src/project/paper-library.tsx
 msgid "Sort and group"
 msgstr "Sort and group"
@@ -9889,6 +9907,10 @@ msgstr "Sort papers"
 #: src/papers/bib-visual-editor.tsx
 msgid "Sort references"
 msgstr "Sort references"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Sort references: {order}"
+msgstr "Sort references: {order}"
 
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts

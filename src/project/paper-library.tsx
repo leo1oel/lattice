@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, CircleAlert, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowRight, ArrowUpRight, Check, CircleAlert, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { ListTool } from "../components/ui/list-tool";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
@@ -710,16 +711,14 @@ function PaperShelf(props: PaperLibraryProps & {
             </p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="paper-tool"
-                  data-on={shownFilter !== "all" || undefined}
-                  aria-label={shownFilter === "all" ? t`Filter papers` : t({ message: `Filter papers: ${{ filter: filterLabels[shownFilter] }}` })}
+                {/* The filter's name is the chip under the toolbar, which clears it. */}
+                <ListTool
+                  icon={<ListFilter size={14} aria-hidden="true" />}
+                  label={t`Filter`}
+                  on={shownFilter !== "all"}
+                  name={shownFilter === "all" ? t`Filter papers` : t({ message: `Filter papers: ${{ filter: filterLabels[shownFilter] }}` })}
                   title={t`Filter papers`}
-                >
-                  <ListFilter size={14} aria-hidden="true" />
-                  <span className="paper-tool-label">{t`Filter`}</span>
-                </button>
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="paper-menu">
                 {(Object.keys(filterLabels) as PaperFilter[]).map((value) => (
@@ -739,16 +738,14 @@ function PaperShelf(props: PaperLibraryProps & {
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="paper-tool"
-                  data-on={sortOn || undefined}
-                  aria-label={t({ message: `Sort and group: ${{ order: group !== "none" ? groupLabels[group] : sortLabels[sort] }}` })}
+                <ListTool
+                  icon={<ArrowDownUp size={14} aria-hidden="true" />}
+                  label={group !== "none" ? t`Group` : t`Sort`}
+                  value={group !== "none" ? groupLabels[group] : sortLabels[sort]}
+                  on={sortOn}
+                  name={t({ message: `Sort and group: ${{ order: group !== "none" ? groupLabels[group] : sortLabels[sort] }}` })}
                   title={t`Sort and group`}
-                >
-                  <SlidersHorizontal size={14} aria-hidden="true" />
-                  <span className="paper-tool-label">{group !== "none" ? groupLabels[group] : sortLabels[sort]}</span>
-                </button>
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="paper-menu">
                 <DropdownMenuLabel>{t`Group by`}</DropdownMenuLabel>

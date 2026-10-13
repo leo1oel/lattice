@@ -4188,6 +4188,7 @@ msgstr "改动文件"
 msgid "Filled square"
 msgstr "实心方块"
 
+#: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Filter"
 msgstr "筛选"
@@ -4668,6 +4669,10 @@ msgstr "网格布局"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头的表格"
+
+#: src/project/paper-library.tsx
+msgid "Group"
+msgstr "分组"
 
 #: src/project/paper-library.tsx
 msgid "Group by"
@@ -8846,6 +8851,10 @@ msgstr "调整编辑器与文献列表的宽度"
 msgid "Resize panels"
 msgstr "调整大小"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Resize reference list and details"
+msgstr "调整文献列表与详情的宽度"
+
 #: src/components/ui/resizable-drawer.tsx
 msgid "Resize right panel"
 msgstr "调整右侧面板大小"
@@ -9705,6 +9714,10 @@ msgstr "显示大纲"
 msgid "Show references"
 msgstr "显示文献"
 
+#: src/papers/bib-visual-editor.tsx
+msgid "Show references: {filter}"
+msgstr "显示文献：{filter}"
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
 msgstr "显示替换"
@@ -9859,6 +9872,11 @@ msgstr "部分来源没查完，不代表这条有错"
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
+#: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
+msgid "Sort"
+msgstr "排序"
+
 #: src/project/paper-library.tsx
 msgid "Sort and group"
 msgstr "排序与分组"
@@ -9882,6 +9900,10 @@ msgstr "论文排序"
 #: src/papers/bib-visual-editor.tsx
 msgid "Sort references"
 msgstr "文献排序"
+
+#: src/papers/bib-visual-editor.tsx
+msgid "Sort references: {order}"
+msgstr "文献排序：{order}"
 
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts
