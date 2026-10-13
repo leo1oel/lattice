@@ -41,8 +41,9 @@ describe("EditorStatusBar", () => {
     [[comment(), comment()], 3, "2 annotations", "3 TODOs"],
   ])("counts open comments and TODOs in words that agree with the number", (comments, todoCount, commentLabel, todoLabel) => {
     renderStatus({ comments, todoCount });
-    expect(screen.getByTitle("Annotations")).toHaveTextContent(new RegExp(`^${commentLabel}$`));
-    expect(screen.getByTitle("Manuscript TODOs")).toHaveTextContent(new RegExp(`^${todoLabel}$`));
+    // The bar shows the noun and the bare count; the name says them in words.
+    expect(screen.getByTitle("Annotations")).toHaveAccessibleName(commentLabel);
+    expect(screen.getByTitle("Manuscript TODOs")).toHaveAccessibleName(todoLabel);
   });
 
   it.each([

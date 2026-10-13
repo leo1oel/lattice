@@ -6274,6 +6274,10 @@ msgstr "修改"
 msgid "Monospaced text"
 msgstr "等宽文本"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "More editor status"
+msgstr "更多状态"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "More PDF actions"
 msgstr "更多"
