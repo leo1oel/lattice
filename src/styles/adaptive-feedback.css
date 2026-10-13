@@ -73,6 +73,10 @@
 .settings-content [data-slot="scroll-area-content-shell"]:has(.app-logs-settings),
 .settings-content [data-slot="scroll-area-content"]:has(.app-logs-settings) { height: 100%; }
 .app-logs-settings { height: 100%; max-width: none; display: flex; flex-direction: column; }
+/* The other pages scroll their bottom padding away; this one pins the log
+   card to the sheet, so its bottom inset matches the side inset and the card
+   sits evenly framed instead of floating above an oversized gap. */
+.settings-section.app-logs-settings { padding-bottom: var(--settings-content-padding-inline); }
 .app-logs-settings :is(.ui-settings-group, .ui-settings-group-body) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* A card like the other boxes in Settings (the row groups, the Overleaf
    cards), so the log reads as one framed surface on the page's sheet. */
@@ -106,6 +110,7 @@
 @media (max-width: 680px) {
   .app-log-entry-summary, .app-log-operation > summary { grid-template-columns: 13ch 5ch minmax(0, 1fr) 13px; gap: var(--space-3); padding-inline: var(--space-4); }
   .app-log-date { display: none; }
+  .settings-section.app-logs-settings { padding-bottom: var(--settings-content-padding-inline-compact); }
 }
 .app-log-export-dialog { width: min(720px, calc(100vw - var(--space-10))); max-height: min(720px, calc(100vh - var(--space-10))); display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-8); border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel); }
 .app-log-export-dialog h2, .app-log-export-dialog p { margin: 0; }
