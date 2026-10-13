@@ -30,6 +30,7 @@ import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import { SelectRow, SliderRow } from "./settings-controls";
+import { CodeThemeSettingsGroup } from "./code-theme-settings";
 import { ThemeSettingsGroup } from "./theme-settings";
 import type { WindowBacking } from "./use-appearance";
 import { SettingsSearch } from "./settings-search";
@@ -352,6 +353,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
         />
       </SettingsGroup>
       <ThemeSettingsGroup {...props} />
+      <CodeThemeSettingsGroup {...props} />
       <TitlebarToolsGroup {...props} />
     </div>
   );

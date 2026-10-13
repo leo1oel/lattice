@@ -91,6 +91,16 @@ msgstr "{0} changes"
 msgid "{0} cites"
 msgstr "{0} cites"
 
+#. placeholder {0}: nameOf(codeTheme)
+#: src/settings/code-theme-settings.tsx
+msgid "{0} comes in dark only"
+msgstr "{0} comes in dark only"
+
+#. placeholder {0}: nameOf(codeTheme)
+#: src/settings/code-theme-settings.tsx
+msgid "{0} comes in light only"
+msgstr "{0} comes in light only"
+
 #. placeholder {0}: entry.files.length
 #. placeholder {0}: update.paths.length
 #: src/history/versions-timeline.tsx
@@ -2259,6 +2269,11 @@ msgstr "Code block title"
 msgid "Code highlighting"
 msgstr "Code highlighting"
 
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Code theme"
+msgstr "Code theme"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
 msgstr "Collapsible"
@@ -2895,6 +2910,7 @@ msgstr "Dagger text symbol"
 msgid "Daleth"
 msgstr "Daleth"
 
+#: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Dark"
@@ -2907,6 +2923,10 @@ msgstr "Dark {name}"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Dark Gray"
 msgstr "Dark Gray"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Dark only"
+msgstr "Dark only"
 
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
@@ -5273,14 +5293,28 @@ msgstr "Less than or equal"
 msgid "License text"
 msgstr "License text"
 
+#: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Light"
 msgstr "Light"
 
+#: src/settings/code-theme-settings.tsx
+msgid "Light and dark"
+msgstr "Light and dark"
+
 #: src/components/ui/apple-color-picker.tsx
 msgid "Light Gray"
 msgstr "Light Gray"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Light only"
+msgstr "Light only"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Light or dark"
+msgstr "Light or dark"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Lime"
@@ -5612,6 +5646,11 @@ msgstr "Markdown document editor"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown source"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Match app"
+msgstr "Match app"
 
 #: src/editor/latex/search-panel.ts
 #: src/pdf/pdf-viewer.tsx
@@ -9701,6 +9740,11 @@ msgstr "SyncTeX bidirectional search"
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 msgstr "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 
+#. Search words for the Code theme setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "syntax highlighting color scheme editor"
+msgstr "syntax highlighting color scheme editor"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
@@ -11062,6 +11106,11 @@ msgstr "WARN"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Weft & Warp"
+msgstr "Weft & Warp"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Weierstrass p"

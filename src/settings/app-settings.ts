@@ -13,6 +13,7 @@ import {
   TRANSLUCENCY_LEVELS,
   normalizeAccent,
 } from "./theme-customization";
+import { type CodeTheme, type CodeThemeVariant, CODE_THEMES, CODE_THEME_VARIANTS } from "./code-themes";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -377,6 +378,10 @@ export type AppearanceSettings = {
   accent: ThemeAccent;
   /** How much of the desktop shows through the window chrome (macOS only). */
   translucency: Translucency;
+  /** The source editors' palette (settings/code-themes.ts). */
+  codeTheme: CodeTheme;
+  /** Which variant a two-variant code theme shows; `auto` follows the app. */
+  codeThemeVariant: CodeThemeVariant;
 };
 
 /** Where notifications stack. Top left is missing on purpose: the traffic lights live there. */
@@ -417,6 +422,8 @@ export function loadAppearance(): AppearanceSettings {
     tint: "graphite",
     accent: "graphite",
     translucency: "subtle",
+    codeTheme: "github",
+    codeThemeVariant: "auto",
   };
   return safely(() => {
     const current = localStorage.getItem(APPEARANCE_KEY);
@@ -444,6 +451,8 @@ export function loadAppearance(): AppearanceSettings {
       tint: oneOf(value?.tint, THEME_TINTS, defaults.tint),
       accent: normalizeAccent(value?.accent) ?? defaults.accent,
       translucency: oneOf(value?.translucency, TRANSLUCENCY_LEVELS, defaults.translucency),
+      codeTheme: oneOf(value?.codeTheme, CODE_THEMES, defaults.codeTheme),
+      codeThemeVariant: oneOf(value?.codeThemeVariant, CODE_THEME_VARIANTS, defaults.codeThemeVariant),
     };
   }, defaults);
 }

@@ -76,6 +76,16 @@ applied on `<html>` by `src/settings/use-appearance.ts`:
   set inline after `fitAccent` (`src/settings/theme-customization.ts`). A
   colored accent also becomes the focus ring. The editor's current line keeps
   `--editor-active-line-surface`, which is neutral under every accent.
+- **Code theme** (`data-code-theme`, Settings → Appearance → Code theme):
+  the source editors' palette, GitHub by default. `src/settings/code-themes.ts`
+  holds each named theme's upstream colors, ground included, and sets them on
+  the root as `--syntax-*` (token roles) and `--code-*` (ground, ink, gutter,
+  caret, current line, selection); a token is lifted only as far as 4.5:1 on
+  its ground and current line needs. Weft & Warp, the default declarations in
+  `foundations.css`, alone draws on the window's surfaces, so only it follows
+  the tint and lets a translucent window through. A rendered Markdown code
+  block keeps Weft & Warp (`--lattice-syntax-*`): it sits on the page's
+  surface, not the editor's.
 - **Translucency** (`data-glass`, only while the native window reports
   vibrancy behind it): the window clears its background, the gutters take
   `--surface-shell`, the titlebar the same under its veil, and Project,
@@ -719,10 +729,10 @@ reuse its vocabulary so the product reads as one thing:
   and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
   interaction: they color the mark and the one accent stroke of an
   illustration, never a control, whatever accent the writer chose.
-- The source editor's syntax palette ("weft and warp", `--syntax-*` in
+- Lattice's own code theme ("weft and warp", `--lattice-syntax-*` in
   `src/styles/theme.css`) borrows the two threads' hues at text lightness:
   commands in the weft's blue, environment names and math in the warp's teal,
-  arguments and prose in ink, numbers and operators the one warm voice. Every
+  arguments and prose in ink, numbers, operators and citations the warm voice. Every
   token reads at 4.5:1 or more on the editor, its active line and a focused
   selection, in both themes and under every tint.
 - The source editor's outline rail (`latex-outline-rail.tsx`) marks the

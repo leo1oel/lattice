@@ -14,6 +14,7 @@ import {
   systemTheme,
 } from "./app-settings";
 import { fitAccent, isCustomAccent } from "./theme-customization";
+import { codeThemeProperties, resolveCodeThemeKind } from "./code-themes";
 import { activateAppLocale, i18n } from "../i18n";
 import { syncNativeLocaleIfChanged } from "../app/native-locale";
 
@@ -36,7 +37,7 @@ export type WindowBacking = "translucent" | "opaque" | "reducedTransparency" | "
 
 /**
  * Owns the light/dark theme and the appearance settings (fonts, sizes, zoom,
- * tint, accent, translucency), keeping each mirrored to the document, to the
+ * tint, accent, translucency, code theme), keeping each mirrored to the document, to the
  * native window and to localStorage. Everything else only reads the returned
  * values, so this stays free of project/agent state.
  */
@@ -47,7 +48,8 @@ export function useAppearance(): Appearance {
   const [windowBacking, setWindowBacking] = useState<WindowBacking>("unsupported");
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   const theme = themePreference === "system" ? osTheme : themePreference;
-  const { tint, accent, translucency } = appearance;
+  const { tint, accent, translucency, codeTheme, codeThemeVariant } = appearance;
+  const codeThemeKind = resolveCodeThemeKind(codeTheme, codeThemeVariant, theme);
 
   useEffect(() => {
     const media = window.matchMedia(SYSTEM_DARK_QUERY);
@@ -68,6 +70,14 @@ export function useAppearance(): Appearance {
     if (isCustomAccent(accent)) root.style.setProperty("--accent", fitAccent(accent, theme));
     else root.style.removeProperty("--accent");
   }, [theme, tint, accent]);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.codeTheme = codeTheme;
+    for (const [name, value] of Object.entries(codeThemeProperties(codeTheme, codeThemeKind))) {
+      root.style.setProperty(name, value);
+    }
+  }, [codeTheme, codeThemeKind]);
 
   // The native window follows: its appearance (so vibrancy and native menus
   // match the page), the color behind a live resize, and its material. The
