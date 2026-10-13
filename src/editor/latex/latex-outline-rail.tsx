@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { EditorView } from "@codemirror/view";
 import { frameCoalescer } from "../../app/effect-helpers";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
+import { ScrollArea } from "../../components/ui/scroll-area";
 import { flattenOutline, outlineNumbers, parseLatexOutline, type OutlineNode } from "./latex-outline";
 
 /** More marks than this and the rail keeps the upper levels; the outline it opens lists every one. */
@@ -363,7 +364,15 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
         <span>{label}</span>
         <span className="latex-outline-rail-document" title={documentName}>{documentName}</span>
       </div>
-      <div ref={listRef} className="latex-outline-rail-scroll fluid-hover-surface">
+      {/* The app's own scrollbar: a native one ignores the app's scrollbar
+          styles here, and the hover fill lives in the scrolled content, so it
+          moves with its row. */}
+      <ScrollArea
+        className="latex-outline-rail-scroll"
+        viewportRef={listRef}
+        viewportProps={{ tabIndex: -1 }}
+        contentClassName="fluid-hover-surface"
+      >
         <FluidHoverSurface selector={ROW} follow=":focus" preserveSelection />
         <ul className="latex-outline-rail-list">
           {entries.map(({ node, number, depth }, index) => {
@@ -388,7 +397,7 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
             );
           })}
         </ul>
-      </div>
+      </ScrollArea>
     </nav>
   );
 }
