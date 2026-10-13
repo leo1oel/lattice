@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowDownUp, ArrowRight, ArrowUpRight, Check, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowRight, ArrowUpRight, Check, CircleAlert, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
@@ -41,6 +41,15 @@ type PaperFetchState = "loading" | "success";
 export type PaperLibraryProps = {
   projectKey: string;
   papers: PaperSummary[];
+  /**
+   * Whether `papers` has been read: until then an empty list is not an empty
+   * library. A read that failed carries its reason.
+   */
+  load?: { status: "loading" | "ready" } | { status: "error"; error: string };
+  /** An Overleaf sync is under way while the library is empty: it may be bringing the bibliography. */
+  syncing?: boolean;
+  /** Read the paper list again after a failed read. */
+  onRetryLoad?: () => void;
   /** The bibliography's entries, for each paper's venue. */
   citations?: CitationInfo[];
   /** Changes whenever the manuscript may cite differently; rescans its citations. */
@@ -117,6 +126,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
   const { hits: textHits, searchNow } = usePaperTextSearch(query);
+  // An empty list is the empty library only once it has been read, and no
+  // Overleaf sync that may be bringing the bibliography is still under way.
+  const syncing = useFirstSyncWhileEmpty(props.projectKey, Boolean(props.syncing));
+  const loadStatus = props.load?.status !== "ready" ? props.load?.status ?? "ready" : syncing ? "syncing" : "ready";
   // What the box would add, and whether the library already holds it: an
   // arXiv id or DOI is known before anything reaches the network.
   const kind = referenceKind(props.importInput);
@@ -280,9 +293,17 @@ export function PaperLibrary(props: PaperLibraryProps) {
           )}
         </div>
         {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} addRows={addRows} hasKind={Boolean(kind)} /> : (
-          <ScrollArea className="paper-list" orientation="both" contentClassName="paper-list-content">
+          <ScrollArea
+            className="paper-list"
+            orientation="both"
+            contentClassName="paper-list-content"
+            aria-busy={loadStatus === "loading" || loadStatus === "syncing" || undefined}
+          >
             {addRows(0)}
-            {!kind && !props.importing && <div className="papers-empty-state" data-library="empty">
+            {!kind && !props.importing && loadStatus !== "ready" && (
+              <PaperLoadStatus load={props.load} syncing={loadStatus === "syncing"} onRetry={props.onRetryLoad} />
+            )}
+            {!kind && !props.importing && loadStatus === "ready" && <div className="papers-empty-state" data-library="empty">
               {/* Beside the text, not above it: the card sits in a short panel
                   at startup, and a taller card would overflow it. */}
               <ResearchArt drawing={CARD_INDEX} />
@@ -297,6 +318,53 @@ export function PaperLibrary(props: PaperLibraryProps) {
         )}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Whether the first Overleaf sync to run while the library is empty is still
+ * under way. Only that one may bring a bibliography that is not on disk yet;
+ * later ones (live mode syncs every few seconds) leave an empty library
+ * empty, so it does not trade its empty state for a status line each time.
+ */
+function useFirstSyncWhileEmpty(projectKey: string, syncing: boolean): boolean {
+  // Adjusted while rendering, from the previous render's values: a sync that
+  // has ended is the only news here, and an effect would paint it a frame late.
+  const [seen, setSeen] = useState({ projectKey, syncing, settled: false });
+  if (seen.projectKey !== projectKey) setSeen({ projectKey, syncing, settled: false });
+  else if (seen.syncing !== syncing) setSeen({ projectKey, syncing, settled: seen.settled || !syncing });
+  return syncing && !(seen.projectKey === projectKey && seen.settled);
+}
+
+/**
+ * The library while its list is not there yet: one quiet line where the rows
+ * will be, on their icon gutter, or why the read failed and a retry. Never
+ * the empty library's invitation, which would say a library being read is
+ * empty.
+ */
+function PaperLoadStatus({ load, syncing, onRetry }: {
+  load: PaperLibraryProps["load"];
+  syncing: boolean;
+  onRetry?: () => void;
+}) {
+  const { t } = useLingui();
+  if (load?.status === "error") {
+    return (
+      <div className="papers-load-status" data-state="error" role="status">
+        <CircleAlert size={14} className="papers-load-icon" aria-hidden="true" />
+        <span className="papers-load-text">
+          <strong>{t`Couldn’t read your references`}</strong>
+          <span className="papers-load-detail" title={load.error}>{load.error}</span>
+        </span>
+        {onRetry && <Button size="compact" onClick={onRetry}>{t`Try again`}</Button>}
+      </div>
+    );
+  }
+  return (
+    <div className="papers-load-status" role="status">
+      <span className="papers-load-icon"><InfinityLoader size={12} /></span>
+      <span className="papers-load-text">{syncing ? t`Syncing references…` : t`Loading references…`}</span>
+    </div>
   );
 }
 

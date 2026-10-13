@@ -41,7 +41,10 @@ pub(crate) use citation::{
 };
 pub(crate) use ids::{arxiv_base_id, explicit_arxiv_id};
 pub use import::import_reference;
-pub use library::{list_library, list_papers, read_paper, read_paper_blog_local, search_library};
+pub use library::{
+    list_library, list_papers, read_paper, read_paper_blog_local, refresh_citation_health,
+    search_library,
+};
 pub(crate) use web_citation::alphaxiv_bibtex;
 
 /// How Lattice identifies itself to arXiv, alphaXiv and cited webpages.

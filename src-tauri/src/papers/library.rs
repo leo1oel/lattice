@@ -11,6 +11,7 @@ use crate::util::err;
 use crate::util::truncate_chars;
 use crate::{alphaxiv, project};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -38,14 +39,14 @@ impl CachedBundle {
 }
 
 /// Everything the project cites, whether or not its full text was fetched.
+/// Only local reads: each row's citation health is whatever the cache already
+/// holds, and `refresh_citation_health` asks Crossref for the rest, so the
+/// list never waits on the network (a cold check of 24 DOIs took 6 s, and
+/// 30 s when Crossref timed out).
 pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     let mut bundles = cached_bundles(root)?;
-    let manifest = project::read_manifest(root)?;
-    let bibliography =
-        fs::read_to_string(project::safe_path(root, &manifest.primary_bibliography)?)
-            .unwrap_or_default();
-    let citations = project::parse_bibliography(&bibliography);
-    let citation_health = crate::citation_health::lookup(
+    let citations = primary_bibliography(root)?;
+    let citation_health = crate::citation_health::cached(
         root,
         citations.iter().filter_map(|citation| citation.doi.clone()),
     );
@@ -86,6 +87,35 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
     }
     papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
+}
+
+/// Recheck the citation health of every DOI the bibliography cites (within
+/// the per-scan cap), for the rows `list_papers` returned with cached health.
+pub fn refresh_citation_health(
+    root: &Path,
+) -> Result<BTreeMap<String, crate::citation_health::CitationHealth>, String> {
+    let citations = primary_bibliography(root)?;
+    Ok(crate::citation_health::lookup(
+        root,
+        citations.into_iter().filter_map(|citation| citation.doi),
+    ))
+}
+
+/// The primary bibliography's entries. A file that is not there yet (a new
+/// project, or an Overleaf clone still arriving) is an empty library; one that
+/// cannot be read is an error, so the library can say so instead of looking
+/// empty.
+fn primary_bibliography(root: &Path) -> Result<Vec<crate::models::CitationInfo>, String> {
+    let manifest = project::read_manifest(root)?;
+    let path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography = match fs::read(&path) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => {
+            return Err(format!("Could not read {}: {error}", manifest.primary_bibliography))
+        }
+    };
+    Ok(project::parse_bibliography(&bibliography))
 }
 
 fn cached_bundles(root: &Path) -> Result<Vec<CachedBundle>, String> {
@@ -183,6 +213,24 @@ pub struct LibraryPaper {
 /// paths attached. An entry without paths is cited but not downloaded — the
 /// agent can fetch_paper it by arXiv id.
 pub fn list_library(root: &Path) -> Result<Vec<LibraryPaper>, String> {
+    // The agent asked for this list and reads its health once, so it waits
+    // for the recheck the Papers panel runs in the background.
+    let mut health = refresh_citation_health(root)?;
+    Ok(library_entries(root)?
+        .into_iter()
+        .map(|entry| LibraryPaper {
+            citation_health: entry
+                .doi
+                .as_ref()
+                .and_then(|doi| health.remove(doi))
+                .or(entry.citation_health),
+            ..entry
+        })
+        .collect())
+}
+
+/// The library with paths attached and only cached citation health.
+fn library_entries(root: &Path) -> Result<Vec<LibraryPaper>, String> {
     Ok(list_papers(root)?
         .into_iter()
         .map(|paper| {
@@ -217,7 +265,7 @@ pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResul
         return Ok(Vec::new());
     }
     let mut results = Vec::new();
-    'papers: for paper in list_library(root)? {
+    'papers: for paper in library_entries(root)? {
         let readable = [&paper.full_text_path, &paper.overview_path];
         let Some(first_readable) = readable.iter().find_map(|path| path.as_deref()) else {
             // Nothing cached: a hit could not be read, so report nothing.
