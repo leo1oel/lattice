@@ -964,7 +964,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-list .paper-byline { min-width: min(100%, 10em); margin-top: 0; flex: 0 1 auto; display: flex; }
 .paper-byline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .paper-byline > .paper-year { flex: none; }
-.paper-byline > .paper-authors { flex: 0 1 auto; }
+/* The venue gives way before the authors, so a lit row's key and actions
+   never squeeze who wrote it to a clipped letter. Shrinking with the venue,
+   even a fraction of a pixel, would cost them an ellipsis; instead they keep
+   their width, up to what leaves the year in view. */
+.paper-byline > .paper-authors { flex: none; max-width: calc(100% - var(--space-6) - 5ch); }
 .paper-byline > .paper-venue { flex: 0 1 auto; }
 .paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-year, .paper-cell-year { font-variant-numeric: tabular-nums; }
