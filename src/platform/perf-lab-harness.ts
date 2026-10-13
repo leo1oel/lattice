@@ -21,6 +21,23 @@ const marks = {};
 const visibilityLog = [];
 const startupDebug = [];
 const invokeLog = [];
+// Every IPC call from labPrepare on: when it started and how long its reply
+// took (`ms: null` while unanswered). The report keeps the calls of startup,
+// up to the first PDF page, and any slower than 200 ms. Tauri's invoke is a
+// read-only property; its transport is a fetch of `ipc://localhost/<command>`.
+function recordInvokes() {
+  const send = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (!url.startsWith("ipc:")) return send(input, init);
+    const entry = { command: decodeURIComponent(new URL(url).pathname.slice(1)), start: Math.round(performance.now()), ms: null };
+    invokeLog.push(entry);
+    const finish = () => { entry.ms = Math.round(performance.now()) - entry.start; };
+    const reply = send(input, init);
+    reply.then(finish, finish);
+    return reply;
+  };
+}
 let config = null;
 
 // Per-callback time for ResizeObserver and requestAnimationFrame callbacks,
@@ -72,6 +89,7 @@ export async function labPrepare() {
     // ignore
   }
   window.__latticeLab = true;
+  recordInvokes();
   performance.setResourceTimingBufferSize?.(5000);
 
   const flags = (config.flags ?? "").split(",").filter(Boolean);
@@ -1687,7 +1705,7 @@ export async function startLabHarness() {
       pdfPage: since(marks.pdfPage),
     };
   };
-  const write = (name) => invoke("perf_write", { name, content: JSON.stringify({ ...report, marks: startupMarks(), visibilityLog, startupDebug, invokeLog: invokeLog.filter((entry) => entry.ms === null || entry.ms > 200) }, null, 1) }).catch(() => null);
+  const write = (name) => invoke("perf_write", { name, content: JSON.stringify({ ...report, marks: startupMarks(), visibilityLog, startupDebug, invokeLog: invokeLog.filter((entry) => entry.ms === null || entry.ms > 200 || performance.timeOrigin + entry.start < (marks.pdfPage ?? Infinity)) }, null, 1) }).catch(() => null);
   try {
     await waitFor(() => "editable" in marks, "editable editor", 90_000);
     await waitFor(() => "pdfPage" in marks, "PDF preview", 120_000).catch(() => report.errors.push("no PDF preview at startup"));
