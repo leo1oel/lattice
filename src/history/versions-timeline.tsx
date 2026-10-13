@@ -1,406 +1,377 @@
 /**
- * Overleaf-style git "Versions" timeline for the history drawer.
+ * The project's git versions on the history timeline. A version someone saved
+ * or named stands out; the ones Lattice makes on its own (after a sync, after
+ * a build) fold into one quiet line, because a linked project makes one every
+ * couple of minutes and they would bury the deliberate ones. An opened version
+ * reads its changes as prose, sentence by sentence with the edits marked,
+ * before anything is restored; the source diff is one switch away.
  */
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GitBranch, RotateCcw, Save, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GitBranch, GitCommitHorizontal, RotateCcw, Save, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
-import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "../app-types";
-import { peerColorForName } from "../components/ui/collab-colors";
-import { confirmAction, relativeTime, toMessage } from "../app-utils";
+import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "../app-types";
 import { InlineMessage } from "../components/ui/inline-message";
 import { EmptyState } from "../components/ui/empty-state";
-import { EmptyIllustration } from "../components/ui/empty-illustration";
-import { logAction } from "../telemetry/app-notify";
+import { ResearchArt } from "../components/ui/research-art";
+import { DATED_DRAFTS } from "../components/ui/research-art-dated-drafts";
+import { InlineEdits } from "../components/ui/inline-edits";
+import { SegmentedControl } from "../components/ui/segmented-control";
 import { InfinityLoader, ReloadButton, ReloadIconButton } from "../components/ui/activity-icons";
 import { Input } from "../components/ui/input";
+import { formatCount } from "../i18n";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
-import { onProjectFilesChanged } from "../project/project-files-changed";
 import { useLatestLoad } from "./use-latest-load";
-import { AUTO_COMMIT_MESSAGES, versionMessageLabel } from "./version-messages";
+import type { GitVersions } from "./use-git-versions";
+import { isAutomaticVersion, isBookkeepingVersion, versionMessageLabel } from "./version-messages";
+import { PROSE_FILE, prosePassages } from "./version-prose";
+import { HistoryPerson, HistoryRow } from "./history-row";
+import { clockTime, fullTime } from "./history-time";
 
-type Phase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
-
-export function VersionsTimeline(props: {
-  /** Called after any restore or manual save so the app can reload files. */
-  onVersionsChanged?: () => void | Promise<void>;
-  projectRoot?: string;
-  /** Called when the git backend itself is unreachable (`git_status` rejects). */
-  onGitUnreachable?: () => void;
+/** One version on the timeline; opening it reads what it changed. */
+export function VersionRow(props: {
+  entry: GitLogEntry;
+  versions: GitVersions;
+  expanded: boolean;
+  onToggle: () => void;
+  source?: string;
+  tools?: ReactNode;
 }) {
+  const { i18n, t } = useLingui();
+  const { entry } = props;
+  const at = new Date(entry.timestamp).getTime();
+  const count = entry.files.length;
+  return (
+    <HistoryRow
+      glyph={<GitCommitHorizontal size={14} strokeWidth={1.75} />}
+      weight={isAutomaticVersion(entry.message) ? "quiet" : isBookkeepingVersion(entry.message) ? "plain" : "named"}
+      tone="version"
+      title={versionMessageLabel(entry.message)}
+      meta={(
+        <>
+          <HistoryPerson name={entry.authorName || t`Unknown`} />
+          <span className="history-row-count">{count === 1 ? t`1 file` : t`${formatCount(count)} files`}</span>
+        </>
+      )}
+      time={clockTime(at, i18n.locale)}
+      timeTitle={fullTime(at, i18n.locale)}
+      source={props.source}
+      expanded={props.expanded}
+      onToggle={props.onToggle}
+      tools={props.tools}
+    >
+      <VersionBody entry={entry} versions={props.versions} />
+    </HistoryRow>
+  );
+}
+
+/** A run of automatic versions, folded to one line until it is opened. */
+export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: boolean; onToggle: () => void; source?: string }) {
+  const { i18n, t } = useLingui();
+  const newest = new Date(props.entries[0]!.timestamp).getTime();
+  const oldest = new Date(props.entries.at(-1)!.timestamp).getTime();
+  const count = formatCount(props.entries.length);
+  const Chevron = props.open ? ChevronDown : ChevronRight;
+  return (
+    <HistoryRow
+      className="history-fold"
+      glyph={<Chevron size={12} />}
+      weight="quiet"
+      tone="version"
+      title={t`${count} automatic versions`}
+      meta={<span className="history-row-detail">{t`Saved by Lattice after syncs and builds`}</span>}
+      time={`${clockTime(oldest, i18n.locale)}–${clockTime(newest, i18n.locale)}`}
+      timeTitle={`${fullTime(oldest, i18n.locale)} – ${fullTime(newest, i18n.locale)}`}
+      source={props.source}
+      expanded={props.open}
+      onToggle={props.onToggle}
+    />
+  );
+}
+
+/** Past this many files a version lists the first ones and offers the rest on request. */
+const FILE_CHIPS = 12;
+
+/** An opened version: its files, the open file's changes read as prose (or its source diff), and the restores. */
+function VersionBody(props: { entry: GitLogEntry; versions: GitVersions }) {
   const { t } = useLingui();
-  // Git's own file-status words, shown on each row's tooltip. The kind itself
-  // stays the discriminant `FileKindIcon` and the CSS switch on.
+  const { entry, versions } = props;
+  // Git's own file-status words, read in each chip's tooltip.
   const fileKindLabel: Record<GitLogFileKind, string> = {
     added: t`added`,
     deleted: t`deleted`,
     renamed: t`renamed`,
     modified: t`modified`,
   };
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [entries, setEntries] = useState<GitLogEntry[]>([]);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [expandedHash, setExpandedHash] = useState<string | null>(null);
-  const [activeFile, setActiveFile] = useState<{ hash: string; path: string } | null>(null);
+  const [activePath, setActivePath] = useState<string | null>(null);
+  const [allFiles, setAllFiles] = useState(false);
   const fileDiff = useLatestLoad<GitFileDiff>();
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [saveLabel, setSaveLabel] = useState("");
 
-  const callbacksRef = useRef(props);
-  useEffect(() => {
-    callbacksRef.current = props;
-  });
-  const loadSeq = useRef(0);
-
-  const load = useCallback(async () => {
-    const seq = ++loadSeq.current;
-    setRefreshing(true);
-    setError("");
-    try {
-      const status = await invoke<GitStatus>("git_status");
-      if (seq !== loadSeq.current) return;
-      if (!status.available || !status.repository) {
-        setPhase(status.available ? "no-repo" : "unavailable");
-        return;
-      }
-      try {
-        const entries = await invoke<GitLogEntry[]>("git_log", { limit: 100 });
-        if (seq !== loadSeq.current) return;
-        setEntries(entries);
-      } catch (reason) {
-        if (seq !== loadSeq.current) return;
-        setError(toMessage(reason));
-      }
-      setPhase("ready");
-    } catch (reason) {
-      if (seq !== loadSeq.current) return;
-      // The `git_*` commands themselves are missing or broken (e.g. an older
-      // backend build). Show the failure here and let the drawer fall back to
-      // the Changes tab so it stays useful.
-      setError(toMessage(reason));
-      setPhase("error");
-      callbacksRef.current.onGitUnreachable?.();
-    } finally {
-      if (seq === loadSeq.current) setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const cancelLoad = () => { ++loadSeq.current; };
-    void load();
-    const refresh = () => { void load(); };
-    const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
-    // Git commits can also arrive while the app is unfocused or its watcher
-    // is unavailable. Only poll while this timeline is mounted.
-    const timer = window.setInterval(refresh, 30_000);
-    window.addEventListener("focus", refresh);
-    return () => {
-      cancelLoad();
-      stopListening();
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [load, props.projectRoot]);
-
-  /** Run one logged action, then reload the timeline; resolves to its success message. */
-  const runAction = async (label: string, detail: string | undefined, action: () => Promise<string>) => {
-    setBusy(true);
-    const trace = logAction(t`Versions`, label, detail);
-    try {
-      const outcome = await action();
-      await load();
-      trace.ok(outcome);
-    } catch (reason) {
-      trace.fail(reason);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const enableTracking = () => runAction(t`Start tracking versions`, undefined, async () => {
-    await invoke<GitStatus>("git_init");
-    return t`Now tracking versions of this project.`;
-  });
-
-  const submitSave = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    return runAction(t`Save version`, saveLabel.trim() || undefined, async () => {
-      const hash = await invoke<string | null>("git_auto_commit", {
-        message: saveLabel.trim() || AUTO_COMMIT_MESSAGES.saved,
-        author: null,
-      });
-      setSaveOpen(false);
-      setSaveLabel("");
-      if (hash) await callbacksRef.current.onVersionsChanged?.();
-      return hash ? t`Version saved.` : t`No changes since the last version.`;
-    });
-  };
-
-  const restoreFile = async (hash: string, path: string) => {
-    if (!await confirmAction(t`Restore ${path} to this version? Your current file will be overwritten.`)) return;
-    await runAction(t`Restore file`, `${path} @ ${hash}`, async () => {
-      await invoke("git_restore_file", { rev: hash, path });
-      await callbacksRef.current.onVersionsChanged?.();
-      return t`Restored ${path}.`;
-    });
-  };
-
-  const restoreProject = async (hash: string) => {
-    const warning = t`Restore the project to this version?
-
-Nothing is lost: the restore is saved as a new version`;
-    if (!await confirmAction(warning)) return;
-    await runAction(t`Restore project`, hash, async () => {
-      await invoke<string>("git_restore_project", { rev: hash });
-      await callbacksRef.current.onVersionsChanged?.();
-      return t`Project restored.`;
-    });
-  };
-
-  const toggleEntry = (hash: string) => {
-    setActiveFile(null);
-    fileDiff.clear();
-    setExpandedHash((current) => (current === hash ? null : hash));
-  };
-
-  const openFileDiff = (hash: string, path: string) => {
-    // The row is a toggle: clicking the open file closes it again, which is
-    // what a row that stays highlighted while open leads you to expect.
-    if (activeFile?.hash === hash && activeFile.path === path) {
-      setActiveFile(null);
+  const openFile = (path: string) => {
+    // A chip is a toggle: clicking the open file closes it again.
+    if (activePath === path) {
+      setActivePath(null);
       fileDiff.clear();
       return;
     }
-    setActiveFile({ hash, path });
-    fileDiff.load(`${hash}:${path}`, () => invoke<GitFileDiff>("git_show_diff", { rev: hash, path }));
+    setActivePath(path);
+    fileDiff.load(`${entry.hash}:${path}`, () => invoke<GitFileDiff>("git_show_diff", { rev: entry.hash, path }));
   };
 
-  if (phase === "loading") {
-    return <p className="versions-loading"><InfinityLoader size={13} /> {t`Loading versions…`}</p>;
-  }
-  if (phase === "unavailable") {
-    return (
-      <EmptyState
-        icon={<EmptyIllustration kind="history" />}
-        description={t`Version history needs Git, which isn’t available on this Mac`}
-      />
-    );
-  }
-  if (phase === "error") {
-    return (
-      <div className="versions-empty">
-        <InlineMessage level="error" className="versions-inline">{t`Version history is unavailable: ${error}`}</InlineMessage>
-        <ReloadButton className="versions-save" busy={refreshing} disabled={refreshing} onClick={() => void load()}>
-          {t`Try again`}
-        </ReloadButton>
-      </div>
-    );
-  }
-  if (phase === "no-repo") {
-    return (
-      <div className="versions-empty">
-        {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
-        <EmptyState
-          icon={<EmptyIllustration kind="history" />}
-          actions={(
-            <button
-              type="button"
-              className="git-commit-button versions-enable"
-              disabled={busy}
-              onClick={() => void enableTracking()}
-            >
-              <GitBranch size={13} /> {t`Enable version tracking`}
-            </button>
-          )}
-        />
-      </div>
-    );
-  }
-
-  const renderDiff = (target: { hash: string; path: string }) => {
-    const diff = fileDiff.value;
-    if (fileDiff.error) return <InlineMessage level="error">{fileDiff.error}</InlineMessage>;
-    if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>;
-    return (
-      <HistoryDiff
-        key={`${target.hash}:${target.path}`}
-        change={{ path: target.path, before: diff.before, after: diff.after }}
-        binary={diff.binary}
-        headerAction={(
+  const files = allFiles ? entry.files : entry.files.slice(0, FILE_CHIPS);
+  const hidden = formatCount(entry.files.length - files.length);
+  return (
+    <div className="version-body">
+      <div className="version-files" role="group" aria-label={t`Files in this version`}>
+        {files.map((file) => (
           <button
+            key={file.path}
             type="button"
-            className="versions-restore-file"
-            disabled={busy}
-            title={t`Restore ${target.path} to this version`}
-            onClick={() => void restoreFile(target.hash, target.path)}
+            className={`version-file${activePath === file.path ? " active" : ""}`}
+            aria-pressed={activePath === file.path}
+            title={`${fileKindLabel[file.kind]}: ${file.path}`}
+            onClick={() => openFile(file.path)}
           >
-            <RotateCcw size={10} /> {t`Restore this file`}
+            <FileKindIcon kind={file.kind} />
+            <span>{file.path}</span>
+          </button>
+        ))}
+        {files.length < entry.files.length && (
+          <button type="button" className="version-more-files" onClick={() => setAllFiles(true)}>
+            {t`${hidden} more files`}
           </button>
         )}
-      />
-    );
-  };
-
-  const closeSave = () => {
-    setSaveOpen(false);
-    setSaveLabel("");
-  };
-
-  return (
-    <div className="versions-root">
-      <div className="versions-header">
-        {saveOpen ? (
-          <form className="versions-save-form" onSubmit={(event) => void submitSave(event)}>
-            <Input
-              className="versions-save-input"
-              controlSize="compact"
-              autoFocus
-              placeholder={t`Label this version (optional)`}
-              aria-label={t`Version label`}
-              value={saveLabel}
-              onChange={(event) => setSaveLabel(event.target.value)}
-            />
-            <button type="submit" className="versions-save" disabled={busy}>
-              <Save size={12} /> {t`Save`}
-            </button>
-            <button type="button" className="versions-refresh" title={t`Cancel`} onClick={closeSave}>
-              <X size={13} />
-            </button>
-          </form>
-        ) : (
-          <>
-            <button type="button" className="versions-save" disabled={busy} onClick={() => setSaveOpen(true)}>
-              <Save size={12} /> {t`Save version`}
-            </button>
-            <ReloadIconButton
-              className="versions-refresh"
-              label={t`Refresh versions`}
-              tooltip={t`Refresh versions`}
-              busy={refreshing}
-              disabled={refreshing || busy}
-              onClick={() => void load()}
-              iconSize={13}
-            />
-          </>
-        )}
       </div>
-      {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
-      {!entries.length && (
-        <p className="versions-note">
-          {t`No versions yet`}
-        </p>
+      {activePath && (
+        <VersionFileChanges
+          key={activePath}
+          path={activePath}
+          diff={fileDiff.value}
+          error={fileDiff.error}
+        />
       )}
-      <div className="versions-list">
-        {entries.map((entry) => {
-          const expanded = expandedHash === entry.hash;
-          const authorName = entry.authorName || t`Unknown`;
-          const color = peerColorForName(authorName);
-          return (
-            <div className={`versions-entry ${expanded ? "expanded" : ""}`} key={entry.hash}>
-              <button
-                type="button"
-                className="versions-entry-head"
-                aria-expanded={expanded}
-                onClick={() => toggleEntry(entry.hash)}
-              >
-                <span className="versions-entry-top">
-                  <span className="versions-author" style={{ background: color.colorLight, color: color.color }}>
-                    {authorName}
-                  </span>
-                  <span className="versions-time" title={new Date(entry.timestamp).toLocaleString()}>
-                    {relativeTime(entry.timestamp)}
-                  </span>
-                  <span className="versions-count">
-                    {entry.files.length === 1 ? t`${entry.files.length} file` : t`${entry.files.length} files`}
-                  </span>
-                </span>
-                <span className="versions-entry-message">{versionMessageLabel(entry.message)}</span>
-              </button>
-              {expanded && (
-                <div className="versions-entry-body">
-                  <div className="versions-files">
-                    {entry.files.map((file) => (
-                      <button
-                        key={file.path}
-                        type="button"
-                        className={`versions-file ${activeFile?.hash === entry.hash && activeFile.path === file.path ? "active" : ""}`}
-                        title={`${fileKindLabel[file.kind]}: ${file.path}`}
-                        onClick={() => openFileDiff(entry.hash, file.path)}
-                      >
-                        <FileKindIcon kind={file.kind} />
-                        <span>{file.path}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {activeFile?.hash === entry.hash && renderDiff(activeFile)}
-                  <button
-                    type="button"
-                    className="versions-restore-project"
-                    disabled={busy}
-                    onClick={() => void restoreProject(entry.hash)}
-                  >
-                    <RotateCcw size={12} /> {t`Restore project to this version`}
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="version-actions">
+        {activePath && (
+          <button
+            type="button"
+            className="version-action"
+            disabled={versions.busy}
+            title={t`Restore ${activePath} to this version`}
+            onClick={() => void versions.restoreFile(entry.hash, activePath)}
+          >
+            <RotateCcw size={12} /> {t`Restore this file`}
+          </button>
+        )}
+        <button type="button" className="version-action" disabled={versions.busy} onClick={() => void versions.restoreProject(entry.hash)}>
+          <RotateCcw size={12} /> {t`Restore project to this version`}
+        </button>
+        <span className="version-note">{t`The current state is saved as a version first`}</span>
       </div>
     </div>
   );
 }
 
 /**
- * Scoped styles for the tabs and the timeline. App.css is off-limits for this
- * feature, so the drawer renders these once in a <style> tag; every rule is
- * prefixed with `.versions-` and uses the shared theme tokens, so light and
- * dark themes both work.
+ * One file's changes in an opened version. Prose files read as their changed
+ * passages in the reading font, each edit struck and marked, with ↑ ↓ to step
+ * between them; Source shows the line diff. A binary file, or a change too
+ * large to read as passages, shows the source view alone.
  */
-export const versionsTimelineCss = `
-.versions-tabs { margin-top: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
-.versions-loading, .versions-note { margin: 14px 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
-.versions-loading { display: flex; align-items: center; gap: var(--space-3); }
-/* Appearance is owned by \`.ui-inline-message\`; only the spacing is local. */
-.versions-inline { margin-top: var(--space-4); }
-.versions-empty { margin-top: 14px; display: grid; gap: var(--space-5); justify-items: start; }
-.versions-empty p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
-.versions-enable { width: auto; }
-.versions-header { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-6) 0 var(--space-2); }
-.versions-save { height: var(--control-height-compact); border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: 0 var(--pad-inline-control); background: transparent; color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--gap-inline-tight); font-size: var(--type-caption-size); font-weight: 600; }
-.versions-save:hover:not(:disabled) { border-color: color-mix(in srgb, var(--control-active) 32%, var(--border-strong)); }
-.versions-save-form { display: flex; flex: 1; align-items: center; gap: var(--space-3); }
-.versions-save-input { flex: 1; min-width: 0; height: var(--control-height-compact); border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text-primary); font-size: var(--type-caption-size); }
-.versions-save-input:focus { border-color: var(--field-control-interactive-border-color); outline: none; box-shadow: none; }
-.versions-refresh { width: var(--control-size-icon); height: var(--control-size-icon); margin-left: auto; border-radius: var(--radius-control); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }
-.versions-refresh:hover { background: var(--border-subtle); color: var(--text-primary); }
-.versions-save-form .versions-refresh { margin-left: 0; }
-.versions-list { margin-top: var(--space-4); display: flex; flex-direction: column; }
-.versions-entry { border-top: 1px solid var(--border-subtle); padding: var(--space-4) 0; }
-.versions-entry:first-child { border-top: 0; }
-.versions-entry-head { width: 100%; background: transparent; padding: var(--space-1) 0; text-align: left; display: grid; gap: var(--space-2); cursor: pointer; }
-.versions-entry-top { display: flex; align-items: center; gap: var(--gap-inline); min-width: 0; }
-.versions-author { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: var(--type-micro-size); font-weight: 700; }
-.versions-time { color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.versions-count { margin-left: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); }
-.versions-entry-message { margin: 0; font-size: var(--type-body-compact-size); font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
-.versions-entry-body { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
-.versions-files { display: grid; gap: var(--space-1); }
-.versions-file { display: flex; align-items: center; gap: var(--space-3); min-height: 24px; border-radius: var(--radius-control); padding: var(--space-1) var(--space-3); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); text-align: left; }
-.versions-file:hover { background: var(--border-subtle); color: var(--text-primary); }
-.versions-file.active { background: var(--control-active-soft); color: var(--control-active); }
-.versions-file > span { overflow-wrap: anywhere; }
-.versions-kind { flex: none; }
-.versions-kind.added { color: var(--status-success); }
-.versions-kind.deleted, .versions-kind.removed { color: var(--status-danger); }
-.versions-kind.renamed { color: var(--control-active); }
-.versions-kind.modified, .versions-kind.edited { color: var(--text-secondary); }
-.versions-file.active .versions-kind { color: inherit; }
-.versions-binary { margin: 0; padding: var(--space-4); font-size: var(--type-caption-size); color: var(--text-secondary); }
-.versions-restore-file { flex: none; height: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: 0 var(--pad-inline-control-tight); background: transparent; color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-micro-size); font-weight: 600; }
-.versions-restore-file:hover:not(:disabled) { border-color: color-mix(in srgb, var(--status-danger) 40%, var(--border-strong)); color: var(--status-danger); }
-.versions-restore-project { justify-self: start; height: 24px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); padding: 0 var(--pad-inline-control); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--gap-inline-tight); font-size: var(--type-micro-size); font-weight: 600; }
-.versions-restore-project:hover:not(:disabled) { color: var(--status-danger); border-color: color-mix(in srgb, var(--status-danger) 40%, var(--border-strong)); }
-`;
+function VersionFileChanges(props: { path: string; diff: GitFileDiff | null; error: string }) {
+  const { t } = useLingui();
+  const [mode, setMode] = useState<"text" | "source">("text");
+  const [current, setCurrent] = useState(0);
+  const passageRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const { diff, path } = props;
+  if (props.error) return <InlineMessage level="error">{props.error}</InlineMessage>;
+  if (!diff) return <p className="history-diff-loading"><InfinityLoader size={12} /> {t`Loading diff…`}</p>;
+
+  const passages = !diff.binary && PROSE_FILE.test(path) ? prosePassages(diff.before ?? "", diff.after ?? "") : null;
+  if (!passages || mode === "source") {
+    return (
+      <div className="version-reader">
+        {passages && <ReaderModeSwitch mode={mode} onMode={setMode} />}
+        <HistoryDiff change={{ path, before: diff.before, after: diff.after }} binary={diff.binary} />
+      </div>
+    );
+  }
+
+  const step = (by: number) => {
+    const next = Math.min(passages.length - 1, Math.max(0, current + by));
+    setCurrent(next);
+    passageRefs.current[next]?.scrollIntoView({ block: "nearest" });
+    passageRefs.current[next]?.focus({ preventScroll: true });
+  };
+  const count = formatCount(passages.length);
+  return (
+    <div className="version-reader">
+      <ReaderModeSwitch mode={mode} onMode={setMode} />
+      <div className="version-prose" aria-label={t`Changes in ${path}`}>
+        <div className="version-prose-head">
+          <span>{passages.length === 1 ? t`1 change` : t`${count} changes`}</span>
+          {passages.length > 1 && (
+            <span className="version-prose-steps">
+              <button type="button" className="version-step" aria-label={t`Previous change`} disabled={current === 0} onClick={() => step(-1)}>
+                <ArrowUp size={12} aria-hidden="true" />
+              </button>
+              <button type="button" className="version-step" aria-label={t`Next change`} disabled={current === passages.length - 1} onClick={() => step(1)}>
+                <ArrowDown size={12} aria-hidden="true" />
+              </button>
+            </span>
+          )}
+        </div>
+        {!passages.length && <p className="version-prose-empty">{t`No textual changes`}</p>}
+        {passages.map((passage, index) => (
+          <div
+            key={`${passage.line}:${index}`}
+            ref={(node) => { passageRefs.current[index] = node; }}
+            className="version-passage"
+            data-current={passages.length > 1 && index === current ? "true" : undefined}
+            tabIndex={-1}
+          >
+            <span className="version-passage-line" title={t`Line ${passage.line} of this version`}>{passage.line}</span>
+            <div className="version-passage-text">
+              {passage.clippedStart && <span className="version-passage-gap" aria-hidden="true">…</span>}
+              <InlineEdits text={passage.text} edits={passage.edits} />
+              {passage.clippedEnd && <span className="version-passage-gap" aria-hidden="true">…</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReaderModeSwitch(props: { mode: "text" | "source"; onMode: (mode: "text" | "source") => void }) {
+  const { t } = useLingui();
+  return (
+    <SegmentedControl
+      className="version-reader-mode"
+      value={props.mode}
+      onChange={props.onMode}
+      ariaLabel={t`Show changes as`}
+      items={[{ value: "text", label: t`Text` }, { value: "source", label: t`Source` }]}
+    />
+  );
+}
+
+/** Save a version, with an optional name; the count and a refresh beside it. */
+export function VersionsToolbar(props: { versions: GitVersions; children?: ReactNode }) {
+  const { t } = useLingui();
+  const { versions } = props;
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const close = () => {
+    setOpen(false);
+    setLabel("");
+  };
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (await versions.saveVersion(label.trim())) close();
+  };
+  if (open) {
+    return (
+      <form className="versions-save-form" onSubmit={(event) => void submit(event)}>
+        <Input
+          className="versions-save-input"
+          controlSize="compact"
+          autoFocus
+          placeholder={t`Name this version, e.g. Sent to co-authors`}
+          aria-label={t`Version label`}
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+        <button type="submit" className="versions-save" disabled={versions.busy}>
+          <Save size={12} /> {t`Save`}
+        </button>
+        <button type="button" className="versions-icon-button" title={t`Cancel`} aria-label={t`Cancel`} onClick={close}>
+          <X size={13} />
+        </button>
+      </form>
+    );
+  }
+  return (
+    <div className="versions-toolbar">
+      {props.children}
+      {versions.phase === "ready" && (
+        <button type="button" className="versions-save" disabled={versions.busy} title={t`Save version`} onClick={() => setOpen(true)}>
+          <Save size={12} aria-hidden="true" /> <span className="versions-save-label">{t`Save version`}</span>
+        </button>
+      )}
+      <ReloadIconButton
+        className="versions-icon-button"
+        label={t`Refresh history`}
+        tooltip={t`Refresh history`}
+        busy={versions.refreshing}
+        disabled={versions.refreshing || versions.busy}
+        onClick={() => void versions.reload()}
+        iconSize={13}
+      />
+    </div>
+  );
+}
+
+/**
+ * What the timeline says in place of versions: loading, no Git on this Mac,
+ * Git unreachable, version tracking off, or no versions yet. Null once there
+ * are versions to list.
+ */
+export function VersionsState(props: { versions: GitVersions }) {
+  const { t } = useLingui();
+  const { versions } = props;
+  if (versions.phase === "loading") {
+    return <p className="versions-loading"><InfinityLoader size={13} /> {t`Loading versions…`}</p>;
+  }
+  if (versions.phase === "unavailable") {
+    return (
+      <EmptyState
+        className="history-empty"
+        icon={<ResearchArt drawing={DATED_DRAFTS} />}
+        title={t`No version history`}
+        description={t`Version history needs Git, which isn’t available on this Mac`}
+      />
+    );
+  }
+  if (versions.phase === "error") {
+    return (
+      <div className="versions-problem">
+        <InlineMessage level="error">{t`Version history is unavailable: ${versions.error}`}</InlineMessage>
+        <ReloadButton className="versions-save" busy={versions.refreshing} disabled={versions.refreshing} onClick={() => void versions.reload()}>
+          {t`Try again`}
+        </ReloadButton>
+      </div>
+    );
+  }
+  if (versions.phase === "no-repo") {
+    return (
+      <>
+        {versions.error && <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage>}
+        <EmptyState
+          className="history-empty"
+          icon={<ResearchArt drawing={DATED_DRAFTS} />}
+          title={t`Version tracking is off`}
+          description={t`Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away`}
+          actions={(
+            <button type="button" className="versions-save" disabled={versions.busy} onClick={() => void versions.enableTracking()}>
+              <GitBranch size={13} /> {t`Enable version tracking`}
+            </button>
+          )}
+        />
+      </>
+    );
+  }
+  if (!versions.entries.length) {
+    return (
+      <>
+        {versions.error && <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage>}
+        <EmptyState
+          className="history-empty"
+          icon={<ResearchArt drawing={DATED_DRAFTS} />}
+          title={t`No versions yet`}
+          description={t`Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build`}
+        />
+      </>
+    );
+  }
+  return versions.error ? <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage> : null;
+}

@@ -120,17 +120,8 @@ msgstr "{0}与来源记录不一致"
 msgid "{0} entries"
 msgstr "{0} 条"
 
-#. placeholder {0}: entry.files.length
-#. placeholder {0}: update.paths.length
+#. placeholder {0}: formatCount(count)
 #: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
-msgid "{0} file"
-msgstr "{0} 个文件"
-
-#. placeholder {0}: entry.files.length
-#. placeholder {0}: update.paths.length
-#: src/history/versions-timeline.tsx
-#: src/overleaf/overleaf-history.tsx
 msgid "{0} files"
 msgstr "{0} 个文件"
 
@@ -183,6 +174,11 @@ msgstr "已选 {0} 条"
 #: src/papers/bibliography-audit.tsx
 msgid "{0} things to tidy in the bibliography"
 msgstr "文献库里有 {0} 处要整理"
+
+#. placeholder {0}: formatCount(versions.entries.length)
+#: src/history/history-drawer.tsx
+msgid "{0} versions"
+msgstr "{0} 个版本"
 
 #. placeholder {0}: compactCount(votes, i18n.locale)
 #. placeholder {0}: formatCount(votes, i18n.locale)
@@ -250,6 +246,14 @@ msgstr "{count} 条批注"
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} annotations"
 msgstr "{count} 条批注"
+
+#: src/history/versions-timeline.tsx
+msgid "{count} automatic versions"
+msgstr "{count} 个自动版本"
+
+#: src/history/versions-timeline.tsx
+msgid "{count} changes"
+msgstr "{count} 处改动"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} character"
@@ -400,6 +404,10 @@ msgstr "超出 {gap} 页"
 #: src/project/manuscript-checklist.tsx
 msgid "{gap} pages remaining"
 msgstr "还剩 {gap} 页"
+
+#: src/history/versions-timeline.tsx
+msgid "{hidden} more files"
+msgstr "还有 {hidden} 个文件"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -650,6 +658,7 @@ msgid "1 annotation"
 msgstr "1 条批注"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "1 change"
 msgstr "1 处改动"
 
@@ -672,6 +681,10 @@ msgstr "1 处修改 · 只改错误"
 #: src/papers/bibliography-audit.tsx
 msgid "1 entry"
 msgstr "1 条"
+
+#: src/history/versions-timeline.tsx
+msgid "1 file"
+msgstr "1 个文件"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 fix to review"
@@ -729,6 +742,10 @@ msgstr "“{shownQuery}”共 1 条结果"
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
 msgstr "文献库里有 1 处要整理"
+
+#: src/history/history-drawer.tsx
+msgid "1 version"
+msgstr "1 个版本"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 vote"
@@ -2134,6 +2151,10 @@ msgstr "Overleaf 改了，本机没动"
 msgctxt "git panel"
 msgid "Changes"
 msgstr "更改"
+
+#: src/history/versions-timeline.tsx
+msgid "Changes in {path}"
+msgstr "{path} 的改动"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Chapter"
@@ -3830,6 +3851,10 @@ msgstr "状态"
 msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "编辑器字体，由 Ahmed Hatem 制作，基于 Renzhi Li 的 Iosevka"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Edits"
+msgstr "编辑"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
 msgstr "继续后两边的修改会合并"
@@ -4012,6 +4037,14 @@ msgstr "估计量 / 单位向量记号"
 msgid "Eta"
 msgstr "伊塔"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Every edit made on Overleaf, by anyone, is kept here and can be restored"
+msgstr "Overleaf 上每个人的每次编辑都保存在这里，随时可以恢复"
+
+#: src/history/history-drawer.tsx
+msgid "Every edit you, the agent or the citation tool make shows here, and each can be undone"
+msgstr "你、AI 助手和引用工具做的每次修改都会出现在这里，每一次都能撤回"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgstr "论文的所有文件都在这：LaTeX、笔记、图片、幻灯片"
@@ -4187,6 +4220,11 @@ msgstr "文件"
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
 msgstr "改动文件"
+
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Files in this version"
+msgstr "此版本的文件"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
@@ -5442,10 +5480,6 @@ msgstr "标签 <0>{symbol}</0>"
 msgid "Label removed."
 msgstr "已删除版本名"
 
-#: src/history/versions-timeline.tsx
-msgid "Label this version (optional)"
-msgstr "给版本起个名（可选）"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Labeled description list"
 msgstr "带条目标题的描述列表"
@@ -5739,6 +5773,11 @@ msgstr "上限 1 词"
 msgid "Line"
 msgstr "行"
 
+#. placeholder {0}: passage.line
+#: src/history/versions-timeline.tsx
+msgid "Line {0} of this version"
+msgstr "此版本第 {0} 行"
+
 #: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "line {line}"
@@ -5854,7 +5893,7 @@ msgstr "第 {line} 行，第 {column} 列"
 msgid "Load a package"
 msgstr "加载宏包"
 
-#: src/overleaf/overleaf-history.tsx
+#: src/history/history-drawer.tsx
 #: src/papers/literature-discovery-panel.tsx
 msgid "Load more"
 msgstr "加载更多"
@@ -6354,6 +6393,10 @@ msgstr "名称已存在"
 msgid "Name this version"
 msgstr "命名版本"
 
+#: src/history/versions-timeline.tsx
+msgid "Name this version, e.g. Sent to co-authors"
+msgstr "给这个版本起个名字，例如“已发给合作者”"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version…"
 msgstr "给版本起名…"
@@ -6545,6 +6588,7 @@ msgid "Next build problem"
 msgstr "下个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "下一处改动"
 
@@ -6602,11 +6646,7 @@ msgstr "{0} 没有回应"
 msgid "No changes match this filter"
 msgstr "没有符合的改动"
 
-#: src/history/history-drawer.tsx
-msgid "No changes recorded yet"
-msgstr "还没有改动记录"
-
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "No changes since the last version."
 msgstr "上次保存后没有改动"
 
@@ -6653,10 +6693,6 @@ msgstr "没有文件包含“{trimmedQuery}”"
 #: src/project/paper-library.tsx
 msgid "No grouping"
 msgstr "不分组"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "No history yet"
-msgstr "还没有历史"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
@@ -6778,6 +6814,10 @@ msgstr "没有待处理的批注"
 msgid "No other recent projects yet"
 msgstr "还没有其他项目"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "No Overleaf history yet"
+msgstr "Overleaf 上还没有历史"
+
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
 msgstr "没有论文包含“{trimmedQuery}”"
@@ -6858,6 +6898,7 @@ msgid "No suggestions in this document — open it to see any it has"
 msgstr "打开文档才能看到修订建议"
 
 #: src/history/file-diff-view.tsx
+#: src/history/versions-timeline.tsx
 msgid "No textual changes"
 msgstr "文字没有改动"
 
@@ -6876,6 +6917,10 @@ msgstr "这条没检查更新"
 #: src/project/paper-library.tsx
 msgid "No venue"
 msgstr "未注明出处"
+
+#: src/history/versions-timeline.tsx
+msgid "No version history"
+msgstr "没有版本记录"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
@@ -6980,6 +7025,10 @@ msgstr "备注"
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
 
+#: src/history/history-drawer.tsx
+msgid "Nothing has changed yet"
+msgstr "还没有任何改动"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Nothing here"
 msgstr "这里没有内容"
@@ -7031,7 +7080,7 @@ msgstr "提醒我（手动装）"
 msgid "Now"
 msgstr "现在"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Now tracking versions of this project."
 msgstr "已开启版本记录"
 
@@ -8047,6 +8096,7 @@ msgid "Previous build problem"
 msgstr "上个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "上一处改动"
 
@@ -8152,7 +8202,7 @@ msgstr "项目名称"
 msgid "project restore"
 msgstr "恢复项目"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 #: src/overleaf/overleaf-history.tsx
 msgid "Project restored."
 msgstr "项目已恢复"
@@ -8469,8 +8519,8 @@ msgid "Refresh"
 msgstr "刷新"
 
 #: src/history/versions-timeline.tsx
-msgid "Refresh versions"
-msgstr "刷新"
+msgid "Refresh history"
+msgstr "刷新历史"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Regex"
@@ -8938,25 +8988,27 @@ msgid "Restore {0}"
 msgstr "恢复{0}"
 
 #. placeholder {0}: file.pathname
-#. placeholder {0}: target.path
-#: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "Restore {0} to this version"
 msgstr "把 {0} 恢复到此版本"
+
+#: src/history/versions-timeline.tsx
+msgid "Restore {activePath} to this version"
+msgstr "把 {activePath} 恢复到此版本"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Restore {name}"
 msgstr "恢复到{name}"
 
-#: src/history/versions-timeline.tsx
-msgid "Restore {path} to this version? Your current file will be overwritten."
-msgstr "把 {path} 恢复到此版本？当前文件会被替换"
+#: src/history/use-git-versions.ts
+msgid "Restore {path} to this version? The current state is saved as a version first."
+msgstr "把 {path} 恢复到此版本？当前状态会先存为一个版本。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Restore draft and retry"
 msgstr "恢复草稿"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore file"
 msgstr "恢复文件"
 
@@ -8970,7 +9022,7 @@ msgstr "只把“{path}”恢复到改动前？恢复会记成一条新记录"
 msgid "Restore only {0}"
 msgstr "只恢复 {0}"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore project"
 msgstr "恢复项目"
 
@@ -8999,11 +9051,13 @@ msgstr "取消放大"
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
 msgstr "把项目恢复到改动前？恢复会记成一条新记录"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restore the project to this version?\n"
 "\n"
-"Nothing is lost: the restore is saved as a new version"
-msgstr "把项目恢复到此版本？\\n\\n不会丢东西：恢复本身也会存成新版本"
+"Nothing is lost: the current state is saved as a version first"
+msgstr "把项目恢复到此版本？\n"
+"\n"
+"什么都不会丢：当前状态会先存为一个版本"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -9028,7 +9082,7 @@ msgstr "恢复全部"
 msgid "Restored {0}."
 msgstr "已恢复 {0}"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Restored {path}."
 msgstr "已恢复 {path}"
 
@@ -9278,6 +9332,10 @@ msgstr "无衬线文本"
 msgid "Save"
 msgstr "保存"
 
+#: src/history/versions-timeline.tsx
+msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
+msgstr "保存一个版本，标记一份随时能回来的草稿。关联 Overleaf 的项目每次同步和编译成功后也会自动保存一个"
+
 #: src/App.tsx
 msgid "Save and build"
 msgstr "保存编译"
@@ -9343,6 +9401,7 @@ msgstr "请先保存再修复"
 msgid "Save to workspace"
 msgstr "保存到工作区"
 
+#: src/history/use-git-versions.ts
 #: src/history/versions-timeline.tsx
 msgid "Save version"
 msgstr "保存版本"
@@ -9350,6 +9409,10 @@ msgstr "保存版本"
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "已保存"
+
+#: src/history/versions-timeline.tsx
+msgid "Saved by Lattice after syncs and builds"
+msgstr "Lattice 在同步和编译后自动保存"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
@@ -9692,6 +9755,10 @@ msgstr "显示批注"
 msgid "Show archived"
 msgstr "显示已归档"
 
+#: src/history/versions-timeline.tsx
+msgid "Show changes as"
+msgstr "改动显示方式"
+
 #: src/canvas/document-outline.tsx
 msgid "Show document outline"
 msgstr "显示大纲"
@@ -9919,6 +9986,7 @@ msgid "sound"
 msgstr "声音 提示音"
 
 #: src/editor/markdown/engine/views/image-view.tsx
+#: src/history/versions-timeline.tsx
 msgid "Source"
 msgstr "源码"
 
@@ -10081,7 +10149,7 @@ msgstr "开始附录"
 msgid "Start tour"
 msgstr "开始教程"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Start tracking versions"
 msgstr "记录版本"
 
@@ -10426,6 +10494,7 @@ msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/history/versions-timeline.tsx
 msgid "Text"
 msgstr "正文"
 
@@ -10570,6 +10639,10 @@ msgstr "缺少连接信息"
 #: src/history/conflict-resolver.tsx
 msgid "The copy on Overleaf"
 msgstr "Overleaf 上的版本"
+
+#: src/history/versions-timeline.tsx
+msgid "The current state is saved as a version first"
+msgstr "当前状态会先存为一个版本"
 
 #: src/settings/acknowledged-software.ts
 msgid "The desktop app shell"
@@ -11096,10 +11169,6 @@ msgstr "to（短右箭头）"
 msgid "toast notification"
 msgstr "通知 提示 toast"
 
-#: src/overleaf/overleaf-history.tsx
-msgid "Today"
-msgstr "今天"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Today's date"
 msgstr "今天的日期"
@@ -11202,6 +11271,10 @@ msgstr "换个说法，或在全部源文件里搜索"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "现在可以再试一次了"
+
+#: src/history/versions-timeline.tsx
+msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
+msgstr "打开后 Lattice 会用 Git 按日期保存这个项目的版本，任何一份旧稿都一点即回"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -11606,9 +11679,10 @@ msgstr "新版本 {0} 可安装"
 msgid "Version {version}"
 msgstr "版本 {version}"
 
+#. placeholder {0}: versions.error
 #: src/history/versions-timeline.tsx
-msgid "Version history is unavailable: {error}"
-msgstr "版本记录不可用：{error}"
+msgid "Version history is unavailable: {0}"
+msgstr "版本记录暂时不可用：{0}"
 
 #: src/history/versions-timeline.tsx
 msgid "Version history needs Git, which isn’t available on this Mac"
@@ -11623,7 +11697,7 @@ msgstr "版本名"
 msgid "Version named."
 msgstr "已命名"
 
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Version saved."
 msgstr "版本已保存"
 
@@ -11632,9 +11706,13 @@ msgstr "版本已保存"
 msgid "Version to keep for spot {0}"
 msgstr "第 {0} 处保留哪个"
 
+#: src/history/versions-timeline.tsx
+msgid "Version tracking is off"
+msgstr "版本记录未开启"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/history-drawer.tsx
-#: src/history/versions-timeline.tsx
+#: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "版本"
 
@@ -11938,10 +12016,6 @@ msgstr "无年份"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Yellow"
 msgstr "黄色"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "Yesterday"
-msgstr "昨天"
 
 #: src/components/ui/chat-panel.tsx
 #: src/history/history-drawer.tsx

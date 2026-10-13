@@ -104,7 +104,7 @@ describe("HistoryDrawer", () => {
     render(<HistoryDrawer {...required} overleafLinked />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
-    expect(await screen.findByText(/Restoring changes Overleaf’s copy/)).toBeInTheDocument();
+    expect(await screen.findByText("No Overleaf history yet")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_history_updates", { projectRoot: "/tmp/project", count: 20 });
   });
 
@@ -126,7 +126,6 @@ describe("HistoryDrawer", () => {
     const { container } = render(<HistoryDrawer {...required} />);
 
     expect(container.querySelector(".versions-tabs")).toHaveClass("drawer-view-tabs");
-    expect(container.querySelector(".versions-tabs")).toHaveStyle({ paddingBottom: "var(--space-3)" });
     fireEvent.click(screen.getByRole("tab", { name: "Activity" }));
     expect(screen.getByRole("tab", { name: "Activity" })).toHaveClass("drawer-view-tab", "active");
   });

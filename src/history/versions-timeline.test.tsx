@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { VersionsTimeline } from "./versions-timeline";
+import { HistoryDrawer } from "./history-drawer";
 import { ToastStack } from "../telemetry/toast-stack";
 import { clearAppLogs } from "../telemetry/app-log-store";
 import type { GitLogEntry } from "../app-types";
@@ -12,6 +12,20 @@ import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => vi.fn()) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
+
+/** The drawer on its Versions view, which is where the timeline lives now. */
+function VersionsTimeline(props: { projectRoot?: string; onVersionsChanged?: () => void | Promise<void> }) {
+  return (
+    <HistoryDrawer
+      history={[]}
+      onClose={() => undefined}
+      onRevert={() => undefined}
+      onDelete={() => undefined}
+      overleafProjectRoot={props.projectRoot}
+      onVersionsChanged={props.onVersionsChanged}
+    />
+  );
+}
 
 const repoStatus = { available: true, repository: true, branch: "main", files: [] };
 
@@ -35,7 +49,7 @@ const lineDiff = { git_show_diff: { before: "old line\n", after: "new line\n", b
 
 async function expandFirstEntry() {
   fireEvent.click(await screen.findByRole("button", { name: /Tighten the abstract/ }));
-  const body = document.querySelector<HTMLElement>(".versions-entry.expanded");
+  const body = document.querySelector<HTMLElement>(".history-row.expanded");
   expect(body).not.toBeNull();
   return body!;
 }
@@ -94,6 +108,8 @@ describe("VersionsTimeline", () => {
     fireEvent.click(row);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_show_diff", { rev: "aaa111", path: "main.tex" }));
+    // A prose file opens on its changed text; the line diff is the Source view.
+    fireEvent.click(await screen.findByRole("tab", { name: "Source" }));
     const viewer = await screen.findByLabelText("Diff for main.tex");
     await waitFor(() => expect(viewer.querySelector("diffs-container")).not.toBeNull());
     expect(viewer.querySelectorAll("diffs-container")).toHaveLength(1);
@@ -113,7 +129,7 @@ describe("VersionsTimeline", () => {
 
   it("restores a file only after confirmation and reports the change", async () => {
     const onVersionsChanged = vi.fn();
-    mockGitLog({ ...lineDiff, git_restore_file: undefined });
+    mockGitLog({ ...lineDiff, git_restore_file: undefined, git_auto_commit: null });
     render(<VersionsTimeline onVersionsChanged={onVersionsChanged} />);
 
     fireEvent.click(within(await expandFirstEntry()).getByRole("button", { name: /main\.tex/ }));
@@ -126,7 +142,7 @@ describe("VersionsTimeline", () => {
     vi.mocked(confirm).mockResolvedValueOnce(true);
     fireEvent.click(restore);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_file", { rev: "aaa111", path: "main.tex" }));
-    expect(confirm).toHaveBeenCalledWith("Restore main.tex to this version? Your current file will be overwritten.", expect.anything());
+    expect(confirm).toHaveBeenCalledWith("Restore main.tex to this version? The current state is saved as a version first.", expect.anything());
     await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
   });
 
@@ -164,7 +180,7 @@ describe("VersionsTimeline", () => {
   it("restores the whole project after confirmation, reporting success only after the reload and build", async () => {
     let finish!: () => void;
     const onVersionsChanged = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
-    mockGitLog({ git_restore_project: "ddd444" });
+    mockGitLog({ git_restore_project: "ddd444", git_auto_commit: null });
     vi.mocked(confirm).mockResolvedValue(true);
     render(<><VersionsTimeline onVersionsChanged={onVersionsChanged} /><ToastStack /></>);
     const restore = within(await expandFirstEntry()).getByRole("button", { name: /Restore project to this version/ });
