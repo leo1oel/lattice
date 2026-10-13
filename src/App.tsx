@@ -712,11 +712,10 @@ function App() {
       setDiskTodos([]);
     },
     scanProject: async () => {
-      await refreshUnusedSymbols();
-      await loadHistory();
-      await loadEditorComments();
-      await loadTodos();
-      await loadWordCount();
+      // Independent scans, each as slow as the project is large (a word count
+      // runs texcount): side by side, so a restored Paper waits for the
+      // slowest, not their sum.
+      await Promise.all([refreshUnusedSymbols(), loadHistory(), loadEditorComments(), loadTodos(), loadWordCount()]);
       setPdfPageCount(null);
       tools.close("checklist");
     },
