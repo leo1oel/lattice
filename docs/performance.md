@@ -827,3 +827,58 @@ ceilings were lowered; the report-only `pdf-scroll` count rose by the
 window's moves (940 → 988 and 192 → 199). The real-window lab's harness counts
 a PDF's pages from its toolbar now, and treats a spacer on screen as a blank
 page.
+
+### Scrolling long lists and documents (October 2026)
+
+Measured on the bench page, its backend wrapped to also answer 600 Papers and
+a 600-entry `references.bib`, 100 activity items and 100 Git versions (with
+`notes=2000`, `pdfPages=600` and `largeMarkdownBytes=2000000` for the tree, the
+PDF and the visual editor), scrolling each surface 60–120 px a frame for 200
+frames down and 200 up. WebKit ran unthrottled; Chromium ran at
+4× CPU throttling, standing in for a slower Mac. Medians of three runs,
+interleaved with main.
+
+- **A fading scroll area restyled its whole list when a scroll started or
+  ended.** The fade offsets (`--scroll-fade-top` and the rest) were inherited
+  custom properties, flipped on the viewport at either end, so the first frame
+  of a scroll from the top restyled every element in the list: 150 ms in
+  WebKit for 600 Papers, 217 ms in Chromium. They are registered
+  non-inherited, and the masks read them directly (`components/ui/scroll-area.css`).
+  Keep a custom property that changes at runtime off an element with a large
+  subtree, or register it with `inherits: false`.
+- **The visual editor's block window paid a quadratic decoration scan.**
+  ProseMirror's `DecorationSet.forChild` scanned every decoration at the
+  document's root for each child it updated, and the split view labels each
+  top-level block with a node decoration, so each window move over the 2 MB
+  fixture compared 4,525 labels 4,525 times (696 ms of one 200-frame
+  profile). `patches/prosemirror-view@1.42.6.patch` keeps each set's inline
+  decorations, the only kind `forChild` passes down, and scans those alone:
+  WebKit frames over 25 ms fell from 40 to 5, Chromium's script time by 70 %.
+- **The Papers list mounted every paper.** 600 papers were 28k elements and
+  19k component renders: 620 ms more before WebKit's first paint, and 330 ms
+  for a search keystroke that showed the whole list. From 120 papers the list
+  draws the rows within a view's height of the view and measured gaps for the
+  rest (`project/paper-list-window.ts`), and each row is its own compiled
+  component, so a window move mounts only the rows it brings in.
+- **The .bib list re-rendered the whole editor on every scrolled frame**, and
+  the React Compiler skipped it (a catch binding read in a closure, a value
+  block inside `try`, a call with the parse error after its memos). It now
+  compiles, redraws only as the view nears the edge of the rows drawn, and
+  draws rows through a compiled `BibRow`: 33,318 renders per 400 frames to
+  981, Chromium's busy p50 per frame 21.5 → 10.2 ms.
+- **Scrolling a PDF re-rendered the App and the preview's toolbar per page.**
+  Each page PDF.js drew set two React states in the preview, and each page
+  passed set the App's page for the agent's context. The draw counts are a
+  store the SyncTeX and quote overlays subscribe to only while they have
+  something to redraw, and a page change while scrolling through is reported
+  once the page holds 200 ms (`pdf/use-pdf-view.ts`): renders while
+  scrolling 20 pages 7,508 → 442. Frame times did not move: PDF.js's own
+  drawing dominates them.
+- **The file tree's scrollbar committed React on every frame.** Its thumb and
+  reveal are DOM writes now, as in the PDF's overlay bars: 403 commits per 400
+  frames to 3.
+
+Measured and left alone: the CodeMirror source (0 commits while scrolling the
+3.2 MB `long.tex`), the History timeline (no fade, 4 ms frames in WebKit), the
+palette and Find in project (their results are capped). The Agent chat scrolls
+inside Synara's embed.
