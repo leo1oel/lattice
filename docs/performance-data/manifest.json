@@ -433,6 +433,13 @@
           ]
         }
       ]
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "Startup and project open (October 2026)",
+      "header": "Cause | Where | Fix",
+      "why": "Causes, the code they lived in and their fixes; the measurements are the prose below the table."
     }
   ]
 }

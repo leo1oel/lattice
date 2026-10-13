@@ -72,6 +72,8 @@ import {
   BibVisualEditor, BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, PdfPreview,
   PdfPreviewLoading, SpreadsheetEditor,
 } from "./canvas-lazy-editors";
+import { loadPdfPreviewModule } from "./canvas-lazy-modules";
+import { ChunkGate } from "../components/chunk-gate";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer, type AnnotationDraft } from "./annotation-composer";
 import { AnnotationReviewLayer } from "./annotation-review";
@@ -1579,7 +1581,7 @@ export function DocumentCanvas(props: {
         onWheelCapture={leaveEditorForPdf}
       >
         {props.pdfTop}
-        <Suspense fallback={<PdfPreviewLoading />}>
+        <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
           <PdfPreview
             key={`project-pdf:${props.projectRoot}`}
             url={props.pdfUrl}
@@ -1614,7 +1616,7 @@ export function DocumentCanvas(props: {
               />
             )}
           />
-        </Suspense>
+        </Suspense></ChunkGate>
       </div>
     );
   };

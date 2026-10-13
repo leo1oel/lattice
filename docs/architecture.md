@@ -442,7 +442,10 @@ lazily loaded dialog or drawer opens through `LazyMount`
 render is deferred, or in a transition into one (`useToolDrawers`); a lazy
 component whose chunk something else may load first (an idle prewarm) is
 `lazyChunk` over a shared `chunk` (`src/lib/lazy-chunk.ts`), which renders
-without suspending once the chunk is in.
+without suspending once the chunk is in. A lazy part of what a window shows
+from the start, as the workspace and canvas of a project's first frame are,
+renders behind a `ChunkGate` (`src/components/chunk-gate.tsx`): its own
+placeholder until its chunk is in, never a Suspense fallback.
 
 ### 4.2 Never value-import `tldraw` from an eagerly-loaded module
 

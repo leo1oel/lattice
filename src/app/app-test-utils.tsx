@@ -579,7 +579,7 @@ export async function openWithAutomaticBuilds(commands: Commands, snapshot = pro
 
 /** Opens Settings from the titlebar button, then `section` when given. */
 export async function openSettings(section?: string) {
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   await findSettingsDialog();
   if (section) fireEvent.click(await screen.findByRole("button", { name: section }));
 }

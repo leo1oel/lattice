@@ -3,10 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
+import { chunk } from "../lib/lazy-chunk";
 import { whenIdle } from "./effect-helpers";
 import { paperDocumentPath, type PaperView } from "./use-open-documents";
 
-export const loadDocumentCanvas = () => import("../canvas/document-canvas");
+export const loadDocumentCanvas = chunk(() => import("../canvas/document-canvas"));
 const loadCanvasPrewarm = () => import("../canvas/canvas-prewarm");
 
 function recordPerformanceMeasure(name: string, start: number, detail: object) {
