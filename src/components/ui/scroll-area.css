@@ -146,17 +146,22 @@
 }
 
 /* Each mask is declared once, on the viewport itself, so its offsets resolve
-   against the edge flags that ScrollArea writes onto the same element. */
+   against the edge flags that ScrollArea writes onto the same element.
+
+   The offsets are registered as non-inherited, and the gradients read them
+   directly rather than through a variable of their own. An inherited custom
+   property that changes restyles everything under the element: the first
+   frame of a scroll from the top (and the last one, at either end) restyled
+   the whole list, 150 ms in WebKit for a library of 600 Papers. */
+@property --scroll-fade-top { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --scroll-fade-bottom { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --scroll-fade-left { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --scroll-fade-right { syntax: "<length>"; inherits: false; initial-value: 0px; }
+
 .scroll-fade,
 .scroll-fade-x,
 .scroll-fade-both {
   --scroll-fade-size: 18px;
-  --scroll-fade-top: 0px;
-  --scroll-fade-bottom: 0px;
-  --scroll-fade-left: 0px;
-  --scroll-fade-right: 0px;
-  --scroll-fade-mask-y: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
-  --scroll-fade-mask-x: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
 }
 
 .scroll-fade[data-can-scroll-up="true"],
@@ -180,19 +185,23 @@
 }
 
 .scroll-fade {
-  -webkit-mask-image: var(--scroll-fade-mask-y);
-  mask-image: var(--scroll-fade-mask-y);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
 }
 
 .scroll-fade-x {
-  -webkit-mask-image: var(--scroll-fade-mask-x);
-  mask-image: var(--scroll-fade-mask-x);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
 }
 
 .scroll-fade-both {
-  -webkit-mask-image: var(--scroll-fade-mask-y), var(--scroll-fade-mask-x);
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
+    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
   -webkit-mask-composite: source-in;
-  mask-image: var(--scroll-fade-mask-y), var(--scroll-fade-mask-x);
+  mask-image:
+    linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%),
+    linear-gradient(to right, transparent 0, #000 var(--scroll-fade-left), #000 calc(100% - var(--scroll-fade-right)), transparent 100%);
   mask-composite: intersect;
 }
 
