@@ -102,7 +102,9 @@ Its requests reach only that project's repositories. Authored and review-request
 paginated matches on the server when the shared repository superset is truncated; an incomplete
 GitHub response is reported explicitly rather than silently treated as a complete filtered list.
 Both Git views send `synara:embed-ready`; missing CLI/authentication shows its unavailable or
-sign-in state without query retries. The narrow model picker retains account selection in upstream’s
+sign-in state without query retries. The inbox, its filters and the item detail follow the host
+locale through the fork's Lingui catalogs (zh-CN included); GitHub content and agent prompts stay
+as written. The narrow model picker retains account selection in upstream’s
 new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
 The inbox, detail panes, sidechat dock, and portalled menus inherit Lattice's embed-theme surface
 tokens; code and diff renderers also resolve the host theme without changing standalone Synara's
