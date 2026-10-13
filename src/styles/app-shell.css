@@ -988,17 +988,24 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 /* A lit row's key and actions, above the row's hit area. The key is the
    exact one a \cite{} needs, and a click copies it. A row with no byline has
    no line to join, so they surface over the end of its last line instead, on
-   a backing as opaque as the row they sit in. */
-.paper-row-actions { position: relative; z-index: 1; margin-inline-start: auto; flex: 0 1 auto; display: none; align-items: center; pointer-events: auto; animation: paper-row-actions-in var(--motion-fast); }
+   a backing as opaque as the row they sit in. The actions may shrink below
+   their content: a key's whole text (an arXiv-style
+   "diao2024unveilingencoderfreevisionlanguagemodels" runs past 300px) is
+   their min-content, which kept the key from ellipsizing and pushed the
+   icons out of the row. Their floor is instead what the key's 6em and three
+   icons need, so the byline gives way before they do. */
+.paper-row-actions { position: relative; z-index: 1; min-width: 0; margin-inline-start: auto; flex: 0 1 auto; display: none; justify-content: flex-end; align-items: center; pointer-events: auto; animation: paper-row-actions-in var(--motion-fast); }
 .paper-row:is(:hover, :focus-within, .active) .paper-row-actions { display: flex; }
+.paper-row-actions:has(> .paper-cite-key) { min-width: calc(6 * var(--type-micro-size) + 3 * 24px); }
 @keyframes paper-row-actions-in { from { opacity: 0; } }
 @container paper-row (width < 300px) {
   .paper-row:is(:hover, :focus-within, .active) .paper-byline { display: none; }
-  .paper-row-actions { min-width: 0; flex-grow: 1; }
+  .paper-row-actions { flex-grow: 1; }
   .paper-row-actions > .paper-cite-key { margin-inline: calc(-1 * var(--space-2)) auto; }
 }
-/* Placed on no grid line, so its box is the row's, not the byline column's. */
-.paper-row > .paper-meta:not(:has(> .paper-byline)) { grid-column: auto; position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-2)); inset-inline-end: var(--space-3); margin: 0; }
+/* Placed on no grid line, so its box is the row's, not the byline column's;
+   it grows leftwards from the row's end, so it is capped at the row. */
+.paper-row > .paper-meta:not(:has(> .paper-byline)) { grid-column: auto; position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-2)); inset-inline-end: var(--space-3); max-width: calc(100% - 2 * var(--space-3)); margin: 0; }
 .paper-meta:not(:has(> .paper-byline)) > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
 .paper-cite-key { min-width: 6em; height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2); font: var(--type-micro-size)/1 var(--editor-font); }
 /* The key button sets line-height 1 to centre its icon; a clipping box that tight cuts descenders (g, j, p, q, y), so the code gets a full line box inside the fixed 24px button. */
@@ -1011,6 +1018,7 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    the row, so it keeps only its copy icon; its name and tooltip still say
    which key it copies. Four icons fit any row the panel can hold. */
 @container paper-row (width < 200px) {
+  .paper-row-actions:has(> .paper-cite-key) { min-width: 0; }
   .paper-row-actions > .paper-cite-key { width: 24px; min-width: 0; margin-inline: calc(-1 * var(--space-3)) auto; padding: 0; justify-content: center; }
   .paper-cite-key > code { display: none; }
 }
@@ -1049,7 +1057,7 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
   .paper-row > .paper-tags { margin-top: var(--space-2); }
   /* The byline's facts are the columns; the line keeps only the actions,
      over the end of the title's line. */
-  .paper-row > .paper-meta { grid-column: auto; position: absolute; z-index: 1; inset-block: calc(var(--paper-row-padding) + (var(--type-subtitle-line-height) - 24px) / 2) auto; inset-inline-end: var(--space-4); height: 24px; margin: 0; }
+  .paper-row > .paper-meta { grid-column: auto; position: absolute; z-index: 1; inset-block: calc(var(--paper-row-padding) + (var(--type-subtitle-line-height) - 24px) / 2) auto; inset-inline-end: var(--space-4); max-width: calc(100% - 2 * var(--space-4)); height: 24px; margin: 0; }
   .paper-row > .paper-meta > .paper-byline { display: none; }
   .paper-row > .paper-meta > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
   .paper-group { margin-inline: var(--space-6); }
