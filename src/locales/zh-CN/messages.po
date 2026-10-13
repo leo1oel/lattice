@@ -2514,10 +2514,6 @@ msgctxt "macOS menu bar"
 msgid "Close Window"
 msgstr "关闭窗口"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Closed"
-msgstr "已关闭"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Closed-path integral"
 msgstr "闭路积分"
@@ -4757,20 +4753,12 @@ msgid "Hex color"
 msgstr "十六进制颜色"
 
 #: src/trellis/trellis-titlebar.tsx
-msgid "Hidden"
-msgstr "已隐藏"
-
-#: src/trellis/trellis-titlebar.tsx
 msgid "Hidden panels"
 msgstr "已隐藏"
 
 #: src/trellis/trellis-labels.ts
 msgid "Hide"
 msgstr "隐藏"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Hide {name}"
-msgstr "隐藏{name}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6108,10 +6096,6 @@ msgstr "放大面板"
 #: src/trellis/trellis-keymap.ts
 msgid "Maximize or restore the focused panel"
 msgstr "放大/还原"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Maximize panel · ⌘⇧↩"
-msgstr "放大面板 · ⌘⇧↩"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
@@ -8982,10 +8966,6 @@ msgstr "把各轮改动过的文件恢复到{name}？这次恢复会记入项目
 msgid "Restore the layout"
 msgstr "取消放大"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Restore the layout · ⌘⇧↩"
-msgstr "取消放大 · ⌘⇧↩"
-
 #: src/app/app-history-drawers.tsx
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
 msgstr "把项目恢复到改动前？恢复会记成一条新记录"
@@ -9657,10 +9637,6 @@ msgstr "缩短"
 msgid "Show"
 msgstr "显示"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Show {name}"
-msgstr "显示{name}"
-
 #: src/App.tsx
 msgid "Show {name} panel"
 msgstr "显示{name}"
@@ -9707,10 +9683,6 @@ msgstr "在源码中显示"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "显示预览"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Show or hide panels"
-msgstr "面板开关"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"

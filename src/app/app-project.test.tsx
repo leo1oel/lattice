@@ -188,12 +188,13 @@ describe("project tree and projects", () => {
     const panelControls = titlebarMain.querySelector<HTMLElement>(".trellis-titlebar")!;
     const titlebarTools = titlebarMain.querySelector(".canvas-toolbar")!;
     expect(within(panelControls).getByRole("button", { name: "Panels" })).toBeInTheDocument();
-    expect(within(panelControls).getByRole("button", { name: "Hide Project" })).toHaveAttribute("aria-pressed", "true");
-    // The Panels menu keeps maximize and reset; neither the whole-workspace
-    // overview nor the Trellis credit is there. The credit is kept in the native
-    // macOS About panel (src-tauri/src/native_locale.rs) and in NOTICE / THIRD_PARTY_NOTICES.
+    // The Panels menu shows or hides each panel and keeps maximize and reset;
+    // neither the whole-workspace overview nor the Trellis credit is there. The
+    // credit is kept in the native macOS About panel (src-tauri/src/native_locale.rs)
+    // and in NOTICE / THIRD_PARTY_NOTICES.
     fireEvent.pointerDown(within(panelControls).getByRole("button", { name: "Panels" }), { button: 0 });
-    expect(await screen.findByRole("menuitem", { name: /Maximize focused panel/ })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemcheckbox", { name: /^Project/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitem", { name: /Maximize focused panel/ })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Reset layout" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Zoom out to show every panel/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/Uses Trellis/)).not.toBeInTheDocument();
@@ -306,7 +307,10 @@ describe("project tree and projects", () => {
     const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: new RegExp(`^${name}\\s*(Unsaved changes)?$`) });
     // The Writing layout is on screen (it lies over the workspace, whose tab is then not chosen).
     const writingLayout = () => document.querySelector('[data-trellis-part="panel"][data-panel="panel-writing"]');
-    const resetLayout = () => fireEvent.click(within(document.querySelector<HTMLElement>(".trellis-titlebar")!).getByRole("button", { name: "Reset layout" }));
+    const resetLayout = async () => {
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Panels" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Reset layout" }));
+    };
     // The toast stack is not rendered here (see expectNotification): read the offer from the store.
     const resetToast = () => visibleToasts("Layout").find((entry) => entry?.title === "Layout reset");
     const undo = () => act(async () => { await getAppToastOptions(resetToast()!.id)?.primaryAction?.onClick(); });
@@ -321,7 +325,7 @@ describe("project tree and projects", () => {
       await chooseLayoutPreset("Writing");
       await waitFor(() => expect(writingLayout()).not.toBeNull());
 
-      resetLayout();
+      await resetLayout();
       await waitFor(() => expect(agentTab()).not.toBeNull());
       expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
       await waitFor(() => expect(getAppToastOptions(resetToast()!.id)?.primaryAction?.label).toBe("Undo"));
@@ -348,7 +352,7 @@ describe("project tree and projects", () => {
       persistLayoutWithoutAgent();
       renderApp(projectCommands());
       await findEditorView();
-      resetLayout();
+      await resetLayout();
       await waitFor(() => expect(resetToast()).toBeDefined());
       await chooseLayoutPreset("Reading");
       await waitFor(() => expect(resetToast()).toBeUndefined());
@@ -358,7 +362,7 @@ describe("project tree and projects", () => {
       renderApp({ ...projectCommands(), write_project_file: () => { throw new Error("disk full"); } });
       const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
-      resetLayout();
+      await resetLayout();
       await expectNotification(/Save failed, so the layout was not reset/);
       expect(resetToast()).toBeUndefined();
     });
@@ -371,10 +375,10 @@ describe("project tree and projects", () => {
       await chooseLayoutPreset("Writing");
       await waitFor(() => expect(writingLayout()).not.toBeNull());
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
-      resetLayout();
+      await resetLayout();
       await waitFor(() => expect(invokeCalls("write_project_file")).toHaveLength(1));
       // A second press while the first reset still waits on its save.
-      resetLayout();
+      await resetLayout();
       await act(async () => { written.resolve(); });
       await waitFor(() => expect(getAppToastOptions(resetToast()!.id)?.primaryAction?.label).toBe("Undo"));
       expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
@@ -405,7 +409,7 @@ describe("project tree and projects", () => {
         });
         const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
         act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
-        resetLayout();
+        await resetLayout();
         await waitFor(() => expect(invokeCalls("write_project_file")).toHaveLength(1));
         await chooseProjectMenuItem("Guided tutorial");
         await expectInvoked("open_tutorial_project");
