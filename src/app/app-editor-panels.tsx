@@ -10,6 +10,7 @@
 import { lazy, memo, Suspense, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
+import { LazyMount } from "../components/lazy-mount";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
@@ -48,8 +49,8 @@ const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, rounds
   annotations: readonly EditorComment[];
 }) {
   const open = useSyncExternalStore(rounds.subscribe, () => rounds.getSnapshot().roundsOpen);
-  return open ? (
-    <Suspense fallback={null}>
+  return (
+    <LazyMount when={open}>
       <AnnotationRoundsDialog
         rounds={roundsList}
         annotations={annotations}
@@ -58,8 +59,8 @@ const AnnotationRoundsHost = memo(function AnnotationRoundsHost({ rounds, rounds
         onRestore={rounds.restore}
         onClose={rounds.closeRounds}
       />
-    </Suspense>
-  ) : null;
+    </LazyMount>
+  );
 });
 
 export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurface, ...props }: {

@@ -20,7 +20,8 @@ import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
  * per-file view state, the document each editor was handed) as DOM attributes,
  * so an assertion reads like the thing a user would notice.
  */
-vi.mock("./canvas-lazy-modules", () => {
+vi.mock("./canvas-lazy-modules", async () => {
+  const { chunk } = await import("../lib/lazy-chunk");
   const PdfPreview = (props: ComponentProps<typeof RealPdfPreview>) => (
     <div
       data-testid="pdf-preview"
@@ -83,12 +84,12 @@ vi.mock("./canvas-lazy-modules", () => {
     </div>
   );
   return {
-    loadPdfPreviewModule: async () => ({ PdfPreview }),
-    loadVisualMarkdownEditorModule: async () => ({ LatticeVisualMarkdownEditor: editorStub("visual-markdown-editor") }),
-    loadBoardEditorModule: async () => ({ BoardEditor: editorStub("board-editor") }),
-    loadSpreadsheetEditorModule: async () => ({ SpreadsheetEditor: editorStub("spreadsheet-editor") }),
-    loadOpenSlideWorkspaceModule: async () => ({ OpenSlideWorkspace }),
-    loadBibVisualEditorModule: async () => ({ BibVisualEditor: editorStub("bib-visual-editor") }),
+    loadPdfPreviewModule: chunk(async () => ({ PdfPreview })),
+    loadVisualMarkdownEditorModule: chunk(async () => ({ LatticeVisualMarkdownEditor: editorStub("visual-markdown-editor") })),
+    loadBoardEditorModule: chunk(async () => ({ BoardEditor: editorStub("board-editor") })),
+    loadSpreadsheetEditorModule: chunk(async () => ({ SpreadsheetEditor: editorStub("spreadsheet-editor") })),
+    loadOpenSlideWorkspaceModule: chunk(async () => ({ OpenSlideWorkspace })),
+    loadBibVisualEditorModule: chunk(async () => ({ BibVisualEditor: editorStub("bib-visual-editor") })),
     // Every .bib reads as a reference list here; the parser has its own tests.
     loadBibDocumentModule: async () => ({ readBibDocument: () => ({ document: { entries: [], macros: new Map() }, error: null }), bibUnreadableReason: () => "" }),
     // Reported as warmed so DeferredVisualMarkdownEditor skips its one-frame
