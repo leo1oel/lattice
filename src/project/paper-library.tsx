@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowUpRight, Check, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, SlidersHorizontal, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
@@ -15,7 +15,7 @@ import { notifyError } from "../telemetry/app-notify";
 import type { PaperSummary } from "../app-types";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import { formatCount } from "../i18n";
-import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
+import { findInLibrary, identityOfInput, referenceKind, type ReferenceKind } from "../papers/paper-add";
 import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { paperLinkUrl, paperPdfUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
@@ -62,8 +62,22 @@ export type PaperLibraryProps = {
   /** Human-readable pipeline stage while an import or fetch is running. */
   importStage?: string | null;
   importStageId?: string | null;
+  /** What the running import was given: the pending row names it by this. */
+  importLabel?: string | null;
   recentImport?: RecentPaperImport | null;
+  /** Citation keys or arXiv ids this window just added; their rows say so, with the key to copy. */
+  justAdded?: ReadonlySet<string>;
+  /** The project's bibliography file, which an add writes to. */
+  bibliographyName?: string;
+  /** Open the Add papers sheet, seeded with what the box holds. */
+  onAddPapers: (seed: string) => void;
+  onSearchLiterature: (query: string) => void;
 };
+
+/** Whether this window just added `paper`: its row says so, in place of a toast. */
+function isJustAdded(paper: PaperSummary, justAdded: ReadonlySet<string> | undefined): boolean {
+  return Boolean(justAdded && ((paper.citationKey && justAdded.has(paper.citationKey)) || (paper.arxivId && justAdded.has(paper.arxivId))));
+}
 
 /** A page cited by its address: no arXiv preprint, no DOI, not a PDF. */
 function webPagePaper(paper: PaperSummary): boolean {
@@ -91,57 +105,148 @@ const INSPECTOR_MIN_WIDTH = 860;
 /** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
   const { t } = useLingui();
-  const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
-  const importFillRef = usePaperImportProgressFill(progressActive, props.importStageId);
+  // An import shows its progress in its own row under the box; a download
+  // of a paper already listed still fills the box, as it always has. One
+  // clock serves both, as only one runs at a time.
+  const fetching = !props.importing && Object.values(props.paperFetchStates).some((state) => state === "loading");
+  const importFillRef = usePaperImportProgressFill(fetching || props.importing, props.importStageId);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
   const { hits: textHits, searchNow } = usePaperTextSearch(query);
+  // What the box would add, and whether the library already holds it: an
+  // arXiv id or DOI is known before anything reaches the network.
+  const kind = referenceKind(props.importInput);
+  const duplicate = kind === "arxiv" || kind === "doi" ? findInLibrary(props.papers, identityOfInput(query)) : undefined;
+  // A paper the library holds opens (or fetches its full text) instead of importing twice.
   const addPaper = () => {
-    const id = explicitArxivId(props.importInput);
-    const existing = id ? props.papers.find(paper => baseArxivId(paper.arxivId).toLowerCase() === id) : undefined;
-    if (existing?.hasFullText) props.onPaper(existing);
-    else props.onImport();
+    if (duplicate) {
+      if (readablePaper(duplicate)) props.onPaper(duplicate);
+      else if (duplicate.arxivId || duplicate.url) props.onFetchFullText(duplicate);
+    } else if (query && !props.importing) props.onImport();
+  };
+
+  // The import under way, in a row of its own: what was given, the
+  // pipeline's three steps, Cancel, and a hairline of progress.
+  const stages = [["resolving", t`Metadata`], ["fulltext", t`Full text`], ["overview", t`Overview`]] as const;
+  const stageIndex = Math.max(0, stages.findIndex(([id]) => id === props.importStageId));
+  const pending = props.importing && (
+    <div className="paper-pending">
+      <span className="paper-add-icon" aria-hidden="true"><InfinityLoader size={12} /></span>
+      <strong className="paper-add-title">{props.importLabel || query || t`Adding paper`}</strong>
+      <ol className="paper-pending-steps" aria-hidden="true">
+        {stages.map(([id, label], index) => (
+          <li key={id} data-state={index < stageIndex ? "done" : index === stageIndex ? "current" : "next"}>
+            {index < stageIndex ? <Check size={11} /> : <span className="paper-pending-dot" />}
+            {label}
+          </li>
+        ))}
+      </ol>
+      <span className="sr-only" role="status" aria-atomic="true">{props.importStage ?? t`Working…`}</span>
+      <button type="button" className="paper-pending-cancel" onClick={props.onCancelImport} title={t`Cancel`} aria-label={t`Cancel`}>
+        <X size={13} />
+      </button>
+      <div className="paper-pending-track" aria-hidden="true"><span ref={importFillRef} style={{ width: "0%" }} /></div>
+    </div>
+  );
+  // What Enter (or a click) will do with what was typed, said before it
+  // happens; a known arXiv id or DOI says where it already is instead. The
+  // paper the box just added is its own row, marked so, and is not said twice.
+  const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Web page`, bibtex: "BibTeX", title: t`Title` };
+  const bibliography = props.bibliographyName || "references.bib";
+  const duplicateCite = duplicate?.citationKey ? `\\cite{${duplicate.citationKey}}` : null;
+  /** The add rows above the list; a title offers a lookup only when nothing in the library matches it. */
+  const addRows = (matches: number) => {
+    if (props.importing) return <div className="paper-add">{pending}</div>;
+    if (!kind || (duplicate && isJustAdded(duplicate, props.justAdded))) return null;
+    const addRow = duplicate ? (
+      <div className="paper-add-row" data-duplicate="">
+        <Check size={13} className="paper-add-icon" aria-hidden="true" />
+        <button type="button" className="paper-add-text" title={duplicate.title} onClick={addPaper}>
+          <strong className="paper-add-title">{t`Already in Papers`}</strong>
+          <span className="paper-add-detail" data-code={duplicateCite ? "" : undefined}>{duplicateCite ?? duplicate.title}</span>
+        </button>
+        {duplicateCite && (
+          <CopyButton className="paper-add-action" text={duplicateCite} iconSize={12} title={t`Copy \\cite command`} aria-label={t({ message: `Copy ${duplicateCite}` })}>
+            <span className="paper-add-action-label">{t`Copy`}</span>
+          </CopyButton>
+        )}
+      </div>
+    ) : kind !== "title" || !matches ? (
+      <button type="button" className="paper-add-row" onClick={addPaper}>
+        <Plus size={13} className="paper-add-icon" aria-hidden="true" />
+        <span className="paper-add-text">
+          <strong className="paper-add-title">
+            {kind === "title" ? t`Look up and add` : t`Add`} <q>{query}</q>
+          </strong>
+          <span className="paper-add-detail">
+            {kind === "title"
+              ? t`Finds the record, then lets you choose`
+              : kind === "arxiv"
+                ? t`Adds it to ${bibliography} and fetches the full text`
+                : t`Adds it to ${bibliography}, with its full text when there is one`}
+          </span>
+        </span>
+        <span className="paper-add-kind">{kindLabels[kind]}</span>
+        {kind !== "title" && <CornerDownLeft size={12} className="paper-add-enter" aria-hidden="true" />}
+      </button>
+    ) : null;
+    return (
+      <div className="paper-add">
+        {addRow}
+        {kind === "title" && (
+          <button type="button" className="paper-add-row" data-quiet="" onClick={() => props.onSearchLiterature(query)}>
+            <ArrowRight size={13} className="paper-add-icon" aria-hidden="true" />
+            <span className="paper-add-text">
+              <strong className="paper-add-title">{t`Search the literature for`} <q>{query}</q></strong>
+            </span>
+          </button>
+        )}
+      </div>
+    );
   };
   return (
     <aside className="navigator">
       <div className="navigator-section papers-section">
-        <div className="paper-import-control" data-importing={progressActive || undefined}>
+        <div className="paper-import-control" data-importing={fetching || undefined}>
           <SearchField
             ref={importInputRef}
             aria-label={t`Search or import papers`}
-            aria-busy={progressActive}
-            readOnly={progressActive}
+            aria-busy={fetching}
+            readOnly={fetching}
             // The placeholder is short enough never to truncate at the panel's
             // narrowest; what can be pasted to add a paper is in the tip.
-            title={progressActive ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
-            aria-describedby={progressActive ? "paper-import-status" : undefined}
+            title={fetching ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
+            aria-describedby={fetching ? "paper-import-status" : undefined}
             containerClassName="import-box"
             controlSize="compact"
             placeholder={t`Search or add papers`}
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
-            onClear={progressActive ? undefined : () => props.setImportInput("")}
+            onClear={fetching ? undefined : () => props.setImportInput("")}
             {...compositionProps}
-            // Enter only searches: the list already filters as you type, so it
-            // runs the full-text pass now. Adding is the + button's job alone.
+            // Enter adds an identifier the library does not hold yet, as the
+            // add row under the box says it will. A title only searches: the
+            // list already filters as you type, so Enter runs the full-text
+            // pass now, and the add row looks the title up when chosen.
             onKeyDown={(event) => {
               if (event.key !== "Enter" || isComposing(event)) return;
               event.preventDefault();
-              if (!progressActive) searchNow();
+              if (kind && kind !== "title") addPaper();
+              else if (!fetching) searchNow();
             }}
             trailing={(
+              // Everything else there is to add, a pasted list or a whole .bib, goes through the sheet.
               <button
-                onClick={props.importing ? props.onCancelImport : addPaper}
-                disabled={!props.importing && (progressActive || !query)}
-                title={props.importing ? t`Cancel` : t`Add paper`}
-                aria-label={props.importing ? t`Cancel` : t`Add paper`}
+                onClick={() => props.onAddPapers(query)}
+                title={t`Add papers…`}
+                aria-label={t`Add papers…`}
               >
-                {props.importing ? <X size={14} /> : <Plus size={14} />}
+                <Plus size={14} />
               </button>
             )}
           />
-          {progressActive && (
+          {fetching && (
             <>
               <div className="paper-import-track" aria-hidden="true">
                 <span ref={importFillRef} style={{ width: "0%" }} />
@@ -152,9 +257,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </>
           )}
         </div>
-        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} /> : (
+        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} addRows={addRows} hasKind={Boolean(kind)} /> : (
           <ScrollArea className="paper-list" orientation="both" contentClassName="paper-list-content">
-            <div className="papers-empty-state" data-library="empty">
+            {addRows(0)}
+            {!kind && !props.importing && <div className="papers-empty-state" data-library="empty">
               {/* Beside the text, not above it: the card sits in a short panel
                   at startup, and a taller card would overflow it. */}
               <ResearchArt drawing={CARD_INDEX} />
@@ -164,7 +270,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 {/* Only focuses the field: what to add is the writer's to type. */}
                 <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>
               </div>
-            </div>
+            </div>}
           </ScrollArea>
         )}
       </div>
@@ -177,7 +283,14 @@ export function PaperLibrary(props: PaperLibraryProps) {
  * and grouped, and the list itself. Its own component, so an empty library
  * (every startup without papers) runs none of it.
  */
-function PaperShelf(props: PaperLibraryProps & { query: string; textHits: ReturnType<typeof usePaperTextSearch>["hits"] }) {
+function PaperShelf(props: PaperLibraryProps & {
+  query: string;
+  textHits: ReturnType<typeof usePaperTextSearch>["hits"];
+  /** The add and pending rows above the list, given how many papers match. */
+  addRows: (matches: number) => ReactNode;
+  /** The box holds something to add, which the add rows answer in place of the empty state. */
+  hasKind: boolean;
+}) {
   const { query, textHits } = props;
   const { t } = useLingui();
   const rowId = useId();
@@ -239,8 +352,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
   };
   const inspectedLink = inspected && paperLinkUrl(inspected);
   const total = props.papers.length;
-  const emptyState = filteredPapers.length ? null
-    : [t`No matching papers`, shownFilter === "all" ? t`Press + to import it` : t`Try another filter`];
+  const emptyState = filteredPapers.length || props.hasKind ? null : [t`No matching papers`, t`Try another filter`];
   const sortLabels: Record<PaperSort, string> = {
     title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
   };
@@ -310,6 +422,8 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
     };
     const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
     const selected = wide && selectedKey === paperKey(paper);
+    // Added from this window: the row says so and keeps its key out to copy, in place of a toast.
+    const recent = isJustAdded(paper, props.justAdded);
     const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
     // A short chip says what happened; who reported it and when
     // follows in quiet type, which may give way to an ellipsis.
@@ -349,7 +463,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
     const row = (
       <div
         role="listitem"
-        className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${active ? "active" : ""}`}
+        className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${recent ? "just-added " : ""}${active ? "active" : ""}`}
         data-citation-health={paper.citationHealth?.kind}
         data-reading={readingState}
         data-item-selected={selected || undefined}
@@ -442,7 +556,12 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
           </div>
         </div>
         {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
-        {health && <div className="paper-tags">{healthNotice}</div>}
+        {(health || recent) && (
+          <div className="paper-tags">
+            {recent && <Badge size="compact" tone="success" className="paper-tag">{t`Just added`}</Badge>}
+            {healthNotice}
+          </div>
+        )}
         <span id={factsId} className="sr-only">
           {[stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
             .filter(Boolean).join(". ")}
@@ -597,6 +716,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
           orientation="both"
           contentClassName="paper-list-content"
         >
+          {props.addRows(filteredPapers.length)}
           {!!filteredPapers.length && (
             <div className="paper-table-head" role="group" aria-label={t`Sort papers`}>
               <span />

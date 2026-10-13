@@ -1,0 +1,67 @@
+/* Add papers (add-papers-sheet.tsx): the paste box, the tabs that sort what
+   it found, and one card row per reference in a raised list. The sheet keeps
+   its height to what it holds, up to the large-dialog cap. */
+.modal.sheet-dialog.add-papers-sheet { width: min(720px, calc(100vw - 48px)); height: auto; max-height: var(--dialog-large-height); container: add-papers / inline-size; }
+.add-papers-body { flex: 1; min-height: 0; display: grid; align-content: start; gap: var(--space-6); }
+.add-papers-paste { display: grid; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.add-papers-paste textarea { min-height: 92px; resize: vertical; padding: var(--space-5) var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-input, var(--surface-app)); color: var(--text-primary); font: var(--type-caption-size)/20px var(--editor-font); }
+.add-papers-paste textarea::placeholder { color: var(--text-tertiary); }
+.add-papers-manual { display: flex; margin-top: calc(-1 * var(--space-3)); }
+.add-papers-manual > button { margin-left: calc(-1 * var(--space-4)); color: var(--text-secondary); }
+
+.add-papers-empty { --art-paper: var(--surface-panel-raised); display: flex; align-items: center; gap: var(--space-10); padding: var(--space-6) var(--space-4); }
+.add-papers-empty .research-art { width: 168px; }
+.add-papers-empty p { margin: 0; max-width: 40ch; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+
+/* Tabs as filters: pills that wrap onto a second line before any label clips. */
+.add-papers-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.add-papers-tabs > button { height: 26px; max-width: 100%; padding: 0 var(--space-4); border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: var(--space-3); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
+.add-papers-tabs > button:hover { color: var(--text-primary); background: var(--control-hover-surface); }
+.add-papers-tabs > button[aria-selected="true"] { background: color-mix(in srgb, var(--text-primary) 7%, transparent); color: var(--text-primary); }
+.add-papers-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.add-papers-tab-count { flex: none; font-variant-numeric: tabular-nums; }
+
+.add-papers-rows { margin: 0; padding: 0; list-style: none; border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); overflow: hidden; }
+.add-papers-rows > li + li { border-top: 1px solid var(--border-subtle); }
+.add-papers-row { padding: var(--space-5) var(--space-6); display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; }
+.add-papers-rows > li[data-state="duplicate"] .add-papers-main { opacity: .62; }
+.add-papers-kind { justify-self: start; max-width: 100%; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; overflow: hidden; background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); white-space: nowrap; }
+.add-papers-main { min-width: 0; display: grid; gap: var(--space-1); }
+.add-papers-main > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); }
+.add-papers-rows > li[data-state="resolving"] .add-papers-main > strong,
+.add-papers-rows > li[data-state="failed"] .add-papers-main > strong { font-family: var(--editor-font); font-size: var(--type-caption-size); }
+.add-papers-main > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* What happens to the row: New in the success ink, the duplicate's key to
+   copy, the choice to make, and once adding, the row's own progress. */
+.add-papers-state { min-width: 0; max-width: 340px; display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
+.add-papers-state-label { flex: none; }
+.add-papers-state[data-tone="new"], .add-papers-state-label[data-tone="new"], .add-papers-state[data-tone="done"] { color: color-mix(in srgb, var(--status-success) 80%, var(--text-primary)); }
+.add-papers-state[data-tone="active"] { color: var(--text-primary); }
+.add-papers-state[data-tone="failed"] { color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); }
+.add-papers-cite { min-width: 0; height: 24px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-2); background: transparent; color: var(--text-secondary); }
+.add-papers-cite:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+/* A full line box: a clip as tight as the glyphs cuts descenders (g, p, y). */
+.add-papers-cite > code { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
+.add-papers-choose { height: 24px; padding: 0 var(--space-4); border-radius: var(--radius-compact); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; }
+.add-papers-choose:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.add-papers-choose[data-pending] { background: var(--status-warning-soft); color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
+.add-papers-candidates { padding: 0 var(--space-6) var(--space-6); display: grid; gap: var(--space-4); }
+.add-papers-candidates-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.add-papers-none { padding: var(--space-6); color: var(--text-tertiary); font-size: var(--type-caption-size); text-align: center; }
+
+.add-papers-footer { align-items: center; }
+.add-papers-summary { min-width: 0; margin-inline-end: auto; overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; }
+.add-papers-footer > button { flex: none; }
+
+/* A narrow window: the kind chip goes (the line's own text says it), the
+   drawing sits above its words, and the summary takes its own line. */
+@container add-papers (width < 520px) {
+  .add-papers-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .add-papers-kind { display: none; }
+  .add-papers-empty { flex-direction: column; align-items: flex-start; gap: var(--space-6); }
+  .add-papers-state { max-width: 160px; }
+  .add-papers-state-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .add-papers-footer { flex-wrap: wrap; }
+  .add-papers-summary { flex-basis: 100%; white-space: normal; }
+}
