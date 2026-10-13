@@ -58,7 +58,8 @@ import { collectFilePaths } from "./app/workspace-restore";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { writeOpenSlideMutation } from "./app/open-slide-writes";
-import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
+import { AppOverleafCollabDrawer, AppOverleafMarginReview } from "./app/app-overleaf-drawer";
+import { requestMarginReviewHere, setMarginReviewMode } from "./overleaf/margin-review-mode";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { SettingsLoadingShell } from "./app/tool-loading-shell";
@@ -1490,6 +1491,11 @@ function App() {
     { id: "overleaf-open", label: t`Open an Overleaf project`, group: "overleaf", run: () => setOverleafPickerOpen(true) },
     { id: "overleaf-sync", when: inProject && overleafLink !== null && !overleafSyncing, label: t`Sync with Overleaf`, group: "overleaf", run: syncOverleaf },
     { id: "overleaf-web", when: inProject && overleafLink !== null, label: t`Open this project on Overleaf`, group: "overleaf", run: () => void openCurrentOverleafProject() },
+    // Margin review, as the View menu offers it (overleaf-margin-review.tsx); kept per window.
+    { id: "margin-review-auto", when: inProject && overleafLink !== null, label: t`Margin review: Auto`, detail: t`cards beside the text when there is room`, group: "view", run: () => setMarginReviewMode("auto") },
+    { id: "margin-review-markers", when: inProject && overleafLink !== null, label: t`Margin review: Markers only`, detail: t`full-width text, cards on demand`, group: "view", run: () => setMarginReviewMode("markers") },
+    { id: "margin-review-off", when: inProject && overleafLink !== null, label: t`Margin review: Off`, group: "view", run: () => setMarginReviewMode("off") },
+    { id: "margin-review-here", when: inProject && overleafLink !== null, label: t`Review here`, detail: t`the comment or suggestion by the caret`, group: "view", run: requestMarginReviewHere },
     {
       id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject(),
       detail: t`Learn Lattice with the Understanding Attention sample project`,
@@ -1828,6 +1834,9 @@ function App() {
       editorComments={editorComments.all}
       overleafPresenceCursors={overleafActiveCursors}
       overleafChanges={overleafRealtime.changes}
+      sourceMargin={overleafLink ? (view) => (
+        <AppOverleafMarginReview overleaf={overleaf} view={view} path={documents.canvas.path} focusMode={focusMode} />
+      ) : undefined}
       overleafTrackChangeActions={{
         authorName: overleafTrackChanges.authorName,
         canAct: () => overleafRealtime.canWrite,

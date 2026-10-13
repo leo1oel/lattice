@@ -105,6 +105,11 @@ msgstr "{0} 只有深色"
 msgid "{0} comes in light only"
 msgstr "{0} 只有浅色"
 
+#. placeholder {0}: formatCount(commentCount, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{0} comments"
+msgstr "{0} 条评论"
+
 #. placeholder {0}: counts.incomplete
 #: src/papers/bibliography-audit.tsx
 msgid "{0} couldn't finish"
@@ -175,6 +180,11 @@ msgstr "{0} 条记录匹配，请选出你要的那一条。"
 msgid "{0} selected"
 msgstr "已选 {0} 条"
 
+#. placeholder {0}: formatCount(changeCount, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{0} suggestions"
+msgstr "{0} 条修订建议"
+
 #. placeholder {0}: scan.issues.length
 #: src/papers/bibliography-audit.tsx
 msgid "{0} things to tidy in the bibliography"
@@ -218,6 +228,14 @@ msgstr "超出 {amount} 词"
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words remaining"
 msgstr "还剩 {amount} 词"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{author} suggests deleting text"
+msgstr "{author} 建议删除文字"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "{author} suggests inserting text"
+msgstr "{author} 建议插入文字"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
@@ -449,6 +467,10 @@ msgstr "{meaning}，{color}"
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "{more} more replies"
+msgstr "另有 {more} 条回复"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
@@ -682,6 +704,10 @@ msgstr "1 项需要处理"
 msgid "1 cite"
 msgstr "被引 1 次"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "1 comment"
+msgstr "1 条评论"
+
 #: src/canvas/proofread-card.tsx
 msgid "1 edit · clarity and flow"
 msgstr "1 处修改 · 清晰流畅"
@@ -705,6 +731,10 @@ msgstr "1 处修改待审"
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 处"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "1 more reply"
+msgstr "另有 1 条回复"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 needs your eyes"
@@ -753,6 +783,7 @@ msgid "1 result for “{shownQuery}”"
 msgstr "“{shownQuery}”共 1 条结果"
 
 #: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 msgid "1 suggestion"
 msgstr "1 条修订建议"
 
@@ -1337,6 +1368,7 @@ msgstr "批注 {list}"
 #: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
+#: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
@@ -1539,6 +1571,11 @@ msgstr "无作者信息，未核对"
 #: src/papers/citation-candidates.tsx
 msgid "Authors unchecked"
 msgstr "作者未核对"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Auto"
+msgstr "自动"
 
 #: src/history/version-messages.ts
 msgid "Auto-saved version"
@@ -2125,6 +2162,10 @@ msgstr "表题"
 msgid "Caption of a figure or table"
 msgstr "图或表的标题"
 
+#: src/App.tsx
+msgid "cards beside the text when there is room"
+msgstr "有空间时卡片显示在正文旁"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "注意"
@@ -2519,6 +2560,7 @@ msgstr "剪贴板"
 
 #: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
 msgid "Close"
 msgstr "关闭"
@@ -2672,6 +2714,15 @@ msgstr "评论"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
 msgstr "评论"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Comment from {opener}"
+msgstr "{opener} 的评论"
+
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Comment from {opener}, {0} messages"
+msgstr "{opener} 的评论，共 {0} 条消息"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
@@ -4604,6 +4655,10 @@ msgstr "通栏浮动图"
 msgid "Full-width floating table"
 msgstr "通栏浮动表"
 
+#: src/App.tsx
+msgid "full-width text, cards on demand"
+msgstr "正文保持全宽，按需打开卡片"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "伽马"
@@ -6189,6 +6244,27 @@ msgstr "已用 SyncTeX 对应到源码"
 msgid "Maps to"
 msgstr "映射到"
 
+#: src/overleaf/overleaf-margin-review.tsx
+msgid "Margin review"
+msgstr "页边审阅"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Margin Review"
+msgstr "页边审阅"
+
+#: src/App.tsx
+msgid "Margin review: Auto"
+msgstr "页边审阅：自动"
+
+#: src/App.tsx
+msgid "Margin review: Markers only"
+msgstr "页边审阅：仅标记"
+
+#: src/App.tsx
+msgid "Margin review: Off"
+msgstr "页边审阅：关闭"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
 msgstr "Markdown 文档编辑器"
@@ -6197,6 +6273,11 @@ msgstr "Markdown 文档编辑器"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown 源码"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Markers Only"
+msgstr "仅标记"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -7237,6 +7318,11 @@ msgstr "编号的单行公式"
 msgid "Off"
 msgstr "关"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Off"
+msgstr "关闭"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Off while Reduce transparency is on in System Settings"
@@ -7266,6 +7352,11 @@ msgstr "欧米伽"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "位于行"
+
+#: src/overleaf/overleaf-margin-review.tsx
+msgctxt "margin review"
+msgid "On screen"
+msgstr "这一屏"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -9319,6 +9410,10 @@ msgstr "重新审阅"
 msgid "Review changes"
 msgstr "查看改动"
 
+#: src/App.tsx
+msgid "Review here"
+msgstr "在此审阅"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
 msgstr "查看 Overleaf 改动"
@@ -10780,6 +10875,10 @@ msgstr "AI 助手没能启动"
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "AI 助手没能启动"
 
+#: src/App.tsx
+msgid "the comment or suggestion by the caret"
+msgstr "光标处的评论或修订"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "此文件已不在实时协作中，请重试"
@@ -11086,6 +11185,7 @@ msgid "Third-party notices"
 msgstr "第三方声明"
 
 #: src/overleaf/overleaf-changes.tsx
+#: src/overleaf/overleaf-margin-review.tsx
 msgid "This account cannot accept or reject suggestions here"
 msgstr "此账号没有权限处理修订"
 

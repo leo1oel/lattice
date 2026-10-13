@@ -8,7 +8,7 @@
 //! wins harmlessly.
 
 use serde::Deserialize;
-use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadata, CheckMenuItem, Menu, MenuEvent, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Runtime};
 
 /// Translated titles for the app menu. Predefined items keep their native
@@ -37,7 +37,28 @@ pub(crate) struct MenuLabels {
     zoom: String,
     close_window: String,
     help: String,
+    /// View → Margin review, sent while the focused window shows a linked
+    /// Overleaf project's source (src/overleaf/margin-review-mode.ts).
+    #[serde(default)]
+    margin_review: Option<MarginReviewLabels>,
 }
+
+/// The margin review switch's titles and the sending window's choice.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct MarginReviewLabels {
+    title: String,
+    auto: String,
+    markers: String,
+    off: String,
+    mode: String,
+}
+
+/// Menu ids of the margin review choices; the part after the prefix is the
+/// mode the web UI names.
+const MARGIN_REVIEW_PREFIX: &str = "margin-review:";
+/// The event a choice sends to the window it was made in.
+const MARGIN_REVIEW_EVENT: &str = "margin-review-mode";
 
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
@@ -103,6 +124,25 @@ pub(crate) fn build_menu<R: Runtime>(
         true,
         &[&PredefinedMenuItem::fullscreen(app, Some(labels.fullscreen.as_str()))?],
     )?;
+    if let Some(margin) = &labels.margin_review {
+        let choices = [("auto", &margin.auto), ("markers", &margin.markers), ("off", &margin.off)]
+            .into_iter()
+            .map(|(mode, title)| {
+                CheckMenuItem::with_id(
+                    app,
+                    format!("{MARGIN_REVIEW_PREFIX}{mode}"),
+                    title,
+                    true,
+                    margin.mode == mode,
+                    None::<&str>,
+                )
+            })
+            .collect::<tauri::Result<Vec<_>>>()?;
+        let items: Vec<&dyn tauri::menu::IsMenuItem<R>> =
+            choices.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>).collect();
+        view_menu.append(&PredefinedMenuItem::separator(app)?)?;
+        view_menu.append(&Submenu::with_items(app, &margin.title, true, &items)?)?;
+    }
     let window_menu = Submenu::with_id_and_items(
         app,
         tauri::menu::WINDOW_SUBMENU_ID,
@@ -121,6 +161,16 @@ pub(crate) fn build_menu<R: Runtime>(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
     )
+}
+
+/// A margin review choice goes to the window it was made in, which keeps it
+/// as its own and sends the menu back with the new check.
+pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
+    use tauri::Emitter;
+
+    let Some(mode) = event.id().as_ref().strip_prefix(MARGIN_REVIEW_PREFIX) else { return };
+    let Some(label) = crate::macos_window::focused_window_label() else { return };
+    let _ = app.emit_to(tauri::EventTarget::webview_window(label), MARGIN_REVIEW_EVENT, mode);
 }
 
 /// The bundle localizations `AppleLanguages` may name: the ones Info.plist
@@ -193,9 +243,17 @@ mod tests {
         let mut missing = complete.clone();
         missing.as_object_mut().unwrap().remove("copy");
         assert!(serde_json::from_value::<MenuLabels>(missing).is_err());
-        let mut unknown = complete;
+        let mut unknown = complete.clone();
         unknown.as_object_mut().unwrap().insert("print".into(), "打印".into());
         assert!(serde_json::from_value::<MenuLabels>(unknown).is_err());
+        // The margin review switch comes only from a window that shows it.
+        let mut margin = complete;
+        margin.as_object_mut().unwrap().insert(
+            "marginReview".into(),
+            serde_json::json!({ "title": "页边审阅", "auto": "自动", "markers": "仅标记", "off": "关闭", "mode": "auto" }),
+        );
+        let labels: MenuLabels = serde_json::from_value(margin).expect("margin review labels");
+        assert_eq!(labels.margin_review.map(|margin| margin.mode).as_deref(), Some("auto"));
     }
 
     #[test]
