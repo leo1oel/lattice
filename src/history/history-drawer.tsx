@@ -1,6 +1,6 @@
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import type { CodeViewItem } from "@pierre/diffs";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode, type RefObject } from "react";
 import { historyFocus, subscribeHistoryFocus } from "./history-focus";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowDownUp, BookMarked, History, PenLine, RotateCcw, Sparkles } from "lucide-react";
@@ -25,6 +25,7 @@ import { HistoryDay, HistoryRow, HistoryStat } from "./history-row";
 import { clockTime, dayName, fullTime, groupByDay } from "./history-time";
 import { ChangeKindLabel, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
+import { useProgressiveRows } from "../hooks/use-progressive-rows";
 import {
   pierreCodeViewOptions,
   pierreFileDiff,
@@ -128,6 +129,7 @@ export function HistoryDrawer(props: {
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const codeViewRef = useRef<CodeViewHandle<undefined, undefined>>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const activeChangeIndexRef = useRef(0);
   useEffect(() => {
     activeChangeIndexRef.current = activeChangeIndex;
@@ -426,35 +428,40 @@ export function HistoryDrawer(props: {
     );
   };
 
-  /** `rows`, newest first, grouped by day, with each run of automatic versions folded. */
+  /**
+   * `rows`, newest first, grouped by day, with each run of automatic versions
+   * folded. Every line is built here, but `TimelineDays` mounts only those
+   * near the view.
+   */
   const renderTimeline = (rows: TimelineRow[], overleaf: OverleafHistory | null) => {
     const sorted = [...rows].sort((left, right) => right.at - left.at);
-    return groupByDay(sorted, (row) => row.at).map((day) => (
-      <HistoryDay key={day.key} label={dayName(day.at, i18n.locale)}>
-        {foldAutomatic(day.items).flatMap((row): ReactNode[] => {
-          switch (row.kind) {
-            case "activity":
-              return [renderActivity(row.item, row.at, source("activity"))];
-            case "version":
-              return [renderVersion(row.entry, versions)];
-            case "automatic": {
-              const open = openFolds.has(row.key);
-              const toggle = () => setOpenFolds((current) => {
-                const next = new Set(current);
-                if (!next.delete(row.key)) next.add(row.key);
-                return next;
-              });
-              return [
-                <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} source={source("version")} />,
-                ...(open ? row.entries.map((entry) => renderVersion(entry, versions)) : []),
-              ];
-            }
-            case "overleaf":
-              return overleaf ? [renderOverleaf(row.update, overleaf)] : [];
+    const days = groupByDay(sorted, (row) => row.at).map((day) => ({
+      key: day.key,
+      label: dayName(day.at, i18n.locale),
+      lines: foldAutomatic(day.items).flatMap((row): ReactElement[] => {
+        switch (row.kind) {
+          case "activity":
+            return [renderActivity(row.item, row.at, source("activity"))];
+          case "version":
+            return [renderVersion(row.entry, versions)];
+          case "automatic": {
+            const open = openFolds.has(row.key);
+            const toggle = () => setOpenFolds((current) => {
+              const next = new Set(current);
+              if (!next.delete(row.key)) next.add(row.key);
+              return next;
+            });
+            return [
+              <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} source={source("version")} />,
+              ...(open ? row.entries.map((entry) => renderVersion(entry, versions)) : []),
+            ];
           }
-        })}
-      </HistoryDay>
-    ));
+          case "overleaf":
+            return overleaf ? [renderOverleaf(row.update, overleaf)] : [];
+        }
+      }),
+    }));
+    return <TimelineDays days={days} reset={`${view}:${filter}`} scroller={viewportRef} open={expandedKey} />;
   };
 
   const shownHistory = view === "activity"
@@ -570,6 +577,7 @@ export function HistoryDrawer(props: {
         <ScrollArea
           className="project-history-scroll"
           fadeEdges={false}
+          viewportRef={viewportRef}
           viewportClassName="project-history-scroll-viewport"
           viewportProps={{ "aria-label": t`Project history content` }}
         >
@@ -593,6 +601,40 @@ export function HistoryDrawer(props: {
         ) : renderBody(null)}
         </ScrollArea>
     </ResizableDrawer>
+  );
+}
+
+/** A history row's usual height, for the timeline not drawn yet. */
+const HISTORY_ROW_HEIGHT = 52;
+
+/**
+ * The timeline's days, drawing their rows as they come near the view: a long
+ * history (a hundred versions and a hundred edits) mounted every row on each
+ * open. The open row is always drawn, so a revision round's entry, opened from
+ * outside, is there to scroll to.
+ */
+function TimelineDays(props: {
+  days: Array<{ key: string; label: string; lines: ReactElement[] }>;
+  /** Another view or filter: start again from the first rows. */
+  reset: string;
+  scroller: RefObject<HTMLDivElement | null>;
+  /** The expanded row's key. */
+  open: string | null;
+}) {
+  const lines = props.days.flatMap((day) => day.lines);
+  const openAt = props.open === null ? -1 : lines.findIndex((line) => line.key === props.open);
+  const rows = useProgressiveRows({ total: lines.length, reset: props.reset, scroller: props.scroller, estimate: HISTORY_ROW_HEIGHT, atLeast: openAt + 1 });
+  let left = rows.shown;
+  return (
+    <>
+      {props.days.map((day) => {
+        if (left <= 0) return null;
+        const drawn = day.lines.slice(0, left);
+        left -= drawn.length;
+        return <HistoryDay key={day.key} label={day.label}>{drawn}</HistoryDay>;
+      })}
+      {rows.spacer && <div className="history-timeline-rest" {...rows.spacer} />}
+    </>
   );
 }
 

@@ -18,7 +18,7 @@ import { startTransition, useEffect, useRef, useState, type CSSProperties, type 
  */
 const LOOKAHEAD_PX = 1200;
 
-export function useProgressiveRows({ total, reset, scroller, estimate, batch = 24 }: {
+export function useProgressiveRows({ total, reset, scroller, estimate, batch = 24, atLeast = 0 }: {
   total: number;
   reset: string;
   /** The element the list scrolls in. */
@@ -26,6 +26,8 @@ export function useProgressiveRows({ total, reset, scroller, estimate, batch = 2
   /** A row's usual height in px. */
   estimate: number;
   batch?: number;
+  /** Rows that must be drawn whatever the scroll, such as up to one opened from elsewhere. */
+  atLeast?: number;
 }) {
   const [drawn, setDrawn] = useState({ reset, limit: batch });
   let limit = drawn.limit;
@@ -33,7 +35,7 @@ export function useProgressiveRows({ total, reset, scroller, estimate, batch = 2
     setDrawn({ reset, limit: batch });
     limit = batch;
   }
-  const shown = Math.min(limit, total);
+  const shown = Math.min(Math.max(limit, atLeast), total);
   const spacerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const spacer = spacerRef.current;
