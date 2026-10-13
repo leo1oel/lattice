@@ -750,7 +750,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 /* Downloading, the trailing slot takes the line from the read-only input:
    the status, then Cancel, above the progress fill. */
 .papers-section .paper-import-control { container: paper-import / inline-size; }
-.papers-section .import-box .ui-search-field-input[aria-busy="true"] { width: 0; flex: none; }
+.papers-section .import-box .ui-search-field-input[aria-busy="true"] { width: 0; flex: none; margin-inline-end: calc(-1 * var(--search-control-gap)); }
 .papers-section .paper-import-control[data-importing] .ui-search-field-trailing {
   position: relative;
   z-index: 1;
