@@ -2202,6 +2202,7 @@ msgid "Checking your Overleaf connection…"
 msgstr "正在检查 Overleaf…"
 
 #: src/build/tex-install-dialog.tsx
+#: src/papers/bibliography-audit.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "正在检查…"

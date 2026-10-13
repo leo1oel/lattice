@@ -19,29 +19,45 @@
    unverified rather than wrong, and what is not checked yet is the track. */
 .bibliography-audit-bar { display: flex; gap: var(--space-1); height: var(--space-2); border-radius: var(--radius-pill); overflow: hidden; }
 .bibliography-audit-bar > span { min-width: var(--space-2); transition: flex-grow var(--motion-moderate); }
-.bibliography-audit-bar > [data-bucket="verified"],
-.bibliography-audit-tab i[data-bucket="verified"] { background: var(--status-success); }
-.bibliography-audit-bar > [data-bucket="kept"],
-.bibliography-audit-tab i[data-bucket="kept"] { background: color-mix(in srgb, var(--status-success) 45%, transparent); }
-.bibliography-audit-bar > [data-bucket="fix"],
-.bibliography-audit-tab i[data-bucket="fix"] { background: var(--status-info); }
-.bibliography-audit-bar > [data-bucket="review"],
-.bibliography-audit-tab i[data-bucket="review"] { background: var(--status-warning); }
+.bibliography-audit-bar > [data-bucket="verified"] { background: var(--status-success); }
+.bibliography-audit-bar > [data-bucket="kept"] { background: color-mix(in srgb, var(--status-success) 45%, transparent); }
+.bibliography-audit-bar > [data-bucket="fix"] { background: var(--status-info); }
+.bibliography-audit-bar > [data-bucket="review"] { background: var(--status-warning); }
 .bibliography-audit-bar > [data-bucket="incomplete"] { background: repeating-linear-gradient(135deg, var(--border-strong) 0 3px, transparent 3px 6px); }
-.bibliography-audit-tab i[data-bucket="incomplete"] { background: var(--border-strong); }
-.bibliography-audit-bar > [data-bucket="unchecked"],
-.bibliography-audit-tab i[data-bucket="unchecked"] { background: var(--border-subtle); }
+.bibliography-audit-bar > [data-bucket="unchecked"] { background: var(--border-subtle); }
+
+/* A status mark, the same in a row, its group's heading and its filter, so the
+   filters read as the key. Shape says the state without the colour: a dashed
+   ring not checked yet, a turning arc while checking, a tick verified (ringed
+   when kept as written), a solid cross for a fix and "!" for a record to read,
+   "?" where the check could not finish. Round, never the checkbox's square. */
+.bibliography-audit-mark { --mark-size: 18px; width: var(--mark-size); height: var(--mark-size); flex: none; border-radius: var(--radius-pill); display: grid; place-items: center; color: var(--text-secondary); font-family: var(--ui-font); font-size: calc(var(--mark-size) * 0.62); font-weight: var(--weight-bold); line-height: 1; }
+.bibliography-audit-mark > svg { width: calc(var(--mark-size) * 0.64); height: calc(var(--mark-size) * 0.64); }
+.bibliography-audit-mark > .bibliography-audit-ring { width: 100%; height: 100%; }
+.bibliography-audit-mark[data-mark="verified"] { color: var(--status-success); background: var(--status-success-soft); }
+.bibliography-audit-mark[data-mark="kept"] { color: var(--status-success); box-shadow: inset 0 0 0 1.5px var(--status-success); }
+.bibliography-audit-mark[data-mark="fix"] { color: var(--surface-app); background: var(--status-info); }
+.bibliography-audit-mark[data-mark="review"] { color: var(--surface-app); background: var(--status-warning); }
+.bibliography-audit-mark[data-mark="incomplete"] { background: var(--control-hover-surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.bibliography-audit-mark[data-mark="unchecked"] { color: var(--text-tertiary); }
+.bibliography-audit-mark[data-mark="checking"] { color: var(--status-info); }
+.bibliography-audit-mark[data-mark="checking"] > .bibliography-audit-ring { animation: bibliography-audit-spin 900ms linear infinite; }
+.bibliography-audit-mark-track { stroke: var(--border-subtle); }
+@keyframes bibliography-audit-spin { to { transform: rotate(360deg); } }
 
 /* Filters: a tab per kind of finding, each with its count. */
 .bibliography-audit-tabs { flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
-.bibliography-audit-tab { height: var(--control-height-compact); max-width: 100%; padding: 0 var(--space-5); border-radius: var(--radius-pill); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
+.bibliography-audit-tab { display: inline-flex; align-items: center; height: var(--control-height-compact); max-width: 100%; padding: 0 var(--space-5); border-radius: var(--radius-pill); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
 .bibliography-audit-tab .sliding-tab-pill { border-color: var(--border-subtle); }
 .bibliography-audit-tab .sliding-tab-label { position: relative; display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; }
-.bibliography-audit-tab i { flex: none; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-pill); }
+.bibliography-audit-tab .bibliography-audit-mark,
+.bibliography-audit-group .bibliography-audit-mark { --mark-size: 14px; }
 .bibliography-audit-tab-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
 .bibliography-audit-selection { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3) var(--space-4); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.bibliography-audit-selection label { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; color: var(--text-primary); }
+/* Select all is the shared checkbox field, its label beside the box (a bare
+   label took the sheet's stacked `.modal label`), on the count's line. */
+.bibliography-audit-selection label.bibliography-audit-select-all[data-slot] { align-items: center; color: var(--text-primary); white-space: nowrap; }
 .bibliography-audit-selection-count { margin-inline-end: auto; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
 .bibliography-audit-clean { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4) var(--space-8); padding-block: var(--space-4); --art-paper: var(--surface-elevated); }
@@ -63,7 +79,7 @@
 .bibliography-audit-local li code { font: var(--type-micro-size)/var(--type-micro-line-height) var(--editor-font); color: var(--text-secondary); }
 .bibliography-audit-local li p { color: var(--text-primary); }
 
-.bibliography-audit-group { margin: var(--space-8) 0 var(--space-2); padding: 0 var(--space-4); display: flex; align-items: baseline; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.bibliography-audit-group { margin: var(--space-8) 0 var(--space-2); padding: 0 var(--space-4); display: flex; align-items: center; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .bibliography-audit-group:first-child { margin-top: var(--space-2); }
 .bibliography-audit-group > span { color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
 
@@ -78,12 +94,11 @@
 .bibliography-audit-check { position: relative; z-index: 1; margin-top: var(--space-1); opacity: 0; transition: opacity var(--motion-fast); }
 .bibliography-audit-row:is(:hover, [data-selecting]) .bibliography-audit-check,
 .bibliography-audit-check:is(:checked, :focus-visible) { opacity: 1; }
-.bibliography-audit-glyph { width: 18px; height: 18px; border-radius: var(--radius-pill); display: grid; place-items: center; color: var(--text-secondary); background: var(--control-hover-surface); font: var(--weight-semibold) var(--type-micro-size)/1 var(--ui-font); }
-.bibliography-audit-glyph[data-bucket="verified"] { color: var(--status-success); background: var(--status-success-soft); }
-.bibliography-audit-glyph[data-bucket="kept"] { color: var(--status-success); background: transparent; box-shadow: inset 0 0 0 1px var(--status-success-soft); }
-.bibliography-audit-glyph[data-bucket="fix"] { color: var(--status-info); background: color-mix(in srgb, var(--status-info) 12%, transparent); }
-.bibliography-audit-glyph[data-bucket="review"] { color: color-mix(in srgb, var(--status-warning) 80%, var(--text-primary)); background: var(--status-warning-soft); }
-.bibliography-audit-glyph[data-bucket="unchecked"] { background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* Disabled during a check, the box still hides at rest beside the status mark. */
+.bibliography-audit-row:not(:hover, [data-selecting]) .bibliography-audit-check:disabled:not(:checked) { opacity: 0; }
+.bibliography-audit-row:is(:hover, [data-selecting]) .bibliography-audit-check:disabled { opacity: var(--control-disabled-opacity); }
+/* Above the row's open button, so the mark's tooltip names its state. */
+.bibliography-audit-glyph { position: relative; z-index: 1; width: 18px; height: 18px; display: grid; }
 /* The whole row opens its finding; the checkbox and the row's action sit above. */
 .bibliography-audit-open { min-width: 0; padding: 0; display: grid; gap: var(--space-1); border: 0; border-radius: var(--radius-compact); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .bibliography-audit-open::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-icon); }
