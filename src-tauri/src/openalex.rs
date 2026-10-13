@@ -1,6 +1,7 @@
 use crate::literature_service;
 use crate::models::OpenAlexWork;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
@@ -18,6 +19,8 @@ struct WorkPayload {
     ids: Option<WorkIds>,
     authorships: Option<Vec<Authorship>>,
     primary_location: Option<PrimaryLocation>,
+    /// OpenAlex ships abstracts only as word → positions, for licensing.
+    abstract_inverted_index: Option<HashMap<String, Vec<usize>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,8 +46,8 @@ struct PrimaryLocation {
 
 /// OpenAlex results per page; `page` is 1-indexed.
 pub const PER_PAGE: u32 = 25;
-const SELECT: &str =
-    "id,title,publication_year,cited_by_count,ids,doi,authorships,primary_location";
+const SELECT: &str = "id,title,publication_year,cited_by_count,ids,doi,authorships,\
+    primary_location,abstract_inverted_index";
 const USER_AGENT: &str = "Lattice/0.1 (research writing)";
 
 pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAlexWork>, String> {
@@ -107,7 +110,20 @@ fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
         arxiv_id,
         landing_url: work.primary_location.and_then(|location| location.landing_page_url),
         authors,
+        r#abstract: work.abstract_inverted_index.and_then(abstract_text),
     })
+}
+
+/// The abstract read back in order from OpenAlex's inverted index.
+fn abstract_text(index: HashMap<String, Vec<usize>>) -> Option<String> {
+    let mut words: Vec<(usize, String)> = index
+        .into_iter()
+        .flat_map(|(word, positions)| positions.into_iter().map(move |at| (at, word.clone())))
+        .collect();
+    words.sort_unstable_by_key(|(at, _)| *at);
+    let text = words.into_iter().map(|(_, word)| word).collect::<Vec<_>>().join(" ");
+    let text = crate::util::collapse_whitespace(&text);
+    (!text.is_empty()).then_some(text)
 }
 
 fn arxiv_id_from_doi(doi: &str) -> Option<String> {

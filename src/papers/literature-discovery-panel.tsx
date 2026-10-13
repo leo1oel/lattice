@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowRight, Check, ExternalLink, Plus, Quote, Search } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink, Plus, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
+import { formatCount } from "../i18n";
 import { baseArxivId } from "./arxiv-id";
+import { Button } from "../components/ui/button";
+import { buttonClassName } from "../components/ui/button-styles";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { InlineMessage } from "../components/ui/inline-message";
 import { notifySuccess } from "../telemetry/app-notify";
@@ -27,7 +30,10 @@ export type LiteratureHit = {
   authors: string[];
   citedByCount?: number | null;
   votes?: number | null;
+  /** alphaXiv: the full-text passage that matched. */
   snippet?: string | null;
+  /** OpenAlex: the work's abstract, for the preview. */
+  abstract?: string | null;
   doi?: string | null;
   landingUrl?: string | null;
 };
@@ -55,28 +61,46 @@ function hitKey(work: LiteratureHit): string {
 }
 
 /**
- * The byline under a result: who and when, as a Papers row has it. The prose
- * fragment is passed in rather than translated here: this runs per row,
+ * The byline under a result: who and when, as a Papers row has it. alphaXiv
+ * names no authors, so its rows say which arXiv paper they are instead. The
+ * prose fragment is passed in rather than translated here: this runs per row,
  * outside any component, so it has no access to the active catalog of its own.
  */
 function hitByline(work: LiteratureHit, etAl: string): string[] {
-  const authors = work.authors.slice(0, 2).join(", ") + (work.authors.length > 2 ? etAl : "");
+  const authors = work.authors.length
+    ? work.authors.slice(0, 2).join(", ") + (work.authors.length > 2 ? etAl : "")
+    : work.arxivId ? `arXiv ${work.arxivId}` : "";
   return [authors, work.year ? String(work.year) : ""].filter(Boolean);
 }
 
-/**
- * What a result's tooltip adds: where it came from, how it ranks there
- * (alphaXiv votes, OpenAlex citations) and its identifier. The row itself
- * leaves these out, so a narrow panel keeps its width for the title.
- */
-function hitDetails(work: LiteratureHit, prose: { votes: string; cites: string }): string {
-  return [
-    work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex",
-    work.votes != null ? prose.votes : work.citedByCount != null ? prose.cites : null,
-    work.arxivId ? `arXiv:${work.arxivId}` : work.doi,
-  ]
+function sourceName(work: LiteratureHit): string {
+  return work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex";
+}
+
+/** Where a result came from and how it ranks there, in full ("9,214 cites"). */
+function hitDetails(work: LiteratureHit, rank: string | null): string {
+  return [sourceName(work), rank, work.arxivId ? `arXiv:${work.arxivId}` : work.doi]
     .filter(Boolean)
     .join(" · ");
+}
+
+/**
+ * The count at a row's end, short enough to sit beside the byline: "9.2K" as
+ * Elicit and Matter print theirs. Chinese keeps whole numbers up to 9,999 and
+ * then counts in 万 ("22.8 万"), with formatCount's space before the unit.
+ */
+function compactCount(value: number, locale: string): string {
+  if (locale.startsWith("zh") && Math.abs(value) < 10_000) return formatCount(value, locale);
+  return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 })
+    .format(value)
+    .replace(/(\d)(?=[万亿])/, "$1 ");
+}
+
+/** The page a result opens: its landing page, its DOI, or its arXiv abstract. */
+function hitPage(work: LiteratureHit): string | null {
+  if (work.landingUrl) return work.landingUrl;
+  if (work.doi) return `https://doi.org/${work.doi}`;
+  return work.arxivId ? `https://arxiv.org/abs/${work.arxivId}` : null;
 }
 
 export function LiteratureDiscoveryPanel(props: {
@@ -88,7 +112,8 @@ export function LiteratureDiscoveryPanel(props: {
   /** Versionless arXiv ids already in the library, shown as done. */
   importedIds: Set<string>;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
+  const previewId = useId();
   const [query, setQuery] = useState(props.initialQuery ?? "");
   const [precise, setPrecise] = useState(true);
   const [results, setResults] = useState<LiteratureHit[]>([]);
@@ -100,6 +125,10 @@ export function LiteratureDiscoveryPanel(props: {
   const [justImported, setJustImported] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  /** The query the results on screen answer, for the line above them. */
+  const [shownQuery, setShownQuery] = useState("");
+  /** The result whose preview is open; one at a time, as Elicit's details pane. */
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const pageRef = useRef(0);
   /**
    * The query and mode the results on screen came from. "Load more" pages
@@ -138,12 +167,15 @@ export function LiteratureDiscoveryPanel(props: {
       const page = await searchLiterature(searched, 0);
       const hits = dedupeFresh(page.hits);
       setResults(hits);
+      setShownQuery(trimmed);
+      setOpenKey(null);
       setVisible(INITIAL_VISIBLE);
       setHasMore(page.hasMore);
       if (!hits.length) setNotice(t`No hits. Try broader terms or turn off precise mode.`);
     } catch (reason) {
       setResults([]);
       setHasMore(false);
+      setOpenKey(null);
       setError(toMessage(reason));
     } finally {
       setLoading(false);
@@ -202,6 +234,11 @@ export function LiteratureDiscoveryPanel(props: {
       .finally(() => setBusyId(null));
   };
 
+  const count = formatCount(results.length, i18n.locale);
+  const resultCount = hasMore
+    ? t`${count}+ results for “${shownQuery}”`
+    : results.length === 1 ? t`1 result for “${shownQuery}”` : t`${count} results for “${shownQuery}”`;
+
   return (
     <ResizableDrawer
       className="literature-drawer"
@@ -243,61 +280,132 @@ export function LiteratureDiscoveryPanel(props: {
       </form>
       {error ? <InlineMessage level="error">{error}</InlineMessage> : null}
       {notice ? <InlineMessage level="info">{notice}</InlineMessage> : null}
+      {results.length > 0 && (
+        // How many and from where, before the first row, as Elicit leads its table.
+        <p className="literature-count">
+          <span className="literature-count-query">{resultCount}</span>
+          <span className="literature-count-sources">{[...new Set(results.map(sourceName))].join(" · ")}</span>
+        </p>
+      )}
       <div role="list" aria-label={t`Results`} className="literature-results fluid-hover-surface">
         <FluidHoverSurface selector=".literature-result" follow={null} />
-        {results.slice(0, visible).map((work) => {
+        {results.slice(0, visible).map((work, index) => {
           const key = hitKey(work);
           const imported = isImported(work.arxivId);
-          const details = hitDetails(work, {
-            votes: t`${work.votes} votes`,
-            cites: t`${work.citedByCount} cites`,
-          });
+          const busy = busyId === key;
+          const expanded = openKey === key;
+          const id = `${previewId}-${index}`;
+          const votes = work.votes ?? null;
+          const cites = work.votes == null ? work.citedByCount ?? null : null;
+          // The row's signal is short ("9.2K cites"); the preview spells it out.
+          const signal = votes != null
+            ? votes === 1 ? t`1 vote` : t`${compactCount(votes, i18n.locale)} votes`
+            : cites != null
+              ? cites === 1 ? t`1 cite` : t`${compactCount(cites, i18n.locale)} cites`
+              : null;
+          const rank = votes != null
+            ? votes === 1 ? t`1 vote` : t`${formatCount(votes, i18n.locale)} votes`
+            : cites != null
+              ? cites === 1 ? t`1 cite` : t`${formatCount(cites, i18n.locale)} cites`
+              : null;
           const byline = hitByline(work, t` et al.`);
-          const landing = work.landingUrl || (work.doi ? `https://doi.org/${work.doi}` : null);
+          const page = hitPage(work);
+          const addToPapers = () => importArxiv(work, key);
+          const citationOnly = () => props.onAddBib(work.doi || work.title);
+          const inPapers = (
+            <span className="literature-in">
+              <Check size={12} aria-hidden="true" />
+              {t`In Papers`}
+            </span>
+          );
           return (
-            <div role="listitem" className="literature-result" key={key} title={details}>
+            <div role="listitem" className="literature-result" data-expanded={expanded || undefined} key={key}>
+              {/* The whole row opens its preview, as an Elicit result does: one
+                  button beneath the row's text, so the title and byline stay
+                  plain text to a screen reader and the actions sit above it. */}
+              <button
+                type="button"
+                className="literature-open"
+                aria-expanded={expanded}
+                aria-controls={expanded ? id : undefined}
+                aria-label={work.title}
+                onClick={() => setOpenKey(expanded ? null : key)}
+              />
               <strong className="literature-title">{work.title}</strong>
-              {/* Like a Papers row: the byline at rest; hovered or focused, the
-                  actions come in over its end, so they never take the title's
-                  width or change the row's height. */}
+              {/* Like a Papers row: the byline and, at its end, how the work
+                  ranks or that it is already in Papers. Hovered or focused, the
+                  actions come in over the signal, so they never take the
+                  title's width or change the row's height. Opened, the preview
+                  holds them instead. */}
               <div className="literature-meta">
                 <small className="literature-byline">
-                  {byline.map((part, index) => <span key={index}>{part}</span>)}
-                  {imported && (
-                    <span className="literature-imported" role="img" title={t`Already in Papers`} aria-label={t`Already in Papers`}>
-                      <Check size={12} aria-hidden="true" />
-                    </span>
-                  )}
+                  {byline.map((part, partIndex) => <span key={partIndex}>{part}</span>)}
                 </small>
-                <div className="literature-result-actions">
-                  {work.arxivId && !imported && (
+                {imported ? inPapers : signal ? <span className="literature-signal">{signal}</span> : null}
+                {!imported && !expanded && (
+                  <div className="literature-result-actions">
+                    {work.arxivId && (
+                      <button
+                        type="button"
+                        className="literature-add"
+                        disabled={busy}
+                        title={t`Add bibliography entry and cache the arXiv paper`}
+                        aria-label={t({ message: `Add ${{ title: work.title }} to Papers` })}
+                        onClick={addToPapers}
+                      >
+                        {busy ? <InfinityLoader size={12} /> : <Plus size={13} aria-hidden="true" />}
+                        <span>{t`Add`}</span>
+                      </button>
+                    )}
                     <button
                       type="button"
-                      disabled={busyId === key}
-                      title={t`Add bibliography entry and cache the arXiv paper`}
-                      aria-label={t({ message: `Add ${{ title: work.title }} to Papers` })}
-                      onClick={() => importArxiv(work, key)}
+                      title={t`Citation only: add the bibliography entry without the paper`}
+                      aria-label={t({ message: `Add a bibliography entry for ${{ title: work.title }}` })}
+                      onClick={citationOnly}
                     >
-                      {busyId === key ? <InfinityLoader size={12} /> : <Plus size={13} />}
+                      <Quote size={12} aria-hidden="true" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    title={t`Resolve into bibliography entry`}
-                    aria-label={t({ message: `Add a bibliography entry for ${{ title: work.title }}` })}
-                    onClick={() => props.onAddBib(work.doi || work.title)}
-                  >
-                    <Quote size={12} />
-                  </button>
-                  {landing && (
-                    <a href={landing} target="_blank" rel="noreferrer" title={t`Open landing page`} aria-label={t`Open landing page`}>
-                      <ExternalLink size={12} />
-                    </a>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
-              {work.snippet ? <p className="literature-snippet">{work.snippet}</p> : null}
-              <span className="sr-only">{details}</span>
+              {expanded ? (
+                <div className="literature-preview" id={id}>
+                  {work.abstract
+                    ? <p className="literature-abstract">{work.abstract}</p>
+                    : work.snippet
+                      ? <p className="literature-passage">{work.snippet}</p>
+                      : <p className="literature-abstract-none">{t`No abstract from this source`}</p>}
+                  <dl className="literature-facts">
+                    {work.authors.length > 0 && (
+                      <div><dt>{t`Authors`}</dt><dd>{work.authors.join(", ")}</dd></div>
+                    )}
+                    <div><dt>{t({ message: "Source", context: "where a literature result came from" })}</dt><dd>{[sourceName(work), rank].filter(Boolean).join(" · ")}</dd></div>
+                    {work.arxivId
+                      ? <div><dt>arXiv</dt><dd>{work.arxivId}</dd></div>
+                      : work.doi ? <div><dt>DOI</dt><dd>{work.doi}</dd></div> : null}
+                  </dl>
+                  <div className="literature-preview-actions">
+                    {imported ? inPapers : work.arxivId ? (
+                      <Button variant="tinted" size="compact" disabled={busy} onClick={addToPapers}>
+                        {busy ? <InfinityLoader size={12} /> : <Plus size={13} aria-hidden="true" />}
+                        {t`Add to Papers`}
+                      </Button>
+                    ) : null}
+                    <Button variant="secondary" size="compact" onClick={citationOnly}>
+                      <Quote size={12} aria-hidden="true" />
+                      {t({ message: "Citation only", context: "add a literature result as a bibliography entry only" })}
+                    </Button>
+                    {page && (
+                      <a className={buttonClassName({ variant: "secondary", size: "compact" })} data-slot="button" href={page} target="_blank" rel="noreferrer">
+                        <ExternalLink size={12} aria-hidden="true" />
+                        {t`Open page`}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : work.snippet ? <p className="literature-snippet">{work.snippet}</p> : null}
+              <ChevronDown size={12} className="literature-chevron" aria-hidden="true" />
+              <span className="sr-only">{hitDetails(work, rank)}</span>
             </div>
           );
         })}
