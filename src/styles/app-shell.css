@@ -1120,6 +1120,23 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
   .papers-empty-state[data-library="empty"] .papers-empty-text { display: contents; }
   .papers-empty-state[data-library="empty"] .ui-button { grid-column: 1 / -1; margin-top: var(--space-4); }
 }
+/* The library before its list is read: one line on the rows' icon gutter and
+   inset, in the secondary ink, where the first row will be. It holds back a
+   moment before showing, so a list read at once never flashes it; a read that
+   failed says why on a second line that ellipsizes, and offers a retry. */
+.papers-load-status { margin: 0 var(--space-1); padding: var(--space-5) var(--space-4); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: center; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); animation: papers-load-in var(--motion-fast) var(--duration-moderate) both; }
+.papers-load-status[data-state="error"] { align-items: start; animation: none; }
+.papers-load-icon { height: var(--type-subtitle-line-height); display: grid; place-items: center; }
+.papers-load-status[data-state="error"] .papers-load-icon { color: var(--status-danger); stroke-width: 1.5; }
+.papers-load-text { min-width: 0; display: grid; overflow-wrap: anywhere; }
+.papers-load-text strong { color: var(--text-primary); font-weight: var(--weight-medium); }
+.papers-load-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.papers-load-status .ui-button { align-self: center; }
+/* Too narrow for the retry beside the reason, it takes a line of its own under it. */
+@container paper-list (width < 240px) {
+  .papers-load-status[data-state="error"] .ui-button { grid-column: 2 / -1; justify-self: start; margin-top: var(--space-3); }
+}
+@keyframes papers-load-in { from { opacity: 0; } }
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
 .import-box button:hover:not(:disabled) { background: var(--control-active-soft); }

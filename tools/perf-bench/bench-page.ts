@@ -652,6 +652,9 @@ function answer(command: string, args: Args): unknown {
     case "list_papers":
       if (libraryPapers) return LIBRARY_PAPERS;
       return params.has("papers") ? BENCH_PAPERS.map((paper) => ({ ...paper, hasBlog: !fullTextOnly })) : [];
+    // The fixture's health is all it knows: Crossref has nothing newer.
+    case "refresh_citation_health":
+      return {};
     case "search_literature":
       return { hits: (args?.page ?? 0) === 0 ? LITERATURE_HITS : [], hasMore: false };
     // `?fetch=pending`: a paper's download stays under way until its Cancel,

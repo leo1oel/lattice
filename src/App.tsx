@@ -173,6 +173,8 @@ const ConflictResolverDialog = lazy(() =>
 const ProjectFileTree = lazy(() =>
   import("./project/project-file-tree").then((module) => ({ default: memo(module.ProjectFileTree) })),
 );
+/** Papers' read state while the window's paper list is still another project's. */
+const PAPERS_LOADING = { status: "loading" } as const;
 const PaperLibrary = lazy(() =>
   import("./project/paper-library").then((module) => ({ default: memo(module.PaperLibrary) })),
 );
@@ -227,7 +229,7 @@ function App() {
   const library = useProjectLibrary(projectState);
   const {
     applyBibliographyIndex,
-    papers, citationKeys, citations, references, bibliographyIndexPending,
+    papers, paperLoad, retryPapers, citationKeys, citations, references, bibliographyIndexPending,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
@@ -1995,6 +1997,10 @@ function App() {
             <PaperLibrary
               projectKey={project.root}
               papers={papers}
+              // Another project's read state says nothing about this one's.
+              load={paperLoad.root === project.root ? paperLoad : PAPERS_LOADING}
+              syncing={overleafSyncing && !papers.length}
+              onRetryLoad={retryPapers}
               citations={citations}
               // Refreshed after every save, so the counts follow the manuscript.
               citationUsageRevision={unusedSymbols}
