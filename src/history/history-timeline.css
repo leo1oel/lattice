@@ -288,10 +288,9 @@
 .version-prose-empty { margin: 0; padding: var(--space-5) var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); }
 
 .version-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); min-width: 0; }
+/* An inline block, not a flex box, so a label too long for a narrow panel ends in an ellipsis. */
 .version-action {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-inline-tight);
+  display: inline-block;
   min-width: 0;
   max-width: 100%;
   height: var(--control-height-compact);
@@ -301,12 +300,13 @@
   background: transparent;
   color: var(--text-primary);
   font-size: var(--type-caption-size);
+  line-height: calc(var(--control-height-compact) - 2px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: background-color var(--motion-fast);
 }
-.version-action svg { flex: none; }
+.version-action svg { margin-right: var(--gap-inline-tight); vertical-align: -2px; }
 .version-action:hover:not(:disabled) { background: var(--control-hover-surface); }
 .version-action:active:not(:disabled) { background: var(--control-pressed-surface); }
 .version-action:disabled { border-color: var(--control-disabled-border); background: var(--control-disabled-surface); color: var(--control-disabled-ink); }
