@@ -9210,7 +9210,9 @@ msgstr "把项目恢复到改动前？恢复会记成一条新记录"
 msgid "Restore the project to this version?\n"
 "\n"
 "Nothing is lost: the current state is saved as a version first"
-msgstr "把项目恢复到此版本？\n\n什么都不会丢：当前状态会先存为一个版本"
+msgstr "把项目恢复到此版本？\n"
+"\n"
+"什么都不会丢：当前状态会先存为一个版本"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
