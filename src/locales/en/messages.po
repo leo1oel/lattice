@@ -6264,6 +6264,10 @@ msgstr "modified"
 msgid "Monospaced text"
 msgstr "Monospaced text"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "More editor status"
+msgstr "More editor status"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "More PDF actions"
 msgstr "More PDF actions"

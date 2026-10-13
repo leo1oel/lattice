@@ -156,14 +156,14 @@ input[type="search"]:focus-visible {
   flex: none;
   height: var(--control-height-compact);
   min-height: var(--control-height-compact);
-  padding: 0 var(--space-6);
+  /* Each item pads its own 6px, so the text still starts 12px in. */
+  padding: 0 var(--space-3);
   border-top: 1px solid var(--border-subtle);
   background: var(--editor-bg);
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
+  gap: var(--space-1);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   font-variant-numeric: tabular-nums;
@@ -171,18 +171,111 @@ input[type="search"]:focus-visible {
   overflow: hidden;
 }
 .editor-status-bar > * { flex: none; white-space: nowrap; }
-.editor-status-bar .status-goto { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
-.editor-status-bar .status-goto:hover { color: var(--control-active); }
+/* Every item a pointer lands on is one slab: 22px on the 28px bar, the
+   control radius, the control hover and press fills, and the secondary ink
+   stepping up to the primary, as the titlebar's and toolbar's controls do. */
+.editor-status-bar .status-item { height: 22px; min-width: 0; border: 0; border-radius: var(--radius-control); padding: 0 var(--space-3); background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: center; gap: var(--gap-inline-tight); cursor: pointer; transition: background-color var(--motion-fast), color var(--motion-fast); }
+.editor-status-bar .status-item:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.editor-status-bar .status-item:is(:active, [data-state="open"]) { background: var(--control-pressed-surface); color: var(--text-primary); }
+.editor-status-bar .status-item > svg { flex: none; }
+.editor-status-bar .status-item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.editor-status-bar .status-caret-word { white-space: pre; }
 /* Comments and TODOs travel together toward the counts at the end rather than
    floating mid-bar whenever the hint and the breadcrumb are absent. */
 .editor-status-bar .status-comments { margin-left: auto; }
-/* The count names its scope in a quieter tone than the number, and opens the
-   per-scope details; it reads as status text, like its neighbours. */
-.editor-status-bar .status-body-words { margin-left: var(--space-3); min-width: 0; border: 0; padding: 0; background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: baseline; gap: var(--space-2); cursor: pointer; transition: color var(--motion-fast); }
-.editor-status-bar .status-body-words .status-word-scope { color: var(--text-tertiary); transition: inherit; }
+/* An open count is the one coloured thing on the bar: the icon and the
+   number take the accent, the noun keeps the bar's ink. */
+.editor-status-bar .status-count { font-weight: var(--weight-medium); }
+.editor-status-bar .status-counter[data-active] :is(svg, .status-count) { color: var(--control-active); }
+/* The count reads first and names its scope in the quieter ink after a dot;
+   the scope is the first thing to go. */
+.editor-status-bar .status-body-words { margin-left: var(--space-2); gap: var(--space-2); }
 .editor-status-bar .status-body-words .status-word-scope::after { content: "·"; margin-left: var(--space-2); }
-.editor-status-bar .status-body-words:is(:hover, [data-state="open"]),
-.editor-status-bar .status-body-words:is(:hover, [data-state="open"]) .status-word-scope { color: var(--text-primary); }
+.editor-status-bar .status-body-words .status-word-count { color: var(--text-primary); }
+.editor-status-bar .status-more { display: none; width: 22px; padding: 0; justify-content: center; }
+/* The hint never ellipsizes mid-shortcut: the breadcrumb gives it room, and
+   the ladder takes it whole. */
+.editor-status-bar .status-hint { padding: 0 var(--space-3); color: var(--text-tertiary); }
+.editor-status-bar .status-hint kbd { font: inherit; color: var(--text-primary); }
+.editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
+.editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color var(--motion-fast); }
+.editor-status-bar .editor-breadcrumb button:hover { color: var(--text-primary); }
+.editor-status-bar .editor-breadcrumb i { flex: none; color: var(--text-tertiary); font-style: normal; }
+/* Each crumb (separator and button) is the flex item, so it is the one that
+   must be allowed under its text's width: then the button ellipsizes, where a
+   crumb wider than the bar was cut at both ends of the centred row. */
+.editor-status-bar .editor-breadcrumb > span { min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
+.editor-status-bar .status-vim-mode { min-width: max-content; flex: none; padding: 0 var(--space-3); color: var(--text-primary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.editor-status-bar .status-vim-compact { display: none; }
+/* The bar gives way in one order as it narrows, so what stays is what a
+   writer glances at most, and nothing ever wraps, overlaps or is cut:
+     1. the shortcut hint, help rather than status, goes first;
+     2. the breadcrumb keeps only the current section, then goes;
+     3. the counters drop their nouns and keep icon and count;
+     4. the word count drops its scope, then folds with everything below it
+        into More (…), which lists the counters and every word count;
+     5. the caret shortens to line:column and Vim's mode to its initial;
+     6. the counters fold into More.
+   The caret, Vim's mode and More never leave. Each step is the measured
+   width of the English bar that stays (the longer language) with a 5-digit
+   line, a 3-digit column, two-digit counts and a 7-digit manuscript, plus the
+   gaps; the breadcrumb, the one item that shrinks rather than goes, absorbs
+   the slack between steps. Vim's mode is about 80px, so a bar showing it
+   takes each step that much sooner (the `:has` twins). Keep them here as one
+   ladder: a second copy elsewhere in the cascade silently wins and strands the
+   step you are reading. A Split source at its minimum (SPLIT_SOURCE_MIN_WIDTH)
+   leaves the bar 216px; a panel narrower than both Split minimums shrinks the
+   source below that, and the caret ellipsizes before anything spills. */
+@container (max-width: 720px) { .editor-status-bar .status-hint { display: none; } }
+@container (max-width: 800px) { .editor-status-bar:has(.status-vim-mode) .status-hint { display: none; } }
+@container (max-width: 600px) {
+  .editor-status-bar .editor-breadcrumb > span:not(:last-child),
+  .editor-status-bar .editor-breadcrumb > span > i { display: none; }
+}
+@container (max-width: 680px) {
+  .editor-status-bar:has(.status-vim-mode) .editor-breadcrumb > span:not(:last-child),
+  .editor-status-bar:has(.status-vim-mode) .editor-breadcrumb > span > i { display: none; }
+}
+@container (max-width: 520px) { .editor-status-bar .status-counter .status-label { display: none; } }
+@container (max-width: 600px) { .editor-status-bar:has(.status-vim-mode) .status-counter .status-label { display: none; } }
+@container (max-width: 420px) {
+  .editor-status-bar .editor-breadcrumb { display: none; }
+  .editor-status-bar .status-body-words .status-word-scope { display: none; }
+}
+@container (max-width: 500px) {
+  .editor-status-bar:has(.status-vim-mode) :is(.editor-breadcrumb, .status-body-words .status-word-scope) { display: none; }
+}
+@container (max-width: 340px) {
+  .editor-status-bar .status-body-words { display: none; }
+  .editor-status-bar .status-more { display: inline-flex; margin-left: var(--space-2); }
+}
+@container (max-width: 420px) {
+  .editor-status-bar:has(.status-vim-mode) .status-body-words { display: none; }
+  .editor-status-bar:has(.status-vim-mode) .status-more { display: inline-flex; margin-left: var(--space-2); }
+}
+/* From here the caret may also shrink, with an ellipsis, so a bar narrower
+   than the last step never spills past its end. */
+@container (max-width: 240px) {
+  .editor-status-bar .status-goto { flex: 0 1 auto; }
+  .editor-status-bar :is(.status-caret-word, .status-vim-full) { display: none; }
+  .editor-status-bar .status-caret-column::before { content: ":"; }
+  .editor-status-bar .status-vim-compact { display: inline; }
+}
+@container (max-width: 350px) {
+  .editor-status-bar:has(.status-vim-mode) .status-goto { flex: 0 1 auto; }
+  .editor-status-bar:has(.status-vim-mode) :is(.status-caret-word, .status-vim-full) { display: none; }
+  .editor-status-bar:has(.status-vim-mode) .status-caret-column::before { content: ":"; }
+  .editor-status-bar:has(.status-vim-mode) .status-vim-compact { display: inline; }
+}
+/* With the counters folded, More takes the end of the bar on its own. */
+@container (max-width: 180px) {
+  .editor-status-bar .status-counter { display: none; }
+  .editor-status-bar .status-more { margin-left: auto; }
+}
+@container (max-width: 210px) {
+  .editor-status-bar:has(.status-vim-mode) .status-counter { display: none; }
+  .editor-status-bar:has(.status-vim-mode) .status-more { margin-left: auto; }
+}
 .word-count-popover { width: 284px; padding: var(--space-2); }
 /* A filename is one unbroken token; the notes break it anywhere rather than
    run out of the popover, and the label column may shrink below its text. */
@@ -192,9 +285,15 @@ input[type="search"]:focus-visible {
 .word-count-popover dt { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
 .word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; min-width: 0; overflow-wrap: anywhere; }
-.editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
-.editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
-.editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
+/* At the narrowest steps More lists what the bar folded: the counters as
+   rows that open their drawers, the open count at the end in the accent,
+   then the word counts by scope. */
+.status-more-rows { --fluid-hover-fill: var(--control-hover-surface); position: relative; display: grid; padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
+.status-more-row { min-height: var(--row-height-compact); border: 0; border-radius: var(--nested-radius); padding: 0 var(--space-4); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); display: flex; align-items: center; gap: var(--space-4); text-align: left; cursor: pointer; }
+.status-more-row > svg { flex: none; width: 14px; height: 14px; stroke-width: 1.5; color: var(--text-secondary); }
+.status-more-row > span:first-of-type { flex: 1 1 auto; min-width: 0; }
+.status-more-row .status-count { font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.status-more-row[data-active] :is(svg, .status-count) { color: var(--control-active); }
 /* `.modal` (dialogs.css) loads later with its own width and padding, so these
    carry the base class too or they silently lose to it. */
 .modal.quick-open-modal { width: min(560px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
@@ -259,13 +358,9 @@ input[type="search"]:focus-visible {
 .command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .command-palette-footer::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--border-subtle); }
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
-.editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
-.editor-status-bar .editor-breadcrumb i { flex: none; color: var(--text-tertiary); font-style: normal; }
 /* Each crumb (separator and button) is the flex item, so it is the one that
    must be allowed under its text's width: then the button ellipsizes, where a
    crumb wider than the bar was cut at both ends of the centred row. */
-.editor-status-bar .editor-breadcrumb > span { min-width: 0; display: flex; align-items: center; }
 .modal:is(.goto-line-modal, .figure-insert-modal) { width: min(420px, calc(100vw - 40px)); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
@@ -275,28 +370,6 @@ input[type="search"]:focus-visible {
    selecting text under the pointer. */
 /* Embedded documents own their pointer stream. Let the parent canvas receive
    the rest of a tab/tree drag so HTML previews remain valid split drop targets. */
-.editor-status-bar .status-vim-mode { min-width: max-content; flex: none; color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-/* Every step below is the measured width of the items that stay, plus their
-   gaps, plus ~115px so the breadcrumb keeps one truncated crumb instead of
-   collapsing to nothing: it is the only item that shrinks rather than
-   disappears, so it absorbs the slack between steps. Keep them here as one
-   ladder — a second copy elsewhere in the cascade silently wins and strands the
-   step you are reading. A document panel's Split source at its usual minimum
-   (SPLIT_SOURCE_MIN_WIDTH) leaves the bar 216px, so both counters survive it;
-   a panel narrower than both Split minimums shrinks the source below that. */
-@container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
-@container (max-width: 510px) { .editor-status-bar .status-body-words { display: none; } }
-/* Named, the two counters and a long caret ("Ln 135, Col 41", "4 annotations",
-   "TODOs") need about 320px with the breadcrumb gone; under that they keep
-   their icons, in the accent while anything is open, and still say their
-   counts to a screen reader. Without this step the bar cut "TODOs" mid-word
-   in a document panel at its minimum. */
-@container (max-width: 320px) {
-  .editor-status-bar .status-todos { gap: 0; }
-  .editor-status-bar .status-todos .status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
-@container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
-@container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
 /* The bibliography entry editor shares the Add papers sheet's frame (see
    --dialog-sheet-width) so "Enter manually" swaps contents, not sizes. The
    form is a column: the lookup, the entry as it reads, the work (title,

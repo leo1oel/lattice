@@ -116,20 +116,6 @@
 .todo-hits > .project-replace-hits { max-height: none; overflow: visible; }
 .todo-kind { color: var(--control-active); }
 .todo-kind.fixme, .todo-kind.xxx { color: var(--status-danger); }
-.status-todos {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--type-micro-size);
-  cursor: pointer;
-}
-.status-todos.has-todos { color: var(--control-active); font-weight: 600; }
-.status-todos:hover { color: var(--text-primary); }
 .checklist-drawer { width: min(420px, 100%); }
 /* The verdict first, in the title serif: whether anything stands between the
    manuscript and submission. The track below it gives each check one segment
