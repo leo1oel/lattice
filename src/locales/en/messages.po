@@ -406,6 +406,10 @@ msgstr "{name} properties"
 msgid "{names} +{more}"
 msgstr "{names} +{more}"
 
+#: src/project/paper-inspector.tsx
+msgid "{names} and {count} more"
+msgstr "{names} and {count} more"
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} et al."
@@ -426,6 +430,7 @@ msgstr "{notes} note"
 msgid "{notes} notes"
 msgstr "{notes} notes"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
@@ -709,6 +714,10 @@ msgstr "About {name}"
 #: src/build/tex-setup-wizard.tsx
 msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 msgstr "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
+
+#: src/project/paper-inspector.tsx
+msgid "Abstract"
+msgstr "Abstract"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Abstract environment"
@@ -2092,6 +2101,7 @@ msgstr "Citation key ''{key}'' already exists. Choose a different key or edit th
 msgid "Citation key {key}"
 msgstr "Citation key {key}"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Citation only"
 msgstr "Citation only"
@@ -2268,6 +2278,10 @@ msgstr "Close other tabs"
 #: src/components/ui/panel-header.tsx
 msgid "Close panel"
 msgstr "Close panel"
+
+#: src/project/paper-inspector.tsx
+msgid "Close paper details"
+msgstr "Close paper details"
 
 #: src/editor/latex/search-panel.ts
 msgid "Close search"
@@ -2610,6 +2624,14 @@ msgstr "Copy"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "Copy"
+
+#: src/project/paper-inspector.tsx
+msgid "Copy \\cite"
+msgstr "Copy \\cite"
+
+#: src/project/paper-inspector.tsx
+msgid "Copy \\cite command"
+msgstr "Copy \\cite command"
 
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
@@ -3339,6 +3361,10 @@ msgstr "Download arXiv {id}"
 msgid "Download JSON"
 msgstr "Download JSON"
 
+#: src/project/paper-inspector.tsx
+msgid "Download paper"
+msgstr "Download paper"
+
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "Download PDF"
@@ -3458,6 +3484,7 @@ msgid "Edit before saving"
 msgstr "Edit before saving"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
@@ -4197,6 +4224,7 @@ msgstr "Full access"
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
 msgstr "Full text"
@@ -4696,6 +4724,11 @@ msgstr "In this file"
 msgid "In this paper"
 msgstr "In this paper"
 
+#: src/project/paper-inspector.tsx
+msgctxt "the manuscript, where a library paper is cited"
+msgid "In this paper"
+msgstr "In this paper"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
@@ -5101,6 +5134,10 @@ msgstr "Kept overlapping external edits in {path} with conflict markers."
 #: src/app/use-overleaf-workspace.ts
 msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 msgstr "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
+
+#: src/project/paper-inspector.tsx
+msgid "Key"
+msgstr "Key"
 
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
@@ -6407,6 +6444,10 @@ msgstr "No matching settings"
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "No messages yet. Say something and everyone in the project sees it"
 
+#: src/project/paper-inspector.tsx
+msgid "No notices · checked {date}"
+msgstr "No notices · checked {date}"
+
 #: src/project/references-panel.tsx
 msgid "No occurrences"
 msgstr "No occurrences"
@@ -6566,6 +6607,7 @@ msgstr "Not cited by key, but {nociteAll} includes every entry"
 msgid "Not cited in any .tex file"
 msgstr "Not cited in any .tex file"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Not cited in this paper yet"
 msgstr "Not cited in this paper yet"
@@ -6574,6 +6616,7 @@ msgstr "Not cited in this paper yet"
 msgid "Not cited yet"
 msgstr "Not cited yet"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Not downloaded"
 msgstr "Not downloaded"
@@ -6855,6 +6898,7 @@ msgstr "Open in Lattice app"
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Open link in browser"
 msgstr "Open link in browser"
@@ -6881,6 +6925,7 @@ msgstr "Open page"
 
 #: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "Open paper"
 
@@ -7188,6 +7233,10 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
+
+#: src/project/paper-inspector.tsx
+msgid "Overview only"
+msgstr "Overview only"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -7956,6 +8005,10 @@ msgstr "Reconnect to Overleaf"
 #: src/overleaf/overleaf-presence.tsx
 msgid "Reconnecting to Overleaf — people last seen in this project"
 msgstr "Reconnecting to Overleaf — people last seen in this project"
+
+#: src/project/paper-inspector.tsx
+msgid "Record"
+msgstr "Record"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Record identity"
@@ -8916,6 +8969,10 @@ msgstr "Save to workspace"
 msgid "Save version"
 msgstr "Save version"
 
+#: src/project/paper-inspector.tsx
+msgid "Saved"
+msgstr "Saved"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
@@ -8927,6 +8984,10 @@ msgstr "Saved version"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Saved with the project in {STORAGE_PATH}; no server involved"
 msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
+
+#: src/project/paper-inspector.tsx
+msgid "Saved, with its overview"
+msgstr "Saved, with its overview"
 
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -10764,6 +10825,10 @@ msgstr "UI"
 #: src/trellis/trellis-labels.ts
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/project/paper-inspector.tsx
+msgid "Unavailable right now"
+msgstr "Unavailable right now"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unclosed {command}."

@@ -32,6 +32,8 @@ import { Button } from "../components/ui/button";
 import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { PaperInspector } from "./paper-inspector";
+import type { SymbolOccurrence } from "./references-panel";
 
 type PaperFetchState = "loading" | "success";
 
@@ -50,6 +52,8 @@ export type PaperLibraryProps = {
   paperFetchStates: Record<string, PaperFetchState>;
   onDeletePaper: (paper: PaperSummary) => void;
   onEditBibEntry: (paper: PaperSummary) => void;
+  /** Opens a citation of a paper at its line in the manuscript. */
+  onOpenCitationUse?: (usage: SymbolOccurrence) => void;
   importInput: string;
   setImportInput: (value: string) => void;
   onImport: () => void;
@@ -80,6 +84,9 @@ function paperGlyph(paper: PaperSummary, fetchState: PaperFetchState | undefined
   const state = paperReadingState(paper);
   return state === "fullText" ? <FileText size={14} /> : state === "downloadable" ? <FileDown size={14} /> : <File size={14} />;
 }
+
+/** The width of the list and inspector together from which a selected paper shows its inspector. */
+const INSPECTOR_MIN_WIDTH = 860;
 
 /** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
@@ -197,10 +204,40 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
     (value) => [value, props.papers.filter(paperFilter(value, facts)).length],
   )) as Record<PaperFilter, number>, [facts, props.papers]);
 
+  // A wide library (a maximised panel) selects a paper on a click and shows
+  // it in an inspector beside the list; opening it is the inspector's first
+  // action, a double click or Enter. Narrower, a click opens it as before.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWide(entry.contentRect.width >= INSPECTOR_MIN_WIDTH);
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, []);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const inspected = wide && selectedKey ? props.papers.find((paper) => paperKey(paper) === selectedKey) ?? null : null;
+
+  const canActivate = (paper: PaperSummary) => readablePaper(paper) || Boolean(paper.arxivId || paper.url);
   const activatePaper = (paper: PaperSummary) => {
+    if (props.paperFetchStates[paperKey(paper)] === "loading") return;
     if (readablePaper(paper)) props.onPaper(paper);
     else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
   };
+  const openLink = (link: string) => {
+    void openUrl(link).catch((reason) => {
+      notifyError(t`Papers`, t`Could not open the article in your browser`, { detail: toMessage(reason) });
+    });
+  };
+  // Closing the inspector (or Escape) leaves the keyboard on the paper it showed.
+  const closeInspector = () => {
+    bodyRef.current?.querySelector<HTMLElement>('.paper-row[data-item-selected="true"] > .paper-open')?.focus();
+    setSelectedKey(null);
+  };
+  const inspectedLink = inspected && paperLinkUrl(inspected);
   const total = props.papers.length;
   const emptyState = filteredPapers.length ? null
     : [t`No matching papers`, shownFilter === "all" ? t`Press + to import it` : t`Try another filter`];
@@ -268,16 +305,11 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
     const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
     const citeKey = paper.citationKey;
     const link = paperLinkUrl(paper);
-    const openLink = () => {
-      if (!link) return;
-      void openUrl(link).catch((reason) => {
-        notifyError(t`Papers`, t`Could not open the article in your browser`, { detail: toMessage(reason) });
-      });
-    };
     const reportIntent = () => {
       if (readable) props.onLikelyPaper?.(paper);
     };
     const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
+    const selected = wide && selectedKey === paperKey(paper);
     const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
     // A short chip says what happened; who reported it and when
     // follows in quiet type, which may give way to an ellipsis.
@@ -320,6 +352,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
         className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${active ? "active" : ""}`}
         data-citation-health={paper.citationHealth?.kind}
         data-reading={readingState}
+        data-item-selected={selected || undefined}
         draggable
         onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
       >
@@ -346,11 +379,19 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
           aria-describedby={factsId}
           aria-current={active || undefined}
           // Knowing the preprint is as good as having it: clicking
-          // fetches. A cited webpage is fetchable the same way.
-          disabled={fetchState === "loading" || (!readable && !paper.arxivId && !paper.url)}
+          // fetches. A cited webpage is fetchable the same way. Wide, every
+          // paper can be selected, so none is disabled; the keyboard selects
+          // as it moves, as a pointer's first click does.
+          disabled={!wide && (fetchState === "loading" || !canActivate(paper))}
           onPointerEnter={reportIntent}
-          onFocus={reportIntent}
-          onClick={() => activatePaper(paper)}
+          onFocus={() => {
+            reportIntent();
+            if (wide) setSelectedKey(paperKey(paper));
+          }}
+          onClick={(event) => {
+            if (wide && event.detail === 1) setSelectedKey(paperKey(paper));
+            else activatePaper(paper);
+          }}
         />
         <span className="paper-glyph" data-fetch={fetchState} aria-hidden="true">{paperGlyph(paper, fetchState)}</span>
         <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
@@ -387,7 +428,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
               </CopyButton>
             )}
             {link && (
-              <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={openLink}><ExternalLink size={14} /></button>
+              <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={() => openLink(link)}><ExternalLink size={14} /></button>
             )}
             {citeKey && (
               <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={14} /></button>
@@ -419,7 +460,7 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
             <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
             <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
               {link && (
-                <ContextMenuItem onSelect={openLink}>
+                <ContextMenuItem onSelect={() => openLink(link)}>
                   <ExternalLink size={14} />{t`Open link in browser`}
                 </ContextMenuItem>
               )}
@@ -540,6 +581,16 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
             </button>
           </div>
         )}
+        {/* The list, and beside it in a wide panel the selected paper's inspector. */}
+        <div
+          ref={bodyRef}
+          className="paper-body"
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || !inspected || event.defaultPrevented) return;
+            event.preventDefault();
+            closeInspector();
+          }}
+        >
         <ScrollArea
           className="paper-list"
           viewportRef={viewportRef}
@@ -592,6 +643,21 @@ function PaperShelf(props: PaperLibraryProps & { query: string; textHits: Return
             </div>
           )}
         </ScrollArea>
+        {inspected && (
+          <PaperInspector
+            projectKey={props.projectKey}
+            paper={inspected}
+            venue={facts.venue(inspected)}
+            usages={facts.usages(inspected)}
+            // A citation with nothing to download opens its page from the link.
+            onOpen={paperReadingState(inspected) !== "citation" ? () => activatePaper(inspected) : undefined}
+            onEdit={() => props.onEditBibEntry(inspected)}
+            onOpenLink={inspectedLink ? () => openLink(inspectedLink) : undefined}
+            onOpenUse={(usage) => props.onOpenCitationUse?.(usage)}
+            onClose={closeInspector}
+          />
+        )}
+        </div>
     </>
   );
 }

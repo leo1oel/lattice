@@ -403,6 +403,10 @@ msgstr "{name}设置"
 msgid "{names} +{more}"
 msgstr "{names} 及另 {more} 人"
 
+#: src/project/paper-inspector.tsx
+msgid "{names} and {count} more"
+msgstr "{names} 等 {count} 人"
+
 #: src/papers/paper-identity.ts
 msgid "{names} et al."
 msgstr "{names} 等"
@@ -423,6 +427,7 @@ msgstr "{notes} 条提示"
 msgid "{notes} notes"
 msgstr "{notes} 条提示"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}。查看公告"
@@ -706,6 +711,10 @@ msgstr "关于 {name}"
 #: src/build/tex-setup-wizard.tsx
 msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 msgstr "约 {TEX_INSTALL_SIZE_HINT} · 最多 15 分钟"
+
+#: src/project/paper-inspector.tsx
+msgid "Abstract"
+msgstr "摘要"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Abstract environment"
@@ -2089,6 +2098,7 @@ msgstr "引用名“{key}”已存在，请换一个或编辑原条目"
 msgid "Citation key {key}"
 msgstr "引用名 {key}"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Citation only"
 msgstr "仅引用"
@@ -2265,6 +2275,10 @@ msgstr "关闭其他"
 #: src/components/ui/panel-header.tsx
 msgid "Close panel"
 msgstr "关闭"
+
+#: src/project/paper-inspector.tsx
+msgid "Close paper details"
+msgstr "关闭论文详情"
 
 #: src/editor/latex/search-panel.ts
 msgid "Close search"
@@ -2607,6 +2621,14 @@ msgstr "复制"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "拷贝"
+
+#: src/project/paper-inspector.tsx
+msgid "Copy \\cite"
+msgstr "复制 \\cite"
+
+#: src/project/paper-inspector.tsx
+msgid "Copy \\cite command"
+msgstr "复制 \\cite 命令"
 
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
@@ -3336,6 +3358,10 @@ msgstr "下载 arXiv {id}"
 msgid "Download JSON"
 msgstr "下载 JSON"
 
+#: src/project/paper-inspector.tsx
+msgid "Download paper"
+msgstr "下载论文"
+
 #: src/canvas/paper-reader.tsx
 msgid "Download PDF"
 msgstr "下载 PDF"
@@ -3455,6 +3481,7 @@ msgid "Edit before saving"
 msgstr "先编辑"
 
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Edit bibliography entry"
 msgstr "编辑文献"
@@ -4194,6 +4221,7 @@ msgstr "完全访问"
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "没有全文，先显示概览"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
 msgstr "全文"
@@ -4693,6 +4721,11 @@ msgstr "本文件"
 msgid "In this paper"
 msgstr "本论文"
 
+#: src/project/paper-inspector.tsx
+msgctxt "the manuscript, where a library paper is cited"
+msgid "In this paper"
+msgstr "本文中"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
@@ -5098,6 +5131,10 @@ msgstr "{path} 有外部修改重叠，已都保留，请手动合并"
 #: src/app/use-overleaf-workspace.ts
 msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 msgstr "已保留你本机的 {files}：Overleaf 传来的版本是空的或小很多，无法确认。如果要用 Overleaf 的，删掉本机文件再同步"
+
+#: src/project/paper-inspector.tsx
+msgid "Key"
+msgstr "引用名"
 
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
@@ -6404,6 +6441,10 @@ msgstr "没有匹配的设置"
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "还没有消息，发一条大家都能看到"
 
+#: src/project/paper-inspector.tsx
+msgid "No notices · checked {date}"
+msgstr "无撤稿或更正通告 · {date} 查"
+
 #: src/project/references-panel.tsx
 msgid "No occurrences"
 msgstr "没找到"
@@ -6563,6 +6604,7 @@ msgstr "未按引用名引用，但 {nociteAll} 会收录所有条目"
 msgid "Not cited in any .tex file"
 msgstr "未在任何 .tex 文件中引用"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Not cited in this paper yet"
 msgstr "本文尚未引用"
@@ -6571,6 +6613,7 @@ msgstr "本文尚未引用"
 msgid "Not cited yet"
 msgstr "尚未引用"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Not downloaded"
 msgstr "未下载"
@@ -6852,6 +6895,7 @@ msgstr "在 Lattice 中打开"
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
+#: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Open link in browser"
 msgstr "在浏览器中打开链接"
@@ -6878,6 +6922,7 @@ msgstr "打开网页"
 
 #: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-inspector.tsx
 msgid "Open paper"
 msgstr "打开论文"
 
@@ -7185,6 +7230,10 @@ msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个，合并 {merged} �
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个"
+
+#: src/project/paper-inspector.tsx
+msgid "Overview only"
+msgstr "只有概览"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -7953,6 +8002,10 @@ msgstr "重新连接"
 #: src/overleaf/overleaf-presence.tsx
 msgid "Reconnecting to Overleaf — people last seen in this project"
 msgstr "正在重连 — 最近在线的成员"
+
+#: src/project/paper-inspector.tsx
+msgid "Record"
+msgstr "记录"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Record identity"
@@ -8911,6 +8964,10 @@ msgstr "保存到工作区"
 msgid "Save version"
 msgstr "保存版本"
 
+#: src/project/paper-inspector.tsx
+msgid "Saved"
+msgstr "已保存"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
@@ -8922,6 +8979,10 @@ msgstr "手动保存"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Saved with the project in {STORAGE_PATH}; no server involved"
 msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
+
+#: src/project/paper-inspector.tsx
+msgid "Saved, with its overview"
+msgstr "已保存，含概览"
 
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -10757,6 +10818,10 @@ msgstr "界面"
 #: src/trellis/trellis-labels.ts
 msgid "Unavailable"
 msgstr "不可用"
+
+#: src/project/paper-inspector.tsx
+msgid "Unavailable right now"
+msgstr "暂时查不到"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unclosed {command}."

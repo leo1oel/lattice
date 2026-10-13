@@ -1,0 +1,77 @@
+/* The list and, in a wide panel, the selected paper's inspector beside it. */
+.paper-body { min-height: 0; flex: 1; display: flex; }
+.paper-body > .paper-list { min-width: 0; flex: 1; }
+
+/* The selected paper's row is lit as an open one is. */
+.paper-row[data-item-selected="true"] { --paper-row-surface: var(--navigation-tree-selected-surface); }
+.paper-row[data-item-selected="true"]::before,
+.paper-row[data-item-selected="true"] + .paper-row::before { opacity: 0; }
+/* The inspector holds the selected row's actions, so the row shows them
+   only under the pointer or once the keyboard reaches one of them. */
+.paper-row[data-item-selected="true"]:not(:hover):not(:has(.paper-row-actions :focus)) .paper-row-actions { display: none; }
+
+/* A plate raised inside the panel, its top on the list's first row and its
+   end on the toolbar's. It scrolls on its own, so the list keeps its place. */
+.paper-inspector {
+  width: 360px;
+  min-height: 0;
+  flex: none;
+  margin: var(--space-2) var(--space-5) 0 var(--space-2);
+  padding: var(--space-6) var(--space-8) var(--space-10);
+  border-radius: var(--radius-panel);
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-panel-raised);
+  box-shadow: var(--elevation-raised);
+}
+.paper-inspector-head { min-height: var(--control-size-icon); display: flex; align-items: flex-start; gap: var(--space-4); }
+/* Where and when, centred on the close button at the plate's corner; a long
+   venue wraps under itself. */
+.paper-inspector-kicker { min-width: 0; flex: 1; margin: 0; padding-block: var(--space-3); overflow-wrap: anywhere; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.paper-inspector-close { flex: none; margin-inline-end: calc(-1 * var(--space-4)); }
+.paper-inspector-title { margin: calc(-1 * var(--space-2)) 0 0; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); overflow-wrap: anywhere; text-wrap: balance; }
+.paper-inspector-authors { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+/* The actions wrap rather than shrink: a long Chinese label takes a line
+   of its own before any of them is clipped. */
+.paper-inspector-actions { margin: var(--space-2) 0 var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.paper-inspector-actions > .ui-button { max-width: 100%; }
+.paper-inspector-cite { gap: var(--space-3); }
+.paper-inspector-cite-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-inspector-cite .copy-button-icon { width: 14px; height: 14px; flex: none; }
+.paper-inspector-cite .copy-button-icon > svg { stroke-width: 1.5; }
+
+/* Sections part on hairlines; each heading is a caption, its count beside it. */
+.paper-inspector-section { padding-top: var(--space-6); border-top: 1px solid var(--border-subtle); display: grid; gap: var(--space-4); }
+.paper-inspector-section > h3 { margin: 0; display: flex; align-items: baseline; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.paper-inspector-section > h3 > span { color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+.paper-inspector-none { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* Each use: the file and line in code, then the sentence as written, from
+   just before the citation. The whole row is the jump. */
+.paper-inspector-uses { margin: 0 calc(-1 * var(--space-4)); padding: 0; display: grid; gap: var(--space-1); list-style: none; }
+.paper-inspector-uses button { width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-icon); display: grid; gap: var(--space-1); background: transparent; text-align: start; transition: background-color var(--motion-fast-exit); }
+.paper-inspector-uses button:hover { background: var(--control-hover-surface); transition-duration: var(--duration-fast); }
+.paper-inspector-uses code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font: var(--type-micro-size) / var(--type-micro-line-height) var(--editor-font); }
+.paper-inspector-uses span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+.paper-inspector-abstract { margin: 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; text-wrap: pretty; }
+
+/* The record: a label column wide enough for the longest label in either
+   language, the values wrapping under themselves. */
+.paper-inspector-record { margin: 0; display: grid; gap: var(--space-2); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.paper-inspector-record > div { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: var(--space-4); }
+.paper-inspector-record dt { color: var(--text-tertiary); }
+.paper-inspector-record dd { min-width: 0; margin: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.paper-inspector-record code { color: var(--text-primary); font: var(--type-micro-size) / var(--type-caption-line-height) var(--editor-font); }
+.paper-inspector-health { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); }
+.paper-inspector-health > svg { flex: none; stroke-width: 1.75; }
+/* Nothing to report reads as the row's verified tick; a notice takes the
+   row's chip inks, one step towards the text so it holds AA. */
+.paper-inspector-health[data-kind="clear"] > svg { color: var(--status-success); }
+.paper-inspector-flag { color: color-mix(in srgb, var(--status-warning) 78%, var(--text-primary)); font-weight: var(--weight-medium); }
+.paper-inspector-health[data-kind="retracted"] > .paper-inspector-flag { color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); }
+button.paper-inspector-flag { padding: 0 var(--space-1); margin-inline: calc(-1 * var(--space-1)); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-1); background: transparent; font: inherit; font-weight: var(--weight-medium); }
+button.paper-inspector-flag:hover { background: var(--control-hover-surface); }
