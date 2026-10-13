@@ -21,6 +21,7 @@ import { SheetDialog } from "../components/ui/sheet-dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { comboKeys, parseKeyName } from "../app/key-combos";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { useProgressiveRows } from "../hooks/use-progressive-rows";
 import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
 import { auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
@@ -71,6 +72,8 @@ type Bucket = "fix" | "review" | "incomplete" | "unchecked" | "kept" | "verified
 const BUCKET_ORDER: readonly Bucket[] = ["fix", "review", "incomplete", "unchecked", "kept", "verified"];
 /** The findings J, K and S walk through, and Apply or Keep mine finishes. */
 const ACTIONABLE = new Set<Bucket>(["fix", "review"]);
+/** A reference row's usual height, for the list not drawn yet. */
+const AUDIT_ROW_HEIGHT = 54;
 /** A row's status mark: its bucket, or the check running on it right now. */
 type Mark = Bucket | "checking";
 
@@ -389,6 +392,16 @@ export function BibliographyAudit(props: {
   const settled = !busy && total > 0 && counts.fix + counts.review + counts.incomplete + counts.unchecked === 0;
   const current = openIndex !== null && shown.includes(openIndex) ? openIndex
     : queue && !settled ? actionable[0] ?? shown[0] ?? null : null;
+  // A bibliography of hundreds draws its rows as they come near the view,
+  // and always as far as the open finding, which Next and Apply move to.
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const rows = useProgressiveRows({
+    total: shown.length,
+    reset: shownView,
+    scroller: viewportRef,
+    estimate: AUDIT_ROW_HEIGHT,
+    atLeast: current === null ? 0 : shown.indexOf(current) + 1,
+  });
 
   /** Opens `index` (or closes the open finding) and keeps its row in view and focused. */
   const openFinding = (index: number | null, focus = false) => {
@@ -826,7 +839,7 @@ export function BibliographyAudit(props: {
       {!queue && cleanNote}
     </div>
     <div className="bibliography-audit-body" data-layout={queue ? "queue" : "list"}>
-    <ScrollArea className="bibliography-audit-scroll" viewportClassName="bibliography-audit-viewport">
+    <ScrollArea className="bibliography-audit-scroll" viewportClassName="bibliography-audit-viewport" viewportRef={viewportRef}>
     <div className="bibliography-audit-results">
     {error && <p role="alert" className="bibliography-audit-alert" data-tone="danger">{error}</p>}
     {storageFailed && <p role="alert" className="bibliography-audit-alert">{t`Could not save the report on this device. Keep this window open to retain the results.`}</p>}
@@ -834,7 +847,7 @@ export function BibliographyAudit(props: {
       summary={<><AlertTriangle size={13} aria-hidden="true" /><span>{scan.issues.length === 1 ? t`1 thing to tidy in the bibliography` : t`${scan.issues.length} things to tidy in the bibliography`}</span></>}>
       <ul>{scan.issues.map((issue, index) => <li key={index}><code>{issue.path}{issue.key ? ` · ${issue.key}` : ""}</code><p>{auditIssueText(issue)}</p></li>)}</ul>
     </Disclosure>}
-    {shown.map((index, position) => {
+    {shown.slice(0, rows.shown).map((index, position) => {
       const entry = scan!.entries[index];
       const result = results[index];
       const bucket = buckets[index];
@@ -879,6 +892,7 @@ export function BibliographyAudit(props: {
         </article>
       </Fragment>;
     })}
+    {rows.spacer && <div className="bibliography-audit-rest" {...rows.spacer} />}
     </div>
     </ScrollArea>
     {queue && <section className="bibliography-audit-pane" aria-label={t`Open finding`}>
