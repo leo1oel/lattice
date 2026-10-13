@@ -45,7 +45,7 @@ describe("narrow pane chrome", () => {
     const statusBarPadding = 2 * 12;
     const steps = [
       ...readFileSync("src/styles/app-shell.css", "utf8")
-        .matchAll(/@container \(max-width: (\d+)px\)\s*\{[^}]*\.status-(?:comments|manuscript-todos)\b/g),
+        .matchAll(/@container \(max-width: (\d+)px\)\s*\{[^}]*\.status-counter \{/g),
     ].map((match) => Number(match[1]));
 
     expect(steps).toHaveLength(2);
