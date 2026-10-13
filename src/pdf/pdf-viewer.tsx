@@ -59,7 +59,7 @@ import type { PdfFileViewState } from "../app-types";
 import { logAction } from "../telemetry/app-notify";
 import { utf8ToBase64 } from "./pdf-bytes";
 import type { ViewerRecord } from "./pdf-slick";
-import { usePdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./pdf-source-targets";
+import { PdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./pdf-source-targets";
 import { usePdfSelectionReport } from "./pdf-text-layer-selection";
 import type { PdfAnnotationMark, PdfTextSelection } from "./pdf-annotations";
 import type { AnnotationRounds } from "../app/annotation-rounds";
@@ -422,10 +422,7 @@ export function PdfPreview({
   }, [pdfError, onLoadError]);
   usePdfSelectionReport(recordRef, generation, callbacks);
   const { zoomLabelRef, applyManualScale, stepZoom, toggleFit } = usePdfZoom(recordRef, generation, view);
-  usePdfSourceTargets(recordRef, {
-    syncTarget, sourceQuote, numPages, scale, generation,
-    pageRenderGeneration: doc.pageRenderGeneration, textLayerGeneration: doc.textLayerGeneration,
-  });
+
   // Annotating loads with the first selection made on the PDF, or with the
   // first annotation it has to draw; until then the preview carries none of it.
   const [annotating, setAnnotating] = useState(false);
@@ -437,8 +434,7 @@ export function PdfPreview({
         rounds={annotationRounds}
         annotations={annotations ?? NO_ANNOTATIONS}
         generation={generation}
-        pageRenderGeneration={doc.pageRenderGeneration}
-        textLayerGeneration={doc.textLayerGeneration}
+        renderCount={doc.renderCount}
         scale={scale}
       />
     </Suspense>
@@ -749,6 +745,15 @@ export function PdfPreview({
           ? <PdfLoading label={loadLabel} percent={loadPercent} quiet={showQuietLoader} />
           : null}
       </div>
+      <PdfSourceTargets
+        recordRef={recordRef}
+        syncTarget={syncTarget}
+        sourceQuote={sourceQuote}
+        numPages={numPages}
+        scale={scale}
+        generation={generation}
+        renderCount={doc.renderCount}
+      />
       {annotationLayer}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import { pdfPageView } from "./pdf-slick";
+import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 
 export type PdfSyncTarget = {
@@ -73,19 +74,24 @@ function firstTime(seen: { current: string | null }, id: string) {
  * Source locations shown in the PDF: a forward-SyncTeX box and a paper quote.
  * Each jumps to its page once per target id, then (re)draws its highlight
  * whenever the viewer, zoom, or a page/text-layer render could have cleared it.
+ * A component of its own, rendering nothing, so that only it renders after
+ * each page PDF.js draws.
  */
-export function usePdfSourceTargets(recordRef: ActiveViewerRef, {
-  syncTarget, sourceQuote, numPages, scale, generation, pageRenderGeneration, textLayerGeneration,
+export function PdfSourceTargets({
+  recordRef, syncTarget, sourceQuote, numPages, scale, generation, renderCount,
 }: {
+  recordRef: ActiveViewerRef;
   syncTarget: PdfSyncTarget | null;
   sourceQuote: PdfSourceQuote | null;
   numPages: number | null;
   scale: number;
   generation: number;
-  pageRenderGeneration: number;
-  textLayerGeneration: number;
+  renderCount: PdfRenderCount;
 }) {
   const { t } = useLingui();
+  // With nothing to show, a draw has nothing to redraw: no render per page.
+  const pageRenderGeneration = usePdfRenderCount(renderCount, "pages", Boolean(syncTarget));
+  const textLayerGeneration = usePdfRenderCount(renderCount, "textLayers", Boolean(sourceQuote));
   const syncJumpRef = useRef<string | null>(null);
   const syncScrollRef = useRef<string | null>(null);
   const quoteJumpRef = useRef<string | null>(null);
@@ -143,4 +149,5 @@ export function usePdfSourceTargets(recordRef: ActiveViewerRef, {
     if (firstTime(quoteScrollRef, quote.id)) marks[0]?.scrollIntoView({ block: "center" });
     return () => removeHighlights(marks);
   }, [generation, numPages, recordRef, scale, sourceQuote, textLayerGeneration]);
+  return null;
 }

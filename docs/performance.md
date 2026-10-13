@@ -139,7 +139,6 @@ and printed, and `--json` keeps them, but no ceiling holds them
 | every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
 | `pdf-scroll`, `source-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
 | `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
-| `pdf-zoom` | `commits`, `renders`, `mutations` | `hooks` | Each gesture's rescale re-renders the pages in view, and their render and text-layer events reach the PDF preview in 4–7 commits depending on timing, each about 76 hooks: 457–687 across runs. |
 | `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
@@ -829,14 +828,69 @@ window's moves (940 → 988 and 192 → 199). The real-window lab's harness coun
 a PDF's pages from its toolbar now, and treats a spacer on screen as a blank
 page.
 
+### Scrolling long lists and documents (October 2026)
+
+Measured on the bench page, its backend wrapped to also answer 600 Papers and
+a 600-entry `references.bib`, 100 activity items and 100 Git versions (with
+`notes=2000`, `pdfPages=600` and `largeMarkdownBytes=2000000` for the tree, the
+PDF and the visual editor), scrolling each surface 60–120 px a frame for 200
+frames down and 200 up. WebKit ran unthrottled; Chromium ran at
+4× CPU throttling, standing in for a slower Mac. Medians of three runs,
+interleaved with main.
+
+- **A fading scroll area restyled its whole list when a scroll started or
+  ended.** The fade offsets (`--scroll-fade-top` and the rest) were inherited
+  custom properties, flipped on the viewport at either end, so the first frame
+  of a scroll from the top restyled every element in the list: 150 ms in
+  WebKit for 600 Papers, 217 ms in Chromium. They are registered
+  non-inherited, and the masks read them directly (`components/ui/scroll-area.css`).
+  Keep a custom property that changes at runtime off an element with a large
+  subtree, or register it with `inherits: false`.
+- **The visual editor's block window paid a quadratic decoration scan.**
+  ProseMirror's `DecorationSet.forChild` scanned every decoration at the
+  document's root for each child it updated, and the split view labels each
+  top-level block with a node decoration, so each window move over the 2 MB
+  fixture compared 4,525 labels 4,525 times (696 ms of one 200-frame
+  profile). `patches/prosemirror-view@1.42.6.patch` keeps each set's inline
+  decorations, the only kind `forChild` passes down, and scans those alone:
+  WebKit frames over 25 ms fell from 40 to 5, Chromium's script time by 70 %.
+- **The Papers list mounted every paper.** 600 papers were 28k elements and
+  19k component renders: 620 ms more before WebKit's first paint, and 330 ms
+  for a search keystroke that showed the whole list. From 120 papers the list
+  draws the rows within a view's height of the view and measured gaps for the
+  rest (`project/paper-list-window.ts`), and each row is its own compiled
+  component, so a window move mounts only the rows it brings in.
+- **The .bib list re-rendered the whole editor on every scrolled frame**, and
+  the React Compiler skipped it (a catch binding read in a closure, a value
+  block inside `try`, a call with the parse error after its memos). It now
+  compiles, redraws only as the view nears the edge of the rows drawn, and
+  draws rows through a compiled `BibRow`: 33,318 renders per 400 frames to
+  981, Chromium's busy p50 per frame 21.5 → 10.2 ms.
+- **Scrolling a PDF re-rendered the App and the preview's toolbar per page.**
+  Each page PDF.js drew set two React states in the preview, and each page
+  passed set the App's page for the agent's context. The draw counts are a
+  store the SyncTeX and quote overlays subscribe to only while they have
+  something to redraw, and a page change while scrolling through is reported
+  once the page holds 200 ms (`pdf/use-pdf-view.ts`): renders while
+  scrolling 20 pages 7,508 → 442. Frame times did not move: PDF.js's own
+  drawing dominates them.
+- **The file tree's scrollbar committed React on every frame.** Its thumb and
+  reveal are DOM writes now, as in the PDF's overlay bars: 403 commits per 400
+  frames to 3.
+
+Measured and left alone: the CodeMirror source (0 commits while scrolling the
+3.2 MB `long.tex`), the History timeline (no fade, 4 ms frames in WebKit), the
+palette and Find in project (their results are capped). The Agent chat scrolls
+inside Synara's embed.
+
 ### Opening screens and long lists (October 2026)
 
 Measured on the bench page in Playwright's WebKit 26 at 1440×900 and 2×, each
 figure the median of five runs that alternate a build of main (`feb132b5`)
 with this change, from the input that opens a screen to the first frame with
-its content. A large project is the fixture plus `paperCount=500`,
-`bibEntries=600`, `historyEntries=100` and `gitVersions=300`, query parameters
-the bench page now takes.
+its content. A large project is the fixture plus `bibEntries=600`,
+`historyEntries=100` and `gitVersions=300`, query parameters the bench page
+now takes (with `paperCount` for the library).
 
 **First opens waited out React's reveal throttle.** The fix for Settings,
 History and Comments above left every other lazily loaded screen as it was:
@@ -856,23 +910,15 @@ long Markdown document's first open went 620 → 378 ms, and the prewarm now
 includes a bibliography's reference list: the first Preview of a 600-entry
 `.bib` 535 → 114 ms.
 
-**Long lists drew every row.** The paper library, the history timeline and
-Check references mounted all their rows, and a paper row is about 65
-components. With 500 papers the editor was ready 1,267 ms after load instead
-of 638, and React rendered 33,861 components at startup instead of 1,729.
-`useProgressiveRows` (`hooks/use-progressive-rows.ts`) draws a first batch,
-then the next whenever the reader scrolls near the last row drawn, in a
-transition, with a spacer sized for the rest. With 500 papers the editor is
-ready at 675 ms and startup renders 3,397 components; a keystroke in the
-library's search box takes 13 ms to its next frame (41 before), clearing the
-search 20 ms (261), and scrolling the library has no frame over 50 ms
-(longest 130 → 40 ms). Opening the history timeline with a hundred edits and
-a hundred versions shows them in 250 ms (778), 100 ms on a reopen (478);
-Check references over 600 entries opens in 129 ms (486), 80 ms on a reopen
-(470). The spacer is never a scroll anchor, or a browser carries a reader who
-jumped into it to the end of the list, and it keeps a batch's height of slack
-until the last batch is laid out: WebKit lays a size container (a paper row is
-one) out twice, and between the two passes the new rows are shorter.
+**Two more long lists drew every row.** The history timeline and Check
+references mounted all their rows on each open (the Papers list, above, now
+draws a window). `useProgressiveRows` (`hooks/use-progressive-rows.ts`) draws
+a first batch, then the next whenever the reader scrolls near the last row
+drawn, in a transition, with a spacer sized for the rest that is never a
+scroll anchor (a browser would carry a reader who jumped into it to the end
+of the list). Opening the history timeline with a hundred edits and a hundred
+versions shows them in 250 ms (778 before), 100 ms on a reopen (478); Check
+references over 600 entries opens in 129 ms (486), 80 ms on a reopen (470).
 
 **The history list read every record in full.** A history record holds the
 whole text of each file it changed, before and after, and the backend parsed

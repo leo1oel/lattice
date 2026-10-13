@@ -7,6 +7,7 @@ import { annotationStatus, type AnnotationStatus, type EditorComment, type PdfRe
 import { addListeners } from "./pdf-viewer-utils";
 import { pdfPageView } from "./pdf-slick";
 import { pdfSelectedPlainTextWithin } from "./pdf-text-layer-selection";
+import { usePdfRenderCount, type PdfRenderCount } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 import { useLatestRef } from "../hooks/use-latest-ref";
 
@@ -66,18 +67,19 @@ function selectedLines(root: HTMLElement): { page: number; pageElement: HTMLElem
  * the writer has selected text on it, so a PDF nobody annotates runs none of it.
  */
 export default function PdfAnnotationLayer({
-  recordRef, previewRef, rounds, annotations, generation, pageRenderGeneration, textLayerGeneration, scale,
+  recordRef, previewRef, rounds, annotations, generation, renderCount, scale,
 }: {
   recordRef: ActiveViewerRef;
   previewRef: RefObject<HTMLDivElement | null>;
   rounds: AnnotationRounds;
   annotations: readonly EditorComment[];
   generation: number;
-  pageRenderGeneration: number;
-  textLayerGeneration: number;
+  renderCount: PdfRenderCount;
   scale: number;
 }) {
   const { t } = useLingui();
+  const pageRenderGeneration = usePdfRenderCount(renderCount, "pages");
+  const textLayerGeneration = usePdfRenderCount(renderCount, "textLayers");
   /** Where Annotate stands, for the zoom and viewer it was measured in; a zoom or a new viewer retires it. */
   const [placed, setOffer] = useState<{ left: number; top: number; selection: PdfTextSelection; scale: number; generation: number } | null>(null);
   const offer = placed && placed.scale === scale && placed.generation === generation ? placed : null;

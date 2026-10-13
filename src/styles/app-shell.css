@@ -997,10 +997,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
 .paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); --paper-row-padding-inline: var(--space-4); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
-.paper-row + .paper-row { margin-top: var(--space-1); }
+/* A long list draws only the rows near the view and stands a gap for the
+   rest (paper-list-window.ts): the row drawn after a gap keeps the margin and
+   hairline it has after a row, and the list does its own scroll anchoring. */
+.paper-row + .paper-row, .paper-rows-gap + .paper-row { margin-top: var(--space-1); }
+.paper-list > [data-slot="scroll-area-viewport"][data-windowed] { overflow-anchor: none; }
 /* Hairlines part the rows at rest, under the text; a lit row needs none on
    either side. */
-.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding-inline); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
+:is(.paper-row, .paper-rows-gap) + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding-inline); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
 .paper-rows { --fluid-hover-fill: var(--navigation-tree-hover-surface); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }

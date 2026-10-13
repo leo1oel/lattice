@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useState, useSyncExternalStore, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
@@ -38,6 +38,47 @@ export type PdfLoadFeedback = {
 
 export type PdfFindMatches = { current: number; total: number };
 
+/**
+ * How many pages, and pages' text layers, PDF.js has drawn in the viewer in
+ * front. The overlays a draw can clear (the SyncTeX box, a quote's marks,
+ * annotations) subscribe and redraw after each one; the preview itself does
+ * not re-render for them, so scrolling through a long PDF does not render its
+ * toolbar once or twice for every page it draws.
+ */
+export type PdfRenderCount = {
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly pages: () => number;
+  readonly textLayers: () => number;
+};
+
+function createPdfRenderCount() {
+  const listeners = new Set<() => void>();
+  const drawn = { pages: 0, textLayers: 0 };
+  const count: PdfRenderCount & { bump: (kind: keyof typeof drawn) => void } = {
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    pages: () => drawn.pages,
+    textLayers: () => drawn.textLayers,
+    bump: (kind) => {
+      drawn[kind] += 1;
+      for (const listener of listeners) listener();
+    },
+  };
+  return count;
+}
+
+const unwatched = () => () => undefined;
+
+/**
+ * The number of `kind` draws so far: a component using it renders after each
+ * one while `watching`, and reads the count as it renders otherwise.
+ */
+export function usePdfRenderCount(count: PdfRenderCount, kind: "pages" | "textLayers", watching = true) {
+  return useSyncExternalStore(watching ? count.subscribe : unwatched, count[kind]);
+}
+
 /** PDF.js transfers the buffers it is given, so every consumer gets its own copy. */
 function copyPdfBuffer(bytes: ArrayBuffer | Uint8Array): ArrayBuffer {
   return (bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)).slice().buffer;
@@ -71,8 +112,7 @@ export function usePdfDocument({
   const [pdfErrorDetail, setPdfErrorDetail] = useState("");
   const [loadFeedback, setLoadFeedback] = useState<PdfLoadFeedback | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageRenderGeneration, setPageRenderGeneration] = useState(0);
-  const [textLayerGeneration, setTextLayerGeneration] = useState(0);
+  const [renderCount] = useState(createPdfRenderCount);
   const { initialViewState, viewRef, setPageNumber, setScale, setFitMode, schedule, activate, flush } = view;
   const { reset: resetHistory, track: trackHistory } = history;
 
@@ -265,7 +305,7 @@ export function usePdfDocument({
       pagerendered: () => {
         // The first draw of a previously unvisited page can clear an overlay
         // attached before PDF.js has initialized that page's canvas.
-        if (isActive()) setPageRenderGeneration((generation) => generation + 1);
+        if (isActive()) renderCount.bump("pages");
         if (!firstPageRendered) {
           firstPageRendered = true;
           clearLoadFeedback();
@@ -295,7 +335,7 @@ export function usePdfDocument({
         // and with them the selection: disposing it would clear that.
         if (record.textLayers.has(textLayer)) refreshPdfTextLayerSelection(textLayer);
         else record.textLayers.set(textLayer, installPdfTextLayerSelection(textLayer, record));
-        if (isActive()) setTextLayerGeneration((generation) => generation + 1);
+        if (isActive()) renderCount.bump("textLayers");
       },
       pagechanging: ({ pageNumber }: { pageNumber?: number }) => {
         if (isActive() && typeof pageNumber === "number") setPageNumber(pageNumber);
@@ -358,9 +398,9 @@ export function usePdfDocument({
       if (loadSettled) disposeRecord();
     };
   }, [
-    activate, browserHosted, callbacks, hostRef, initialViewState, onFindMatches, recordRef, resetHistory,
-    schedule, setFitMode, setGeneration, setPageNumber, setScale, sourceRef, stableLoadKey, t, timeoutMessage,
-    trackHistory, viewRef
+    activate, browserHosted, callbacks, hostRef, initialViewState, onFindMatches, recordRef, renderCount,
+    resetHistory, schedule, setFitMode, setGeneration, setPageNumber, setScale, sourceRef, stableLoadKey, t,
+    timeoutMessage, trackHistory, viewRef
   ]);
 
   useEffect(() => () => {
@@ -370,5 +410,5 @@ export function usePdfDocument({
     if (active) void destroyViewerRecord(active);
   }, [flush, recordRef]);
 
-  return { stableLoadKey, loadedKey, pdfError, pdfErrorDetail, loadFeedback, numPages, pageRenderGeneration, textLayerGeneration };
+  return { stableLoadKey, loadedKey, pdfError, pdfErrorDetail, loadFeedback, numPages, renderCount };
 }

@@ -15,10 +15,9 @@ const LOOKAHEAD_PX = 1200;
  *
  * `spacer` goes after the rows and stands for the ones not drawn yet, sized
  * from `estimate`, so the scroll bar keeps the whole list's length; scrolled
- * into, it draws the next batch. A new `reset` (another search, filter or
- * order) starts again from the first batch.
+ * into, it draws the next batch. A new `reset` (another view or filter)
+ * starts again from the first batch.
  */
-
 export function useProgressiveRows({ total, reset, scroller, estimate, batch = 24, atLeast = 0 }: {
   total: number;
   reset: string;
@@ -53,32 +52,13 @@ export function useProgressiveRows({ total, reset, scroller, estimate, batch = 2
     observer.observe(spacer);
     return () => observer.disconnect();
   }, [batch, reset, scroller, shown, total]);
-  // A batch taller than the rows it stands for, until the last batch has
-  // been laid out: WebKit lays a size container (a paper row is one) out
-  // twice, and between the two new rows are shorter, so a list scrolled to its
-  // end would get shorter for a moment and pull the reader up. Never a scroll
-  // anchor either: rows drawn above it would push it down, and a browser
-  // holding it in place would carry the reader with it, batch after batch, to
-  // the end of a list they jumped into.
-  const done = shown >= total;
-  const spacerStyle: CSSProperties = { height: (total - shown + batch) * estimate, overflowAnchor: "none" };
-  useEffect(() => {
-    const spacer = spacerRef.current;
-    if (!done || !spacer) return;
-    // Once the frame that drew the last rows has laid them out; written past
-    // React, which keeps the same style while every row is drawn.
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => { spacer.style.height = "0px"; });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [done, total]);
+  // Never a scroll anchor: rows drawn above it push it down, and a browser
+  // holding it in place would carry a reader who jumped into it (the scroll
+  // bar dragged down) along with it, batch after batch, to the end.
+  const spacerStyle: CSSProperties = { height: (total - shown) * estimate, overflowAnchor: "none" };
   return {
     shown,
-    /** Rows are left to draw. */
-    more: !done,
-    /** Goes after the rows: the rest of the list, undrawn. Null for a list one batch holds. */
-    spacer: total > batch ? { ref: spacerRef, style: spacerStyle, "aria-hidden": true as const } : null,
-    /** Draw every row, for a jump to the end. */
-    showAll: () => setDrawn({ reset, limit: total }),
+    /** The rest of the list, undrawn; null once every row is. */
+    spacer: shown < total ? { ref: spacerRef, style: spacerStyle, "aria-hidden": true as const } : null,
   };
 }
