@@ -1278,7 +1278,6 @@ msgstr "Attention Is All You Need、扩散模型…"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
 msgid "Author"
 msgstr "作者"
 
@@ -1288,6 +1287,7 @@ msgstr "授权失败"
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/project/paper-library.tsx
 msgid "Authors"
 msgstr "作者"
 
@@ -2098,6 +2098,10 @@ msgctxt "add a literature result as a bibliography entry only"
 msgid "Citation only"
 msgstr "只添加文献"
 
+#: src/project/paper-library.tsx
+msgid "Citation only, no full text"
+msgstr "仅引用，无全文"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Citation only: add the bibliography entry without the paper"
 msgstr "只添加文献：加入文献条目，不保存论文"
@@ -2131,8 +2135,13 @@ msgid "Cite bibliography entries"
 msgstr "引用参考文献条目"
 
 #: src/papers/bib-visual-editor.tsx
+#: src/project/paper-library.tsx
 msgid "Cited"
 msgstr "已引用"
+
+#: src/project/paper-library.tsx
+msgid "Cited {count}× in this paper"
+msgstr "本文引用 {count} 次"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Cited {times}× here"
@@ -2149,6 +2158,10 @@ msgstr "引用位置"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "在稿件中被引用"
+
+#: src/project/paper-library.tsx
+msgid "Cited in this paper"
+msgstr "本文已引用"
 
 #: src/editor/comments/use-intent-labels.ts
 msgid "Clarify"
@@ -2183,6 +2196,14 @@ msgstr "正在清理…"
 #: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "清空"
+
+#: src/project/paper-library.tsx
+msgid "Clear filter"
+msgstr "清除筛选"
+
+#: src/project/paper-library.tsx
+msgid "Clear filter: {filter}"
+msgstr "清除筛选：{filter}"
 
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
@@ -3319,10 +3340,6 @@ msgstr "下载 JSON"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
-#: src/project/paper-library.tsx
-msgid "Downloaded"
-msgstr "已下载"
-
 #: src/App.tsx
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文会保留"
@@ -3890,6 +3907,10 @@ msgstr "改动文件"
 msgid "Filled square"
 msgstr "实心方块"
 
+#: src/project/paper-library.tsx
+msgid "Filter"
+msgstr "筛选"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter annotations"
 msgstr "筛选批注"
@@ -3905,6 +3926,14 @@ msgstr "按名称或按键搜索"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
 msgstr "搜索语言"
+
+#: src/project/paper-library.tsx
+msgid "Filter papers"
+msgstr "筛选论文"
+
+#: src/project/paper-library.tsx
+msgid "Filter papers: {filter}"
+msgstr "筛选论文：{filter}"
 
 #: src/history/history-drawer.tsx
 msgid "Filter project changes"
@@ -3992,6 +4021,10 @@ msgstr "快好了…"
 #: src/settings/literature-settings.tsx
 msgid "Firecrawl"
 msgstr "Firecrawl"
+
+#: src/project/paper-library.tsx
+msgid "First author"
+msgstr "第一作者"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -4161,6 +4194,18 @@ msgstr "完全访问"
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "没有全文，先显示概览"
 
+#: src/project/paper-library.tsx
+msgid "Full text"
+msgstr "全文"
+
+#: src/project/paper-library.tsx
+msgid "Full text downloads on click"
+msgstr "点击即下载全文"
+
+#: src/project/paper-library.tsx
+msgid "Full text in Papers"
+msgstr "全文已在论文库"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Full-width floating figure"
 msgstr "通栏浮动图"
@@ -4328,6 +4373,10 @@ msgstr "网格布局"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头的表格"
+
+#: src/project/paper-library.tsx
+msgid "Group by"
+msgstr "分组"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Grouped numbered equations"
@@ -5908,6 +5957,10 @@ msgstr "等宽文本"
 msgid "More PDF actions"
 msgstr "更多"
 
+#: src/project/paper-library.tsx
+msgid "Most cited here"
+msgstr "本文引用最多"
+
 #: src/app/command-palette.tsx
 msgid "Move"
 msgstr "移动"
@@ -6247,6 +6300,10 @@ msgstr "这次更新没有文件改动"
 msgid "No files match “{trimmedQuery}”"
 msgstr "没有文件包含“{trimmedQuery}”"
 
+#: src/project/paper-library.tsx
+msgid "No grouping"
+msgstr "不分组"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
 msgstr "还没有历史"
@@ -6462,9 +6519,17 @@ msgstr "没有更新"
 msgid "No upgrade check was performed for this entry."
 msgstr "这条没检查更新"
 
+#: src/project/paper-library.tsx
+msgid "No venue"
+msgstr "未注明出处"
+
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
 msgstr "还没有版本"
+
+#: src/project/paper-library.tsx
+msgid "No year"
+msgstr "未注明年份"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
@@ -6497,6 +6562,14 @@ msgstr "未按引用名引用，但 {nociteAll} 会收录所有条目"
 #: src/papers/bib-visual-editor.tsx
 msgid "Not cited in any .tex file"
 msgstr "未在任何 .tex 文件中引用"
+
+#: src/project/paper-library.tsx
+msgid "Not cited in this paper yet"
+msgstr "本文尚未引用"
+
+#: src/project/paper-library.tsx
+msgid "Not cited yet"
+msgstr "尚未引用"
 
 #: src/project/paper-library.tsx
 msgid "Not downloaded"
@@ -7818,6 +7891,10 @@ msgstr "只读 · 点击编辑"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
 msgstr "阅读"
+
+#: src/project/paper-library.tsx
+msgid "Reading state"
+msgstr "阅读状态"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
@@ -9204,10 +9281,6 @@ msgstr "面板开关"
 msgid "Show outline"
 msgstr "显示大纲"
 
-#: src/project/paper-library.tsx
-msgid "Show papers"
-msgstr "显示论文"
-
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "显示文献"
@@ -9357,6 +9430,18 @@ msgstr "部分来源没查完，不代表这条有错"
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
+
+#: src/project/paper-library.tsx
+msgid "Sort and group"
+msgstr "排序与分组"
+
+#: src/project/paper-library.tsx
+msgid "Sort and group: {order}"
+msgstr "排序与分组：{order}"
+
+#: src/project/paper-library.tsx
+msgid "Sort by"
+msgstr "排序"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Sort lines"
@@ -10474,6 +10559,10 @@ msgstr "时间导数记号"
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
 
+#: src/project/paper-library.tsx
+msgid "Times cited in this paper"
+msgstr "本文引用次数"
+
 #: src/build/build-log-messages.ts
 msgid "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
 msgstr "没有安装 Times 字体，LaTeX 改用了 Computer Modern：在“TeX 检查”中点“安装所需工具”，再按住 Shift 点击“编译”。"
@@ -10964,6 +11053,7 @@ msgstr "在符号上方加向量箭头"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Venue"
 msgstr "发表于"
 
@@ -11140,6 +11230,10 @@ msgstr "警告"
 msgid "Warning"
 msgstr "警告"
 
+#: src/project/paper-library.tsx
+msgid "Web page"
+msgstr "网页"
+
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Weft & Warp"
@@ -11212,6 +11306,10 @@ msgstr "Wiki 链接建议"
 msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "窗口"
+
+#: src/project/paper-library.tsx
+msgid "With full text"
+msgstr "有全文"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
@@ -11327,6 +11425,7 @@ msgstr "克西"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-library.tsx
 msgid "Year"
 msgstr "年份"
 

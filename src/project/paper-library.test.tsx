@@ -72,6 +72,8 @@ function renderLibrary(overrides?: Partial<PaperLibraryProps>) {
 }
 
 const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });
+/** The full-text searches, apart from the scan of where the manuscript cites each paper. */
+const searchCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "search_paper_library");
 
 /** While an import or fetch runs, the search box is the read-only progress surface. */
 function expectImportProgress(active: boolean) {
@@ -138,10 +140,10 @@ describe("PaperLibrary", () => {
     ]);
     // The opening button is named by the title and byline it lies under,
     // which are hidden themselves so they are read once, and described by
-    // the citation key the eye sees only on a lit row.
+    // what its glyph says and the citation key the eye sees only on a lit row.
     // (jsdom draws no separators, which the browser takes from CSS.)
     expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer$/);
-    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleDescription("Citation key vaswani2017");
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleDescription("Full text in Papers. Citation key vaswani2017");
     expect(within(items[0]).queryByText("Attention Is All You Need")).toHaveAttribute("aria-hidden", "true");
     expect(list.querySelectorAll("[aria-current]")).toHaveLength(0);
 
@@ -328,16 +330,16 @@ describe("PaperLibrary", () => {
     const input = searchbox();
     fireEvent.compositionStart(input);
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(invoke).not.toHaveBeenCalled();
+    expect(searchCalls()).toHaveLength(0);
     fireEvent.compositionEnd(input);
     act(() => vi.advanceTimersByTime(0));
     // No pause in typing needed: Enter is the request to search now.
     await act(async () => { fireEvent.keyDown(input, { key: "Enter" }); });
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("search_paper_library", { query: "dot-product" });
+    expect(searchCalls()).toEqual([["search_paper_library", { query: "dot-product" }]]);
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     // The debounced pass this replaced must not search a second time.
     await settleTextSearch();
-    expect(invoke).toHaveBeenCalledOnce();
+    expect(searchCalls()).toHaveLength(1);
   });
 
   it("moves between papers with the arrows, Home and End, from any of a row's controls", () => {
@@ -385,8 +387,8 @@ describe("PaperLibrary", () => {
       .map((button) => button.closest<HTMLElement>(".paper-row")!);
     const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
     expect(byline(first)).toEqual(["Vaswani and Shazeer", "2017"]);
-    // The preprint downloads on click, which its glyph says.
-    expect(byline(second)).toEqual(["2021", ""]);
+    // The preprint downloads on click, which its glyph says, not the byline.
+    expect(byline(second)).toEqual(["2021"]);
     // A captured page's bundle key is never presented as an arXiv id.
     expect(byline(third)).toEqual(["example.org"]);
   });
@@ -398,15 +400,17 @@ describe("PaperLibrary", () => {
     expect(writeText).toHaveBeenCalledWith("vaswani2017");
     const row = screen.getAllByRole("button", { name: /Keyless/ })[0].closest<HTMLElement>(".paper-row")!;
     expect(row.querySelector(".paper-cite-key")).toBeNull();
-    expect(within(row).getAllByRole("button")[0]).not.toHaveAttribute("aria-describedby");
+    expect(within(row).getAllByRole("button")[0]).not.toHaveAccessibleDescription(/Citation key/);
   });
 
-  it("tags a paper with nothing to download as a citation", () => {
+  it("marks a paper with nothing to download as a citation", () => {
     const cited: PaperSummary = { arxivId: "", title: "Cited Work", citationKey: "cited2020", hasFullText: false, hasBlog: false };
     renderLibrary({ papers: [vit, cited] });
-    // An arXiv preprint downloads on click, so it is not tagged.
-    const tags = [...document.querySelectorAll<HTMLElement>(".paper-row .paper-tags")];
-    expect(tags.map((line) => [...line.children].map((tag) => tag.textContent))).toEqual([["Citation only"]]);
+    // An arXiv preprint downloads on click, which its glyph says too; neither row carries a chip.
+    const rows = [...document.querySelectorAll<HTMLElement>(".paper-row")];
+    expect(rows.map((row) => row.dataset.reading)).toEqual(["downloadable", "citation"]);
+    expect(document.querySelector(".paper-row .paper-tags")).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Cited Work/ })[0]).toHaveAccessibleDescription(/^Citation only, no full text/);
   });
 
   it("names a corporate author whole, and finds it without its braces", () => {
@@ -434,8 +438,7 @@ describe("PaperLibrary", () => {
 
     await settleTextSearch();
 
-    expect(invoke).toHaveBeenCalledOnce();
-    expect(invoke).toHaveBeenCalledWith("search_paper_library", { query: "dot-product" });
+    expect(searchCalls()).toEqual([["search_paper_library", { query: "dot-product" }]]);
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     // The matching line replaces the usual subtitle, so the hit is visible.
     expect(screen.getByText("scaled dot-product")).toBeInTheDocument();

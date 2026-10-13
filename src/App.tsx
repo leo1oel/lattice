@@ -1962,6 +1962,9 @@ function App() {
             <PaperLibrary
               projectKey={project.root}
               papers={papers}
+              citations={citations}
+              // Refreshed after every save, so the counts follow the manuscript.
+              citationUsageRevision={unusedSymbols}
               activePaper={activePaper}
               paperFetchStates={paperFetchStates}
               importInput={referenceImport.input}
