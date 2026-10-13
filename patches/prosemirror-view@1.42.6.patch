@@ -1,0 +1,73 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index d52a5260a7b9924b2865053ea1e8c6484225277b..423951cc1850d2ea86b9dd510e3825236473b46c 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -4001,9 +4001,13 @@ var DecorationSet = function () {
+       }
+       var start = offset + 1,
+         end = start + node.content.size;
+-      for (var _i9 = 0; _i9 < this.local.length; _i9++) {
+-        var dec = this.local[_i9];
+-        if (dec.from < end && dec.to > start && dec.type instanceof InlineType) {
++      // Lattice: only inline decorations reach a child, so read those alone.
++      // A node decoration on every top-level block (the visual editor's
++      // source labels) made each view update scan them all once per block.
++      var inline = inlineLocalsOf(this);
++      for (var _i9 = 0; _i9 < inline.length; _i9++) {
++        var dec = inline[_i9];
++        if (dec.from < end && dec.to > start) {
+           var from = Math.max(start, dec.from) - start,
+             to = Math.min(end, dec.to) - start;
+           if (from < to) (local || (local = [])).push(dec.copy(from, to));
+@@ -4264,6 +4268,15 @@ function buildTree(spans, node, offset, options) {
+ function byPos(a, b) {
+   return a.from - b.from || a.to - b.to;
+ }
++// Lattice: a set's inline decorations, kept once per set (sets never change).
++var inlineLocals = new WeakMap();
++function inlineLocalsOf(set) {
++  var found = inlineLocals.get(set);
++  if (!found) inlineLocals.set(set, found = set.local.filter(function (dec) {
++    return dec.type instanceof InlineType;
++  }));
++  return found;
++}
+ function removeOverlap(spans) {
+   var working = spans;
+   for (var i = 0; i < working.length - 1; i++) {
+diff --git a/dist/index.js b/dist/index.js
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..71274f4db17724b0b065a8f0404108bc8df66037 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4305,9 +4305,13 @@ class DecorationSet {
+                 break;
+             }
+         let start = offset + 1, end = start + node.content.size;
+-        for (let i = 0; i < this.local.length; i++) {
+-            let dec = this.local[i];
+-            if (dec.from < end && dec.to > start && (dec.type instanceof InlineType)) {
++        // Lattice: only inline decorations reach a child, so read those alone.
++        // A node decoration on every top-level block (the visual editor's
++        // source labels) made each view update scan them all once per block.
++        let inline = inlineLocalsOf(this);
++        for (let i = 0; i < inline.length; i++) {
++            let dec = inline[i];
++            if (dec.from < end && dec.to > start) {
+                 let from = Math.max(start, dec.from) - start, to = Math.min(end, dec.to) - start;
+                 if (from < to)
+                     (local || (local = [])).push(dec.copy(from, to));
+@@ -4598,6 +4602,14 @@ function buildTree(spans, node, offset, options) {
+ function byPos(a, b) {
+     return a.from - b.from || a.to - b.to;
+ }
++// Lattice: a set's inline decorations, kept once per set (sets never change).
++const inlineLocals = new WeakMap();
++function inlineLocalsOf(set) {
++    let found = inlineLocals.get(set);
++    if (!found)
++        inlineLocals.set(set, found = set.local.filter(dec => dec.type instanceof InlineType));
++    return found;
++}
+ // Scan a sorted array of decorations for partially overlapping spans,
+ // and split those so that only fully overlapping spans are left (to
+ // make subsequent rendering easier). Will return the input array if
