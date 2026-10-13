@@ -111,7 +111,7 @@ describe("useOverleafPresence roster", () => {
       const { peers } = useOverleafPresence({
         projectRoot, docId: null, selfId: "self-1", readCaret: () => ({ row: 0, column: 0 }),
       });
-      return createElement(OverleafPresenceAvatars, { peers, pathForDoc: (id) => id, onJump: () => {} });
+      return createElement(OverleafPresenceAvatars, { peers, pathForDoc: (id) => id, onJump: () => {}, onMessageEveryone: () => {} });
     }
     const view = render(createElement(Toolbar, { projectRoot: "/project-A" }));
     await flush();
@@ -121,16 +121,16 @@ describe("useOverleafPresence roster", () => {
     await flush();
     inProject({ type: "presenceUpdated", user: peer({ docId: "document-A" }) }, "/project-A");
     expect(view.getAllByRole("button")).toHaveLength(1);
-    expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · document-B — click to jump there");
+    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace · document-B · line 5 — click to jump there");
     view.unmount();
   });
 
   it("shows collaborators from before a dropped connection faded, and says it is reconnecting", () => {
     const view = render(createElement(OverleafPresenceAvatars, {
-      peers: [peer()], reconnecting: true, pathForDoc: () => "main.tex", onJump: () => {},
+      peers: [peer()], reconnecting: true, pathForDoc: () => "main.tex", onJump: () => {}, onMessageEveryone: () => {},
     }));
     expect(view.container.querySelector(".overleaf-presence-avatars.reconnecting")).not.toBeNull();
-    expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · main.tex — click to jump there (reconnecting…)");
+    expect(view.getByRole("button")).toHaveAttribute("aria-label", "Ada Lovelace · main.tex · line 5 — click to jump there (reconnecting…)");
     view.unmount();
   });
 

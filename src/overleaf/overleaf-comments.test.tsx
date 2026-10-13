@@ -23,7 +23,7 @@ const resolves = () => vi.fn().mockResolvedValue(undefined);
 
 const panel = (overrides: Partial<Parameters<typeof OverleafCommentsPanel>[0]> = {}) => (
   <OverleafCommentsPanel
-    threads={[thread()]} anchors={anchorsByThreadId([anchor()])} activeDocId="doc-open" pathForDoc={() => null}
+    threads={[thread()]} anchors={anchorsByThreadId([anchor()])} activeDocId="doc-open" pathForDoc={() => null} hues={new Map()}
     loading={false} error={null} onReply={resolves()} onResolve={resolves()} onDelete={resolves()}
     onEditMessage={resolves()} onDeleteMessage={resolves()} onReveal={vi.fn()} showResolved={false} {...overrides}
   />
@@ -68,7 +68,7 @@ describe("Overleaf comments panel", () => {
     const onResolve = resolves();
     render(panel({ onReply, onResolve }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reply…" }));
     const box = screen.getByLabelText("Reply");
     fireEvent.change(box, { target: { value: "半" } });
     fireEvent.keyDown(box, { key: "Enter", keyCode: 229 });
@@ -117,8 +117,10 @@ describe("Overleaf comments panel", () => {
     const { rerender } = render(panel(props));
     expect(screen.queryByText("This claim needs a citation")).not.toBeInTheDocument();
     rerender(panel({ ...props, showResolved: true }));
+    // A resolved thread folds to one line that opens to its messages.
+    expect(screen.queryByText("This claim needs a citation")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Resolved by Robin/ }));
     expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
-    expect(screen.getByText(/Resolved by Robin/)).toBeInTheDocument();
   });
 
   it("an orphaned thread — no anchor at all — explains itself and cannot be resolved or deleted", () => {
@@ -132,7 +134,7 @@ describe("Overleaf comments panel", () => {
     expect(screen.getByRole("button", { name: /Resolve/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Delete/ })).toBeDisabled();
     // Replying is unaffected — an orphaned thread can still be discussed.
-    expect(screen.getByRole("button", { name: "Reply" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reply…" })).toBeEnabled();
   });
 
   it("offers edit and delete on your own messages only, editing the one clicked inline and saving on Enter", async () => {

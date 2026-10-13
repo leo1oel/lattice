@@ -18,7 +18,7 @@ export type EditorCommentDraft = Pick<EditorComment, "path" | "from" | "to" | "q
 export const setEditorCommentDraftEffect = StateEffect.define<EditorCommentDraft | null>();
 
 export function commentMarkStyle(comment: EditorComment): string {
-  const { color, colorLight } = peerColorForKey(comment.authorId || comment.authorName);
+  const { color, colorLight } = comment.authorColor ?? peerColorForKey(comment.authorId || comment.authorName);
   const markStyle = `background-color: ${colorLight}; border-bottom: 2px solid ${color}; border-radius: 2px; `
     + "box-decoration-break: clone; -webkit-box-decoration-break: clone";
   return markStyle;
@@ -175,14 +175,14 @@ type CommentTooltipActions = {
 
 /** One author/time/body row, shared by the comment head and each reply. */
 function commentLine(
-  entry: Pick<EditorCommentReply, "authorId" | "authorName" | "body">,
+  entry: Pick<EditorCommentReply, "authorId" | "authorName" | "authorColor" | "body">,
   when: string,
   className: string,
   now: number,
   localization: EditorCommentLocalization,
 ): HTMLElement {
   const dot = element("span", "cm-editor-comment-tooltip-dot");
-  dot.style.backgroundColor = peerColorForKey(entry.authorId || entry.authorName).color;
+  dot.style.backgroundColor = (entry.authorColor ?? peerColorForKey(entry.authorId || entry.authorName)).color;
   const head = element("div", "cm-editor-comment-tooltip-head");
   head.append(
     dot,

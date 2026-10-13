@@ -755,8 +755,10 @@ reuse its vocabulary so the product reads as one thing:
   states as static isometric objects from a research desk: the clipboard of an
   empty document panel and of a workspace with every panel closed, the first
   PDF's proof tray, the empty library's card box, literature search's
-  reading folio before a first search, and the reading glass of a reference
-  check with nothing left to review.
+  reading folio before a first search, the reading glass of a reference
+  check with nothing left to review, and, in the Overleaf panel, the margin
+  notes of no comments, the proof marks of no suggestions and the letter rack
+  of an empty chat.
   They are monochrome, with no thread, and the host sets `--art-paper` to the
   surface they sit on.
 - The welcome screen's lattice field (`src/project/welcome-lattice.tsx`)

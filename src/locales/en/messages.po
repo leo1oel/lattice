@@ -166,6 +166,11 @@ msgstr "{0} packages"
 msgid "{0} pages"
 msgstr "{0} pages"
 
+#. placeholder {0}: peers.length
+#: src/overleaf/overleaf-presence.tsx
+msgid "{0} people on Overleaf now"
+msgstr "{0} people on Overleaf now"
+
 #. placeholder {0}: candidates.length
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} records match"
@@ -303,6 +308,10 @@ msgstr "{count} paths copied"
 msgid "{count} results for “{shownQuery}”"
 msgstr "{count} results for “{shownQuery}”"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "{count} suggestions"
+msgstr "{count} suggestions"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
@@ -423,8 +432,8 @@ msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 
 #: src/overleaf/overleaf-presence.tsx
-msgid "{label} · {path} — click to jump there"
-msgstr "{label} · {path} — click to jump there"
+msgid "{label} · {place} — click to jump there"
+msgstr "{label} · {place} — click to jump there"
 
 #: src/project/project-replace-dialog.tsx
 msgid "{matchSummary} in {fileSummary}"
@@ -441,6 +450,10 @@ msgstr "{meaning}, {color}"
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "{name} (reconnecting…)"
+msgstr "{name} (reconnecting…)"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "{name} copy"
@@ -505,6 +518,7 @@ msgid "{open} open"
 msgstr "{open} open"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "{openCount} open"
 msgstr "{openCount} open"
 
@@ -524,6 +538,10 @@ msgstr "{operation}: {pathname}"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{passing} of {0} checks pass"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "{path} · line {line}"
+msgstr "{path} · line {line}"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -618,10 +636,6 @@ msgstr "{warnings} warning"
 msgid "{warnings} warnings"
 msgstr "{warnings} warnings"
 
-#: src/overleaf/overleaf-presence.tsx
-msgid "{where} (reconnecting…)"
-msgstr "{where} (reconnecting…)"
-
 #: src/app/use-overleaf-workspace.ts
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
@@ -705,6 +719,7 @@ msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "1 open"
 msgstr "1 open"
 
@@ -725,6 +740,10 @@ msgstr "1 page remaining"
 msgid "1 paper"
 msgstr "1 paper"
 
+#: src/overleaf/overleaf-presence.tsx
+msgid "1 person on Overleaf now"
+msgstr "1 person on Overleaf now"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 reference, not checked yet"
 msgstr "1 reference, not checked yet"
@@ -732,6 +751,10 @@ msgstr "1 reference, not checked yet"
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 result for “{shownQuery}”"
 msgstr "1 result for “{shownQuery}”"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "1 suggestion"
+msgstr "1 suggestion"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
@@ -821,6 +844,7 @@ msgstr "About {name}"
 msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 msgstr "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 
+#: src/overleaf/overleaf-changes.tsx
 #: src/project/paper-inspector.tsx
 msgid "Abstract"
 msgstr "Abstract"
@@ -847,13 +871,9 @@ msgid "Accept {kept} of {offered}"
 msgstr "Accept {kept} of {offered}"
 
 #: src/canvas/proofread-card.tsx
+#: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "Accept all"
-
-#. placeholder {0}: sorted.length
-#: src/overleaf/overleaf-changes.tsx
-msgid "Accept all ({0})"
-msgstr "Accept all ({0})"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accept or reject each one in the editor; the round is saved as a version"
@@ -998,6 +1018,11 @@ msgstr "Add your first paper"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
+msgid "added"
+msgstr "added"
+
+#: src/overleaf/overleaf-changes.tsx
+msgctxt "tracked change, after its author"
 msgid "added"
 msgstr "added"
 
@@ -1300,6 +1325,7 @@ msgstr "Annotations {list}"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
+#: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-presence.tsx
 #: src/settings/settings-dialog.tsx
@@ -1593,6 +1619,7 @@ msgid "Before revisions"
 msgstr "Before revisions"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-changes.tsx
 msgid "Before the first section"
 msgstr "Before the first section"
 
@@ -2135,7 +2162,6 @@ msgstr "Changed there, untouched here"
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
 #: src/history/history-drawer.tsx
-#: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
 msgstr "Changes"
 
@@ -2665,6 +2691,10 @@ msgstr "Comments"
 #: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
+
+#: src/overleaf/overleaf-comments.tsx
+msgid "Comments from Overleaf sit here beside the words they are about"
+msgstr "Comments from Overleaf sit here beside the words they are about"
 
 #: src/app/annotation-rounds.ts
 msgid "Compare"
@@ -3346,6 +3376,10 @@ msgid "Delete table"
 msgstr "Delete table"
 
 #: src/overleaf/overleaf-comments.tsx
+msgid "Delete this discussion"
+msgstr "Delete this discussion"
+
+#: src/overleaf/overleaf-comments.tsx
 msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
 msgstr "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
 
@@ -3379,6 +3413,11 @@ msgstr "Delete worksheet?"
 
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
+msgid "deleted"
+msgstr "deleted"
+
+#: src/overleaf/overleaf-changes.tsx
+msgctxt "tracked change, after its author"
 msgid "deleted"
 msgstr "deleted"
 
@@ -4025,6 +4064,10 @@ msgstr "Estimator / unit vector mark"
 msgid "Eta"
 msgstr "Eta"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Every comment is resolved. All shows the resolved ones"
+msgstr "Every comment is resolved. All shows the resolved ones"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
@@ -4044,6 +4087,10 @@ msgstr "Every spot decided"
 #: src/app/use-tex-setup.ts
 msgid "Every tool Lattice needs is installed"
 msgstr "Every tool Lattice needs is installed"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Everyone in the Overleaf project sees what you write here"
+msgstr "Everyone in the Overleaf project sees what you write here"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
@@ -5019,6 +5066,10 @@ msgstr "In proceedings"
 #: src/telemetry/app-log.tsx
 msgid "In progress"
 msgstr "In progress"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "In the project now · {here}"
+msgstr "In the project now · {here}"
 
 #: src/App.tsx
 msgid "In this document"
@@ -6203,6 +6254,14 @@ msgid "Message"
 msgstr "Message"
 
 #: src/overleaf/overleaf-collab.tsx
+msgid "Message {here}…"
+msgstr "Message {here}…"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Message everyone in Chat"
+msgstr "Message everyone in Chat"
+
+#: src/overleaf/overleaf-collab.tsx
 msgid "Message your collaborators…"
 msgstr "Message your collaborators…"
 
@@ -6802,8 +6861,8 @@ msgid "No matching settings"
 msgstr "No matching settings"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "No messages yet. Say something and everyone in the project sees it"
-msgstr "No messages yet. Say something and everyone in the project sees it"
+msgid "No messages yet"
+msgstr "No messages yet"
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -6901,12 +6960,8 @@ msgid "No shortcut matches “{0}”"
 msgstr "No shortcut matches “{0}”"
 
 #: src/overleaf/overleaf-changes.tsx
-msgid "No suggestions in this document"
-msgstr "No suggestions in this document"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "No suggestions in this document — open it to see any it has"
-msgstr "No suggestions in this document — open it to see any it has"
+msgid "No suggestions in this file"
+msgstr "No suggestions in this file"
 
 #: src/history/file-diff-view.tsx
 msgid "No textual changes"
@@ -7006,6 +7061,10 @@ msgstr "Not equal"
 #: src/papers/add-papers-sheet.tsx
 msgid "Not found"
 msgstr "Not found"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Not in a file"
+msgstr "Not in a file"
 
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
@@ -7210,6 +7269,10 @@ msgstr "Open a .tex file before pasting a figure."
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open a file"
 msgstr "Open a file"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Open a file to see its suggestions"
+msgstr "Open a file to see its suggestions"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open a file, or reset the layout to bring your panels back"
@@ -7568,6 +7631,10 @@ msgstr "Overleaf history keeps a copy"
 #: src/settings/settings-search-index.ts
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
+msgstr "Overleaf keeps suggestions with each file; they show here for the file in front"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
@@ -8451,6 +8518,10 @@ msgstr "Reconnect to Overleaf"
 #: src/overleaf/overleaf-presence.tsx
 msgid "Reconnecting to Overleaf — people last seen in this project"
 msgstr "Reconnecting to Overleaf — people last seen in this project"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Reconnecting to Overleaf…"
+msgstr "Reconnecting to Overleaf…"
 
 #: src/project/paper-inspector.tsx
 msgid "Record"
@@ -10269,13 +10340,10 @@ msgstr "Success"
 msgid "Suggested change"
 msgstr "Suggested change"
 
-#: src/overleaf/overleaf-changes.tsx
-msgid "suggests deleting"
-msgstr "suggests deleting"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "suggests inserting"
-msgstr "suggests inserting"
+#: src/overleaf/overleaf-collab.tsx
+msgctxt "Overleaf tracked changes"
+msgid "Suggestions"
+msgstr "Suggestions"
 
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Suggests inserting \"{text}\""
@@ -11850,6 +11918,10 @@ msgstr "What the agent should do"
 #: src/settings/settings-search-index.ts
 msgid "When a build or a task in progress finishes"
 msgstr "When a build or a task in progress finishes"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "When a collaborator edits with Track changes on, each edit waits here for you to accept or reject"
+msgstr "When a collaborator edits with Track changes on, each edit waits here for you to accept or reject"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts

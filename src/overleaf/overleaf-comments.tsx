@@ -1,6 +1,14 @@
 /**
  * Overleaf's comment threads, as a panel you can actually work in.
  *
+ * A thread reads as a conversation: the quoted span as a thin rule in the
+ * reading font, then each message with its author's face and colour (the same
+ * one they have in suggestions, chat and the presence stack) and how long ago.
+ * Resolving sits quietly in the thread's corner and deleting appears beside it
+ * on hover or focus, so a screen of threads is not a screen of buttons; the
+ * reply field is always there. A resolved thread folds to one line you can
+ * open again.
+ *
  * A comment is only useful where the text is, so every thread quotes the span
  * it sits on and jumps to it when clicked — whether or not that file is the
  * one on screen, since `overleaf_comment_anchors` reads every document's
@@ -16,15 +24,23 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, Pencil, RotateCcw } from "lucide-react";
+import { Check, ChevronRight, FileText, Pencil, RotateCcw } from "lucide-react";
 import type { OverleafComment, OverleafThread } from "../app-types";
 import { confirmAction } from "../app-utils";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { Button } from "../components/ui/button";
 import { formatStamp, isComposingEnter } from "../components/ui/chat-panel";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InlineMessage } from "../components/ui/inline-message";
+import { EmptyState } from "../components/ui/empty-state";
+import { IconButton } from "../components/ui/icon-button";
+import { ResearchArt } from "../components/ui/research-art";
+import { MARGIN_NOTES } from "../components/ui/research-art-margin-notes";
 import { Textarea } from "../components/ui/textarea";
+import { formatCommentTimestamp } from "../editor/comments/editor-comments";
+import { personColor, type PeopleHues } from "./overleaf-collab-people";
 import { groupThreadsByFile } from "./overleaf-comment-anchors";
+import { PersonAvatar } from "./overleaf-person-avatar";
 import type { OverleafCommentAnchor } from "./use-overleaf-comments";
 
 /** A reply or message edit: Enter saves, Shift+Enter breaks the line, Escape cancels. */
@@ -62,10 +78,10 @@ function ThreadComposer(props: {
         }}
       />
       <div className="overleaf-thread-actions">
-        <button type="button" onClick={props.onCancel}>{t`Cancel`}</button>
-        <button type="button" disabled={!props.value.trim() || props.working} onClick={submit}>
+        <Button size="compact" variant="ghost" onClick={props.onCancel}>{t`Cancel`}</Button>
+        <Button size="compact" variant="primary" disabled={!props.value.trim() || props.working} onClick={submit}>
           {props.working ? <InfinityLoader size={12} /> : props.submitLabel}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -80,6 +96,8 @@ export function OverleafCommentsPanel(props: {
   activeDocId: string | null;
   /** Overleaf document id to project-relative path, for whichever documents the realtime channel has announced. */
   pathForDoc: (docId: string) => string | null;
+  /** Each collaborator's Overleaf colour (overleaf-collab-people.ts). */
+  hues: PeopleHues;
   loading: boolean;
   error: string | null;
   onReply: (threadId: string, content: string) => Promise<void>;
@@ -95,6 +113,8 @@ export function OverleafCommentsPanel(props: {
   const { i18n, t } = useLingui();
   const { showResolved } = props;
   const [replyingTo, setReplyingTo] = useState<string | null>(props.focusThreadId ?? null);
+  // Resolved threads fold to one line; the one a reply was asked for starts open.
+  const [openResolved, setOpenResolved] = useState<ReadonlySet<string>>(() => new Set(props.focusThreadId ? [props.focusThreadId] : []));
   const focusRef = useRef<HTMLElement | null>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ threadId: string; messageId: string } | null>(null);
@@ -125,48 +145,40 @@ export function OverleafCommentsPanel(props: {
     setBusy(null);
   };
 
+  const colorOf = (message: OverleafComment) =>
+    personColor(props.hues, { name: message.authorName, email: message.authorEmail, mine: message.mine }).color;
+
   const renderMessage = (thread: OverleafThread, message: OverleafComment, working: boolean) => (
-    <div className="overleaf-thread-message" key={message.id}>
-      <div className="overleaf-thread-meta">
-        <span>{message.mine ? t`You` : message.authorName}</span>
-        <time>{formatStamp(message.timestamp, i18n.locale)}</time>
-      </div>
-      {editing?.threadId === thread.id && editing.messageId === message.id ? (
-        <ThreadComposer
-          value={messageDraft}
-          onChange={setMessageDraft}
-          label={t`Edit message text`}
-          submitLabel={t`Save`}
-          working={working}
-          onCancel={() => setEditing(null)}
-          onSubmit={(content) => void run(thread.id, async () => {
-            await props.onEditMessage(thread.id, message.id, content);
-            setEditing(null);
-          })}
-        />
-      ) : (
-        <>
-          <p>{message.content}</p>
-          {message.mine && (
-            <div className="overleaf-thread-message-actions">
-              <button
-                type="button"
-                aria-label={t`Edit message`}
-                title={t`Edit this message`}
+    <li className="overleaf-thread-message" key={message.id}>
+      <PersonAvatar name={message.authorName} color={colorOf(message)} />
+      <div className="overleaf-thread-message-body">
+        <div className="overleaf-thread-meta">
+          <span>{message.mine ? t`You` : message.authorName}</span>
+          {/* How long ago reads at a glance; the exact time is on hover. */}
+          <time dateTime={new Date(message.timestamp).toISOString()} title={formatStamp(message.timestamp, i18n.locale)}>
+            {formatCommentTimestamp(new Date(message.timestamp).toISOString(), undefined, i18n.locale, "narrow")}
+          </time>
+          {message.mine && !(editing?.threadId === thread.id && editing.messageId === message.id) && (
+            <span className="overleaf-thread-message-actions">
+              <IconButton
+                size="compact"
+                label={t`Edit message`}
+                tooltip={t`Edit this message`}
                 disabled={working}
                 onClick={() => {
                   setEditing({ threadId: thread.id, messageId: message.id });
                   setMessageDraft(message.content);
                 }}
               >
-                <Pencil size={11} />
-              </button>
+                <Pencil size={13} aria-hidden="true" />
+              </IconButton>
               <DestructiveButton
-                className="danger"
+                className="ui-icon-button overleaf-thread-danger"
+                data-size="compact"
                 aria-label={t`Delete message`}
                 title={t`Delete this message`}
                 disabled={working}
-                iconSize={11}
+                iconSize={13}
                 onClick={() => void run(
                   thread.id,
                   () => props.onDeleteMessage(thread.id, message.id),
@@ -175,11 +187,25 @@ export function OverleafCommentsPanel(props: {
                     : t`Delete this message?`,
                 )}
               />
-            </div>
+            </span>
           )}
-        </>
-      )}
-    </div>
+        </div>
+        {editing?.threadId === thread.id && editing.messageId === message.id ? (
+          <ThreadComposer
+            value={messageDraft}
+            onChange={setMessageDraft}
+            label={t`Edit message text`}
+            submitLabel={t`Save`}
+            working={working}
+            onCancel={() => setEditing(null)}
+            onSubmit={(content) => void run(thread.id, async () => {
+              await props.onEditMessage(thread.id, message.id, content);
+              setEditing(null);
+            })}
+          />
+        ) : <p>{message.content}</p>}
+      </div>
+    </li>
   );
 
   const renderThread = (thread: OverleafThread) => {
@@ -188,88 +214,133 @@ export function OverleafCommentsPanel(props: {
     const working = busy === thread.id;
     // Resolve and delete are keyed on the anchor's document; an orphan has none.
     const threadActionTitle = anchor ? undefined : t`Its span was deleted from the document, so Overleaf can't say which file to act on`;
+    const quote = anchor?.quote.trim() || t`(this comment's text was removed)`;
+    const opener = thread.messages[0];
+    const open = !thread.resolved || openResolved.has(thread.id);
+    const toggle = () => setOpenResolved((current) => {
+      const next = new Set(current);
+      if (next.has(thread.id)) next.delete(thread.id);
+      else next.add(thread.id);
+      return next;
+    });
+    const remove = (
+      <DestructiveButton
+        className="ui-icon-button overleaf-thread-danger"
+        data-size="compact"
+        aria-label={t`Delete`}
+        title={threadActionTitle ?? t`Delete this discussion`}
+        disabled={working || !anchor}
+        iconSize={13}
+        onClick={() => void run(
+          thread.id,
+          () => props.onDelete(thread.id),
+          t`Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone.`,
+        )}
+      />
+    );
     return (
       <article
         className={`overleaf-thread${thread.resolved ? " resolved" : ""}`}
         key={thread.id}
         ref={thread.id === props.focusThreadId ? focusRef : undefined}
       >
-        {anchor ? (
-          <button
-            type="button"
-            className="overleaf-thread-quote"
-            title={path ? t`Show this in the editor` : t`Waiting to find out which file this is in`}
-            disabled={!path}
-            onClick={() => path && props.onReveal(path, anchor.position)}
-          >
-            {anchor.quote.trim() || t`(this comment's text was removed)`}
-          </button>
-        ) : (
-          <p className="overleaf-thread-orphaned">
-            {t`Its text was deleted from the document — Overleaf can no longer say where it was`}
-          </p>
-        )}
-
-        <div className="overleaf-thread-messages">
-          {thread.messages.map((message) => renderMessage(thread, message, working))}
-          {!thread.messages.length && <p className="overleaf-thread-empty">{t`This comment has no text yet`}</p>}
-        </div>
-
-        {thread.resolved && (
-          <p className="overleaf-thread-resolved">
-            {thread.resolvedBy ? t({ message: `Resolved by ${thread.resolvedBy}` }) : t`Resolved`}
-          </p>
-        )}
-
-        {replyingTo === thread.id ? (
-          <ThreadComposer
-            value={draft}
-            onChange={setDraft}
-            label={t`Reply`}
-            placeholder={t`Reply…`}
-            submitLabel={t`Reply`}
-            working={working}
-            onCancel={() => setReplyingTo(null)}
-            onSubmit={(content) => void run(thread.id, async () => {
-              await props.onReply(thread.id, content);
-              setDraft("");
-              setReplyingTo(null);
-            })}
-          />
-        ) : (
-          <div className="overleaf-thread-actions">
-            <button
-              type="button"
-              onClick={() => {
-                setReplyingTo(thread.id);
-                setDraft("");
-              }}
-            >
-              {t`Reply`}
+        {thread.resolved ? (
+          <div className="overleaf-thread-resolved">
+            <button type="button" className="overleaf-thread-disclosure" aria-expanded={open} onClick={toggle}>
+              <ChevronRight size={13} aria-hidden="true" />
+              <Check size={13} aria-hidden="true" className="overleaf-thread-resolved-mark" />
+              <span className="overleaf-thread-resolved-who">
+                {thread.resolvedBy ? t({ message: `Resolved by ${thread.resolvedBy}` }) : t`Resolved`}
+              </span>
+              <span className="overleaf-thread-resolved-quote">{quote}</span>
             </button>
-            <button
-              type="button"
-              disabled={working || !anchor}
-              title={threadActionTitle}
-              onClick={() => void run(thread.id, () => props.onResolve(thread.id, !thread.resolved))}
-            >
-              {thread.resolved ? <RotateCcw size={12} /> : <Check size={12} />}
-              {thread.resolved ? t`Reopen` : t({ message: "Resolve", context: "comment thread" })}
-            </button>
-            <DestructiveButton
-              className="danger"
-              disabled={working || !anchor}
-              title={threadActionTitle}
-              iconSize={12}
-              onClick={() => void run(
-                thread.id,
-                () => props.onDelete(thread.id),
-                t`Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone.`,
-              )}
-            >
-              {t`Delete`}
-            </DestructiveButton>
+            <span className="overleaf-thread-tools">
+              {remove}
+              <button
+                type="button"
+                className="overleaf-collab-text-button"
+                disabled={working || !anchor}
+                title={threadActionTitle}
+                onClick={() => void run(thread.id, () => props.onResolve(thread.id, false))}
+              >
+                {working ? <InfinityLoader size={12} /> : <RotateCcw size={12} aria-hidden="true" />}
+                {t`Reopen`}
+              </button>
+            </span>
           </div>
+        ) : (
+          <div className="overleaf-thread-head">
+            {anchor ? (
+              <button
+                type="button"
+                className="overleaf-thread-quote"
+                style={{ borderLeftColor: opener ? colorOf(opener) : undefined }}
+                title={path ? t`Show this in the editor` : t`Waiting to find out which file this is in`}
+                disabled={!path}
+                onClick={() => path && props.onReveal(path, anchor.position)}
+              >
+                {quote}
+              </button>
+            ) : (
+              <p className="overleaf-thread-orphaned">
+                {t`Its text was deleted from the document — Overleaf can no longer say where it was`}
+              </p>
+            )}
+            <span className="overleaf-thread-tools">
+              {remove}
+              <IconButton
+                size="compact"
+                className="overleaf-thread-resolve"
+                label={t({ message: "Resolve", context: "comment thread" })}
+                tooltip={threadActionTitle ?? t({ message: "Resolve", context: "comment thread" })}
+                disabled={working || !anchor}
+                onClick={() => void run(thread.id, () => props.onResolve(thread.id, true))}
+              >
+                {working ? <InfinityLoader size={12} /> : <Check size={15} aria-hidden="true" />}
+              </IconButton>
+            </span>
+          </div>
+        )}
+
+        {open && (
+          <>
+            <ol className="overleaf-thread-messages">
+              {thread.messages.map((message) => renderMessage(thread, message, working))}
+              {!thread.messages.length && <li className="overleaf-thread-empty">{t`This comment has no text yet`}</li>}
+            </ol>
+
+            {replyingTo === thread.id ? (
+              <div className="overleaf-thread-reply-slot">
+                <ThreadComposer
+                  value={draft}
+                  onChange={setDraft}
+                  label={t`Reply`}
+                  placeholder={t`Reply…`}
+                  submitLabel={t`Reply`}
+                  working={working}
+                  onCancel={() => setReplyingTo(null)}
+                  onSubmit={(content) => void run(thread.id, async () => {
+                    await props.onReply(thread.id, content);
+                    setDraft("");
+                    setReplyingTo(null);
+                  })}
+                />
+              </div>
+            ) : (
+              // Looks like the field it becomes, so replying is never hunting
+              // for a button; one composer is open at a time, so one draft.
+              <button
+                type="button"
+                className="overleaf-thread-reply-field"
+                onClick={() => {
+                  setReplyingTo(thread.id);
+                  setDraft("");
+                }}
+              >
+                {t`Reply…`}
+              </button>
+            )}
+          </>
         )}
       </article>
     );
@@ -284,16 +355,23 @@ export function OverleafCommentsPanel(props: {
           <p className="git-empty"><InfinityLoader size={13} /> {t`Loading comments…`}</p>
         )}
         {!props.loading && !visible.length && !props.error && (
-          <p className="git-empty">
-            {showResolved
-              ? t`No comments yet`
-              : t`No open comments`}
-          </p>
+          <EmptyState
+            className="overleaf-collab-empty"
+            icon={<ResearchArt drawing={MARGIN_NOTES} />}
+            title={showResolved || !props.threads.length ? t`No comments yet` : t`No open comments`}
+            description={showResolved || !props.threads.length
+              ? t`Comments from Overleaf sit here beside the words they are about`
+              : t`Every comment is resolved. All shows the resolved ones`}
+          />
         )}
 
         {groups.map((group) => (
           <section key={group.key} className="overleaf-thread-section">
-            <h3 className="overleaf-thread-group">{group.label}</h3>
+            <h3 className="overleaf-collab-group">
+              <FileText size={12} aria-hidden="true" />
+              <span>{group.label}</span>
+              <span className="overleaf-collab-group-count">{group.threadIds.length}</span>
+            </h3>
             {group.threadIds.flatMap((id) => {
               const thread = threadsById.get(id);
               return thread ? [renderThread(thread)] : [];
