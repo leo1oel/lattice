@@ -112,6 +112,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
                 bibtex,
                 issues: local,
                 inline: None,
+                line: Some(source[..start].matches('\n').count() + 1),
             });
         }
         coverage.push(AuditCoverage { path, kind: "bibliography", entries: entries.len() - read });
@@ -143,6 +144,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
             bibtex: reference.bibtex,
             issues: vec![],
             inline: Some(reference.text),
+            line: Some(reference.line),
         });
     }
     coverage.extend(lists);

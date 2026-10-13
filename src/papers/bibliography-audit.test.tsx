@@ -30,7 +30,12 @@ async function renderChecked(overrides: Partial<ComponentProps<typeof Bibliograp
   await checkAll();
   return { ...view, props: p };
 }
-const idle = () => waitFor(() => expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled());
+// "Check all" until a reference has been checked, then "Check again".
+const idle = () => waitFor(() => expect(screen.getByRole("button", { name: /^Check (all|again)$/ })).toBeEnabled());
+/** Opens the `index`th closed finding, as a click on its row does; its details unfold under it. */
+const openRow = (index = 0) => fireEvent.click(screen.getAllByRole("button", { expanded: false })[index]);
+/** Unfolds a finding's Details, where the finding has them (an incomplete check shows its sources directly). */
+const openDetails = () => { const details = screen.queryByText("Details"); if (details) fireEvent.click(details); };
 const calls = (command: string) => vi.mocked(invoke).mock.calls.filter(([name]) => name === command);
 /** Scans `scanned` and answers every remote check (batch or entry) with `result`. */
 function mockAudit(result: unknown, scanned = entries.slice(0, 1)) {
@@ -126,7 +131,9 @@ it("does not repeat a failed batch request in subsequent groups", async () => {
   const fallbacks = calls("bibliography_audit_entry");
   expect(fallbacks).toHaveLength(22);
   expect(fallbacks.every(([, args]) => (args as { s2BatchStatus: string }).s2BatchStatus === "upstream_rate_limit")).toBe(true);
-  expect(screen.getAllByText("Semantic Scholar rate limited the service; subsequent queries skipped")).toHaveLength(22);
+  openRow();
+  openDetails();
+  expect(screen.getByText("Semantic Scholar rate limited the service; subsequent queries skipped")).toBeVisible();
 });
 
 it("continues other sources while S2 waits and discards its late result after cancellation", async () => {
@@ -182,7 +189,9 @@ it.each([
 ] as const)("%s", async (_, result, shown, hidden) => {
   mockAudit(result);
   await renderChecked();
-  fireEvent.click(await screen.findByText("Details"));
+  await idle();
+  openRow();
+  openDetails();
   for (const text of shown) expect(screen.getByText(text)).toBeVisible();
   for (const text of hidden) expect(screen.queryByText(text)).not.toBeInTheDocument();
 });
@@ -194,13 +203,14 @@ it("applies the exact reviewed snapshot without another network lookup and shows
   await checkAll();
   await screen.findByText("Update available");
   await idle();
-  fireEvent.click(screen.getByText("Review proposed changes"));
-  fireEvent.click(screen.getByRole("button", { name: "Apply this update" }));
+  openRow();
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
   await screen.findByText("Update applied");
   expect(p.onApply).toHaveBeenCalledWith(entries[0], expect.objectContaining(updated));
   expect(invoke).toHaveBeenCalledTimes(4);
+  openRow();
   fireEvent.click(screen.getByText("Current BibTeX"));
-  expect(screen.getAllByText(updated.after!)).toHaveLength(2);
+  expect(screen.getByText(updated.after!)).toBeVisible();
   expect(screen.queryByText(entries[0].bibtex)).not.toBeInTheDocument();
 });
 
@@ -215,16 +225,17 @@ it("continues while hidden", async () => {
   ]);
 });
 
-it("badges an update as success, collapses both BibTeX views apart from the field diff, and opens notices natively", async () => {
+it("files an update as a fix rather than a success, folds its fields and BibTeX, and opens notices natively", async () => {
   const health = { kind: "corrected", link: "https://doi.org/10.1234/notice", checkedAt: "2026-09-05" };
   mockAudit({ ...updated, health });
   await renderChecked();
-  expect((await screen.findByText("Update available")).closest('[data-slot="badge"]')).toHaveAttribute("data-tone", "success");
+  expect((await screen.findByText("Update available")).closest("[data-bucket]")).toHaveAttribute("data-bucket", "fix");
+  openRow();
   expect(screen.getByText("Details").closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(screen.getByText("Review proposed changes"));
+  expect(screen.getByText("Fields and BibTeX").closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByText("Fields and BibTeX"));
   expect(screen.getByText("Title")).toBeVisible();
-  expect(screen.getByText("Proposed BibTeX").closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(screen.getByText("Proposed BibTeX"));
+  expect(screen.getByText("Proposed BibTeX")).toBeVisible();
   expect(screen.getByText(updated.after!)).toBeVisible();
   fireEvent.click(screen.getByRole("link", { name: "Open notice" }));
   expect(openUrl).toHaveBeenCalledWith(health.link);
@@ -233,13 +244,14 @@ it("badges an update as success, collapses both BibTeX views apart from the fiel
 it("shows the scanned BibTeX for not-checked and no-update entries", async () => {
   mockAudit({ status: "checked", message: "No update found.", before: entries[0].bibtex, changes: [] }, entries.slice(0, 2));
   render(<BibliographyAudit {...props()} />);
-  const viewers = await screen.findAllByText("Current BibTeX");
-  expect(viewers).toHaveLength(2);
-  fireEvent.click(viewers[1]);
+  await screen.findByText("Paper 1");
+  openRow(1);
+  fireEvent.click(screen.getByText("Current BibTeX"));
   expect(screen.getByText(entries[1].bibtex)).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Check key0" }));
+  openRow(0);
+  fireEvent.click(screen.getByRole("button", { name: "Check this reference" }));
   await screen.findAllByText("No update found");
-  fireEvent.click(viewers[0]);
+  fireEvent.click(screen.getByText("Current BibTeX"));
   expect(screen.getByText(entries[0].bibtex)).toBeVisible();
 });
 
@@ -247,7 +259,7 @@ it("shows an explicit empty state without claiming references were verified", as
   vi.mocked(invoke).mockResolvedValue({ entries: [], issues: [] });
   render(<BibliographyAudit {...props()} />);
   await screen.findByText("No references to check");
-  expect(screen.getByRole("status")).toHaveTextContent("0 of 0 references checked");
+  expect(screen.getByRole("status")).toHaveTextContent("No references to check");
   expect(screen.queryByRole("article")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Check all" })).toBeEnabled();
   expect(invoke).toHaveBeenCalledTimes(1);
@@ -261,15 +273,16 @@ it("explains partial publication lookups without exposing internal error codes",
   });
   await renderChecked();
   await screen.findByText("Some sources unavailable");
+  expect(screen.getByText("No answer from Semantic Scholar, DBLP")).toBeVisible();
   expect(screen.queryByText(/sources_unavailable/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Results reflect available sources/)).not.toBeInTheDocument();
-  expect(screen.getByText("Rate limited")).not.toBeVisible();
-  fireEvent.click(screen.getByText("Details"));
+  expect(screen.queryByText("Rate limited")).not.toBeInTheDocument();
+  openRow();
   expect(screen.getByText("Some sources could not complete the lookup. This does not mean the reference is incorrect.")).toBeVisible();
   expect(screen.getByText("Rate limited")).toBeVisible();
   expect(screen.getByText("Connection failed")).toBeVisible();
   expect(screen.getByText("No published version found")).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
   expect(invoke).toHaveBeenCalledTimes(3);
 });
 
@@ -282,7 +295,8 @@ it.each([
   mockAudit({ status, publicationReason, message: publicationReason, before: entries[0].bibtex, changes: [] });
   await renderChecked();
   expect(await screen.findByText(label)).toBeInTheDocument();
-  fireEvent.click(screen.getByText("Details"));
+  openRow();
+  openDetails();
   expect(screen.getByText(explanation)).toBeVisible();
   expect(screen.queryByText("Some sources unavailable")).not.toBeInTheDocument();
 });
@@ -306,7 +320,9 @@ it("checks one row without its neighbors, then only selected rows, preserving un
     return checks === 1 ? { ...updated, message: "First result" } : { ...updated, message: "Refreshed result" };
   });
   render(<BibliographyAudit {...props()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Check key0" }));
+  await screen.findByText("Paper 0");
+  openRow(0);
+  fireEvent.click(screen.getByRole("button", { name: "Check this reference" }));
   await screen.findByText("Update available");
   expect(screen.getAllByText("Not checked")).toHaveLength(2);
   expect(calls("bibliography_audit_entry")).toHaveLength(1);
@@ -326,11 +342,11 @@ it("accepts all updates sequentially without applying an item twice", async () =
   const p = props();
   const onApplied = vi.fn();
   await renderChecked({ ...p, onApplied });
-  fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Apply 3 fixes" }));
   await waitFor(() => expect(screen.getAllByText("Update applied")).toHaveLength(3));
   expect(onApplied).toHaveBeenCalledTimes(1);
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1", "key2"]);
-  expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply 3 fixes" })).not.toBeInTheDocument();
 });
 
 it("stops bulk apply on failure while retaining earlier successes", async () => {
@@ -338,11 +354,11 @@ it("stops bulk apply on failure while retaining earlier successes", async () => 
   const p = props();
   p.onApply.mockImplementation(async entry => { if (entry.key === "key1") throw new Error("write failed"); });
   await renderChecked(p);
-  fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Apply 3 fixes" }));
   await screen.findByText("Error: write failed");
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1"]);
   expect(screen.getAllByText("Update applied")).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "Accept all updates" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply 2 fixes" }));
   await waitFor(() => expect(p.onApply).toHaveBeenCalledTimes(3));
   expect(p.onApply.mock.calls.map(([entry]) => entry.key)).toEqual(["key0", "key1", "key1"]);
 });
@@ -352,7 +368,9 @@ it("explains when Semantic Scholar is not configured", async () => {
     ? { results: entries.map(() => null), s2Failure: "not_configured" }
     : { ...updated, status: "unavailable", after: undefined });
   await renderChecked();
-  await screen.findAllByText("Not enabled · add your own API key in Settings");
+  await idle();
+  openRow();
+  expect(screen.getByText("Not enabled · add your own API key in Settings")).toBeVisible();
 });
 
 it("explains a candidate with localized identity fields and no apply action", async () => {
@@ -373,23 +391,23 @@ it("explains a candidate with localized identity fields and no apply action", as
   } satisfies AuditResult);
   await renderChecked();
   expect(await screen.findByText("Candidate does not match reference")).toBeInTheDocument();
+  openRow();
   fireEvent.click(screen.getByText("Details"));
   expect(screen.getByText("A source returned a possible record, but its identifying metadata conflicts with this reference.")).toBeVisible();
   expect(screen.getByText("Candidate record considered, not verified · cached record")).toBeVisible();
   expect(screen.getByText("Access forbidden by provider")).toBeVisible();
-  fireEvent.click(screen.getByText("Review candidate"));
   expect(screen.getByText("Entry type")).toBeVisible();
   expect(screen.getByText("Publisher")).toBeVisible();
-  expect(screen.getByText(/Title, Authors, Year, Venue, arXiv identifier, Insufficient identifying metadata/)).toBeVisible();
-  expect(screen.getByText("Candidate Press")).toBeVisible();
-  const comparison = screen.getByText("Review candidate").closest("details")!;
-  expect(comparison.querySelector("del, ins, .bibliography-audit-before, .bibliography-audit-after")).toBeNull();
-  expect(screen.getAllByText("Current reference")).toHaveLength(2);
-  expect(screen.getAllByText("Source candidate (not applied)")).toHaveLength(2);
+  expect(screen.getAllByText(/Title, Authors, Year, Venue, arXiv identifier, Insufficient identifying metadata/)[0]).toBeVisible();
+  // Only the differing word is marked, and nothing reads as a change to apply.
+  expect(screen.getByText("Candidate").closest("p")).toHaveTextContent("Candidate Press");
+  for (const comparison of document.querySelectorAll(".bibliography-audit-compare")) expect(comparison.querySelector("del, ins")).toBeNull();
+  expect(screen.getAllByText("Yours")).toHaveLength(2);
+  expect(screen.getAllByText("Source · DBLP · not verified")).toHaveLength(2);
   expect(screen.getByText("Unverified candidate BibTeX")).toBeInTheDocument();
   fireEvent.click(screen.getByText("Current BibTeX"));
   expect(screen.getByText(entries[0].bibtex)).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
   expect(screen.queryByText("Metadata source · cached")).not.toBeInTheDocument();
 });
 
@@ -402,8 +420,8 @@ it("never offers individual or bulk apply when a restored payload contains a mal
   render(<BibliographyAudit {...props()} />);
   await screen.findByText("Update available");
   expect(screen.queryByText("Review proposed changes")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Apply \d+ fix/ })).not.toBeInTheDocument();
 });
 
 it("restores checked results after remount without making any remote checks", async () => {
@@ -428,7 +446,7 @@ it("invalidates changed snapshots on reopen and never offers the stale proposal"
   currentEntries = [{ ...entries[0], bibtex: "@article{key0,title={Edited}}" }];
   view.rerender(<BibliographyAudit {...view.props} />);
   await screen.findByText("Entry changed");
-  expect(screen.queryByRole("button", { name: "Apply this update" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
 });
 
 it("preserves applied status against the post-apply snapshot", async () => {
@@ -437,12 +455,12 @@ it("preserves applied status against the post-apply snapshot", async () => {
   const p = props();
   p.onApply.mockImplementation(async () => { currentEntries = [{ ...entries[0], bibtex: updated.after! }]; });
   const view = await renderChecked(p);
-  fireEvent.click(await screen.findByRole("button", { name: "Accept all updates" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Apply 1 fix" }));
   await screen.findByText("Update applied");
   view.unmount();
   render(<BibliographyAudit {...p} />);
   await screen.findByText("Update applied");
-  expect(screen.queryByRole("button", { name: "Accept all updates" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply 1 fix" })).not.toBeInTheDocument();
 });
 
 it("isolates project reports", async () => {

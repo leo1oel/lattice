@@ -2103,6 +2103,11 @@ function App() {
           onPrepare={save}
           onApplied={() => refreshAfterSave(project.root, false, true)}
           onMissingPaperTools={(failure) => void texSetup.openForMissingPaperTools(failure)}
+          onOpenSource={(path, line) => {
+            // The report stays as it was behind the editor; reopening it resumes the queue.
+            setBibliographyAuditOpen(false);
+            void showingErrors(() => openFile(path, { line }));
+          }}
           onApply={async (entry, result) => {
             const root = project.root;
             if (!result.after) throw new Error(t`This reference cannot be updated.`);

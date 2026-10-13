@@ -63,6 +63,11 @@ msgstr "（已删除）"
 msgid "(this comment's text was removed)"
 msgstr "（原文已被删除）"
 
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} {BIBITEM} in the document, compared, never edited"
+msgstr "正文里 {0} 条 {BIBITEM}，只比对、不修改"
+
 #. placeholder {0}: label(older)
 #. placeholder {1}: label(newer)
 #: src/editor/comments/annotation-rounds-dialog.tsx
@@ -73,11 +78,6 @@ msgstr "{0} → {1}"
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} annotations"
 msgstr "{0} 条批注"
-
-#. placeholder {0}: file.entries
-#: src/papers/bibliography-audit.tsx
-msgid "{0} BibTeX entries"
-msgstr "{0} 条 BibTeX 条目"
 
 #. placeholder {0}: changes.length
 #: src/editor/comments/annotation-rounds-dialog.tsx
@@ -99,6 +99,21 @@ msgstr "{0} 只有深色"
 msgid "{0} comes in light only"
 msgstr "{0} 只有浅色"
 
+#. placeholder {0}: counts.incomplete
+#: src/papers/bibliography-audit.tsx
+msgid "{0} couldn't finish"
+msgstr "{0} 条没查完"
+
+#. placeholder {0}: list(reasons.map(reason => reasonLabels[reason] ?? reason))
+#: src/papers/bibliography-audit.tsx
+msgid "{0} differ from a source's record"
+msgstr "{0}与来源记录不一致"
+
+#. placeholder {0}: file.entries
+#: src/papers/bibliography-audit.tsx
+msgid "{0} entries"
+msgstr "{0} 条"
+
 #. placeholder {0}: entry.files.length
 #. placeholder {0}: update.paths.length
 #: src/history/versions-timeline.tsx
@@ -113,10 +128,25 @@ msgstr "{0} 个文件"
 msgid "{0} files"
 msgstr "{0} 个文件"
 
-#. placeholder {0}: file.entries
+#. placeholder {0}: counts.fix
 #: src/papers/bibliography-audit.tsx
-msgid "{0} inline references, compared but not edited"
-msgstr "{0} 条正文内文献，只比对、不修改"
+msgid "{0} fixes to review"
+msgstr "{0} 处修改待审"
+
+#. placeholder {0}: entry.path
+#: src/papers/bibliography-audit.tsx
+msgid "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it: change the {BIBITEM} by hand, or copy the corrected one."
+msgstr "{0} 自带参考文献列表。Lattice 只拿它和核实过的记录比对，从不改动：请手动修改这条 {BIBITEM}，或复制改好的版本。"
+
+#. placeholder {0}: counts.review
+#: src/papers/bibliography-audit.tsx
+msgid "{0} need your eyes"
+msgstr "{0} 条需要你看一下"
+
+#. placeholder {0}: counts.unchecked
+#: src/papers/bibliography-audit.tsx
+msgid "{0} not checked"
+msgstr "{0} 条尚未检查"
 
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
@@ -128,13 +158,15 @@ msgstr "{0} 个软件包"
 msgid "{0} pages"
 msgstr "{0} 页"
 
-#. placeholder {0}: tally.verified
-#. placeholder {1}: tally.updates
-#. placeholder {2}: tally.review
-#. placeholder {3}: tally.incomplete
+#. placeholder {0}: selected.size
 #: src/papers/bibliography-audit.tsx
-msgid "{0} verified · {1} with updates · {2} need review · {3} incomplete (not errors)"
-msgstr "{0} 条已核实 · {1} 条有更新 · {2} 条需人工核对 · {3} 条没查完（不代表有错）"
+msgid "{0} selected"
+msgstr "已选 {0} 条"
+
+#. placeholder {0}: scan.issues.length
+#: src/papers/bibliography-audit.tsx
+msgid "{0} things to tidy in the bibliography"
+msgstr "文献库里有 {0} 处要整理"
 
 #. placeholder {0}: work.votes
 #: src/papers/literature-discovery-panel.tsx
@@ -172,10 +204,6 @@ msgstr "还剩 {amount} 词"
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
-
-#: src/papers/bibliography-audit.tsx
-msgid "{completed} of {progressTotal} references checked"
-msgstr "已查 {completed}/{progressTotal} 条"
 
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
@@ -394,6 +422,7 @@ msgid "{names} +{more}"
 msgstr "{names} 及另 {more} 人"
 
 #: src/papers/paper-identity.ts
+#: src/papers/reference-typeset.ts
 msgid "{names} et al."
 msgstr "{names} 等"
 
@@ -449,6 +478,11 @@ msgstr "{operation}：{pathname}"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
+
+#. placeholder {0}: peers.length
+#: src/papers/bibliography-audit.tsx
+msgid "{position} of {0}"
+msgstr "第 {position} / {0} 条"
 
 #: src/canvas/annotation-review.tsx
 msgid "{position} of {total}"
@@ -506,6 +540,10 @@ msgstr "会改动 {total} 个文件"
 msgid "{total} files would change"
 msgstr "会改动 {total} 个文件"
 
+#: src/papers/bibliography-audit.tsx
+msgid "{total} references, not checked yet"
+msgstr "共 {total} 条文献，尚未检查"
+
 #: src/project/manuscript-checklist.tsx
 msgid "{totalPages} total · body ends on p.{mainPages}"
 msgstr "共 {totalPages} 页 · 正文到第 {mainPages} 页"
@@ -559,6 +597,10 @@ msgstr "↑↓ 选择 · Enter 打开"
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · 按住 ⇧ 点击从头编译"
 
+#: src/papers/bibliography-audit.tsx
+msgid "1 {BIBITEM} in the document, compared, never edited"
+msgstr "正文里 1 条 {BIBITEM}，只比对、不修改"
+
 #: src/App.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "1 annotation"
@@ -580,6 +622,14 @@ msgstr "1 处修改 · 清晰流畅"
 msgid "1 edit · errors only"
 msgstr "1 处修改 · 只改错误"
 
+#: src/papers/bibliography-audit.tsx
+msgid "1 entry"
+msgstr "1 条"
+
+#: src/papers/bibliography-audit.tsx
+msgid "1 fix to review"
+msgstr "1 处修改待审"
+
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 处"
@@ -587,6 +637,10 @@ msgstr "1 处"
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 行"
+
+#: src/papers/bibliography-audit.tsx
+msgid "1 needs your eyes"
+msgstr "1 条需要你看一下"
 
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
@@ -612,6 +666,14 @@ msgstr "还剩 1 页"
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
+
+#: src/papers/bibliography-audit.tsx
+msgid "1 reference, not checked yet"
+msgstr "共 1 条文献，尚未检查"
+
+#: src/papers/bibliography-audit.tsx
+msgid "1 thing to tidy in the bibliography"
+msgstr "文献库里有 1 处要整理"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -657,6 +719,10 @@ msgstr "这篇预印本已有正式发表版本。正文内文献需要手动修
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
 msgstr "找到的记录和这条文献对不上"
+
+#: src/papers/bibliography-audit.tsx
+msgid "A source returned a record that differs from yours. It was not verified, so Lattice won't apply it: read both and keep yours, or edit the entry."
+msgstr "某个来源返回的记录与你的不一致。它没有通过核实，Lattice 不会套用：对照两边后保留你的，或自己修改条目。"
 
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "A spreadsheet must contain at least one sheet"
@@ -714,10 +780,6 @@ msgstr "全部接受"
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all ({0})"
 msgstr "全部接受（{0}）"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Accept all updates"
-msgstr "全部更新"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accept or reject each one in the editor; the round is saved as a version"
@@ -945,6 +1007,7 @@ msgstr "对齐"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/history-drawer.tsx
 #: src/papers/bib-visual-editor.tsx
+#: src/papers/bibliography-audit.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "全部"
@@ -952,6 +1015,10 @@ msgstr "全部"
 #: src/overleaf/overleaf-collab.tsx
 msgid "All ({threadCount})"
 msgstr "全部（{threadCount}）"
+
+#: src/papers/bibliography-audit.tsx
+msgid "All {total} references verified"
+msgstr "全部 {total} 条文献已核实"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
@@ -993,6 +1060,11 @@ msgstr "阿尔法"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Already in Papers"
 msgstr "已在论文库"
+
+#. placeholder {0}: list(fix.unprinted)
+#: src/papers/bibliography-audit.tsx
+msgid "Also changes: {0}"
+msgstr "另外还改：{0}"
 
 #: src/canvas/proofread-card.tsx
 msgid "Also improve flow and academic clarity"
@@ -1145,9 +1217,27 @@ msgstr "更新"
 msgid "Appearance"
 msgstr "外观"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Applied"
+msgstr "已应用"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Applied. The entry now matches the verified record."
+msgstr "已应用，条目现在与核实记录一致。"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "Apply"
 msgstr "应用"
+
+#. placeholder {0}: updates.length
+#: src/papers/bibliography-audit.tsx
+msgid "Apply {0} fixes"
+msgstr "应用 {0} 处修改"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Apply 1 fix"
+msgstr "应用 1 处修改"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Apply and sync"
@@ -1161,9 +1251,9 @@ msgstr "应用高亮颜色"
 msgid "Apply link"
 msgstr "应用链接"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Apply this update"
-msgstr "更新这条"
+#: src/papers/reference-check-keys.ts
+msgid "Apply the fix"
+msgstr "应用修改"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Applying…"
@@ -1204,10 +1294,6 @@ msgstr "arXiv 编号"
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "As the last round left it"
 msgstr "与最近一轮结束时相同"
-
-#: src/papers/bibliography-audit.tsx
-msgid "As written"
-msgstr "原文"
 
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
@@ -1358,6 +1444,10 @@ msgstr "沿用批量结果"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Beamer slide"
 msgstr "Beamer 幻灯片"
+
+#: src/papers/bibliography-audit.tsx
+msgid "becomes"
+msgstr "改为"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Before revisions"
@@ -1885,6 +1975,10 @@ msgstr "居中的多行公式"
 msgid "Changed here, untouched there"
 msgstr "本机改了，Overleaf 没动"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Changed since the last check"
+msgstr "上次检查后有改动"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed there, untouched here"
 msgstr "Overleaf 改了，本机没动"
@@ -1908,14 +2002,13 @@ msgstr "章标题"
 msgid "Chat"
 msgstr "聊天"
 
-#. placeholder {0}: entry.key
-#: src/papers/bibliography-audit.tsx
-msgid "Check {0}"
-msgstr "检查 {0}"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
 msgstr "抑扬符示例"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Check again"
+msgstr "重新检查"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Check all"
@@ -1930,11 +2023,8 @@ msgstr "检查更新"
 msgid "Check incomplete"
 msgstr "没查完"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Check not started"
-msgstr "尚未开始检查"
-
 #: src/App.tsx
+#: src/app/shortcut-groups.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -1950,9 +2040,21 @@ msgstr "检查所选"
 msgid "Check spelling in prose"
 msgstr "检查正文拼写"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Check this reference"
+msgstr "检查这条"
+
 #: src/settings/settings-dialog.tsx
 msgid "Check your connection and try again"
 msgstr "请检查网络后重试"
+
+#: src/papers/bibliography-audit.tsx
+msgid "checked"
+msgstr "检查于"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Checking {completed} of {progressTotal}…"
+msgstr "正在检查 {completed} / {progressTotal}…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
@@ -1982,6 +2084,10 @@ msgstr "希"
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "从项目中选择文件，或用快速打开查找"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Choose a reference to see what was checked."
+msgstr "选一条文献，看看查了什么"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
@@ -2147,6 +2253,7 @@ msgstr "从头编译"
 msgid "Cleaning…"
 msgstr "正在清理…"
 
+#: src/papers/bibliography-audit.tsx
 #: src/telemetry/app-log.tsx
 msgid "Clear"
 msgstr "清空"
@@ -2385,10 +2492,6 @@ msgstr "对比版本"
 msgid "Compare with"
 msgstr "对比的版本"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Compare with the verified record"
-msgstr "与核实记录比对"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "正在和 Overleaf 对比…"
@@ -2566,6 +2669,10 @@ msgstr "复制引用名 {key}"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copy code"
 msgstr "复制代码"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Copy corrected {BIBITEM}"
+msgstr "复制改好的 {BIBITEM}"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Copy details"
@@ -2784,6 +2891,10 @@ msgstr "没能复制，请展开“详细信息”手动复制"
 msgid "Couldn't find a bibliography entry for {citationCommand}."
 msgstr "找不到 {citationCommand} 对应的文献"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Couldn't finish"
+msgstr "没查完"
+
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "安装更新失败"
@@ -2872,10 +2983,6 @@ msgstr "当前条目"
 #: src/editor/latex/search-panel.ts
 msgid "current match"
 msgstr "当前匹配项"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Current reference"
-msgstr "当前文献"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -3689,6 +3796,10 @@ msgstr "论文的所有文件都在这：LaTeX、笔记、图片、幻灯片"
 msgid "Every panel is closed"
 msgstr "面板都已关闭"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Every reference matched a verified record. Check again after you edit the bibliography."
+msgstr "每条文献都对上了核实过的记录。改动文献后，再检查一次。"
+
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
 msgstr "全部选好了"
@@ -3799,6 +3910,10 @@ msgstr "字段名须以字母开头，且不含空格。"
 msgid "Fields"
 msgstr "字段"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Fields and BibTeX"
+msgstr "字段与 BibTeX"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fifth-level heading."
 msgstr "五级标题"
@@ -3844,10 +3959,6 @@ msgstr "上传文件"
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "文件"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Files checked"
-msgstr "已检查的文件"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -3987,6 +4098,10 @@ msgstr "改好剩下的再保存"
 #: src/papers/bib-visual-editor.tsx
 msgid "Fix it in the source and the list comes back."
 msgstr "在源码中修正后，列表会恢复显示。"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Fixes to review"
+msgstr "待审修改"
 
 #: src/project/paper-library.tsx
 msgid "Flagged"
@@ -4189,6 +4304,11 @@ msgstr "跳转"
 #: src/editor/goto-line-dialog.tsx
 msgid "Go"
 msgstr "跳转"
+
+#. placeholder {0}: entry.path
+#: src/papers/bibliography-audit.tsx
+msgid "Go to {BIBITEM} in {0}"
+msgstr "前往 {0} 中的 {BIBITEM}"
 
 #: src/project/references-panel.tsx
 msgid "Go to {location}"
@@ -4688,15 +4808,6 @@ msgstr "句中公式"
 msgid "Inline Math Properties"
 msgstr "公式设置"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Inline reference"
-msgstr "正文内文献"
-
-#. placeholder {0}: entry.path
-#: src/papers/bibliography-audit.tsx
-msgid "Inline references are not edited automatically. Change {0} by hand if needed."
-msgstr "正文内文献不会自动修改。如有需要，请在 {0} 中手动修改。"
-
 #: src/papers/audit-messages.ts
 msgid "Inproceedings entry uses journal instead of booktitle."
 msgstr "inproceedings 应写 booktitle，而不是 journal"
@@ -4977,6 +5088,10 @@ msgstr "保留引用"
 msgid "Keep it on Overleaf"
 msgstr "Overleaf 上保留"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Keep mine"
+msgstr "保留我的"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Keep my fields"
 msgstr "用我填的"
@@ -5000,6 +5115,10 @@ msgstr "保留后，这些引用会显示为“？”"
 #: src/papers/audit-messages.ts
 msgid "Kept as a preprint because pubstate is explicitly preprint."
 msgstr "标为预印本，所以保留预印本"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Kept as written"
+msgstr "已保留原文"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Kept here"
@@ -5539,10 +5658,6 @@ msgctxt "comment source"
 msgid "Local"
 msgstr "本地"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Local issues"
-msgstr "本地问题"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
 msgstr "日志"
@@ -5971,6 +6086,10 @@ msgstr "跳转"
 msgid "Navigation performance"
 msgstr "导航性能"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Need your eyes"
+msgstr "需要你看"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Needed to add papers and manage bibliographies · about 45 MB"
 msgstr "添加论文和管理文献要用 · 约 45 MB"
@@ -6121,6 +6240,10 @@ msgstr "下个错误"
 msgid "Next change"
 msgstr "下一处改动"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Next finding"
+msgstr "下一个问题"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Next match"
@@ -6138,6 +6261,10 @@ msgstr "下一页"
 msgid "Next PDF location"
 msgstr "下个位置"
 
+#: src/papers/reference-check-keys.ts
+msgid "Next reference"
+msgstr "下一条文献"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "下个结果"
@@ -6153,6 +6280,11 @@ msgstr "还没有批注。打开文件，选中文字点“批注”"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No annotations yet. Select text in the editor or the PDF and click Annotate"
 msgstr "还没有批注。在编辑器或 PDF 中选中文字点“批注”"
+
+#. placeholder {0}: list(silent)
+#: src/papers/bibliography-audit.tsx
+msgid "No answer from {0}"
+msgstr "{0} 没有回应"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -6445,6 +6577,7 @@ msgstr "未编译"
 msgid "Not checked"
 msgstr "尚未检查"
 
+#: src/papers/bibliography-audit.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Not checked yet"
 msgstr "还没检查"
@@ -6505,10 +6638,23 @@ msgstr "没有阻碍投稿的问题"
 msgid "Nothing is sent or fetched until you resume"
 msgstr "继续前不会收发任何内容"
 
+#. placeholder {0}: counts.kept
+#: src/papers/bibliography-audit.tsx
+msgid "Nothing left to review · {0} kept as written"
+msgstr "没有待审的了 · {0} 条保留原文"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Nothing left to review. Every other reference matched a verified record."
+msgstr "没有待审的了。其余文献都对上了核实过的记录。"
+
 #. placeholder {0}: deferredQuery.trim()
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "没有“{0}”相关结果"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Nothing to fix · {leftOver}"
+msgstr "没有要改的 · {leftOver}"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "Nothing to rerun"
@@ -6702,9 +6848,17 @@ msgstr "在浏览器打开原文"
 msgid "Open by default"
 msgstr "默认展开"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Open entry"
+msgstr "打开条目"
+
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
 msgstr "打开文件…"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Open finding"
+msgstr "当前问题"
 
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
@@ -7414,6 +7568,10 @@ msgstr "英镑符号"
 msgid "Powers presentations"
 msgstr "驱动演示文稿"
 
+#: src/papers/reference-typeset.ts
+msgid "pp. {pages}"
+msgstr "第 {pages} 页"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "先于"
@@ -7540,6 +7698,10 @@ msgstr "上一页"
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous PDF location"
 msgstr "上个位置"
+
+#: src/papers/reference-check-keys.ts
+msgid "Previous reference"
+msgstr "上一条文献"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
@@ -7694,6 +7856,10 @@ msgstr "今日免费额度用完，跳过 Semantic Scholar"
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
 msgstr "发表信息已确认，但检查没全部完成"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Published version: {published}"
+msgstr "已正式发表：{published}"
+
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/citation-health.ts
@@ -7777,6 +7943,10 @@ msgstr "只读 · 点击编辑"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
 msgstr "阅读"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Reading the bibliography…"
+msgstr "正在读取文献…"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
@@ -8549,8 +8719,8 @@ msgid "Review 1 proposal"
 msgstr "审阅 1 条建议"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Review candidate"
-msgstr "查看匹配"
+msgid "Review again"
+msgstr "重新审阅"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Review changes"
@@ -8559,10 +8729,6 @@ msgstr "查看改动"
 #: src/overleaf/overleaf-review.tsx
 msgid "Review Overleaf changes"
 msgstr "查看 Overleaf 改动"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Review proposed changes"
-msgstr "查看建议"
 
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
@@ -8813,10 +8979,6 @@ msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "正在保存…"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Scanning bibliography files…"
-msgstr "正在读取文献文件…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
@@ -9108,6 +9270,10 @@ msgstr "快捷键"
 msgid "Shorten"
 msgstr "缩短"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Show"
+msgstr "显示"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
 msgstr "显示{name}"
@@ -9281,6 +9447,14 @@ msgstr "可伸缩左定界符"
 msgid "Skills"
 msgstr "技能"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Skip"
+msgstr "跳过"
+
+#: src/papers/reference-check-keys.ts
+msgid "Skip to the next finding"
+msgstr "跳到下一个问题"
+
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 msgid "Slash commands"
 msgstr "插入菜单"
@@ -9342,6 +9516,15 @@ msgstr "声音 提示音"
 msgid "Source"
 msgstr "源码"
 
+#. placeholder {0}: sourceName(source)
+#: src/papers/bibliography-audit.tsx
+msgid "Source · {0} · not verified"
+msgstr "来源 · {0} · 未核实"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Source · not verified"
+msgstr "来源 · 未核实"
+
 #: src/trellis/trellis-build-sequence.tsx
 msgid "source ↔ PDF"
 msgstr "源码 ↔ PDF"
@@ -9349,10 +9532,6 @@ msgstr "源码 ↔ PDF"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Source and PDF, linked"
 msgstr "双向跳转"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Source candidate (not applied)"
-msgstr "来源记录（未采用）"
 
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
@@ -9960,7 +10139,7 @@ msgstr "AI 助手没能启动"
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "此文件已不在实时协作中，请重试"
 
-#. placeholder {0}: result.disagreements.map(field => fieldLabels[field] ?? field).join(", ")
+#. placeholder {0}: result.disagreements.map(fieldText).join(", ")
 #: src/papers/bibliography-audit.tsx
 msgid "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept."
 msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0}。已保留会议官方的版本。"
@@ -10122,9 +10301,17 @@ msgstr "没查完，请稍后再试"
 msgid "The published version could not be confirmed."
 msgstr "无法确认发表版"
 
+#: src/papers/bibliography-audit.tsx
+msgid "The publisher has issued a notice about this paper. Read it before you keep citing it."
+msgstr "出版方对这篇论文发布了公告。继续引用前，请先读一读。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The realtime connection closed."
 msgstr "实时连接已断开"
+
+#: src/papers/bibliography-audit.tsx
+msgid "The reference is verified"
+msgstr "这条文献已核实"
 
 #: src/build/compile-repair-messages.ts
 msgid "The repair agent needs an answer. Open the repair thread to respond."
@@ -10392,13 +10579,13 @@ msgstr "这条文献已有“{name}”字段。"
 msgid "This reference cannot be updated."
 msgstr "无法更新这条引用"
 
+#: src/papers/bibliography-audit.tsx
+msgid "This reference has not been checked against the publication sources yet."
+msgstr "这条文献还没和出版来源核对过"
+
 #: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
 msgstr "这一行在 PDF 里找不到对应位置"
-
-#: src/papers/bibliography-audit.tsx
-msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
-msgstr "仅供对比，未确认，不能采用"
 
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
@@ -10825,6 +11012,10 @@ msgstr "立即更新"
 msgid "updated {0}"
 msgstr "更新于 {0}"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Updates {fields}"
+msgstr "更新{fields}"
+
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "会同步改所有 \\ref"
@@ -10942,6 +11133,10 @@ msgstr "原样"
 msgid "verbatim code"
 msgstr "原样代码"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Verified"
+msgstr "已核实"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Verified · Crossref"
 msgstr "已核验 · Crossref"
@@ -10953,10 +11148,6 @@ msgstr "已找到发表版"
 #: src/papers/audit-messages.ts
 msgid "Verified publication metadata is available."
 msgstr "已确认的发表信息可用"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Verified record"
-msgstr "核实记录"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified record (BibTeX)"
@@ -11064,6 +11255,10 @@ msgstr "可视编辑"
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
+
+#: src/papers/reference-typeset.ts
+msgid "vol. {volume}"
+msgstr "第 {volume} 卷"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
@@ -11310,6 +11505,22 @@ msgstr "你"
 msgid "You can close this once the transfer finishes"
 msgstr "传完即可关闭"
 
+#: src/papers/bibliography-audit.tsx
+msgid "You kept your entry over an unverified record"
+msgstr "你保留了自己的条目，没用未核实的记录"
+
+#: src/papers/bibliography-audit.tsx
+msgid "You kept your entry. The source's record was not verified, and Lattice never applies it."
+msgstr "你保留了自己的条目。来源的记录没有通过核实，Lattice 不会套用它。"
+
+#: src/papers/bibliography-audit.tsx
+msgid "You read the publisher's notice and kept citing it"
+msgstr "你读过出版方公告，仍保留引用"
+
+#: src/papers/bibliography-audit.tsx
+msgid "You read the publisher's notice and kept citing this paper."
+msgstr "你读过出版方公告，仍保留对这篇论文的引用。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "You sign in on Overleaf. Lattice never sees your password"
 msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
@@ -11317,6 +11528,10 @@ msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "已是最新版"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Your {BIBITEM} differs: {fields}"
+msgstr "你的 {BIBITEM} 有出入：{fields}"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"
@@ -11366,6 +11581,10 @@ msgstr "你的文件都在，没有丢失"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your projects"
 msgstr "我的项目"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Yours"
+msgstr "你的"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Zeta"
