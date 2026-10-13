@@ -298,9 +298,40 @@ input[type="search"]:focus-visible {
 .bib-entry-form > .ui-checkbox-field { grid-column: 1 / -1; }
 .bib-citation-records { grid-column: 1 / -1; display: grid; gap: var(--space-4); font: var(--type-caption-size)/1.5 var(--ui-font); }
 .bib-citation-records p { margin: 0; }
-.bib-citation-records article { display: grid; gap: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); }
-.bib-citation-records article > button { justify-self: start; }
-.bib-citation-evidence { display: flex; flex-wrap: wrap; gap: var(--space-3); color: var(--text-secondary); }
+/* How a record was matched: one quiet line, its parts set off by middle dots;
+   the source links to the record without leaving the type's own ink. */
+.bib-citation-evidence { display: inline-flex; flex-wrap: wrap; align-items: center; color: var(--text-secondary); }
+.bib-citation-evidence > span + span::before { content: "·"; padding-inline: var(--space-3); }
+.bib-evidence-source { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+.bib-evidence-source:hover { color: var(--text-primary); text-decoration-color: currentColor; }
+/* Records a lookup could not tell apart: one radio list in a raised card, each
+   record read as it would be cited, the chosen one washed and edged in the accent. */
+.bib-candidates { grid-column: 1 / -1; display: grid; gap: var(--space-5); }
+.bib-candidates-lead { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-candidate-list { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); overflow: hidden; background: var(--surface-panel-raised); }
+.bib-candidate-list .bib-candidate { padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: var(--space-5); cursor: pointer; color: var(--text-primary); font-weight: var(--weight-regular); }
+.bib-candidate + .bib-candidate { border-top: 1px solid var(--border-subtle); }
+.bib-candidate:hover { background: var(--control-hover-surface); }
+.bib-candidate[data-chosen] { background: color-mix(in srgb, var(--control-active) 6%, transparent); box-shadow: inset 2px 0 0 var(--control-active); }
+.bib-candidate > input { margin: var(--space-2) 0 0; accent-color: var(--control-active); }
+.bib-candidate-body { min-width: 0; display: grid; gap: var(--space-1); }
+.bib-candidate-body > strong { overflow-wrap: anywhere; font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); text-wrap: pretty; }
+.bib-candidate-byline { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.bib-candidate-body > em { color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.bib-candidate-evidence { margin-top: var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.bib-candidate-kind { height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; flex: none; font-weight: var(--weight-medium); white-space: nowrap; color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.bib-candidate-kind[data-kind="published"] { color: color-mix(in srgb, var(--status-success) 80%, var(--text-primary)); background: var(--status-success-soft); box-shadow: none; }
+.bib-candidates-actions { display: flex; justify-content: flex-end; }
+/* The entry as a reference list prints it, its key floated at the corner so
+   the lines beside it wrap around it at any width. */
+.bib-typeset { grid-column: 1 / -1; margin: 0; padding: var(--space-6) var(--space-8); border-radius: var(--radius-panel); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); overflow-wrap: anywhere; }
+.bib-typeset > * { display: block; }
+.bib-typeset-key { float: right; max-width: 45%; margin: 0 0 var(--space-2) var(--space-6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--space-3); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-secondary); font: var(--type-micro-size)/18px var(--editor-font); }
+.bib-typeset-authors { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-typeset > strong { margin-block: var(--space-1); color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); text-wrap: pretty; }
+.bib-typeset-venue { color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.bib-typeset-doi { font-family: var(--ui-font); }
+.bib-typeset-venue > .bib-typeset-doi:not(:first-child)::before { content: "·"; padding-inline: var(--space-3); }
 /* The lookup is one field and a way past it: the sheet fits it, and grows to the form when that appears. */
 .modal.sheet-dialog.bib-entry-lookup { height: auto; max-height: var(--dialog-large-height); }
 .bib-entry-manual { grid-column: 1 / -1; display: flex; margin-top: calc(-1 * var(--space-3)); }
@@ -963,6 +994,51 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
   .paper-row > .paper-meta > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
   .paper-group { margin-inline: var(--space-6); }
 }
+/* What the box will add, said before it happens (the add row), and the
+   import under way (the pending row): soft plates above the list, on the
+   rows' own inset, whose secondary line gives way first in a narrow panel. */
+.paper-add { margin-bottom: var(--space-3); display: grid; gap: var(--space-2); container: paper-add / inline-size; }
+.paper-add-row, .paper-pending { position: relative; width: 100%; min-width: 0; padding: var(--space-4); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; column-gap: var(--space-3); align-items: center; text-align: left; background: color-mix(in srgb, var(--text-primary) 4%, transparent); color: var(--text-primary); font: inherit; }
+button.paper-add-row:hover { background: var(--control-hover-surface); }
+.paper-add-row[data-quiet] { background: transparent; }
+.paper-add-row[data-quiet]:hover { background: var(--navigation-tree-hover-surface); }
+.paper-add-icon { display: grid; place-items: center; color: var(--text-secondary); stroke-width: 1.5; }
+.paper-add-row[data-duplicate] .paper-add-icon { color: var(--status-success); }
+.paper-add-text { min-width: 0; display: grid; }
+button.paper-add-text { padding: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; font: inherit; text-align: left; }
+.paper-add-row[data-duplicate]:has(> button.paper-add-text:hover) { background: var(--control-hover-surface); }
+.paper-add-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-medium); }
+.paper-add-title > q { font-weight: var(--weight-regular); }
+.paper-add-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.paper-add-detail[data-code] { font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
+.paper-add-kind { height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); white-space: nowrap; }
+.paper-add-enter { color: var(--text-tertiary); }
+.paper-add-action { height: 24px; padding: 0 var(--space-4); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-2); background: transparent; color: var(--text-primary); font-size: var(--type-caption-size); white-space: nowrap; }
+.paper-add-action:hover { background: var(--control-hover-surface); }
+.paper-pending { grid-template-columns: 16px minmax(0, 1fr) auto; row-gap: var(--space-2); padding-bottom: calc(var(--space-4) + 2px); overflow: hidden; }
+.paper-pending > .paper-add-title { font-weight: var(--weight-regular); }
+.paper-pending-steps { grid-column: 2 / -1; grid-row: 2; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.paper-pending-steps > li { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.paper-pending-steps > li[data-state="done"] { color: var(--text-secondary); }
+.paper-pending-steps > li[data-state="current"] { color: var(--text-primary); }
+.paper-pending-dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1px currentColor; }
+.paper-pending-steps > li[data-state="current"] > .paper-pending-dot { background: currentColor; }
+.paper-pending-cancel { grid-column: 3; grid-row: 1; width: 24px; height: 24px; margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0 0; display: grid; place-items: center; border-radius: var(--radius-compact); background: transparent; color: var(--text-secondary); }
+.paper-pending-cancel:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.paper-pending-track { position: absolute; inset: auto 0 0; height: 2px; }
+.paper-pending-track > span { display: block; height: 100%; background: var(--text-secondary); }
+@container paper-add (width < 240px) {
+  .paper-add-row:not([data-duplicate]) .paper-add-detail, .paper-add-enter { display: none; }
+  .paper-add-row:not([data-duplicate]) { grid-template-columns: 16px minmax(0, 1fr) auto; }
+}
+@container paper-add (width < 200px) {
+  .paper-add-kind { display: none; }
+  .paper-add-action-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* A paper this window just added keeps its key and actions out, as a lit
+   row does, until the next add. */
+.paper-row.just-added .paper-row-actions { display: flex; }
+@container paper-row (width < 300px) { .paper-row.just-added .paper-byline { display: none; } }
 /* Drawing beside the text, straight on the panel: the panel is already the
    card, so a plate here would be a card inside it. */
 .papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }

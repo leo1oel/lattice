@@ -61,7 +61,8 @@ describe("BibEntryDialog citation resolution", () => {
     const onSave = renderDialog({ initialDraft: resolved({ candidates }) });
     expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
     expect(screen.getByText("Neurocase")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "Select this record" })[1]);
+    fireEvent.click(screen.getAllByRole("radio")[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Use this record" }));
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ year: "1987", doi: "10.1080/02643298708252038" }), true);
   });
@@ -98,11 +99,11 @@ describe("BibEntryDialog citation resolution", () => {
     const onSave = renderDialog({ onResolve });
     resolveQuery("paper");
     expect(await screen.findByText("The Paper")).toBeInTheDocument();
-    expect(screen.getByText(/Source:/)).toHaveTextContent("Crossref");
+    expect(screen.getByText("Crossref")).toBeInTheDocument();
     expect(screen.getByText("Authors unchecked")).toBeInTheDocument();
     // Nothing to save until a record is chosen.
     expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Select this record" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use this record" }));
     expect(screen.getByLabelText("Title")).toHaveValue("The Paper");
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
     expect(onResolve).toHaveBeenCalledTimes(1);
@@ -187,10 +188,10 @@ describe("BibEntryDialog entry paths", () => {
     fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
     fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
     resolveQuery("ambiguous title");
-    await screen.findAllByRole("button", { name: "Select this record" });
+    await screen.findAllByRole("radio");
     expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Keep my fields" }));
-    expect(screen.queryByRole("button", { name: "Select this record" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("Own Title");
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Own Title", author: "Doe, Jane", year: "2025" }), true);
@@ -204,7 +205,7 @@ describe("BibEntryDialog entry paths", () => {
     resolveQuery("10.1/test");
     await screen.findByText("Compatible author names");
     resolveQuery("ambiguous title");
-    await screen.findAllByRole("button", { name: "Select this record" });
+    await screen.findAllByRole("radio");
     fireEvent.click(screen.getByRole("button", { name: "Keep my fields" }));
     expect(screen.getByText("Compatible author names")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
@@ -216,9 +217,9 @@ describe("BibEntryDialog entry paths", () => {
       onResolve: vi.fn(),
       initialDraft: resolved({ key: "", title: "", author: "", year: "", journal: "", doi: "", url: "", candidates: [resolved(), resolved({ year: "1999" })] }),
     });
-    expect(screen.getAllByRole("button", { name: "Select this record" })).toHaveLength(2);
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
-    expect(screen.queryByRole("button", { name: "Select this record" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("");
     const save = screen.getByRole("button", { name: "Save entry" });
     expect(save).toBeDisabled();
