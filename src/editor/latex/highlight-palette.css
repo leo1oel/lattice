@@ -1,0 +1,111 @@
+/* The highlighter palette (highlight-palette.tsx) and the toolbar's split
+ * control. The tints and their #242426 "Aa" are paper colours, printed under
+ * black text, so they stay light in the dark theme (highlighters.ts). */
+
+.latex-selection-tool.hl-split { position: relative; }
+.latex-selection-tool .hl-pen { position: relative; }
+.hl-pen-bar {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: 3px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--text-primary) 24%, transparent);
+  pointer-events: none;
+}
+.latex-selection-tool button.hl-caret { width: 16px; margin-left: -2px; }
+.latex-selection-tool button.hl-caret[aria-expanded="true"] { background: var(--control-active-soft); color: var(--text-primary); }
+
+.hl-palette {
+  --surface-radius: var(--radius-surface);
+  --surface-inset: var(--gap-inline-tight);
+  --fluid-hover-fill: var(--control-active-soft);
+  box-sizing: border-box;
+  width: 212px;
+  max-width: var(--radix-popover-content-available-width, 212px);
+  padding: var(--surface-inset);
+  border-radius: var(--surface-radius);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  display: grid;
+  gap: var(--space-1);
+}
+.hl-list, .hl-rows { display: grid; gap: var(--gap-hairline); }
+.hl-rows { padding-top: var(--space-1); border-top: 1px solid var(--border-subtle); }
+
+.hl-item, .hl-row {
+  min-width: 0;
+  min-height: var(--control-height-compact);
+  padding: 0 var(--pad-inline-control-tight) 0 var(--space-2);
+  border: 0;
+  border-radius: var(--nested-radius);
+  background: transparent;
+  color: var(--text-primary);
+  display: grid;
+  align-items: center;
+  column-gap: var(--gap-inline);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  text-align: start;
+}
+.hl-item { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.hl-row { grid-template-columns: 28px minmax(0, 1fr); color: var(--text-secondary); }
+.hl-row svg { justify-self: center; }
+.hl-item:hover, .hl-row:hover { background: var(--control-active-soft); }
+.hl-row:hover { color: var(--text-primary); }
+.hl-meaning, .hl-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-item[aria-pressed="true"] .hl-meaning { font-weight: var(--weight-medium); }
+.hl-check { color: var(--text-primary); }
+.hl-key {
+  min-width: 1ch;
+  color: var(--text-secondary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* "Aa" on the tint: the printed result, before choosing. */
+.hl-chip {
+  width: 28px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--radius-compact);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #242426 12%, transparent);
+  color: #242426;
+  display: grid;
+  place-items: center;
+  font-family: var(--reading-font);
+  font-size: var(--type-caption-size);
+  line-height: 1;
+}
+
+.hl-custom {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.hl-dot {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #242426 16%, transparent);
+}
+.hl-dot[aria-pressed="true"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, #242426 16%, transparent), 0 0 0 2px var(--surface-elevated), 0 0 0 3px var(--text-primary); }
+
+.hl-palette-custom { width: auto; }
+.hl-palette-custom .apple-color-picker { box-shadow: none; background: transparent; }
+.hl-back { grid-template-columns: auto minmax(0, 1fr); }
+
+.hl-palette-edit { width: 232px; gap: var(--space-2); padding: var(--space-3); }
+.hl-edit-row { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--gap-inline); }
+.hl-edit-actions { padding-top: var(--space-2); display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hl-item, .hl-row, .hl-dot { transition: background-color var(--motion-fast), box-shadow var(--motion-fast); }
+}

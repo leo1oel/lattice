@@ -31,6 +31,7 @@ import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
+import { highlightAround, highlightOpening, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
@@ -99,16 +100,12 @@ import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-spl
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish">, (value?: string) => [string, string] | null> = {
+const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "unhighlight">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
   underline: () => ["\\underline{", "}"],
   strikethrough: () => ["\\sout{", "}"],
-  highlight: (value) => {
-    const color = value?.trim() || "yellow";
-    const hex = color.match(/^#?([0-9a-f]{6})(?:[0-9a-f]{2})?$/i);
-    return hex ? [`\\colorbox[HTML]{${hex[1].toUpperCase()}}{`, "}"] : [`\\colorbox{${color}}{`, "}"];
-  },
+  highlight: (value) => [highlightOpening(value ?? ""), "}"],
   heading: (value) => [`\\${value || "section"}{`, "}"],
   quote: () => ["\\begin{quote}\n", "\n\\end{quote}"],
   link: (value) => {
@@ -526,7 +523,7 @@ export function DocumentCanvas(props: {
   }, [activeFile, commentFocusPath, commentFocusRequest, editorNavigation, markdownDocument, markdownPreviewLineOffset, props.mode]);
   const visualRevealRef = useLatestRef(visualReveal);
   const [selectedText, setSelectedText] = useState("");
-  const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition } | null>(null);
+  const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition; highlight: string | null } | null>(null);
   const commentsForActiveFile = useMemo(() => editorComments.filter((comment) => comment.path === activeFile), [activeFile, editorComments]);
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
@@ -595,7 +592,7 @@ export function DocumentCanvas(props: {
       dismissSelectionToolbar();
       return;
     }
-    const halfWidth = Math.min(346, Math.max(0, editorBounds.width - 16)) / 2;
+    const halfWidth = Math.min(350, Math.max(0, editorBounds.width - 16)) / 2;
     const selectionCenter = start.top === end.top
       ? (start.left + end.right) / 2
       : start.left + Math.min(72, Math.max(20, editorBounds.width / 5));
@@ -603,8 +600,11 @@ export function DocumentCanvas(props: {
     const selectionTop = Math.min(start.top, end.top);
     const below = selectionTop - editorBounds.top < 52;
     selectionToolbarOwnerRef.current = { path, from: range.from, to: range.to };
+    // A highlight around the selection: the palette ticks its colour and offers Remove.
+    const highlight = path.endsWith(".tex") ? highlightAround(view.state.doc, range.from, range.to) : null;
     setSelectionToolbar({
       position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
+      highlight: highlight ? highlight.color ?? "" : null,
     });
   }, [dismissSelectionToolbar]);
   const reportEditorPosition = useCallback((view: EditorView, path: string) => {
@@ -734,6 +734,24 @@ export function DocumentCanvas(props: {
       proofread.start(view, action);
       dismissSelectionToolbar();
       return;
+    }
+    // Remove takes off the highlight around the selection; a colour chosen for
+    // a whole highlight recolours it rather than nesting another inside.
+    if (action === "highlight" || action === "unhighlight") {
+      const around = highlightAround(view.state.doc, range.from, range.to);
+      const whole = around && ((around.contentFrom === range.from && around.contentTo === range.to)
+        || (around.from === range.from && around.to === range.to));
+      const target = action === "unhighlight" || whole ? around : null;
+      if (target) {
+        const changes = view.state.changes(action === "unhighlight" ? removeHighlight(target) : [recolorHighlight(target, value ?? "")]);
+        editAndFocus(view, {
+          changes,
+          selection: { anchor: changes.mapPos(target.contentFrom, 1), head: changes.mapPos(target.contentTo, -1) },
+        });
+        updateSelectionToolbar(view, owner.path);
+        return;
+      }
+      if (action === "unhighlight") return;
     }
     const wrap = SELECTION_WRAPS[action](value);
     if (!wrap) return;
@@ -1527,6 +1545,7 @@ export function DocumentCanvas(props: {
           position={selectionToolbar.position}
           canComment
           canProofread={isLatexSourcePath(activeFile) && Boolean(props.projectRoot)}
+          highlight={selectionToolbar.highlight}
           commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}

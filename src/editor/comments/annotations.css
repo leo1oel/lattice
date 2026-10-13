@@ -148,7 +148,7 @@
 .annotations-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "title actions" "filter filter" "search search";
+  grid-template-areas: "title actions" "filter filter" "highlights highlights" "search search";
   align-items: center;
   gap: var(--space-4) var(--space-2);
   padding: var(--space-2) 0 var(--space-4);
@@ -176,6 +176,71 @@
 .annotations-filter .ui-segmented-tab { display: inline-flex; align-items: center; gap: var(--gap-inline-tight); min-width: 0; }
 .annotations-filter-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .annotations-filter-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* The open file's highlights by meaning; one pressed lists its highlights in place of the notes. */
+.annotations-highlights { grid-area: highlights; display: flex; flex-wrap: wrap; gap: var(--gap-inline-tight); min-width: 0; }
+.annotations-highlight-kind {
+  max-width: 100%;
+  height: 24px;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline-tight);
+  min-width: 0;
+  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+  cursor: pointer;
+  transition: background-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.annotations-highlight-kind:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.annotations-highlight-kind[aria-pressed="true"] { background: var(--control-active-soft); box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text-primary); }
+/* A paper tint (highlighters.ts), ringed so the palest still reads on the sheet. */
+.annotations-highlight-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #242426 18%, transparent);
+}
+.annotations-highlight-swatch[data-kind="other"] { background: conic-gradient(#FFF1A6 0 33%, #D3E4FF 0 66%, #FFD6E4 0); }
+.annotation-highlight {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--motion-fast);
+}
+.annotation-highlight:hover { background: var(--control-hover-surface); }
+.annotation-highlight .annotation-card-meta { grid-column: auto; }
+.annotation-highlight-text {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font: var(--type-body-size)/var(--type-subtitle-line-height) var(--reading-font);
+  overflow-wrap: anywhere;
+}
+/* The passage as it prints: black text on its tint, whatever the theme. */
+.annotation-highlight-text mark {
+  padding: 0 var(--gap-tight);
+  border-radius: var(--gap-tight);
+  color: #242426;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+/* A colour by name, or soul's \hl: its colour is the document's to say. */
+.annotation-highlight-text mark.annotation-highlight-unknown { background: var(--control-pressed-surface); color: var(--text-primary); }
 .annotations-scroll { flex: 1 1 auto; min-height: 0; }
 .annotations-list { display: grid; align-content: start; gap: var(--gap-tight); padding: var(--space-3) 0 var(--space-6); }
 .annotations-section {
