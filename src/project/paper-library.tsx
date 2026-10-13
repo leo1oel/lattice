@@ -34,6 +34,7 @@ import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PaperInspector } from "./paper-inspector";
+import { usePaperListWindow, type RowSpan } from "./paper-list-window";
 import type { SymbolOccurrence } from "./references-panel";
 
 type PaperFetchState = "loading" | "success";
@@ -437,7 +438,8 @@ function PaperShelf(props: PaperLibraryProps & {
   };
   // Closing the inspector (or Escape) leaves the keyboard on the paper it showed.
   const closeInspector = () => {
-    bodyRef.current?.querySelector<HTMLElement>('.paper-row[data-item-selected="true"] > .paper-open')?.focus();
+    const index = selectedKey === null ? -1 : rowKeys.indexOf(selectedKey);
+    if (index >= 0) rowWindow.reveal(index, (row) => row.querySelector<HTMLElement>(":scope > .paper-open")?.focus());
     setSelectedKey(null);
   };
   const inspectedLink = inspected && paperLinkUrl(inspected);
@@ -459,21 +461,46 @@ function PaperShelf(props: PaperLibraryProps & {
     group === "state" ? stateLabels[value] : value || (group === "year" ? t`No year` : t`No venue`)
   ));
   const sortOn = sort !== "title" || group !== "none";
+  // Every paper's key in the order the list shows them, and where each group
+  // starts: a long list draws only the rows near the view.
+  const rowKeys = sections.flatMap((section) => section.papers.map(paperKey));
+  const groupStarts = sections.map((_, sectionIndex) => sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0));
+  const rowWindow = usePaperListWindow(viewportRef, rowKeys, groupStarts);
 
   // Tab walks every control of every paper; the arrows, Home and End move
   // between papers, across groups, landing where a click on the row would.
+  // A paper the list has not drawn yet is drawn first.
   const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[event.key];
     if (step === undefined || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
-    const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(".paper-row"));
-    const from = rows.findIndex((row) => row.contains(event.target as Node));
+    const from = rowKeys.indexOf((event.target as Element).closest<HTMLElement>(".paper-row[data-paper-key]")?.dataset.paperKey ?? "");
     if (from < 0) return;
-    const to = Math.max(0, Math.min(rows.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rows.length - 1 : 0));
-    const target = rows[to].querySelector<HTMLElement>(".paper-open:not(:disabled)")
-      ?? rows[to].querySelector<HTMLElement>("button:not(:disabled)");
-    if (!target) return;
+    const to = Math.max(0, Math.min(rowKeys.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rowKeys.length - 1 : 0));
+    const controlIn = (row: HTMLElement) => row.querySelector<HTMLElement>(".paper-open:not(:disabled)")
+      ?? row.querySelector<HTMLElement>("button:not(:disabled)");
+    const drawn = rowWindow.rowOf(rowKeys[to]!);
+    if (drawn && !controlIn(drawn)) return;
     event.preventDefault();
-    target.focus();
+    rowWindow.reveal(to, (row) => controlIn(row)?.focus());
+  };
+  /** Rows `from`…`to` of the list as the window draws them: the rows near the view, and gaps for the rest. */
+  const drawRows = (papers: readonly PaperSummary[], from: number) => {
+    const to = from + papers.length;
+    const gap = (span: RowSpan) => (
+      <div key={`gap-${span.from}`} className="paper-rows-gap" aria-hidden="true" style={{ height: rowWindow.gapHeight(span) }} />
+    );
+    const drawn: ReactNode[] = [];
+    let at = from;
+    for (const span of rowWindow.drawn) {
+      const first = Math.max(span.from, from);
+      const last = Math.min(span.to, to);
+      if (first >= last) continue;
+      if (first > at) drawn.push(gap({ from: at, to: first }));
+      for (let index = first; index < last; index += 1) drawn.push(renderRow(papers[index - from]!, index, index - from, papers.length));
+      at = last;
+    }
+    if (at < to) drawn.push(gap({ from: at, to }));
+    return drawn;
   };
 
   // A wide list's column headers; each sorts by its column.
@@ -490,7 +517,7 @@ function PaperShelf(props: PaperLibraryProps & {
     </button>
   );
 
-  const renderRow = (paper: PaperSummary, index: number) => {
+  const renderRow = (paper: PaperSummary, index: number, position: number, groupSize: number) => {
     const fetchState = props.paperFetchStates[paperKey(paper)];
     const readable = readablePaper(paper);
     const readingState = paperReadingState(paper);
@@ -552,7 +579,12 @@ function PaperShelf(props: PaperLibraryProps & {
       : uses ? t({ message: `Cited ${{ count: formatCount(uses) }}× in this paper` }) : t`Not cited in this paper yet`;
     const row = (
       <div
+        ref={rowWindow.active ? rowWindow.observeRow : undefined}
         role="listitem"
+        // A list that draws only some rows tells a screen reader how many it holds.
+        aria-setsize={rowWindow.active ? groupSize : undefined}
+        aria-posinset={rowWindow.active ? position + 1 : undefined}
+        data-paper-key={paperKey(paper)}
         className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${recent ? "just-added " : ""}${active ? "active" : ""}`}
         data-citation-health={paper.citationHealth?.kind}
         data-reading={readingState}
@@ -799,6 +831,7 @@ function PaperShelf(props: PaperLibraryProps & {
         <ScrollArea
           className="paper-list"
           viewportRef={viewportRef}
+          viewportProps={{ "data-windowed": rowWindow.active ? "" : undefined }}
           orientation="both"
           contentClassName="paper-list-content"
         >
@@ -819,12 +852,14 @@ function PaperShelf(props: PaperLibraryProps & {
             {/* Tab reaches each paper's own controls, which answer with the focus ring. */}
             <FluidHoverSurface selector=".paper-row" preserveSelection follow={null} />
             {group === "none" ? (
-              <div role="list" aria-label={t`Papers`} className="paper-group-list">
-                {sections[0]?.papers.map((paper, index) => renderRow(paper, index))}
-              </div>
+              sections[0] && (
+                <div role="list" aria-label={t`Papers`} className="paper-group-list" data-paper-rows-from={0} data-paper-rows-to={sections[0].papers.length}>
+                  {drawRows(sections[0].papers, 0)}
+                </div>
+              )
             ) : sections.map((section, sectionIndex) => {
               const nameId = `${rowId}-${sectionIndex}-group`;
-              const offset = sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0);
+              const offset = groupStarts[sectionIndex]!;
               return (
                 <Fragment key={section.id}>
                   {/* A label to the hover fill, which fades across it rather than sliding. */}
@@ -832,8 +867,8 @@ function PaperShelf(props: PaperLibraryProps & {
                     <span id={nameId} className="paper-group-name">{section.name}</span>
                     <span className="paper-group-count">{formatCount(section.papers.length)}</span>
                   </div>
-                  <div role="list" aria-labelledby={nameId} className="paper-group-list">
-                    {section.papers.map((paper, index) => renderRow(paper, offset + index))}
+                  <div role="list" aria-labelledby={nameId} className="paper-group-list" data-paper-rows-from={offset} data-paper-rows-to={offset + section.papers.length}>
+                    {drawRows(section.papers, offset)}
                   </div>
                 </Fragment>
               );
