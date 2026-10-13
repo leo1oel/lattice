@@ -302,6 +302,7 @@ fn map_hit(hit: SearchHit) -> Option<LiteratureHit> {
         cited_by_count: None,
         votes,
         snippet,
+        r#abstract: None,
         doi: None,
         landing_url: None,
     })
