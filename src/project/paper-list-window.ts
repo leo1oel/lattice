@@ -45,7 +45,11 @@ export type PaperListWindow = {
   gapHeight: (span: RowSpan) => number;
   /** Each drawn row's ref (the row carries `data-paper-key`): measures it. */
   observeRow: (row: HTMLElement | null) => (() => void) | undefined;
-  /** Draw row `index` if it is not, then hand it to `then` (to focus a control in it). */
+  /**
+   * Draw row `index` if it is not and scroll it into view, then hand it to
+   * `then` (to focus a control in it, without scrolling: WebKit reveals a
+   * focused element a frame late, after the window has held the view still).
+   */
   reveal: (index: number, then: (row: HTMLElement) => void) => void;
   /** The drawn row of `key`, if it is drawn. */
   rowOf: (key: string) => HTMLElement | null;
@@ -96,7 +100,7 @@ export function usePaperListWindow(
   // What the handlers below read between renders, as of the last commit.
   const latestRef = useRef({ keys, measures, range });
   // The row held still across the next commit, or the end when the view was at it.
-  const anchorRef = useRef<{ key: string; top: number } | "end" | null>(null);
+  const anchorRef = useRef<{ key: string | "end"; top: number } | null>(null);
   const pendingRef = useRef<{ key: string; then: (row: HTMLElement) => void } | null>(null);
 
   /** Keep the first row in view where it is on screen across the next commit. */
@@ -105,7 +109,7 @@ export function usePaperListWindow(
     if (!viewport || anchorRef.current) return;
     // A view scrolled to the end (the scrollbar dragged down) stays there.
     if (viewport.scrollTop > 0 && viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1) {
-      anchorRef.current = "end";
+      anchorRef.current = { key: "end", top: 0 };
       return;
     }
     const top = viewport.getBoundingClientRect().top;
@@ -252,8 +256,8 @@ export function usePaperListWindow(
     if (!active || !viewport) return;
     const anchor = anchorRef.current;
     anchorRef.current = null;
-    const anchored = anchor && anchor !== "end" && drawnRow(viewport, anchor.key);
-    if (anchor === "end") viewport.scrollTop = viewport.scrollHeight;
+    const anchored = anchor && anchor.key !== "end" && drawnRow(viewport, anchor.key);
+    if (anchor?.key === "end") viewport.scrollTop = viewport.scrollHeight;
     else if (anchor && anchored) {
       const shift = anchored.getBoundingClientRect().top - anchor.top;
       if (Math.abs(shift) >= 0.5) viewport.scrollTop += shift;
@@ -262,6 +266,7 @@ export function usePaperListWindow(
     const revealed = pending && drawnRow(viewport, pending.key);
     if (pending && revealed) {
       pendingRef.current = null;
+      revealed.scrollIntoView?.({ block: "nearest" });
       pending.then(revealed);
     }
     check();
@@ -272,6 +277,7 @@ export function usePaperListWindow(
     if (key === undefined) return;
     const row = drawnRow(viewportRef.current, key);
     if (row) {
+      row.scrollIntoView?.({ block: "nearest" });
       then(row);
       return;
     }

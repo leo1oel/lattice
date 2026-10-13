@@ -441,7 +441,7 @@ function PaperShelf(props: PaperLibraryProps & {
   // Closing the inspector (or Escape) leaves the keyboard on the paper it showed.
   const closeInspector = () => {
     const index = selectedKey === null ? -1 : rowKeys.indexOf(selectedKey);
-    if (index >= 0) rowWindow.reveal(index, (row) => row.querySelector<HTMLElement>(":scope > .paper-open")?.focus());
+    if (index >= 0) rowWindow.reveal(index, (row) => row.querySelector<HTMLElement>(":scope > .paper-open")?.focus({ preventScroll: true }));
     setSelectedKey(null);
   };
   const inspectedLink = inspected && paperLinkUrl(inspected);
@@ -483,25 +483,39 @@ function PaperShelf(props: PaperLibraryProps & {
     const drawn = rowWindow.rowOf(rowKeys[to]!);
     if (drawn && !controlIn(drawn)) return;
     event.preventDefault();
-    rowWindow.reveal(to, (row) => controlIn(row)?.focus());
+    rowWindow.reveal(to, (row) => controlIn(row)?.focus({ preventScroll: true }));
   };
   /** Rows `from`…`to` of the list as the window draws them: the rows near the view, and gaps for the rest. */
   const drawRows = (papers: readonly PaperSummary[], from: number) => {
     const to = from + papers.length;
-    const gap = (span: RowSpan) => (
-      <div key={`gap-${span.from}`} className="paper-rows-gap" aria-hidden="true" style={{ height: rowWindow.gapHeight(span) }} />
-    );
+    // The gaps keep their keys while the window moves, so each is resized in
+    // place rather than replaced, and no drawn row is moved past one: the
+    // first and the last are always there (empty, and without the class
+    // that spaces the row after it, when no rows stand behind them), and one
+    // between two drawn spans is keyed by the row after it. A replaced gap
+    // left the list briefly shorter than the view's scroll position, and a
+    // moved row lost focus; either way the browser, reading layout
+    // mid-commit, pulled the view back up.
     const drawn: ReactNode[] = [];
-    let at = from;
-    for (const span of rowWindow.drawn) {
-      const first = Math.max(span.from, from);
-      const last = Math.min(span.to, to);
-      if (first >= last) continue;
-      if (first > at) drawn.push(gap({ from: at, to: first }));
-      for (let index = first; index < last; index += 1) drawn.push(renderRow(papers[index - from]!, index, index - from, papers.length));
-      at = last;
+    const gap = (span: RowSpan, key: string) => (
+      <div
+        key={key}
+        className={span.to > span.from ? "paper-rows-gap" : undefined}
+        aria-hidden="true"
+        style={{ height: rowWindow.gapHeight(span) }}
+      />
+    );
+    const spans = rowWindow.drawn
+      .map((span) => ({ from: Math.max(span.from, from), to: Math.min(span.to, to) }))
+      .filter((span) => span.from < span.to);
+    if (rowWindow.active) drawn.push(gap({ from, to: spans[0]?.from ?? to }, "gap-start"));
+    let at = spans[0]?.from ?? to;
+    for (const span of spans) {
+      if (span.from > at) drawn.push(gap({ from: at, to: span.from }, `gap-${paperKey(papers[span.from - from]!)}`));
+      for (let index = span.from; index < span.to; index += 1) drawn.push(renderRow(papers[index - from]!, index, index - from, papers.length));
+      at = span.to;
     }
-    if (at < to) drawn.push(gap({ from: at, to }));
+    if (rowWindow.active) drawn.push(gap({ from: at, to }, "gap-end"));
     return drawn;
   };
 
