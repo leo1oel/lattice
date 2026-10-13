@@ -102,7 +102,9 @@ Its requests reach only that project's repositories. Authored and review-request
 paginated matches on the server when the shared repository superset is truncated; an incomplete
 GitHub response is reported explicitly rather than silently treated as a complete filtered list.
 Both Git views send `synara:embed-ready`; missing CLI/authentication shows its unavailable or
-sign-in state without query retries. The inbox, its filters and the item detail follow the host
+sign-in state without query retries.
+In the embed, Changes composes the commit message in the panel (with `git.generateCommitMessage` behind "Write the message for me"), stages by checkbox and reads a paper's change as sentences; Pull requests groups the project's pull requests by what needs the writer and says why an empty list is empty; a pull request opens on "In the paper", a red-pen reading of its changed sentences with Comment, Approve and Merge.
+The fork's `docs/lattice-git-embed.md` describes these views and the data they read. The inbox, its filters and the item detail follow the host
 locale through the fork's Lingui catalogs (zh-CN included); GitHub content and agent prompts stay
 as written. The narrow model picker retains account selection in upstream’s
 new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
