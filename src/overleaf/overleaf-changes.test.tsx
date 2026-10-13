@@ -27,7 +27,7 @@ describe("Overleaf changes panel", () => {
     render(panel({ onReveal, onAccept, onReject }));
     expect(screen.getByText("quick")).toBeInTheDocument();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(screen.getByText("suggests inserting")).toBeInTheDocument();
+    expect(screen.getByText("added")).toBeInTheDocument();
     fireEvent.click(screen.getByText("quick"));
     expect(onReveal).toHaveBeenCalledWith(4);
 

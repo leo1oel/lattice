@@ -32,3 +32,52 @@
 /* The connection dropped: who was here, shown faded until the reconnect
    confirms them again (or the grace period clears them). */
 .avatar-group.overleaf-presence-avatars.reconnecting > * { opacity: .45; }
+
+/* The hover card: who is here and where, each row a jump there. The head and
+   the chat line are quiet; the rows carry the names. */
+.overleaf-presence-trigger { display: inline-flex; }
+.overleaf-presence-card {
+  --surface-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
+  --surface-inset: var(--gap-inline-tight);
+  width: min(280px, var(--radix-hover-card-content-available-width, 280px));
+  padding: var(--surface-inset);
+  display: grid;
+}
+.overleaf-presence-card-head {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.overleaf-presence-card-row,
+.overleaf-presence-card-chat {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-radius: calc(var(--surface-radius) - var(--surface-inset));
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+.overleaf-presence-card-row:hover,
+.overleaf-presence-card-chat:hover { background: var(--control-hover-surface); }
+.overleaf-presence-card-who { min-width: 0; display: grid; }
+.overleaf-presence-card-who > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overleaf-presence-card-who strong {
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--weight-medium);
+}
+.overleaf-presence-card-who span { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.overleaf-presence-card-chat {
+  margin-top: var(--space-2);
+  padding-block: var(--space-3);
+  box-shadow: 0 -1px 0 var(--border-subtle);
+  border-radius: 0 0 calc(var(--surface-radius) - var(--surface-inset)) calc(var(--surface-radius) - var(--surface-inset));
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+}
+.overleaf-presence-card-chat:hover { color: var(--text-primary); }

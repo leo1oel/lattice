@@ -1936,6 +1936,11 @@ function App() {
               reconnecting={overleafPresence.reconnecting}
               pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
               onJump={jumpToOverleafPeer}
+              onMessageEveryone={() => {
+                overleaf.setOverleafCollabTab("chat");
+                tools.open("comments");
+                void overleafChat.refresh();
+              }}
             />
           ) : null}
           onOverleafSync={syncOverleaf}

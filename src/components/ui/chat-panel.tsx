@@ -1,9 +1,11 @@
 /**
- * The conversation surface of Overleaf's project chat: their messages on the
- * left, yours on the right, newest at the bottom, and a composer that sends on
- * Enter.
+ * The conversation surface of Overleaf's project chat and a Share room's chat:
+ * newest at the bottom, and a composer that sends on Enter. Messages are
+ * bubbles (theirs on the left, yours on the right), or, when the host gives
+ * each speaker a face, rows the way a team chat reads: the face, name and
+ * time on the first of a run, and a divider where the day changes.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { SendHorizontal } from "lucide-react";
 import { InfinityLoader } from "./activity-icons";
@@ -37,6 +39,22 @@ export function formatStamp(timestamp: number, locale?: string) {
   /* eslint-enable lingui/no-unlocalized-strings */
 }
 
+/** "Today", "Yesterday", else the date with its weekday, for a day divider. */
+function dayLabel(timestamp: number, locale: string) {
+  const day = new Date(timestamp);
+  const today = new Date();
+  const days = Math.round(
+    (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - Date.UTC(day.getFullYear(), day.getMonth(), day.getDate())) / 86_400_000,
+  );
+  if (days === 0 || days === 1) {
+    const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-days, "day");
+    return relative.charAt(0).toLocaleUpperCase(locale) + relative.slice(1);
+  }
+  return day.toLocaleDateString(locale, days < 7
+    ? { weekday: "long", month: "short", day: "numeric" }
+    : { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+}
+
 /** While an input method is composing, Enter is choosing a candidate, not sending. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function isComposingEnter(event: React.KeyboardEvent) {
@@ -54,6 +72,10 @@ export function ChatPanel(props: {
   loadingText?: string;
   /** Omitted when there is nothing to say, such as while an error explains the gap. */
   emptyText?: string;
+  /** Drawn in place of `emptyText`, for a host with an empty state of its own. */
+  emptyState?: ReactNode;
+  /** The speaker's face; given, messages read as rows with day dividers rather than bubbles. */
+  avatar?: (message: ChatPanelMessage) => ReactNode;
   placeholder: string;
   /** Resolve to clear the draft; reject to keep it, while the caller shows why. */
   onSend: (body: string) => Promise<void> | void;
@@ -141,19 +163,49 @@ export function ChatPanel(props: {
         {props.loading && !props.messages.length && (
           <p className="git-empty"><InfinityLoader size={13} /> {props.loadingText}</p>
         )}
-        {!props.loading && !props.messages.length && props.emptyText && <p className="git-empty">{props.emptyText}</p>}
+        {!props.loading && !props.messages.length && (
+          props.emptyState ?? (props.emptyText && <p className="git-empty">{props.emptyText}</p>)
+        )}
         {props.messages.map((message, index) => {
           // One name above a run of messages reads as a conversation rather
           // than a log; repeat it only when the speaker changes.
           const previous = props.messages[index - 1];
+          const newDay = !previous || new Date(previous.at).toDateString() !== new Date(message.at).toDateString();
           const grouped = previous
             && previous.authorKey === message.authorKey
             && message.at - previous.at < 5 * 60_000;
+          const name = message.mine ? t`You` : message.authorName;
+          if (props.avatar) {
+            const opensRun = !grouped || newDay;
+            const day = newDay ? dayLabel(message.at, i18n.locale) : null;
+            // The divider above says which day; the row needs only the clock.
+            // eslint-disable-next-line lingui/no-unlocalized-strings -- Intl.DateTimeFormat option values
+            const clock = new Date(message.at).toLocaleTimeString(i18n.locale, { hour: "2-digit", minute: "2-digit" });
+            return (
+              <Fragment key={message.id}>
+                {day && <div className="chat-day" role="separator" aria-label={day}>{day}</div>}
+                <article className={`chat-row${opensRun ? "" : " grouped"}`}>
+                  <span className="chat-row-avatar">{opensRun && props.avatar(message)}</span>
+                  <div className="chat-row-body">
+                    {opensRun && (
+                      <div className="chat-row-meta">
+                        <span>{name}</span>
+                        <time dateTime={new Date(message.at).toISOString()} title={formatStamp(message.at, i18n.locale)}>
+                          {clock}
+                        </time>
+                      </div>
+                    )}
+                    <p>{message.body}</p>
+                  </div>
+                </article>
+              </Fragment>
+            );
+          }
           return (
             <article className={`chat-message${message.mine ? " mine" : ""}${grouped ? " grouped" : ""}`} key={message.id}>
               {!grouped && (
                 <div className="chat-meta">
-                  <span>{message.mine ? t`You` : message.authorName}</span>
+                  <span>{name}</span>
                   <time>{formatStamp(message.at, i18n.locale)}</time>
                 </div>
               )}

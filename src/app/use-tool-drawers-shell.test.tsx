@@ -59,7 +59,7 @@ function Harness({ linked }: { linked: boolean }) {
       <Suspense fallback={null}>
         {linked ? (
           <AppOverleafCollabDrawer
-            overleaf={{ overleafCollabOpen: collabOpen, overleafLink: {}, overleafDocPaths: new Map() } as never}
+            overleaf={{ overleafCollabOpen: collabOpen, overleafLink: {}, overleafDocPaths: new Map(), overleafPresence: { peers: [] } } as never}
             onClose={closePanel}
             localComments={null}
             localCommentCount={0}

@@ -1,6 +1,8 @@
 /**
  * One drawer for everything that happens between people on an Overleaf
- * project: the comments on the text, and the chat beside it.
+ * project: the comments on the text, the suggested changes to it, and the chat
+ * beside it. Each person keeps one colour and face across all three, the one
+ * the presence stack gives them (overleaf-collab-people.ts).
  *
  * They are one panel rather than two toolbar buttons because they are one
  * conversation from the writer's point of view — someone leaves a comment, you
@@ -9,6 +11,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { MessagesSquare } from "lucide-react";
+import { EmptyState } from "../components/ui/empty-state";
+import { ResearchArt } from "../components/ui/research-art";
+import { LETTER_RACK } from "../components/ui/research-art-letter-rack";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -17,10 +22,15 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { CommentVisibilityFilter } from "../editor/comments/comment-visibility-filter";
 import { OverleafCommentsPanel } from "./overleaf-comments";
 import { OverleafChangesPanel } from "./overleaf-changes";
+import { collabPeopleHues, personColor } from "./overleaf-collab-people";
+import { PersonAvatar } from "./overleaf-person-avatar";
+import type { PresenceUser } from "./use-overleaf-presence";
 import type { useOverleafChat } from "./use-overleaf-chat";
 import type { OverleafComments } from "./use-overleaf-comments";
 import type { useOverleafRealtime } from "./use-overleaf-realtime";
 import type { useOverleafTrackChanges } from "./use-overleaf-track-changes";
+import { formatCount } from "../i18n";
+import { spaceMixedScript } from "../trellis/trellis-titles";
 import "./overleaf-collab.css";
 
 export type OverleafCollabTab = "comments" | "chat" | "changes";
@@ -40,13 +50,15 @@ export function OverleafCollabDrawer(props: {
   /** The open document on the live channel: Overleaf's id for it (null when none), its suggestions, and whether you may act on them. */
   realtime: Pick<ReturnType<typeof useOverleafRealtime>, "docId" | "changes" | "canWrite">;
   pathForDoc: (docId: string) => string | null;
+  /** Who else is in the project now, from the presence roster. */
+  peers: PresenceUser[];
   source: string;
   /** Jump to a comment, which may be in a file that is not open. */
   onRevealComment: (path: string, position: number) => void;
   /** Jump to a suggestion, which is always in the open document. */
   onReveal: (position: number) => void;
 }) {
-  const { t } = useLingui();
+  const { i18n, t } = useLingui();
   const [commentSource, setCommentSource] = useState(props.focusLocalComments ? "local" : "overleaf");
   const [showResolved, setShowResolved] = useState(!!props.focusThreadId);
   const { comments, chat, trackChanges, realtime } = props;
@@ -58,8 +70,21 @@ export function OverleafCollabDrawer(props: {
     at: message.timestamp,
     mine: message.mine,
   })), [chat.messages]);
+  const chatEmails = new Map(chat.messages.map((message) => [message.id, message.authorEmail]));
+  const hues = collabPeopleHues(props.peers, realtime.changes, trackChanges.authorName);
+  // First names, as you would address them: "Alex, Mina and Sofia" (or
+  // "Alex、Mina 和 Sofia", spaced where Latin meets Chinese).
+  const here = spaceMixedScript(new Intl.ListFormat(i18n.locale, { type: "conjunction" })
+    .format(props.peers.map((peer) => peer.name.trim().split(/\s+/)[0] || t`Anonymous`)));
   const openThreads = comments.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
-  const badge = (count: number) => (count > 0 ? <em>{count}</em> : null);
+  // A quiet number after the label; the label gives way first when the tabs are narrow.
+  const tab = (label: string, count: number) => (
+    <>
+      <span className="overleaf-collab-tab-label">{label}</span>
+      {count > 0 && <span className="overleaf-collab-tab-count">{formatCount(count, i18n.locale)}</span>}
+    </>
+  );
+  const openCount = formatCount(openThreads, i18n.locale);
   const showLocal = commentSource === "local" && !!props.hasLocalComments;
   const hasResolved = comments.threads.some((thread) => thread.resolved);
   const threadCount = comments.threads.length;
@@ -79,9 +104,9 @@ export function OverleafCollabDrawer(props: {
           ariaLabel={t`Overleaf collaboration view`}
           className="overleaf-collab-tabs"
           items={[
-            { value: "comments", label: <>{t`Comments`}{badge(openThreads)}</> },
-            { value: "changes", label: <>{t`Changes`}{badge(realtime.changes.length)}</> },
-            { value: "chat", label: <>{t`Chat`}{badge(chat.unread)}</> },
+            { value: "comments", label: tab(t`Comments`, openThreads) },
+            { value: "changes", label: tab(t({ message: "Suggestions", context: "Overleaf tracked changes" }), realtime.changes.length) },
+            { value: "chat", label: tab(t`Chat`, chat.unread) },
           ]}
         />
 
@@ -102,8 +127,13 @@ export function OverleafCollabDrawer(props: {
           <>
             {/* Which comments to list shares one row with the resolved filter,
                 rather than stacking a second full-width switcher under the tabs. */}
-            {(props.hasLocalComments || (!showLocal && hasResolved)) && (
-              <div className="overleaf-comments-toolbar">
+            {(props.hasLocalComments || (!showLocal && (hasResolved || openThreads > 0))) && (
+              <div className="overleaf-collab-toolbar">
+                {!props.hasLocalComments && (
+                  <span className="overleaf-collab-count">
+                    {openThreads === 1 ? t`1 open` : t`${openCount} open`}
+                  </span>
+                )}
                 {props.hasLocalComments && (
                   <SegmentedControl
                     value={commentSource}
@@ -112,7 +142,7 @@ export function OverleafCollabDrawer(props: {
                     className="overleaf-comment-source"
                     items={[
                       { value: "overleaf", label: "Overleaf" },
-                      { value: "local", label: <>{t({ message: "Local", context: "comment source" })}{badge(props.localCommentCount ?? 0)}</> },
+                      { value: "local", label: tab(t({ message: "Local", context: "comment source" }), props.localCommentCount ?? 0) },
                     ]}
                   />
                 )}
@@ -147,6 +177,7 @@ export function OverleafCollabDrawer(props: {
                 onDeleteMessage={comments.deleteMessage}
                 onReveal={props.onRevealComment}
                 showResolved={showResolved}
+                hues={hues}
               />
             )}
           </>
@@ -155,15 +186,38 @@ export function OverleafCollabDrawer(props: {
             header={(
               <>
                 {chat.error && <InlineMessage level="error" className="overleaf-chat-inline">{chat.error}</InlineMessage>}
+                {props.peers.length > 0 && (
+                  <p className="overleaf-chat-here">
+                    <span className="overleaf-chat-here-faces" aria-hidden="true">
+                      {props.peers.slice(0, 3).map((peer) => (
+                        <PersonAvatar key={peer.id} name={peer.name || t`Anonymous`} color={personColor(hues, peer).color} size="small" />
+                      ))}
+                    </span>
+                    <span className="overleaf-chat-here-names">{t`In the project now · ${here}`}</span>
+                  </p>
+                )}
               </>
+            )}
+            avatar={(message) => (
+              <PersonAvatar
+                name={message.authorName}
+                color={personColor(hues, { name: message.authorName, email: chatEmails.get(message.id), mine: message.mine }).color}
+              />
+            )}
+            emptyState={chat.error ? undefined : (
+              <EmptyState
+                className="overleaf-collab-empty"
+                icon={<ResearchArt drawing={LETTER_RACK} />}
+                title={t`No messages yet`}
+                description={t`Everyone in the Overleaf project sees what you write here`}
+              />
             )}
             messages={chatMessages}
             listClassName="overleaf-chat-list"
             listLabel={t`Overleaf chat messages`}
             loading={chat.loading}
             loadingText={t`Loading the conversation…`}
-            emptyText={chat.error ? undefined : t`No messages yet. Say something and everyone in the project sees it`}
-            placeholder={t`Message your collaborators…`}
+            placeholder={props.peers.length > 0 && props.peers.length <= 3 ? t`Message ${here}…` : t`Message your collaborators…`}
             onSend={chat.send}
           />
         )}
