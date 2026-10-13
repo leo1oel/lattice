@@ -69,9 +69,14 @@ function createPdfRenderCount() {
   return count;
 }
 
-/** The number of `kind` draws so far: a component using it renders after each one. */
-export function usePdfRenderCount(count: PdfRenderCount, kind: "pages" | "textLayers") {
-  return useSyncExternalStore(count.subscribe, count[kind]);
+const unwatched = () => () => undefined;
+
+/**
+ * The number of `kind` draws so far: a component using it renders after each
+ * one while `watching`, and reads the count as it renders otherwise.
+ */
+export function usePdfRenderCount(count: PdfRenderCount, kind: "pages" | "textLayers", watching = true) {
+  return useSyncExternalStore(watching ? count.subscribe : unwatched, count[kind]);
 }
 
 /** PDF.js transfers the buffers it is given, so every consumer gets its own copy. */

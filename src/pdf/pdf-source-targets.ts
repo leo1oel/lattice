@@ -89,8 +89,9 @@ export function PdfSourceTargets({
   renderCount: PdfRenderCount;
 }) {
   const { t } = useLingui();
-  const pageRenderGeneration = usePdfRenderCount(renderCount, "pages");
-  const textLayerGeneration = usePdfRenderCount(renderCount, "textLayers");
+  // With nothing to show, a draw has nothing to redraw: no render per page.
+  const pageRenderGeneration = usePdfRenderCount(renderCount, "pages", Boolean(syncTarget));
+  const textLayerGeneration = usePdfRenderCount(renderCount, "textLayers", Boolean(sourceQuote));
   const syncJumpRef = useRef<string | null>(null);
   const syncScrollRef = useRef<string | null>(null);
   const quoteJumpRef = useRef<string | null>(null);
