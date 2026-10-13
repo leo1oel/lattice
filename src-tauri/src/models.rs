@@ -118,6 +118,8 @@ pub struct OpenAlexWork {
     pub arxiv_id: Option<String>,
     pub landing_url: Option<String>,
     pub authors: Vec<String>,
+    #[serde(default)]
+    pub r#abstract: Option<String>,
 }
 
 /// A merged search hit shown in the Discover panel. alphaXiv (full-text) and
@@ -135,6 +137,10 @@ pub struct LiteratureHit {
     pub cited_by_count: Option<u32>,
     pub votes: Option<u32>,
     pub snippet: Option<String>,
+    /// The work's abstract, for the row's preview. OpenAlex gives one for most
+    /// works; alphaXiv's full-text hits carry only the matching `snippet`.
+    #[serde(default)]
+    pub r#abstract: Option<String>,
     pub doi: Option<String>,
     pub landing_url: Option<String>,
 }

@@ -86,7 +86,8 @@ msgstr "{0} annotations"
 msgid "{0} changes"
 msgstr "{0} changes"
 
-#. placeholder {0}: work.citedByCount
+#. placeholder {0}: compactCount(cites, i18n.locale)
+#. placeholder {0}: formatCount(cites, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} cites"
 msgstr "{0} cites"
@@ -170,7 +171,8 @@ msgstr "{0} selected"
 msgid "{0} things to tidy in the bibliography"
 msgstr "{0} things to tidy in the bibliography"
 
-#. placeholder {0}: work.votes
+#. placeholder {0}: compactCount(votes, i18n.locale)
+#. placeholder {0}: formatCount(votes, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} votes"
 msgstr "{0} votes"
@@ -277,6 +279,10 @@ msgstr "{count} papers"
 msgid "{count} paths copied"
 msgstr "{count} paths copied"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "{count} results for “{shownQuery}”"
+msgstr "{count} results for “{shownQuery}”"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
@@ -292,6 +298,10 @@ msgstr "{count} word"
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} words"
 msgstr "{count} words"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "{count}+ results for “{shownQuery}”"
+msgstr "{count}+ results for “{shownQuery}”"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
@@ -617,6 +627,10 @@ msgstr "1 change"
 msgid "1 check needs attention"
 msgstr "1 check needs attention"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "1 cite"
+msgstr "1 cite"
+
 #: src/canvas/proofread-card.tsx
 msgid "1 edit · clarity and flow"
 msgstr "1 edit · clarity and flow"
@@ -674,9 +688,17 @@ msgstr "1 paper"
 msgid "1 reference, not checked yet"
 msgstr "1 reference, not checked yet"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "1 result for “{shownQuery}”"
+msgstr "1 result for “{shownQuery}”"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
 msgstr "1 thing to tidy in the bibliography"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "1 vote"
+msgstr "1 vote"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -815,6 +837,7 @@ msgstr "Acknowledgements"
 msgid "Acute accent example"
 msgstr "Acute accent example"
 
+#: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "Add"
@@ -901,6 +924,10 @@ msgstr "Add project term"
 #: src/papers/bib-visual-editor.tsx
 msgid "Add reference"
 msgstr "Add reference"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Add to Papers"
+msgstr "Add to Papers"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -1059,10 +1086,6 @@ msgstr "Allow external commands"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "Alpha"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Already in Papers"
-msgstr "Already in Papers"
 
 #. placeholder {0}: list(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
@@ -1353,6 +1376,7 @@ msgid "Authorization failed"
 msgstr "Authorization failed"
 
 #: src/papers/bibliography-audit.tsx
+#: src/papers/literature-discovery-panel.tsx
 msgid "Authors"
 msgstr "Authors"
 
@@ -2177,6 +2201,15 @@ msgstr "Citation key {key}"
 #: src/project/paper-library.tsx
 msgid "Citation only"
 msgstr "Citation only"
+
+#: src/papers/literature-discovery-panel.tsx
+msgctxt "add a literature result as a bibliography entry only"
+msgid "Citation only"
+msgstr "Citation only"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Citation only: add the bibliography entry without the paper"
+msgstr "Citation only: add the bibliography entry without the paper"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
@@ -4710,6 +4743,10 @@ msgstr "Imported arXiv:{0}"
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "In Papers"
+msgstr "In Papers"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "In proceedings"
 msgstr "In proceedings"
@@ -6272,6 +6309,10 @@ msgstr "Next reference"
 msgid "Next search result"
 msgstr "Next search result"
 
+#: src/papers/literature-discovery-panel.tsx
+msgid "No abstract from this source"
+msgstr "No abstract from this source"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "No Agent logs yet"
 msgstr "No Agent logs yet"
@@ -6895,10 +6936,6 @@ msgstr "Open in Lattice app"
 msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
-#: src/papers/literature-discovery-panel.tsx
-msgid "Open landing page"
-msgstr "Open landing page"
-
 #: src/project/paper-library.tsx
 msgid "Open link in browser"
 msgstr "Open link in browser"
@@ -6918,6 +6955,10 @@ msgstr "Open notes.md"
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "Open notice"
+
+#: src/papers/literature-discovery-panel.tsx
+msgid "Open page"
+msgstr "Open page"
 
 #: src/editor/latex/latex-hover-cards.ts
 #: src/papers/bib-visual-editor.tsx
@@ -8505,10 +8546,6 @@ msgstr "Resolve conflicts in {path}"
 msgid "Resolve from DOI / arXiv / title"
 msgstr "Resolve from DOI / arXiv / title"
 
-#: src/papers/literature-discovery-panel.tsx
-msgid "Resolve into bibliography entry"
-msgstr "Resolve into bibliography entry"
-
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Resolved"
@@ -9520,6 +9557,11 @@ msgid "sound"
 msgstr "sound"
 
 #: src/editor/markdown/engine/views/image-view.tsx
+msgid "Source"
+msgstr "Source"
+
+#: src/papers/literature-discovery-panel.tsx
+msgctxt "where a literature result came from"
 msgid "Source"
 msgstr "Source"
 
