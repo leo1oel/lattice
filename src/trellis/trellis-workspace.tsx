@@ -89,11 +89,14 @@ const HIBERNATE_AFTER_MS = 20_000;
  * actions give way before the strip scrolls, see trellis.css). A panel
  * is as wide as the widest of its views needs, so selecting another tab never
  * resizes it. The Agent and the PDF raise theirs to what their live content
- * measures (see `measuredMinSize`). */
+ * measures (see `measuredMinSize`). The Agent's height keeps one row of its
+ * empty thread's starters clear of the composer and an editor selection's
+ * context bar above it, the most the empty thread can give up (its starters
+ * compact as the panel shortens). */
 const MIN_SIZE = {
   project: { width: 140, height: 120 },
   papers: { width: 180, height: 120 },
-  agent: { width: 220, height: 200 },
+  agent: { width: 220, height: 240 },
   pdf: { width: 220, height: 160 },
   file: { width: 180, height: 140 },
   tool: { width: 200, height: 160 },
