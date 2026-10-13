@@ -263,6 +263,13 @@ export function SettingsDialog(props: SettingsDialogProps) {
               url={synaraSettingsUrl}
               synaraSettingsLabel={settingsNavItems.find((item) => item.tab === props.tab)?.label}
               viewportRef={settingsViewportRef}
+              appearance={{
+                theme: props.theme,
+                tint: props.appearance.tint,
+                accent: props.appearance.accent,
+                translucency: props.appearance.translucency,
+                translucent: props.windowBacking === "translucent",
+              }}
               onRetry={props.onRetrySynaraRuntime}
             />
             {panes[props.tab]}
