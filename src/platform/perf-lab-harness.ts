@@ -714,17 +714,14 @@ async function bigPdfZoom(viewport) {
 
 async function panels() {
   const result = {};
-  const toggles = [...document.querySelectorAll(".trellis-titlebar-toggle[aria-pressed]")];
-  result.toggleLabels = toggles.map((toggle) => toggle.getAttribute("aria-label"));
-  for (const name of ["Papers"]) {
-    const toggle = toggles.find((candidate) => (candidate.getAttribute("aria-label") ?? "").includes(name));
-    if (!toggle) continue;
+  // Papers toggles on ⌘⌥2, as the Panels menu's entry does.
+  for (const [name, code] of [["Papers", "Digit2"]]) {
     const runs = {};
     for (const step of ["hide", "show"]) {
       await settle(400);
       const meter = frameMeter();
       const started = performance.now();
-      await input.click(toggle);
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: code.slice(-1), code, metaKey: true, altKey: true, bubbles: true, cancelable: true }));
       const quiet = await settle(300, 10_000);
       runs[step] = { settledMs: Math.round(performance.now() - started - 300 + Math.min(quiet, 0)), frames: meter.stop() };
     }

@@ -604,16 +604,24 @@ export class TrellisController {
     land();
   }
 
+  /** On screen: in the layout, not hidden, and neither behind another tab nor outside a zoomed-in view. */
+  panelOnScreen(kind: TrellisSingleton): boolean {
+    const view = this.ws?.view(kind);
+    return Boolean(view && view.placement !== "hidden" && view.visible);
+  }
+
   /**
-   * Titlebar toggles: hide a panel that is on screen (it keeps its state);
-   * one that is closed, hidden, behind another tab or outside a zoomed-in
-   * view comes forward instead.
+   * The Panels menu's toggles and their ⌘⌥ keys: hide a panel that is on
+   * screen (it keeps its state); one that is closed, hidden, behind another
+   * tab or outside a zoomed-in view comes forward instead. In focus mode the
+   * PDF beside the documents goes as it came, through focus mode's own switch.
    */
   togglePanel(kind: TrellisSingleton) {
     const ws = this.ws;
     if (!ws) return;
-    const view = ws.view(kind);
-    if (view && view.placement !== "hidden" && view.visible) ws.hide(kind);
+    const onScreen = this.panelOnScreen(kind);
+    if (kind === "pdf" && onScreen && this.ui.get().focus) this.setFocusPdf(false);
+    else if (onScreen) ws.hide(kind);
     else this.showPanel(kind);
   }
 

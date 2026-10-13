@@ -2516,10 +2516,6 @@ msgctxt "macOS menu bar"
 msgid "Close Window"
 msgstr "Close Window"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Closed"
-msgstr "Closed"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Closed-path integral"
 msgstr "Closed-path integral"
@@ -4759,20 +4755,12 @@ msgid "Hex color"
 msgstr "Hex color"
 
 #: src/trellis/trellis-titlebar.tsx
-msgid "Hidden"
-msgstr "Hidden"
-
-#: src/trellis/trellis-titlebar.tsx
 msgid "Hidden panels"
 msgstr "Hidden panels"
 
 #: src/trellis/trellis-labels.ts
 msgid "Hide"
 msgstr "Hide"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Hide {name}"
-msgstr "Hide {name}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6110,10 +6098,6 @@ msgstr "Maximize focused panel"
 #: src/trellis/trellis-keymap.ts
 msgid "Maximize or restore the focused panel"
 msgstr "Maximize or restore the focused panel"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Maximize panel · ⌘⇧↩"
-msgstr "Maximize panel · ⌘⇧↩"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
@@ -8984,10 +8968,6 @@ msgstr "Restore the files the rounds touched to {name}? The restore is added to 
 msgid "Restore the layout"
 msgstr "Restore the layout"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Restore the layout · ⌘⇧↩"
-msgstr "Restore the layout · ⌘⇧↩"
-
 #: src/app/app-history-drawers.tsx
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
 msgstr "Restore the project to the state before this change? The restore will be added as a new history entry."
@@ -9661,10 +9641,6 @@ msgstr "Shorten"
 msgid "Show"
 msgstr "Show"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Show {name}"
-msgstr "Show {name}"
-
 #: src/App.tsx
 msgid "Show {name} panel"
 msgstr "Show {name} panel"
@@ -9711,10 +9687,6 @@ msgstr "Show in source"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Show or hide panels"
-msgstr "Show or hide panels"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"

@@ -1343,7 +1343,7 @@ function App() {
     { id: "shortcuts", label: t`Keyboard shortcuts`, group: "project", key: "?", shift: true, run: () => setCommandOverlay({ kind: "shortcuts" }) },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: "layout", recent: false, run: () => void trellis.resetLayout() },
-    // Trellis binds ⌘⇧↩ itself; the label follows what it would do now, as the titlebar's button does.
+    // Trellis binds ⌘⇧↩ itself; the label follows what it would do now, as the Panels menu's entry does.
     trellisUi.framed
       ? { id: "frame", when: inProject, label: t`Restore the layout`, shortcut: FRAME_TOGGLE_KEY, group: "layout", run: () => trellis.ws?.navigation.frame("all") }
       : { id: "frame", when: inProject, label: t`Maximize focused panel`, shortcut: FRAME_TOGGLE_KEY, group: "layout", run: () => trellis.ws?.navigation.toggle() },
@@ -1376,8 +1376,8 @@ function App() {
       label: preset === "writing" ? t`Switch to the Writing layout` : t`Switch to the Reading layout`,
       run: () => trellis.setPreset(preset),
     })),
-    // Project, Papers and the Agent toggle, as their titlebar buttons do, on ⌘⌥1 to ⌘⌥3 in the
-    // titlebar's order (⌘1 to ⌘9 are the workspaces); every other panel and tool is shown.
+    // Project, Papers and the Agent toggle, as their Panels menu entries do, on ⌘⌥1 to ⌘⌥3 in the
+    // menu's order (⌘1 to ⌘9 are the workspaces); every other panel and tool is shown.
     ...SINGLETON_PANELS.map((kind): AppCommand => {
       const name = i18n._(PANEL_TITLES[kind]);
       const toggleKey = PANEL_TOGGLE_KEYS[kind];
