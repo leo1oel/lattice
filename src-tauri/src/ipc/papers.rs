@@ -2,10 +2,12 @@
 
 use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
+use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
 use crate::models::ProjectSearchResult;
 use crate::papers::{ImportResult, PaperSummary};
 use crate::{literature, paper_pdf_proxy, papers};
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State, Window};
@@ -145,6 +147,15 @@ pub async fn list_papers(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<PaperSummary>, String> {
     in_project(&state, &window, "Paper scan", papers::list_papers).await
+}
+
+/// The Papers panel's background recheck of what `list_papers` returned with
+/// cached citation health: DOI → health, for the rows to merge in.
+#[tauri::command]
+pub async fn refresh_citation_health(
+    state: State<'_, AppState>, window: Window,
+) -> Result<BTreeMap<String, CitationHealth>, String> {
+    in_project(&state, &window, "Citation health check", papers::refresh_citation_health).await
 }
 
 #[tauri::command]

@@ -3131,6 +3131,10 @@ msgstr "Couldn’t reach the service"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "Couldn’t read the keychain. Reopen Settings to retry"
 
+#: src/project/paper-library.tsx
+msgid "Couldn’t read your references"
+msgstr "Couldn’t read your references"
+
 #: src/project/project-dialogs.tsx
 msgid "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
 msgstr "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
@@ -5900,6 +5904,10 @@ msgstr "Loading project history…"
 #: src/app/git-workspace-frames.tsx
 msgid "Loading pull requests…"
 msgstr "Loading pull requests…"
+
+#: src/project/paper-library.tsx
+msgid "Loading references…"
+msgstr "Loading references…"
 
 #: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
@@ -10300,6 +10308,10 @@ msgstr "Sync only when you click the sync button"
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
 
+#: src/project/paper-library.tsx
+msgid "Syncing references…"
+msgstr "Syncing references…"
+
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Syncing with “{0}” is paused"
@@ -11166,6 +11178,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/project/paper-library.tsx
 msgid "Try again"
 msgstr "Try again"
 
