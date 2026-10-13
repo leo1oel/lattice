@@ -20,7 +20,9 @@
 
 /* ---------------------------------------------------------------- surfaces
    Each kind of panel keeps the background its content already has, and its
-   header takes the same one, so the two read as one surface. */
+   header (tab strip and selected tab alike) takes the same one, so the two
+   read as one surface. The editors and PDFs stand on the tool panels' sheet
+   (theme.css makes --editor-bg that surface). */
 .lattice-trellis .trellis { --lattice-panel-surface: var(--surface-app); }
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="file"], [data-type="pdf"])) {
   --lattice-panel-surface: var(--editor-bg);
@@ -44,34 +46,21 @@
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="agent"]) { background: var(--surface-sidebar); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
 
-/* A translucent window (theme.css, `data-glass`) frosts Project, Papers and
-   the editors. The panel paints one sheet of --surface-navigator from the tab
-   strip down, which is the strip; the selected tab and the body (the surface)
-   lay the same second coat over it, so the tab runs into the body as it does
-   on the opaque palette and the strip sits the same step under both. Project
-   and Papers (and Literature beside it) lift by a white veil, an editor by
-   its own thinned ground.
-   Everything inside a body lets its coat through: a third layer would read as
-   a band. Every other panel stays on its opaque surface. */
-:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"], [data-type="file"])) {
+/* A translucent window (theme.css, `data-glass`) frosts Project and Papers.
+   The panel paints one sheet of --surface-navigator, and its tab strip and
+   body (the surface) lay the same white veil over it, so the header and the
+   body stay one surface. Everything inside a body lets its coat through: a
+   third layer would read as a band. Every other panel, the editors among
+   them, stays on its opaque surface, which the editor shares with Git,
+   History and Overleaf. */
+:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="literature"])) {
   --lattice-panel-surface: var(--surface-navigator);
-  --lattice-tabstrip: transparent;
+  --lattice-tabstrip: var(--surface-navigator-lift);
   --trellis-tab-active: var(--surface-navigator-lift);
 }
-:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected][data-type="file"]) {
-  --trellis-tab-active: var(--surface-editor-glass);
-}
 :root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="literature"]) { background: var(--surface-navigator-lift); }
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] { background: var(--surface-editor-glass); }
 :root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator, .trellis-tool-host:has(> .literature-drawer), .trellis-tool-host > .literature-drawer) { background: transparent; }
 :root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
-/* The source editor and the Markdown preview each stack several grounds; the
-   gutter keeps its numbers' color, mixed from the opaque ground. A file view
-   that draws its own page (a spreadsheet, an image) keeps it, and so does a
-   source editor in a named code theme: its tokens are made for its ground.
-   Only Weft & Warp, made for the window's surfaces, lets the desktop in. */
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-workspace, .markdown-preview),
-:root[data-glass][data-code-theme="lattice"] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-editor, .cm-editor, .cm-scroller, .cm-gutters) { background: transparent; }
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
@@ -81,17 +70,15 @@
 .lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--drop-target-edge) 45%, var(--border-subtle)), var(--elevation-dialog-shadow); }
 
 /* ---------------------------------------------------------------- header
-   Browser-style tabs. Every panel's header is the same strip, a shade darker
-   than the darkest panel surface (the Project panel's); the selected tab takes
-   its panel's own surface and runs into the content below it (flared corners,
-   no line under it), while the other tabs sit on the strip. The whole strip
+   Every panel's header is its own surface: the strip, the selected tab and
+   the body below are one sheet, with no fill to tell them apart. The selected
+   tab is a hairline-ringed plate standing on the compact control height,
+   centred in the strip, in the primary ink; the other tabs are only their
+   label in the secondary ink until a pointer finds them. The whole strip
    drags the panel, and tabs, actions and the menu never overlap. */
-.lattice-trellis .trellis {
-  --lattice-tabstrip-shade: 3%;
-  --lattice-tabstrip: color-mix(in srgb, var(--surface-sidebar), black var(--lattice-tabstrip-shade));
-}
-:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 8%; }
-/* Declared on the panel so it resolves against the panel's own surface. */
+.lattice-trellis .trellis { --lattice-tabstrip: transparent; }
+/* Declared on the panel so it resolves against the panel's own surface: what
+   a dragged tab and the header's raised controls stand on. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
 .lattice-trellis [data-trellis-part="tabbar"] {
   gap: 0;
@@ -99,7 +86,10 @@
   background: var(--lattice-tabstrip);
   box-shadow: none;
 }
-.lattice-trellis [data-trellis-part="tabs"] { gap: var(--space-1); }
+.lattice-trellis [data-trellis-part="tabs"] {
+  gap: var(--space-1);
+  padding-block: calc((var(--tab-strip-height) - var(--control-height-compact)) / 2);
+}
 .lattice-trellis [data-trellis-part="tab"] {
   min-width: 56px;
   max-width: 200px;
@@ -107,21 +97,24 @@
   /* 14px puts the tab's icon on the panel's one icon gutter, with the Project
      tree's glyphs and the Papers search icon (app-shell.css). */
   padding: 0 var(--space-2) 0 var(--tab-inset-inline);
-  border-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
+  border-radius: var(--radius-chrome);
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
   font-weight: var(--weight-medium);
 }
 .lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-close"][hidden]) { padding-right: var(--tab-inset-inline); }
-.lattice-trellis [data-trellis-part="tab"]:hover { background: color-mix(in srgb, var(--trellis-tab-active) 55%, transparent); color: var(--text-primary); }
+.lattice-trellis [data-trellis-part="tab"]:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .lattice-trellis [data-trellis-part="tab"][data-selected],
 .lattice-trellis [data-trellis-part="tab"][data-selected]:hover,
 .lattice-trellis [data-trellis-part="panel"][data-focused] [data-trellis-part="tab"][data-selected],
 .lattice-trellis [data-trellis-part="tabbar"][data-focused] [data-trellis-part="tab"][data-selected] {
-  background: var(--trellis-tab-active);
+  background: transparent;
   color: var(--text-primary);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
+/* No flared corners: the selected tab no longer runs into the body below. */
+.lattice-trellis [data-trellis-part="tab"][data-selected]::before,
+.lattice-trellis [data-trellis-part="tab"][data-selected]::after { content: none; }
 /* Only the focused panel's selected tab is in the primary ink; another
    panel's keeps its surface but drops to the secondary. */
 .lattice-trellis [data-trellis-part="panel"]:not([data-focused]) [data-trellis-part="tab"][data-selected] { color: var(--text-secondary); }
@@ -359,7 +352,7 @@
 .build-sequence-hint { margin-top: var(--space-2); padding: var(--space-4) var(--space-5) var(--space-2); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .trellis-build-label > span { grid-area: 1 / 1; }
 .trellis-build-label > .trellis-build-label-off { visibility: hidden; }
-/* On the darker strip the switch is a row of icons; the chosen one sits on the panel's own surface, like the selected tab. */
+/* On the strip the switch is a row of icons; the chosen one is a ringed plate on the panel's own surface, like the selected tab. */
 .trellis-view-switcher.ui-segmented { background: transparent; }
 /* An unselected document's switch holds its place in the stacked action row. */
 .trellis-tools-reserve { display: flex; visibility: hidden; }

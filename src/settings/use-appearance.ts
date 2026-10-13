@@ -74,10 +74,10 @@ export function useAppearance(): Appearance {
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.codeTheme = codeTheme;
-    for (const [name, value] of Object.entries(codeThemeProperties(codeTheme, codeThemeKind))) {
+    for (const [name, value] of Object.entries(codeThemeProperties(codeTheme, codeThemeKind, theme))) {
       root.style.setProperty(name, value);
     }
-  }, [codeTheme, codeThemeKind]);
+  }, [codeTheme, codeThemeKind, theme]);
 
   // The native window follows: its appearance (so vibrancy and native menus
   // match the page), the color behind a live resize, and its material. The

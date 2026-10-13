@@ -77,7 +77,7 @@ export function CodeThemeSettingsGroup(props: CodeThemeSettingsProps) {
           id,
           name: nameOf(id),
           variants: variantsOf(id),
-          style: codeThemeProperties(id, resolveCodeThemeKind(id, codeThemeVariant, props.theme)) as CSSProperties,
+          style: codeThemeProperties(id, resolveCodeThemeKind(id, codeThemeVariant, props.theme), props.theme) as CSSProperties,
         }))}
         onChange={(next) => patch({ codeTheme: next })}
       />
