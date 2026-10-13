@@ -106,6 +106,5 @@
 .hl-edit-row { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--gap-inline); }
 .hl-edit-actions { padding-top: var(--space-2); display: flex; justify-content: flex-end; gap: var(--space-2); }
 
-@media (prefers-reduced-motion: no-preference) {
-  .hl-item, .hl-row, .hl-dot { transition: background-color var(--motion-fast), box-shadow var(--motion-fast); }
-}
+/* Reduced motion is the one global clamp's (adaptive-feedback.css). */
+.hl-item, .hl-row, .hl-dot { transition: background-color var(--motion-fast), box-shadow var(--motion-fast); }
