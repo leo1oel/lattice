@@ -9,38 +9,56 @@ import "./scroll-area.css";
 
 const SCROLLING_HIDE_DELAY_MS = 500;
 
-const EMPTY_TRACK: { top: number; height: number; axis: ScrollAxisGeometry } = {
-  top: 0,
-  height: 0,
-  axis: calculateScrollAxisGeometry({ content: 0, offset: 0, track: 0, viewport: 0 }, EXTERNAL_THUMB),
-};
+const EMPTY_AXIS = calculateScrollAxisGeometry({ content: 0, offset: 0, track: 0, viewport: 0 }, EXTERNAL_THUMB);
+const EMPTY_BOX = { top: 0, height: 0 };
+type Flags = { overflow: boolean; canScrollStart: boolean; canScrollEnd: boolean };
+const NO_OVERFLOW: Flags = { overflow: false, canScrollStart: false, canScrollEnd: false };
+
+// The thumb follows the scroll in the DOM, as the PDF's bars do
+// (overlay-scrollbar.tsx): as React state, every frame of a scroll through
+// the file tree re-rendered the bar and laid the page out a second time.
+function applyThumb(track: HTMLElement | null, axis: ScrollAxisGeometry) {
+  const thumb = track?.firstElementChild;
+  if (!(thumb instanceof HTMLElement)) return;
+  const height = `${axis.thumbSize}px`;
+  const transform = `translate3d(-2px, ${axis.thumbOffset}px, 0)`;
+  if (thumb.style.height !== height) thumb.style.height = height;
+  if (thumb.style.transform !== transform) thumb.style.transform = transform;
+}
 
 /**
  * Draws the Lattice scrollbar for a scroll owner that cannot be wrapped by the
  * regular ScrollArea (for example, a virtualized viewport inside shadow DOM).
  * The native scrollbar must be hidden by the owner-specific stylesheet.
+ * React renders it only when the track's box or which ends have more to show
+ * change; a scroll moves the thumb and reveals the bar in the DOM.
  */
 export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElement | null }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [track, setTrack] = useState(EMPTY_TRACK);
+  const [box, setBox] = useState(EMPTY_BOX);
+  const [flags, setFlags] = useState(NO_OVERFLOW);
   const [hovering, setHovering] = useState(false);
-  const { axis } = track;
+  // The latest geometry, for a drag or a wheel over the bar.
+  const axisRef = useRef(EMPTY_AXIS);
 
   const measure = useCallback((viewport: HTMLElement | null) => {
     const surface = trackRef.current?.parentElement;
-    if (!viewport || !surface) {
-      setTrack(EMPTY_TRACK);
-      return;
-    }
-    const height = Math.max(0, viewport.clientHeight);
-    setTrack({
-      top: viewport.getBoundingClientRect().top - surface.getBoundingClientRect().top,
-      height,
-      axis: calculateScrollAxisGeometry(
+    const height = viewport && surface ? Math.max(0, viewport.clientHeight) : 0;
+    const top = viewport && surface ? viewport.getBoundingClientRect().top - surface.getBoundingClientRect().top : 0;
+    const axis = viewport && surface
+      ? calculateScrollAxisGeometry(
         { content: viewport.scrollHeight, offset: viewport.scrollTop, track: height, viewport: height },
         EXTERNAL_THUMB,
-      ),
-    });
+      )
+      : EMPTY_AXIS;
+    axisRef.current = axis;
+    applyThumb(trackRef.current, axis);
+    setBox((current) => (current.top === top && current.height === height ? current : { top, height }));
+    setFlags((current) => (
+      current.overflow === axis.overflow && current.canScrollStart === axis.canScrollStart && current.canScrollEnd === axis.canScrollEnd
+        ? current
+        : { overflow: axis.overflow, canScrollStart: axis.canScrollStart, canScrollEnd: axis.canScrollEnd }
+    ));
   }, []);
 
   const watch = useCallback((viewport: HTMLElement, scheduleMeasure: () => void) => {
@@ -69,7 +87,9 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
     };
   }, []);
 
-  const [scrolling, setScrolling] = useState(false);
+  const setScrolling = useCallback((scrolling: boolean) => {
+    trackRef.current?.toggleAttribute("data-scrolling", scrolling);
+  }, []);
   const { viewportRef, drag } = useScrollbarViewport(
     getViewport,
     measure,
@@ -80,7 +100,7 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;
-    if (!viewport || !axis.overflow) return;
+    if (!viewport || !axisRef.current.overflow) return;
     event.preventDefault();
     viewport.scrollTop += event.deltaY;
   };
@@ -92,12 +112,11 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
       className="lattice-scrollbar external-scrollbar"
       data-hovering={hovering ? "" : undefined}
       data-orientation="vertical"
-      data-overflow-y-end={axis.canScrollEnd ? "" : undefined}
-      data-overflow-y-start={axis.canScrollStart ? "" : undefined}
-      data-scrolling={scrolling ? "" : undefined}
+      data-overflow-y-end={flags.canScrollEnd ? "" : undefined}
+      data-overflow-y-start={flags.canScrollStart ? "" : undefined}
       onPointerCancel={drag.end}
       onPointerDown={(event) => {
-        if (axis.overflow) drag.begin(event, "y", axis);
+        if (axisRef.current.overflow) drag.begin(event, "y", axisRef.current);
       }}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
@@ -107,16 +126,9 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
       onPointerMove={drag.move}
       onPointerUp={drag.end}
       onWheel={handleWheel}
-      style={{ height: track.height, top: track.top }}
+      style={{ height: box.height, top: box.top }}
     >
-      <div
-        className="lattice-scrollbar-thumb"
-        data-slot="scroll-area-thumb"
-        style={{
-          height: axis.thumbSize,
-          transform: `translate3d(-2px, ${axis.thumbOffset}px, 0)`,
-        }}
-      />
+      <div className="lattice-scrollbar-thumb" data-slot="scroll-area-thumb" />
     </div>
   );
 }
