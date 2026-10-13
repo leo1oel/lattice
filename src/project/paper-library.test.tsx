@@ -38,6 +38,7 @@ function baseProps(): PaperLibraryProps {
     onReveal: vi.fn(),
     onPaper: vi.fn(),
     onFetchFullText: vi.fn(),
+    onCancelFetch: vi.fn(),
     paperFetchStates: {},
     onDeletePaper: vi.fn(),
     onEditBibEntry: vi.fn(),

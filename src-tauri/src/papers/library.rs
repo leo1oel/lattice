@@ -472,7 +472,12 @@ mod tests {
         assert_eq!(entry.url.as_deref(), Some(blog));
         assert!(read_paper(&project.root, &blog_id).unwrap().contains("captured content"));
         // The reused-capture check accepts the bundle without refetching.
-        let reused = crate::papers::fetch_web_reference(&project.root, blog).unwrap();
+        let reused = crate::papers::fetch_web_reference(
+            &project.root,
+            blog,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .unwrap();
         assert!(reused.reused);
         assert_eq!(reused.arxiv_id, blog_id);
     }

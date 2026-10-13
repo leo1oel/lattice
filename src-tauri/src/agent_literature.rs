@@ -104,7 +104,9 @@ impl LiteratureRequest {
             Self::SearchLiterature { query, precise, page } => {
                 to_json(literature::search(&query, precise, page))
             }
-            Self::FetchPaper { arxiv_id } => to_json(papers::fetch_paper(root, &arxiv_id, &|_| {})),
+            Self::FetchPaper { arxiv_id } => {
+                to_json(papers::fetch_paper(root, &arxiv_id, &|_| {}, &AtomicBool::new(false)))
+            }
             // Wrapped in objects: the gateway rejects a bare JSON array as a
             // response envelope.
             Self::ListPapers {} => {
@@ -113,7 +115,9 @@ impl LiteratureRequest {
             Self::SearchLibrary { query } => {
                 papers::search_library(root, &query).map(|results| json!({ "results": results }))
             }
-            Self::FetchWebReference { url } => to_json(papers::fetch_web_reference(root, &url)),
+            Self::FetchWebReference { url } => {
+                to_json(papers::fetch_web_reference(root, &url, &AtomicBool::new(false)))
+            }
             Self::Cite { query } => to_json(papers::import_reference(
                 root,
                 &query,

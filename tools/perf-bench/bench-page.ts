@@ -250,6 +250,8 @@ const fullTextOnly = params.get("papers") === "fulltext";
 const libraryPapers = params.get("papers") === "library";
 
 const unhandled = new Set<string>();
+/** `?fetch=pending`'s downloads under way, by request id: each fails as cancelled when stopped. */
+const pendingFetches = new Map<string, (reason: Error) => void>();
 const counts = new Map<string, number>();
 
 /**
@@ -652,6 +654,19 @@ function answer(command: string, args: Args): unknown {
       return params.has("papers") ? BENCH_PAPERS.map((paper) => ({ ...paper, hasBlog: !fullTextOnly })) : [];
     case "search_literature":
       return { hits: (args?.page ?? 0) === 0 ? LITERATURE_HITS : [], hasMore: false };
+    // `?fetch=pending`: a paper's download stays under way until its Cancel,
+    // for looking at its progress and stopping it.
+    case "fetch_paper":
+    case "fetch_web_reference":
+      if (params.get("fetch") !== "pending") return null;
+      emit("paper-import-progress", "fulltext");
+      return new Promise((_, reject) => pendingFetches.set(String(args?.requestId), reject));
+    case "cancel_paper_fetch": {
+      const reject = pendingFetches.get(String(args?.requestId));
+      pendingFetches.delete(String(args?.requestId));
+      reject?.(new Error("Paper import cancelled."));
+      return Boolean(reject);
+    }
     case "read_paper":
       return `## Abstract\n\n${"Paper content. ".repeat(40)}`;
     case "read_paper_blog_local":

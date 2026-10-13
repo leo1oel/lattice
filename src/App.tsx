@@ -348,7 +348,9 @@ function App() {
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
-  const paperFetchTimers = useRef<Record<string, number>>({});
+  // Each paper's download under way (its request id, which Cancel stops) and
+  // the timer that clears its "success" glyph, by paper key.
+  const paperFetches = useRef<{ requests: Record<string, string>; timers: Record<string, number> }>({ requests: {}, timers: {} });
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [authorNameSetting, setAuthorNameSetting] = useState(loadAuthorNameSetting);
   // The writer's name as Git and the Overleaf session know it, which sign
@@ -772,6 +774,11 @@ function App() {
     // network fetch. Any later file/Paper/asset click invalidates this claim.
     const opening = claim();
     const key = paperKey(paper);
+    const requestId = crypto.randomUUID();
+    const fetches = paperFetches.current;
+    fetches.requests[key] = requestId;
+    // Cancel forgets the request at once; whatever the backend answers later is then ignored.
+    const live = () => fetches.requests[key] === requestId;
     const clearFetchState = () => setPaperFetchStates((current) => (
       Object.fromEntries(Object.entries(current).filter(([fetching]) => fetching !== key))
     ));
@@ -783,27 +790,46 @@ function App() {
       const arxiv = paper.arxivId && !paper.arxivId.startsWith("web-");
       const result = await invoke<{ arxivId: string; paperPath: string; blogPath?: string | null }>(
         arxiv ? "fetch_paper" : "fetch_web_reference",
-        arxiv ? { arxivId: paper.arxivId } : { url: paper.url },
+        arxiv ? { arxivId: paper.arxivId, requestId } : { url: paper.url, requestId },
       );
+      if (!live()) return;
+      delete fetches.requests[key];
       await refreshProject();
       const fetched = (await invoke<PaperSummary[]>("list_papers"))
         .find((item) => item.arxivId === result.arxivId) ?? { ...paper, hasFullText: true };
       setPaperFetchStates((current) => ({ ...current, [key]: "success" }));
-      if (paperFetchTimers.current[key]) window.clearTimeout(paperFetchTimers.current[key]);
-      paperFetchTimers.current[key] = window.setTimeout(() => {
+      if (fetches.timers[key]) window.clearTimeout(fetches.timers[key]);
+      fetches.timers[key] = window.setTimeout(() => {
         clearFetchState();
-        delete paperFetchTimers.current[key];
+        delete fetches.timers[key];
       }, 1100);
       if (!opening.isCurrent()) return;
       await openPaper(fetched, { claim: opening });
     };
     await fetchAndOpen().catch((reason: unknown) => {
+      if (!live()) return;
+      delete fetches.requests[key];
       clearFetchState();
       const message = toMessage(reason);
       if (isMissingPaperToolsError(message)) void openForMissingPaperTools(message);
       else if (opening.isCurrent()) showError(message);
-    }).finally(clearImportStage);
+    }).finally(() => {
+      if (!Object.keys(fetches.requests).length) clearImportStage();
+    });
   }, [claim, clearImportStage, openForMissingPaperTools, openPaper, refreshProject]);
+
+  // Stops the downloads under way: the backend kills the converter and keeps
+  // nothing, and each paper is back where it was, ready to download again.
+  const cancelPaperFetches = () => {
+    const { requests } = paperFetches.current;
+    const keys = Object.keys(requests);
+    for (const key of keys) {
+      void invoke("cancel_paper_fetch", { requestId: requests[key] }).catch(() => undefined);
+      delete requests[key];
+    }
+    setPaperFetchStates((current) => Object.fromEntries(Object.entries(current).filter(([key]) => !keys.includes(key))));
+    clearImportStage();
+  };
 
   const readDraggedPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
@@ -812,7 +838,7 @@ function App() {
   };
 
   useEffect(() => () => {
-    Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
+    Object.values(paperFetches.current.timers).forEach((timer) => window.clearTimeout(timer));
   }, []);
 
   const referenceImages = useReferenceImages(project?.root, references);
@@ -1590,6 +1616,7 @@ function App() {
     onPaper: (paper: PaperSummary) => void openPaper(paper),
     onLikelyPaper: prewarmLikelyPaper,
     onFetchFullText: (paper: PaperSummary) => void fetchAndOpenPaper(paper),
+    onCancelFetch: cancelPaperFetches,
     onDeletePaper: deletePaper,
     onEditBibEntry: (paper: PaperSummary) => void referenceImport.editBibEntry(paper),
     onOpenCitationUse: (usage: SymbolOccurrence) => void openSymbolOccurrence(usage),

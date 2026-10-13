@@ -747,9 +747,15 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .papers-section .import-box .ui-search-field-input[aria-busy="true"]::placeholder {
   color: transparent;
 }
+/* Downloading, the trailing slot takes the line from the read-only input:
+   the status, then Cancel, above the progress fill. */
+.papers-section .paper-import-control { container: paper-import / inline-size; }
+.papers-section .import-box .ui-search-field-input[aria-busy="true"] { width: 0; flex: none; margin-inline-end: calc(-1 * var(--search-control-gap)); }
 .papers-section .paper-import-control[data-importing] .ui-search-field-trailing {
   position: relative;
   z-index: 1;
+  flex: 1;
+  gap: var(--space-3);
 }
 .papers-section .paper-import-track {
   position: absolute;
@@ -777,19 +783,32 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   to { transform: translateX(100%); }
 }
 .papers-section .paper-import-status {
-  position: absolute;
-  inset-block: 0;
-  /* Starts after the search icon, which stays visible while importing. */
-  inset-inline: calc(var(--search-control-padding-inline) + var(--search-control-icon-size) + var(--search-control-gap)) var(--space-16);
-  align-content: center;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
   color: var(--text-primary);
   font-size: var(--navigation-search-font-size);
   line-height: var(--navigation-search-line-height);
   font-weight: var(--navigation-search-font-weight);
+}
+.papers-section .import-box button.paper-import-cancel {
+  width: auto;
+  flex: none;
+  padding: 0 var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.paper-import-cancel-icon { display: none; stroke-width: 1.75; }
+@container paper-import (width < 200px) {
+  .papers-section .import-box button.paper-import-cancel { width: 24px; padding: 0; justify-content: center; }
+  .paper-import-cancel-icon { display: block; }
+  .paper-import-cancel-label { display: none; }
 }
 .papers-section .ui-search-field.import-box[data-control-size="compact"] .ui-search-field-input {
   font-size: var(--navigation-search-font-size);
@@ -983,6 +1002,13 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .paper-cite-key .copy-button-icon > svg { stroke-width: 1.5; }
 .paper-row.active .paper-cite-key { color: var(--text-secondary); }
 .paper-cite-key:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+/* At the panel's narrowest the key alone would push Edit and Remove out of
+   the row, so it keeps only its copy icon; its name and tooltip still say
+   which key it copies. Four icons fit any row the panel can hold. */
+@container paper-row (width < 200px) {
+  .paper-row-actions > .paper-cite-key { width: 24px; min-width: 0; margin-inline: calc(-1 * var(--space-3)) auto; padding: 0; justify-content: center; }
+  .paper-cite-key > code { display: none; }
+}
 .row-delete, .row-edit-bib, .row-open-link { position: relative; width: 24px !important; height: 24px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
 .row-delete svg, .row-edit-bib svg, .row-open-link svg { stroke-width: 1.5; }
 .row-edit-bib:hover, .row-open-link:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }

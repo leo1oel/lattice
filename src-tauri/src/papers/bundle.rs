@@ -124,11 +124,12 @@ pub struct FetchResult {
 
 /// Cache a complete, unfiltered arxiv2md conversion without touching the
 /// bibliography. `progress` receives "fulltext" and "overview" as the fetch
-/// enters each network-bound step.
+/// enters each network-bound step; setting `cancel` stops it with nothing
+/// written.
 pub fn fetch_paper(
-    root: &Path, requested: &str, progress: &dyn Fn(&str),
+    root: &Path, requested: &str, progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Result<FetchResult, String> {
-    fetch_arxiv_bundle(root, requested, progress, &AtomicBool::new(false))
+    fetch_arxiv_bundle(root, requested, progress, cancel)
 }
 
 pub(super) fn fetch_arxiv_bundle(
@@ -200,6 +201,8 @@ pub(super) fn fetch_arxiv_bundle(
             fs::copy(dir.join("blog.md"), output_dir.join("blog.md")).map_err(err)?;
         }
         keep_manual_versions(&dir, output_dir, cached.as_ref())?;
+        // The last moment a Cancel can land: past the swap the paper is in.
+        check_cancelled(cancel)?;
         swap_in_bundle(output_dir, &dir)
     })?;
     Ok(bundle_result(&base, &dir, false))
@@ -279,8 +282,10 @@ pub(super) fn is_pdf_url(url: &str) -> bool {
 ///
 /// AlphaXiv URLs use its native overview API and optional PDF rather than a
 /// generic webpage scrape. Both resources can succeed independently.
-pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String> {
-    fetch_web_bundle(root, url, None, &AtomicBool::new(false))
+pub fn fetch_web_reference(
+    root: &Path, url: &str, cancel: &AtomicBool,
+) -> Result<FetchResult, String> {
+    fetch_web_bundle(root, url, None, cancel)
 }
 
 /// `page` is a capture the citation resolver already rendered, so the page is
@@ -376,6 +381,7 @@ pub(super) fn fetch_web_bundle(
         };
         validate_paper_bundle(output_dir, &metadata)?;
         metadata.write(output_dir)?;
+        check_cancelled(cancel)?;
         swap_in_bundle(output_dir, &dir)
     })?;
     Ok(bundle_result(&id, &dir, false))
@@ -593,7 +599,8 @@ mod tests {
     #[ignore = "requires network access"]
     fn falls_back_to_tex_source_for_a_broken_ar5iv_rendering() {
         let project = TestProject::new("");
-        let result = fetch_paper(&project.root, "2605.30170", &|_| {}).unwrap();
+        let result =
+            fetch_paper(&project.root, "2605.30170", &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!(result.arxiv_id, "2605.30170");
         let markdown = fs::read_to_string(project.root.join(&result.paper_path)).unwrap();
         assert!(markdown.contains("source: \"arxiv-source\""));
@@ -602,7 +609,11 @@ mod tests {
         assert!(markdown_has_body(&markdown));
         // The stub conversion's leftovers are gone: the manifest is honestly
         // empty and revalidation accepts the bundle, so a refetch reuses it.
-        assert!(fetch_paper(&project.root, "2605.30170", &|_| {}).unwrap().reused);
+        assert!(
+            fetch_paper(&project.root, "2605.30170", &|_| {}, &AtomicBool::new(false))
+                .unwrap()
+                .reused
+        );
     }
 
     /// arXiv HTML represents some vector figures as `<object data="…svg">`
@@ -612,7 +623,8 @@ mod tests {
     #[ignore = "requires network access"]
     fn imports_external_svg_figure_panels() {
         let project = TestProject::new("");
-        let result = fetch_paper(&project.root, "2609.01607", &|_| {}).unwrap();
+        let result =
+            fetch_paper(&project.root, "2609.01607", &|_| {}, &AtomicBool::new(false)).unwrap();
         let markdown = fs::read_to_string(project.root.join(&result.paper_path)).unwrap();
         let figure = markdown
             .split_once("<PaperFigure id=\"S4.F6\">")

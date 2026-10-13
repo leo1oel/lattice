@@ -38,7 +38,7 @@ describe("papers", () => {
     expect(papers.getByTitle("Attention Is All You Need")).toBeEnabled();
 
     fireEvent.click(citedOnly);
-    await expectInvoked("fetch_paper", { arxivId: "1412.6980" });
+    await expectInvoked("fetch_paper", { arxivId: "1412.6980", requestId: expect.any(String) });
     const input = screen.getByRole("searchbox", { name: "Search or import papers" });
     expect(input).toHaveAttribute("aria-busy", "true");
     expect(document.querySelector(".paper-import-track")).toBeInTheDocument();

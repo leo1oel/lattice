@@ -1978,6 +1978,10 @@ msgstr "取消选择颜色"
 msgid "Cancel creation"
 msgstr "取消创建"
 
+#: src/project/paper-library.tsx
+msgid "Cancel download"
+msgstr "取消下载"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "取消修复"
