@@ -59,7 +59,7 @@ export type ProjectLifecycleDeps = {
   documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
-    "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyBibliographyIndex" | "applyReferences" | "setPapers"
+    "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyReferences" | "setCitations" | "publishPapers" | "failPapers"
   >;
   build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject">;
   /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
@@ -107,7 +107,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     captureProjectScope,
   } = projectState;
   const { claim, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
-  const { claimBibliographyRefresh, resetBibliographyIndex, applyBibliographyIndex, applyReferences, setPapers } = library;
+  const { claimBibliographyRefresh, resetBibliographyIndex, applyReferences, setCitations, publishPapers, failPapers } = library;
   const { runBuild, resetForProject } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
@@ -207,9 +207,14 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       void runBuild(false, { immediatePreview: true });
     }
     const isLatestBibliography = claimBibliographyRefresh();
-    resetBibliographyIndex();
-    const bibliographyIndex = requestBibliographyIndex();
-    const nextPapers = await bibliographyIndex[0];
+    resetBibliographyIndex(snapshot.root);
+    const [paperRequest, citationRequest, referenceRequest] = requestBibliographyIndex();
+    // A paper list that cannot be read says so in Papers, with a retry; the
+    // project still opens, restoring no paper tabs.
+    const nextPapers = await paperRequest.catch((reason: unknown) => {
+      if (ownsProject() && isLatestBibliography()) failPapers(snapshot.root, reason);
+      return null;
+    });
     if (!ownsProject()) return;
     // Opening a file cancels workspace restoration, not the project's paper
     // scan. Apply metadata before the restore's own guards, but do not
@@ -218,22 +223,22 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // feed completions and diagnostics, and the label scan of a long .tex
     // takes seconds (a 3.2 MB file: 10 s), so they land when ready instead
     // of holding the document back.
-    if (isLatestBibliography()) setPapers(nextPapers);
-    void Promise.all(bibliographyIndex).then((index) => {
+    if (nextPapers && isLatestBibliography()) publishPapers(snapshot.root, nextPapers);
+    void Promise.all([citationRequest, referenceRequest]).then(([nextCitations, nextReferences]) => {
       if (!ownsProject()) return;
-      if (isLatestBibliography()) applyBibliographyIndex(index);
-      else applyReferences(index[2]);
+      if (isLatestBibliography()) setCitations(nextCitations);
+      applyReferences(nextReferences);
     }, () => undefined);
-    if (!(await entry.restore(nextPapers))) return;
+    if (!(await entry.restore(nextPapers ?? []))) return;
     await depsRef.current.scanProject();
     entry.finish();
     // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
     // whole window blank white with the UI still "mounted".
     if (shellRef.current) shellRef.current.style.opacity = "1";
   }, [
-    applyBibliographyIndex, applyReferences, beginProjectTransition, captureProjectScope, claimBibliographyRefresh,
-    depsRef, enterDocuments, projectBeforeTransitionRef, projectRef, rememberProject, resetBibliographyIndex,
-    resetForProject, runBuild, setPapers, setProject, shellRef,
+    applyReferences, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, depsRef, enterDocuments,
+    failPapers, projectBeforeTransitionRef, projectRef, publishPapers, rememberProject, resetBibliographyIndex,
+    resetForProject, runBuild, setCitations, setProject, shellRef,
   ]);
   const enterProjectRef = useLatestRef(enterProject);
 

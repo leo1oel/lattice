@@ -76,6 +76,7 @@ plus an omission count when an explicit selection is truncated to the
 A source-editor selection also carries the optional `editor.selectionLines` (`{ start, end }`, 1-based and inclusive; a selection ending at a line's start stops on the line before).
 The visual Markdown editor and older Lattice builds omit it, and the embed then names the file alone.
 The Agent panel's empty thread names the selection with it ("Selection · main.tex lines 23–25"), and its starters fill the composer with editing prompts that act on that selection.
+As the panel shortens, the empty thread compacts its starters (single-line cards, then pills, then one row of icons) so they stay clear of the composer and of the selection's context bar above it; the Agent panel's minimum height (`MIN_SIZE.agent` in `src/trellis/trellis-workspace.tsx`) leaves room for that last row.
 
 Writing comments are included in the optional `editorComments` field: up to ten unresolved comments for the current document, with quoted source, authors, replies, anchor validity, and explicit omission counts.
 Before dispatching an embedded message, Synara requests a correlated host-context refresh; Lattice refreshes both Overleaf threads and project-wide anchors and reports unavailable/cached data honestly on failure.

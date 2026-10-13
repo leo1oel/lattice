@@ -1,9 +1,10 @@
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Condvar, LazyLock, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const CROSSREF_WORKS_URL: &str = "https://api.crossref.org/works";
@@ -14,6 +15,10 @@ const MAX_REFRESH_PER_SCAN: usize = 24;
 const MAX_CACHE_ENTRIES: usize = 512;
 const MAX_CONCURRENT_REQUESTS: usize = 4;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a scan waits on a DOI another scan of the same project is already
+/// fetching: past the worst case of one capped round (each worker's share of
+/// the cap, every request timing out), so only a wedged fetch reaches it.
+const JOIN_DEADLINE: Duration = Duration::from_secs(60);
 
 /// A single, bounded summary of Crossref update metadata for one exact DOI.
 /// `kind` is intentionally small and stable while `update_type` preserves the
@@ -71,6 +76,25 @@ struct CacheEntry {
     health: CitationHealth,
 }
 
+/// What the project's cache already knows, without touching the network:
+/// fresh verdicts as they are, expired ones marked stale (a known notice stays
+/// visible while it waits for a recheck), and nothing at all for a DOI never
+/// checked, which is unknown rather than "no problems". `lookup` fills in the
+/// rest; the paper list uses this so its rows never wait for Crossref.
+pub fn cached(
+    root: &Path, dois: impl IntoIterator<Item = String>,
+) -> BTreeMap<String, CitationHealth> {
+    let now = epoch_seconds();
+    let cache = read_cache(root);
+    dois.into_iter()
+        .filter_map(|doi| {
+            let entry = cache.entries.get(&doi)?;
+            let stale = now.saturating_sub(entry.checked_at_epoch) >= CACHE_TTL_SECS;
+            Some((doi, CitationHealth { stale, ..entry.health.clone() }))
+        })
+        .collect()
+}
+
 pub fn lookup(
     root: &Path, dois: impl IntoIterator<Item = String>,
 ) -> BTreeMap<String, CitationHealth> {
@@ -87,7 +111,7 @@ fn lookup_at(
         return BTreeMap::new();
     }
     let now = epoch_seconds();
-    let mut cache = read_cache(root);
+    let cache = read_cache(root);
     let mut results = BTreeMap::new();
     let stale = dois
         .iter()
@@ -106,13 +130,36 @@ fn lookup_at(
         .cloned()
         .collect::<Vec<_>>();
 
-    let fetched = fetch_parallel(&stale, base_url, contact);
+    // Opening a project, a save and an Overleaf pull can each scan the same
+    // bibliography while an earlier scan is still waiting on Crossref. A DOI
+    // already being fetched for this project is awaited, not fetched again,
+    // so overlapping scans cost one request per DOI and agree on its answer.
+    let claim = Claim::take(root, &stale);
+    let fetched = fetch_parallel(&claim.owned, base_url, contact)
+        .into_iter()
+        .map(|(doi, result)| {
+            (doi, result.map(|health| CitationHealth { checked_at: timestamp_now(), ..health }))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let checked = fetched
+        .iter()
+        .filter_map(|(doi, result)| {
+            let health = result.as_ref().ok()?.clone();
+            Some((doi.clone(), CacheEntry { checked_at_epoch: now, health }))
+        })
+        .collect::<BTreeMap<_, _>>();
+    if !checked.is_empty() {
+        if let Err(error) = merge_into_cache(root, &checked) {
+            log::debug!(target: "lattice::citation_health", "Could not write cache: {error}");
+        }
+    }
+    // Published only once the cache holds them, so a scan that starts after
+    // this one finishes reads the same verdicts from disk.
+    claim.publish(&fetched);
+    let joined = claim.wait_for_others();
     for doi in stale {
-        match fetched.get(&doi) {
+        match fetched.get(&doi).or_else(|| joined.get(&doi)).cloned() {
             Some(Ok(health)) => {
-                let health = CitationHealth { checked_at: timestamp_now(), ..health.clone() };
-                let entry = CacheEntry { checked_at_epoch: now, health: health.clone() };
-                cache.entries.insert(doi.clone(), entry);
                 results.insert(doi, health);
             }
             Some(Err(error)) => {
@@ -131,13 +178,101 @@ fn lookup_at(
     for doi in dois {
         results.entry(doi.clone()).or_insert_with(|| stale_or_unavailable(&cache, &doi));
     }
-    if !fetched.is_empty() {
-        trim_cache(&mut cache);
-        if let Err(error) = write_cache(root, &cache) {
-            log::debug!(target: "lattice::citation_health", "Could not write cache: {error}");
+    results
+}
+
+/// One DOI's fetch under way for one project, which other scans wait on.
+#[derive(Default)]
+struct InFlight {
+    result: Mutex<Option<Result<CitationHealth, String>>>,
+    done: Condvar,
+}
+
+type InFlightKey = (PathBuf, String);
+
+static IN_FLIGHT: LazyLock<Mutex<HashMap<InFlightKey, Arc<InFlight>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// The DOIs one scan fetches itself and the ones it waits on. Dropping it
+/// settles whatever it owns and has not published (a panicking worker
+/// included), so no waiter is left for the full deadline.
+struct Claim {
+    root: PathBuf,
+    owned: Vec<String>,
+    mine: Vec<Arc<InFlight>>,
+    others: Vec<(String, Arc<InFlight>)>,
+}
+
+impl Claim {
+    fn take(root: &Path, dois: &[String]) -> Self {
+        let root = root.to_path_buf();
+        let mut claim =
+            Claim { root: root.clone(), owned: Vec::new(), mine: Vec::new(), others: Vec::new() };
+        let mut in_flight = IN_FLIGHT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        for doi in dois {
+            match in_flight.get(&(root.clone(), doi.clone())) {
+                Some(pending) => claim.others.push((doi.clone(), Arc::clone(pending))),
+                None => {
+                    let pending = Arc::new(InFlight::default());
+                    in_flight.insert((root.clone(), doi.clone()), Arc::clone(&pending));
+                    claim.owned.push(doi.clone());
+                    claim.mine.push(pending);
+                }
+            }
+        }
+        claim
+    }
+
+    /// Hand each owned DOI's outcome to its waiters and release it.
+    fn publish(&self, fetched: &BTreeMap<String, Result<CitationHealth, String>>) {
+        let mut in_flight = IN_FLIGHT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        for (doi, pending) in self.owned.iter().zip(&self.mine) {
+            let outcome = fetched
+                .get(doi)
+                .cloned()
+                .unwrap_or_else(|| Err("Crossref lookup did not run".to_string()));
+            settle(pending, outcome);
+            in_flight.remove(&(self.root.clone(), doi.clone()));
         }
     }
-    results
+
+    fn wait_for_others(&self) -> BTreeMap<String, Result<CitationHealth, String>> {
+        self.others
+            .iter()
+            .map(|(doi, pending)| {
+                let result = pending.result.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let (result, _) = pending
+                    .done
+                    .wait_timeout_while(result, JOIN_DEADLINE, |result| result.is_none())
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                let outcome = result
+                    .clone()
+                    .unwrap_or_else(|| Err("Crossref lookup is still under way".to_string()));
+                (doi.clone(), outcome)
+            })
+            .collect()
+    }
+}
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        let mut in_flight = IN_FLIGHT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        for (doi, pending) in self.owned.iter().zip(&self.mine) {
+            let key = (self.root.clone(), doi.clone());
+            if in_flight.get(&key).is_some_and(|current| Arc::ptr_eq(current, pending)) {
+                settle(pending, Err("Crossref lookup stopped".to_string()));
+                in_flight.remove(&key);
+            }
+        }
+    }
+}
+
+fn settle(pending: &InFlight, outcome: Result<CitationHealth, String>) {
+    let mut result = pending.result.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if result.is_none() {
+        *result = Some(outcome);
+    }
+    pending.done.notify_all();
 }
 
 /// An expired cached result remains more useful than hiding a known notice.
@@ -276,14 +411,28 @@ fn read_cache(root: &Path) -> CitationHealthCache {
         .unwrap_or_else(|| CitationHealthCache { schema: CACHE_SCHEMA, entries: BTreeMap::new() })
 }
 
-fn write_cache(root: &Path, cache: &CitationHealthCache) -> Result<(), String> {
-    let path = root.join(CACHE_PATH);
-    let Some(parent) = path.parent() else {
-        return Err("cache path has no parent".to_string());
-    };
-    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    let bytes = serde_json::to_vec_pretty(cache).map_err(|error| error.to_string())?;
-    fs::write(path, bytes).map_err(|error| error.to_string())
+/// Serializes the read-merge-write of each cache, so two scans that finish
+/// together both land instead of the later one writing back what it read
+/// before the earlier one saved.
+static CACHE_WRITE: Mutex<()> = Mutex::new(());
+
+/// Add `checked` to the cache on disk, keeping whichever verdict for a DOI is
+/// newer, and replace the file in one rename: a reader never sees half of it.
+fn merge_into_cache(root: &Path, checked: &BTreeMap<String, CacheEntry>) -> Result<(), String> {
+    let _guard = CACHE_WRITE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut cache = read_cache(root);
+    for (doi, entry) in checked {
+        let newer = cache
+            .entries
+            .get(doi)
+            .is_none_or(|current| current.checked_at_epoch <= entry.checked_at_epoch);
+        if newer {
+            cache.entries.insert(doi.clone(), entry.clone());
+        }
+    }
+    trim_cache(&mut cache);
+    let bytes = serde_json::to_vec_pretty(&cache).map_err(|error| error.to_string())?;
+    crate::project_fs::ProjectDir::open(root)?.atomic_write(CACHE_PATH, &bytes)
 }
 
 /// Drop the oldest checks beyond the cap (ties go to the smaller DOI).

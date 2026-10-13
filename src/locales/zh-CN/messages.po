@@ -3128,6 +3128,10 @@ msgstr "连不上服务"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "读取钥匙串失败，请重开设置"
 
+#: src/project/paper-library.tsx
+msgid "Couldn’t read your references"
+msgstr "未能读取参考文献"
+
 #: src/project/project-dialogs.tsx
 msgid "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
 msgstr "无法重新打开“{unopenedName}”：{unopenedReason}"
@@ -5897,6 +5901,10 @@ msgstr "正在加载历史…"
 #: src/app/git-workspace-frames.tsx
 msgid "Loading pull requests…"
 msgstr "正在加载 PR…"
+
+#: src/project/paper-library.tsx
+msgid "Loading references…"
+msgstr "正在加载参考文献…"
 
 #: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
@@ -10289,6 +10297,10 @@ msgstr "点同步按钮时才同步"
 msgid "Sync with Overleaf"
 msgstr "同步 Overleaf"
 
+#: src/project/paper-library.tsx
+msgid "Syncing references…"
+msgstr "正在同步参考文献…"
+
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Syncing with “{0}” is paused"
@@ -11155,6 +11167,7 @@ msgstr "换个更短或不同的词试试"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/project/paper-library.tsx
 msgid "Try again"
 msgstr "重试"
 
