@@ -76,6 +76,7 @@ fn from_openalex(work: OpenAlexWork) -> LiteratureHit {
         cited_by_count: Some(work.cited_by_count),
         votes: None,
         snippet: None,
+        r#abstract: work.r#abstract,
         doi: work.doi,
         landing_url: work.landing_url,
     }
