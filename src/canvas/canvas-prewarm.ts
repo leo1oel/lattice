@@ -4,6 +4,7 @@
  * which chunks a given project needs.
  */
 import {
+  loadBibVisualEditorModule,
   loadBoardEditorModule,
   loadPdfPreviewModule,
   loadSpreadsheetEditorModule,
@@ -27,6 +28,8 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
     work.push(loadVisualMarkdownEditorModule());
   }
   if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) work.push(loadPdfPreviewModule());
+  // A bibliography's Preview, the reference list, so its first open draws at once.
+  if (normalized.some((path) => path.endsWith(".bib"))) work.push(loadBibVisualEditorModule());
   if (normalized.some((path) => path.endsWith(".tldr"))) {
     work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-store")]).then(([, board]) => {
       // Initialize tldraw's schema/store machinery without mounting a canvas.
