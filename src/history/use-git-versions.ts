@@ -16,6 +16,13 @@ import { AUTO_COMMIT_MESSAGES } from "./version-messages";
 
 export type GitVersionsPhase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
 
+/**
+ * The last log read for each project, so the history drawer opens on its
+ * versions at once and reads them again behind them, instead of drawing its
+ * other rows first and the versions a round trip later between them.
+ */
+const lastLog = new Map<string, GitLogEntry[]>();
+
 export function useGitVersions(props: {
   projectRoot?: string;
   /** Called after any restore or manual save so the app can reload files. */
@@ -24,8 +31,8 @@ export function useGitVersions(props: {
   onGitUnreachable?: () => void;
 }) {
   const { t } = useLingui();
-  const [phase, setPhase] = useState<GitVersionsPhase>("loading");
-  const [entries, setEntries] = useState<GitLogEntry[]>([]);
+  const [phase, setPhase] = useState<GitVersionsPhase>(() => (props.projectRoot && lastLog.has(props.projectRoot) ? "ready" : "loading"));
+  const [entries, setEntries] = useState<GitLogEntry[]>(() => (props.projectRoot && lastLog.get(props.projectRoot)) || []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,22 +45,29 @@ export function useGitVersions(props: {
 
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
+    const root = callbacksRef.current.projectRoot;
     setRefreshing(true);
     setError("");
     try {
+      // Asked together: the log of a folder that is not a repository is empty.
+      const log = invoke<GitLogEntry[]>("git_log", { limit: 100 }).then(
+        (entries) => ({ entries }),
+        (reason: unknown) => ({ reason }),
+      );
       const status = await invoke<GitStatus>("git_status");
       if (seq !== loadSeq.current) return;
       if (!status.available || !status.repository) {
+        if (root) lastLog.delete(root);
         setPhase(status.available ? "no-repo" : "unavailable");
         return;
       }
-      try {
-        const entries = await invoke<GitLogEntry[]>("git_log", { limit: 100 });
-        if (seq !== loadSeq.current) return;
-        setEntries(entries);
-      } catch (reason) {
-        if (seq !== loadSeq.current) return;
-        setError(toMessage(reason));
+      const read = await log;
+      if (seq !== loadSeq.current) return;
+      if ("entries" in read) {
+        if (root) lastLog.set(root, read.entries);
+        setEntries(read.entries);
+      } else {
+        setError(toMessage(read.reason));
       }
       setPhase("ready");
     } catch (reason) {
