@@ -209,7 +209,9 @@ input[type="search"]:focus-visible {
 .quick-open-modal[data-detail="end"] .quick-open-list button { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
 .quick-open-modal[data-detail="end"] .picker-label { flex: 1 1 auto; }
 .quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
-.quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; }
+.quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); padding: var(--surface-inset); display: grid; }
+/* Arrowing to a row past the fold stops it clear of the edge fades. */
+.quick-open-scroll [data-slot="scroll-area-viewport"] { max-height: min(360px, 50vh); scroll-padding-block: var(--scroll-fade-size); }
 .quick-open-list button { min-height: var(--row-height-compact); border: 0; border-radius: var(--nested-radius); padding: var(--space-3) var(--space-5); background: transparent; color: var(--text-primary); text-align: left; font-size: var(--type-body-size); line-height: var(--type-body-line-height); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 /* The pointer moves the current row too (on a real move), so `.active` is the
    only highlight; a :hover fill would light a second row under a resting
@@ -222,7 +224,10 @@ input[type="search"]:focus-visible {
 /* One heading per section at the caption role, quiet enough that the rows
    stay the thing to read. */
 .quick-open-list .picker-section { padding: var(--space-6) var(--space-5) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
-.quick-open-list .picker-section:first-of-type { padding-top: var(--space-2); }
+/* The first heading by class, not :first-of-type: the hover fill is a div that
+   mounts first in the list, and counting it moved every row 8px down under a
+   fill measured before it came. */
+.quick-open-list .picker-section:not(.picker-section ~ .picker-section) { padding-top: var(--space-2); }
 .quick-open-list .picker-file { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
 .quick-open-list .picker-file-icon { flex: none; display: inline-flex; color: var(--text-secondary); }
 .quick-open-list button.active .picker-file-icon { color: var(--text-primary); }
@@ -247,10 +252,10 @@ input[type="search"]:focus-visible {
    may still answer it (the palette's Find in project) follows. */
 .picker-no-match { padding: var(--space-8) var(--space-8) var(--space-2); display: grid; gap: var(--space-1); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
 .picker-no-match > strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
-.picker-no-match:has(+ .quick-open-list[hidden]) { padding-bottom: var(--space-8); }
-.quick-open-list[hidden] { display: none; }
+.picker-no-match:has(+ .quick-open-scroll[hidden]) { padding-bottom: var(--space-8); }
+.quick-open-scroll[hidden] { display: none; }
 .modal.quick-open-modal.command-palette-modal { width: min(640px, calc(100vw - 40px)); }
-.command-palette-modal .quick-open-list { max-height: min(460px, 60vh); }
+.command-palette-modal .quick-open-scroll [data-slot="scroll-area-viewport"] { max-height: min(460px, 60vh); }
 .command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .command-palette-footer::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--border-subtle); }
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
