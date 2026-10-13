@@ -125,9 +125,9 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/editor/presentation/` | 6 | 3 | 931 | The embedded Open Slide workspace and its loopback bridge. |
 | `src/trellis/` | 23 | 9 | 6,203 | The panel workspace (Trellis): the controller App drives, the workspace and its panel types, the title-bar panel controls, the panel header actions, per-project layout persistence with the named workspaces and the Writing and Reading presets, Trellis's translated labels, and its stylesheet. |
 | `src/onboarding/` | 6 | 1 | 878 | The guided tour of the Trellis workspace that the Guided tutorial entry starts once the sample project is open: its stops and what each waits for the writer to do (`guided-tour-steps.ts`), card placement, the lazily loaded tour surface and its stylesheet, and the `useGuidedTour` state App holds. |
-| `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
-| `src/hooks/` | 2 | 0 | 44 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`. |
-| `src/lib/` | 1 | 0 | — | `utils.ts` (the shadcn `cn` helper). |
+| `src/components/` | 3 | 0 | 129 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`), and `lazy-mount.tsx` (`LazyMount`: a lazily loaded dialog or drawer opens without React's 300 ms Suspense reveal delay). |
+| `src/hooks/` | 3 | 0 | 105 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`, `use-progressive-rows.ts` (a long list draws its rows as they come near the view: the paper library, the history timeline, Check references). |
+| `src/lib/` | 2 | 0 | — | `utils.ts` (the shadcn `cn` helper) and `lazy-chunk.ts` (`chunk` and `lazyChunk`: a shared dynamic import, and `React.lazy` over it that renders without suspending once the chunk is in). |
 | `src/locales/` | 2 | — | — | Lingui catalogs: `en` and `zh-CN` `.po` sources (compiled `.js` are generated, not tracked). |
 | `src/assets/` | 7 | — | — | Fonts. |
 
@@ -158,8 +158,8 @@ rather than a fact:
   imports `pdf/pdf-viewer-utils.ts` and the range transport in
   `pdf/project-pdf.ts` but is not part of the viewer.
 | `src/locales/` | 2 | Lingui catalogs: `en` and `zh-CN` `.po` sources (the compiled `.js` are generated, not tracked) |
-| `src/hooks/` | 2 | `use-latest-ref.ts`, `use-non-passive-wheel.ts` |
-| `src/lib/` | 1 | `utils.ts` (the shadcn `cn` helper) |
+| `src/hooks/` | 3 | `use-latest-ref.ts`, `use-non-passive-wheel.ts`, `use-progressive-rows.ts` |
+| `src/lib/` | 2 | `utils.ts` (the shadcn `cn` helper), `lazy-chunk.ts` |
 | `src/animated-icons/` (17), `src/assets/` (7) | 24 | The animated product icons — `bakai/` (12 hand-rebuilt Phosphor glyphs), `bakai-icons.css`, `provided-icons.tsx`, and the `product-animated-icon.tsx` façade — plus fonts. |
 
 ---
