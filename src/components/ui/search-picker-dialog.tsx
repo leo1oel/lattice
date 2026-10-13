@@ -4,6 +4,7 @@ import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
 import { SearchField } from "./search-field";
 import { FluidHoverSurface } from "./fluid-hover-surface";
+import { ScrollArea } from "./scroll-area";
 import { rankMatches, scoreItem } from "./picker-ranking";
 import { searchPickerRow } from "./picker-row";
 
@@ -148,7 +149,16 @@ export function PickerDialog<T>(props: {
             {noMatch.description && <span>{noMatch.description}</span>}
           </div>
         )}
-        <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox" hidden={Boolean(noMatch && !results.length)}>
+        {/* The app's own scrollbar, not the native one: WebKit only repaints a
+            native thumb's :hover colour when something else repaints the list,
+            so a list longer than the dialog looked like it ended at the fold. */}
+        <ScrollArea
+          className="quick-open-scroll"
+          hidden={Boolean(noMatch && !results.length)}
+          viewportRef={listRef}
+          viewportProps={{ role: "listbox", tabIndex: -1 }}
+          contentClassName="quick-open-list fluid-hover-surface"
+        >
           <FluidHoverSurface follow='[aria-selected="true"]' />
           {results.map((item, index) => {
             const group = sectioned ? groupOf?.(item) : undefined;
@@ -177,7 +187,7 @@ export function PickerDialog<T>(props: {
             );
           })}
           {!results.length && !noMatch && <EmptyState density="compact" description={props.emptyText} />}
-        </div>
+        </ScrollArea>
         {props.footer}
       </div>
     </ModalDialog>
