@@ -1,0 +1,16 @@
+/* Initials sit on a saturated mid-lightness hue in either theme, as the
+   presence stack's do. */
+.overleaf-person-avatar {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font: var(--weight-semibold) calc(var(--type-micro-size) * .82)/1 var(--ui-font);
+  letter-spacing: .01em;
+  user-select: none;
+}
+.overleaf-person-avatar[data-size="small"] { width: 18px; height: 18px; font-size: calc(var(--type-micro-size) * .75); }
+.overleaf-person-avatar[data-size="large"] { width: 24px; height: 24px; font-size: var(--type-micro-size); }

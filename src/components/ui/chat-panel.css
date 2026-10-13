@@ -80,6 +80,8 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* A placeholder naming the people here stays on its one line. */
+.chat-composer textarea::placeholder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-composer textarea:focus {
   outline: none;
   border-color: var(--field-control-interactive-border-color);
@@ -92,4 +94,58 @@
   display: grid;
   place-items: center;
   padding: 0;
+}
+
+/* Rows, for a host that gives each speaker a face (`avatar`): the face, name
+   and time open a run, later messages in it line up under the text, and a
+   rule with the day's name sits where the day changes. */
+.chat-list:has(.chat-row) { gap: 0; }
+.chat-day {
+  margin: var(--space-6) 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  white-space: nowrap;
+}
+.chat-day:first-child { margin-top: 0; }
+.chat-day::before,
+.chat-day::after { content: ""; flex: 1; height: 1px; background: var(--border-subtle); }
+.chat-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: var(--space-4);
+  padding-top: var(--space-5);
+}
+.chat-row.grouped { padding-top: var(--space-1); }
+.chat-row-avatar { min-height: 1px; padding-top: var(--space-1); }
+.chat-row-body { min-width: 0; }
+.chat-row-meta {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: 20px;
+}
+.chat-row-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--type-body-compact-size);
+  font-weight: var(--weight-medium);
+}
+.chat-row-meta time { flex: none; font-variant-numeric: tabular-nums; }
+.chat-row-body p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

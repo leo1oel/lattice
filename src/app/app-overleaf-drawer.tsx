@@ -44,6 +44,7 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, act
       trackChanges={overleafTrackChanges}
       realtime={overleafRealtime}
       pathForDoc={(id) => overleaf.overleafDocPaths.get(id) ?? null}
+      peers={overleaf.overleafPresence.peers}
       source={source}
       // The comment may be on a file that is not open, so open it first and
       // place the caret after.

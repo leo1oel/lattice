@@ -1,9 +1,13 @@
+import type { PeerColor } from "../../components/ui/collab-colors";
+
 const AUTHOR_ID_KEY = "lattice.editor-comment-author-id.v1";
 
 export type EditorCommentReply = {
   id: string;
   authorId: string;
   authorName: string;
+  /** An Overleaf collaborator's colour, so the mark matches them in every collaboration panel; else derived from `authorId`. */
+  authorColor?: PeerColor;
   body: string;
   createdAt: string;
 };
@@ -60,6 +64,8 @@ export type EditorComment = {
   revision?: AnnotationRevision;
   authorId: string;
   authorName: string;
+  /** As on a reply: an Overleaf thread's author colour. */
+  authorColor?: PeerColor;
   resolved: boolean;
   replies: EditorCommentReply[];
   createdAt: string;

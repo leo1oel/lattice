@@ -15,6 +15,7 @@ import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments, type OverleafComments } from "../overleaf/use-overleaf-comments";
 import { useOverleafTrackChanges } from "../overleaf/use-overleaf-track-changes";
+import { collabPeopleHues, peopleHuesFromKey, peopleHuesKey, personColor, type PeopleHues } from "../overleaf/overleaf-collab-people";
 import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
@@ -35,6 +36,7 @@ export function projectOverleafEditorComments(
   docPaths: Map<string, string>,
   liveDocId: string | null,
   liveAnchors: Map<string, { threadId: string; position: number; quote: string }>,
+  hues: PeopleHues = new Map(),
 ): EditorComment[] {
   // REST supplies ownership for every file; the joined document's live ranges
   // are authoritative, including anchors removed since the REST snapshot.
@@ -51,10 +53,12 @@ export function projectOverleafEditorComments(
       id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`, number: 0, path,
       from: anchor.position, to: anchor.position + anchor.quote.length, quote: anchor.quote, prefix: "", suffix: "",
       body: first?.content ?? "", authorId: first?.authorEmail ?? "overleaf",
+      authorColor: first && personColor(hues, { name: first.authorName, email: first.authorEmail, mine: first.mine }),
       // eslint-disable-next-line lingui/no-unlocalized-strings -- a name tagged with the product, the same in every locale
       authorName: first ? `${first.authorName} · Overleaf` : "Overleaf", resolved: thread.resolved,
       replies: rest.map((message) => ({
         id: message.id, authorId: message.authorEmail ?? "overleaf", authorName: message.authorName,
+        authorColor: personColor(hues, { name: message.authorName, email: message.authorEmail, mine: message.mine }),
         body: message.content, createdAt: new Date(message.timestamp).toISOString(),
       })),
       createdAt: new Date(first?.timestamp ?? 0).toISOString(),
@@ -863,12 +867,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     anchor: overleafRealtime.anchorComment,
   });
 
-  // Overleaf's threads dressed as editor comments, so they highlight and answer
-  // in place; the id prefix routes replies to Overleaf, not the comments file.
-  const overleafEditorComments = useMemo(() => projectOverleafEditorComments(
-    overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors,
-  ), [overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors]);
-
   // Acting on a suggestion reports no operation, so the document is re-read afterwards.
   const overleafTrackChanges = useOverleafTrackChanges({
     ...overleafChannel,
@@ -880,6 +878,19 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     canAct: overleafRealtime.canWrite,
     reload: overleafRealtime.reload,
   });
+
+  // Overleaf's threads dressed as editor comments, so they highlight and answer
+  // in place; the id prefix routes replies to Overleaf, not the comments file.
+  // Each mark takes its author's colour from the collaboration panels. The
+  // roster changes on every caret move, so the projection keys on the hues
+  // themselves rather than on the arrays they were read from.
+  const overleafPeopleHuesKey = peopleHuesKey(
+    collabPeopleHues(overleafPresence.peers, overleafRealtime.changes, overleafTrackChanges.authorName),
+  );
+  const overleafEditorComments = useMemo(() => projectOverleafEditorComments(
+    overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors,
+    peopleHuesFromKey(overleafPeopleHuesKey),
+  ), [overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors, overleafPeopleHuesKey]);
   // App's comment handlers are declared before this hook runs; they read the newest actions here.
   const overleafCommentsRef = useLatestRef(overleafComments);
 

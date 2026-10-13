@@ -155,6 +155,11 @@ msgstr "{0} 个软件包"
 msgid "{0} pages"
 msgstr "{0} 页"
 
+#. placeholder {0}: peers.length
+#: src/overleaf/overleaf-presence.tsx
+msgid "{0} people on Overleaf now"
+msgstr "{0} 人正在 Overleaf 上"
+
 #. placeholder {0}: candidates.length
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} records match"
@@ -299,6 +304,10 @@ msgstr "已复制 {count} 个路径"
 msgid "{count} results for “{shownQuery}”"
 msgstr "“{shownQuery}”共 {count} 条结果"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "{count} suggestions"
+msgstr "{count} 条修订建议"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} 条待办"
@@ -422,8 +431,8 @@ msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgstr "{installedProduct} 已装好，但以下检查未通过：\\n{0}"
 
 #: src/overleaf/overleaf-presence.tsx
-msgid "{label} · {path} — click to jump there"
-msgstr "{label} · {path} — 点击跳过去"
+msgid "{label} · {place} — click to jump there"
+msgstr "{label} · {place}——点击跳转"
 
 #: src/project/project-replace-dialog.tsx
 msgid "{matchSummary} in {fileSummary}"
@@ -433,9 +442,17 @@ msgstr "{fileSummary}中共 {matchSummary}"
 msgid "{matchSummary} in {fileSummary} (showing first 200)"
 msgstr "{fileSummary}中共 {matchSummary}（显示前 200 处）"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "{meaning}, {color}"
+msgstr "{meaning}，{color}"
+
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "{name} (reconnecting…)"
+msgstr "{name}（正在重新连接…）"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "{name} copy"
@@ -500,6 +517,7 @@ msgid "{open} open"
 msgstr "{open} 条待处理"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "{openCount} open"
 msgstr "{openCount} 条待处理"
 
@@ -519,6 +537,10 @@ msgstr "{operation}：{pathname}"
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
 msgstr "{0} 项中 {passing} 项通过"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "{path} · line {line}"
+msgstr "{path} · 第 {line} 行"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -613,10 +635,6 @@ msgstr "{warnings} 个警告"
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
 
-#: src/overleaf/overleaf-presence.tsx
-msgid "{where} (reconnecting…)"
-msgstr "{where}（重连中…）"
-
 #: src/app/use-overleaf-workspace.ts
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
@@ -701,6 +719,7 @@ msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "1 open"
 msgstr "1 条待处理"
 
@@ -721,6 +740,10 @@ msgstr "还剩 1 页"
 msgid "1 paper"
 msgstr "1 篇论文"
 
+#: src/overleaf/overleaf-presence.tsx
+msgid "1 person on Overleaf now"
+msgstr "1 人正在 Overleaf 上"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 reference, not checked yet"
 msgstr "共 1 条文献，尚未检查"
@@ -728,6 +751,10 @@ msgstr "共 1 条文献，尚未检查"
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 result for “{shownQuery}”"
 msgstr "“{shownQuery}”共 1 条结果"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "1 suggestion"
+msgstr "1 条修订建议"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
@@ -817,6 +844,7 @@ msgstr "关于 {name}"
 msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 msgstr "约 {TEX_INSTALL_SIZE_HINT} · 最多 15 分钟"
 
+#: src/overleaf/overleaf-changes.tsx
 #: src/project/paper-inspector.tsx
 msgid "Abstract"
 msgstr "摘要"
@@ -843,13 +871,9 @@ msgid "Accept {kept} of {offered}"
 msgstr "接受 {kept}/{offered} 处"
 
 #: src/canvas/proofread-card.tsx
+#: src/overleaf/overleaf-changes.tsx
 msgid "Accept all"
 msgstr "全部接受"
-
-#. placeholder {0}: sorted.length
-#: src/overleaf/overleaf-changes.tsx
-msgid "Accept all ({0})"
-msgstr "全部接受（{0}）"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Accept or reject each one in the editor; the round is saved as a version"
@@ -1006,6 +1030,11 @@ msgstr "添加第一篇论文"
 #: src/overleaf/overleaf-history.tsx
 msgid "added"
 msgstr "新增"
+
+#: src/overleaf/overleaf-changes.tsx
+msgctxt "tracked change, after its author"
+msgid "added"
+msgstr "添加了"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Added"
@@ -1306,6 +1335,7 @@ msgstr "批注 {list}"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
+#: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-presence.tsx
 #: src/settings/settings-dialog.tsx
@@ -1599,6 +1629,7 @@ msgid "Before revisions"
 msgstr "修改之前"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/overleaf/overleaf-changes.tsx
 msgid "Before the first section"
 msgstr "第一节之前"
 
@@ -1712,6 +1743,7 @@ msgid "Blog"
 msgstr "概览"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "蓝色"
@@ -2674,6 +2706,10 @@ msgstr "评论"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "评论署名：{0}（取自 Git 或 Overleaf）"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Comments from Overleaf sit here beside the words they are about"
+msgstr "Overleaf 上的评论会和它们所指的文字一起列在这里"
+
 #: src/app/annotation-rounds.ts
 msgid "Compare"
 msgstr "对比"
@@ -3223,6 +3259,10 @@ msgstr "自定义"
 msgid "Custom accent color"
 msgstr "自选颜色"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Custom colour…"
+msgstr "自定义颜色…"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
@@ -3351,6 +3391,10 @@ msgid "Delete table"
 msgstr "删除表格"
 
 #: src/overleaf/overleaf-comments.tsx
+msgid "Delete this discussion"
+msgstr "删除这条讨论"
+
+#: src/overleaf/overleaf-comments.tsx
 msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
 msgstr "删除整个讨论？所有消息都会从 Overleaf 删除，无法恢复"
 
@@ -3386,6 +3430,11 @@ msgstr "删除工作表？"
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "删除"
+
+#: src/overleaf/overleaf-changes.tsx
+msgctxt "tracked change, after its author"
+msgid "deleted"
+msgstr "删除了"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Deleted “{key}”"
@@ -3558,6 +3607,7 @@ msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
 #: src/canvas/proofread-card.tsx
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3769,6 +3819,10 @@ msgstr "编辑链接"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Edit meanings…"
+msgstr "编辑含义…"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
@@ -4028,6 +4082,10 @@ msgstr "估计量 / 单位向量记号"
 msgid "Eta"
 msgstr "伊塔"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Every comment is resolved. All shows the resolved ones"
+msgstr "所有评论都已解决，切到“全部”可查看"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Every edit made on Overleaf, by anyone, is kept here and can be restored"
 msgstr "Overleaf 上每个人的每次编辑都保存在这里，随时可以恢复"
@@ -4055,6 +4113,10 @@ msgstr "全部选好了"
 #: src/app/use-tex-setup.ts
 msgid "Every tool Lattice needs is installed"
 msgstr "Lattice 所需的工具均已安装"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "Everyone in the Overleaf project sees what you write here"
+msgstr "你在这里写的内容，Overleaf 项目里的每个人都能看到"
 
 #: src/history/history-drawer.tsx
 msgid "Everything"
@@ -4687,6 +4749,7 @@ msgid "Greater than or equal"
 msgstr "大于或等于"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "绿色"
@@ -4837,6 +4900,11 @@ msgstr "隐藏 PDF"
 msgid "Highlight"
 msgstr "高亮"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlight {hex}"
+msgstr "用 {hex} 高亮"
+
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Highlight color"
 msgstr "高亮颜色"
@@ -4845,9 +4913,25 @@ msgstr "高亮颜色"
 msgid "Highlight tips, warnings, and notes."
 msgstr "突出提示、警告、备注"
 
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Highlight: {lastHighlight}"
+msgstr "高亮：{lastHighlight}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Highlighted code"
 msgstr "高亮代码"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighter meanings"
+msgstr "荧光笔含义"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighters"
+msgstr "荧光笔"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Highlights"
+msgstr "高亮"
 
 #: src/trellis/trellis-titles.ts
 msgid "History"
@@ -4905,6 +4989,10 @@ msgstr "ICLR 会议论文集"
 #: src/build/tex-doctor-messages.ts
 msgid "ICML packages"
 msgstr "ICML 宏包"
+
+#: src/editor/latex/highlighters.ts
+msgid "Idea"
+msgstr "想法"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -5009,6 +5097,10 @@ msgstr "会议论文"
 #: src/telemetry/app-log.tsx
 msgid "In progress"
 msgstr "进行中"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "In the project now · {here}"
+msgstr "正在项目中 · {here}"
 
 #: src/App.tsx
 msgid "In this document"
@@ -5379,6 +5471,10 @@ msgstr "刚刚"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Kappa"
 msgstr "卡帕"
+
+#: src/editor/latex/highlighters.ts
+msgid "Keep"
+msgstr "保留"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep both, yours first"
@@ -6207,6 +6303,14 @@ msgid "Message"
 msgstr "消息"
 
 #: src/overleaf/overleaf-collab.tsx
+msgid "Message {here}…"
+msgstr "给 {here} 发消息…"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Message everyone in Chat"
+msgstr "在聊天里给所有人发消息"
+
+#: src/overleaf/overleaf-collab.tsx
 msgid "Message your collaborators…"
 msgstr "给协作者发消息…"
 
@@ -6448,6 +6552,10 @@ msgstr "需要你看"
 #: src/build/tex-setup-wizard.tsx
 msgid "Needed to add papers and manage bibliographies · about 45 MB"
 msgstr "添加论文和管理文献要用 · 约 45 MB"
+
+#: src/editor/latex/highlighters.ts
+msgid "Needs a citation"
+msgstr "待补引用"
 
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
@@ -6702,6 +6810,10 @@ msgstr "没有文件包含“{trimmedQuery}”"
 msgid "No grouping"
 msgstr "不分组"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No highlights of this kind in {fileName}"
+msgstr "{fileName} 中没有这类高亮"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "没有结果，换宽泛点的词或关掉精确搜索"
@@ -6795,8 +6907,8 @@ msgid "No matching settings"
 msgstr "没有匹配的设置"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "No messages yet. Say something and everyone in the project sees it"
-msgstr "还没有消息，发一条大家都能看到"
+msgid "No messages yet"
+msgstr "还没有消息"
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -6898,12 +7010,8 @@ msgid "No shortcut matches “{0}”"
 msgstr "没有“{0}”相关的快捷键"
 
 #: src/overleaf/overleaf-changes.tsx
-msgid "No suggestions in this document"
-msgstr "这份文档没有修订建议"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "No suggestions in this document — open it to see any it has"
-msgstr "打开文档才能看到修订建议"
+msgid "No suggestions in this file"
+msgstr "这个文件没有修订建议"
 
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
@@ -7008,6 +7116,10 @@ msgstr "不等于"
 #: src/papers/add-papers-sheet.tsx
 msgid "Not found"
 msgstr "没找到"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Not in a file"
+msgstr "不在任何文件中"
 
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
@@ -7220,6 +7332,10 @@ msgstr "请先打开 .tex 文件再粘贴"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open a file"
 msgstr "打开文件"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Open a file to see its suggestions"
+msgstr "打开一个文件以查看它的修订建议"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open a file, or reset the layout to bring your panels back"
@@ -7485,6 +7601,7 @@ msgid "or"
 msgstr "或"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Orange"
 msgstr "橙色"
@@ -7497,6 +7614,10 @@ msgstr "编号列表"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Origins and adapted work"
 msgstr "起源与改编作品"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Other colours"
+msgstr "其他颜色"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Other projects"
@@ -7573,6 +7694,10 @@ msgstr "Overleaf 历史里留有副本"
 #: src/settings/settings-search-index.ts
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf 上保留"
+
+#: src/overleaf/overleaf-changes.tsx
+msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
+msgstr "Overleaf 按文件保存修订建议，这里显示当前文件的建议"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
@@ -7955,6 +8080,7 @@ msgstr "分段定义"
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Pink"
 msgstr "粉色"
@@ -8321,6 +8447,7 @@ msgstr "PR"
 msgid "punctuation"
 msgstr "标点"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Purple"
 msgstr "紫色"
@@ -8328,6 +8455,10 @@ msgstr "紫色"
 #: src/build/tex-doctor-messages.ts
 msgid "Python tooling used for literature and bibliography tools"
 msgstr "文献与参考文献工具所用的 Python 工具链"
+
+#: src/editor/latex/highlighters.ts
+msgid "Question"
+msgstr "疑问"
 
 #: src/app/use-build-pipeline.ts
 msgid "queued"
@@ -8451,6 +8582,10 @@ msgstr "重新连接"
 #: src/overleaf/overleaf-presence.tsx
 msgid "Reconnecting to Overleaf — people last seen in this project"
 msgstr "正在重连 — 最近在线的成员"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Reconnecting to Overleaf…"
+msgstr "正在重新连接 Overleaf…"
 
 #: src/project/paper-inspector.tsx
 msgid "Record"
@@ -8600,6 +8735,10 @@ msgstr "引用也删"
 #: src/App.tsx
 msgid "Remove entry"
 msgstr "删除文献"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Remove highlight"
+msgstr "移除高亮"
 
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
@@ -8884,6 +9023,10 @@ msgstr "文献"
 msgid "Research, written with evidence"
 msgstr "让论文写作有据可依"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Reset"
+msgstr "重置"
+
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Reset layout"
@@ -9067,9 +9210,7 @@ msgstr "把项目恢复到改动前？恢复会记成一条新记录"
 msgid "Restore the project to this version?\n"
 "\n"
 "Nothing is lost: the current state is saved as a version first"
-msgstr "把项目恢复到此版本？\n"
-"\n"
-"什么都不会丢：当前状态会先存为一个版本"
+msgstr "把项目恢复到此版本？\n\n什么都不会丢：当前状态会先存为一个版本"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -9208,6 +9349,7 @@ msgid "Revision rounds"
 msgstr "修改轮次"
 
 #: src/editor/comments/use-intent-labels.ts
+#: src/editor/latex/highlighters.ts
 msgid "Rewrite"
 msgstr "重写"
 
@@ -10283,16 +10425,9 @@ msgid "Suggested change"
 msgstr "修改建议"
 
 #: src/overleaf/overleaf-collab.tsx
+msgctxt "Overleaf tracked changes"
 msgid "Suggestions"
 msgstr "修订"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "suggests deleting"
-msgstr "建议删除"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "suggests inserting"
-msgstr "建议插入"
 
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Suggests inserting \"{text}\""
@@ -11188,6 +11323,10 @@ msgstr "至"
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
 
+#: src/editor/latex/highlighters.ts
+msgid "To check"
+msgstr "待核实"
+
 #. Search words for the Notification position setting, space-separated
 #: src/settings/settings-search-index.ts
 msgid "toast notification"
@@ -11889,6 +12028,10 @@ msgstr "要 AI 助手做什么"
 msgid "When a build or a task in progress finishes"
 msgstr "编译或进行中的任务完成时"
 
+#: src/overleaf/overleaf-changes.tsx
+msgid "When a collaborator edits with Track changes on, each edit waits here for you to accept or reject"
+msgstr "协作者开启“修订”编辑时，每处改动都会在这里等你接受或拒绝"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
@@ -12051,6 +12194,7 @@ msgid "Year unavailable"
 msgstr "无年份"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "黄色"
 
@@ -12095,6 +12239,10 @@ msgstr "你的 {BIBITEM} 有出入：{fields}"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"
 msgstr "你的回答…"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Your colours"
+msgstr "你的颜色"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

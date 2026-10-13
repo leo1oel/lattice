@@ -18,7 +18,7 @@ const drawer = (
     chat={{ messages: [], loading: false, error: null, send: resolves(), unread: 0 }}
     trackChanges={{ authorName: () => "未知", busy: null, error: null, accept: resolves(), reject: resolves() }}
     realtime={{ docId: "doc", changes: [], canWrite: true }}
-    pathForDoc={() => null} source="" onRevealComment={vi.fn()} onReveal={vi.fn()} {...overrides}
+    pathForDoc={() => null} peers={[]} source="" onRevealComment={vi.fn()} onReveal={vi.fn()} {...overrides}
   />
 );
 
@@ -59,6 +59,7 @@ describe("Overleaf collaboration drawer localization", () => {
     }));
     expect(screen.queryByText("Settled point")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: /Resolved by Robin/ }));
     expect(screen.getByText("Settled point")).toBeInTheDocument();
   });
 
@@ -77,10 +78,10 @@ describe("Overleaf collaboration drawer localization", () => {
     expect(within(tabs).getByRole("tab", { name: "评论" })).toBeInTheDocument();
     expect(within(tabs).getByRole("tab", { name: "修订" })).toBeInTheDocument();
     expect(within(tabs).getByRole("tab", { name: "聊天" })).toBeInTheDocument();
-    expect(screen.getByText("没有待处理的批注")).toBeInTheDocument();
+    expect(screen.getByText("还没有评论")).toBeInTheDocument();
 
     rerender(drawer("changes"));
-    expect(screen.getByText("这份文档没有修订建议")).toBeInTheDocument();
+    expect(screen.getByText("这个文件没有修订建议")).toBeInTheDocument();
 
     rerender(drawer("chat"));
     expect(screen.getByText(/还没有消息/)).toBeInTheDocument();

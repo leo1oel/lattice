@@ -1,5 +1,6 @@
 import {
   Bold,
+  ChevronDown,
   Heading,
   Highlighter,
   Italic,
@@ -18,7 +19,8 @@ import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { PopIn } from "../../components/ui/motion";
 import { Tip } from "../../components/icon-tip";
-import { AppleColorPicker } from "../../components/ui/apple-color-picker";
+import { HighlightPalette } from "./highlight-palette";
+import { highlighterOf, rememberHighlight, useHighlightPrefs } from "./highlighters";
 import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
@@ -32,6 +34,7 @@ export type LatexSelectionAction =
   | "heading"
   | "quote"
   | "highlight"
+  | "unhighlight"
   | "comment"
   | "proofread"
   | "polish";
@@ -71,28 +74,25 @@ export function LatexSelectionToolbar(props: {
   commentOnly?: boolean;
   /** Offer the agent's proofread and polish (an editable LaTeX source with a project). */
   canProofread?: boolean;
+  /** The colour of the highlight around the selection (`latex-highlights.ts`), or null outside one. */
+  highlight?: string | null;
   onAction: (action: LatexSelectionAction, value?: string) => void;
   onDismiss: () => void;
 }) {
   const { i18n, t } = useLingui();
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkOpen, setLinkOpen] = useState(false);
-  const [highlightColor, setHighlightColor] = useState("#FFFF00");
-  const [highlightOpacity, setHighlightOpacity] = useState(100);
   const [highlightOpen, setHighlightOpen] = useState(false);
+  const highlightPrefs = useHighlightPrefs();
+  const lastHighlighter = highlighterOf(highlightPrefs.last);
+  const lastHighlight = lastHighlighter ? highlightPrefs.meaningOf(lastHighlighter) : highlightPrefs.last;
   const applyLink = () => {
     props.onAction("link", linkUrl.trim());
     setLinkOpen(false);
   };
-  const applyHighlight = (color: string, opacityPercent: number) => {
-    setHighlightColor(color);
-    setHighlightOpacity(opacityPercent);
-    const opacity = opacityPercent / 100;
-    const channels = [1, 3, 5].map((offset) => {
-      const channel = Number.parseInt(color.slice(offset, offset + 2), 16);
-      return Math.round(channel * opacity + 255 * (1 - opacity)).toString(16).padStart(2, "0");
-    });
-    props.onAction("highlight", `#${channels.join("")}`.toUpperCase());
+  const applyHighlight = (color: string) => {
+    rememberHighlight(color);
+    props.onAction("highlight", color);
     setHighlightOpen(false);
   };
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
@@ -160,16 +160,29 @@ export function LatexSelectionToolbar(props: {
             </PopoverContent>
           </Popover>
         </span>
-        <span className="latex-selection-tool separated">
+        {/* A split control: the pen applies the last highlighter at once (the
+            bar under it is its colour), the caret opens the palette. */}
+        <span className="latex-selection-tool separated hl-split">
+          <Tip label={t`Highlight: ${lastHighlight}`} side="top">
+            <button type="button" className="hl-pen" onClick={() => applyHighlight(highlightPrefs.last)}>
+              <Highlighter size={14} strokeWidth={1.8} />
+              <span className="hl-pen-bar" style={{ background: highlightPrefs.last }} aria-hidden="true" />
+            </button>
+          </Tip>
           <Popover open={highlightOpen} onOpenChange={setHighlightOpen}>
             <Tip label={t`Highlight color`} side="top">
-              <PopoverTrigger asChild><button type="button" aria-label={t`Highlight color`}><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+              <PopoverTrigger asChild>
+                <button type="button" className="hl-caret" aria-label={t`Highlight color`}><ChevronDown size={12} strokeWidth={1.8} /></button>
+              </PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-highlight-picker">
-              <AppleColorPicker
-                value={highlightColor}
-                opacity={highlightOpacity}
-                onConfirm={applyHighlight}
+            <PopoverContent side="top" sideOffset={8} className="latex-highlight-picker" onOpenAutoFocus={(event) => event.preventDefault()}>
+              <HighlightPalette
+                current={props.highlight ?? null}
+                onApply={applyHighlight}
+                onRemove={() => {
+                  props.onAction("unhighlight");
+                  setHighlightOpen(false);
+                }}
                 onCancel={() => setHighlightOpen(false)}
               />
             </PopoverContent>
