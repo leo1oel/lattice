@@ -4,15 +4,18 @@
  *
  * Each named theme carries its editor's own colors, ground included, as it
  * ships upstream. Those colors are the source of truth here, and a token only
- * moves where it would read below 4.5:1 on the theme's ground, its current
- * line or a selection: then it takes the nearest lightness with its own hue
- * that does (`fitContrast`), so Solarized stays Solarized and its comments
- * become legible. Weft & Warp is Lattice's own palette (styles/theme.css);
- * it alone draws on the window's surfaces, so it follows the tint and the
- * window's translucency.
+ * moves where it would read below 4.5:1 on its ground or its current line:
+ * then it takes the nearest lightness with its own hue that does
+ * (`fitContrast`), so Solarized's accents stay Solarized's and its comments
+ * become legible.
  *
- * A theme with a light and a dark variant can follow the app's appearance; a
- * theme with one variant stays as chosen, as a dark editor in a light app.
+ * A variant in the app's own appearance draws on the window's editor
+ * surface (`--editor-bg`), the sheet the other panels stand on, so the
+ * editor, its tab and the panels beside it read as one surface under every
+ * tint; Weft & Warp, Lattice's own palette
+ * (styles/theme.css), always does. A theme with a light and a dark variant
+ * can follow the app's appearance; a theme with one variant stays as chosen,
+ * as a dark editor in a light app, and that one keeps its own ground.
  */
 
 import type { Theme } from "./app-settings";
@@ -214,14 +217,25 @@ export function resolveCodeThemeKind(theme: CodeTheme, variant: CodeThemeVariant
   return kinds.includes(wanted) ? wanted : kinds[0];
 }
 
+/**
+ * `--editor-bg` in each tint (styles/theme.css), the ground a variant in the
+ * app's appearance stands on: its tokens are fitted on every one of them, so
+ * they read whichever tint is chosen.
+ */
+const EDITOR_GROUNDS: Record<Theme, readonly string[]> = {
+  light: ["#fafafa", "#fcf9f4", "#f6fbf6", "#f4faff", "#faf8ff"],
+  dark: ["#1f1f22", "#1d1b18", "#191c1a", "#181c1f", "#1c1a1f"],
+};
+const EDITOR_GROUND = "var(--editor-bg)";
+
 /** The current line's wash: the ink at the strength Lattice's own editor uses. */
 const LINE_ALPHA = 0.05;
 /** An unfocused editor keeps its selection at this share of the focused one. */
 const UNFOCUSED_SELECTION = 0.6;
 
-/** `#rrggbb` as it is, `#rrggbbaa` as it shows over `ground`. */
-function opaque(color: string, ground: string): string {
-  return color.length === 9 ? compositeHex(color.slice(0, 7), parseInt(color.slice(7), 16) / 255, ground) : color;
+/** `color` at `alpha` over the window's editor ground, as CSS. */
+function overEditorGround(color: string, alpha: number): string {
+  return `color-mix(in srgb, ${color} ${+(alpha * 100).toFixed(2)}%, ${EDITOR_GROUND})`;
 }
 
 /** Every `--code-*` property codeThemeProperties sets; styles/foundations.css declares each. */
@@ -233,14 +247,14 @@ const CODE_PROPERTIES = [
 const cache = new Map<string, Record<string, string>>();
 
 /**
- * The custom properties that paint a source editor in `theme`'s `kind`:
- * `--syntax-*` for tokens and `--code-*` for the ground, ink, gutter,
- * caret, current line and selection (their defaults are Weft & Warp's, in
- * styles/foundations.css). Set on the root they dress every source editor; set
- * on an element they dress a preview of the theme.
+ * The custom properties that paint a source editor in `theme`'s `kind` while
+ * the app is `appTheme`: `--syntax-*` for tokens and `--code-*` for the
+ * ground, ink, gutter, caret, current line and selection (their defaults are
+ * Weft & Warp's, in styles/foundations.css). Set on the root they dress every
+ * source editor; set on an element they dress a preview of the theme.
  */
-export function codeThemeProperties(theme: CodeTheme, kind: Theme): Record<string, string> {
-  const key = `${theme}:${kind}`;
+export function codeThemeProperties(theme: CodeTheme, kind: Theme, appTheme: Theme): Record<string, string> {
+  const key = `${theme}:${kind}:${appTheme}`;
   const cached = cache.get(key);
   if (cached) return cached;
   let properties: Record<string, string>;
@@ -251,27 +265,40 @@ export function codeThemeProperties(theme: CodeTheme, kind: Theme): Record<strin
       .map((name) => [name, `var(${name.replace("--", "--lattice-")})`]));
   } else {
     const palette = THEMES[theme][kind] ?? THEMES[theme][codeThemeKinds(theme)[0]]!;
-    const { ground } = palette;
-    const selection = opaque(palette.selection, ground);
-    const line = compositeHex(palette.ink, LINE_ALPHA, ground);
+    const onWindow = kind === appTheme;
+    const grounds = onWindow ? EDITOR_GROUNDS[kind] : [palette.ground];
+    const lines = grounds.map((ground) => compositeHex(palette.ink, LINE_ALPHA, ground));
     // Every token reads at 4.5:1 on the ground and the current line. Not on
     // the selection: the strong ones some themes ship (Monokai's, One Dark's)
     // would wash every token toward white, and a selection is read as a
     // span, not word by word.
-    const grounds = [ground, line];
-    const fit = (color: string, ratio = 4.5) => fitContrast(color, grounds, ratio, kind);
+    const fit = (color: string, ratio = 4.5, on: readonly string[] = [...grounds, ...lines]) => fitContrast(color, on, ratio, kind);
+    // `#rrggbbaa` selections lie over the ground at their alpha.
+    const [selection, alpha] = palette.selection.length === 9
+      ? [palette.selection.slice(0, 7), parseInt(palette.selection.slice(7), 16) / 255]
+      : [palette.selection, 1];
+    const surface = onWindow
+      ? {
+          "--code-ground": EDITOR_GROUND,
+          "--code-line": overEditorGround(palette.ink, LINE_ALPHA),
+          "--code-selection": overEditorGround(selection, alpha * UNFOCUSED_SELECTION),
+          "--code-selection-focused": overEditorGround(selection, alpha),
+        }
+      : {
+          "--code-ground": palette.ground,
+          "--code-line": lines[0],
+          "--code-selection": compositeHex(selection, alpha * UNFOCUSED_SELECTION, palette.ground),
+          "--code-selection-focused": compositeHex(selection, alpha, palette.ground),
+        };
     properties = {
       ...Object.fromEntries(SYNTAX_ROLES.map((role) => [syntaxProperty(role), fit(palette.tokens[role])])),
-      "--code-ground": ground,
+      ...surface,
       "--code-ink": fit(palette.ink),
       // Line numbers are not read as text, so they hold the 3:1 of a UI
       // mark; the More Contrast setting raises them to text's 4.5:1.
-      "--code-line-number": fitContrast(palette.lineNumber, [ground], 3, kind),
-      "--code-line-number-contrast": fitContrast(palette.lineNumber, [ground], 4.5, kind),
-      "--code-caret": fitContrast(palette.caret, [ground, line], 3, kind),
-      "--code-line": line,
-      "--code-selection": compositeHex(selection, UNFOCUSED_SELECTION, ground),
-      "--code-selection-focused": selection,
+      "--code-line-number": fit(palette.lineNumber, 3, grounds),
+      "--code-line-number-contrast": fit(palette.lineNumber, 4.5, grounds),
+      "--code-caret": fit(palette.caret, 3),
     };
   }
   cache.set(key, properties);

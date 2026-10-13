@@ -81,20 +81,23 @@ applied on `<html>` by `src/settings/use-appearance.ts`:
   holds each named theme's upstream colors, ground included, and sets them on
   the root as `--syntax-*` (token roles) and `--code-*` (ground, ink, gutter,
   caret, current line, selection); a token is lifted only as far as 4.5:1 on
-  its ground and current line needs. Weft & Warp, the default declarations in
-  `foundations.css`, alone draws on the window's surfaces, so only it follows
-  the tint and lets a translucent window through. A rendered Markdown code
+  its ground and current line needs. A variant in the app's own appearance
+  draws on the editor surface (`--editor-bg`, the tool panels' sheet), with
+  its tokens fitted on that surface in every tint, so the editor and its tab
+  read as one with the panels beside it; Weft & Warp, the default
+  declarations in `foundations.css`, always does. Only a one-variant theme
+  in the other appearance (a dark editor in a light app) keeps its own
+  ground. A rendered Markdown code
   block keeps Weft & Warp (`--lattice-syntax-*`): it sits on the page's
   surface, not the editor's.
 - **Translucency** (`data-glass`, only while the native window reports
   vibrancy behind it): the window clears its background, the gutters take
-  `--surface-shell`, the titlebar the same under its veil, and Project,
-  Papers and the editors `--surface-navigator` over macOS's under-window
-  material, as Synara's own window does. That sheet is their tab strip; the
-  selected tab and the body share a second coat over it
-  (`--surface-navigator-lift`, or `--surface-editor-glass` for an editor,
-  thinner under Strong), so the tab still runs into its body a step above the
-  strip. PDFs, the agent, tool panels, menus and dialogs stay opaque. Reduce transparency, a browser tab and every
+  `--surface-shell`, the titlebar the same under its veil, and Project and
+  Papers `--surface-navigator` over macOS's under-window material, as
+  Synara's own window does, with their tab strip and body under one more coat
+  (`--surface-navigator-lift`), so the header and the body stay one surface.
+  The editors, PDFs, the agent, tool panels, menus and dialogs stay opaque, so
+  an editor stands on the same sheet as Git, History and Overleaf. Reduce transparency, a browser tab and every
   other platform keep the opaque palette, which is also what Off gives.
 
 Presets live in `src/styles/theme.css` as attribute blocks that apply to any
@@ -237,7 +240,8 @@ slab and fade to `--control-disabled-opacity`.
   colour is an icon's or a state's, never a third grey.
 - **Two neutrals and a lift (Graphite).** The ground is the chrome
   (`#EFEFF0`, dark `#131315`); the panels, the editor and the fields share one
-  sheet (`#FAFAFA`, dark `#1A1A1C`, its fields `#1F1F22`); menus, popovers,
+  sheet (`#FAFAFA`; in dark the panels `#1A1A1C`, and the editors, the tool
+  panels (Git, History, Overleaf) and the fields `#1F1F22`); menus, popovers,
   toasts and dialogs stand on the lift (`--surface-elevated`: white, dark
   `#252528`, about 6% above the sheet), so in dark a menu reads off the sheet
   by its fill and a quiet 10% ring rather than a bright edge. The other tints
@@ -401,7 +405,11 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   Short of room the field narrows, then folds to its icon before any control
   is shed.
 - Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
-  the compact control height. A tab's trailing slot (its close button or
+  the compact control height, centred in it. The strip, the selected tab and
+  the body below are one surface, the panel's own: the selected tab is told
+  by a hairline ring (`--border-strong`) and the primary ink, the others are
+  their label in the secondary ink with a hover fill, never a fill of their
+  own. A tab's trailing slot (its close button or
   unsaved dot) is one width whatever it holds, so hovering, saving or
   selecting never resizes a tab; squeezed below its natural width, an
   unselected tab's empty slot gives its room to the title first. The selected
