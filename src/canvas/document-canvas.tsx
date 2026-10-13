@@ -15,7 +15,7 @@ import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
 import {
-  overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
+  marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
   type PresenceCursor, type TrackedChangeTooltipActions,
 } from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
@@ -295,6 +295,8 @@ export function DocumentCanvas(props: {
   /** Suggestions in that document, and what can be done about one. */
   overleafChanges: TrackedChange[];
   overleafTrackChangeActions: TrackedChangeTooltipActions;
+  /** Margin review over the source editor (a linked Overleaf project's comments and suggestions), drawn into its view. */
+  sourceMargin?: (view: EditorView) => ReactNode;
   activeEditorCommentId: string | null;
   commentAuthorName: string;
   commentAuthorId: string;
@@ -871,6 +873,7 @@ export function DocumentCanvas(props: {
           onAccept: (change) => latestRef.current.overleafTrackChangeActions.onAccept(change),
           onReject: (change) => latestRef.current.overleafTrackChangeActions.onReject(change),
         }),
+        marginReviewExtension(),
       ],
     ),
     // eslint-disable-next-line react-hooks-js/exhaustive-deps -- intentional stability
@@ -1419,6 +1422,7 @@ export function DocumentCanvas(props: {
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
   // The rail mounts with the editor's view: it reads the viewport from the start.
   const railView = activeFile.endsWith(".tex") ? primaryScrollbarView?.deref() ?? null : null;
+  const marginView = primaryScrollbarView?.deref() ?? null;
   const editor = (
     <div className="source-workspace" data-tour="document-editor">
       <div className="source-main">
@@ -1482,6 +1486,7 @@ export function DocumentCanvas(props: {
               onSelect={onOutlineNavigate}
             />
           )}
+          {marginView && props.sourceMargin?.(marginView)}
           <ProofreadLayer
             bridge={proofread}
             projectRoot={props.projectRoot}
