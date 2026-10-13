@@ -238,17 +238,19 @@
   overflow-wrap: anywhere;
 }
 
-/* Syntax colors: the editor's own palette, the same as source view. */
-.lx-md-editor .lx-md-code :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-doctag) { color: var(--syntax-keyword); }
-.lx-md-editor .lx-md-code :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-tag) { color: var(--syntax-string); }
-.lx-md-editor .lx-md-code :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet) { color: var(--syntax-number); }
-.lx-md-editor .lx-md-code :is(.hljs-title, .hljs-section, .hljs-function) { color: var(--syntax-function); }
-.lx-md-editor .lx-md-code :is(.hljs-type, .hljs-class, .hljs-title.class_) { color: var(--syntax-type); }
-.lx-md-editor .lx-md-code :is(.hljs-variable, .hljs-template-variable, .hljs-params) { color: var(--syntax-variable); }
-.lx-md-editor .lx-md-code :is(.hljs-attr, .hljs-attribute, .hljs-property) { color: var(--syntax-property); }
-.lx-md-editor .lx-md-code :is(.hljs-meta, .hljs-selector-id, .hljs-selector-class, .hljs-name, .hljs-tag) { color: var(--syntax-variable-special); }
-.lx-md-editor .lx-md-code :is(.hljs-comment, .hljs-quote, .hljs-deletion) { color: var(--syntax-comment); font-style: italic; }
-.lx-md-editor .lx-md-code :is(.hljs-punctuation, .hljs-operator) { color: var(--syntax-bracket); }
+/* Syntax colors: Weft & Warp, Lattice's own palette. A rendered block sits on
+   the page's own surface, so it keeps the palette made for that surface
+   whichever code theme the source editors wear (settings/code-themes.ts). */
+.lx-md-editor .lx-md-code :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-doctag) { color: var(--lattice-syntax-keyword); }
+.lx-md-editor .lx-md-code :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-tag) { color: var(--lattice-syntax-string); }
+.lx-md-editor .lx-md-code :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet) { color: var(--lattice-syntax-number); }
+.lx-md-editor .lx-md-code :is(.hljs-title, .hljs-section, .hljs-function) { color: var(--lattice-syntax-function); }
+.lx-md-editor .lx-md-code :is(.hljs-type, .hljs-class, .hljs-title.class_) { color: var(--lattice-syntax-type); }
+.lx-md-editor .lx-md-code :is(.hljs-variable, .hljs-template-variable, .hljs-params) { color: var(--lattice-syntax-variable); }
+.lx-md-editor .lx-md-code :is(.hljs-attr, .hljs-attribute, .hljs-property) { color: var(--lattice-syntax-property); }
+.lx-md-editor .lx-md-code :is(.hljs-meta, .hljs-selector-id, .hljs-selector-class, .hljs-name, .hljs-tag) { color: var(--lattice-syntax-variable-special); }
+.lx-md-editor .lx-md-code :is(.hljs-comment, .hljs-quote, .hljs-deletion) { color: var(--lattice-syntax-comment); font-style: italic; }
+.lx-md-editor .lx-md-code :is(.hljs-punctuation, .hljs-operator) { color: var(--lattice-syntax-bracket); }
 .lx-md-editor .lx-md-code .hljs-emphasis { font-style: italic; }
 .lx-md-editor .lx-md-code .hljs-strong { font-weight: var(--weight-semibold); }
 

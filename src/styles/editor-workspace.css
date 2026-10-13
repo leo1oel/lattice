@@ -52,7 +52,7 @@
 .math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
 .math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .math-preview-body { color: var(--text-primary); overflow-x: auto; }
-.source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--editor-bg); }
+.source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--code-ground); }
 .latex-selection-toolbar-anchor {
   position: fixed;
   z-index: var(--z-selection-toolbar);
@@ -364,7 +364,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-annotation-pin[data-annotation-status="proposed"] { --annotation-pin-ink: var(--annotation-proposed-ink); }
 .source-editor .cm-annotation-pin[data-annotation-status="asked"] { --annotation-pin-ink: var(--annotation-asked-ink); }
 /* More than one note starts on the line: a second ring says so. */
-.source-editor .cm-annotation-pin[data-more] { box-shadow: 0 0 0 2px var(--editor-gutter), 0 0 0 3px var(--annotation-pin-ink); }
+.source-editor .cm-annotation-pin[data-more] { box-shadow: 0 0 0 2px var(--code-ground), 0 0 0 3px var(--annotation-pin-ink); }
 /* The proposal reviewed under its passage (canvas/annotation-review.tsx). */
 .source-editor .cm-annotation-review-source {
   background: color-mix(in srgb, var(--annotation-proposed-ink) 12%, transparent);
@@ -536,7 +536,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   border-radius: var(--radius-control);
 }
 .source-editor > .code-editor-root { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
-.source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; background: var(--editor-bg); }
+.source-editor .cm-editor, .source-editor .cm-scroller { width: 100%; height: 100%; min-height: 0; background: var(--code-ground); }
 .source-editor .cm-scroller { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none; }
 .source-editor .cm-scroller::-webkit-scrollbar { display: none; }
 .cm-overlay-scrollbar {
@@ -560,11 +560,11 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   min-height: 24px;
   margin: 0 auto;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--code-ink) 8%, transparent);
   transition: background-color var(--motion-moderate), width var(--motion-moderate);
 }
-.cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
-.cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
+.cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--code-ink) 12%, transparent); }
+.cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--code-ink) 16%, transparent); }
 /* Focus mode: the source keeps a reading measure, centered on the page
    however wide the panel is (the editor always wraps, so the column is the
    text's). Padding on the scroller moves the gutter with the text, and the
@@ -572,10 +572,10 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .focus-mode .trellis-editor-host .source-editor .cm-scroller { padding-inline: max(0px, calc((100% - var(--focus-mode-measure)) / 2)); }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
 /* Keep content transparent so CM's selection layer stays visible under collab. */
-.source-editor .cm-content { min-width: 0; background: transparent; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }
+.source-editor .cm-content { min-width: 0; background: transparent; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--code-caret); }
 .source-editor .cm-cursor,
 .source-editor .cm-dropCursor {
-  border-left: var(--editor-caret-width) solid var(--control-active);
+  border-left: var(--editor-caret-width) solid var(--code-caret);
   margin-left: calc(var(--editor-caret-width) / -2);
 }
 /* CodeMirror's base theme sets `.cm-scroller { font-family: monospace }`, which
@@ -583,7 +583,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-editor,
 .source-editor .cm-scroller,
 .source-editor .cm-content {
-  color: var(--text-primary);
+  color: var(--code-ink);
   font-family: var(--editor-font) !important;
   font-size: var(--editor-font-size) !important;
   /* Override CodeMirror's base-theme 1.4 so source matches reading density. */
@@ -595,9 +595,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 /* The numbers sit a step under tertiary text, so the column recedes behind
    the source; the current line's number carries the caret's place instead of
    a band across the gutter. More contrast keeps them at tertiary. */
-.source-editor .cm-gutters { background: var(--editor-gutter); color: color-mix(in srgb, var(--text-tertiary) 72%, var(--editor-gutter)); border-right: 0; }
+.source-editor .cm-gutters { background: var(--code-ground); color: var(--code-line-number); border-right: 0; }
 @media (prefers-contrast: more) {
-  .source-editor .cm-gutters { color: var(--text-tertiary); }
+  .source-editor .cm-gutters { color: var(--code-line-number-contrast); }
 }
 /* CodeMirror sizes this column to the widest line number, so the text shifted
    whenever a document crossed 9 -> 10, 99 -> 100 or 999 -> 1,000 lines, and
@@ -610,7 +610,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   padding: 0 var(--space-1) 0 var(--space-5);
   font-variant-numeric: tabular-nums;
 }
-.source-editor .cm-lineNumbers .cm-activeLineGutter { color: var(--text-primary); }
+.source-editor .cm-lineNumbers .cm-activeLineGutter { color: var(--code-ink); }
 /* A fixed fold column, whatever the markers. A marker sits on a wrapped line's
    first row, beside its line number, not halfway down the paragraph. */
 .source-editor .cm-foldGutter .cm-gutterElement {
@@ -624,7 +624,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   justify-content: center;
   height: 1lh;
   padding: 0;
-  color: var(--text-tertiary);
+  color: var(--code-line-number-contrast);
   cursor: pointer;
   /* Quiet until the pointer is over the gutter; a folded range keeps its
      marker, since otherwise only its placeholder says it is folded. */
@@ -633,7 +633,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .source-editor .cm-gutters:hover .cm-lattice-fold-marker,
 .source-editor .cm-foldGutter .cm-lattice-fold-marker[data-folded] { opacity: 1; }
-.source-editor .cm-foldGutter .cm-lattice-fold-marker:hover { color: var(--text-primary); }
+.source-editor .cm-foldGutter .cm-lattice-fold-marker:hover { color: var(--code-ink); }
 @media (hover: none) {
   .source-editor .cm-foldGutter .cm-lattice-fold-marker { opacity: 1; }
 }
@@ -654,11 +654,11 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   padding: 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-compact);
-  background: var(--control-hover-surface);
-  color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--code-ink) 5%, transparent);
+  color: var(--code-line-number-contrast);
   transition: color var(--motion-fast);
 }
-.source-editor .cm-foldPlaceholder:hover { color: var(--text-primary); }
+.source-editor .cm-foldPlaceholder:hover { color: var(--code-ink); }
 /* The current line is a rounded wash inset from the panel's right edge, not
    a band from edge to edge: drawn by a pseudo-element under the line's text
    (the line isolates, so z-index -1 stays above the editor's ground), with
@@ -673,7 +673,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   z-index: -1;
   inset: 0 var(--space-4) 0 0;
   border-radius: var(--radius-compact);
-  background: var(--editor-active-line-surface);
+  background: var(--code-line);
   pointer-events: none;
 }
 .source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine::before { content: none; }
@@ -917,7 +917,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   color: var(--text-primary);
 }
 .source-editor .cm-tooltip-lint .cm-diagnostic-error { border-left-color: var(--status-danger); }
-.source-editor .cm-tooltip-lint .cm-diagnostic-warning { border-left-color: var(--syntax-attribute); }
+.source-editor .cm-tooltip-lint .cm-diagnostic-warning { border-left-color: var(--lattice-syntax-attribute); }
 .source-editor .cm-tooltip-lint .cm-diagnostic-info { border-left-color: var(--control-active); }
 .source-editor .cm-tooltip-lint .cm-diagnosticSource { flex: 1 0 100%; color: var(--text-tertiary); font-size: 0.9em; }
 .texlab-hover-card {

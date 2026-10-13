@@ -90,12 +90,44 @@ const ACCENT_LUMINANCE_LIMIT: Record<Theme, (value: number) => boolean> = {
 
 /**
  * A custom accent as the theme can use it: the color itself when it already
- * reads on every surface, otherwise the nearest color with its hue that does,
- * found by moving lightness (and giving up chroma only where sRGB runs out).
+ * reads on every surface, otherwise the nearest color with its hue that does.
  */
 export function fitAccent(hex: string, theme: Theme): string {
+  return fitLightness(hex, ACCENT_LUMINANCE_LIMIT[theme], theme);
+}
+
+/** The WCAG contrast ratio between two `#rrggbb` colors. */
+export function contrastRatio(first: string, second: string): number {
+  const [lighter, darker] = [luminance(parseHex(first)), luminance(parseHex(second))].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** `#rrggbb` for `top` at `alpha` over the opaque `under`. */
+export function compositeHex(top: string, alpha: number, under: string): string {
+  const [front, back] = [parseHex(top), parseHex(under)];
+  return formatHex(front.map((channel, index) => channel * alpha + back[index] * (1 - alpha)) as Rgb);
+}
+
+/**
+ * A text color fitted to read at `ratio` on every one of `grounds` (opaque
+ * `#rrggbb`), all of the `ground` kind: the color itself when it already
+ * does, otherwise the nearest one with its hue that does.
+ */
+export function fitContrast(hex: string, grounds: readonly string[], ratio: number, ground: Theme): string {
+  const limits = grounds.map((color) => luminance(parseHex(color)));
+  return fitLightness(hex, (value) => limits.every((limit) => {
+    const [lighter, darker] = value > limit ? [value, limit] : [limit, value];
+    return (lighter + 0.05) / (darker + 0.05) >= ratio;
+  }), ground);
+}
+
+/**
+ * The color itself when its luminance `fits`, otherwise the nearest color
+ * with its hue that does, found by moving lightness away from a `ground`
+ * of that kind (and giving up chroma only where sRGB runs out).
+ */
+function fitLightness(hex: string, fits: (value: number) => boolean, ground: Theme): string {
   const rgb = parseHex(hex);
-  const fits = ACCENT_LUMINANCE_LIMIT[theme];
   if (fits(luminance(rgb))) return formatHex(rgb);
   const [, chroma, hue] = toOklch(rgb);
   const at = (lightness: number) => {
@@ -105,9 +137,9 @@ export function fitAccent(hex: string, theme: Theme): string {
     }
     return fromOklch(lightness, 0, hue)!;
   };
-  // Light themes darken toward black, dark themes lighten toward white; the
+  // Light grounds darken toward black, dark grounds lighten toward white; the
   // first lightness that fits is the closest one, to 0.001 in OKLCH.
-  let [inside, outside] = theme === "light" ? [0, toOklch(rgb)[0]] : [1, toOklch(rgb)[0]];
+  let [inside, outside] = ground === "light" ? [0, toOklch(rgb)[0]] : [1, toOklch(rgb)[0]];
   for (let step = 0; step < 14; step += 1) {
     const middle = (inside + outside) / 2;
     if (fits(luminance(at(middle)))) inside = middle;

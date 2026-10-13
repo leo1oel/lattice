@@ -46,6 +46,8 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "appearance", place: appearance, id: "theme-tint", label: t`Tint`, terms: `${t`Theme`} ${t`Graphite`} ${t({ message: "Paper", context: "theme tint" })} ${t`Sage`} ${t`Mist`} ${t`Dusk`}` },
     { tab: "appearance", place: appearance, id: "theme-accent", label: t`Accent`, terms: `${t`Theme`} ${t({ message: "color", comment: "Search words for the Accent setting, space-separated" })} ${t`Custom`}` },
     { tab: "appearance", place: appearance, id: "translucency", label: t`Translucency`, terms: t({ message: "frosted glass transparent vibrancy", comment: "Search words for the Translucency setting, space-separated" }), description: `${t`The desktop shows through the title bar and sidebars`} ${t`Off while Reduce transparency is on in System Settings`}` },
+    { tab: "appearance", place: appearance, id: "code-theme", label: t`Code theme`, terms: `${t`Weft & Warp`} GitHub One Solarized Catppuccin Tokyo Night Dracula Nord Monokai ${t({ message: "syntax highlighting color scheme editor", comment: "Search words for the Code theme setting, space-separated" })}` },
+    { tab: "appearance", place: appearance, id: "code-theme-variant", label: t`Light or dark`, terms: `${t`Code theme`} ${t`Match app`}` },
     { tab: "appearance", place: appearance, id: "titlebar-tools", label: t`Title bar tools` },
     { tab: "editor", label: editor, place: t`General` },
     { tab: "editor", place: editor, id: "editor-keymap", label: t`Editor keymap`, terms: `Vim Emacs ${t({ message: "shortcuts", comment: "Search words for the Editor keymap setting, space-separated" })}` },
