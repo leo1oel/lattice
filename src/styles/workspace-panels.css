@@ -431,14 +431,14 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .editor-comments-return span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-editor .cm-selectionLayer .cm-selectionBackground,
 .source-editor .cm-selectionBackground {
-  background: var(--editor-selection-surface) !important;
+  background: var(--code-selection) !important;
 }
 .source-editor .cm-editor.cm-focused .cm-selectionLayer .cm-selectionBackground,
 .source-editor .cm-editor.cm-focused .cm-selectionBackground {
-  background: var(--editor-selection-surface-active) !important;
+  background: var(--code-selection-focused) !important;
 }
 .source-editor .cm-content ::selection {
-  background: var(--editor-selection-surface-active);
+  background: var(--code-selection-focused);
 }
 .collab-peer-badge {
   position: absolute;

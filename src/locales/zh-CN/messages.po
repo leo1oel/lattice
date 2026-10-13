@@ -89,6 +89,16 @@ msgstr "{0} 处改动"
 msgid "{0} cites"
 msgstr "被引 {0} 次"
 
+#. placeholder {0}: nameOf(codeTheme)
+#: src/settings/code-theme-settings.tsx
+msgid "{0} comes in dark only"
+msgstr "{0} 只有深色"
+
+#. placeholder {0}: nameOf(codeTheme)
+#: src/settings/code-theme-settings.tsx
+msgid "{0} comes in light only"
+msgstr "{0} 只有浅色"
+
 #. placeholder {0}: entry.files.length
 #. placeholder {0}: update.paths.length
 #: src/history/versions-timeline.tsx
@@ -2256,6 +2266,11 @@ msgstr "标题"
 msgid "Code highlighting"
 msgstr "代码高亮"
 
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Code theme"
+msgstr "代码主题"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
 msgstr "可折叠"
@@ -2892,6 +2907,7 @@ msgstr "剑号（文本符号）"
 msgid "Daleth"
 msgstr "达列特"
 
+#: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Dark"
@@ -2904,6 +2920,10 @@ msgstr "深{name}"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Dark Gray"
 msgstr "深灰色"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Dark only"
+msgstr "仅深色"
 
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
@@ -5270,14 +5290,28 @@ msgstr "小于或等于"
 msgid "License text"
 msgstr "许可证文本"
 
+#: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Light"
 msgstr "浅色"
 
+#: src/settings/code-theme-settings.tsx
+msgid "Light and dark"
+msgstr "浅色与深色"
+
 #: src/components/ui/apple-color-picker.tsx
 msgid "Light Gray"
 msgstr "浅灰色"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Light only"
+msgstr "仅浅色"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Light or dark"
+msgstr "浅色或深色"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Lime"
@@ -5609,6 +5643,11 @@ msgstr "Markdown 文档编辑器"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown 源码"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Match app"
+msgstr "跟随应用"
 
 #: src/editor/latex/search-panel.ts
 #: src/pdf/pdf-viewer.tsx
@@ -9694,6 +9733,11 @@ msgstr "SyncTeX 双向搜索"
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 msgstr "SyncTeX 把这段文字定位到了 {0} 之外。请重新构建 PDF 后再批注。"
 
+#. Search words for the Code theme setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "syntax highlighting color scheme editor"
+msgstr "语法高亮 配色 配色方案 编辑器 代码"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
@@ -11053,6 +11097,11 @@ msgstr "警告"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"
+
+#: src/settings/code-theme-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Weft & Warp"
+msgstr "经纬"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Weierstrass p"

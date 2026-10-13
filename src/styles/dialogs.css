@@ -601,6 +601,33 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-swatch-custom::before { box-shadow: 0 0 0 1.5px var(--control-active); }
 .theme-swatch-custom .theme-swatch-check { color: var(--accent-contrast); }
 .theme-translucency .ui-segmented-tab { min-width: 52px; }
+/* Code theme cards (settings/code-theme-settings.tsx). Each preview carries
+   its theme's --syntax-* and --code-* properties inline, so it is drawn as a
+   source editor in that theme is. Cards drop a column rather than squeeze a
+   preview; the chosen one is ringed in the accent, apart from its ground. */
+.code-theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: var(--space-6) var(--space-4); }
+.code-theme-card { min-width: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--text-primary); display: flex; flex-direction: column; gap: var(--space-3); text-align: start; cursor: pointer; }
+.code-theme-preview {
+  display: block;
+  padding: var(--space-4) var(--space-5);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--code-ground);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--code-ink);
+  font-family: var(--editor-font);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  white-space: pre;
+  transition: box-shadow var(--motion-fast);
+}
+.code-theme-preview-line { display: block; }
+.code-theme-card:hover .code-theme-preview { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.code-theme-card[aria-checked="true"] .code-theme-preview { box-shadow: 0 0 0 2px var(--settings-card-surface), 0 0 0 4px var(--control-active); }
+.code-theme-card-copy { min-width: 0; display: flex; flex-direction: column; }
+.code-theme-card-copy > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-theme-card-name { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-medium); }
+.code-theme-card-variants { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .settings-project-dictionary-row { align-items: flex-start; }
 .settings-project-dictionary { width: var(--settings-control-width); max-width: 100%; display: flex; flex-direction: column; gap: var(--space-4); }
 .settings-project-dictionary-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }

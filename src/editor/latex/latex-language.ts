@@ -35,7 +35,7 @@ type LatexStreamState = {
   verbatimEnd: string | null;
   /** `\verb` or `\lstinline` was just read; its delimited argument comes next. */
   inlineVerbatim: boolean;
-  /** How the next braced argument's content is styled (a path or URL, or plain text in math). */
+  /** How the next braced argument's content is styled (a path or URL, citation or reference keys, or plain text in math). */
   argumentStyle: string | null;
   /** Where the braced argument stands: before it (possibly in `[…]` options) or just inside it. */
   argument: "before" | "options" | "inside" | null;
@@ -82,12 +82,17 @@ function commandStyle(name: string, state: LatexStreamState, inMath: boolean): s
   state.command = name;
   state.afterSizedDelimiter = name === "left" || name === "right";
   if (INLINE_VERBATIM_COMMANDS.has(name)) state.inlineVerbatim = true;
-  const argumentStyle = PATH_COMMANDS.has(name) ? "string" : inMath && TEXT_ARGUMENT_COMMANDS.has(name) ? "" : null;
+  const style = PLAIN_COMMANDS.has(name) ? null : COMMAND_STYLES.get(name) ?? "keyword";
+  // A citation's or cross-reference's keys share its command's color, so
+  // `\cite{key}` and `\ref{key}` each read as one thing.
+  const argumentStyle = PATH_COMMANDS.has(name) ? "string"
+    : style === "labelName" || style === "quote" ? style
+      : inMath && TEXT_ARGUMENT_COMMANDS.has(name) ? "" : null;
   if (argumentStyle !== null) {
     state.argumentStyle = argumentStyle || null;
     state.argument = "before";
   }
-  return PLAIN_COMMANDS.has(name) ? null : COMMAND_STYLES.get(name) ?? "keyword";
+  return style;
 }
 
 /** The style for a token `stex` read, and the bookkeeping it implies. */

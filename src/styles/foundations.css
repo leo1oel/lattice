@@ -573,6 +573,43 @@
   --editor-selection-tint: #3d7af2;
   --editor-selection-surface: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix), transparent);
   --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix-focused), transparent);
+
+  /* The source editors' code theme. Weft & Warp, Lattice's own, draws on the
+     window's surfaces and inks below; another theme (settings/code-themes.ts)
+     replaces --syntax-* and --code-* on the root with its own ground and
+     colors, and a preview in Settings sets them on itself. */
+  --lattice-code-ground: var(--editor-bg);
+  --lattice-code-ink: var(--text-primary);
+  --lattice-code-line-number: color-mix(in srgb, var(--text-tertiary) 72%, var(--editor-gutter));
+  --lattice-code-line-number-contrast: var(--text-tertiary);
+  --lattice-code-caret: var(--control-active);
+  --lattice-code-line: var(--editor-active-line-surface);
+  --lattice-code-selection: var(--editor-selection-surface);
+  --lattice-code-selection-focused: var(--editor-selection-surface-active);
+  --code-ground: var(--lattice-code-ground);
+  --code-ink: var(--lattice-code-ink);
+  --code-line-number: var(--lattice-code-line-number);
+  --code-line-number-contrast: var(--lattice-code-line-number-contrast);
+  --code-caret: var(--lattice-code-caret);
+  --code-line: var(--lattice-code-line);
+  --code-selection: var(--lattice-code-selection);
+  --code-selection-focused: var(--lattice-code-selection-focused);
+  --syntax-keyword: var(--lattice-syntax-keyword);
+  --syntax-operator: var(--lattice-syntax-operator);
+  --syntax-function: var(--lattice-syntax-function);
+  --syntax-type: var(--lattice-syntax-type);
+  --syntax-variable: var(--lattice-syntax-variable);
+  --syntax-variable-special: var(--lattice-syntax-variable-special);
+  --syntax-property: var(--lattice-syntax-property);
+  --syntax-attribute: var(--lattice-syntax-attribute);
+  --syntax-string: var(--lattice-syntax-string);
+  --syntax-comment: var(--lattice-syntax-comment);
+  --syntax-comment-doc: var(--lattice-syntax-comment-doc);
+  --syntax-number: var(--lattice-syntax-number);
+  --syntax-constant: var(--lattice-syntax-constant);
+  --syntax-bracket: var(--lattice-syntax-bracket);
+  --syntax-citation: var(--lattice-syntax-citation);
+  --syntax-reference: var(--lattice-syntax-reference);
   --pdf-page-surface: #f9f9fa;
   --pdf-page-shadow: var(--shadow-pdf-page);
   --status-info: var(--info);

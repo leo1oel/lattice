@@ -47,8 +47,8 @@ describe("LaTeX highlighting", () => {
   it("distinguishes structural, reference and font commands from plain ones", () => {
     expect(styled(String.raw`\section{Intro}\label{sec:a} \cite{knuth} \textbf{b} \emph{e} \item \documentclass{x}`))
       .toEqual([
-        "heading:\\section", "bracket:{", "bracket:}", "label:\\label", "bracket:{", "bracket:}",
-        "quote:\\cite", "bracket:{", "bracket:}", "strong:\\textbf", "bracket:{", "bracket:}",
+        "heading:\\section", "bracket:{", "bracket:}", "label:\\label", "bracket:{", "label:sec:a", "bracket:}",
+        "quote:\\cite", "bracket:{", "quote:knuth", "bracket:}", "strong:\\textbf", "bracket:{", "bracket:}",
         "emphasis:\\emph", "bracket:{", "bracket:}", "definition:\\documentclass", "bracket:{", "bracket:}",
       ]);
   });
@@ -67,7 +67,7 @@ describe("LaTeX highlighting", () => {
     expect(styled("\\begin{equation*}\n  f(x) = 1 \\text{if} \\label{eq}\n\\end{equation*} x")).toEqual([
       "keyword:\\begin", "bracket:{", "class:equation*", "bracket:}",
       "variable:f", "operator:(", "variable:x", "operator:)", "operator:=", "number:1",
-      "bracket:{", "bracket:}", "label:\\label", "bracket:{", "bracket:}",
+      "bracket:{", "bracket:}", "label:\\label", "bracket:{", "label:eq", "bracket:}",
       "keyword:\\end", "bracket:{", "class:equation*", "bracket:}",
     ]);
   });

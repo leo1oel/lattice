@@ -67,8 +67,11 @@
 :root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
 /* The source editor and the Markdown preview each stack several grounds; the
    gutter keeps its numbers' color, mixed from the opaque ground. A file view
-   that draws its own page (a spreadsheet, an image) keeps it. */
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-workspace, .source-editor, .cm-editor, .cm-scroller, .cm-gutters, .markdown-preview) { background: transparent; }
+   that draws its own page (a spreadsheet, an image) keeps it, and so does a
+   source editor in a named code theme: its tokens are made for its ground.
+   Only Weft & Warp, made for the window's surfaces, lets the desktop in. */
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-workspace, .markdown-preview),
+:root[data-glass][data-code-theme="lattice"] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-editor, .cm-editor, .cm-scroller, .cm-gutters) { background: transparent; }
 
 /* ---------------------------------------------------------------- floating
    A floating panel stands at the floating level of the elevation ladder; one
