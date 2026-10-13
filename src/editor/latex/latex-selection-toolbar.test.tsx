@@ -13,8 +13,12 @@ function renderToolbar(props: Partial<Parameters<typeof LatexSelectionToolbar>[0
   return handlers;
 }
 const button = (name: string | RegExp) => screen.getByRole("button", { name });
-const openPicker = async () => {
+const openCustomPicker = async () => {
   fireEvent.click(button("Highlight color"));
+  fireEvent.click(await screen.findByRole("button", { name: "Custom colour…" }));
+};
+const openPicker = async () => {
+  await openCustomPicker();
   fireEvent.click(await screen.findByRole("button", { name: "Select #FFCC00" }));
 };
 
@@ -52,7 +56,7 @@ describe("LaTeX selection toolbar", () => {
     vi.mocked(invoke).mockResolvedValue("#AABBCC");
     const nativePicker = vi.spyOn(HTMLInputElement.prototype, "click");
     const { onAction } = renderToolbar();
-    fireEvent.click(button("Highlight color"));
+    await openCustomPicker();
     fireEvent.click(await screen.findByRole("button", { name: "Pick color from screen" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("sample_screen_color"));
     fireEvent.click(button("Apply highlight color"));

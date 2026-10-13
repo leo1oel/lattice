@@ -116,6 +116,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
       focusCommentId={comments.panelFocusId}
       activeCommentId={comments.activeId}
       sourceFor={sourceFor}
+      onOpenHighlight={(path, line) => void openProjectFile(path, { line })}
       annotationRounds={annotationRounds}
       roundsList={comments.rounds}
       onClose={comments.closePanel}

@@ -434,6 +434,10 @@ msgstr "{matchSummary} in {fileSummary}"
 msgid "{matchSummary} in {fileSummary} (showing first 200)"
 msgstr "{matchSummary} in {fileSummary} (showing first 200)"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "{meaning}, {color}"
+msgstr "{meaning}, {color}"
+
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
@@ -1702,6 +1706,7 @@ msgid "Blog"
 msgstr "Blog"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "Blue"
@@ -3205,6 +3210,10 @@ msgstr "Custom"
 msgid "Custom accent color"
 msgstr "Custom accent color"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Custom colour…"
+msgstr "Custom colour…"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
@@ -3544,6 +3553,7 @@ msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
 #: src/canvas/proofread-card.tsx
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3755,6 +3765,10 @@ msgstr "Edit link"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Edit meanings…"
+msgstr "Edit meanings…"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
@@ -4653,6 +4667,7 @@ msgid "Greater than or equal"
 msgstr "Greater than or equal"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "Green"
@@ -4803,6 +4818,11 @@ msgstr "Hide the PDF"
 msgid "Highlight"
 msgstr "Highlight"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlight {hex}"
+msgstr "Highlight {hex}"
+
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Highlight color"
 msgstr "Highlight color"
@@ -4811,9 +4831,25 @@ msgstr "Highlight color"
 msgid "Highlight tips, warnings, and notes."
 msgstr "Highlight tips, warnings, and notes."
 
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Highlight: {lastHighlight}"
+msgstr "Highlight: {lastHighlight}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Highlighted code"
 msgstr "Highlighted code"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighter meanings"
+msgstr "Highlighter meanings"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighters"
+msgstr "Highlighters"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Highlights"
+msgstr "Highlights"
 
 #: src/trellis/trellis-titles.ts
 msgid "History"
@@ -4875,6 +4911,10 @@ msgstr "ICLR Proceedings"
 #: src/build/tex-doctor-messages.ts
 msgid "ICML packages"
 msgstr "ICML packages"
+
+#: src/editor/latex/highlighters.ts
+msgid "Idea"
+msgstr "Idea"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -5349,6 +5389,10 @@ msgstr "just now"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Kappa"
 msgstr "Kappa"
+
+#: src/editor/latex/highlighters.ts
+msgid "Keep"
+msgstr "Keep"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep both"
@@ -6397,6 +6441,10 @@ msgstr "Need your eyes"
 msgid "Needed to add papers and manage bibliographies · about 45 MB"
 msgstr "Needed to add papers and manage bibliographies · about 45 MB"
 
+#: src/editor/latex/highlighters.ts
+msgid "Needs a citation"
+msgstr "Needs a citation"
+
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
 msgstr "Needs a decision"
@@ -6652,6 +6700,10 @@ msgstr "No files match “{trimmedQuery}”"
 #: src/project/paper-library.tsx
 msgid "No grouping"
 msgstr "No grouping"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No highlights of this kind in {fileName}"
+msgstr "No highlights of this kind in {fileName}"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
@@ -7423,6 +7475,7 @@ msgid "or"
 msgstr "or"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Orange"
 msgstr "Orange"
@@ -7435,6 +7488,10 @@ msgstr "Ordered List"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Origins and adapted work"
 msgstr "Origins and adapted work"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Other colours"
+msgstr "Other colours"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Other projects"
@@ -7893,6 +7950,7 @@ msgstr "Piecewise definition"
 msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Pink"
 msgstr "Pink"
@@ -8258,6 +8316,7 @@ msgstr "Pull requests"
 msgid "punctuation"
 msgstr "punctuation"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Purple"
 msgstr "Purple"
@@ -8265,6 +8324,10 @@ msgstr "Purple"
 #: src/build/tex-doctor-messages.ts
 msgid "Python tooling used for literature and bibliography tools"
 msgstr "Python tooling used for literature and bibliography tools"
+
+#: src/editor/latex/highlighters.ts
+msgid "Question"
+msgstr "Question"
 
 #: src/app/use-build-pipeline.ts
 msgid "queued"
@@ -8537,6 +8600,10 @@ msgstr "Remove citations too"
 #: src/App.tsx
 msgid "Remove entry"
 msgstr "Remove entry"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Remove highlight"
+msgstr "Remove highlight"
 
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
@@ -8820,6 +8887,10 @@ msgstr "Research"
 #: src/project/project-dialogs.tsx
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Reset"
+msgstr "Reset"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9143,6 +9214,7 @@ msgid "Revision rounds"
 msgstr "Revision rounds"
 
 #: src/editor/comments/use-intent-labels.ts
+#: src/editor/latex/highlighters.ts
 msgid "Rewrite"
 msgstr "Rewrite"
 
@@ -11090,6 +11162,10 @@ msgstr "to"
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
 
+#: src/editor/latex/highlighters.ts
+msgid "To check"
+msgstr "To check"
+
 #. Search words for the Notification position setting, space-separated
 #: src/settings/settings-search-index.ts
 msgid "toast notification"
@@ -11937,6 +12013,7 @@ msgid "Year unavailable"
 msgstr "Year unavailable"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "Yellow"
 
@@ -11985,6 +12062,10 @@ msgstr "Your {BIBITEM} differs: {fields}"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"
 msgstr "Your answer…"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Your colours"
+msgstr "Your colours"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"

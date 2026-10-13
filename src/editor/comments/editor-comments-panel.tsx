@@ -23,6 +23,9 @@ import {
 } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
 import { useIntentLabels } from "./use-intent-labels";
+import { formatCount } from "../../i18n";
+import { latexHighlights } from "../latex/latex-highlights";
+import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
 import { pendingProposals, revisable, roundProgress, type AnnotationRounds } from "../../app/annotation-rounds";
 import "./annotations.css";
 
@@ -32,6 +35,11 @@ const STORAGE_PATH = ".research/annotations.json";
 /* eslint-enable lingui/no-unlocalized-strings */
 
 type Filter = "open" | "resolved" | "all";
+
+/** A highlight in the open file, listed by what its highlighter means. */
+type PlacedHighlight = { from: number; line: number; text: string; color: string | null; kind: string };
+/** The kind of a highlight in none of the six highlighters' colours. */
+const OTHER = "other";
 
 /** What the panel shows and asks of the revision rounds (`app/annotation-rounds.ts`). */
 export type AnnotationRoundsView = {
@@ -128,6 +136,8 @@ export function EditorCommentsPanel(props: {
   activeCommentId?: string | null;
   /** A file's live text, when the panel can read it, for line numbers and sections. */
   sourceFor?: (path: string) => string | undefined;
+  /** Open a file at a line: where a highlight listed here sits. */
+  onOpenHighlight?: (path: string, line: number) => void;
   /** The revision rounds behind Revise, and the project's rounds; without them the panel only lists notes. */
   annotationRounds?: AnnotationRounds;
   roundsList?: readonly AnnotationRound[];
@@ -142,6 +152,8 @@ export function EditorCommentsPanel(props: {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [filter, setFilter] = useState<Filter>(props.focusCommentId ? "all" : "open");
+  /** The highlighter whose highlights the list shows instead of the notes (its hex, or `OTHER`). */
+  const [highlightKind, setHighlightKind] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [replyingId, setReplyingId] = useState<string | null>(props.focusCommentId ?? null);
@@ -153,6 +165,7 @@ export function EditorCommentsPanel(props: {
   const { activePath, sourceFor } = props;
   const rounds = useRoundsView(props.annotationRounds, props.roundsList, props.comments);
   const intentLabels = useIntentLabels();
+  const highlightPrefs = useHighlightPrefs();
 
   // When opened from the editor's hover "Reply…", jump to that note and open
   // its reply box straight away.
@@ -160,6 +173,7 @@ export function EditorCommentsPanel(props: {
     if (!props.focusCommentId) return;
     setReplyingId(props.focusCommentId);
     setFilter("all");
+    setHighlightKind(null);
     focusRef.current?.scrollIntoView({ block: "center" });
   }, [props.focusCommentId]);
 
@@ -216,6 +230,49 @@ export function EditorCommentsPanel(props: {
     });
   }, [activePath, sourceFor, t, visible]);
 
+  // The open file's highlights, by highlighter: a meaning reads back as a
+  // list ("every sentence that needs a citation"), in reading order.
+  const activeSource = activePath?.endsWith(".tex") ? sourceFor?.(activePath) : undefined;
+  const highlights = useMemo<PlacedHighlight[]>(() => {
+    if (!activeSource) return [];
+    let line = 1;
+    let counted = 0;
+    return latexHighlights(activeSource).map((highlight) => {
+      line += activeSource.slice(counted, highlight.from).split("\n").length - 1;
+      counted = highlight.from;
+      return {
+        from: highlight.from,
+        line,
+        text: activeSource.slice(highlight.contentFrom, highlight.contentTo).replace(/\s+/g, " ").trim(),
+        color: highlight.color,
+        kind: highlighterOf(highlight.color)?.hex ?? OTHER,
+      };
+    });
+  }, [activeSource]);
+  const highlightKinds = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const highlight of highlights) counts.set(highlight.kind, (counts.get(highlight.kind) ?? 0) + 1);
+    return [...HIGHLIGHTERS.map((item) => item.hex), OTHER].filter((kind) => counts.has(kind)).map((kind) => ({ kind, count: counts.get(kind)! }));
+  }, [highlights]);
+  const kindLabel = (kind: string) => {
+    const item = highlighterOf(kind);
+    return item ? highlightPrefs.meaningOf(item) : t`Other colours`;
+  };
+  const highlightGroups = useMemo(() => {
+    if (!activePath || !activeSource || !highlightKind) return [];
+    const sections = sectionsOf(activeSource, activePath);
+    const out: Array<{ key: string; label: string | null; items: PlacedHighlight[] }> = [];
+    for (const highlight of highlights) {
+      if (highlight.kind !== highlightKind) continue;
+      const section = sections.filter((item) => item.offset <= highlight.from).at(-1) ?? null;
+      const label = section?.label ?? (sections.length ? t`Before the first section` : null);
+      const last = out.at(-1);
+      if (last && last.label === label) last.items.push(highlight);
+      else out.push({ key: String(section?.offset ?? -1), label, items: [highlight] });
+    }
+    return out;
+  }, [activePath, activeSource, highlightKind, highlights, t]);
+
   const hasComments = props.comments.length > 0;
   const writingName = props.writingFile ? props.writingFile.split("/").at(-1) || props.writingFile : null;
   const closeReply = () => {
@@ -256,8 +313,11 @@ export function EditorCommentsPanel(props: {
               type="button"
               key={value}
               className="ui-segmented-tab"
-              aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
+              aria-pressed={filter === value && !highlightKind}
+              onClick={() => {
+                setFilter(value);
+                setHighlightKind(null);
+              }}
             >
               <span className="annotations-filter-label">{label}</span>
               {count > 0 && <span className="annotations-filter-count">{count}</span>}
@@ -286,6 +346,23 @@ export function EditorCommentsPanel(props: {
           </IconButton>
         )}
       </span>
+      {highlightKinds.length > 0 && (
+        <div className="annotations-highlights" role="group" aria-label={t`Highlights`}>
+          {highlightKinds.map(({ kind, count }) => (
+            <button
+              type="button"
+              key={kind}
+              className="annotations-highlight-kind"
+              aria-pressed={highlightKind === kind}
+              onClick={() => setHighlightKind((current) => current === kind ? null : kind)}
+            >
+              <span className="annotations-highlight-swatch" data-kind={kind === OTHER ? OTHER : undefined} style={kind === OTHER ? undefined : { background: kind }} aria-hidden />
+              <span className="annotations-filter-label">{kindLabel(kind)}</span>
+              <span className="annotations-filter-count">{formatCount(count, i18n.locale)}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {searching && hasComments && (
         <SearchField
           controlSize="compact"
@@ -515,7 +592,45 @@ export function EditorCommentsPanel(props: {
     );
   };
 
-  const list = (
+  const fileName = activePath?.split("/").at(-1) ?? activePath ?? "";
+  const highlightList = highlightKind && (
+    <div className="annotations-list">
+      {!highlightGroups.length && (
+        <EmptyState align="start" density="compact" description={t`No highlights of this kind in ${fileName}`} />
+      )}
+      {highlightGroups.map((group) => (
+        <Fragment key={group.key}>
+          {group.label && <h3 className="annotations-section">{group.label}</h3>}
+          {group.items.map((highlight) => {
+            // A colour by name, or soul's `\hl`, is the document's to say.
+            const paper = highlight.color?.startsWith("#") ? highlight.color : null;
+            return (
+              <button
+                type="button"
+                key={highlight.from}
+                className="annotation-highlight"
+                onClick={() => activePath && props.onOpenHighlight?.(activePath, highlight.line)}
+              >
+                <span className="annotation-highlight-text">
+                  <mark
+                    className={paper ? undefined : "annotation-highlight-unknown"}
+                    style={paper ? { background: paper, color: readsDarkOn(paper) ? undefined : "white" } : undefined}
+                  >
+                    {highlight.text || t`(empty span)`}
+                  </mark>
+                </span>
+                <span className="annotation-card-meta">
+                  <span className="annotation-card-where">{`${fileName}:${highlight.line}`}</span>
+                </span>
+              </button>
+            );
+          })}
+        </Fragment>
+      ))}
+    </div>
+  );
+
+  const list = highlightList || (
     <div className="annotations-list">
       {banner}
       {!visible.length && (

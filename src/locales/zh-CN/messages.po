@@ -431,6 +431,10 @@ msgstr "{fileSummary}中共 {matchSummary}"
 msgid "{matchSummary} in {fileSummary} (showing first 200)"
 msgstr "{fileSummary}中共 {matchSummary}（显示前 200 处）"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "{meaning}, {color}"
+msgstr "{meaning}，{color}"
+
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
@@ -1699,6 +1703,7 @@ msgid "Blog"
 msgstr "概览"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "蓝色"
@@ -3202,6 +3207,10 @@ msgstr "自定义"
 msgid "Custom accent color"
 msgstr "自选颜色"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Custom colour…"
+msgstr "自定义颜色…"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
@@ -3541,6 +3550,7 @@ msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
 #: src/canvas/proofread-card.tsx
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3752,6 +3762,10 @@ msgstr "编辑链接"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Edit meanings…"
+msgstr "编辑含义…"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
@@ -4650,6 +4664,7 @@ msgid "Greater than or equal"
 msgstr "大于或等于"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "绿色"
@@ -4800,6 +4815,11 @@ msgstr "隐藏 PDF"
 msgid "Highlight"
 msgstr "高亮"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlight {hex}"
+msgstr "用 {hex} 高亮"
+
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Highlight color"
 msgstr "高亮颜色"
@@ -4808,9 +4828,25 @@ msgstr "高亮颜色"
 msgid "Highlight tips, warnings, and notes."
 msgstr "突出提示、警告、备注"
 
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Highlight: {lastHighlight}"
+msgstr "高亮：{lastHighlight}"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Highlighted code"
 msgstr "高亮代码"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighter meanings"
+msgstr "荧光笔含义"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Highlighters"
+msgstr "荧光笔"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Highlights"
+msgstr "高亮"
 
 #: src/trellis/trellis-titles.ts
 msgid "History"
@@ -4872,6 +4908,10 @@ msgstr "ICLR 会议论文集"
 #: src/build/tex-doctor-messages.ts
 msgid "ICML packages"
 msgstr "ICML 宏包"
+
+#: src/editor/latex/highlighters.ts
+msgid "Idea"
+msgstr "想法"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
@@ -5346,6 +5386,10 @@ msgstr "刚刚"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Kappa"
 msgstr "卡帕"
+
+#: src/editor/latex/highlighters.ts
+msgid "Keep"
+msgstr "保留"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep both"
@@ -6394,6 +6438,10 @@ msgstr "需要你看"
 msgid "Needed to add papers and manage bibliographies · about 45 MB"
 msgstr "添加论文和管理文献要用 · 约 45 MB"
 
+#: src/editor/latex/highlighters.ts
+msgid "Needs a citation"
+msgstr "待补引用"
+
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
 msgstr "待选"
@@ -6649,6 +6697,10 @@ msgstr "没有文件包含“{trimmedQuery}”"
 #: src/project/paper-library.tsx
 msgid "No grouping"
 msgstr "不分组"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "No highlights of this kind in {fileName}"
+msgstr "{fileName} 中没有这类高亮"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
@@ -7420,6 +7472,7 @@ msgid "or"
 msgstr "或"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Orange"
 msgstr "橙色"
@@ -7432,6 +7485,10 @@ msgstr "编号列表"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Origins and adapted work"
 msgstr "起源与改编作品"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Other colours"
+msgstr "其他颜色"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Other projects"
@@ -7890,6 +7947,7 @@ msgstr "分段定义"
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Pink"
 msgstr "粉色"
@@ -8255,6 +8313,7 @@ msgstr "PR"
 msgid "punctuation"
 msgstr "标点"
 
+#: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Purple"
 msgstr "紫色"
@@ -8262,6 +8321,10 @@ msgstr "紫色"
 #: src/build/tex-doctor-messages.ts
 msgid "Python tooling used for literature and bibliography tools"
 msgstr "文献与参考文献工具所用的 Python 工具链"
+
+#: src/editor/latex/highlighters.ts
+msgid "Question"
+msgstr "疑问"
 
 #: src/app/use-build-pipeline.ts
 msgid "queued"
@@ -8534,6 +8597,10 @@ msgstr "引用也删"
 #: src/App.tsx
 msgid "Remove entry"
 msgstr "删除文献"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Remove highlight"
+msgstr "移除高亮"
 
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
@@ -8817,6 +8884,10 @@ msgstr "文献"
 #: src/project/project-dialogs.tsx
 msgid "Research, written with evidence"
 msgstr "让论文写作有据可依"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Reset"
+msgstr "重置"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9138,6 +9209,7 @@ msgid "Revision rounds"
 msgstr "修改轮次"
 
 #: src/editor/comments/use-intent-labels.ts
+#: src/editor/latex/highlighters.ts
 msgid "Rewrite"
 msgstr "重写"
 
@@ -11083,6 +11155,10 @@ msgstr "至"
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
 
+#: src/editor/latex/highlighters.ts
+msgid "To check"
+msgstr "待核实"
+
 #. Search words for the Notification position setting, space-separated
 #: src/settings/settings-search-index.ts
 msgid "toast notification"
@@ -11928,6 +12004,7 @@ msgid "Year unavailable"
 msgstr "无年份"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "黄色"
 
@@ -11976,6 +12053,10 @@ msgstr "你的 {BIBITEM} 有出入：{fields}"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Your answer…"
 msgstr "你的回答…"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Your colours"
+msgstr "你的颜色"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
