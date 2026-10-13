@@ -50,10 +50,9 @@ export function AppProjectDialogs({ references, papers, importedArxivIds, create
             key={addSheet.key}
             seed={addSheet.seed}
             papers={papers}
-            queue={references.addQueue}
-            importing={references.importing && !references.addQueue.some((item) => item.state === "adding")}
+            importing={references.importing}
             onResolve={references.resolveBibQuery}
-            onAdd={(items) => void references.addPapers(items)}
+            onAdd={references.addPapers}
             onStop={references.cancelImport}
             onEnterManually={() => {
               references.closeAddSheet();

@@ -830,21 +830,50 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:is(:hover, :focus-visible):not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
-/* The count, then the sort and the filter at the end, on the search field's
-   measure; in a narrow panel their labels give way before the count does. */
-.paper-list-toolbar { width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+/* The count, then the filter and the sort at the end, on the search field's
+   measure. Each tool is a 28px icon with its label; below 250px the labels
+   give way and a weft dot on the icon says it is set, and below 210px the
+   count shortens to "2/24" (the long form stays for a screen reader). */
+.paper-list-toolbar { container: paper-toolbar / inline-size; width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
 .paper-list-count { flex: none; margin: 0 auto 0 0; padding-inline: var(--space-4); white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
-.paper-list-toolbar .paper-list-select { flex: 0 1 auto; width: auto; gap: var(--space-2); padding-inline: var(--space-4) var(--space-3); }
-.paper-list-select > svg:first-child { color: var(--text-secondary); }
+.paper-count-short { display: none; }
+.paper-tool { position: relative; height: 28px; min-width: 28px; flex: 0 1 auto; padding: 0 var(--space-4); border-radius: var(--radius-control); display: inline-flex; align-items: center; gap: var(--space-3); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.paper-tool > svg { flex: none; stroke-width: 1.5; }
+.paper-tool:hover, .paper-tool[data-state="open"] { background: var(--control-hover-surface); color: var(--text-primary); }
+.paper-tool[data-on] { color: var(--text-primary); }
+.paper-tool-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-tool[data-on]::after { content: ""; position: absolute; top: 5px; left: 18px; width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--mark-weft); box-shadow: 0 0 0 2px var(--surface-sidebar); display: none; }
+@container paper-toolbar (width < 250px) {
+  .paper-tool { width: 28px; padding: 0; justify-content: center; }
+  .paper-tool-label { display: none; }
+  .paper-tool[data-on]::after { display: block; }
+}
+@container paper-toolbar (width < 210px) {
+  .paper-count-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .paper-count-short { display: inline; }
+}
+/* A filter menu row: the check, the name, and how many papers it keeps. */
+.paper-menu { min-width: 13rem; }
+.paper-menu-check { width: 14px; flex: none; display: grid; place-items: center; }
+.paper-menu-label { flex: 1; min-width: 0; }
+.paper-menu-count { flex: none; color: var(--text-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; }
+/* An active filter as a chip under the toolbar; a click clears it. */
+.paper-chips { width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.paper-chip { height: 24px; min-width: 0; max-width: 100%; padding: 0 var(--space-3) 0 var(--space-5); border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: var(--space-2); background: var(--control-hover-surface); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.paper-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-chip > svg { flex: none; color: var(--text-secondary); stroke-width: 1.5; }
+.paper-chip:hover { background: var(--control-pressed-surface); }
+.paper-chip:hover > svg { color: var(--text-primary); }
 .paper-list { min-height: 0; flex: 1; container: paper-list / inline-size; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-/* A paper is a short stack: its title and a byline of who and when, then any
-   flags (citation only, a citation-health notice).
+/* A paper is a short grid: its glyph on the Project tree's icon gutter, the
+   title, and the times the manuscript cites it at the end; under them a
+   byline of who, when and where, then any citation-health notice.
    Surfaces and the 8px text inset follow the Project tree's (hover < open,
    text over its icons); the row's surface is a
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
-.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); --paper-row-padding-inline: var(--space-4); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); --paper-row-padding-inline: var(--space-4); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
 .paper-row + .paper-row { margin-top: var(--space-1); }
 /* Hairlines part the rows at rest, under the text; a lit row needs none on
    either side. */
@@ -856,41 +885,49 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 /* The button is the whole row under its text, so its ring is the row's;
    the text it lies under passes every click through to it. */
 .paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
-.paper-row > :is(.paper-title, .paper-meta, .paper-snippet) { pointer-events: none; }
+.paper-row > :is(.paper-glyph, .paper-title, .paper-cell, .paper-uses, .paper-meta, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
+.paper-glyph { grid-column: 1; grid-row: 1; height: var(--type-subtitle-line-height); display: grid; place-items: center; color: var(--text-secondary); }
+.paper-glyph > svg { stroke-width: 1.5; }
 /* A paper's title is set in the interface face, as the Project tree sets a
    file's name, and in the primary ink whether or not it has been downloaded:
-   the byline's mark and the Citation only flag say that. A narrow panel gets
-   a third line before the ellipsis. */
-.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+   the glyph says that. A narrow panel gets a second line before the
+   ellipsis. */
+.paper-list .paper-title { grid-column: 2; grid-row: 1; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+/* "6×", or "—" for a paper the manuscript does not cite yet. */
+.paper-uses { grid-column: 3; grid-row: 1; height: var(--type-subtitle-line-height); display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.paper-uses:empty { display: none; }
+.paper-cell { display: none; }
+.paper-row > :is(.paper-meta, .paper-snippet, .paper-tags) { grid-column: 2 / -1; }
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
-/* The byline line. At rest it is only who and when; a lit row (hovered,
+/* The byline line. At rest it is who, when and where; a lit row (hovered,
    focused or open) shows its citation key and actions on the same line, one
    line tall whatever it holds, so revealing them never moves the rows below.
-   A wide row keeps the byline and adds them at its end, where the key gives
-   way first; a narrow one shows them in its place, as a mail list shows a
-   message's actions in place of its date. The year never gives way. */
+   A wide row keeps the byline and adds them at its end, where the venue and
+   the key give way first; a narrow one shows them in its place, as a mail
+   list shows a message's actions in place of its date. The year never gives
+   way. */
 .paper-meta { height: var(--type-tree-line-height); min-width: 0; margin-top: var(--space-2); display: flex; align-items: center; gap: var(--space-3); }
 .paper-list .paper-byline { min-width: min(100%, 10em); margin-top: 0; flex: 0 1 auto; display: flex; }
 .paper-byline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.paper-byline > :is(.paper-year, .paper-state-icon) { flex: none; }
-.paper-byline > :is(.paper-year, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
-.paper-year { font-variant-numeric: tabular-nums; }
+.paper-byline > .paper-year { flex: none; }
+.paper-byline > .paper-authors { flex: 0 1 auto; }
+.paper-byline > .paper-venue { flex: 0 1 auto; }
+.paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
+.paper-year, .paper-cell-year { font-variant-numeric: tabular-nums; }
+@container paper-row (width < 260px) { .paper-byline > .paper-venue { display: none; } }
 /* A full-text hit is a line quoted from the paper, so it reads as one. */
 .paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
-.paper-state-icon { margin-inline-start: var(--space-2); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--motion-moderate); }
-.paper-state-icon > svg { stroke-width: 1.5; }
-.paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
-.paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
-/* The row's flags. */
+/* The row's citation-health notice. */
 .paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 .paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--badge-height-compact); }
 /* A citation-health notice: the chip, then who reported it and when. One
-   that links out is its own control above the row's hit area. */
+   that links out is its own control above the row's hit area. The chip's ink
+   is its status one step towards the text, so it reads at AA on its wash. */
 .paper-citation-health { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: var(--space-3); }
-.paper-list .paper-citation-health > .paper-tag { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); }
+.paper-list .paper-citation-health > .paper-tag { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); color: color-mix(in srgb, var(--status-warning) 78%, var(--text-primary)); }
 .paper-citation-health > .paper-tag > svg { stroke-width: 1.75; }
-.paper-row.citation-retracted .paper-citation-health > .paper-tag { background-color: var(--status-danger-soft); color: var(--status-danger); }
+.paper-list .paper-row.citation-retracted .paper-citation-health > .paper-tag { background-color: var(--status-danger-soft); color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); }
 .paper-citation-health-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--badge-height-compact); }
 button.paper-citation-health { position: relative; z-index: 1; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
 button.paper-citation-health:hover > .paper-tag { background-image: linear-gradient(var(--tone-hover-surface), var(--tone-hover-surface)); }
@@ -907,28 +944,55 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
   .paper-row-actions { min-width: 0; flex-grow: 1; }
   .paper-row-actions > .paper-cite-key { margin-inline: calc(-1 * var(--space-2)) auto; }
 }
-.paper-meta:not(:has(> .paper-byline)) { position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-1)); inset-inline-end: var(--space-3); margin: 0; }
+/* Placed on no grid line, so its box is the row's, not the byline column's. */
+.paper-row > .paper-meta:not(:has(> .paper-byline)) { grid-column: auto; position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-2)); inset-inline-end: var(--space-3); margin: 0; }
 .paper-meta:not(:has(> .paper-byline)) > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
-.paper-cite-key { min-width: 6em; height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2); font: var(--type-micro-size)/1 var(--editor-font); }
-/* The key button sets line-height 1 to centre its icon; a clipping box that tight cuts descenders (g, j, p, q, y), so the code gets a full line box inside the fixed 22px button. */
+.paper-cite-key { min-width: 6em; height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2); font: var(--type-micro-size)/1 var(--editor-font); }
+/* The key button sets line-height 1 to centre its icon; a clipping box that tight cuts descenders (g, j, p, q, y), so the code gets a full line box inside the fixed 24px button. */
 .paper-cite-key > code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; line-height: var(--type-tree-line-height); }
 .paper-cite-key .copy-button-icon { width: 11px; height: 11px; }
 .paper-cite-key .copy-button-icon > svg { stroke-width: 1.5; }
 .paper-row.active .paper-cite-key { color: var(--text-secondary); }
 .paper-cite-key:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.row-delete, .row-edit-bib, .row-open-link { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
+.row-delete, .row-edit-bib, .row-open-link { position: relative; width: 24px !important; height: 24px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
 .row-delete svg, .row-edit-bib svg, .row-open-link svg { stroke-width: 1.5; }
 .row-edit-bib:hover, .row-open-link:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
-/* A wide list (a maximised panel) reads as a table: title and byline on the
-   left, the flags in a right-hand column, so a retraction lines up with the
-   others instead of adding a third line under its paper. */
+/* Grouped, each group is a counted caption over its own list. */
+.paper-group { min-width: 0; margin: var(--space-8) var(--space-4) var(--space-2); display: flex; align-items: baseline; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.paper-rows > .paper-group:first-of-type { margin-top: var(--space-2); }
+.paper-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-group-count { flex: none; color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+/* A wide list (a maximised panel) is a table: a header that stays in view
+   and sorts by any column, then one line per paper, Title · Authors · Year ·
+   Venue · Cited. A notice or a search hit takes a second line under the
+   title. A lit row's actions surface over the end of its line. */
+.paper-table-head { display: none; }
 @container paper-list (width >= 680px) {
-  .paper-row { --paper-row-padding-inline: var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); grid-template-areas: "title tags" "meta tags" "snippet tags"; column-gap: var(--space-12); align-items: center; }
-  .paper-row > .paper-title { grid-area: title; -webkit-line-clamp: 1; line-clamp: 1; }
-  .paper-row > .paper-meta { grid-area: meta; }
-  .paper-row > .paper-snippet { grid-area: snippet; }
-  .paper-row > .paper-tags { grid-area: tags; margin: 0; justify-content: flex-end; }
+  .paper-table-head, .paper-row { --paper-table-columns: 16px minmax(0, 1fr) minmax(0, min(200px, 22%)) 52px minmax(0, min(170px, 18%)) 52px; }
+  .paper-table-head { position: sticky; top: 0; z-index: 2; margin-bottom: var(--space-1); padding: var(--space-2) var(--space-6); display: grid; grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); align-items: center; background: var(--surface-sidebar); box-shadow: 0 1px 0 var(--border-subtle); }
+  .paper-table-sort { min-width: 0; height: 24px; margin-inline: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-1); justify-self: start; background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+  .paper-table-sort > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .paper-table-sort > svg { flex: none; }
+  .paper-table-sort:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+  .paper-table-sort[aria-pressed="true"] { color: var(--text-primary); }
+  .paper-table-head > :last-child { justify-self: end; }
+  .paper-row { --paper-row-padding: var(--space-4); --paper-row-padding-inline: var(--space-6); grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); }
+  .paper-list .paper-row > .paper-title { -webkit-line-clamp: 1; line-clamp: 1; }
+  .paper-row > .paper-cell { grid-row: 1; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-subtitle-line-height); }
+  .paper-row > .paper-cell-authors { grid-column: 3; }
+  .paper-row > .paper-cell-year { grid-column: 4; }
+  .paper-row > .paper-cell-venue { grid-column: 5; }
+  .paper-row > .paper-uses { grid-column: 6; justify-content: flex-end; }
+  .paper-row > :is(.paper-tags, .paper-snippet) { grid-column: 2 / span 4; }
+  .paper-list .paper-row > .paper-snippet { margin-top: var(--space-1); }
+  .paper-row > .paper-tags { margin-top: var(--space-2); }
+  /* The byline's facts are the columns; the line keeps only the actions,
+     over the end of the title's line. */
+  .paper-row > .paper-meta { grid-column: auto; position: absolute; z-index: 1; inset-block: calc(var(--paper-row-padding) + (var(--type-subtitle-line-height) - 24px) / 2) auto; inset-inline-end: var(--space-4); height: 24px; margin: 0; }
+  .paper-row > .paper-meta > .paper-byline { display: none; }
+  .paper-row > .paper-meta > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
+  .paper-group { margin-inline: var(--space-6); }
 }
 /* What the box will add, said before it happens (the add row), and the
    import under way (the pending row): soft plates above the list, on the

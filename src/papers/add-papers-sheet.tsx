@@ -7,11 +7,11 @@
  * imports in turn with its own progress, and the sheet can close while the
  * writer keeps writing.
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { BookMarked, Check, CircleAlert, CircleDot, PenLine, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
-import type { PaperAddItem } from "../app/use-reference-import";
+import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddItem } from "./add-papers-queue";
 import { Button } from "../components/ui/button";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
@@ -60,9 +60,7 @@ type Row = {
 export function AddPapersSheet(props: {
   seed: string;
   papers: readonly PaperSummary[];
-  /** The batch being added, kept while it runs even if the sheet closed and reopened. */
-  queue: readonly PaperAddItem[];
-  /** Another import holds the pipeline (the Papers box, Find literature). */
+  /** An import holds the pipeline: the Papers box's, Find literature's, or this sheet's batch. */
   importing: boolean;
   onResolve: (query: string) => Promise<ResolvedCitationDraft>;
   onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label">>) => void;
@@ -71,6 +69,12 @@ export function AddPapersSheet(props: {
   onClose: () => void;
 }) {
   const { t } = useLingui();
+  // The batch being added, kept while it runs even if the sheet closed and reopened.
+  const queue = useSyncExternalStore(subscribeAddQueue, getAddQueue);
+  const onClose = () => {
+    clearAddQueue();
+    props.onClose();
+  };
   const [text, setText] = useState(props.seed);
   // The box is read once typing pauses (a paste at once), so a half-typed
   // DOI is not looked up letter by letter.
@@ -154,9 +158,10 @@ export function AddPapersSheet(props: {
     }
   }, [onResolve, rows]);
 
-  const queued = props.queue.length > 0;
-  const adding = props.queue.some((item) => item.state === "waiting" || item.state === "adding");
-  const progress = new Map(props.queue.map((item) => [item.id, item]));
+  const queued = queue.length > 0;
+  const importingElsewhere = props.importing && !addQueueRunning();
+  const adding = queue.some((item) => item.state === "waiting" || item.state === "adding");
+  const progress = new Map(queue.map((item) => [item.id, item]));
   const count = (state: RowState) => rows.filter((row) => row.state === state).length;
   const counts = { all: rows.length, new: count("new"), duplicate: count("duplicate"), choose: count("choose") };
   const resolving = count("resolving");
@@ -167,7 +172,7 @@ export function AddPapersSheet(props: {
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Link`, bibtex: "BibTeX", title: t`Title` };
 
   const add = () => {
-    if (!addable.length || adding || props.importing) return;
+    if (!addable.length || adding || importingElsewhere) return;
     setAddedFrom(addable);
     props.onAdd(addable.map((row) => ({ id: row.reference.id, input: row.importInput ?? row.reference.input, label: row.title })));
   };
@@ -184,19 +189,19 @@ export function AddPapersSheet(props: {
   // While a batch runs (or once it ran), the sheet shows the batch: the rows
   // it was added from, or, reopened later, the queue's own labels.
   const batch = queued
-    ? props.queue.map((item) => addedFrom.find((row) => row.reference.id === item.id)
+    ? queue.map((item) => addedFrom.find((row) => row.reference.id === item.id)
       ?? { reference: { id: item.id, kind: "title" as const, input: item.input, label: item.label }, state: "new" as const, title: item.label, byline: "" })
     : null;
   const listed = batch ?? shown;
-  const done = props.queue.filter((item) => item.state === "added").length;
-  const position = props.queue.findIndex((item) => item.state === "adding") + 1;
+  const done = queue.filter((item) => item.state === "added").length;
+  const position = queue.findIndex((item) => item.state === "adding") + 1;
 
   const summary = queued
     ? adding
-      ? t`Adding ${position || done + 1} of ${props.queue.length} — you can keep writing`
-      : done === props.queue.length
+      ? t`Adding ${position || done + 1} of ${queue.length} — you can keep writing`
+      : done === queue.length
         ? done === 1 ? t`Added 1 paper` : t`Added ${done} papers`
-        : t`Added ${done} of ${props.queue.length}`
+        : t`Added ${done} of ${queue.length}`
     : [
         counts.duplicate === 1 ? t`1 already in Papers is skipped` : counts.duplicate ? t`${counts.duplicate} already in Papers are skipped` : "",
         counts.choose === 1 ? t`1 waits for your choice` : counts.choose ? t`${counts.choose} wait for your choice` : "",
@@ -253,8 +258,8 @@ export function AddPapersSheet(props: {
   };
 
   return (
-    <SheetDialog className="add-papers-sheet" label={t`Add papers`} dirty={Boolean(text.trim()) && !queued} onClose={props.onClose}>
-      <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={props.onClose} />
+    <SheetDialog className="add-papers-sheet" label={t`Add papers`} dirty={Boolean(text.trim()) && !queued} onClose={onClose}>
+      <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={t`Add papers`} onClose={onClose} />
       <div className="add-papers-body">
         {!batch && (
           <label className="add-papers-paste">
@@ -368,17 +373,17 @@ export function AddPapersSheet(props: {
         {adding ? (
           <>
             <Button variant="ghost" onClick={props.onStop}>{t`Stop`}</Button>
-            <Button variant="secondary" onClick={props.onClose}>{t`Close`}</Button>
+            <Button variant="secondary" onClick={onClose}>{t`Close`}</Button>
           </>
         ) : queued ? (
-          <Button variant="primary" onClick={props.onClose}>{t`Done`}</Button>
+          <Button variant="primary" onClick={onClose}>{t`Done`}</Button>
         ) : (
           <>
-            <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
+            <Button variant="ghost" onClick={onClose}>{t`Cancel`}</Button>
             <Button
               variant="primary"
-              disabled={!addable.length || props.importing}
-              title={props.importing ? t`Another paper is being added` : undefined}
+              disabled={!addable.length || importingElsewhere}
+              title={importingElsewhere ? t`Another paper is being added` : undefined}
               onClick={add}
             >
               <Plus size={14} aria-hidden="true" />
