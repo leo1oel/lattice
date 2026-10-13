@@ -13,6 +13,7 @@
  * measures the real app. See scripts/perf-bench.mjs.
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
+import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
 import type { FileNode, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
@@ -569,6 +570,15 @@ function tutorialCitations() {
 
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
+  // `?overleaf=review` (or `long`) links the open project to Overleaf (bench-overleaf.ts).
+  const overleaf = overleafAnswer(command, args, {
+    params, lang, emit, root: () => current.root,
+    text: (path) => {
+      const content = current.files.get(path);
+      return typeof content === "string" ? content : "";
+    },
+  });
+  if (overleaf !== NOT_HANDLED) return overleaf;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "initial_project":

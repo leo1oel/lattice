@@ -231,6 +231,20 @@
   overflow-wrap: anywhere;
 }
 .overleaf-thread-empty { color: var(--text-secondary); font-size: var(--type-caption-size); }
+/* In the margin, the replies after the first message wait behind this line. */
+.overleaf-thread-more {
+  align-self: flex-start;
+  margin: calc(var(--space-2) * -1) 0 0 calc(20px + var(--space-4));
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--motion-fast);
+}
+.overleaf-thread-more:hover { color: var(--text-primary); }
 
 /* "Reply…" is a field you can see, not a button you have to find. It lines
    up with the messages' text, past their faces. */

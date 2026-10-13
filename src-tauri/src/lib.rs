@@ -317,6 +317,7 @@ pub fn run() {
                 .build(),
         )
         .on_window_event(on_window_event)
+        .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             #[cfg(feature = "perf-lab")]

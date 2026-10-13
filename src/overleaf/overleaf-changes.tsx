@@ -68,6 +68,86 @@ function sectionsOf(source: string, changes: TrackedChange[], labels: { abstract
   return groups;
 }
 
+/**
+ * One suggestion, as the panel lists it and as margin review shows it beside
+ * its line (overleaf-margin-review.tsx). The margin leaves out the sentence
+ * around the change: the line beside it is that sentence.
+ */
+export function OverleafChangeCard(props: {
+  change: TrackedChange;
+  /** The open document's current text, to quote the context around the suggestion. */
+  source: string;
+  author: string;
+  /** False when the account or the open file cannot act; `disabledTitle` says why. */
+  actionable: boolean;
+  disabledTitle?: string;
+  working: boolean;
+  onAccept: (change: TrackedChange) => void;
+  onReject: (change: TrackedChange) => void;
+  /** Put the caret on the suggested span. */
+  onReveal: (position: number) => void;
+  variant?: "panel" | "margin";
+}) {
+  const { i18n, t } = useLingui();
+  const { change, working } = props;
+  const margin = props.variant === "margin";
+  const { prefix, quote, suffix } = trackedChangeContext(props.source, change, CONTEXT_CHARS);
+  // Shorter than asked for means it ran into the start or end of the file, so nothing was cut.
+  const before = wholeWords(prefix, "before", prefix.length < CONTEXT_CHARS);
+  const after = wholeWords(suffix, "after", suffix.length < CONTEXT_CHARS);
+  const color = hueColor(change.hue);
+  const mark = { borderColor: color, textDecorationColor: color, background: hueColor(change.hue, change.deletion ? 0.1 : 0.14) };
+  const Root = margin ? "div" : "li";
+  return (
+    <Root className="overleaf-change" data-variant={margin ? "margin" : undefined}>
+      <div className="overleaf-change-meta">
+        <PersonAvatar name={props.author} color={color} size="small" />
+        <span className="overleaf-change-author">{props.author}</span>
+        {/* Overleaf's own review panel words them this way. */}
+        <span className="overleaf-change-kind">
+          {change.deletion
+            ? t({ message: "deleted", context: "tracked change, after its author" })
+            : t({ message: "added", context: "tracked change, after its author" })}
+        </span>
+        {change.timestamp && (
+          <time dateTime={change.timestamp} title={new Date(change.timestamp).toLocaleString(i18n.locale)}>
+            {formatCommentTimestamp(change.timestamp, undefined, i18n.locale, "narrow")}
+          </time>
+        )}
+        <span className="overleaf-change-actions">
+          <IconButton
+            size="compact"
+            className="overleaf-change-accept"
+            label={t`Accept`}
+            tooltip={props.disabledTitle ?? t`Accept`}
+            disabled={!props.actionable || working}
+            onClick={() => props.onAccept(change)}
+          >
+            {working ? <InfinityLoader size={12} /> : <Check size={15} aria-hidden="true" />}
+          </IconButton>
+          <IconButton
+            size="compact"
+            className="overleaf-change-reject"
+            label={t`Reject`}
+            tooltip={props.disabledTitle ?? t`Reject`}
+            disabled={!props.actionable || working}
+            onClick={() => props.onReject(change)}
+          >
+            <X size={15} aria-hidden="true" />
+          </IconButton>
+        </span>
+      </div>
+      <button type="button" className="overleaf-change-text" title={t`Show this in the editor`} onClick={() => props.onReveal(change.position)}>
+        {!margin && <span className="overleaf-change-context">{before.cut && "…"}{before.text}</span>}
+        {change.deletion
+          ? <del style={mark}>{quote || t`(no text)`}</del>
+          : <ins style={mark}>{quote || t`(no text)`}</ins>}
+        {!margin && <span className="overleaf-change-context">{after.text}{after.cut && "…"}</span>}
+      </button>
+    </Root>
+  );
+}
+
 export function OverleafChangesPanel(props: {
   changes: TrackedChange[];
   /** The open document's current text, to quote the context around each suggestion. */
@@ -98,64 +178,20 @@ export function OverleafChangesPanel(props: {
   const accept = (changes: TrackedChange[]) => void props.onAccept(changes.map((change) => change.id)).catch(() => undefined);
   const reject = (changes: TrackedChange[]) => void props.onReject(changes).catch(() => undefined);
 
-  const renderChange = (change: TrackedChange) => {
-    const { prefix, quote, suffix } = trackedChangeContext(props.source, change, CONTEXT_CHARS);
-    // Shorter than asked for means it ran into the start or end of the file, so nothing was cut.
-    const before = wholeWords(prefix, "before", prefix.length < CONTEXT_CHARS);
-    const after = wholeWords(suffix, "after", suffix.length < CONTEXT_CHARS);
-    const working = props.busy === change.id;
-    const color = hueColor(change.hue);
-    const author = props.authorName(change.userId);
-    const mark = { borderColor: color, textDecorationColor: color, background: hueColor(change.hue, change.deletion ? 0.1 : 0.14) };
-    return (
-      <li className="overleaf-change" key={change.id}>
-        <div className="overleaf-change-meta">
-          <PersonAvatar name={author} color={color} size="small" />
-          <span className="overleaf-change-author">{author}</span>
-          {/* Overleaf's own review panel words them this way. */}
-          <span className="overleaf-change-kind">
-            {change.deletion
-              ? t({ message: "deleted", context: "tracked change, after its author" })
-              : t({ message: "added", context: "tracked change, after its author" })}
-          </span>
-          {change.timestamp && (
-            <time dateTime={change.timestamp} title={new Date(change.timestamp).toLocaleString(i18n.locale)}>
-              {formatCommentTimestamp(change.timestamp, undefined, i18n.locale, "narrow")}
-            </time>
-          )}
-          <span className="overleaf-change-actions">
-            <IconButton
-              size="compact"
-              className="overleaf-change-accept"
-              label={t`Accept`}
-              tooltip={disabledTitle ?? t`Accept`}
-              disabled={!actionable || working}
-              onClick={() => accept([change])}
-            >
-              {working ? <InfinityLoader size={12} /> : <Check size={15} aria-hidden="true" />}
-            </IconButton>
-            <IconButton
-              size="compact"
-              className="overleaf-change-reject"
-              label={t`Reject`}
-              tooltip={disabledTitle ?? t`Reject`}
-              disabled={!actionable || working}
-              onClick={() => reject([change])}
-            >
-              <X size={15} aria-hidden="true" />
-            </IconButton>
-          </span>
-        </div>
-        <button type="button" className="overleaf-change-text" title={t`Show this in the editor`} onClick={() => props.onReveal(change.position)}>
-          <span className="overleaf-change-context">{before.cut && "…"}{before.text}</span>
-          {change.deletion
-            ? <del style={mark}>{quote || t`(no text)`}</del>
-            : <ins style={mark}>{quote || t`(no text)`}</ins>}
-          <span className="overleaf-change-context">{after.text}{after.cut && "…"}</span>
-        </button>
-      </li>
-    );
-  };
+  const renderChange = (change: TrackedChange) => (
+    <OverleafChangeCard
+      key={change.id}
+      change={change}
+      source={props.source}
+      author={props.authorName(change.userId)}
+      actionable={actionable}
+      disabledTitle={disabledTitle}
+      working={props.busy === change.id}
+      onAccept={(one) => accept([one])}
+      onReject={(one) => reject([one])}
+      onReveal={props.onReveal}
+    />
+  );
 
   const sections = sectionsOf(props.source, sorted, { abstract: t`Abstract`, front: t`Before the first section` });
   const count = formatCount(sorted.length, i18n.locale);

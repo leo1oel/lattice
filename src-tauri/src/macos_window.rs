@@ -123,6 +123,11 @@ pub fn clear_pdf_copy_text(window_label: &str) {
     set_window_focused(window_label, false);
 }
 
+/// The window that last gained focus and has not lost it since.
+pub fn focused_window_label() -> Option<String> {
+    FOCUSED_WINDOW_LABEL.lock().unwrap().clone()
+}
+
 pub fn set_window_focused(window_label: &str, is_focused: bool) {
     let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
     if is_focused {

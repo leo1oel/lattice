@@ -1,0 +1,178 @@
+/* Margin review (overleaf-margin-review.tsx): Overleaf's comments and
+   suggestions beside their lines in the source, in width the text does not
+   need. The layer sits in CodeMirror's scroller, outside .cm-content, and is
+   placed from the editor's geometry; nothing here reserves width except the
+   wide layout, which keeps the text at focus mode's reading measure. */
+
+/* Wide: the text keeps the 88-column measure (and the line's own padding),
+   never less; the cards stand in the width beyond it. */
+.source-editor[data-margin-review="wide"] .cm-content {
+  flex: 0 1 calc(var(--focus-mode-measure) + var(--space-4));
+  max-width: calc(var(--focus-mode-measure) + var(--space-4));
+}
+/* Markers stand in the outline rail's gutter. A document without the rail
+   keeps that gutter for them all the same, so a pip never covers text. */
+.source-editor[data-margin-review="markers"] .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
+.focus-mode .trellis-editor-host .source-editor[data-margin-review="markers"] .cm-scroller {
+  padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--focus-mode-measure)) / 2));
+}
+
+/* A zero-size origin at the scroller's top left: everything in it is placed
+   by `translate` in the scroller's own coordinates, so it scrolls with the
+   text (and a pip's hover `scale` grows it in place).
+   Above the editor's caret and selection layers. */
+.margin-review-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: calc(var(--z-editor-popover) * 100);
+  font-family: var(--ui-font);
+}
+.margin-review-layer > [role="toolbar"] { display: contents; }
+.margin-review-card, .margin-review-pip, .margin-review-popover {
+  --margin-x: 0px;
+  --margin-y: 0px;
+  translate: var(--margin-x) var(--margin-y);
+}
+
+/* ---------------------------------------------------------------- wide */
+.margin-review-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 268px;
+  border-radius: var(--radius-surface);
+}
+.margin-review-card > :is(.overleaf-thread, .overleaf-change) {
+  border: 0;
+  border-radius: var(--radius-surface);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-raised);
+  transition: box-shadow var(--motion-fast);
+}
+.margin-review-card > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
+/* The card whose words are pointed at, or which is pointed at itself, lifts. */
+.margin-review-card:is([data-linked], :hover, :focus-within) > :is(.overleaf-thread, .overleaf-change) { box-shadow: var(--elevation-popover); }
+
+/* In the margin the line is the quote: resolve and delete keep the corner,
+   level with the first message's name. */
+.overleaf-thread[data-variant="margin"] { position: relative; }
+.overleaf-thread[data-variant="margin"]:not(.resolved) > .overleaf-thread-head {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+}
+.overleaf-thread[data-variant="margin"] .overleaf-thread-message:first-child .overleaf-thread-meta { padding-right: calc(var(--control-size-icon-compact) * 2); }
+.overleaf-change[data-variant="margin"] .overleaf-change-text { line-height: var(--type-body-line-height); }
+
+/* ---------------------------------------------------------------- markers */
+/* A pip per thread (its messages) or suggestion (+ or −), in the author's
+   colour; a suggestion is squarer, as a proof mark is. The panel's ground
+   rings it, so it reads over a tick of the rail or a glyph. */
+.margin-review-pip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 var(--space-1);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  /* The avatars' initials, a step smaller to fit two digits. */
+  font: var(--weight-semibold) calc(var(--type-micro-size) * .75)/1 var(--ui-font);
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--surface-panel);
+  cursor: pointer;
+  transition: box-shadow var(--motion-fast), scale var(--motion-fast);
+}
+.margin-review-pip::before {
+  /* The pointer's reach is wider than the pip. */
+  content: "";
+  position: absolute;
+  inset: calc(var(--space-2) * -1);
+}
+.margin-review-pip[data-kind="change"] { border-radius: var(--radius-compact); }
+.margin-review-pip:is(:hover, [data-linked]) { scale: 1.15; }
+.margin-review-pip[data-open] { box-shadow: 0 0 0 2px var(--surface-panel), 0 0 0 3.5px var(--text-primary); }
+
+/* A pip's card, over the text beside its line. */
+.margin-review-popover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 268px;
+  max-height: min(420px, 70vh);
+  container: overleaf-collab / inline-size;
+  overflow-y: auto;
+  border-radius: var(--radius-surface);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  animation: margin-review-in var(--motion-fast) both;
+}
+.margin-review-popover > :is(.overleaf-thread, .overleaf-change) { border: 0; background: transparent; }
+.margin-review-popover > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
+@keyframes margin-review-in { from { opacity: 0; } }
+
+/* ---------------------------------------------------------------- narrow */
+/* What is on screen, over the editor's right side: it covers the text and
+   never reflows it. Above the outline rail and the editor's scrollbar. */
+.margin-review-rail {
+  position: absolute;
+  z-index: calc(var(--z-editor-scrollbar) + 1);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* Most of a narrow editor, all of the narrowest one: a card needs its room. */
+  width: clamp(min(100%, 240px), 78%, 300px);
+  container: overleaf-collab / inline-size;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-floating);
+  animation: margin-review-in var(--motion-moderate) both;
+}
+.margin-review-rail-head {
+  flex: none;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.margin-review-rail-head h2 {
+  flex: none;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-body-compact-size);
+  font-weight: var(--weight-semibold);
+}
+.margin-review-rail-head > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.margin-review-rail-head > :last-child { margin-left: auto; }
+.margin-review-rail-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-6);
+}
+.margin-review-rail-item { border-radius: var(--radius-surface); }
+.margin-review-rail-item > :is(.overleaf-thread, .overleaf-change) { border: 1px solid var(--border-subtle); border-radius: var(--radius-surface); background: var(--surface-panel); }
+.margin-review-rail-item > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
+.margin-review-rail-item:is([data-current], :hover, :focus-within) > :is(.overleaf-thread, .overleaf-change) { border-color: var(--border-strong); }
