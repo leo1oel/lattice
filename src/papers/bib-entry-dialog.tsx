@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { Input, type InputProps } from "../components/ui/input";
 import { toMessage } from "../app-utils";
+import { bibTextToPlain } from "./bib-document";
 import { BIB_ENTRY_TYPES, formatBibEntry, slugifyCitationKey, type BibEntryDraft, type BibEntryType } from "./bib-entry";
 import { VENUES, type Venue } from "./venues";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -13,6 +14,8 @@ import { popupMotionClassName } from "../components/ui/popup-motion";
 import { SearchField } from "../components/ui/search-field";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { CitationCandidates, CitationEvidence } from "./citation-candidates";
+import { readableAuthors, recordVenue } from "./paper-add";
 
 /** The form's text fields; a seed or a resolved record replaces all of them at once. */
 const TEXT_FIELDS = ["key", "title", "author", "year", "journal", "booktitle", "publisher", "url", "doi"] as const;
@@ -95,6 +98,8 @@ export function BibEntryDialog(props: {
   const [venueActive, setVenueActive] = useState<number | null>(null);
   const venueListId = useId();
   const [candidates, setCandidates] = useState<ResolvedCitationDraft[]>(seed?.candidates ?? []);
+  // The record the radio list has chosen; the first, the resolver's best, until the writer picks.
+  const [chosen, setChosen] = useState(0);
   const [evidence, setEvidence] = useState<ResolvedCitationDraft["evidence"]>(seed?.evidence);
   const [extraFields, setExtraFields] = useState<Record<string, string> | undefined>(seed?.extraFields);
   const [retrievedEdited, setRetrievedEdited] = useState(false);
@@ -203,6 +208,7 @@ export function BibEntryDialog(props: {
       if (generation !== requestGeneration.current) return;
       if (resolved.candidates?.length) {
         setCandidates(resolved.candidates);
+        setChosen(0);
       } else {
         applyResolved(resolved);
       }
@@ -249,6 +255,8 @@ export function BibEntryDialog(props: {
     </label>
   );
 
+  // A book's publisher, else the venue the type writes to.
+  const typesetVenue = type === "book" ? bibTextToPlain(fields.publisher) : recordVenue(fields);
   const heading = editing ? t`Edit bibliography entry` : t`Add bibliography entry`;
   // The lookup's own failure, else the last save's; saving clears the lookup's.
   const error = lookupError ?? props.error;
@@ -287,7 +295,7 @@ export function BibEntryDialog(props: {
                 showIcon={false}
               />
               <Button
-                variant={showFields ? "secondary" : "primary"}
+                variant={showFields || candidates.length > 0 ? "secondary" : "primary"}
                 disabled={!resolveQuery.trim() || resolveInFlight || props.busy}
                 onClick={() => void resolveCitation()}
               >
@@ -306,18 +314,23 @@ export function BibEntryDialog(props: {
         )}
         {!showFields && error && <p className="dialog-error bib-entry-lookup-error" role="alert">{error}</p>}
         {candidates.length > 0 && (
-          <section className="bib-citation-records" aria-label={t`Citation candidates`}>
-            <p>{t`Choose the matching record before saving`}</p>
-            {candidates.map((candidate, index) => (
-              <article key={`${candidate.key}-${index}`}>
-                <strong>{candidate.title}</strong>
-                <p>{candidate.author || t`Authors unavailable`} · {candidate.year || t`Year unavailable`}</p>
-                <p>{candidate.journal || candidate.booktitle || candidate.publisher || t`Venue unavailable`}</p>
-                <CitationEvidence evidence={candidate.evidence} authorsPresent={Boolean(candidate.author)} />
-                <Button onClick={() => applyResolved(candidate, true)}>{t`Select this record`}</Button>
-              </article>
-            ))}
-            {showFields && <Button variant="ghost" size="compact" onClick={abandonLookup}>{t`Keep my fields`}</Button>}
+          <section className="bib-candidates">
+            <p className="bib-candidates-lead">
+              {candidates.length === 1
+                ? t`One record matches. Check it is the one you mean.`
+                : t`${candidates.length} records match. Choose the one you mean.`}
+            </p>
+            <CitationCandidates
+              candidates={candidates}
+              chosen={chosen}
+              onChoose={setChosen}
+              onUse={(index) => applyResolved(candidates[index], true)}
+            />
+            {showFields && (
+              <div className="bib-candidates-actions">
+                <Button variant="ghost" size="compact" onClick={abandonLookup}>{t`Keep my fields`}</Button>
+              </div>
+            )}
           </section>
         )}
         {evidence && (
@@ -325,6 +338,23 @@ export function BibEntryDialog(props: {
             <CitationEvidence evidence={evidence} authorsPresent={Boolean(fields.author)} />
             {retrievedEdited && <p>{t`This match information describes the retrieved record; you have edited its fields.`}</p>}
           </section>
+        )}
+        {/* The entry as a reference list will print it, its key beside it:
+            what the fields below add up to, read before the fields themselves. */}
+        {showFields && !candidates.length && fields.title.trim() && (
+          <figure className="bib-typeset" aria-label={t`How the entry reads`}>
+            <code className="bib-typeset-key">{draft.key}</code>
+            {fields.author.trim() && <span className="bib-typeset-authors">{readableAuthors(fields.author)}</span>}
+            <strong>{bibTextToPlain(fields.title)}</strong>
+            {(typesetVenue || fields.year.trim() || normalizedDoi) && (
+              <span className="bib-typeset-venue">
+                {typesetVenue && <em>{typesetVenue}</em>}
+                {typesetVenue && fields.year.trim() ? ", " : ""}
+                {fields.year.trim()}
+                {normalizedDoi && <span className="bib-typeset-doi">doi:{normalizedDoi}</span>}
+              </span>
+            )}
+          </figure>
         )}
         {showFields && <>
           <label>
@@ -412,6 +442,11 @@ export function BibEntryDialog(props: {
       {showFields && error && <p className="dialog-error" role="alert">{error}</p>}
       <div className="table-generator-actions">
         <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
+        {candidates.length > 0 && (
+          <Button variant="primary" disabled={props.busy} onClick={() => applyResolved(candidates[chosen] ?? candidates[0], true)}>
+            {t`Use this record`}
+          </Button>
+        )}
         {showFields && (
           <Button
             variant="primary"
@@ -427,25 +462,5 @@ export function BibEntryDialog(props: {
         )}
       </div>
     </SheetDialog>
-  );
-}
-
-function CitationEvidence(props: {
-  evidence?: ResolvedCitationDraft["evidence"];
-  authorsPresent: boolean;
-}) {
-  const { t } = useLingui();
-  const { evidence } = props;
-  const sourceUrl = evidence?.url && /^https?:\/\//i.test(evidence.url) ? evidence.url : undefined;
-  const authorMatch = evidence?.author_match === "matched" ? t`Compatible author names`
-    : evidence?.author_match === "partial" ? t`Partial author information`
-      : props.authorsPresent ? t`Authors unchecked` : t`Authors unavailable and unchecked`;
-  return (
-    <div className="bib-citation-evidence">
-      {evidence?.source && <span>{t`Source:`} {sourceUrl
-        ? <a href={sourceUrl} target="_blank" rel="noreferrer">{evidence.source}</a> : evidence.source}</span>}
-      {evidence?.title_match && <span>{evidence.title_match === "exact" ? t`Exact title match` : t`Similar title match`}</span>}
-      <span>{authorMatch}</span>
-    </div>
   );
 }

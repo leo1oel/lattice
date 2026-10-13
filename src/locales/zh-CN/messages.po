@@ -69,6 +69,11 @@ msgstr "（原文已被删除）"
 msgid "{0} → {1}"
 msgstr "{0} → {1}"
 
+#. placeholder {0}: counts.duplicate
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} already in Papers are skipped"
+msgstr "{0} 篇已在论文库，将跳过"
+
 #. placeholder {0}: Object.keys(version.round!.outcomes).length
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} annotations"
@@ -128,6 +133,16 @@ msgstr "{0} 个软件包"
 msgid "{0} pages"
 msgstr "{0} 页"
 
+#. placeholder {0}: candidates.length
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} records match"
+msgstr "{0} 条记录匹配"
+
+#. placeholder {0}: candidates.length
+#: src/papers/bib-entry-dialog.tsx
+msgid "{0} records match. Choose the one you mean."
+msgstr "{0} 条记录匹配，请选出你要的那一条。"
+
 #. placeholder {0}: tally.verified
 #. placeholder {1}: tally.updates
 #. placeholder {2}: tally.review
@@ -140,6 +155,11 @@ msgstr "{0} 条已核实 · {1} 条有更新 · {2} 条需人工核对 · {3} �
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} votes"
 msgstr "{0} 票"
+
+#. placeholder {0}: counts.choose
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} wait for your choice"
+msgstr "{0} 篇等你选择"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{accepted} accepted"
@@ -302,6 +322,10 @@ msgstr "{errors} 个错误"
 #: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "{failed} not found"
+msgstr "{failed} 篇没找到"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{failing} checks need attention"
@@ -559,6 +583,10 @@ msgstr "↑↓ 选择 · Enter 打开"
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · 按住 ⇧ 点击从头编译"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "1 already in Papers is skipped"
+msgstr "1 篇已在论文库，将跳过"
+
 #: src/App.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "1 annotation"
@@ -588,6 +616,10 @@ msgstr "1 处"
 msgid "1 line"
 msgstr "1 行"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "1 not found"
+msgstr "1 篇没找到"
+
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
@@ -612,6 +644,10 @@ msgstr "还剩 1 页"
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "1 waits for your choice"
+msgstr "1 篇等你选择"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -750,6 +786,7 @@ msgstr "致谢"
 msgid "Acute accent example"
 msgstr "锐音符示例"
 
+#: src/project/paper-library.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "添加"
@@ -758,9 +795,18 @@ msgstr "添加"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "把“{projectWord}”加入项目词库"
 
+#. placeholder {0}: addable.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Add {0} papers"
+msgstr "添加 {0} 篇论文"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Add 1 paper"
+msgstr "添加 1 篇论文"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add a bibliography entry for {title}"
@@ -782,10 +828,7 @@ msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
 msgid "Add as tab"
 msgstr "放进标签"
 
-#: src/App.tsx
-#: src/app/use-trellis-bridge.ts
 #: src/papers/bib-entry-dialog.tsx
-#: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
 msgstr "添加文献"
 
@@ -821,13 +864,20 @@ msgstr "可按 DOI、arXiv ID、标题添加，或手动填写"
 msgid "Add or edit a link"
 msgstr "加链接"
 
-#: src/project/paper-library.tsx
-msgid "Add paper"
+#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
+#: src/papers/add-papers-sheet.tsx
+#: src/trellis/trellis-panel-actions.tsx
+msgid "Add papers"
 msgstr "添加论文"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 msgstr "用 arXiv 编号、DOI 或标题加论文，在草稿旁阅读"
+
+#: src/project/paper-library.tsx
+msgid "Add papers…"
+msgstr "添加论文…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -846,6 +896,10 @@ msgstr "添加第一篇论文"
 msgid "added"
 msgstr "新增"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Added"
+msgstr "已添加"
+
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography — cite it with {citationCommand}. No full text to open."
 msgstr "已添加“{title}”，用 {citationCommand} 引用。没有全文"
@@ -861,6 +915,41 @@ msgstr "已添加“{title}”，没有全文"
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "已添加“{title}”，全文下载失败：{fetchNote}"
+
+#. placeholder {0}: props.queue.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Added {done} of {0}"
+msgstr "已添加 {done} / {0} 篇"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Added {done} papers"
+msgstr "已添加 {done} 篇论文"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Added 1 paper"
+msgstr "已添加 1 篇论文"
+
+#. placeholder {0}: position || done + 1
+#. placeholder {1}: props.queue.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Adding {0} of {1} — you can keep writing"
+msgstr "正在添加第 {0} / {1} 篇——可以继续写作"
+
+#: src/project/paper-library.tsx
+msgid "Adding paper"
+msgstr "正在添加论文"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Adding…"
+msgstr "正在添加…"
+
+#: src/project/paper-library.tsx
+msgid "Adds it to {bibliography} and fetches the full text"
+msgstr "写入 {bibliography} 并获取全文"
+
+#: src/project/paper-library.tsx
+msgid "Adds it to {bibliography}, with its full text when there is one"
+msgstr "写入 {bibliography}，有全文时一并获取"
 
 #: src/build/tex-setup.ts
 msgid "Administrator approval was cancelled, so nothing was installed."
@@ -944,6 +1033,7 @@ msgstr "对齐"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/history-drawer.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
@@ -990,7 +1080,9 @@ msgstr "外部程序"
 msgid "Alpha"
 msgstr "阿尔法"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/project/paper-library.tsx
 msgid "Already in Papers"
 msgstr "已在论文库"
 
@@ -1107,6 +1199,10 @@ msgstr "已经在修复了，请等它完成"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "项目里另一个文件"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Another paper is being added"
+msgstr "另一篇论文正在添加"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Another reference already uses “{key}”."
@@ -1267,15 +1363,15 @@ msgstr "授权失败"
 msgid "Authors"
 msgstr "作者"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unavailable"
 msgstr "无作者信息"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unavailable and unchecked"
 msgstr "无作者信息，未核对"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unchecked"
 msgstr "作者未核对"
 
@@ -1735,6 +1831,7 @@ msgstr "最多 15 分钟"
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/overleaf-review.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
@@ -1881,6 +1978,10 @@ msgstr "居中省略号"
 msgid "Centered multi-line equations"
 msgstr "居中的多行公式"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Change"
+msgstr "更换"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed here, untouched there"
 msgstr "本机改了，Overleaf 没动"
@@ -1995,6 +2096,10 @@ msgstr "选择图片"
 msgid "Choose location"
 msgstr "选择位置"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Choose one"
+msgstr "需要选择"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "在“面板”里选阅读"
@@ -2003,10 +2108,6 @@ msgstr "在“面板”里选阅读"
 msgid "Choose the document class"
 msgstr "选择文档类"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Choose the matching record before saving"
-msgstr "请先选一条匹配的记录"
-
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "选择项目位置"
@@ -2014,6 +2115,10 @@ msgstr "选择项目位置"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "选择解压位置"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Choose…"
+msgstr "选择…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Circled dot"
@@ -2048,7 +2153,7 @@ msgstr "文献"
 msgid "Citation <0>{symbol}</0>"
 msgstr "引用 <0>{symbol}</0>"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Citation candidates"
 msgstr "可能匹配"
 
@@ -2187,6 +2292,7 @@ msgstr "剪贴板"
 
 #: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Close"
 msgstr "关闭"
 
@@ -2393,7 +2499,7 @@ msgstr "与核实记录比对"
 msgid "Comparing this project with Overleaf…"
 msgstr "正在和 Overleaf 对比…"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
 msgstr "作者相符"
 
@@ -2545,6 +2651,7 @@ msgid "Copied"
 msgstr "已复制"
 
 #: src/components/copy-button.tsx
+#: src/project/paper-library.tsx
 #: src/telemetry/toast-stack.tsx
 msgid "Copy"
 msgstr "复制"
@@ -2553,6 +2660,19 @@ msgstr "复制"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "拷贝"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Copy {command}"
+msgstr "复制 {command}"
+
+#: src/project/paper-library.tsx
+msgid "Copy {duplicateCite}"
+msgstr "复制 {duplicateCite}"
+
+#: src/papers/add-papers-sheet.tsx
+#: src/project/paper-library.tsx
+msgid "Copy \\cite command"
+msgstr "复制 \\cite 命令"
 
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
@@ -2760,6 +2880,10 @@ msgstr "无法在访达中显示。{message}"
 msgid "Could not upload the project to Overleaf"
 msgstr "上传失败"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Couldn't add"
+msgstr "未能添加"
+
 #: src/telemetry/app-updater.tsx
 msgid "Couldn’t check for Lattice updates"
 msgstr "检查更新失败"
@@ -2783,6 +2907,10 @@ msgstr "没能复制，请展开“详细信息”手动复制"
 #: src/app/use-reference-import.ts
 msgid "Couldn't find a bibliography entry for {citationCommand}."
 msgstr "找不到 {citationCommand} 对应的文献"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Couldn't find this one"
+msgstr "没找到这一条"
 
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
@@ -3220,9 +3348,14 @@ msgstr "不存在"
 msgid "DOI metadata corrections are available."
 msgstr "DOI 信息可修正"
 
+#: src/App.tsx
+msgid "DOIs, arXiv IDs, links, titles or BibTeX"
+msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
+
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Done"
 msgstr "完成"
 
@@ -3376,6 +3509,10 @@ msgstr "暮色"
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
+msgstr "每行一张卡片。Lattice 会逐条查找，已有的先放一边；一个标题对上多篇论文时会请你选择。点击添加之前不会写入任何内容。"
 
 #: src/app/focus-mode-bar.tsx
 #: src/app/palette-sections.ts
@@ -3614,6 +3751,7 @@ msgctxt "macOS menu bar"
 msgid "Enter Full Screen"
 msgstr "进入全屏幕"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Enter manually"
 msgstr "手动填写"
@@ -3701,7 +3839,7 @@ msgstr "Lattice 所需的工具均已安装"
 msgid "Everything already matches Overleaf"
 msgstr "已和 Overleaf 一致"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Exact title match"
 msgstr "标题一致"
 
@@ -3940,6 +4078,10 @@ msgstr "找到下一篇参考文献"
 msgid "Finding it in the source…"
 msgstr "正在源码中查找…"
 
+#: src/project/paper-library.tsx
+msgid "Finds the record, then lets you choose"
+msgstr "先查到记录，再由你确认"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "完成"
@@ -4127,6 +4269,10 @@ msgstr "完全访问"
 #: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "没有全文，先显示概览"
+
+#: src/project/paper-library.tsx
+msgid "Full text"
+msgstr "全文"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Full-width floating figure"
@@ -4465,6 +4611,10 @@ msgstr "分隔各部分的横线"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Horizontal space"
 msgstr "水平间距"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "How the entry reads"
+msgstr "条目排版预览"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -4955,6 +5105,10 @@ msgstr "在 PDF 中查看"
 msgid "Jump to this location"
 msgstr "跳到这里"
 
+#: src/project/paper-library.tsx
+msgid "Just added"
+msgstr "刚添加"
+
 #: src/app-utils.ts
 #: src/project/welcome-desk.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -5376,6 +5530,7 @@ msgstr "表达式下方加横线"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Link"
 msgstr "链接"
@@ -5581,13 +5736,25 @@ msgstr "跨行断开的长公式"
 msgid "Long quotation"
 msgstr "长引文"
 
+#: src/project/paper-library.tsx
+msgid "Look up and add"
+msgstr "查找并添加"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Looking through the manuscript…"
 msgstr "正在查找稿件中的引用…"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Looking up {resolving}…"
+msgstr "正在查找 {resolving} 条…"
+
 #: src/canvas/document-canvas.tsx
 msgid "Looking up references is not available here."
 msgstr "此处无法查找文献。"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Looking up…"
+msgstr "正在查找…"
 
 #: src/project/todo-scavenger-panel.tsx
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
@@ -5759,6 +5926,10 @@ msgstr "给协作者发消息…"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Messages"
 msgstr "消息"
+
+#: src/project/paper-library.tsx
+msgid "Metadata"
+msgstr "元数据"
 
 #: src/papers/audit-messages.ts
 msgid "Metadata check incomplete: {error}"
@@ -6015,6 +6186,10 @@ msgstr "NeurIPS 会议论文集"
 #: src/papers/bib-entry-dialog.tsx
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS、CVPR、Nature 等"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "New"
+msgstr "新增"
 
 #: src/project/project-new-entries.ts
 msgid "New board"
@@ -6433,6 +6608,10 @@ msgstr "右上箭头"
 msgid "North-west arrow"
 msgstr "左上箭头"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Not added"
+msgstr "未添加"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Not an element of"
 msgstr "不属于"
@@ -6477,6 +6656,10 @@ msgstr "未启用 · 需要个人密钥"
 msgid "Not equal"
 msgstr "不等于"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Not found"
+msgstr "没找到"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "以后再说"
@@ -6500,6 +6683,10 @@ msgstr "备注"
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Nothing here"
+msgstr "这里没有内容"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
@@ -6597,6 +6784,14 @@ msgstr "欧米伽"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "位于行"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "One record matches"
+msgstr "1 条记录匹配"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "One record matches. Check it is the one you mean."
+msgstr "1 条记录匹配，请确认是你要的那一条。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -7072,6 +7267,10 @@ msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个，合并 {merged} �
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf：下载 {pulled} 个，上传 {pushed} 个"
 
+#: src/project/paper-library.tsx
+msgid "Overview"
+msgstr "导读"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "{page} 页"
@@ -7166,6 +7365,10 @@ msgstr "切换论文"
 msgid "Papers"
 msgstr "论文库"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Papers being added"
+msgstr "正在添加的论文"
+
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "paragraph break"
@@ -7195,7 +7398,7 @@ msgstr "部分"
 msgid "Part heading"
 msgstr "部分标题"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Partial author information"
 msgstr "作者部分相符"
 
@@ -7220,6 +7423,10 @@ msgstr "粘贴"
 #: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
 msgstr "贴入图片"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
+msgstr "粘贴 DOI、arXiv ID、链接、标题或 BibTeX——每行一条，或整个 .bib 文件"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
@@ -7454,6 +7661,10 @@ msgstr "正在准备教程…"
 msgid "Preparing workspace"
 msgstr "正在准备…"
 
+#: src/papers/citation-candidates.tsx
+msgid "Preprint"
+msgstr "预印本"
+
 #: src/papers/audit-messages.ts
 msgid "Preprint check incomplete: {error}"
 msgstr "预印本检查没完成：{error}"
@@ -7465,10 +7676,6 @@ msgstr "预印本检查结果不明确"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Presentation runtime"
 msgstr "幻灯片组件"
-
-#: src/project/paper-library.tsx
-msgid "Press + to import it"
-msgstr "按 + 导入"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Press ⌘⇧K in the editor to cite one"
@@ -7693,6 +7900,10 @@ msgstr "今日免费额度用完，跳过 Semantic Scholar"
 #: src/papers/audit-messages.ts
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
 msgstr "发表信息已确认，但检查没全部完成"
+
+#: src/papers/citation-candidates.tsx
+msgid "Published"
+msgstr "已发表"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
@@ -8911,6 +9122,10 @@ msgstr "搜索文献"
 msgid "Search settings"
 msgstr "搜索设置"
 
+#: src/project/paper-library.tsx
+msgid "Search the literature for"
+msgstr "在文献中搜索"
+
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "在项目中搜索“{query}”"
@@ -9015,10 +9230,6 @@ msgstr "选中本行"
 #: src/editor/editor-keymap.ts
 msgid "Select the next occurrence"
 msgstr "选下一处"
-
-#: src/papers/bib-entry-dialog.tsx
-msgid "Select this record"
-msgstr "选这条"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
@@ -9171,6 +9382,7 @@ msgstr "显示大纲"
 msgid "Show papers"
 msgstr "显示论文"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "显示文献"
@@ -9251,7 +9463,7 @@ msgstr "Git 和 Overleaf 都没有名字时使用"
 msgid "Similar or equal"
 msgstr "相似或等于"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Similar title match"
 msgstr "标题相近"
 
@@ -9391,10 +9603,6 @@ msgstr "来源出错"
 msgid "Source temporarily unavailable"
 msgstr "来源暂时不可用"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Source:"
-msgstr "来源："
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "右下箭头"
@@ -9532,6 +9740,10 @@ msgstr "仍未连接：{0}"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Stop"
+msgstr "停止"
 
 #: src/App.tsx
 msgid "Stop build"
@@ -10447,6 +10659,7 @@ msgstr "提示"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
@@ -10884,6 +11097,11 @@ msgstr "深色"
 msgid "Use the light theme"
 msgstr "浅色"
 
+#: src/papers/add-papers-sheet.tsx
+#: src/papers/bib-entry-dialog.tsx
+msgid "Use this record"
+msgstr "使用这条记录"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "使用系统环境的密钥"
@@ -10929,7 +11147,7 @@ msgstr "发表于"
 msgid "Venue template"
 msgstr "投稿模板"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Venue unavailable"
 msgstr "无发表信息"
 
@@ -11069,6 +11287,10 @@ msgstr "可视化 Markdown 编辑器"
 msgid "Volume"
 msgstr "卷号"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Waiting"
+msgstr "等待中"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
@@ -11097,6 +11319,10 @@ msgstr "警告"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"
+
+#: src/project/paper-library.tsx
+msgid "Web page"
+msgstr "网页"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -11288,7 +11514,7 @@ msgstr "克西"
 msgid "Year"
 msgstr "年份"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Year unavailable"
 msgstr "无年份"
 

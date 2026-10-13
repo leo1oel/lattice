@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowRight, Check, ExternalLink, Plus, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -80,6 +80,8 @@ function hitDetails(work: LiteratureHit, prose: { votes: string; cites: string }
 }
 
 export function LiteratureDiscoveryPanel(props: {
+  /** A query handed over from the Papers box, searched as the panel opens. */
+  initialQuery?: string;
   onClose: () => void;
   onImportArxiv: (arxivId: string) => Promise<void> | void;
   onAddBib: (query: string) => void;
@@ -87,7 +89,7 @@ export function LiteratureDiscoveryPanel(props: {
   importedIds: Set<string>;
 }) {
   const { t } = useLingui();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(props.initialQuery ?? "");
   const [precise, setPrecise] = useState(true);
   const [results, setResults] = useState<LiteratureHit[]>([]);
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
@@ -147,6 +149,14 @@ export function LiteratureDiscoveryPanel(props: {
       setLoading(false);
     }
   };
+
+  // A query handed over from the Papers box is searched once, as the panel opens.
+  const searchOnOpenRef = useRef(Boolean(props.initialQuery?.trim()));
+  useEffect(() => {
+    if (!searchOnOpenRef.current) return;
+    searchOnOpenRef.current = false;
+    void search();
+  });
 
   const loadMore = async () => {
     // Reveal already-fetched results first; only hit the network when they run out.

@@ -112,7 +112,8 @@ describe("papers", () => {
     expect(list.queryByTitle(adam)).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "missing paper" } });
-    expect(screen.getByText("No matching papers")).toBeInTheDocument();
+    // What nothing matches is offered for adding, never added on its own.
+    expect(screen.getByRole("button", { name: /^Look up and add/ })).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
   });
 
@@ -137,11 +138,12 @@ describe("papers", () => {
       },
     });
     fireEvent.change(await screen.findByRole("searchbox", { name: "Search or import papers" }), { target: { value: title } });
-    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Look up and add/ }));
     if (ambiguous) {
-      await screen.findByRole("region", { name: "Citation candidates" });
+      await screen.findByRole("radiogroup", { name: "Citation candidates" });
       expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
-      fireEvent.click(screen.getAllByRole("button", { name: "Select this record" })[1]);
+      fireEvent.click(screen.getAllByRole("radio")[1]);
+      fireEvent.click(screen.getByRole("button", { name: "Use this record" }));
       fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
     }
     await expectInvoked("import_reference", {
@@ -169,17 +171,19 @@ describe("papers", () => {
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(draft.url));
     expect(invoke).not.toHaveBeenCalledWith("fetch_web_reference", expect.anything());
     const box = screen.getByRole("searchbox", { name: "Search or import papers" });
-    fireEvent.change(box, { target: { value: title } });
-    // Enter only searches; + explicitly resolves a new import.
-    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
-    await expectInvoked("resolve_citation_query", { query: title });
+    // A title the library does not hold (the year differs): Enter only
+    // searches, and its add row explicitly resolves a new import.
+    const query = `${title} 1987`;
+    fireEvent.change(box, { target: { value: query } });
+    fireEvent.click(screen.getByRole("button", { name: /^Look up and add/ }));
+    await expectInvoked("resolve_citation_query", { query });
     if (cancelled) fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     const alternative = { ...draft, year: "1987", journal: "Cognitive Neuropsychology", doi: "10.1080/02643298708252038" };
     await act(async () => { resolution.resolve({ ...draft, candidates: [draft, alternative] }); });
     if (cancelled) {
-      expect(screen.queryByRole("region", { name: "Citation candidates" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("radiogroup", { name: "Citation candidates" })).not.toBeInTheDocument();
     } else {
-      expect(await screen.findByRole("region", { name: "Citation candidates" })).toHaveTextContent("Cognitive Neuropsychology");
+      expect(await screen.findByRole("radiogroup", { name: "Citation candidates" })).toHaveTextContent("Cognitive Neuropsychology");
       // Nothing can be saved until a candidate is chosen or the entry is typed by hand.
       expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
@@ -200,18 +204,22 @@ describe("papers", () => {
     });
     // The palette is a project command; wait for the project before invoking it.
     await screen.findByRole("button", { name: "Switch project" });
+    // Add papers, then one entry by hand: the form, with its lookup above it.
     const openDialog = async () => {
       fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
       const palette = await screen.findByRole("searchbox", { name: "Command palette" });
-      fireEvent.change(palette, { target: { value: "Add bibliography entry" } });
+      fireEvent.change(palette, { target: { value: "Add papers" } });
       fireEvent.keyDown(palette, { key: "Enter" });
+      fireEvent.click(await screen.findByRole("button", { name: "Enter manually" }));
       return screen.findByLabelText("Citation resolve query");
     };
-    fireEvent.change(await openDialog(), { target: { value: "10.1/slow" } });
+    const query = await openDialog();
+    fireEvent.change(query, { target: { value: "10.1/slow" } });
     fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
     await expectInvoked("resolve_citation_query", { query: "10.1/slow" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    // A new query abandons the lookup still running.
+    fireEvent.change(query, { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Typed by hand" } });
     fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
     fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
@@ -238,7 +246,7 @@ describe("papers", () => {
     expect(screen.getByRole("button", { name: "Resolve" })).toBeEnabled();
   });
 
-  it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
+  it("adds a work with no preprint through the same box, and settles it as just added", async () => {
     const snapshot = projectSnapshot({ rootDocuments: MAIN_DOCUMENT, trusted: true, files: [fileNode("main.tex", "file")] });
     const title = "Deep Residual Learning for Image Recognition";
     let imported = false;
@@ -256,14 +264,17 @@ describe("papers", () => {
     });
     const box = await screen.findByPlaceholderText("Search or add papers");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
+    // Enter adds an identifier, as the add row under the box says.
+    fireEvent.keyDown(box, { key: "Enter" });
 
     await expectInvoked("import_reference", { input: "10.1109/CVPR.2016.90", requestId: expect.any(String) });
-    // The DOI must not be mistaken for an arXiv id, and the message has to
-    // admit there is nothing to open rather than imply a paper was fetched.
-    await expectNotification(/Added .Deep Residual Learning.*cite it with \\cite\{he2016deep\}.*No full text to open/);
     expect(box).toHaveValue("10.1109/CVPR.2016.90");
-    expect(await screen.findByText(title, { selector: ".paper-row .paper-title" })).toBeInTheDocument();
+    // No toast: the row settles as just added, a citation with no full text
+    // to open, its key out to copy.
+    const row = (await screen.findByText(title, { selector: ".paper-row .paper-title" })).closest<HTMLElement>(".paper-row")!;
+    expect(within(row).getByText("Just added")).toBeInTheDocument();
+    expect(within(row).getByText("Citation only")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Copy citation key he2016deep" })).toBeInTheDocument();
     const checkReferences = screen.getByRole("button", { name: "Check references" });
     expect(checkReferences.closest(".trellis-accessory-host")).toBeInTheDocument();
     expect(checkReferences.textContent).toBe("");
@@ -291,18 +302,18 @@ describe("papers", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文库)$/ }));
     const box = await screen.findByRole("searchbox", { name: /^(Search or import papers|搜索或导入论文)$/ });
     fireEvent.change(box, { target: { value: "10.1080/02643298708252038" } });
-    fireEvent.click(screen.getByRole("button", { name: /^(Add paper|添加论文)$/ }));
+    fireEvent.keyDown(box, { key: "Enter" });
     const cancel = await screen.findByRole("button", { name: /^(Cancel|取消)$/ });
     expect(requestId).toBeTruthy();
     fireEvent.click(cancel);
     await expectInvoked("cancel_reference_import", { requestId });
     // Do not claim cancellation finished while the backend is still stopping.
-    expect(box).toHaveAttribute("readonly");
+    expect(document.querySelector(".paper-pending")).not.toBeNull();
     await act(async () => importing.resolve({
       arxivId: "", title: "A new paper", paperPath: fullText ? ".research/papers/new/paper.md" : "", alreadyImported: false,
       cancelled: true, citationKey: committed ? "new2026" : undefined,
     }));
-    await waitFor(() => expect(box).not.toHaveAttribute("readonly"));
+    await waitFor(() => expect(document.querySelector(".paper-pending")).toBeNull());
     if (locale === "en") {
       await expectNotification(committed ? /remains in the bibliography.*\\cite\{new2026\}/ : /cancelled before making changes/);
     } else {

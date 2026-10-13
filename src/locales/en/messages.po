@@ -71,6 +71,11 @@ msgstr "(this comment's text was removed)"
 msgid "{0} → {1}"
 msgstr "{0} → {1}"
 
+#. placeholder {0}: counts.duplicate
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} already in Papers are skipped"
+msgstr "{0} already in Papers are skipped"
+
 #. placeholder {0}: Object.keys(version.round!.outcomes).length
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{0} annotations"
@@ -130,6 +135,16 @@ msgstr "{0} packages"
 msgid "{0} pages"
 msgstr "{0} pages"
 
+#. placeholder {0}: candidates.length
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} records match"
+msgstr "{0} records match"
+
+#. placeholder {0}: candidates.length
+#: src/papers/bib-entry-dialog.tsx
+msgid "{0} records match. Choose the one you mean."
+msgstr "{0} records match. Choose the one you mean."
+
 #. placeholder {0}: tally.verified
 #. placeholder {1}: tally.updates
 #. placeholder {2}: tally.review
@@ -142,6 +157,11 @@ msgstr "{0} verified · {1} with updates · {2} need review · {3} incomplete (n
 #: src/papers/literature-discovery-panel.tsx
 msgid "{0} votes"
 msgstr "{0} votes"
+
+#. placeholder {0}: counts.choose
+#: src/papers/add-papers-sheet.tsx
+msgid "{0} wait for your choice"
+msgstr "{0} wait for your choice"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{accepted} accepted"
@@ -304,6 +324,10 @@ msgstr "{errors} error"
 #: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} errors"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "{failed} not found"
+msgstr "{failed} not found"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{failing} checks need attention"
@@ -562,6 +586,10 @@ msgstr "↑↓ to navigate · Enter to open"
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧-click for a clean rebuild"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "1 already in Papers is skipped"
+msgstr "1 already in Papers is skipped"
+
 #: src/App.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "1 annotation"
@@ -591,6 +619,10 @@ msgstr "1 hit"
 msgid "1 line"
 msgstr "1 line"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "1 not found"
+msgstr "1 not found"
+
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
@@ -615,6 +647,10 @@ msgstr "1 page remaining"
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "1 waits for your choice"
+msgstr "1 waits for your choice"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -753,6 +789,7 @@ msgstr "Acknowledgements"
 msgid "Acute accent example"
 msgstr "Acute accent example"
 
+#: src/project/paper-library.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Add"
 msgstr "Add"
@@ -761,9 +798,18 @@ msgstr "Add"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
 
+#. placeholder {0}: addable.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Add {0} papers"
+msgstr "Add {0} papers"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add {title} to Papers"
 msgstr "Add {title} to Papers"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Add 1 paper"
+msgstr "Add 1 paper"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add a bibliography entry for {title}"
@@ -785,10 +831,7 @@ msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, b
 msgid "Add as tab"
 msgstr "Add as tab"
 
-#: src/App.tsx
-#: src/app/use-trellis-bridge.ts
 #: src/papers/bib-entry-dialog.tsx
-#: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
 msgstr "Add bibliography entry"
 
@@ -824,13 +867,20 @@ msgstr "Add one by DOI, arXiv ID, title, or by hand"
 msgid "Add or edit a link"
 msgstr "Add or edit a link"
 
-#: src/project/paper-library.tsx
-msgid "Add paper"
-msgstr "Add paper"
+#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
+#: src/papers/add-papers-sheet.tsx
+#: src/trellis/trellis-panel-actions.tsx
+msgid "Add papers"
+msgstr "Add papers"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 msgstr "Add papers by arXiv ID, DOI or title, then read them beside your draft."
+
+#: src/project/paper-library.tsx
+msgid "Add papers…"
+msgstr "Add papers…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -849,6 +899,10 @@ msgstr "Add your first paper"
 msgid "added"
 msgstr "added"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Added"
+msgstr "Added"
+
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography — cite it with {citationCommand}. No full text to open."
 msgstr "Added “{title}” to the bibliography — cite it with {citationCommand}. No full text to open."
@@ -864,6 +918,41 @@ msgstr "Added “{title}” to the bibliography. No full text to open."
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
+
+#. placeholder {0}: props.queue.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Added {done} of {0}"
+msgstr "Added {done} of {0}"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Added {done} papers"
+msgstr "Added {done} papers"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Added 1 paper"
+msgstr "Added 1 paper"
+
+#. placeholder {0}: position || done + 1
+#. placeholder {1}: props.queue.length
+#: src/papers/add-papers-sheet.tsx
+msgid "Adding {0} of {1} — you can keep writing"
+msgstr "Adding {0} of {1} — you can keep writing"
+
+#: src/project/paper-library.tsx
+msgid "Adding paper"
+msgstr "Adding paper"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Adding…"
+msgstr "Adding…"
+
+#: src/project/paper-library.tsx
+msgid "Adds it to {bibliography} and fetches the full text"
+msgstr "Adds it to {bibliography} and fetches the full text"
+
+#: src/project/paper-library.tsx
+msgid "Adds it to {bibliography}, with its full text when there is one"
+msgstr "Adds it to {bibliography}, with its full text when there is one"
 
 #: src/build/tex-setup.ts
 msgid "Administrator approval was cancelled, so nothing was installed."
@@ -947,6 +1036,7 @@ msgstr "Alignment"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/history-drawer.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
@@ -993,7 +1083,9 @@ msgstr "Allow external commands"
 msgid "Alpha"
 msgstr "Alpha"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/project/paper-library.tsx
 msgid "Already in Papers"
 msgstr "Already in Papers"
 
@@ -1110,6 +1202,10 @@ msgstr "Another compile repair is already starting for this project. Wait for it
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Another paper is being added"
+msgstr "Another paper is being added"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Another reference already uses “{key}”."
@@ -1270,15 +1366,15 @@ msgstr "Authorization failed"
 msgid "Authors"
 msgstr "Authors"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unavailable"
 msgstr "Authors unavailable"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unavailable and unchecked"
 msgstr "Authors unavailable and unchecked"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Authors unchecked"
 msgstr "Authors unchecked"
 
@@ -1738,6 +1834,7 @@ msgstr "Can take up to 15 minutes"
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/overleaf-review.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
@@ -1884,6 +1981,10 @@ msgstr "Centered ellipsis"
 msgid "Centered multi-line equations"
 msgstr "Centered multi-line equations"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Change"
+msgstr "Change"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed here, untouched there"
 msgstr "Changed here, untouched there"
@@ -1998,6 +2099,10 @@ msgstr "Choose image to upload"
 msgid "Choose location"
 msgstr "Choose location"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Choose one"
+msgstr "Choose one"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "Choose Reading in Panels"
@@ -2006,10 +2111,6 @@ msgstr "Choose Reading in Panels"
 msgid "Choose the document class"
 msgstr "Choose the document class"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Choose the matching record before saving"
-msgstr "Choose the matching record before saving"
-
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
@@ -2017,6 +2118,10 @@ msgstr "Choose where to create the project"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Choose…"
+msgstr "Choose…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Circled dot"
@@ -2051,7 +2156,7 @@ msgstr "Citation"
 msgid "Citation <0>{symbol}</0>"
 msgstr "Citation <0>{symbol}</0>"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Citation candidates"
 msgstr "Citation candidates"
 
@@ -2190,6 +2295,7 @@ msgstr "Clipboard"
 
 #: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Close"
 msgstr "Close"
 
@@ -2396,7 +2502,7 @@ msgstr "Compare with the verified record"
 msgid "Comparing this project with Overleaf…"
 msgstr "Comparing this project with Overleaf…"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
 msgstr "Compatible author names"
 
@@ -2548,6 +2654,7 @@ msgid "Copied"
 msgstr "Copied"
 
 #: src/components/copy-button.tsx
+#: src/project/paper-library.tsx
 #: src/telemetry/toast-stack.tsx
 msgid "Copy"
 msgstr "Copy"
@@ -2556,6 +2663,19 @@ msgstr "Copy"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "Copy"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Copy {command}"
+msgstr "Copy {command}"
+
+#: src/project/paper-library.tsx
+msgid "Copy {duplicateCite}"
+msgstr "Copy {duplicateCite}"
+
+#: src/papers/add-papers-sheet.tsx
+#: src/project/paper-library.tsx
+msgid "Copy \\cite command"
+msgstr "Copy \\cite command"
 
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
@@ -2763,6 +2883,10 @@ msgstr "Could not show that item in Finder. {message}"
 msgid "Could not upload the project to Overleaf"
 msgstr "Could not upload the project to Overleaf"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Couldn't add"
+msgstr "Couldn't add"
+
 #: src/telemetry/app-updater.tsx
 msgid "Couldn’t check for Lattice updates"
 msgstr "Couldn’t check for Lattice updates"
@@ -2786,6 +2910,10 @@ msgstr "Couldn’t copy the details. Expand Technical details and copy them manu
 #: src/app/use-reference-import.ts
 msgid "Couldn't find a bibliography entry for {citationCommand}."
 msgstr "Couldn't find a bibliography entry for {citationCommand}."
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Couldn't find this one"
+msgstr "Couldn't find this one"
 
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
@@ -3223,9 +3351,14 @@ msgstr "Does not exist"
 msgid "DOI metadata corrections are available."
 msgstr "DOI metadata corrections are available."
 
+#: src/App.tsx
+msgid "DOIs, arXiv IDs, links, titles or BibTeX"
+msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
+
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
+#: src/papers/add-papers-sheet.tsx
 msgid "Done"
 msgstr "Done"
 
@@ -3379,6 +3512,10 @@ msgstr "Dusk"
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
+msgstr "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
 
 #: src/app/focus-mode-bar.tsx
 #: src/app/palette-sections.ts
@@ -3617,6 +3754,7 @@ msgctxt "macOS menu bar"
 msgid "Enter Full Screen"
 msgstr "Enter Full Screen"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Enter manually"
 msgstr "Enter manually"
@@ -3704,7 +3842,7 @@ msgstr "Every tool Lattice needs is installed"
 msgid "Everything already matches Overleaf"
 msgstr "Everything already matches Overleaf"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Exact title match"
 msgstr "Exact title match"
 
@@ -3943,6 +4081,10 @@ msgstr "Find your next source"
 msgid "Finding it in the source…"
 msgstr "Finding it in the source…"
 
+#: src/project/paper-library.tsx
+msgid "Finds the record, then lets you choose"
+msgstr "Finds the record, then lets you choose"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "Finish"
@@ -4130,6 +4272,10 @@ msgstr "Full access"
 #: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
+
+#: src/project/paper-library.tsx
+msgid "Full text"
+msgstr "Full text"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Full-width floating figure"
@@ -4468,6 +4614,10 @@ msgstr "Horizontal rule that divides sections."
 #: src/editor/latex/latex-command-completions.ts
 msgid "Horizontal space"
 msgstr "Horizontal space"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "How the entry reads"
+msgstr "How the entry reads"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -4958,6 +5108,10 @@ msgstr "Jump to PDF"
 msgid "Jump to this location"
 msgstr "Jump to this location"
 
+#: src/project/paper-library.tsx
+msgid "Just added"
+msgstr "Just added"
+
 #: src/app-utils.ts
 #: src/project/welcome-desk.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -5379,6 +5533,7 @@ msgstr "Line under an expression"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Link"
 msgstr "Link"
@@ -5584,13 +5739,25 @@ msgstr "Long equation broken across lines"
 msgid "Long quotation"
 msgstr "Long quotation"
 
+#: src/project/paper-library.tsx
+msgid "Look up and add"
+msgstr "Look up and add"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "Looking through the manuscript…"
 msgstr "Looking through the manuscript…"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Looking up {resolving}…"
+msgstr "Looking up {resolving}…"
+
 #: src/canvas/document-canvas.tsx
 msgid "Looking up references is not available here."
 msgstr "Looking up references is not available here."
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Looking up…"
+msgstr "Looking up…"
 
 #: src/project/todo-scavenger-panel.tsx
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
@@ -5762,6 +5929,10 @@ msgstr "Message your collaborators…"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Messages"
 msgstr "Messages"
+
+#: src/project/paper-library.tsx
+msgid "Metadata"
+msgstr "Metadata"
 
 #: src/papers/audit-messages.ts
 msgid "Metadata check incomplete: {error}"
@@ -6018,6 +6189,10 @@ msgstr "NeurIPS Proceedings"
 #: src/papers/bib-entry-dialog.tsx
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "New"
+msgstr "New"
 
 #: src/project/project-new-entries.ts
 msgid "New board"
@@ -6436,6 +6611,10 @@ msgstr "North-east arrow"
 msgid "North-west arrow"
 msgstr "North-west arrow"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Not added"
+msgstr "Not added"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Not an element of"
 msgstr "Not an element of"
@@ -6480,6 +6659,10 @@ msgstr "Not enabled · personal API key required"
 msgid "Not equal"
 msgstr "Not equal"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Not found"
+msgstr "Not found"
+
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "Not now"
@@ -6503,6 +6686,10 @@ msgstr "Note"
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Nothing here"
+msgstr "Nothing here"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
@@ -6600,6 +6787,14 @@ msgstr "Omega"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "One record matches"
+msgstr "One record matches"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "One record matches. Check it is the one you mean."
+msgstr "One record matches. Check it is the one you mean."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -7075,6 +7270,10 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
 
+#: src/project/paper-library.tsx
+msgid "Overview"
+msgstr "Overview"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "p.{page}"
@@ -7169,6 +7368,10 @@ msgstr "Paper switch"
 msgid "Papers"
 msgstr "Papers"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Papers being added"
+msgstr "Papers being added"
+
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "paragraph break"
@@ -7198,7 +7401,7 @@ msgstr "Part"
 msgid "Part heading"
 msgstr "Part heading"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Partial author information"
 msgstr "Partial author information"
 
@@ -7223,6 +7426,10 @@ msgstr "Paste"
 #: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
+msgstr "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
@@ -7457,6 +7664,10 @@ msgstr "Preparing tutorial…"
 msgid "Preparing workspace"
 msgstr "Preparing workspace"
 
+#: src/papers/citation-candidates.tsx
+msgid "Preprint"
+msgstr "Preprint"
+
 #: src/papers/audit-messages.ts
 msgid "Preprint check incomplete: {error}"
 msgstr "Preprint check incomplete: {error}"
@@ -7468,10 +7679,6 @@ msgstr "Preprint check returned an incomplete or ambiguous result."
 #: src/settings/acknowledgements-settings.tsx
 msgid "Presentation runtime"
 msgstr "Presentation runtime"
-
-#: src/project/paper-library.tsx
-msgid "Press + to import it"
-msgstr "Press + to import it"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Press ⌘⇧K in the editor to cite one"
@@ -7696,6 +7903,10 @@ msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skippe
 #: src/papers/audit-messages.ts
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
 msgstr "Publication metadata was verified, but the citation-health check was incomplete."
+
+#: src/papers/citation-candidates.tsx
+msgid "Published"
+msgstr "Published"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
@@ -8916,6 +9127,10 @@ msgstr "Search references"
 msgid "Search settings"
 msgstr "Search settings"
 
+#: src/project/paper-library.tsx
+msgid "Search the literature for"
+msgstr "Search the literature for"
+
 #: src/app/command-palette.tsx
 msgid "Search the project for “{query}”"
 msgstr "Search the project for “{query}”"
@@ -9020,10 +9235,6 @@ msgstr "Select the line"
 #: src/editor/editor-keymap.ts
 msgid "Select the next occurrence"
 msgstr "Select the next occurrence"
-
-#: src/papers/bib-entry-dialog.tsx
-msgid "Select this record"
-msgstr "Select this record"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Selection"
@@ -9176,6 +9387,7 @@ msgstr "Show outline"
 msgid "Show papers"
 msgstr "Show papers"
 
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 msgid "Show references"
 msgstr "Show references"
@@ -9258,7 +9470,7 @@ msgstr "Signs your comments when Git and Overleaf have no name"
 msgid "Similar or equal"
 msgstr "Similar or equal"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Similar title match"
 msgstr "Similar title match"
 
@@ -9398,10 +9610,6 @@ msgstr "Source service error"
 msgid "Source temporarily unavailable"
 msgstr "Source temporarily unavailable"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Source:"
-msgstr "Source:"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "South-east arrow"
@@ -9539,6 +9747,10 @@ msgstr "Still not connected: {0}"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Stop"
+msgstr "Stop"
 
 #: src/App.tsx
 msgid "Stop build"
@@ -10454,6 +10666,7 @@ msgstr "Tip"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
@@ -10893,6 +11106,11 @@ msgstr "Use the dark theme"
 msgid "Use the light theme"
 msgstr "Use the light theme"
 
+#: src/papers/add-papers-sheet.tsx
+#: src/papers/bib-entry-dialog.tsx
+msgid "Use this record"
+msgstr "Use this record"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "Using environment key"
@@ -10938,7 +11156,7 @@ msgstr "Venue"
 msgid "Venue template"
 msgstr "Venue template"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Venue unavailable"
 msgstr "Venue unavailable"
 
@@ -11078,6 +11296,10 @@ msgstr "Visual Markdown editor"
 msgid "Volume"
 msgstr "Volume"
 
+#: src/papers/add-papers-sheet.tsx
+msgid "Waiting"
+msgstr "Waiting"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
@@ -11106,6 +11328,10 @@ msgstr "WARN"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
+
+#: src/project/paper-library.tsx
+msgid "Web page"
+msgstr "Web page"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -11297,7 +11523,7 @@ msgstr "Xi"
 msgid "Year"
 msgstr "Year"
 
-#: src/papers/bib-entry-dialog.tsx
+#: src/papers/citation-candidates.tsx
 msgid "Year unavailable"
 msgstr "Year unavailable"
 
