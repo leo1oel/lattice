@@ -934,5 +934,64 @@ for its status and log together and reopens on the last log read.
 
 Not done: git versions beyond the newest 100 and Overleaf chat older than its
 last 80 messages cannot be reached at all, which is a missing page, not a slow
-one; and the project open still loads unused symbols, history, annotations,
-TODOs and the word count one after another (`scanProject` in `App.tsx`).
+one. The project open's scans, which ran one after another, now run side by
+side (see the next section).
+
+### Startup and project open (October 2026)
+
+Measured two ways, main against this work, interleaved run by run. On the
+bench page, a startup driver loaded the app in a fresh browser context per run
+and timed navigation to the editable source and to the first PDF page drawn,
+in Playwright's Chromium and WebKit. In the real window, `perf-lab.mjs run
+--startup` launched the app on the playbook fixture plus a 600-entry
+bibliography it cites, 100 full history records and its 406-page compiled PDF.
+Those lab builds had debug Rust: release builds of the Rust side did not
+compile through the machine's job queue then, so their Rust costs (serving the
+app's chunks, IPC replies) run slower than a shipped app's.
+
+| Cause | Where | Fix |
+| --- | --- | --- |
+| Every launch ran `xattr -cr` over the whole app bundle, about 30,000 files of bundled runtimes, on the main thread before the window existed | `clear_launch_quarantine` in `src-tauri/src/macos_window.rs` | the walk runs only while the bundle (or its Lattice folder) still carries `com.apple.quarantine`, read with one `getxattr`; it clears the inside first and the folder last, so a walk cut short runs again |
+| The workspace and the canvas suspended on their first render, so React held their reveal until 300 ms after their fallback, and the PDF preview's after its own | the first frame's lazy components in `App.tsx` and `canvas/document-canvas.tsx` | each renders behind a `ChunkGate` (`components/chunk-gate.tsx`): its own placeholder until its shared chunk is in, then the `lazyChunk` component, which does not suspend; gates whose chunks land back to back open in one commit |
+| The welcome screen painted while launch reopened the last project | `App.tsx` | App shows the window background while launch routes, for up to a second, then the welcome screen as before (`launching` in `app/use-project-lifecycle.ts`) |
+| The project's five opening scans were awaited one after another before a restored Paper or asset tab opened | `scanProject` in `App.tsx` | they run side by side |
+
+The quarantine walk took 599 ms (549–619) per launch with nothing to clear, on
+a copy of the bundle's runtimes; the probe takes 0.02 ms. In nine lab passes
+the window's page started loading 0.5–1.6 s sooner after launch (medians of
+seven launches each). On the bench page (medians of eight runs), the editor
+became editable at 218 ms instead of 513 in Chromium and 375 instead of 608 in
+WebKit, and the first PDF page drew at 393 instead of 659 and 612 instead of
+1,060; WebKit no longer painted the welcome screen at 125 ms. In the real
+window (medians of seven), navigation to an editable `main.tex` took 549 ms
+instead of 573 and to the first PDF page 813 instead of 959: there the
+debug-Rust chunk serving takes most of the 300 ms the throttle held. The
+opening scans took 1.4 s instead of 2.0 s, the word count's `texcount` run the
+slowest.
+
+Tried and not kept, each measured in the lab:
+
+- **Awaiting the first frame's chunks before entering the project**, and
+  **loading them all at launch**. Both moved chunk evaluation into the window
+  where the project's own first calls (`list_papers`, the restored document's
+  read) answer, which pushed the document's read behind it: navigation to an
+  editable `main.tex` took about 1.1–1.5 s against main's 0.9 s before the
+  history index above. The PDF preview's chunk loaded with the rest also
+  opened its document while the editor mounted. Loading each chunk when its
+  part first renders, as main does, keeps that order.
+- **Gating the file tree and paper library too**, each in a commit of its own,
+  or behind one gate with the workspace. Separate gates took startup to 24
+  commits in Chromium (main: 15); one gate with the workspace made it wait
+  for the tree's chunk, and the editor showed no sooner than on main.
+- **Opening the gates from ordinary state**, which renders them with App's
+  pending updates: the editor showed no sooner than on main.
+- **Starting the PDF.js worker when the PDF chunk loads** (`workerPort`): the
+  first page drew no sooner.
+- **Reading the Markdown workspace index after the project opens, four files
+  at a time.** Its 202 reads at project open finish before the chunks
+  evaluate; deferring them changed neither mark.
+
+The lab harness now records every IPC call of a run (when it started, how long
+its reply took) through Tauri's `fetch` transport: its `invoke` is a read-only
+property. Still open: Trellis's `createWorkspace` and its header fitting force
+about 40 ms of layout in the workspace's first commit (Chromium).
