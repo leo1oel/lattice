@@ -48,7 +48,18 @@ jobs:
             range="$GITHUB_REF_NAME"
           fi
 
-          printf '## Changes in %s\n\n' "$GITHUB_REF_NAME" > "$notes_path"
+          # A release that needs more than its commit subjects (a minor
+          # version's highlights, a migration, a warning) carries a
+          # hand-written lead in .github/release-notes/<tag>.md, reviewed in
+          # the version-bump pull request like any other change.
+          : > "$notes_path"
+          highlights_path=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [[ -f "$highlights_path" ]]; then
+            cat "$highlights_path" >> "$notes_path"
+            printf '\n' >> "$notes_path"
+          fi
+
+          printf '## Changes in %s\n\n' "$GITHUB_REF_NAME" >> "$notes_path"
           change_count=0
           while IFS=$'\t' read -r hash subject; do
             # The version-only commit adds no useful information for users.

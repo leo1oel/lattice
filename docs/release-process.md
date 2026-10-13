@@ -58,8 +58,11 @@ The consequence for contributors is real and is stated in
 entry.** It is what a user reads in the release notes.
 
 The consequence for maintainers is that anything a generated line cannot convey
-— a breaking change, a migration, the updater-key rotation warning below — has to
-be added to the release body by hand after the workflow publishes it.
+— a minor version's highlights, a breaking change, a migration, the updater-key
+rotation warning below — goes in `.github/release-notes/vX.Y.Z.md`, committed
+with the version bump. The workflow puts that file above the generated list, so
+the lead is reviewed with the bump instead of being edited into a published
+Release. It is per-release and optional, not a running changelog.
 
 ## What `release.yml` does
 
@@ -71,7 +74,8 @@ create the Release and upload assets.
 2. **Generate release notes.** Finds the nearest released ancestor tag with
    `git describe --tags --abbrev=0 <tag>^`, lists every non-merge commit in that
    range as `- <subject> (<short hash>)`, and skips the `Release v…` commit
-   itself. Falls back to "Maintenance release." when the range is empty. Appends
+   itself. Falls back to "Maintenance release." when the range is empty. Puts
+   `.github/release-notes/<tag>.md` above that list when the file exists. Appends
    the Apple Silicon install blurb and a `**Full Changelog**` compare link, then
    passes the whole thing to the build step through a heredoc-delimited
    `$GITHUB_OUTPUT`.
