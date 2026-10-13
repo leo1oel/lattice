@@ -707,7 +707,7 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   `shortcut` (quiet text after the label, outside the accessible name), and
   the shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists every
   key from the keymaps that bind them, grouped by where they work, so a moved
-  key moves everywhere. The titlebar's Project, Papers and Agent toggles are
+  key moves everywhere. The Panels menu's Project, Papers and Agent toggles are
   ⌘⌥1 to ⌘⌥3 in their order (⌘1 to ⌘9 are the workspaces); in a visual
   Markdown document the editor's own ⌘⌥1 to ⌘⌥3 (headings) win.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a

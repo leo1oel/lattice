@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type React
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Check, ChevronRight, ClipboardCheck, ExternalLink, Minus, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, Check, ChevronRight, ClipboardCheck, ExternalLink, RotateCcw, X } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { isMissingPaperToolsError } from "../build/tex-setup";
 import { CopyButton } from "../components/copy-button";
@@ -10,6 +10,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { Checkbox } from "../components/ui/checkbox";
+import { CheckboxField } from "../components/ui/checkbox-field";
 import { InlineEdits } from "../components/ui/inline-edits";
 import { SlidingTabs } from "../components/ui/motion";
 import { PanelHeader } from "../components/ui/panel-header";
@@ -70,6 +71,8 @@ type Bucket = "fix" | "review" | "incomplete" | "unchecked" | "kept" | "verified
 const BUCKET_ORDER: readonly Bucket[] = ["fix", "review", "incomplete", "unchecked", "kept", "verified"];
 /** The findings J, K and S walk through, and Apply or Keep mine finishes. */
 const ACTIONABLE = new Set<Bucket>(["fix", "review"]);
+/** A row's status mark: its bucket, or the check running on it right now. */
+type Mark = Bucket | "checking";
 
 /** Results follow an entry across rescans by its file and citation key. */
 const auditKey = (entry: AuditEntry) => `${entry.path}\0${entry.key}`;
@@ -167,6 +170,8 @@ export function BibliographyAudit(props: {
   const run = useRef({ generation: 0, busy: false, stop: false });
   const [checkStartedAt, setCheckStartedAt] = useState("");
   const [checkCount, setCheckCount] = useState(0);
+  /** The references the running check asked for, by `auditKey`; null while it checks them all. */
+  const [checkKeys, setCheckKeys] = useState<Set<string> | null>(null);
   /** The finding open in the queue's pane, or unfolded under its row. */
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [view, setView] = useState<Bucket | "all">("all");
@@ -193,6 +198,7 @@ export function BibliographyAudit(props: {
     run.current.stop = false;
     setCheckStartedAt(new Date().toISOString());
     setCheckCount(only?.length ?? scan.entries.length);
+    setCheckKeys(requested ?? null);
     const cancelled = new Promise<void>(resolve => { cancelWait.current = resolve; });
     setBusy(true); setStopping(false); setError("");
     try {
@@ -580,10 +586,21 @@ export function BibliographyAudit(props: {
     return silent.length ? t`No answer from ${list(silent)}` : statusLabel(result, !!entry.inline);
   };
 
-  const glyph = (bucket: Bucket) => bucket === "verified" || bucket === "kept" ? <Check size={12} strokeWidth={2} />
-    : bucket === "fix" ? <ArrowUp size={12} strokeWidth={2} />
-      : bucket === "review" ? <span>!</span>
-        : bucket === "unchecked" ? null : <Minus size={12} strokeWidth={2} />;
+  // Each state has its own shape as well as its colour (see `.bibliography-audit-mark`).
+  const glyph = (state: Mark) => state === "verified" || state === "kept" ? <Check size={12} strokeWidth={2.5} />
+    : state === "fix" ? <X size={12} strokeWidth={2.5} />
+      : state === "review" ? <span>!</span>
+        : state === "incomplete" ? <span>?</span>
+          : <svg className="bibliography-audit-ring" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+            {state === "checking" && <circle className="bibliography-audit-mark-track" cx="8" cy="8" r="6.25" />}
+            <circle cx="8" cy="8" r="6.25" strokeDasharray={state === "checking" ? "11 28.3" : "2.45 2.46"} strokeLinecap={state === "checking" ? "round" : undefined} />
+          </svg>;
+  const mark = (state: Mark) => <span className="bibliography-audit-mark" data-mark={state} aria-hidden="true">{glyph(state)}</span>;
+  /** Waiting on the running check: not yet answered since it started. */
+  const isChecking = (index: number) => {
+    const checkedAt = results[index]?.checkedAt;
+    return busy && (!checkKeys || checkKeys.has(auditKey(scan!.entries[index]))) && !(checkedAt && checkedAt >= checkStartedAt);
+  };
 
   const sources = (result: AuditResult) => !!result.sources?.length && <dl className="bibliography-audit-sources">
     {result.sources.map(source => <div key={source.source}>
@@ -742,7 +759,7 @@ export function BibliographyAudit(props: {
     { value: "all", label: <>{t`All`}<span className="bibliography-audit-tab-count">{total}</span></> },
     ...BUCKET_ORDER.filter(bucket => counts[bucket] > 0).map(bucket => ({
       value: bucket,
-      label: <><i aria-hidden="true" data-bucket={bucket} />{bucketNames[bucket]}<span className="bibliography-audit-tab-count">{counts[bucket]}</span></>,
+      label: <>{mark(bucket)}{bucketNames[bucket]}<span className="bibliography-audit-tab-count">{counts[bucket]}</span></>,
     })),
   ];
   const hints = (["next", "previous", "apply", "skip"] as const).map(action => {
@@ -801,7 +818,7 @@ export function BibliographyAudit(props: {
         items={tabs}
       />}
       {selected.size > 0 && scan && <div className="bibliography-audit-selection">
-        <label><Checkbox aria-label={t`Select all references`} disabled={!selectable} checked={selected.size === total} indeterminate={selected.size < total} onChange={event => setSelected(event.target.checked ? new Set(scan.entries.map((_, index) => index)) : new Set())} /><span>{t`Select all`}</span></label>
+        <CheckboxField className="bibliography-audit-select-all" label={t`Select all`} aria-label={t`Select all references`} disabled={!selectable} checked={selected.size === total} indeterminate={selected.size < total} onChange={event => setSelected(event.target.checked ? new Set(scan.entries.map((_, index) => index)) : new Set())} />
         <span className="bibliography-audit-selection-count">{t`${selected.size} selected`}</span>
         <Button size="compact" variant="ghost" disabled={!selectable} onClick={() => void start([...selected])}>{t`Check selected`}</Button>
         <Button size="compact" variant="ghost" onClick={() => setSelected(new Set())}>{t`Clear`}</Button>
@@ -824,16 +841,17 @@ export function BibliographyAudit(props: {
       const isApplied = applied.has(index);
       const open = current === index;
       const summary = summaryOf(index);
-      // The glyph's name for a screen reader, unless the summary already says it.
-      const status = isApplied ? t`Update applied` : bucket === "kept" ? t`Kept as written` : statusLabel(result, !!entry.inline);
+      const checking = isChecking(index);
+      // The mark's name, as its tooltip and for a screen reader unless the summary already says it.
+      const status = checking ? t`Checking…` : isApplied ? t`Update applied` : bucket === "kept" ? t`Kept as written` : statusLabel(result, !!entry.inline);
       const health = result?.health;
       const notice = health && !["unknown", "unavailable"].includes(health.kind);
       const head = shownView === "all" && (position === 0 || buckets[shown[position - 1]] !== bucket);
       return <Fragment key={`${entry.path}:${entry.key}:${index}`}>
-        {head && <h3 className="bibliography-audit-group">{bucketNames[bucket]}<span>{counts[bucket]}</span></h3>}
+        {head && <h3 className="bibliography-audit-group">{mark(bucket)}{bucketNames[bucket]}<span>{counts[bucket]}</span></h3>}
         <article className="bibliography-audit-row" data-bucket={bucket} data-open={open || undefined} data-selecting={selected.size > 0 || undefined}>
           <Checkbox className="bibliography-audit-check" aria-label={t`Select ${entry.key}`} checked={selected.has(index)} disabled={!selectable} onChange={event => setSelected(previous => { const next = new Set(previous); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />
-          <span className="bibliography-audit-glyph" data-bucket={bucket}>{glyph(bucket)}{status !== summary && <span className="sr-only">{status}</span>}</span>
+          <span className="bibliography-audit-glyph" title={status}>{mark(checking ? "checking" : bucket)}{status !== summary && <span className="sr-only">{status}</span>}</span>
           <button
             type="button"
             className="bibliography-audit-open"

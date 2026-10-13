@@ -250,7 +250,7 @@ export function BibEntryDialog(props: {
 
   const textField = (name: TextField, label: string, extra?: InputProps) => (
     <label>
-      {label}
+      <span className="bib-entry-label">{label}</span>
       <Input aria-label={label} value={fields[name]} onChange={(event) => setField(name, event.target.value)} {...extra} />
     </label>
   );
@@ -340,97 +340,107 @@ export function BibEntryDialog(props: {
           </section>
         )}
         {/* The entry as a reference list will print it, its key beside it:
-            what the fields below add up to, read before the fields themselves. */}
-        {showFields && !candidates.length && fields.title.trim() && (
+            what the fields below add up to, read before the fields themselves.
+            It stands from the first keystroke, a line the writer has not
+            filled yet named in the faint ink, so typing never moves the
+            fields under the caret. */}
+        {showFields && !candidates.length && (
           <figure className="bib-typeset" aria-label={t`How the entry reads`}>
-            <code className="bib-typeset-key">{draft.key}</code>
-            {fields.author.trim() && <span className="bib-typeset-authors">{readableAuthors(fields.author)}</span>}
-            <strong>{bibTextToPlain(fields.title)}</strong>
-            {(typesetVenue || fields.year.trim() || normalizedDoi) && (
+            {fields.title.trim() && <code className="bib-typeset-key">{draft.key}</code>}
+            {fields.author.trim()
+              ? <span className="bib-typeset-authors">{readableAuthors(fields.author)}</span>
+              : <span className="bib-typeset-authors" data-unfilled aria-hidden="true">{t`Author`}</span>}
+            {fields.title.trim()
+              ? <strong>{bibTextToPlain(fields.title)}</strong>
+              : <strong data-unfilled aria-hidden="true">{t`Title`}</strong>}
+            {typesetVenue || fields.year.trim() || normalizedDoi ? (
               <span className="bib-typeset-venue">
                 {typesetVenue && <em>{typesetVenue}</em>}
                 {typesetVenue && fields.year.trim() ? ", " : ""}
                 {fields.year.trim()}
-                {normalizedDoi && <span className="bib-typeset-doi">doi:{normalizedDoi}</span>}
+                {normalizedDoi && (
+                  <span className="bib-typeset-doi" data-joined={typesetVenue || fields.year.trim() ? "" : undefined}>doi:{normalizedDoi}</span>
+                )}
               </span>
+            ) : (
+              <span className="bib-typeset-venue" data-unfilled aria-hidden="true">{type === "book" ? t`Publisher` : t`Venue`}</span>
             )}
           </figure>
         )}
+        {/* The work first: title and authors at full width, the year beside
+            its venue; then, a step apart, what identifies the record. */}
         {showFields && <>
-          <label>
-            {t`Type`}
-            <Select value={type} onValueChange={(value) => { setType(value as BibEntryType); markEdited(); }}>
-              <SelectTrigger aria-label={t`Entry type`}><SelectValue /></SelectTrigger>
-              <SelectContent position="popper" align="start">
-                {BIB_ENTRY_TYPES.map((value) => <SelectItem key={value} value={value}>{entryTypeLabel[value]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </label>
-          {textField("key", t`Citation key`, { readOnly: editing, placeholder: draft.key || "author2024title" })}
-          {textField("title", t`Title`, { autoFocus: focusFields })}
-          {textField("author", t`Author`, { placeholder: t`Last, First and Last, First` })}
-          <label>
-            {t`Year`}
-            <div className="year-stepper">
-              <Input aria-label={t`Year`} value={fields.year} onChange={(event) => setField("year", event.target.value)} inputMode="numeric" />
-              <div className="year-stepper-buttons">
-                <button type="button" aria-label={t`Increment year`} onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
-                <button type="button" aria-label={t`Decrement year`} onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
-              </div>
-            </div>
-          </label>
-          {type === "book" ? textField("publisher", t`Publisher`) : (
+          <div className="bib-entry-group bib-entry-work">
+            {textField("title", t`Title`, { autoFocus: focusFields })}
+            {textField("author", t`Author`, { placeholder: t`Last, First and Last, First` })}
             <label>
-              {t`Venue`}
-              <div className="venue-combobox">
-                <SearchField
-                  aria-label={t`Venue`}
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-expanded={venueListOpen}
-                  aria-controls={venueListOpen ? venueListId : undefined}
-                  aria-activedescendant={venueListOpen && venueActive !== null ? `${venueListId}-${venueActive}` : undefined}
-                  value={venue}
-                  placeholder={t`NeurIPS, CVPR, Nature, …`}
-                  onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); setVenueActive(null); }}
-                  onClear={() => { setField(venueField, ""); setVenueOpen(true); setVenueActive(null); }}
-                  onFocus={() => setVenueOpen(true)}
-                  onBlur={() => { setVenueOpen(false); setVenueActive(null); }}
-                  onKeyDown={onVenueKeyDown}
-                />
-                {venueListOpen && (
-                  <div id={venueListId} className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
-                    <FluidHoverSurface />
-                    {venueMatches.map((item, index) => (
-                      <button
-                        key={item.name}
-                        id={`${venueListId}-${index}`}
-                        type="button"
-                        role="option"
-                        tabIndex={-1}
-                        aria-selected={item.name === venue}
-                        data-highlighted={index === venueActive ? "" : undefined}
-                        onMouseMove={() => { if (index !== venueActive) setVenueActive(index); }}
-                        onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
-                      >
-                        <span>{item.name}</span>
-                        <em>{item.entryType === "article" ? t`journal` : t`conference`}</em>
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <span className="bib-entry-label">{t`Year`}</span>
+              <div className="year-stepper">
+                <Input aria-label={t`Year`} value={fields.year} onChange={(event) => setField("year", event.target.value)} inputMode="numeric" />
+                <div className="year-stepper-buttons">
+                  <button type="button" aria-label={t`Increment year`} onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
+                  <button type="button" aria-label={t`Decrement year`} onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
+                </div>
               </div>
             </label>
-          )}
-          {textField("doi", "DOI", { placeholder: "10.…" })}
-          {textField("url", "URL")}
-          {offerCite && (
-            <CheckboxField
-              checked={insertCite}
-              label={t`Insert cite at cursor after saving`}
-              onChange={(event) => setInsertCite(event.target.checked)}
-            />
-          )}
+            {type === "book" ? textField("publisher", t`Publisher`) : (
+              <label>
+                <span className="bib-entry-label">{t`Venue`}</span>
+                <div className="venue-combobox">
+                  <SearchField
+                    aria-label={t`Venue`}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={venueListOpen}
+                    aria-controls={venueListOpen ? venueListId : undefined}
+                    aria-activedescendant={venueListOpen && venueActive !== null ? `${venueListId}-${venueActive}` : undefined}
+                    value={venue}
+                    placeholder={t`NeurIPS, CVPR, Nature, …`}
+                    onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); setVenueActive(null); }}
+                    onClear={() => { setField(venueField, ""); setVenueOpen(true); setVenueActive(null); }}
+                    onFocus={() => setVenueOpen(true)}
+                    onBlur={() => { setVenueOpen(false); setVenueActive(null); }}
+                    onKeyDown={onVenueKeyDown}
+                  />
+                  {venueListOpen && (
+                    <div id={venueListId} className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
+                      <FluidHoverSurface />
+                      {venueMatches.map((item, index) => (
+                        <button
+                          key={item.name}
+                          id={`${venueListId}-${index}`}
+                          type="button"
+                          role="option"
+                          tabIndex={-1}
+                          aria-selected={item.name === venue}
+                          data-highlighted={index === venueActive ? "" : undefined}
+                          onMouseMove={() => { if (index !== venueActive) setVenueActive(index); }}
+                          onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
+                        >
+                          <span>{item.name}</span>
+                          <em>{item.entryType === "article" ? t`journal` : t`conference`}</em>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </label>
+            )}
+          </div>
+          <div className="bib-entry-group bib-entry-record">
+            {textField("doi", "DOI", { placeholder: "10.…" })}
+            {textField("url", "URL")}
+            <label>
+              <span className="bib-entry-label">{t`Type`}</span>
+              <Select value={type} onValueChange={(value) => { setType(value as BibEntryType); markEdited(); }}>
+                <SelectTrigger aria-label={t`Entry type`}><SelectValue /></SelectTrigger>
+                <SelectContent position="popper" align="start">
+                  {BIB_ENTRY_TYPES.map((value) => <SelectItem key={value} value={value}>{entryTypeLabel[value]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </label>
+            {textField("key", t`Citation key`, { readOnly: editing, placeholder: fields.title.trim() || fields.author.trim() ? draft.key : "author2024title" })}
+          </div>
         </>}
       </div>
       {showFields && (
@@ -440,7 +450,15 @@ export function BibEntryDialog(props: {
         </details>
       )}
       {showFields && error && <p className="dialog-error" role="alert">{error}</p>}
-      <div className="table-generator-actions">
+      <div className="table-generator-actions bib-entry-footer">
+        {showFields && offerCite && (
+          <CheckboxField
+            className="bib-entry-cite"
+            checked={insertCite}
+            label={t`Insert cite at cursor after saving`}
+            onChange={(event) => setInsertCite(event.target.checked)}
+          />
+        )}
         <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
         {candidates.length > 0 && (
           <Button variant="primary" disabled={props.busy} onClick={() => applyResolved(candidates[chosen] ?? candidates[0], true)}>

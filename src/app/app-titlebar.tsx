@@ -32,7 +32,7 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
     importing: boolean;
     building: boolean;
   };
-  /** The Panels menu, panel toggles and hidden-panel chips. */
+  /** The Panels menu, the layout switch, search and the hidden-panel chips. */
   panelControls: ReactNode;
   canvasToolbar: ReactNode;
   /** Focus mode's bar, which stands in for everything after the traffic lights. */

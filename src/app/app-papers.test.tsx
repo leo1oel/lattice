@@ -466,7 +466,8 @@ describe("papers", () => {
     expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toBeInTheDocument();
 
     // A file opened while reading joins the notes; one closed stays closed.
-    fireEvent.click(screen.getByRole("button", { name: "Show Project" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Panels" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /^Project/ }));
     await openTreeFile("draft.md");
     expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /draft\.md/ })).toBeInTheDocument();
     const close = screen.getByRole("tab", { name: /main\.tex/ }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
