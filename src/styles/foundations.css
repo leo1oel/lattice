@@ -354,11 +354,15 @@
   --row-height-tree: var(--control-height-compact);
 
   /* The one size of the large centered dialogs: Settings, Open from Overleaf,
-     Check references, the bibliography entry editor, the table generator and
-     project find / replace. Small confirmations and alerts keep .modal's own
-     compact width. A window smaller than the dialog keeps a margin around it. */
+     Check references, the table generator and project find / replace. Small
+     confirmations and alerts keep .modal's own compact width. A window smaller
+     than the dialog keeps a margin around it. */
   --dialog-large-width: min(860px, calc(100vw - 40px));
   --dialog-large-height: min(640px, calc(100dvh - 40px));
+  /* Add papers and the bibliography entry editor are two modes of one sheet
+     ("Enter manually" swaps one for the other), so they share a narrower
+     width at the large height: the switch must not move the frame. */
+  --dialog-sheet-width: min(720px, calc(100vw - 40px));
   /* The widest a menu or tooltip grows for a long name (a workspace, project
      or file) before wrapping or truncating it (menu-surface.ts, tooltip.tsx). */
   --menu-max-width: 22rem;
