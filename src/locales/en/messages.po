@@ -278,7 +278,6 @@ msgid "{count} line"
 msgstr "{count} line"
 
 #: src/canvas/editor-status-bar.tsx
-#: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} lines"
 
@@ -696,10 +695,6 @@ msgstr "1 fix to review"
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 hit"
-
-#: src/history/conflict-resolver.tsx
-msgid "1 line"
-msgstr "1 line"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 needs your eyes"
@@ -3273,10 +3268,6 @@ msgstr "Dark only"
 msgid "DBLP"
 msgstr "DBLP"
 
-#: src/history/conflict-resolver.tsx
-msgid "Decided"
-msgstr "Decided"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
 msgstr "Decrement year"
@@ -3891,7 +3882,6 @@ msgstr "Emphasis (\\emph)"
 msgid "Emphasized text command"
 msgstr "Emphasized text command"
 
-#: src/history/conflict-resolver.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Empty"
 msgstr "Empty"
@@ -5393,8 +5383,8 @@ msgid "Kappa"
 msgstr "Kappa"
 
 #: src/history/conflict-resolver.tsx
-msgid "Keep both"
-msgstr "Keep both"
+msgid "Keep both, yours first"
+msgstr "Keep both, yours first"
 
 #: src/App.tsx
 msgid "Keep citations"
@@ -5424,9 +5414,21 @@ msgstr "Keep sources beside your writing"
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
 
+#: src/history/conflict-resolver.tsx
+msgid "Keeping both"
+msgstr "Keeping both"
+
+#: src/history/conflict-resolver.tsx
+msgid "Keeping Overleaf's"
+msgstr "Keeping Overleaf's"
+
 #: src/App.tsx
 msgid "Keeping the citation commands will leave them unresolved."
 msgstr "Keeping the citation commands will leave them unresolved."
+
+#: src/history/conflict-resolver.tsx
+msgid "Keeping this computer's"
+msgstr "Keeping this computer's"
 
 #: src/papers/audit-messages.ts
 msgid "Kept as a preprint because pubstate is explicitly preprint."
@@ -5775,6 +5777,11 @@ msgstr "Limit 1 word"
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
 msgstr "Line"
+
+#. placeholder {0}: hunk.line
+#: src/history/conflict-resolver.tsx
+msgid "Line {0}"
+msgstr "Line {0}"
 
 #. placeholder {0}: passage.line
 #: src/history/versions-timeline.tsx
@@ -10177,11 +10184,6 @@ msgstr "Starting Open Slide"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
-
-#. placeholder {0}: hunk.line
-#: src/history/conflict-resolver.tsx
-msgid "Starts at line {0}"
-msgstr "Starts at line {0}"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx

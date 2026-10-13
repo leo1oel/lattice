@@ -96,10 +96,10 @@ describe("ConflictResolverDialog", () => {
     expect(screen.getByRole("dialog", { name: "Resolve conflicts in new.tex" })).toBeInTheDocument();
   });
 
-  it("names each side and shows an empty Overleaf side as a removal", async () => {
+  it("makes each side its own choice and shows an empty Overleaf side as a removal", async () => {
     renderDialog(wholeFile);
-    const local = await screen.findByRole("region", { name: "This computer" });
-    const overleaf = screen.getByRole("region", { name: "Overleaf" });
+    const local = await screen.findByRole("radio", { name: "Keep this computer's version" });
+    const overleaf = screen.getByRole("radio", { name: "Keep Overleaf's version" });
     expect(within(local).getByText(/@misc\{b,/)).toBeInTheDocument();
     expect(within(local).queryByText(/\|\|\|\|\|\|\|/)).not.toBeInTheDocument();
     expect(within(overleaf).getByText("Overleaf removed this part.")).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe("ConflictResolverDialog", () => {
   it.each([
     ["Keep this computer's version", `${ours}\n`],
     ["Keep Overleaf's version", ""],
-    ["Keep both", `${ours}\n`],
+    ["Keep both, yours first", `${ours}\n`],
   ])("writes exactly the chosen side for %s, never the base section", async (label, expected) => {
     const { onClose, onResolved } = renderDialog(wholeFile);
     const choice = await screen.findByRole("radio", { name: label });
@@ -170,7 +170,7 @@ describe("ConflictResolverDialog", () => {
       if (command === "write_project_file") throw new Error("disk full");
       return conflict;
     });
-    fireEvent.click(await screen.findByRole("radio", { name: "Keep both" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Keep both, yours first" }));
     fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
     expect(await screen.findByText(/disk full/)).toBeInTheDocument();
     expect(onResolved).not.toHaveBeenCalled();

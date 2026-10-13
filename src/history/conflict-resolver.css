@@ -1,6 +1,6 @@
 /* Conflict resolution: one card per conflicting spot, each side under its own
-   name, and a scroll region whose bar stays visible so a long file can be
-   reviewed before choosing. */
+   name and itself the choice that keeps it, and a scroll region whose bar
+   stays visible so a long file can be reviewed before choosing. */
 
 .conflict-resolver {
   width: min(960px, calc(100vw - 48px));
@@ -90,64 +90,86 @@
 }
 .conflict-spot-title { display: flex; align-items: baseline; gap: var(--space-4); min-width: 0; }
 .conflict-spot-title h3 { margin: 0; font-size: var(--type-subtitle-size); }
-.conflict-spot-title span { color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.conflict-spot-title span { color: var(--text-secondary); font-size: var(--type-caption-size); }
 
-.conflict-choices { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-
+/* Each side is the choice: a card that checks when clicked, the words the two
+   sides disagree on washed in both, set in the reading font so a changed
+   sentence reads as one. Side by side while they fit, stacked when not. */
+.conflict-choices { display: grid; gap: var(--space-3); }
 .conflict-sides {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-4);
 }
-@media (max-width: 720px) {
-  .conflict-sides { grid-template-columns: minmax(0, 1fr); }
-}
-
 .conflict-side {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
-  border: 1px solid var(--border-subtle);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
-  background: var(--surface-app);
-  transition: opacity var(--motion-fast), border-color var(--motion-fast);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  text-align: left;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), color var(--motion-fast);
 }
-.conflict-side[data-kept="true"] { border-color: var(--control-active); }
-.conflict-side[data-kept="false"] { opacity: 0.5; }
-.conflict-side-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--type-caption-size);
+.conflict-side:hover:not(:disabled) { border-color: var(--text-secondary); }
+.conflict-side[aria-checked="true"] { border-color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--text-primary); }
+/* The side not kept steps back to the secondary ink, which still reads at 5.5:1. */
+.conflict-side[data-dropped] { color: var(--text-secondary); }
+.conflict-side-head { display: flex; align-items: center; gap: var(--space-3); min-width: 0; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.conflict-side-head strong { flex: none; font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
+.conflict-side-caption { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.conflict-side-radio {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+  color: var(--surface-elevated);
 }
-.conflict-side-head strong { font-size: var(--type-body-compact-size); font-weight: 600; }
-.conflict-side-head span { color: var(--text-tertiary); }
-.conflict-side-head .conflict-side-count { margin-left: auto; font-size: var(--type-diff-meta-size); }
-
-.conflict-side-code {
-  margin: 0;
+.conflict-side[aria-checked="true"] .conflict-side-radio { background: var(--text-primary); box-shadow: none; }
+.conflict-spot kbd {
+  flex: none;
+  margin-left: auto;
+  min-width: 18px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-compact);
+  background: var(--control-hover-surface);
+  color: var(--text-secondary);
+  font: var(--type-micro-weight) var(--type-micro-size) / var(--type-micro-line-height) var(--ui-font);
+  text-align: center;
+}
+.conflict-side-text {
   max-height: min(360px, 42vh);
   overflow: auto;
-  padding: var(--space-4) var(--space-5);
-  font: var(--type-diff-code-size) / var(--type-diff-code-line-height) var(--editor-font);
+  font-family: var(--reading-font);
+  font-size: var(--type-typeset-size);
+  line-height: var(--type-typeset-line-height);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--text-primary);
 }
-/* Same always-visible treatment for each side's own scroller. */
-.conflict-side-code::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
-}
-.conflict-side-empty {
-  margin: 0;
-  padding: var(--space-6) var(--space-5);
-  color: var(--text-tertiary);
+.conflict-side-text mark { padding: 0 var(--gap-tight); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--status-warning) 22%, transparent); color: inherit; }
+.conflict-side-empty { color: var(--text-secondary); font-size: var(--type-caption-size); font-style: italic; }
+/* The third answer, quieter than the two sides it combines. */
+.conflict-both {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--control-height-compact);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
   font-size: var(--type-caption-size);
-  font-style: italic;
 }
+.conflict-both:hover:not(:disabled),
+.conflict-both[aria-checked="true"] { background: var(--control-hover-surface); color: var(--text-primary); }
+.conflict-both kbd { margin-left: var(--space-2); }
 
 .conflict-editor {
   flex: 1 1 auto;
@@ -162,4 +184,4 @@
 }
 
 .conflict-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-4); }
-.conflict-progress { margin-right: auto; color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.conflict-progress { margin-right: auto; color: var(--text-secondary); font-size: var(--type-caption-size); }
