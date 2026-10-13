@@ -395,14 +395,14 @@ input[type="search"]:focus-visible {
    the source links to the record without leaving the type's own ink. */
 .bib-citation-evidence { display: inline-flex; flex-wrap: wrap; align-items: center; color: var(--text-secondary); }
 .bib-citation-evidence > span + span::before { content: "·"; padding-inline: var(--space-3); }
-.bib-evidence-source { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+.bib-evidence-source { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; transition: color var(--motion-fast), text-decoration-color var(--motion-fast); }
 .bib-evidence-source:hover { color: var(--text-primary); text-decoration-color: currentColor; }
 /* Records a lookup could not tell apart: one radio list in a raised card, each
    record read as it would be cited, the chosen one washed and edged in the accent. */
 .bib-candidates { display: grid; gap: var(--space-5); }
 .bib-candidates-lead { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .bib-candidate-list { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); overflow: hidden; background: var(--surface-panel-raised); }
-.bib-candidate-list .bib-candidate { padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: var(--space-5); cursor: pointer; color: var(--text-primary); font-weight: var(--weight-regular); }
+.bib-candidate-list .bib-candidate { padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: var(--space-5); cursor: pointer; color: var(--text-primary); font-weight: var(--weight-regular); transition: background-color var(--motion-fast); }
 .bib-candidate + .bib-candidate { border-top: 1px solid var(--border-subtle); }
 .bib-candidate:hover { background: var(--control-hover-surface); }
 .bib-candidate[data-chosen] { background: color-mix(in srgb, var(--control-active) 6%, transparent); box-shadow: inset 2px 0 0 var(--control-active); }
@@ -984,7 +984,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-chips { width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .paper-chip { height: 24px; min-width: 0; max-width: 100%; padding: 0 var(--space-3) 0 var(--space-5); border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: var(--space-2); background: var(--control-hover-surface); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .paper-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paper-chip > svg { flex: none; color: var(--text-secondary); stroke-width: 1.5; }
+.paper-chip > svg { flex: none; color: var(--text-secondary); stroke-width: 1.5; transition: color var(--motion-fast); }
 .paper-chip:hover { background: var(--control-pressed-surface); }
 .paper-chip:hover > svg { color: var(--text-primary); }
 .paper-list { min-height: 0; flex: 1; container: paper-list / inline-size; }
@@ -1145,6 +1145,8 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    rows' own inset, whose secondary line gives way first in a narrow panel. */
 .paper-add { margin-bottom: var(--space-3); display: grid; gap: var(--space-2); container: paper-add / inline-size; }
 .paper-add-row, .paper-pending { position: relative; width: 100%; min-width: 0; padding: var(--space-4); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; column-gap: var(--space-3); align-items: center; text-align: left; background: color-mix(in srgb, var(--text-primary) 4%, transparent); color: var(--text-primary); font: inherit; }
+/* The duplicate row is a plate, not a button; it lights as the button rows do. */
+div.paper-add-row { transition: background-color var(--motion-fast); }
 button.paper-add-row:hover { background: var(--control-hover-surface); }
 .paper-add-row[data-quiet] { background: transparent; }
 .paper-add-row[data-quiet]:hover { background: var(--navigation-tree-hover-surface); }

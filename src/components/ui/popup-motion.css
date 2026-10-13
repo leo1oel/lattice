@@ -19,8 +19,11 @@
 .popup-motion[data-side="left"] { --popup-motion-from: translateX(4px); --popup-motion-origin: center right; }
 .popup-motion[data-side="right"] { --popup-motion-from: translateX(-4px); --popup-motion-origin: center left; }
 
-/* A leaving popup no longer takes the pointer, as a leaving dialog does not. */
-.popup-motion[data-state="closed"] {
+/* A leaving popup no longer takes the pointer, as a leaving dialog does not.
+   A popup its owner unmounts leaves as a picture of itself (`useExitPicture`,
+   `data-leaving`) on the same exit. */
+.popup-motion[data-state="closed"],
+.popup-motion[data-leaving] {
   animation: popup-motion-close var(--motion-moderate-exit) both;
   pointer-events: none;
 }

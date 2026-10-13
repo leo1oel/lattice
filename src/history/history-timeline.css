@@ -157,6 +157,7 @@
   line-height: var(--type-caption-line-height);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transition: opacity var(--motion-fast);
 }
 /* Leave room for the tools that take the time's place, so they never cover the title. */
 .history-row:has(> .history-row-tools) .history-row-time { min-width: 52px; text-align: right; }
@@ -199,7 +200,8 @@
 .history-stat-add { color: var(--status-success); }
 .history-stat-del { color: var(--status-danger); }
 
-/* The row's actions wait behind its time until the pointer or focus arrives. */
+/* The row's actions wait behind its time until the pointer or focus arrives,
+   and the two cross-fade on the same tier. */
 .history-row-tools {
   position: absolute;
   top: var(--space-2);
@@ -212,12 +214,15 @@
   transition: opacity var(--motion-fast);
 }
 .history-row:is(:hover, :focus-within) > .history-row-tools { opacity: 1; pointer-events: auto; }
-.history-row:is(:hover, :focus-within) > .history-row-head .history-row-time { visibility: hidden; }
+.history-row:is(:hover, :focus-within) > .history-row-head .history-row-time { opacity: 0; }
 .history-tool { width: 24px; height: 24px; border-radius: var(--radius-control); display: grid; place-items: center; background: transparent; color: var(--text-secondary); }
 .history-tool:hover:not(:disabled) { background: var(--control-pressed-surface); color: var(--text-primary); }
 .history-tool:disabled { opacity: var(--control-disabled-opacity); }
 .history-tool-danger:hover:not(:disabled) { background: var(--status-danger-soft); color: var(--status-danger); }
-.history-row-body { grid-column: 2; grid-row: 2; min-width: 0; padding: var(--space-1) var(--space-3) var(--space-8); }
+/* An opened row's body fades in under its head; its height is not animated,
+   so the rows below move once rather than reflowing through the open. */
+.history-row-body { grid-column: 2; grid-row: 2; min-width: 0; padding: var(--space-1) var(--space-3) var(--space-8); animation: history-row-open var(--motion-moderate) both; }
+@keyframes history-row-open { from { opacity: 0; } }
 
 /* A folded run of automatic versions: one quiet line with its time span. */
 .history-fold .history-row-glyph { background: var(--surface-input); }
@@ -311,7 +316,7 @@
 .version-action:active:not(:disabled) { background: var(--control-pressed-surface); }
 .version-action:disabled { border-color: var(--control-disabled-border); background: var(--control-disabled-surface); color: var(--control-disabled-ink); }
 .version-mode-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.version-mode-switch { padding: 0; background: transparent; color: var(--text-primary); font: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.version-mode-switch { padding: 0; background: transparent; color: var(--text-primary); font: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; transition: text-decoration-color var(--motion-fast); }
 .version-mode-switch:hover:not(:disabled) { text-decoration-color: currentColor; }
 .version-note { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 
