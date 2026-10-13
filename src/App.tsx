@@ -82,6 +82,9 @@ import type {
 } from "./editor/presentation/open-slide-bridge";
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { LazyMount } from "./components/lazy-mount";
+import { ChunkGate } from "./components/chunk-gate";
+import { lazyChunk } from "./lib/lazy-chunk";
+import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./app/workspace-chunks";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import { persistSynaraThread } from "./app/app-synara-embed";
@@ -172,14 +175,10 @@ const ConflictResolverDialog = lazy(() =>
 // panel renders on the Welcome screen, so they must not weigh down first paint.
 // Memoized: their callbacks come through stable forwarders (useStableHandlers
 // in App), so an editor keystroke does not re-render the file tree or the paper library.
-const ProjectFileTree = lazy(() =>
-  import("./project/project-file-tree").then((module) => ({ default: memo(module.ProjectFileTree) })),
-);
+const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
 /** Papers' read state while the window's paper list is still another project's. */
 const PAPERS_LOADING = { status: "loading" } as const;
-const PaperLibrary = lazy(() =>
-  import("./project/paper-library").then((module) => ({ default: memo(module.PaperLibrary) })),
-);
+const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
 const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 const BibliographyAudit = lazy(() =>
   import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
@@ -187,11 +186,13 @@ const BibliographyAudit = lazy(() =>
 const CompileDiagnosticsPanel = lazy(() =>
   import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
-const DocumentCanvas = lazy(() =>
-  loadDocumentCanvas().then((module) => ({ default: module.DocumentCanvas })),
-);
+// The workspace and the canvas (and the PDF preview inside it) render behind a
+// ChunkGate, so a project's first frame shows as soon as their chunks are in,
+// with no Suspense reveal to wait out. The file tree and paper library above
+// keep their boundaries: their reveal waits, after the editor's.
+const DocumentCanvas = lazyChunk(loadDocumentCanvas, (module) => module.DocumentCanvas);
 // The workspace (and the Trellis library) load after the eager startup chunks.
-const TrellisWorkspace = lazy(() => import("./trellis/trellis-workspace"));
+const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
@@ -693,7 +694,7 @@ function App() {
 
   const { tour: guidedTour, start: startGuidedTour, end: endGuidedTour, finish: finishGuidedTour } = useGuidedTour();
   const {
-    busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    launching, busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
     openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
@@ -1641,7 +1642,8 @@ function App() {
   if (!project) {
     return (
       <>
-        <Welcome
+        {/* While launch reopens a project, the window's own background, not a flash of the welcome screen. */}
+        {!launching && <Welcome
           busyLabel={busyLabel}
           createOpen={createForm.open}
           createError={createForm.error}
@@ -1661,7 +1663,7 @@ function App() {
           onSettings={() => openSettings()}
           onInstallTex={() => void texSetup.openWizard()}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
-        />
+        />}
         {renderCommandPalette()}
         {shortcutSheet}
         {settingsDialog}
@@ -1700,6 +1702,7 @@ function App() {
     await buildPipeline.runBuild(false, { requested: true, sound: true });
   });
 
+  const workspaceLoading = <div className="document-canvas-loading" aria-label={t`Preparing workspace`} />;
   const documentCanvas = (
     <DocumentCanvas
       projectRoot={project.root}
@@ -1983,9 +1986,11 @@ function App() {
       )}
 
       <main className="workspace trellis-workspace">
-        <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing workspace`} />}>
-          <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
-        </Suspense>
+        <ChunkGate chunk={loadTrellisWorkspace} fallback={workspaceLoading}>
+          <Suspense fallback={workspaceLoading}>
+            <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
+          </Suspense>
+        </ChunkGate>
         {createPortal(
           <Suspense fallback={null}>
             <ProjectFileTree
@@ -2055,9 +2060,11 @@ function App() {
           </div>,
           trellis.hosts.editor,
         )}
-        <Suspense fallback={null}>
-          {documentCanvas}
-        </Suspense>
+        <ChunkGate chunk={loadDocumentCanvas}>
+          <Suspense fallback={null}>
+            {documentCanvas}
+          </Suspense>
+        </ChunkGate>
         {guidedTour && (
           <Suspense fallback={null}>
             <GuidedTour

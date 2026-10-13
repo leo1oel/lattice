@@ -21,6 +21,8 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
+/** How long launch shows an empty window while it reopens a project, before the welcome screen. */
+const LAUNCH_EMPTY_WINDOW_MS = 1_000;
 
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
@@ -120,6 +122,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     () => ({ projects: loadRecentProjects(), unopened: null }),
   );
   const autoTutorialAttemptedRef = useRef(false);
+  /**
+   * Launch has not yet decided what this window shows. Until it has, App shows
+   * neither the welcome screen nor a project: the welcome screen would flash up
+   * while the last project reopens.
+   */
+  const [launching, setLaunching] = useState(true);
 
   // `name: null` is the untouched default, resolved per render so it follows the interface language.
   const [createFormState, setCreateForm] = useState<Omit<CreateProjectForm, "name"> & { name: string | null }>({
@@ -360,25 +368,31 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   useEffect(() => {
     if (didRouteStartupRef.current) return;
     didRouteStartupRef.current = true;
+    // A reopen that takes longer (a slow or unmounted drive) shows the welcome
+    // screen meanwhile, as launch always did; a quick one never flashes it.
+    const patience = window.setTimeout(() => setLaunching(false), LAUNCH_EMPTY_WINDOW_MS);
+    // Whether launch entered a project: the welcome screen, which shows only
+    // without one, needs `launching` cleared only when it did not.
     void (async () => {
       const initialProject = await initialProjectProbe.promise;
-      if (initialProject !== "empty") return;
+      if (initialProject !== "empty") return initialProject === "project";
       const lastProject = loadRecentProjects()[0];
       const mostRecent = lastProject?.path;
       if (!mostRecent) {
         if (!hasSeenTutorial() && !autoTutorialAttemptedRef.current) {
           void openTutorialProject();
         }
-        return;
+        return false;
       }
       try {
-        if (!await startProjectTransition()) return;
+        if (!await startProjectTransition()) return false;
         const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
         // Defer enterProject's own initial build (it races cold-start init and
         // the PDF never appears), then kick one explicitly once the project is
         // fully entered.
         await enterProject(snapshot, { deferInitialBuild: true });
         void runBuild(false, { immediatePreview: true });
+        return true;
       } catch (reason) {
         cancelProjectTransition();
         // Folder gone, or on a drive that is not mounted: stay on the welcome
@@ -386,8 +400,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         // launch tries again.
         const unopened = { ...lastProject, reason: toMessage(reason) };
         setRecents((current) => ({ ...current, unopened }));
+        return false;
       }
-    })();
+    })().then((entered) => {
+      window.clearTimeout(patience);
+      if (!entered) setLaunching(false);
+    });
   }, [
     cancelProjectTransition, enterProject, initialProjectProbe, openTutorialProject, runBuild,
     startProjectTransition,
@@ -526,7 +544,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   }, [browserHosted, cancelProjectTransition, startProjectTransition]);
 
   return {
-    busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
     movingWorkspace,

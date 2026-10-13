@@ -25,9 +25,9 @@ describe("welcome screen", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
-  it("offers project creation and existing folder import", () => {
+  it("offers project creation and existing folder import", async () => {
     renderApp();
-    expect(screen.getByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Guided tutorial" })).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe("welcome screen", () => {
       initial_project: null,
       open_tutorial_project: () => { throw new Error("Tutorial fixture stopped after invocation."); },
     });
-    if (tutorialSeen) fireEvent.click(screen.getByRole("button", { name: "Guided tutorial" }));
+    if (tutorialSeen) fireEvent.click(await screen.findByRole("button", { name: "Guided tutorial" }));
     await expectInvoked("open_tutorial_project");
     expect(open).not.toHaveBeenCalled();
   });
@@ -104,14 +104,14 @@ describe("welcome screen", () => {
     const ready = { ok: true, summary: "ready", checks: ["latexmk", "pdflatex", "synctex", "bibtex", "conference-fonts", "uv", "uvx"]
       .map((name) => ({ name, detail: "ok", ok: true })) };
     renderApp({ initial_project: null, run_doctor: ready });
-    fireEvent.click(screen.getByRole("button", { name: "Install LaTeX tools" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Install LaTeX tools" }));
     await waitFor(() => expect(getVisibleAppToastIds().map((id) => getAppLogEntry(id)?.title)).toContain("LaTeX is ready to build"));
     expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
   });
 
-  it("opens the project creation dialog", () => {
+  it("opens the project creation dialog", async () => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
     expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS");
@@ -123,7 +123,7 @@ describe("welcome screen", () => {
     renderApp({
       initial_project: null, create_project: () => { throw new Error("That folder already exists and is not empty."); },
     });
-    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("That folder already exists and is not empty."));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe("welcome screen", () => {
       // Creation no longer binds a window; the caller places the project.
       open_project: snapshot,
     });
-    fireEvent.click(screen.getByRole("button", { name: /new project/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("option", { name: "ICML" }));
