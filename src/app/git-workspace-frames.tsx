@@ -22,7 +22,7 @@
  */
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { CircleAlert, CloudUpload, GitBranch, GitPullRequest, Search } from "lucide-react";
+import { CircleAlert, GitBranch, Search, Sparkles } from "lucide-react";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import type { AgentGitWorkspaceView, SynaraRuntimeInfo } from "../agent/synara-runtime";
@@ -180,9 +180,9 @@ const PULL_REQUEST_ROWS = [64, 48, 72, 56];
 
 /**
  * A placeholder shaped like the view it stands for, so the hand-off to the
- * view's own skeleton rows does not jump: the branch and commit controls and
- * two sections of file rows for Changes, the filters, search and list for
- * Pull requests. Its icons are the controls' own, drawn at once rather than
+ * view's own skeleton rows does not jump: the branch line, the commit
+ * composer and two sections of file rows for Changes, the search and a
+ * group of rows for Pull requests. Its icons are the controls' own, drawn at once rather than
  * after the view's data arrives. A sheen crosses it as a transform, so it
  * costs no repaint.
  */
@@ -196,9 +196,8 @@ function GitWorkspaceSkeleton({ view, message }: {
       <div className="git-workspace-skeleton" aria-hidden="true">
         {view === "pull-requests" ? (
           <>
-            <div className="git-workspace-skeleton-heading"><GitPullRequest size={14} /><span style={{ width: "34%" }} /></div>
-            <div className="git-workspace-skeleton-filters"><span /><span /></div>
-            <div className="git-workspace-skeleton-control"><Search size={14} /><span style={{ width: "40%" }} /></div>
+            <div className="git-workspace-skeleton-control"><Search size={14} /><span style={{ width: "48%" }} /></div>
+            <ul className="git-workspace-skeleton-rows"><li className="git-workspace-skeleton-section"><span style={{ width: "26%" }} /></li></ul>
             <ul className="git-workspace-skeleton-rows git-workspace-skeleton-cards">
               {PULL_REQUEST_ROWS.map((width, index) => (
                 <li key={index}><span className="git-workspace-skeleton-tile" /><span className="git-workspace-skeleton-lines"><span style={{ width: `${width}%` }} /><span style={{ width: `${width * 0.55}%` }} /></span></li>
@@ -207,8 +206,14 @@ function GitWorkspaceSkeleton({ view, message }: {
           </>
         ) : (
           <>
-            <div className="git-workspace-skeleton-control"><GitBranch size={14} /><span style={{ width: "22%" }} /></div>
-            {view === "changes" && <div className="git-workspace-skeleton-control"><CloudUpload size={14} /><span style={{ width: "30%" }} /></div>}
+            {view === "changes" ? (
+              <>
+                <div className="git-workspace-skeleton-branchline"><GitBranch size={14} /><span style={{ width: "18%" }} /><span style={{ width: "16%" }} /></div>
+                <div className="git-workspace-skeleton-composer"><div className="git-workspace-skeleton-composer-line"><span style={{ width: "62%" }} /><Sparkles size={13} /></div><span style={{ width: "38%" }} /><span className="git-workspace-skeleton-button" /></div>
+              </>
+            ) : (
+              <div className="git-workspace-skeleton-control"><GitBranch size={14} /><span style={{ width: "22%" }} /></div>
+            )}
             {[STAGED_ROWS, CHANGED_ROWS].map((rows, section) => (
               <ul key={section} className="git-workspace-skeleton-rows">
                 <li className="git-workspace-skeleton-section"><span style={{ width: section ? "18%" : "14%" }} /></li>
