@@ -164,6 +164,7 @@ export function readableAuthors(field: string): string {
   // Chinese joins with 和 and no spaces; Latin names either side of it get
   // the space a CJK word takes from a Latin one.
   return new Intl.ListFormat(i18n.locale, { type: "conjunction" }).format(names)
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- the list format's own Chinese conjunction, respaced
     .replace(/(?<=[\p{Script=Latin}.])和(?=\p{Script=Latin})/gu, " 和 ");
 }
 
