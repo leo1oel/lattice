@@ -84,17 +84,100 @@ function paperGlyph(paper: PaperSummary, fetchState: PaperFetchState | undefined
 /** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
   const { t } = useLingui();
-  const rowId = useId();
   const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(progressActive, props.importStageId);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
+  const { hits: textHits, searchNow } = usePaperTextSearch(query);
+  const addPaper = () => {
+    const id = explicitArxivId(props.importInput);
+    const existing = id ? props.papers.find(paper => baseArxivId(paper.arxivId).toLowerCase() === id) : undefined;
+    if (existing?.hasFullText) props.onPaper(existing);
+    else props.onImport();
+  };
+  return (
+    <aside className="navigator">
+      <div className="navigator-section papers-section">
+        <div className="paper-import-control" data-importing={progressActive || undefined}>
+          <SearchField
+            ref={importInputRef}
+            aria-label={t`Search or import papers`}
+            aria-busy={progressActive}
+            readOnly={progressActive}
+            // The placeholder is short enough never to truncate at the panel's
+            // narrowest; what can be pasted to add a paper is in the tip.
+            title={progressActive ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
+            aria-describedby={progressActive ? "paper-import-status" : undefined}
+            containerClassName="import-box"
+            controlSize="compact"
+            placeholder={t`Search or add papers`}
+            value={props.importInput}
+            onChange={(event) => props.setImportInput(event.target.value)}
+            onClear={progressActive ? undefined : () => props.setImportInput("")}
+            {...compositionProps}
+            // Enter only searches: the list already filters as you type, so it
+            // runs the full-text pass now. Adding is the + button's job alone.
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || isComposing(event)) return;
+              event.preventDefault();
+              if (!progressActive) searchNow();
+            }}
+            trailing={(
+              <button
+                onClick={props.importing ? props.onCancelImport : addPaper}
+                disabled={!props.importing && (progressActive || !query)}
+                title={props.importing ? t`Cancel` : t`Add paper`}
+                aria-label={props.importing ? t`Cancel` : t`Add paper`}
+              >
+                {props.importing ? <X size={14} /> : <Plus size={14} />}
+              </button>
+            )}
+          />
+          {progressActive && (
+            <>
+              <div className="paper-import-track" aria-hidden="true">
+                <span ref={importFillRef} style={{ width: "0%" }} />
+              </div>
+              <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
+                {props.importStage ?? t`Working…`}
+              </span>
+            </>
+          )}
+        </div>
+        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} /> : (
+          <ScrollArea className="paper-list" orientation="both" contentClassName="paper-list-content">
+            <div className="papers-empty-state" data-library="empty">
+              {/* Beside the text, not above it: the card sits in a short panel
+                  at startup, and a taller card would overflow it. */}
+              <ResearchArt drawing={CARD_INDEX} />
+              <div className="papers-empty-text">
+                <strong>{t`Your paper library`}</strong>
+                <p>{t`Keep sources beside your writing`}</p>
+                {/* Only focuses the field: what to add is the writer's to type. */}
+                <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * The library once it holds a paper: how many, how they are filtered, sorted
+ * and grouped, and the list itself. Its own component, so an empty library
+ * (every startup without papers) runs none of it.
+ */
+function PaperShelf(props: PaperLibraryProps & { query: string; textHits: ReturnType<typeof usePaperTextSearch>["hits"] }) {
+  const { query, textHits } = props;
+  const { t } = useLingui();
+  const rowId = useId();
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (props.recentImport?.query === query && viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [props.recentImport, query]);
-  const { hits: textHits, searchNow } = usePaperTextSearch(query);
   const facts = usePaperFacts(props.projectKey, props.citations, props.citationUsageRevision);
   // Sort, filter and grouping last for the panel's life; a search narrows what they show.
   const [sort, setSort] = useState<PaperSort>("title");
@@ -118,17 +201,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
     if (readablePaper(paper)) props.onPaper(paper);
     else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
   };
-  const addPaper = () => {
-    const id = explicitArxivId(props.importInput);
-    const existing = id ? props.papers.find(paper => baseArxivId(paper.arxivId).toLowerCase() === id) : undefined;
-    if (existing?.hasFullText) props.onPaper(existing);
-    else props.onImport();
-  };
   const total = props.papers.length;
-  const emptyState = !total
-    ? [t`Your paper library`, t`Keep sources beside your writing`]
-    : filteredPapers.length ? null
-      : [t`No matching papers`, shownFilter === "all" ? t`Press + to import it` : t`Try another filter`];
+  const emptyState = filteredPapers.length ? null
+    : [t`No matching papers`, shownFilter === "all" ? t`Press + to import it` : t`Try another filter`];
   const sortLabels: Record<PaperSort, string> = {
     title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
   };
@@ -363,61 +438,13 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const shown = formatCount(filteredPapers.length);
   const totalText = formatCount(total);
   return (
-    <aside className="navigator">
-      <div className="navigator-section papers-section">
-        <div className="paper-import-control" data-importing={progressActive || undefined}>
-          <SearchField
-            ref={importInputRef}
-            aria-label={t`Search or import papers`}
-            aria-busy={progressActive}
-            readOnly={progressActive}
-            // The placeholder is short enough never to truncate at the panel's
-            // narrowest; what can be pasted to add a paper is in the tip.
-            title={progressActive ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
-            aria-describedby={progressActive ? "paper-import-status" : undefined}
-            containerClassName="import-box"
-            controlSize="compact"
-            placeholder={t`Search or add papers`}
-            value={props.importInput}
-            onChange={(event) => props.setImportInput(event.target.value)}
-            onClear={progressActive ? undefined : () => props.setImportInput("")}
-            {...compositionProps}
-            // Enter only searches: the list already filters as you type, so it
-            // runs the full-text pass now. Adding is the + button's job alone.
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || isComposing(event)) return;
-              event.preventDefault();
-              if (!progressActive) searchNow();
-            }}
-            trailing={(
-              <button
-                onClick={props.importing ? props.onCancelImport : addPaper}
-                disabled={!props.importing && (progressActive || !query)}
-                title={props.importing ? t`Cancel` : t`Add paper`}
-                aria-label={props.importing ? t`Cancel` : t`Add paper`}
-              >
-                {props.importing ? <X size={14} /> : <Plus size={14} />}
-              </button>
-            )}
-          />
-          {progressActive && (
-            <>
-              <div className="paper-import-track" aria-hidden="true">
-                <span ref={importFillRef} style={{ width: "0%" }} />
-              </div>
-              <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
-                {props.importStage ?? t`Working…`}
-              </span>
-            </>
-          )}
-        </div>
+    <>
         {/* How many papers the list holds, and how it is narrowed, ordered
             and grouped. The count stands for what is shown, so a search or a
             filter reads as "3 of 7", and "3/7" where that does not fit. A
             narrow panel keeps the two tools as icons, each with a dot once
             it is set; an active filter is also a chip that clears it. */}
-        {!!total && (
-          <div className="paper-list-toolbar">
+        <div className="paper-list-toolbar">
             <p className="paper-list-count">
               <span className="paper-count-long">
                 {filteredPapers.length !== total
@@ -499,8 +526,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        )}
-        {!!total && shownFilter !== "all" && (
+        {shownFilter !== "all" && (
           <div className="paper-chips">
             <button
               type="button"
@@ -557,20 +583,15 @@ export function PaperLibrary(props: PaperLibraryProps) {
             })}
           </div>
           {emptyState && (
-            <div className="papers-empty-state" data-library={total ? undefined : "empty"}>
-              {/* Beside the text, not above it: the card sits in a short panel
-                  at startup, and a taller card would overflow it. */}
-              {total ? <EmptyIllustration kind="search" size="compact" /> : <ResearchArt drawing={CARD_INDEX} />}
+            <div className="papers-empty-state">
+              <EmptyIllustration kind="search" size="compact" />
               <div className="papers-empty-text">
                 <strong>{emptyState[0]}</strong>
                 <p>{emptyState[1]}</p>
-                {/* Only focuses the field: what to add is the writer's to type. */}
-                {!total && <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
               </div>
             </div>
           )}
         </ScrollArea>
-      </div>
-    </aside>
+    </>
   );
 }
