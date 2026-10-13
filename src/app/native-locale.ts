@@ -5,6 +5,7 @@ import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { loadAppearance, type InterfaceLanguage } from "../settings/app-settings";
 import { disposeWhenSettled } from "./effect-helpers";
+import { marginReviewAvailable, marginReviewMode, subscribeMarginReview, type MarginReviewMode } from "../overleaf/margin-review-mode";
 
 /** Titles for the macOS menu bar, in the shape `set_native_locale` accepts. */
 export type NativeMenuLabels = {
@@ -29,6 +30,8 @@ export type NativeMenuLabels = {
   zoom: string;
   closeWindow: string;
   help: string;
+  /** View → Margin review, while this window shows a linked Overleaf project's source; its choice is this window's. */
+  marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
 
 // The menu keeps Apple's own wording (which can differ from the same English
@@ -60,6 +63,15 @@ export function nativeMenuLabels(): NativeMenuLabels {
     zoom: i18n._(msg({ context: "macOS menu bar", message: "Zoom" })),
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
+    ...marginReviewAvailable() ? {
+      marginReview: {
+        title: i18n._(msg({ context: "macOS menu bar", message: "Margin Review" })),
+        auto: i18n._(msg({ context: "macOS menu bar", message: "Auto" })),
+        markers: i18n._(msg({ context: "macOS menu bar", message: "Markers Only" })),
+        off: i18n._(msg({ context: "macOS menu bar", message: "Off" })),
+        mode: marginReviewMode(),
+      },
+    } : {},
   };
 }
 
@@ -90,14 +102,18 @@ function syncQuietly(): void {
   });
 }
 
-const currentLocaleKey = () => `${i18n.locale}|${loadAppearance().interfaceLanguage}`;
+// The margin review switch rides along: it is in the menu only while this
+// window shows margin review, and checked as this window has it.
+const currentLocaleKey = () =>
+  `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}`;
 
 // The last locale and preference sent while the sync is installed; `null`
 // when it is not.
 let lastSentLocaleKey: string | null = null;
 
 /**
- * Resend when the locale or the saved preference moved since the last send.
+ * Resend when the locale, the saved preference or this window's margin review
+ * switch moved since the last send.
  * Switching between "system" and an explicit language that resolves to the
  * same locale changes only the preference, so no catalog change reports it.
  */
@@ -120,6 +136,7 @@ export function installNativeLocaleSync(): () => void {
   lastSentLocaleKey = currentLocaleKey();
   syncQuietly();
   const stopLocale = i18n.on("change", syncNativeLocaleIfChanged);
+  const stopMarginReview = subscribeMarginReview(syncNativeLocaleIfChanged);
   let stopFocus = () => {};
   if (!isBrowserHosted()) {
     try {
@@ -134,6 +151,7 @@ export function installNativeLocaleSync(): () => void {
   return () => {
     lastSentLocaleKey = null;
     stopLocale();
+    stopMarginReview();
     stopFocus();
   };
 }

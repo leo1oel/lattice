@@ -11,7 +11,7 @@
  * wherever they are dropped in.
  */
 import { StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
-import { Decoration, EditorView, hoverTooltip, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, hoverTooltip, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
 import { element } from "../editor/dom-utils";
@@ -359,6 +359,76 @@ export function overleafTrackChangesExtension(options: TrackedChangeTooltipActio
         color: "inherit",
       },
       ".cm-tracked-change-tooltip-actions button:disabled": { opacity: "0.45", cursor: "default" },
+    }),
+  ];
+}
+
+// ---- margin review -------------------------------------------------------------
+
+/** The span whose card is pointed at or focused in margin review, and its author's colour. */
+export type MarginLinkedSpan = { from: number; to: number; color: string };
+
+export const setMarginLinkedEffect = StateEffect.define<MarginLinkedSpan | null>();
+
+/** The span's lines tinted in its author's colour, and the span itself a shade deeper. */
+function marginLinkedDecorations(doc: Text, span: MarginLinkedSpan): DecorationSet {
+  const from = Math.max(0, Math.min(span.from, doc.length));
+  const to = Math.max(from, Math.min(span.to, doc.length));
+  const style = `--margin-linked: ${span.color}`;
+  const first = doc.lineAt(from).number;
+  const last = doc.lineAt(to).number;
+  const ranges = [];
+  for (let number = first; number <= last; number += 1) {
+    ranges.push(Decoration.line({ class: "cm-margin-linked", attributes: { style } }).range(doc.line(number).from));
+  }
+  if (to > from) ranges.push(Decoration.mark({ class: "cm-margin-linked-span", attributes: { style } }).range(from, to));
+  return Decoration.set(ranges, true);
+}
+
+const marginLinkedField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    let next = value.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(setMarginLinkedEffect)) next = effect.value ? marginLinkedDecorations(tr.state.doc, effect.value) : Decoration.none;
+    }
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+/** The margin layer of each editor, told whenever its lines may have moved. */
+const marginGeometryListeners = new WeakMap<EditorView, () => void>();
+
+/** Call `listener` when `view`'s lines may have moved (an edit, a resize, a new viewport); returns the unsubscribe. */
+export function onMarginGeometry(view: EditorView, listener: () => void): () => void {
+  marginGeometryListeners.set(view, listener);
+  return () => {
+    if (marginGeometryListeners.get(view) === listener) marginGeometryListeners.delete(view);
+  };
+}
+
+const marginGeometry = ViewPlugin.define(() => ({
+  update(update: ViewUpdate) {
+    if (update.docChanged || update.geometryChanged || update.viewportChanged || update.heightChanged) {
+      marginGeometryListeners.get(update.view)?.();
+    }
+  },
+}));
+
+/**
+ * What margin review (overleaf-margin-review.tsx) needs from the editor: the
+ * tint on a card's lines, and word when the lines move. Part of every source
+ * editor, so a reconfigured editor keeps it; the layer itself loads only with
+ * a linked Overleaf project.
+ */
+export function marginReviewExtension(): Extension {
+  return [
+    marginLinkedField,
+    marginGeometry,
+    EditorView.baseTheme({
+      ".cm-margin-linked": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 7%, transparent)" },
+      ".cm-margin-linked-span": { backgroundColor: "color-mix(in srgb, var(--margin-linked) 16%, transparent)", borderRadius: "2px" },
     }),
   ];
 }
