@@ -884,22 +884,21 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive:is(:hover, :focus-visible):not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 .file-tree-context-menu > button.destructive > svg { color: inherit; }
 /* The count, then the filter and the sort at the end, on the search field's
-   measure. Each tool is a 28px icon with its label; below 250px the labels
-   give way and a weft dot on the icon says it is set, and below 210px the
-   count shortens to "2/24" (the long form stays for a screen reader). */
-.paper-list-toolbar { container: paper-toolbar / inline-size; width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+   measure (list-tool.css draws the tools). Below 300px the tools drop their
+   carets, below 230px they fold to their icons and a weft dot on the icon
+   says it is set, and below 210px the count shortens to "2/24" (the long form
+   stays for a screen reader). */
+.paper-list-toolbar { --list-tool-dot-ring: var(--surface-sidebar); container: paper-toolbar / inline-size; width: calc(100% - var(--space-5)); min-width: 0; margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-1); }
 .paper-list-count { flex: none; margin: 0 auto 0 0; padding-inline: var(--space-4); white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 .paper-count-short { display: none; }
-.paper-tool { position: relative; height: 28px; min-width: 28px; flex: 0 1 auto; padding: 0 var(--space-4); border-radius: var(--radius-control); display: inline-flex; align-items: center; gap: var(--space-3); background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.paper-tool > svg { flex: none; stroke-width: 1.5; }
-.paper-tool:hover, .paper-tool[data-state="open"] { background: var(--control-hover-surface); color: var(--text-primary); }
-.paper-tool[data-on] { color: var(--text-primary); }
-.paper-tool-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paper-tool[data-on]::after { content: ""; position: absolute; top: 5px; left: 18px; width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--mark-weft); box-shadow: 0 0 0 2px var(--surface-sidebar); display: none; }
-@container paper-toolbar (width < 250px) {
-  .paper-tool { width: 28px; padding: 0; justify-content: center; }
-  .paper-tool-label { display: none; }
-  .paper-tool[data-on]::after { display: block; }
+@container paper-toolbar (width < 300px) {
+  .paper-list-toolbar .list-tool { padding-inline-end: var(--pad-inline-control-tight); }
+  .paper-list-toolbar .list-tool-caret { display: none; }
+}
+@container paper-toolbar (width < 230px) {
+  .paper-list-toolbar .list-tool { width: var(--control-size-icon); padding: 0; justify-content: center; }
+  .paper-list-toolbar :is(.list-tool-text, .list-tool-caret) { display: none; }
+  .paper-list-toolbar .list-tool[data-on]::after { display: block; }
 }
 @container paper-toolbar (width < 210px) {
   .paper-count-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
