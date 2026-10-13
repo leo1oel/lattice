@@ -567,7 +567,15 @@ mod tests {
             .contains("Actual captured research content."));
         // No supplied page is necessary on the second visit, and no network
         // scrape occurs: the first render already populated the complete cache.
-        assert!(crate::papers::fetch_web_reference(root, url).unwrap().reused);
+        assert!(
+            crate::papers::fetch_web_reference(
+                root,
+                url,
+                &std::sync::atomic::AtomicBool::new(false)
+            )
+            .unwrap()
+            .reused
+        );
 
         let static_page = resolve_web_citation_with(url, Ok(html.into()), |_| {
             panic!("static metadata must not spend a scrape")
@@ -647,7 +655,15 @@ mod tests {
                     .unwrap();
             let markdown = read_paper(&project.root, &fetched.arxiv_id).unwrap();
             assert!(markdown.len() > 1000, "captured article is unexpectedly short");
-            assert!(crate::papers::fetch_web_reference(&project.root, &url).unwrap().reused);
+            assert!(
+                crate::papers::fetch_web_reference(
+                    &project.root,
+                    &url,
+                    &std::sync::atomic::AtomicBool::new(false)
+                )
+                .unwrap()
+                .reused
+            );
             eprintln!("Captured {} bytes of Markdown; repeat import reused cache.", markdown.len());
         }
         assert_eq!(project::parse_bibliography(&bib).remove(0).url.as_deref(), Some(url.as_str()));

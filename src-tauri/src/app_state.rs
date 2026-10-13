@@ -24,6 +24,9 @@ pub(crate) struct AppState {
     /// One import per window. The request id prevents a late Cancel click from
     /// stopping the next import after the UI has already moved on.
     pub(crate) paper_imports: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
+    /// Full-text downloads under way, by window and request id: several papers
+    /// can download at once, and each Cancel stops only its own.
+    pub(crate) paper_fetches: Mutex<HashMap<(String, String), Arc<AtomicBool>>>,
 }
 
 /// State that belongs to one project, not the process: with two windows open,
@@ -82,6 +85,7 @@ impl AppState {
             projects: Mutex::default(),
             overleaf_sync_started: tokio::sync::Mutex::new(None),
             paper_imports: Mutex::default(),
+            paper_fetches: Mutex::default(),
         }
     }
 

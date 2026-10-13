@@ -441,6 +441,6 @@ describe("Overleaf sync", () => {
     stubScrollBox(returnedViewport, 600, 2400);
     await waitFor(() => expect(returnedViewport.scrollTop).toBe(735));
     expect(invoke).not.toHaveBeenCalledWith("fetch_paper", expect.anything());
-    if (!cached) expect(invoke).toHaveBeenCalledWith("fetch_web_reference", { url });
+    if (!cached) expect(invoke).toHaveBeenCalledWith("fetch_web_reference", { url, requestId: expect.any(String) });
   });
 });

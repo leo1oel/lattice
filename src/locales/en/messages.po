@@ -1981,6 +1981,10 @@ msgstr "Cancel color selection"
 msgid "Cancel creation"
 msgstr "Cancel creation"
 
+#: src/project/paper-library.tsx
+msgid "Cancel download"
+msgstr "Cancel download"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Cancel repair"
 msgstr "Cancel repair"

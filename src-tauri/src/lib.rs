@@ -414,6 +414,7 @@ pub fn run() {
             ipc::papers::import_reference,
             ipc::papers::cancel_reference_import,
             ipc::papers::fetch_paper,
+            ipc::papers::cancel_paper_fetch,
             ipc::papers::paper_pdf_preview_url,
             ipc::papers::fetch_web_reference,
             ipc::papers::list_papers,

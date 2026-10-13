@@ -69,16 +69,57 @@ pub fn cancel_reference_import(
     Ok(true)
 }
 
+/// Run a full-text download that `cancel_paper_fetch` can stop under
+/// `request_id`. A cancelled download kills its converter, writes nothing
+/// into the library, and leaves the paper as it was.
+async fn cancellable_fetch(
+    state: &AppState, window: &Window, request_id: String, label: &'static str,
+    fetch: impl FnOnce(&std::path::Path, &AtomicBool) -> Result<papers::FetchResult, String>
+        + Send
+        + 'static,
+) -> Result<papers::FetchResult, String> {
+    let root = current_root(state, window)?;
+    let key = (window.label().to_string(), request_id);
+    let cancel = Arc::new(AtomicBool::new(false));
+    state
+        .paper_fetches
+        .lock()
+        .map_err(|_| "Paper download state is unavailable.".to_string())?
+        .insert(key.clone(), Arc::clone(&cancel));
+    let result = run_blocking(label, move || fetch(&root, &cancel)).await;
+    if let Ok(mut fetches) = state.paper_fetches.lock() {
+        fetches.remove(&key);
+    }
+    result
+}
+
 #[tauri::command]
 pub async fn fetch_paper(
     app: AppHandle, state: State<'_, AppState>, window: Window, arxiv_id: String,
+    request_id: String,
 ) -> Result<papers::FetchResult, String> {
     let window_label = window.label().to_string();
-    in_project(&state, &window, "Paper fetch", move |root| {
+    cancellable_fetch(&state, &window, request_id, "Paper fetch", move |root, cancel| {
         let progress = |stage: &str| emit_paper_progress(&app, &window_label, stage);
-        papers::fetch_paper(root, &arxiv_id, &progress)
+        papers::fetch_paper(root, &arxiv_id, &progress, cancel)
     })
     .await
+}
+
+/// Stop the download started under `request_id`; false when it already ended.
+#[tauri::command]
+pub fn cancel_paper_fetch(
+    state: State<'_, AppState>, window: Window, request_id: String,
+) -> Result<bool, String> {
+    let fetches = state
+        .paper_fetches
+        .lock()
+        .map_err(|_| "Paper download state is unavailable.".to_string())?;
+    let Some(cancel) = fetches.get(&(window.label().to_string(), request_id)) else {
+        return Ok(false);
+    };
+    cancel.store(true, Ordering::Release);
+    Ok(true)
 }
 
 #[tauri::command]
@@ -91,10 +132,12 @@ pub async fn paper_pdf_preview_url(
 
 #[tauri::command]
 pub async fn fetch_web_reference(
-    state: State<'_, AppState>, window: Window, url: String,
+    state: State<'_, AppState>, window: Window, url: String, request_id: String,
 ) -> Result<papers::FetchResult, String> {
-    let root = current_root(&state, &window)?;
-    run_blocking("Web reference fetch", move || papers::fetch_web_reference(&root, &url)).await
+    cancellable_fetch(&state, &window, request_id, "Web reference fetch", move |root, cancel| {
+        papers::fetch_web_reference(root, &url, cancel)
+    })
+    .await
 }
 
 #[tauri::command]

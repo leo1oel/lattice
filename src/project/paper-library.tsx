@@ -49,6 +49,8 @@ export type PaperLibraryProps = {
   onPaper: (paper: PaperSummary) => void;
   onLikelyPaper?: (paper: PaperSummary) => void;
   onFetchFullText: (paper: PaperSummary) => void;
+  /** Stops the downloads under way; each paper is left as it was. */
+  onCancelFetch: () => void;
   paperFetchStates: Record<string, PaperFetchState>;
   onDeletePaper: (paper: PaperSummary) => void;
   onEditBibEntry: (paper: PaperSummary) => void;
@@ -230,12 +232,36 @@ export function PaperLibrary(props: PaperLibraryProps) {
             // list already filters as you type, so Enter runs the full-text
             // pass now, and the add row looks the title up when chosen.
             onKeyDown={(event) => {
+              if (fetching && event.key === "Escape") {
+                event.preventDefault();
+                props.onCancelFetch();
+                return;
+              }
               if (event.key !== "Enter" || isComposing(event)) return;
               event.preventDefault();
               if (kind && kind !== "title") addPaper();
               else if (!fetching) searchNow();
             }}
-            trailing={(
+            // A download under way says what it is doing where the box's
+            // text was, and offers Cancel beside it; the status gives way to
+            // an ellipsis first, and Cancel to its icon in a narrow panel.
+            trailing={fetching ? (
+              <>
+                <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
+                  {props.importStage ?? t`Working…`}
+                </span>
+                <button
+                  type="button"
+                  className="paper-import-cancel"
+                  onClick={props.onCancelFetch}
+                  title={t`Cancel download`}
+                  aria-label={t`Cancel download`}
+                >
+                  <X size={13} className="paper-import-cancel-icon" aria-hidden="true" />
+                  <span className="paper-import-cancel-label">{t`Cancel`}</span>
+                </button>
+              </>
+            ) : (
               // Everything else there is to add, a pasted list or a whole .bib, goes through the sheet.
               <button
                 onClick={() => props.onAddPapers(query)}
@@ -247,14 +273,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
             )}
           />
           {fetching && (
-            <>
-              <div className="paper-import-track" aria-hidden="true">
-                <span ref={importFillRef} style={{ width: "0%" }} />
-              </div>
-              <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
-                {props.importStage ?? t`Working…`}
-              </span>
-            </>
+            <div className="paper-import-track" aria-hidden="true">
+              <span ref={importFillRef} style={{ width: "0%" }} />
+            </div>
           )}
         </div>
         {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} addRows={addRows} hasKind={Boolean(kind)} /> : (
