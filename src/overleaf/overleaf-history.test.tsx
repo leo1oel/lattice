@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
@@ -9,7 +9,10 @@ import type { OverleafFileEntry, OverleafUpdate } from "./use-overleaf-history";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 
-const NOW = Date.now();
+// Local noon, with the clock set to it below: the update a minute or two
+// before it is on today's date wherever and whenever the suite runs. Read off
+// the real clock, it fell on yesterday in a run just after midnight.
+const NOW = new Date(2026, 9, 13, 12).getTime();
 
 const update = (overrides: Partial<OverleafUpdate> = {}): OverleafUpdate => ({
   fromVersion: 10, toVersion: 11, startTs: NOW - 120_000, endTs: NOW - 60_000,
@@ -29,9 +32,14 @@ function mockHistory(files: OverleafFileEntry[], extra: CommandTable = {}, updat
   });
 }
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW, shouldAdvanceTime: true });
+});
+
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  vi.useRealTimers();
 });
 
 /** The history drawer of a linked project, on its Overleaf view. */

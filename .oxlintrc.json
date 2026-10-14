@@ -322,14 +322,6 @@
       }
     },
     {
-      // The midnight flake in the Known flakes issue (#342), which the
-      // ci-flakes fix replaces. Delete this block when that lands.
-      "files": ["src/overleaf/overleaf-history.test.tsx"],
-      "rules": {
-        "lattice/module-clock": "off"
-      }
-    },
-    {
       // Headless primitives are styled once, in src/components/ui; feature code
       // uses those wrappers so menus, popovers and dialogs keep one look. The
       // rule restates the Open Knowledge guard because a later override replaces

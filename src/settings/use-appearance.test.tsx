@@ -59,8 +59,13 @@ describe("useAppearance", () => {
 
     vi.mocked(invoke).mockImplementation(async (command) => command === "set_window_material" ? "reducedTransparency" : undefined);
     act(() => { window.dispatchEvent(new Event("focus")); });
-    await waitFor(() => expect(document.documentElement.dataset.glass).toBeUndefined());
-    expect(result.current.windowBacking).toBe("reducedTransparency");
+    // Both in one wait: `renderHook` hands over `result.current` in a passive
+    // effect, after the layout effect that clears `data-glass`, and a loaded
+    // runner can resume this test between the two.
+    await waitFor(() => {
+      expect(document.documentElement.dataset.glass).toBeUndefined();
+      expect(result.current.windowBacking).toBe("reducedTransparency");
+    });
   });
 
   it("follows the system appearance by default and tracks later OS changes", async () => {
