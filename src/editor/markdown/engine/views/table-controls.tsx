@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 import type { Editor } from "@tiptap/react";
 import { CellSelection } from "@tiptap/pm/tables";
 import {
@@ -253,7 +254,7 @@ export function TableControls({ editor, layer, paperMode }: { editor: Editor; la
         />
       )}
       {(geometry.canMerge || geometry.canSplit) && (
-        <div className="lx-md-table-span-toolbar" role="toolbar" aria-label={t`Table cells`} style={{ left: geometry.cells.x, top: geometry.cells.y }}>
+        <div className={`lx-md-table-span-toolbar ${popupMotionClassName}`} data-side="top" role="toolbar" aria-label={t`Table cells`} style={{ left: geometry.cells.x, top: geometry.cells.y }}>
           {geometry.canMerge && (
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={run(mergeSelectedCells)}>
               <TableCellsMerge aria-hidden="true" />{t`Merge cells`}

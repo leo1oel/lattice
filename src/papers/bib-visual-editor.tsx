@@ -448,8 +448,8 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
         />
         {/* Filter and sort as the Papers library sets them: each names what
             it does, then what it is set to; a narrow pane folds them, and
-            Add, to their icons. */}
-        <DropdownMenu>
+            Add, to their icons. Not modal, as those are not. */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <ListTool
               icon={<ListFilter size={14} aria-hidden="true" />}
@@ -470,7 +470,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <ListTool
               icon={<ArrowDownUp size={14} aria-hidden="true" />}

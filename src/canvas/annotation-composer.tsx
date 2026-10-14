@@ -3,6 +3,8 @@ import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
 import { comboText, parseKeyName } from "../app/key-combos";
 import { Button } from "../components/ui/button";
+import { useExitPicture } from "../components/ui/exit-picture";
+import { popupMotionClassName } from "../components/ui/popup-motion";
 import { Textarea } from "../components/ui/textarea";
 import {
   ANNOTATION_INTENTS,
@@ -137,6 +139,8 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
   const { t } = useLingui();
   const popupRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useLatestRef(draft);
+  // It grows from the text it quotes as every popup does, and leaves on the popup exit.
+  useExitPicture([popupRef]);
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");
@@ -160,6 +164,7 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
       Object.assign(popup.style, { visibility: "visible", width: `${width}px` });
       // Choose a side once so scrolling cannot make the draft jump across its text.
       if (above === undefined) above = bottom - below - 8 < popup.offsetHeight && anchor.top - top > bottom - below;
+      popup.dataset.side = above ? "top" : "bottom";
       Object.assign(popup.style, {
         left: `${clamp(anchor.left - bounds.left, 8, Math.max(8, bounds.width - width - 8))}px`,
         top: `${(above ? anchor.top - 8 : below + 8) - bounds.top}px`,
@@ -174,7 +179,7 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
   return (
     <div
       ref={popupRef}
-      className="editor-comment-popover annotation-composer"
+      className={`editor-comment-popover annotation-composer ${popupMotionClassName}`}
       style={{ bottom: "auto", right: "auto" }}
       role="dialog"
       aria-label={t`Annotate`}

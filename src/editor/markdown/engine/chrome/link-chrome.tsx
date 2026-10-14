@@ -288,7 +288,7 @@ function CitationEditor({ editor, host, at }: { editor: Editor; host: ChromeHost
     }
   };
   return createPortal(
-    <div ref={setElement} className="lx-md-link-editor is-citation" role="dialog" aria-label={t`Edit link`} style={{ position: "fixed", left: 0, top: 0 }}>
+    <div ref={setElement} className={`lx-md-link-editor is-citation ${popupMotionClassName}`} role="dialog" aria-label={t`Edit link`} style={{ position: "fixed", left: 0, top: 0 }}>
       <Input autoFocus controlSize="compact" aria-label={t`Citation title`} value={label} onChange={(event) => setLabel(event.target.value)} onKeyDown={keys} />
       <Input controlSize="compact" aria-label={t`Link URL`} value={href} spellCheck={false} aria-invalid={UNSAFE_URL.test(href) || undefined} onChange={(event) => setHref(event.target.value)} onKeyDown={keys} />
       <span className="lx-md-link-editor-actions">

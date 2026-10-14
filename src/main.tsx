@@ -19,6 +19,7 @@ import { UpdaterProvider } from "./telemetry/app-updater";
 import { RootErrorBoundary } from "./telemetry/root-error-boundary";
 import { ToastStack } from "./telemetry/toast-stack";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
+import { TipProvider } from "./components/icon-tip";
 import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
@@ -55,8 +56,10 @@ async function startApp() {
         <RootErrorBoundary>
           <UpdaterProvider>
             <ConfirmActionProvider>
-              <App />
-              <ToastStack />
+              <TipProvider>
+                <App />
+                <ToastStack />
+              </TipProvider>
             </ConfirmActionProvider>
           </UpdaterProvider>
         </RootErrorBoundary>

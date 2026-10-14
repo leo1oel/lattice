@@ -17,6 +17,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } 
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, X } from "lucide-react";
 import { IconButton } from "../../../../components/ui/icon-button";
+import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 import { revealPosition } from "../block-window";
 import type { ChromeHost } from "./chrome-host";
 
@@ -198,7 +199,7 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
     editor.view.dispatch(transaction);
   };
   return (
-    <div className="lx-md-find" role="search" aria-label={t`Find in document`}>
+    <div className={`lx-md-find ${popupMotionClassName}`} role="search" aria-label={t`Find in document`}>
       <div className="lx-md-find-row">
         <IconButton size="compact" tooltip={false} label={t`Show replace`} aria-expanded={showReplace} onClick={() => setShowReplace(!showReplace)}>
           <ChevronDown aria-hidden="true" className={showReplace ? "is-open" : undefined} />

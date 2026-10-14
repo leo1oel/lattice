@@ -90,27 +90,6 @@ export function StateSwap({ swapKey, children }: { swapKey: string; children: Re
 }
 
 /**
- * Spring pop-in for a small floating surface (a selection toolbar, a card):
- * the moderate tier popups run on, travelling a few pixels out from the side
- * it opens on (`side`, the side of its anchor it stands on) as `.popup-motion`
- * does in CSS. Leaving, it fades where it stands.
- */
-export function PopIn({ children, side = "top", ...rest }: HTMLMotionProps<"div"> & { side?: "top" | "bottom" }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <motion.div
-      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: side === "top" ? 4 : -4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, ...(reduceMotion ? {} : { scale: 0.99 }), transition: springExit.moderate }}
-      transition={spring.moderate}
-      {...rest}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-/**
  * Swaps one icon for another while the pointer is over the enclosing control,
  * springing between them rather than cutting.
  *
