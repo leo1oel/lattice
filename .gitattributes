@@ -1,0 +1,6 @@
+# The Lingui catalogs are generated and sorted by message, so parallel branches
+# that each add a string collide on adjacent lines. scripts/merge-po.mjs merges
+# them entry by entry; register it once per clone with
+# `node scripts/merge-po.mjs --install` (CONTRIBUTING.md). Unregistered, git
+# falls back to its normal text merge.
+src/locales/**/*.po merge=lingui-po

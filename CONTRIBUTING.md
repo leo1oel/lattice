@@ -79,7 +79,15 @@ You will need:
 ```bash
 corepack enable      # only if you are not using mise
 pnpm install
+node scripts/merge-po.mjs --install   # once per clone; worktrees share it
 ```
+
+The last line registers the merge driver [`.gitattributes`](.gitattributes)
+names for the Lingui catalogs (`src/locales/*/messages.po`). Without it, two
+branches that each add a string conflict on the generated catalogs; with it,
+git unions their entries and only stops when both sides translated the same
+message differently. Run `pnpm i18n:check` after such a merge: it re-extracts
+from the merged source, so a wrong union fails there rather than in CI.
 
 ### You probably do not need to build the bundled runtimes
 
