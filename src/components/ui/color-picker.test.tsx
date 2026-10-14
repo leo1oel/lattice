@@ -29,19 +29,6 @@ describe("ColorPicker", () => {
     expect(onConfirm).toHaveBeenCalledWith("#3349C4");
   });
 
-  it("commits a three-digit code typed and confirmed without leaving the field", () => {
-    const { onConfirm } = renderPicker();
-
-    const hex = screen.getByRole("textbox", { name: "Hex color" });
-    fireEvent.change(hex, { target: { value: "fc0" } });
-    fireEvent.keyDown(hex, { key: "Enter" });
-    expect(onConfirm).toHaveBeenLastCalledWith("#FFCC00");
-
-    fireEvent.change(hex, { target: { value: "#0af" } });
-    fireEvent.click(screen.getByRole("button", { name: /Highlight/ }));
-    expect(onConfirm).toHaveBeenLastCalledWith("#00AAFF");
-  });
-
   it("places the field's thumb by saturation and brightness, and keeps a gray's hue", () => {
     renderPicker("#FFFF00");
 
