@@ -676,8 +676,11 @@
    The Providers/MCP/Skills pages live in the Synara iframe and set the same
    step from their own copy of these values (see the note on the roles). The
    select popup is portalled out of the dialog, so it carries the same scope or
-   its items would fall back to the chrome size its trigger no longer uses. */
+   its items would fall back to the chrome size its trigger no longer uses; a
+   theme preview inside the dialog restates the base roles (theme.css), so it
+   takes the step again. */
 .settings-modal,
+.settings-modal [data-theme-preview],
 [data-slot="select-content"][data-settings-control="true"] {
   /* Display is already the one title on its page; it does not step up. */
   --type-display-size: 30px;
