@@ -6,6 +6,9 @@
 // frame and asks that page for itself as an image (PREVIEW_CAPTURE_SOURCE in
 // tools/open-slide-runtime/server.mjs). It works without the agent's shell or
 // a local browser, and in a browser-hosted workspace as in the native window.
+// It first asks the runtime to compile the deck: a deck that does not build is
+// answered with `presentation_build_failed` and Vite's located errors, which
+// the agent fixes before handing the deck over.
 
 import { invoke } from "@tauri-apps/api/core";
 import { isRecord, toMessage } from "../app-utils";
@@ -51,7 +54,17 @@ type PresentationRuntimeInfo = {
   projectRoot?: string | null;
   origin: string | null;
   sessionUrl: string | null;
+  controlToken: string | null;
   leaseId: string | null;
+};
+
+/** One entry of the runtime's `/__lattice/build-errors/<deck>` answer (`deckBuildErrors` in server.mjs). */
+type BuildError = {
+  file: string | null;
+  line: number | null;
+  column: number | null;
+  message: string;
+  frame: string | null;
 };
 
 type CaptureReply = {
@@ -116,6 +129,10 @@ async function previewPage(
     // file watcher's debounced refresh has reached the runtime's copy.
     const refresh = activeOpenSlideRefresh(projectRoot);
     await (refresh ? refresh() : invoke("presentation_refresh_native_workspace", { projectRoot }));
+    // A deck that does not compile reaches the preview page only as WebKit's
+    // "Importing a module script failed.", which names nothing to fix.
+    const buildErrors = await deckBuildErrors(info, args.deck);
+    if (buildErrors) throw toolError(buildErrors, "presentation_build_failed");
     const url = new URL(`/__lattice/preview/${args.deck}`, info.origin);
     url.searchParams.set("token", token);
     url.searchParams.set("p", String(args.page));
@@ -125,6 +142,25 @@ async function previewPage(
   } finally {
     if (info.leaseId) void invoke("presentation_release", { projectRoot, leaseId: info.leaseId }).catch(() => undefined);
   }
+}
+
+/**
+ * The deck's compile errors as one message, or null when it compiles. A check
+ * that cannot run leaves the verdict to the page preview itself.
+ */
+async function deckBuildErrors(info: PresentationRuntimeInfo, deck: string): Promise<string | null> {
+  if (!info.origin || !info.controlToken) return null;
+  const errors = await fetch(new URL(`/__lattice/build-errors/${deck}`, info.origin), {
+    headers: { authorization: `Bearer ${info.controlToken}` },
+  })
+    .then(async (response) => (response.ok ? ((await response.json()) as { errors?: BuildError[] }).errors : undefined))
+    .catch(() => undefined);
+  if (!errors?.length) return null;
+  const described = errors.map(({ file, line, column, message, frame }) => {
+    const where = file ? `${file}${line ? `:${line}${column !== null ? `:${column}` : ""}` : ""}: ` : "";
+    return `${where}${message}${frame ? `\n${frame}` : ""}`;
+  });
+  return `Deck "${deck}" does not build, so no page of it can render. Fix ${errors.length === 1 ? "this error" : `these ${errors.length} errors`}, then preview again:\n\n${described.join("\n\n")}`;
 }
 
 function previewResult(args: PreviewArgs, reply: CaptureReply): PreviewPageResult {

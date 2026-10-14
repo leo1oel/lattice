@@ -3,8 +3,10 @@ import test from "node:test";
 import {
   createAccessPolicy,
   createBootstrapDocument,
+  DECK_ERROR_OVERLAY_SOURCE,
   createMutationQueue,
   createOpenSlideSessionScript,
+  deckBuildErrors,
   isSameOriginBrowserRequest,
   listUsedGlobalAssetNames,
   migrateLegacySlideAssets,
@@ -24,7 +26,7 @@ import {
   transformOpenSlideToolbar,
 } from "./server.mjs";
 import { execFile } from "node:child_process";
-import { copyFile, mkdtemp, mkdir, readdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, mkdir, readdir, readFile, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -33,6 +35,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import { transform as transformTsx } from "esbuild";
+import { createServer as createViteServer } from "vite";
 import katex from "katex";
 import * as icons from "./lucide-open-slide.mjs";
 
@@ -451,7 +454,7 @@ test("migrates legacy deck assets into the project library and reports bridge mu
   await Promise.all([
     writeFile(path.join(root, "assets", "hero.png"), "existing-global"),
     writeFile(path.join(localAssets, "hero.png"), "deck-specific"),
-    writeFile(path.join(localAssets, "notes.txt"), "unused but preserved"),
+    writeFile(path.join(localAssets, "notes.txt"), "not imported, so left in place"),
     writeFile(path.join(localAssets, "interactive.html"), "<div>interactive</div>"),
     writeFile(
       entry,
@@ -469,9 +472,10 @@ test("migrates legacy deck assets into the project library and reports bridge mu
   await queue.seed();
   const result = await migrateLegacySlideAssets(root, queue);
   await delay(80);
-  assert.deepEqual(result, { copied: 2, rewritten: 1, removed: 2 });
+  assert.deepEqual(result, { copied: 1, rewritten: 1, removed: 1 });
   assert.equal(await readFile(path.join(root, "assets", "hero-1.png"), "utf8"), "deck-specific");
-  assert.equal(await readFile(path.join(root, "assets", "notes.txt"), "utf8"), "unused but preserved");
+  assert.equal(await readFile(path.join(localAssets, "notes.txt"), "utf8"), "not imported, so left in place");
+  await assert.rejects(readFile(path.join(root, "assets", "notes.txt")));
   const migratedSource = await readFile(entry, "utf8");
   assert.match(migratedSource, /from '@assets\/hero-1\.png'/);
   assert.match(migratedSource, /from '\.\/assets\/interactive\.html\?raw'/);
@@ -483,6 +487,151 @@ test("migrates legacy deck assets into the project library and reports bridge mu
   assert.ok(paths.includes("slides/talk/assets/hero.png"));
   close();
   assert.equal(queue.connected(), false);
+}));
+
+test("leaves a deck's assets in place until its entry imports them", () => withTempRoot(async (root) => {
+  // The agent writes a deck's images first and the entry importing them as
+  // `./assets/...` afterward. Moving the images in between left that import
+  // pointing at files that were no longer there.
+  const deck = path.join(root, "slides", "talk");
+  await mkdir(path.join(deck, "assets"), { recursive: true });
+  await writeFile(path.join(deck, "assets", "chart.png"), "chart");
+  await writeFile(path.join(deck, "index.tsx"), "export default [];\n");
+
+  assert.deepEqual(await migrateLegacySlideAssets(root), { copied: 0, rewritten: 0, removed: 0 });
+  assert.equal(await readFile(path.join(deck, "assets", "chart.png"), "utf8"), "chart");
+  await assert.rejects(readFile(path.join(root, "assets", "chart.png")));
+
+  await writeFile(path.join(deck, "index.tsx"), "import chart from './assets/chart.png';\nexport default [chart];\n");
+  assert.deepEqual(await migrateLegacySlideAssets(root), { copied: 1, rewritten: 1, removed: 1 });
+  assert.equal(await readFile(path.join(root, "assets", "chart.png"), "utf8"), "chart");
+  assert.match(await readFile(path.join(deck, "index.tsx"), "utf8"), /from '@assets\/chart\.png'/);
+}));
+
+test("migrates deck-local assets only when the runtime starts, never as files arrive", async () => {
+  const server = await readFile(new URL("./server.mjs", import.meta.url), "utf8");
+  assert.equal(server.match(/legacyMigrationNeeded = true;/g)?.length, 2, "only the initial value and the retry after a failure");
+});
+
+test("reports each unresolved import of a deck with its project-relative location", () => withTempRoot(async (root) => {
+  root = await realpath(root);
+  const deck = path.join(root, "slides", "talk");
+  await mkdir(path.join(deck, "assets"), { recursive: true });
+  await mkdir(path.join(root, "assets"), { recursive: true });
+  await Promise.all([
+    writeFile(path.join(deck, "assets", "present.png"), "png"),
+    writeFile(path.join(root, "assets", "shared.json"), "{}"),
+    writeFile(path.join(deck, "helper.ts"), "import data from '../../assets/missing-data.json';\nexport const helper = data;\n"),
+    writeFile(path.join(deck, "styles.css"), "body { color: red; }\n"),
+    writeFile(
+      path.join(deck, "index.tsx"),
+      [
+        "import present from './assets/present.png';",
+        "import shared from '../../assets/shared.json';",
+        "import { helper } from './helper';",
+        "import './styles.css';",
+        "import missing from './assets/clip-embedding.png';",
+        "export default [present, shared, helper, missing];",
+        "",
+      ].join("\n"),
+    ),
+  ]);
+  // Like Open Slide's, this server is rooted outside the project.
+  const app = path.join(root, ".app");
+  await mkdir(app);
+  const vite = await createViteServer({
+    root: app,
+    configFile: false,
+    logLevel: "silent",
+    cacheDir: path.join(app, ".vite"),
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null, fs: { allow: [root] } },
+  });
+  try {
+    const errors = await deckBuildErrors(vite.environments.client, root, "talk");
+    assert.deepEqual(errors.map(({ file, line }) => [file, line]), [["slides/talk/index.tsx", 5]]);
+    assert.match(errors[0].message, /Failed to resolve import "\.\/assets\/clip-embedding\.png"/);
+    assert.equal(errors[0].frame, "5 | import missing from './assets/clip-embedding.png';");
+
+    // With the entry fixed, the check reaches the helper it imports.
+    await writeFile(
+      path.join(deck, "index.tsx"),
+      "import present from './assets/present.png';\nimport { helper } from './helper';\nexport default [present, helper];\n",
+    );
+    await vite.environments.client.moduleGraph.invalidateAll();
+    const nested = await deckBuildErrors(vite.environments.client, root, "talk");
+    assert.deepEqual(nested.map(({ file, line }) => [file, line]), [["slides/talk/helper.ts", 1]]);
+
+    await writeFile(path.join(deck, "helper.ts"), "export const helper = 1;\n");
+    await vite.environments.client.moduleGraph.invalidateAll();
+    assert.deepEqual(await deckBuildErrors(vite.environments.client, root, "talk"), []);
+  } finally {
+    await vite.close();
+  }
+}));
+
+test("a deck reload dismisses the error overlay raised for that deck's files", () => {
+  const overlay = (file) => ({
+    closed: false,
+    shadowRoot: { querySelector: (selector) => (selector === ".file" ? { textContent: file } : null) },
+    close() { this.closed = true; },
+  });
+  const talk = overlay("/shadow/workspace/slides/talk/index.tsx:3:26");
+  const paper = overlay("/shadow/workspace/slides/paper/index.tsx:1:1");
+  const listeners = new Map();
+  const hot = { on: (event, listener) => listeners.set(event, listener) };
+  const document = { querySelectorAll: (selector) => (selector === "vite-error-overlay" ? [talk, paper] : []) };
+  runInNewContext(DECK_ERROR_OVERLAY_SOURCE.replaceAll("import.meta.hot", "hot"), { hot, document });
+
+  listeners.get("open-slide:slide-changed")({ slideIds: ["talk"] });
+  assert.equal(talk.closed, true);
+  assert.equal(paper.closed, false);
+});
+
+test("a deck that imported a missing asset reloads and builds once the asset is written", () => withTempRoot(async (root) => {
+  // Vite retries a module whose import failed to resolve when a file is
+  // created, and reloads the page, which drops the error overlay. Only an
+  // edit to the entry itself goes through Open Slide's own reload instead
+  // (see DECK_ERROR_OVERLAY_SOURCE).
+  root = await realpath(root);
+  const deck = path.join(root, "slides", "talk");
+  await mkdir(path.join(deck, "assets"), { recursive: true });
+  await writeFile(
+    path.join(deck, "index.tsx"),
+    "import clip from './assets/clip-embedding.png';\nexport default [clip];\n",
+  );
+  const app = path.join(root, ".app");
+  await mkdir(app);
+  const vite = await createViteServer({
+    root: app,
+    configFile: false,
+    logLevel: "silent",
+    cacheDir: path.join(app, ".vite"),
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { middlewareMode: true, ws: false, fs: { allow: [root] } },
+  });
+  const sent = [];
+  const hot = vite.environments.client.hot;
+  const send = hot.send.bind(hot);
+  hot.send = (payload, ...rest) => {
+    sent.push(payload);
+    return send(payload, ...rest);
+  };
+  try {
+    // Open Slide watches the decks, which live outside Vite's root.
+    vite.watcher.add(path.join(root, "slides"));
+    for (let waited = 0; !vite.watcher.getWatched()[deck] && waited < 10_000; waited += 50) await delay(50);
+    const [missing] = await deckBuildErrors(vite.environments.client, root, "talk");
+    assert.match(missing.message, /Failed to resolve import "\.\/assets\/clip-embedding\.png"/);
+
+    await writeFile(path.join(deck, "assets", "clip-embedding.png"), "png");
+    const reloads = () => sent.filter((payload) => payload?.type === "full-reload" || payload?.type === "update");
+    for (let waited = 0; reloads().length === 0 && waited < 10_000; waited += 50) await delay(50);
+    assert.ok(reloads().length > 0, JSON.stringify(sent));
+    assert.deepEqual(await deckBuildErrors(vite.environments.client, root, "talk"), []);
+  } finally {
+    await vite.close();
+  }
 }));
 
 test("renames a project asset and rewrites every presentation reference", () => withTempRoot(async (root) => {

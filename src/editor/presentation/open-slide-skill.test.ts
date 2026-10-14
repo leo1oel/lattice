@@ -28,6 +28,11 @@ describe.each([
       "import only that HTML file with `?raw`",
       "leave existing image and media imports unchanged",
     ],
+    "previews a deck until it builds before handing it over": [
+      "`presentation_build_failed`",
+      "`file:line:column`",
+      "never hand over a deck whose preview fails",
+    ],
     "applies bundled themes when authoring a new deck": [
       "inspect markdown files under `themes/`",
       "read its markdown end to end",
