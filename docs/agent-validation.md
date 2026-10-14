@@ -14,6 +14,12 @@ directly proves your change, once:
 - a new or changed script, invoked once on a real input;
 - for UI work, the mock-backend page in [`driving-the-app.md`](driving-the-app.md).
 
+Before pushing any change to `src/`, run `pnpm gate:changed` once (about
+1.5 min): lint, typecheck, the i18n catalogs, the tests `vitest related` finds
+from your changed files, and `pnpm test:invariants`, the tests that read
+stylesheets and fixtures no import leads to. Do not assemble your own list of
+test files; CI runs everything else.
+
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
 release; see [`release-process.md`](release-process.md). When you do run it and
@@ -29,6 +35,14 @@ it is green locally but red in CI, suspect its freshness cache first:
    disconfirm it.
 3. Re-run only the failing test or command until it passes, then push; CI
    re-runs the rest.
+
+A local `pnpm perf:bench --check` red is not yet a finding: the ceilings were
+set on CI runners, and a laptop running other lanes' builds can measure a count
+above one on main itself. Run
+`pnpm perf:bench --against origin/main --only <scenario>` for an A/B of the
+same scenarios on both builds. A gated count that moves by a commit or two, or
+not at all, is noise; one your change multiplies is yours. A CI layout or
+scenario failure's screenshot is an artifact on the run's page.
 
 ## Checkpoint / resume
 

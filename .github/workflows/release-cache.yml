@@ -39,14 +39,57 @@ on:
 permissions:
   contents: read
 
-# One warm build at a time; a newer commit's cache supersedes an older one.
-concurrency:
-  group: release-cache
-  cancel-in-progress: true
-
 jobs:
+  # The two caches have different inputs, and the push filter above is their
+  # union. A Synara pin bump moves only the runtime's: it was 8 of this
+  # workflow's 10 runs in one busy round, and each also rebuilt the Rust
+  # dependency graph on macOS (2.5–11 min), competing with CI's `rust` and
+  # WebKit jobs for the five macOS runners the account gets, for a cache
+  # whose inputs had not moved. So `warm` runs only when a Rust input changed
+  # in this push. The schedule, a manual run, and anything this cannot
+  # classify still run both.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.classify.outputs.rust }}
+    steps:
+      - if: github.event_name == 'push'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          rust=true
+          # A new branch's BEFORE is all zeros and fetches nothing: warm.
+          if [ "$EVENT" = push ] && { git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+            || git fetch --quiet --depth=1 origin "$BEFORE"; }; then
+            if changed=$(git -c core.quotePath=false diff --no-renames --name-only "$BEFORE" HEAD); then
+              rust=false
+              while IFS= read -r path; do
+                case "$path" in
+                  src-tauri/Cargo.toml | src-tauri/Cargo.lock | rust-toolchain.toml | .github/workflows/release-cache.yml)
+                    echo "rust input: $path"
+                    rust=true ;;
+                esac
+              done <<< "$changed"
+            fi
+          fi
+          echo "rust=$rust" | tee -a "$GITHUB_OUTPUT"
+
   warm:
+    needs: changes
+    # Fails open: a broken classification warms anyway.
+    if: ${{ !cancelled() && needs.changes.outputs.rust != 'false' }}
     runs-on: macos-latest
+    # One warm build at a time; a newer commit's cache supersedes an older
+    # one. Per job, so a pin bump's runtime build never cancels a dependency
+    # build still running for an earlier lockfile change, or the reverse.
+    concurrency:
+      group: release-cache-rust
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 
@@ -97,6 +140,9 @@ jobs:
 
   synara:
     runs-on: macos-latest
+    concurrency:
+      group: release-cache-synara
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 

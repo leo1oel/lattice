@@ -21,6 +21,8 @@
     "lint": "oxlint src tools --max-warnings 30",
     "knip": "knip",
     "test": "vitest run",
+    "test:invariants": "node scripts/test-invariants.mjs",
+    "gate:changed": "node scripts/gate-changed.mjs",
     "test:e2e-harness": "LATTICE_E2E=1 vitest run scripts/perf-bench/smoke.test.mjs",
     "tauri": "tauri",
     "verify:overleaf": "node scripts/verify-overleaf.mjs",
