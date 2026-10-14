@@ -59,7 +59,7 @@ The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox;
 The two supported `ps`-shaped queries return PID/parent relationships and opaque birth-time identities rather than command-line arguments.
 A missing PID is a successful empty result; the pinned fork treats every nonzero host snapshot exit as unknown rather than proof of exit.
 The fork selects the host's opaque-identity protocol when `SYNARA_PROCESS_PS_PATH` is set and retains upstream's `lstart` identity checks for ordinary `ps`.
-This behavior and its regression tests now live in Synara's `processTreeController`, rather than a compiled-bundle staging patch.
+This behavior and its regression tests now live in Synara's `processTreeController`, rather than a compiled-bundle staging patch; both its synchronous scan and the asynchronous teardown scan Synara 1.0.4 added use the host launcher.
 Startup verifies the launcher inside the sandbox before admitting agent work.
 
 The macOS host sets `LATTICE_BIBLIOGRAPHY_SANDBOX=1` only when launching the service through its bibliography sandbox.
@@ -84,18 +84,18 @@ The read-only `read_editor_comments` tool uses the authenticated host relay to q
 Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
 Neither the context nor the tool mutates comments.
 
-The fork as a whole is **not** small. Measured on 2026-10-12 against upstream
-`v1.0.3` (`9e01962e0b1e8fec9fb0e17f17a64017bc4eaf94`), the current integration changes
-**652 files, +62,676 / −7,169 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-14 against upstream
+`v1.0.4` (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`), the current integration changes
+**709 files, +73,774 / −8,249 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.3 HEAD
+git diff --shortstat v1.0.4 HEAD
 ```
 
-The current pin is the upstream **1.0.3 stable release**, merged with the complete previous
-`amp/lattice-v1.0.1-sync` history (which carries the earlier `amp/lattice-v1.0.0-sync` history). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.4 stable release**, merged with the complete previous
+`amp/lattice-v1.0.3-sync` history (which carries the earlier `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -200,6 +200,15 @@ Their embedded-panel copy is in the zh-CN catalog.
 Upstream's chat-managed Tasks tools (`synara_create_todo`, `synara_list_todos`, `synara_update_todo`) have no Lattice alias, so `adaptToolsForActiveHost` drops them: Tasks has no surface in Lattice, and a to-do list the writer cannot see would only confuse the agent's task vocabulary.
 Provider enablement stays ungated in the Lattice profile; the new per-account instance list still reaches the gateway and External MCP callers.
 The fork treats `defaults read com.openai.codex` answering "Domain … not found" (macOS 27's wording for a user who never ran Codex) as no managed preference, so Proofread's isolated Codex path no longer fails closed there.
+
+### Synara 1.0.4 compatibility
+
+The 1.0.4 integration adds faster long-chat opening and steadier scrolling: unmeasured transcript rows get a content-aware size hint through upstream's `@legendapp/list` patch, which the fork's patch file now carries together with Lattice's floating-composer anchoring dependency, and the open chat subscribes once at startup instead of twice.
+A quit marks a running turn interrupted; after an unexpected stop (Lattice or the sidecar killed mid-turn), the next start sends the chat a guarded continuation that tells the agent to verify what already completed. The fork lets that recovery find the running turn's request through its pending message, which upstream's stored messages do not link, and the continuation names Lattice rather than Synara because it reaches the model. Codex turns also survive delayed terminal notifications.
+The Lattice host policy now tells the agent to repeat `wait_for_tasks` with the returned run ids until every delegated task is terminal, as upstream's own policy does.
+The sidebar's **Working and unread on top** ordering, browser tabs that keep their page, and Hubs keeping their chosen access mode are standalone surfaces that Lattice does not embed.
+Inline visuals (`synara_show_visual`) are Beta-only, so the Stable feature boundary keeps them out of Lattice; the Computer Use paste and recovery fixes leave the boundary above unchanged.
+Pi still runs on the bundled SDK without a CLI probe, but now reports "not set up" (localized in zh-CN) when neither an instance API key nor a configured Pi credentials or models file exists, instead of showing ready.
 
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **28** names that pass the filter *without* being
 renamed. They are not all Lattice code:
