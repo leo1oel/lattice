@@ -67,3 +67,7 @@ pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_1
 pub(crate) const SESSION_EXPIRED: &str =
     "Overleaf session expired. Reconnect in Settings → Overleaf.";
 pub(crate) const NOT_CONNECTED: &str = "Not connected to Overleaf. Connect in Settings → Overleaf.";
+/// A request answered as if signed out while the dashboard still accepts the
+/// session: retried a few times, then reported as this project's access.
+pub(crate) const SESSION_STILL_VALID: &str =
+    "Overleaf turned this request away, though the session is still valid.";

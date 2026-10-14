@@ -77,3 +77,12 @@ export function onOverleafEvent(
     },
   );
 }
+
+/**
+ * Run `handler` in every window whenever Overleaf turns the stored session
+ * away (`SESSION_EVENT` in src-tauri/src/ipc/overleaf.rs), so each surface
+ * re-reads the one account state instead of keeping its own idea of it.
+ */
+export function onOverleafSessionChanged(handler: () => void): () => void {
+  return subscribeTauriEvent<null>("overleaf-session", () => handler());
+}

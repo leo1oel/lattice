@@ -15,7 +15,7 @@ use super::api::{
 use super::files::*;
 use super::link::{load_state, now_iso, save_state, Refusal, SyncState, PAUSED};
 use super::review::{history_since, HistoryFrom};
-use crate::overleaf_rt::{EntityEntry, NOT_CONNECTED, SESSION_EXPIRED};
+use crate::overleaf_rt::{EntityEntry, NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
 use reqwest::blocking::Client;
@@ -605,6 +605,11 @@ pub fn classify_sync_error(error: &str) -> Failure {
         Failure {
             kind: "session_expired",
             fix: "Reconnect in Settings → Overleaf, then sync again.",
+        }
+    } else if error == SESSION_STILL_VALID {
+        Failure {
+            kind: "server_refused",
+            fix: "Check the project still opens on Overleaf, then sync again.",
         }
     } else if error == PAUSED {
         Failure { kind: "paused", fix: "Resume syncing in Settings → Overleaf." }

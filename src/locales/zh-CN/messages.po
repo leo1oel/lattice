@@ -7789,6 +7789,10 @@ msgstr "Overleaf 历史里留有副本"
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf 上保留"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
+msgstr "Overleaf 一直拒绝这个项目的实时协作，但你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目。"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
 msgstr "Overleaf 按文件保存修订建议，这里显示当前文件的建议"
@@ -7812,6 +7816,10 @@ msgstr "Overleaf 选项"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf 项目"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Overleaf refused this project"
+msgstr "Overleaf 拒绝访问这个项目"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf rejected a live update ({detail})."
@@ -12312,6 +12320,10 @@ msgstr "黄色"
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "你"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
+msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目；你的修改保留在这台 Mac 上"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"

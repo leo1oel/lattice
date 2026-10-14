@@ -240,6 +240,7 @@ pub(super) fn signed_in(host: &str) -> TempDir {
         email: Some("researcher@example.edu".to_string()),
         name: Some("Robin Researcher".to_string()),
         user_id: Some("user-1".to_string()),
+        expired: false,
     };
     save_session(&config, &session).unwrap();
     config

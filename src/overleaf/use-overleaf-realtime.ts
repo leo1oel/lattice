@@ -20,7 +20,7 @@ import { i18n } from "../i18n";
 import { OtDocument, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import {
-  anchorsAfter, isOwnUpdate, overleafDocHash, promoteShared, shouldRetryConnection,
+  anchorsAfter, isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
   type JoinedProject, type OpenDoc, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
   type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
@@ -723,7 +723,8 @@ export function useOverleafRealtime(options: {
       } catch (reason) {
         if (cancelled) return;
         const message = String(reason);
-        if (shouldRetryConnection(message)) {
+        const refusedTooOften = isOverleafProjectRefusal(message) && retryAttempt >= OVERLEAF_REFUSAL_RETRIES;
+        if (shouldRetryConnection(message) && !refusedTooOften) {
           // Mark the call complete before scheduling: the scheduler refuses
           // to overlap connection attempts.
           connecting = false;
@@ -732,7 +733,9 @@ export function useOverleafRealtime(options: {
         }
         needsReconnect = false;
         setStatus("error");
-        setDetail(message);
+        setDetail(refusedTooOften
+          ? i18n._(msg`Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf.`)
+          : message);
       } finally {
         connecting = false;
       }
