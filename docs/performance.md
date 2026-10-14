@@ -682,19 +682,37 @@ in brackets, which gained from some of them too):
 
 ### Divider drags: the Papers list, the split ratio, press and release (October 2026)
 
-Dragging a boundary felt sticky. Measured in Playwright's WebKit over the
-mock backend (600 papers, `long.tex` or the 400 KB `large.md` in Split open),
-2 s drags with a 120 Hz pointer; "work" is the time from a frame's
-animation callbacks to the end of its rendering. Three causes, all ours:
+Dragging a boundary felt sticky. Three causes, all ours:
 
-| Cause | Evidence | Fix |
-| --- | --- | --- |
-| The Papers list and each of its rows were size containers. WebKit restyles everything inside a query container whose width changes, so every frame of a drag that moved the left column restyled every row drawn | Project/Papers ↔ editor: work 18 → 10 ms a frame (p95 23 → 14), frames 19 → 17 ms | the list's and rows' widths reach the CSS as attributes, `data-table` and `data-below` on `.paper-list`, `data-row-below` on `.paper-rows`, written by a ResizeObserver only when a step is crossed (`project/paper-library.tsx`); the geometry is identical at every width, the steps' edges included |
-| The source/preview split moved `--split-ratio` (and the pull past a minimum, `--split-resizer-offset`) on the split itself. Unregistered custom properties inherit, so each pointer move restyled all both panes hold, every block of a long visual document | Markdown split drag: work p95 26 → 8 ms, frames p95 49 → 20 ms | both are registered as non-inherited (`editor-workspace.css`); the offset is written on the grip and the two panes, which read it |
-| The press and the release set inherited properties on everything: Trellis puts the cursor and `user-select` on its root and takes the panels' content out of the pointer's way; the split put them on `body`. WebKit restyled the whole workspace on the press and twice on the release | 40–80 ms frames at the press and the release beside the long Markdown document; none over 34 ms after | a shield takes the pointer instead, over the docked panels (Trellis's root `::after`, under the dividers) or the window (`body.resizing-split::after`); it holds the resize cursor everywhere, so the tab bars no longer show their own mid-drag; a tab drag keeps Trellis's way (`trellis/trellis.css`) |
+| Cause | Fix |
+| --- | --- |
+| The Papers list and each of its rows were size containers. WebKit restyles everything inside a query container whose width changes, so every frame of a drag that moved the left column restyled every row drawn | the list's and rows' widths reach the CSS as attributes, `data-table` and `data-below` on `.paper-list`, `data-row-below` on `.paper-rows`, written by a ResizeObserver only when a step is crossed (`project/paper-library.tsx`); the list's geometry is the same at every width, both sides of each step included |
+| The source/preview split moved `--split-ratio` (and the pull past a minimum, `--split-resizer-offset`) on the split itself. Unregistered custom properties inherit, so each pointer move restyled all both panes hold, every block of a long visual document | both are registered as non-inherited (`editor-workspace.css`); the offset is written on the grip and the two panes, which read it |
+| The press and the release set inherited properties on everything: Trellis puts the cursor and `user-select` on its root and takes the panels' content out of the pointer's way, the split put them on `body`. WebKit restyled the whole workspace on the press and twice on the release, and over a tab bar the cursor was the bar's own | a shield takes the pointer instead, over the docked panels (Trellis's root `::after`, under the dividers) or the window (`body.resizing-split::after`), and holds the resize cursor everywhere; a tab drag keeps Trellis's way (`trellis/trellis.css`) |
 
 The split's grip also holds the pointer now, so a drag across an HTML
 preview's frame keeps moving the split.
+
+`scripts/perf-bench/divider-drag-timing.mjs` measures each boundary in
+Playwright's WebKit, 600 papers in the library: 2 s drags with a 120 Hz
+pointer, press and release included. Work is a frame's own time, from its
+animation callbacks to the end of its rendering; frame intervals are not
+tabled, as the busy machine these runs were taken on paced most pages at
+30 Hz for a while. With `long.tex` open beside the PDF:
+
+| WebKit, `long.tex` | Left column, before | after | Project ↕ Papers, before | after | Editor ↔ PDF, before | after |
+| --- | --- | --- | --- | --- | --- | --- |
+| Work a frame, median (ms) | 19 | 12 | 4 | 4 | 8 | 7 |
+| Work a frame, p95 (ms) | 25 | 19 | 6 | 6 | 11 | 11 |
+| Frames with the resize cursor under the pointer (%) | 100 | 100 | 75 | 100 | 100 | 100 |
+
+With the 400 KB `large.md` in Split:
+
+| WebKit, `large.md` in Split | Source ↔ preview, before | after | Left column, before | after | Project ↕ Papers, before | after | Editor ↔ PDF, before | after |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Work a frame, median (ms) | 3 | 4 | 20 | 11 | 4 | 4 | 9 | 8 |
+| Work a frame, p95 (ms) | 30 | 9 | 29 | 21 | 5 | 5 | 13 | 12 |
+| Frames with the resize cursor under the pointer (%) | 100 | 100 | 100 | 100 | 75 | 100 | 100 | 100 |
 
 ### First opens and TexLab traffic (October 2026)
 
