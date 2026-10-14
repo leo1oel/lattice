@@ -643,7 +643,17 @@ mod tests {
         let port = listener.local_addr().expect("local address").port();
         assert_eq!(available_preferred_server_port(Some(port)), None);
         drop(listener);
-        assert_eq!(available_preferred_server_port(Some(port)), Some(port));
+        // Free once nothing else holds it, which can be a moment after the
+        // drop. macOS has no atomic close-on-exec for a new socket: std sets
+        // it a call after `socket()`, and a process another test spawns in
+        // between inherits the listener and keeps the port until it exits.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut reused = available_preferred_server_port(Some(port));
+        while reused.is_none() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+            reused = available_preferred_server_port(Some(port));
+        }
+        assert_eq!(reused, Some(port));
     }
 
     #[test]

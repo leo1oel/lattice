@@ -89,7 +89,11 @@ type SettingsDialogProps = DoctorSettingsProps & {
 
 export function SettingsDialog(props: SettingsDialogProps) {
   const { t } = useLingui();
-  const [replacesShell] = useState(props.covered);
+  // Kept from any render that saw the shell, not only the first: a render of
+  // an opening can be redone before it commits, with the shell arrived in
+  // between, and the first may not be the one that commits.
+  const [replacesShell, setReplacesShell] = useState(props.covered);
+  if (props.covered && !replacesShell) setReplacesShell(true);
   const searchRef = useRef<HTMLInputElement>(null);
   // Settings opens in its search (`SettingsSearch`); under its shell, once
   // that is gone, as until then it holds focus.

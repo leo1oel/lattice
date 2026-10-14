@@ -16,8 +16,13 @@ export function dayName(ms: number, locale: string): string {
   if (!Number.isFinite(when.getTime())) return "";
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const capitalized = (text: string) => text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
-  if (dayKey(ms) === dayKey(Date.now())) return capitalized(relative.format(0, "day"));
-  if (dayKey(ms) === dayKey(Date.now() - 86_400_000)) return capitalized(relative.format(-1, "day"));
+  const now = new Date();
+  if (dayKey(ms) === dayKey(now.getTime())) return capitalized(relative.format(0, "day"));
+  // A calendar day back, not 24 hours: across a clock change those land on
+  // today (the last hour of a 25-hour day) or two days back (just after
+  // midnight following a 23-hour one).
+  now.setDate(now.getDate() - 1);
+  if (dayKey(ms) === dayKey(now.getTime())) return capitalized(relative.format(-1, "day"));
   return when.toLocaleDateString(locale, {
     weekday: "short", month: "short", day: "numeric",
     ...(when.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" as const }),
