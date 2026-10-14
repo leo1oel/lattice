@@ -25,7 +25,9 @@ interface AgentHostThemeColors {
   drawer: string;
   /** The Settings page's sheet, under its cards (which stand on `elevated`). */
   panel: string;
-  /** Menus, popovers, the composer and code blocks. */
+  /** The editor's page; the agent's user bubbles, code, starters and status card sit on it in the light theme. */
+  editor: string;
+  /** Menus, popovers and the composer (in the dark theme also code and user bubbles). */
   elevated: string;
   foreground: string;
   muted: string;
@@ -57,6 +59,7 @@ const COLOR_ROLES: Record<keyof AgentHostThemeColors, string> = {
   chrome: "--surface-sidebar",
   drawer: "--surface-input",
   panel: "--surface-panel",
+  editor: "--editor-bg",
   elevated: "--surface-panel-raised",
   foreground: "--text-primary",
   muted: "--text-secondary",
