@@ -14,6 +14,12 @@ directly proves your change, once:
 - a new or changed script, invoked once on a real input;
 - for UI work, the mock-backend page in [`driving-the-app.md`](driving-the-app.md).
 
+Before pushing any change to `src/`, run `pnpm gate:changed` once (about
+1.5 min): lint, typecheck, the i18n catalogs, the tests `vitest related` finds
+from your changed files, and `pnpm test:invariants`, the tests that read
+stylesheets and fixtures no import leads to. Do not assemble your own list of
+test files; CI runs everything else.
+
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
 release; see [`release-process.md`](release-process.md). When you do run it and
