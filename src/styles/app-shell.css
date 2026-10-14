@@ -40,22 +40,30 @@ input[type="search"]:focus-visible {
  * That halo is suppressed.
  *
  * Keyboard focus is different: it must always be visible, so `:focus-visible`
- * draws one product ring for controls in the Tab order. Menu items, Radix's and
- * the project tree's own row menu, expose focus through their active-row fill, while the project switcher and the
- * Overleaf split-menu trigger use a chrome fill. Outlining those composite
- * controls can leave a stray black frame when WebKit restores focus after app
- * activation. Radix also temporarily focuses dialog surfaces with
+ * draws one product ring for controls in the Tab order. Not for focus a
+ * pointer caused, though: script focus after a click or a hover matches
+ * `:focus-visible` too, so components/ui/pointer-focus.ts marks such an element
+ * `data-pointer-focus` and the rule below hides every ring on it, this one
+ * and those components draw themselves (a checkbox, an outline row).
+ * Menu items (every `menuitem*` role), Radix's and the project tree's own row
+ * menu, expose focus through their active-row fill, while the project switcher
+ * and the Overleaf split-menu trigger use a chrome fill. Outlining those
+ * composite controls can leave a stray black frame when WebKit restores focus
+ * after app activation. Radix also temporarily focuses dialog surfaces with
  * `tabindex="-1"`; those composites already expose focus through their active
  * row or modal context. Text entry is excluded because a field already answers
- * with its own border treatment (see the
- * `--field-control-*` contract), and doubling the two reads as an error state. */
+ * with its own border treatment (see the `--field-control-*` contract), and
+ * doubling the two reads as an error state. */
 :where(button, a, input, textarea, select, summary, [role="button"], [tabindex]):focus {
   outline: none;
 }
-:where(button:not(.project-title):not(.overleaf-toolbar-menu-button):not([role^="menuitem"]), a, select, summary, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role="menuitem"])):focus-visible {
+:where(button:not(.project-title):not(.overleaf-toolbar-menu-button):not([role^="menuitem"]), a, select, summary, [role="button"], [tabindex]:not(.ProseMirror):not([tabindex="-1"]):not([role^="menuitem"])):focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+/* Specific enough to beat a component's own ring (`.ui-checkbox:focus-visible`,
+   `.latex-selection-tool button:focus-visible`), so one rule covers them all. */
+:root [data-pointer-focus]:focus-visible { outline-color: transparent; }
 
 .app-shell { height: 100%; background: var(--surface-window); display: flex; flex-direction: column; }
 .titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-titlebar); box-shadow: inset 0 -1px 0 var(--titlebar-rule); user-select: none; }
@@ -785,7 +793,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-failure-copy:hover { color: var(--text-primary); background: var(--tone-hover-surface); }
 .agent-permission-trigger:focus { box-shadow: none; }
-.agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: 5px; width: 292px; padding: var(--surface-inset); border-radius: var(--surface-radius); background: var(--editor-bg); }
+.agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: var(--gap-inline-tight); width: 292px; padding: var(--surface-inset); border-radius: var(--surface-radius); background: var(--editor-bg); }
 .agent-permission-option { position: relative; }
 .agent-permission-option[data-disabled] { opacity: var(--control-disabled-opacity); }
 .agent-permission-radio { height: 50px; align-items: flex-start; padding: var(--space-4) var(--space-5); font-family: var(--ui-font); }
