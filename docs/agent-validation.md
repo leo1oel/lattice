@@ -36,6 +36,14 @@ it is green locally but red in CI, suspect its freshness cache first:
 3. Re-run only the failing test or command until it passes, then push; CI
    re-runs the rest.
 
+A local `pnpm perf:bench --check` red is not yet a finding: the ceilings were
+set on CI runners, and a laptop running other lanes' builds can measure a count
+above one on main itself. Run
+`pnpm perf:bench --against origin/main --only <scenario>` for an A/B of the
+same scenarios on both builds. A gated count that moves by a commit or two, or
+not at all, is noise; one your change multiplies is yours. A CI layout or
+scenario failure's screenshot is an artifact on the run's page.
+
 ## Checkpoint / resume
 
 A session can end mid-task (a usage limit, a killed shell). Git history and the
