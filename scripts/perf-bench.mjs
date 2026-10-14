@@ -37,7 +37,14 @@
  *   --profile DIR   save a CPU profile of each scenario's first run
  *   --url URL       measure an already running app instead (no ceilings)
  *   --engine NAME   chromium (default) or webkit
+ *   --dist DIR      measure (or serve) the page --build-only built in DIR
+ *                   instead of building it: CI builds once and every shard,
+ *                   in either engine, measures that one build
  *   --headful, --keep-open   watch it run
+ *
+ * Building the page alone:
+ *   --build-only DIR  build the page into DIR (new or empty), print its
+ *                   content hash and exit; --dist DIR then uses it
  *
  * Serving the page for UI work, screenshots and QA (no benchmark):
  *   --serve         build the page, check that it answers, print its URL and stay
@@ -71,7 +78,8 @@
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -96,6 +104,8 @@ const PROBE = readFileSync(path.join(repo, "scripts/perf-bench/probe.js"), "utf8
  * test Lattice builds listen on (18452, 18462, 18472).
  */
 const SERVE_PORT = 18480;
+/** The page's entry, relative to the repository and to a build of it alike. */
+const BENCH_PAGE = "tools/perf-bench/index.html";
 
 /**
  * Smaller than the playbook fixture so a CI run stays short, but large enough
@@ -113,7 +123,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
+  const options = { runs: 2, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -127,6 +137,8 @@ function parseArgs(argv) {
     else if (arg === "--shard") options.shard = parseShard(argv[++index]);
     else if (arg === "--json") options.json = argv[++index];
     else if (arg === "--url") options.url = argv[++index];
+    else if (arg === "--dist") options.dist = path.resolve(argv[++index]);
+    else if (arg === "--build-only") options.buildOnly = path.resolve(argv[++index]);
     else if (arg === "--profile") options.profile = argv[++index];
     else if (arg === "--serve") options.serve = true;
     else if (arg === "--smoke") options.smoke = true;
@@ -139,6 +151,9 @@ function parseArgs(argv) {
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
+  if (options.buildOnly && argv.length !== 2) throw new Error("--build-only builds the page and exits; it takes no other option");
+  if (options.dist && (options.dev || options.url)) throw new Error("--dist serves a production build; it cannot take --dev or --url");
+  if (options.dist && !existsSync(path.join(options.dist, BENCH_PAGE))) throw new Error(`--dist: ${options.dist} holds no ${BENCH_PAGE}; build it with --build-only`);
   if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
   if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
   if (options.layout && (options.serve || options.smoke || options.url)) throw new Error("--layout serves its own page per check; it cannot take --serve, --smoke or --url");
@@ -247,6 +262,7 @@ function closedOnShutdown(close) {
 }
 
 function startPage(options, settings) {
+  if (options.dist) return step(`serving the bench page built in ${options.dist} (sha256 ${hashTree(options.dist)})`, () => startVite(true, { ...settings, dist: options.dist }));
   return step(options.dev ? "starting the dev server" : "building the bench page (a production build, about 15 s; --dev skips it)", () => startVite(!options.dev, settings));
 }
 
@@ -256,40 +272,32 @@ function startPage(options, settings) {
  * dev server (`--dev`) keeps component names readable for finding causes.
  * `live` (a dev server for --serve) turns file watching and HMR back on: a
  * benchmark must not reload under a measurement, but someone editing the UI
- * wants to see the edit.
+ * wants to see the edit. `dist`, a --build-only directory, is served as it
+ * is and left in place.
  */
-async function startVite(production, { port = 0, live = false } = {}) {
-  const { build, createServer, preview } = await import("vite");
+async function startVite(production, { port = 0, live = false, dist = null } = {}) {
+  const { createServer, preview } = await import("vite");
   if (!port) port = await freePort();
-  const shared = { root: repo, configFile: path.join(repo, "vite.config.ts"), logLevel: "warn", clearScreen: false };
+  const shared = viteShared();
   if (production) {
-    const outDir = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-dist-"));
-    buildDirs.add(outDir);
+    const outDir = dist ?? mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-dist-"));
+    const removeOwnBuild = () => {
+      if (!dist) removeBuildDir(outDir);
+    };
+    if (!dist) buildDirs.add(outDir);
     try {
-      await build({
-        ...shared,
-        build: {
-          outDir,
-          emptyOutDir: true,
-          rolldownOptions: {
-            input: { bench: path.join(repo, "tools/perf-bench/index.html") },
-            // The bench page must install its mock backend before the app's
-            // modules run; the app config merges them into one chunk.
-            output: { strictExecutionOrder: true },
-          },
-        },
-      });
+      if (!dist) await buildPage(outDir);
       const server = await withoutSigtermExit(() => preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } }));
       return {
         server: closedOnShutdown(async () => {
           await server.close();
-          removeBuildDir(outDir);
+          removeOwnBuild();
         }),
         origin: `http://127.0.0.1:${port}`,
         outDir,
       };
     } catch (error) {
-      removeBuildDir(outDir);
+      removeOwnBuild();
       throw error;
     }
   }
@@ -301,9 +309,59 @@ async function startVite(production, { port = 0, live = false } = {}) {
   return { server: closedOnShutdown(() => server.close()), origin: `http://127.0.0.1:${port}`, outDir: null };
 }
 
+function viteShared() {
+  return { root: repo, configFile: path.join(repo, "vite.config.ts"), logLevel: "warn", clearScreen: false };
+}
+
+/** The production build of the bench page into `outDir`, which it empties. */
+async function buildPage(outDir) {
+  const { build } = await import("vite");
+  await build({
+    ...viteShared(),
+    build: {
+      outDir,
+      emptyOutDir: true,
+      rolldownOptions: {
+        input: { bench: path.join(repo, BENCH_PAGE) },
+        // The bench page must install its mock backend before the app's
+        // modules run; the app config merges them into one chunk.
+        output: { strictExecutionOrder: true },
+      },
+    },
+  });
+}
+
+/**
+ * One hash over every file's path and bytes. --build-only prints it and
+ * --dist repeats it, so a log shows which build a shard measured, and two
+ * builds (another machine, another OS) can be compared byte for byte.
+ */
+function hashTree(dir) {
+  const hash = createHash("sha256");
+  const files = readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.relative(dir, path.join(entry.parentPath, entry.name)).split(path.sep).join("/"))
+    .sort();
+  for (const file of files) hash.update(`${file}\0`).update(readFileSync(path.join(dir, file))).update("\0");
+  return hash.digest("hex");
+}
+
+/**
+ * `--build-only`: the production build alone, into a directory that outlives
+ * the process, for --dist runs elsewhere (CI builds once and hands the page
+ * to every benchmark shard). It refuses a directory with files in it, since
+ * the build empties its output directory first.
+ */
+async function buildOnly(outDir) {
+  if (existsSync(outDir) && readdirSync(outDir).length) throw new Error(`--build-only writes into a new or empty directory; ${outDir} has files in it`);
+  await step("building the bench page", () => buildPage(outDir));
+  console.log(`Built the bench page into ${outDir} (sha256 ${hashTree(outDir)}).`);
+  console.log(`Measure or serve it with --dist ${outDir}.`);
+}
+
 function benchUrl(origin, extra = {}) {
   const query = new URLSearchParams(Object.entries({ ...BENCH_FIXTURE, ...extra }).map(([key, value]) => [key, String(value)]));
-  return `${origin}/tools/perf-bench/index.html?${query}`;
+  return `${origin}/${BENCH_PAGE}?${query}`;
 }
 
 /**
@@ -593,6 +651,7 @@ function formatTable(results) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.buildOnly) return buildOnly(options.buildOnly);
   if (options.serve) return serve(options);
   if (options.smoke) return smoke(options);
   const { scenarios, checks } = selectWork(options);

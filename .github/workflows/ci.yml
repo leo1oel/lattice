@@ -186,13 +186,36 @@ jobs:
       - name: Check the i18n catalogs are in sync
         run: pnpm i18n:check
 
+  # The bench page every benchmark shard below measures, built once here
+  # rather than by each shard: the build is the same bytes on Linux and macOS
+  # (`--build-only` prints its hash and `--dist` repeats it in each shard's
+  # log), and on a macOS runner it took about 120 s against 40 s here. The
+  # shards wait for this job through .github/actions/bench-page instead of
+  # `needs:`, so they set up while it builds.
+  bench-page:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - run: pnpm perf:bench --build-only "$RUNNER_TEMP/bench-page"
+      # Overwrite: a full re-run uploads the same commit's build again.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bench-page
+          path: ${{ runner.temp }}/bench-page
+          retention-days: 1
+          overwrite: true
+
   # Deterministic interaction benchmark (docs/performance.md, "Interaction
-  # benchmark and CI gate"). It builds the app's bench page, drives typing, file
-  # switching, PDF and scrolling scenarios in the runner's preinstalled Google
-  # Chrome, and fails when a gated per-interaction count exceeds its ceiling in
-  # scripts/perf-bench/budgets.json. Which counts are gated and which are
-  # report-only (frame-timing-dependent) is documented there. No Tauri host is
-  # involved; the page answers the app's IPC from an in-memory fixture project.
+  # benchmark and CI gate"). It measures the bench-page job's build, drives
+  # typing, file switching, PDF and scrolling scenarios in the runner's
+  # preinstalled Google Chrome, and fails when a gated per-interaction count
+  # exceeds its ceiling in scripts/perf-bench/budgets.json. Which counts are
+  # gated and which are report-only (frame-timing-dependent) is documented
+  # there. No Tauri host is involved; the page answers the app's IPC from an
+  # in-memory fixture project.
   # `--layout` then checks geometry jsdom cannot (scripts/perf-bench/layout-checks.mjs)
   # on the same build.
   #
@@ -216,7 +239,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
-      - run: pnpm perf:bench --check --layout --shard ${{ matrix.shard }}/2
+      - uses: ./.github/actions/bench-page
+      - run: pnpm perf:bench --check --layout --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
 
   # The one check that reports the Chromium benchmark, under the name it had
   # before it was sharded.
@@ -242,8 +266,7 @@ jobs:
   # the account, and every lane's run needs them. With `rust` this is three
   # per run (it was two). A third shard finished about a minute sooner, but
   # with four macOS jobs per run, `rust` queued for five minutes behind other
-  # lanes; and each shard pays ~100 s of setup and page build whatever its
-  # share.
+  # lanes; and each shard pays ~65 s of setup whatever its share.
   perf-bench-webkit-shard:
     name: perf-bench-webkit (${{ matrix.shard }}/2)
     needs: changes
@@ -257,7 +280,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm exec playwright-core install webkit
-      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/2
+      - uses: ./.github/actions/bench-page
+      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
 
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:

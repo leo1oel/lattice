@@ -1,0 +1,36 @@
+name: Bench page
+description: >
+  Waits for ci.yml's `bench-page` job and downloads the bench page it built
+  into $RUNNER_TEMP/bench-page, for `pnpm perf:bench --dist`.
+runs:
+  using: composite
+  steps:
+    # The shards do not `needs:` the job: they set up while it builds (a
+    # macOS shard's checkout, install and WebKit take about as long as the
+    # build), so the build costs the critical path only the seconds the setup
+    # did not cover. `filter=latest` reads each job's latest attempt, so a
+    # shard re-run on its own takes the build its run already has, and a full
+    # re-run waits for the new one. A build that failed or was cancelled fails
+    # the shard at once rather than at the deadline.
+    - name: Wait for the bench page build
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        for _ in $(seq 90); do
+          state=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
+            --jq '.jobs[] | select(.name == "bench-page") | "\(.status) \(.conclusion)"')
+          case "$state" in
+            "completed success") exit 0 ;;
+            completed*)
+              echo "::error::The bench-page job finished without a build ($state)."
+              exit 1 ;;
+          esac
+          sleep 10
+        done
+        echo "::error::The bench-page job did not finish within 15 minutes."
+        exit 1
+    - uses: actions/download-artifact@v8
+      with:
+        name: bench-page
+        path: ${{ runner.temp }}/bench-page

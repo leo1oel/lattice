@@ -83,7 +83,11 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `--only a,b` limits scenarios (with `--layout`, checks). `--shard K/N` deals
   the scenarios, then the layout checks, round-robin and runs the K-th share;
   CI splits each engine's run across runners with it. Neither writes ceilings.
-  `--runs N` repeats each scenario and gates
+- `--build-only DIR` builds the page into DIR, prints a hash of every file in
+  it and exits; `--dist DIR` then measures (or serves) that build instead of
+  building one. CI's `bench-page` job builds once on Linux and every shard of
+  both engines measures that one build, whose hash each shard's log repeats.
+- `--runs N` repeats each scenario and gates
   each count at its fewest across the runs, because noise only ever adds work
   and each count's noise is its own. The report-only counts shown are those of
   the run with the fewest gated counts in total, and do not affect the choice.
