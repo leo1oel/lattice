@@ -28,6 +28,15 @@ export type OpenSlideEvent = OpenSlideMutation | {
   type: "ready";
 };
 
+/**
+ * Names this page to the native presentation supervisor, which records the
+ * owning page of every lease. A reload, or a browser tab replacing this one,
+ * is a new page in the same window: the supervisor then treats the replaced
+ * page's leases as stale, because that page never ran the cleanup that
+ * releases them.
+ */
+export const OPEN_SLIDE_PAGE_ID = crypto.randomUUID();
+
 // The last event this page's host bridge consumed, per runtime instance. It
 // lives outside the workspace component on purpose: remounting a workspace,
 // switching which cached deck is active, or reconnecting after a dropped

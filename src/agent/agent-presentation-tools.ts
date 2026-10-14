@@ -9,7 +9,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { isRecord, toMessage } from "../app-utils";
-import { activeOpenSlideRefresh } from "../editor/presentation/open-slide-bridge";
+import { activeOpenSlideRefresh, OPEN_SLIDE_PAGE_ID } from "../editor/presentation/open-slide-bridge";
 import { hasOnlyKeys, parseToolEnvelope, runAgentTool, toolError, type AgentToolResult } from "./agent-protocol";
 
 export const SYNARA_PRESENTATION_TOOL_REQUEST = "synara:presentation-tool-request";
@@ -46,7 +46,13 @@ type PreviewPageResult = {
 export type AgentPresentationToolResult = AgentToolResult<typeof LATTICE_PRESENTATION_TOOL_RESULT, PreviewPageResult>;
 
 /** The parts of the `presentation_ensure_ready` payload this tool reads. */
-type PresentationRuntimeInfo = { origin: string | null; sessionUrl: string | null; leaseId: string | null };
+type PresentationRuntimeInfo = {
+  state?: string;
+  projectRoot?: string | null;
+  origin: string | null;
+  sessionUrl: string | null;
+  leaseId: string | null;
+};
 
 type CaptureReply = {
   ok: boolean;
@@ -93,10 +99,16 @@ async function previewPage(
     throw toolError("The page preview request expired before execution.", "presentation_tool_expired");
   }
   if (!projectRoot) throw toolError("No Lattice project is open.", "presentation_host_unavailable");
-  const info = await invoke<PresentationRuntimeInfo>("presentation_ensure_ready", { projectRoot })
+  const info = await invoke<PresentationRuntimeInfo>("presentation_ensure_ready", { projectRoot, pageId: OPEN_SLIDE_PAGE_ID })
     .catch((reason: unknown) => {
       throw toolError(toMessage(reason), "presentation_runtime_unavailable");
     });
+  if (info.state === "busy") {
+    throw toolError(
+      `Another Lattice window has a deck of ${info.projectRoot ?? "another project"} open, and Open Slide runs one project at a time. Ask the user to close that deck, then preview again.`,
+      "presentation_runtime_unavailable",
+    );
+  }
   try {
     const token = info.sessionUrl ? new URL(info.sessionUrl).searchParams.get("token") : null;
     if (!info.origin || !token) throw toolError("Open Slide is not ready.", "presentation_runtime_unavailable");

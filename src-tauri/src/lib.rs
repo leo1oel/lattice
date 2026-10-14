@@ -155,12 +155,28 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     if matches!(event, tauri::WindowEvent::Destroyed) {
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
+        // Its page never ran the cleanup that releases a deck's lease, which
+        // would otherwise keep every other project's deck from opening.
+        window.state::<presentation::PresentationRuntime>().forget_page(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
         browser.activate_source(window.label(), &state);
         browser.hide_desktop_shell_if_browser_only(window.app_handle());
         state.retire_unused_projects();
+    }
+}
+
+/// WebKit reports `Started` when a main-frame navigation commits (a reload,
+/// or the first load): the page it replaced never ran its cleanup, so its
+/// deck leases are released here.
+fn on_page_load<R: Runtime>(
+    webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
+) {
+    if payload.event() == tauri::webview::PageLoadEvent::Started {
+        if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
+            runtime.forget_page(webview.label());
+        }
     }
 }
 
@@ -317,6 +333,7 @@ pub fn run() {
                 .build(),
         )
         .on_window_event(on_window_event)
+        .on_page_load(on_page_load)
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
