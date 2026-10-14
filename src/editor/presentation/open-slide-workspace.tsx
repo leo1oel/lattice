@@ -3,6 +3,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { deckIdFromOpenSlidePath, toMessage } from "../../app-utils";
+import { Button } from "../../components/ui/button";
 import { i18n } from "../../i18n";
 import type { OpenSlideFileViewState } from "../../app-types";
 import {
@@ -13,6 +14,7 @@ import type { AppLocale, Theme } from "../../settings/app-settings";
 import {
   advanceOpenSlideEventCursor,
   consumeOpenSlideEvents,
+  OPEN_SLIDE_PAGE_ID,
   openSlideEventCursor,
   registerOpenSlideRefresh,
   type OpenSlideContext,
@@ -27,6 +29,9 @@ const SOURCE_SETTLE_MS = 5_000;
 
 /** The parts of the `presentation_ensure_ready` payload this view reads. */
 type PresentationRuntimeInfo = {
+  /** `busy` while another window has `projectRoot`'s deck open; no lease is granted then. */
+  state?: string;
+  projectRoot?: string | null;
   origin: string | null;
   sessionUrl: string | null;
   controlToken: string | null;
@@ -110,9 +115,14 @@ export function OpenSlideWorkspace({
     projectRoot: string;
     info?: PresentationRuntimeInfo;
     error?: string;
+    /** The project whose deck another window has open. */
+    heldBy?: string;
   } | null>(null);
+  // Bumped by "Try again" once the other window has closed its deck.
+  const [startAttempt, setStartAttempt] = useState(0);
   const runtime = startup?.projectRoot === projectRoot ? startup.info ?? null : null;
   const startupError = startup?.projectRoot === projectRoot ? startup.error ?? null : null;
+  const heldBy = startup?.projectRoot === projectRoot ? startup.heldBy ?? null : null;
   // The parent keys this workspace by file. Freeze the restored page for this
   // iframe lifetime so reporting a later page does not itself change `src`
   // and reload the deck that just reported it.
@@ -147,11 +157,16 @@ export function OpenSlideWorkspace({
   useEffect(() => {
     let disposed = false;
     let leaseId: string | null = null;
-    void invoke<PresentationRuntimeInfo>("presentation_ensure_ready", { projectRoot })
+    void invoke<PresentationRuntimeInfo>("presentation_ensure_ready", { projectRoot, pageId: OPEN_SLIDE_PAGE_ID })
       .then((info) => {
         leaseId = info.leaseId;
-        if (!disposed) setStartup({ projectRoot, info });
-        else if (leaseId) void invoke("presentation_release", { projectRoot, leaseId });
+        if (disposed) {
+          if (leaseId) void invoke("presentation_release", { projectRoot, leaseId });
+        } else if (info.state === "busy") {
+          setStartup({ projectRoot, heldBy: info.projectRoot ?? "" });
+        } else {
+          setStartup({ projectRoot, info });
+        }
       })
       .catch((reason) => {
         if (!disposed) setStartup({ projectRoot, error: toMessage(reason) });
@@ -160,7 +175,7 @@ export function OpenSlideWorkspace({
       disposed = true;
       if (leaseId) void invoke("presentation_release", { projectRoot, leaseId });
     };
-  }, [projectRoot]);
+  }, [projectRoot, startAttempt]);
 
   useEffect(() => {
     if (!runtime?.leaseId) return;
@@ -338,6 +353,27 @@ export function OpenSlideWorkspace({
     <div className="open-slide-status" role={role} data-tour="open-slide-workspace">{children}</div>
   );
   if (!deckId) return status("alert", t`This is not a native Open Slide deck.`);
+  if (heldBy !== null) {
+    // The supervisor runs one project's decks at a time and has already
+    // dropped every lease no live page could release, so only a deck that is
+    // really open elsewhere reaches this.
+    return status("alert", <>
+      <strong>{t`A deck from another project is open in another window`}</strong>
+      <span>{t`Close it there to open this deck here, or switch to that window.`}</span>
+      <span className="open-slide-status-actions">
+        <Button
+          variant="primary"
+          onClick={() => {
+            void invoke("open_project_window", { path: heldBy })
+              .catch((reason: unknown) => latest.current.onError?.(toMessage(reason)));
+          }}
+        >
+          {t`Switch to that window`}
+        </Button>
+        <Button onClick={() => setStartAttempt((attempt) => attempt + 1)}>{t`Try again`}</Button>
+      </span>
+    </>);
+  }
   if (startupError) {
     return status("alert", <>
       <strong>{t`Open Slide could not start`}</strong>

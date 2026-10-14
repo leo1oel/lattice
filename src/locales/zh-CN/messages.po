@@ -822,6 +822,10 @@ msgstr "DOI、arXiv 编号或标题"
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "A deck from another project is open in another window"
+msgstr "另一个窗口里开着别的项目的幻灯片"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
@@ -2590,6 +2594,10 @@ msgstr "关闭"
 #: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "关闭"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Close it there to open this deck here, or switch to that window."
+msgstr "在那边关掉它就能在这里打开，也可以切换过去。"
 
 #: src/trellis/trellis-labels.ts
 msgid "Close other tabs"
@@ -10618,6 +10626,10 @@ msgstr "切换工作区"
 msgid "Switch to pdfLaTeX"
 msgstr "切换到 pdfLaTeX"
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Switch to that window"
+msgstr "切换到那个窗口"
+
 #: src/App.tsx
 msgid "Switch to the Reading layout"
 msgstr "阅读布局"
@@ -11575,6 +11587,7 @@ msgstr "换个更短或不同的词试试"
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/paper-library.tsx

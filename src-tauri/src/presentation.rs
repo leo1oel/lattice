@@ -4,11 +4,21 @@
 //! project's native deck files (`NATIVE_ROOTS`). Editors hold leases on the
 //! running project; the service stops `IDLE_TIMEOUT` after the last lease is
 //! released, and only one project can hold leases at a time.
+//!
+//! Everything here is per process: the leases live in memory, the service
+//! listens on an ephemeral port, and the shadow lives under the app cache
+//! directory, which macOS keys by bundle identifier. A second build of
+//! Lattice (Beta, a lab build) therefore never sees this one's leases.
+//!
+//! A lease is released by the page that took it, from a React cleanup. A
+//! page that is closed, reloaded or replaced never runs that cleanup, so each
+//! lease records its owning page, and a lease whose page is gone is stale: it
+//! must never keep another project's deck from opening.
 
 use crate::sidecar::{terminate_process_group, NodeRuntime};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -36,6 +46,32 @@ pub struct PresentationInfo {
     project_root: Option<String>,
     leases: usize,
     lease_id: Option<String>,
+}
+
+impl PresentationInfo {
+    /// A live page of another window holds `holder`'s deck open. No lease is
+    /// granted; the page offers to switch to that project's window instead.
+    fn busy(holder: &Path) -> Self {
+        Self {
+            state: "busy".into(),
+            origin: None,
+            session_url: None,
+            control_token: None,
+            version: VERSION.into(),
+            project_root: Some(holder.to_string_lossy().into_owned()),
+            leases: 0,
+            lease_id: None,
+        }
+    }
+}
+
+/// The page holding a lease: a window label (a browser tab's is its host's)
+/// and the page instance loaded in it, which the frontend names once per
+/// page load.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LeaseOwner {
+    window: String,
+    page: String,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +103,7 @@ struct Running {
     origin: String,
     session_url: String,
     control_token: String,
-    leases: BTreeSet<String>,
+    leases: BTreeMap<String, LeaseOwner>,
     idle_generation: u64,
 }
 
@@ -78,9 +114,9 @@ impl Running {
     }
 
     /// Grant a new lease, which also cancels any pending idle shutdown.
-    fn lease(&mut self) -> PresentationInfo {
+    fn lease(&mut self, owner: LeaseOwner) -> PresentationInfo {
         let lease_id = uuid::Uuid::new_v4().to_string();
-        self.leases.insert(lease_id.clone());
+        self.leases.insert(lease_id.clone(), owner);
         self.idle_generation = self.idle_generation.wrapping_add(1);
         PresentationInfo {
             state: "ready".into(),
@@ -93,6 +129,58 @@ impl Running {
             lease_id: Some(lease_id),
         }
     }
+
+    /// Withdraw a lease from the service as well as from the supervisor.
+    fn revoke(&mut self, lease_id: &str) -> bool {
+        if self.leases.remove(lease_id).is_none() {
+            return false;
+        }
+        remove_access_lease(self.origin.clone(), self.control_token.clone(), lease_id.to_string());
+        true
+    }
+
+    /// Stop the service `IDLE_TIMEOUT` from now unless a lease arrives first.
+    fn schedule_idle_stop(&mut self, state: &Arc<Mutex<Option<Running>>>) {
+        if !self.leases.is_empty() {
+            return;
+        }
+        self.idle_generation = self.idle_generation.wrapping_add(1);
+        let generation = self.idle_generation;
+        let state = Arc::clone(state);
+        thread::spawn(move || {
+            thread::sleep(IDLE_TIMEOUT);
+            if let Ok(mut running) = state.lock() {
+                let idle = running.take_if(|running| {
+                    running.leases.is_empty() && running.idle_generation == generation
+                });
+                if let Some(idle) = idle {
+                    idle.stop();
+                }
+            }
+        });
+    }
+}
+
+/// The ids of the leases on `project` that no live page can release.
+///
+/// A lease is live only while its window still shows `project` (`shows`
+/// answers which project a window label is bound to; a closed window is bound
+/// to none) and its page is the one that window last presented. Anything else
+/// was left by a closed window, a window that moved to another project, a
+/// reload, or a browser tab another tab replaced: none of those pages will
+/// ever release it.
+fn stale_leases(
+    leases: &BTreeMap<String, LeaseOwner>, project: &Path, pages: &HashMap<String, String>,
+    shows: &dyn Fn(&str) -> Option<PathBuf>,
+) -> Vec<String> {
+    leases
+        .iter()
+        .filter(|(_, owner)| {
+            pages.get(&owner.window) != Some(&owner.page)
+                || shows(&owner.window).as_deref() != Some(project)
+        })
+        .map(|(id, _)| id.clone())
+        .collect()
 }
 
 #[derive(Clone)]
@@ -101,6 +189,10 @@ pub struct PresentationRuntime {
     entry_path: PathBuf,
     shadow_parent: PathBuf,
     running: Arc<Mutex<Option<Running>>>,
+    /// The page each window last presented itself as. Its own lock, never
+    /// held for long: `running` is held through a whole startup, and window
+    /// events must record a page change without waiting on that.
+    pages: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl PresentationRuntime {
@@ -124,6 +216,7 @@ impl PresentationRuntime {
             entry_path: resources.join("presentation-runtime/server.mjs"),
             shadow_parent,
             running: Arc::default(),
+            pages: Arc::default(),
         })
     }
 
@@ -181,23 +274,50 @@ impl PresentationRuntime {
         refreshed(response, "")
     }
 
-    pub fn ensure(&self, project_root: &str) -> Result<PresentationInfo, String> {
+    fn pages(&self) -> Result<MutexGuard<'_, HashMap<String, String>>, String> {
+        self.pages.lock().map_err(|_| "Presentation page registry lock failed".to_string())
+    }
+
+    /// Lease the runtime for `project_root` to `owner`, starting it when needed.
+    ///
+    /// While another project's runtime is running, its stale leases are
+    /// dropped first (see `stale_leases`). Only a live page of another window
+    /// keeps it: the answer is then `busy`, naming that project, so the page
+    /// can offer to switch to it.
+    pub fn ensure(
+        &self, project_root: &str, owner: LeaseOwner, shows: &dyn Fn(&str) -> Option<PathBuf>,
+    ) -> Result<PresentationInfo, String> {
         let root = scoped_root(project_root)?;
+        // Recorded before waiting on a startup in progress: a navigation
+        // meanwhile must still find, and forget, this page.
+        self.pages()?.insert(owner.window.clone(), owner.page.clone());
         let mut running = self.lock()?;
+        let pages = self.pages()?.clone();
         if let Some(current) = running.as_mut() {
             if current.child.try_wait().ok().flatten().is_none() {
                 if current.project_root == root {
-                    return Ok(current.lease());
+                    return Ok(current.lease(owner));
+                }
+                let stale = stale_leases(&current.leases, &current.project_root, &pages, shows);
+                for lease_id in &stale {
+                    current.revoke(lease_id);
+                }
+                if !stale.is_empty() {
+                    log::info!(
+                        target: "lattice::presentation",
+                        "dropped {} stale presentation lease(s)",
+                        stale.len()
+                    );
                 }
                 if !current.leases.is_empty() {
-                    return Err("Another project's presentation is open. Close it before opening this deck.".into());
+                    return Ok(PresentationInfo::busy(&current.project_root));
                 }
             }
         }
         if let Some(previous) = running.take() {
             previous.stop();
         }
-        Ok(running.insert(self.launch(root)?).lease())
+        Ok(running.insert(self.launch(root)?).lease(owner))
     }
 
     /// Mirror `root` into the shadow workspace and start Open Slide over it.
@@ -220,7 +340,7 @@ impl PresentationRuntime {
             session_url: format!("{origin}/__lattice/bootstrap?token={}", ready.session_token),
             origin,
             control_token,
-            leases: BTreeSet::new(),
+            leases: BTreeMap::new(),
             idle_generation: 0,
         })
     }
@@ -259,32 +379,49 @@ impl PresentationRuntime {
         let Some(current) = running.as_mut().filter(|running| running.project_root == root) else {
             return Ok(());
         };
-        if !current.leases.remove(lease_id) {
-            return Ok(());
+        if current.revoke(lease_id) {
+            current.schedule_idle_stop(&self.running);
         }
-        remove_access_lease(
-            current.origin.clone(),
-            current.control_token.clone(),
-            lease_id.to_string(),
-        );
-        if !current.leases.is_empty() {
-            return Ok(());
-        }
-        current.idle_generation = current.idle_generation.wrapping_add(1);
-        let generation = current.idle_generation;
-        let state = Arc::clone(&self.running);
-        thread::spawn(move || {
-            thread::sleep(IDLE_TIMEOUT);
-            if let Ok(mut running) = state.lock() {
-                let idle = running.take_if(|running| {
-                    running.leases.is_empty() && running.idle_generation == generation
-                });
-                if let Some(idle) = idle {
-                    idle.stop();
-                }
-            }
-        });
         Ok(())
+    }
+
+    /// The page in `window` is gone: the window closed, or a navigation
+    /// replaced its page. Neither runs the React cleanup that releases a
+    /// deck's lease, so release that page's leases here.
+    ///
+    /// Called from the window event loop. The page change is recorded at once,
+    /// which already makes the old page's leases stale for `ensure`; dropping
+    /// them waits on the supervisor lock, held through a startup, so it runs
+    /// off this thread and keeps any lease a newer page took meanwhile.
+    pub fn forget_page(&self, window: &str) {
+        if let Ok(mut pages) = self.pages.lock() {
+            pages.remove(window);
+        }
+        let runtime = self.clone();
+        let window = window.to_string();
+        thread::spawn(move || runtime.drop_superseded_leases(&window));
+    }
+
+    fn drop_superseded_leases(&self, window: &str) {
+        let Ok(mut running) = self.lock() else {
+            return;
+        };
+        let Some(current) = running.as_mut() else {
+            return;
+        };
+        let page = self.pages.lock().ok().and_then(|pages| pages.get(window).cloned());
+        let superseded = current
+            .leases
+            .iter()
+            .filter(|(_, owner)| owner.window == window && Some(&owner.page) != page.as_ref())
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        for lease_id in &superseded {
+            current.revoke(lease_id);
+        }
+        if !superseded.is_empty() {
+            current.schedule_idle_stop(&self.running);
+        }
     }
 
     pub fn shutdown(&self) {
@@ -507,9 +644,21 @@ async fn run_blocking<T: Send + 'static>(
 
 #[tauri::command]
 pub async fn presentation_ensure_ready(
-    runtime: tauri::State<'_, PresentationRuntime>, project_root: String,
+    app: tauri::AppHandle, window: tauri::Window, runtime: tauri::State<'_, PresentationRuntime>,
+    project_root: String, page_id: String,
 ) -> Result<PresentationInfo, String> {
-    run_blocking(&runtime, "startup", move |runtime| runtime.ensure(&project_root)).await
+    let owner = LeaseOwner { window: window.label().to_string(), page: page_id };
+    run_blocking(&runtime, "startup", move |runtime| {
+        let state = app.state::<crate::app_state::AppState>();
+        // Bindings and lease roots are both canonical paths in practice;
+        // canonicalizing again keeps a spelling difference from making a
+        // live lease look stale.
+        let shows = |window: &str| {
+            state.root_for(window).ok().flatten().and_then(|root| fs::canonicalize(root).ok())
+        };
+        runtime.ensure(&project_root, owner, &shows)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -543,6 +692,112 @@ Node.js v24.20.0\n";
             startup_error_message("EOF while parsing a value", ""),
             "Open Slide startup failed: EOF while parsing a value"
         );
+    }
+
+    #[test]
+    fn only_a_live_page_still_showing_the_project_keeps_its_lease() {
+        let project = Path::new("/projects/talk");
+        let owner =
+            |window: &str, page: &str| LeaseOwner { window: window.into(), page: page.into() };
+        let leases = BTreeMap::from([
+            ("open-deck".to_string(), owner("project-1", "page-a")),
+            ("closed-window".to_string(), owner("main", "page-b")),
+            ("moved-on".to_string(), owner("project-2", "page-c")),
+            ("reloaded".to_string(), owner("project-3", "page-old")),
+            ("replaced-tab".to_string(), owner("browser-1", "page-d")),
+        ]);
+        let pages = HashMap::from([
+            ("project-1".to_string(), "page-a".to_string()),
+            ("main".to_string(), "page-b".to_string()),
+            ("project-2".to_string(), "page-c".to_string()),
+            ("project-3".to_string(), "page-new".to_string()),
+            // A navigation already removed `browser-1`'s page.
+        ]);
+        let shows = |window: &str| match window {
+            "project-1" | "project-3" | "browser-1" => Some(project.to_path_buf()),
+            "project-2" => Some(PathBuf::from("/projects/paper")),
+            // `main` closed, so nothing binds it.
+            _ => None,
+        };
+
+        let mut stale = stale_leases(&leases, project, &pages, &shows);
+        stale.sort();
+        assert_eq!(stale, ["closed-window", "moved-on", "reloaded", "replaced-tab"]);
+    }
+
+    /// A runtime for project `talk` whose single lease belongs to the page
+    /// `page-1` of window `main`, with a `sleep` standing in for Open Slide.
+    /// Its Node executable does not exist, so any new launch fails at once.
+    fn runtime_held_by_main(
+        parent: &crate::test_support::TempDir,
+    ) -> (PresentationRuntime, PathBuf) {
+        let talk = fs::canonicalize(parent.join("talk")).unwrap();
+        let mut command = Command::new("sleep");
+        command.arg("60");
+        crate::commands::in_new_process_group(&mut command);
+        let runtime = PresentationRuntime {
+            node: NodeRuntime { executable: parent.join("missing/node") },
+            entry_path: parent.join("missing/server.mjs"),
+            shadow_parent: parent.join("shadows"),
+            running: Arc::default(),
+            pages: Arc::default(),
+        };
+        let mut running = Running {
+            child: command.spawn().unwrap(),
+            project_root: talk.clone(),
+            shadow_root: parent.join("shadows/workspace"),
+            origin: "http://127.0.0.1:9".into(),
+            session_url: String::new(),
+            control_token: String::new(),
+            leases: BTreeMap::new(),
+            idle_generation: 0,
+        };
+        running.lease(LeaseOwner { window: "main".into(), page: "page-1".into() });
+        *runtime.running.lock().unwrap() = Some(running);
+        runtime.pages.lock().unwrap().insert("main".into(), "page-1".into());
+        (runtime, talk)
+    }
+
+    #[test]
+    fn another_projects_deck_waits_only_for_a_live_holder() {
+        let parent = crate::test_support::TempDir::new("presentation-leases");
+        parent.write("talk/slides/talk/index.tsx", "export default [];\n");
+        parent.write("paper/slides/paper/index.tsx", "export default [];\n");
+        let (runtime, talk) = runtime_held_by_main(&parent);
+        let paper = parent.join("paper");
+        let other = LeaseOwner { window: "project-1".into(), page: "page-2".into() };
+
+        // `main` still shows `talk`: offer to switch rather than fail.
+        let showing_talk = |window: &str| (window == "main").then(|| talk.clone());
+        let busy = runtime.ensure(paper.to_str().unwrap(), other.clone(), &showing_talk).unwrap();
+        assert_eq!(busy.state, "busy");
+        assert_eq!(busy.project_root.as_deref(), Some(talk.to_str().unwrap()));
+        assert!(busy.lease_id.is_none());
+
+        // `main` closed without releasing: its lease no longer blocks, the
+        // old runtime stops, and `paper` gets its own (here failing) launch.
+        let error = runtime.ensure(paper.to_str().unwrap(), other, &|_| None).unwrap_err();
+        assert!(error.starts_with("Could not start Open Slide"), "{error}");
+        assert!(runtime.running.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn a_replaced_page_releases_its_leases_but_not_its_successors() {
+        let parent = crate::test_support::TempDir::new("presentation-reload");
+        parent.write("talk/slides/talk/index.tsx", "export default [];\n");
+        let (runtime, _) = runtime_held_by_main(&parent);
+        // The reloaded page leased the same deck before the old lease went.
+        runtime.running.lock().unwrap().as_mut().unwrap().leases.insert(
+            "successor".into(),
+            LeaseOwner { window: "main".into(), page: "page-2".into() },
+        );
+        runtime.pages.lock().unwrap().insert("main".into(), "page-2".into());
+
+        runtime.drop_superseded_leases("main");
+
+        let leases = runtime.running.lock().unwrap().as_ref().unwrap().leases.clone();
+        runtime.shutdown();
+        assert_eq!(leases.keys().collect::<Vec<_>>(), ["successor"]);
     }
 
     #[test]

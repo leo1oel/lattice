@@ -214,6 +214,31 @@ describe("OpenSlideWorkspace", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith(...RELEASE));
   });
 
+  it("offers to switch to the window whose project holds the runtime, then retries once it is free", async () => {
+    let held = true;
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command !== "presentation_ensure_ready") return undefined;
+      return held
+        ? { state: "busy", projectRoot: "/tmp/talk", origin: null, sessionUrl: null, controlToken: null, leaseId: null }
+        : runtime;
+    });
+    render(workspace());
+
+    await screen.findByText("A deck from another project is open in another window");
+    // Every request names this page, so the host can tell a reloaded page's
+    // abandoned leases from a live window's.
+    expect(invoke).toHaveBeenCalledWith("presentation_ensure_ready", {
+      projectRoot: "/tmp/project",
+      pageId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+    screen.getByRole("button", { name: "Switch to that window" }).click();
+    expect(invoke).toHaveBeenCalledWith("open_project_window", { path: "/tmp/talk" });
+
+    held = false;
+    act(() => screen.getByRole("button", { name: "Try again" }).click());
+    expect(await screen.findByTitle(FRAME_TITLE)).toBeInTheDocument();
+  });
+
   it("refreshes native files from project events instead of frequent polling", async () => {
     const setInterval = vi.spyOn(window, "setInterval");
     render(workspace());

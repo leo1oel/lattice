@@ -822,6 +822,10 @@ msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "A deck from another project is open in another window"
+msgstr "A deck from another project is open in another window"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
@@ -2590,6 +2594,10 @@ msgstr "Close find"
 #: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "Close Git workspace"
+
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Close it there to open this deck here, or switch to that window."
+msgstr "Close it there to open this deck here, or switch to that window."
 
 #: src/trellis/trellis-labels.ts
 msgid "Close other tabs"
@@ -10618,6 +10626,10 @@ msgstr "Switch to a workspace by its place"
 msgid "Switch to pdfLaTeX"
 msgstr "Switch to pdfLaTeX"
 
+#: src/editor/presentation/open-slide-workspace.tsx
+msgid "Switch to that window"
+msgstr "Switch to that window"
+
 #: src/App.tsx
 msgid "Switch to the Reading layout"
 msgstr "Switch to the Reading layout"
@@ -11575,6 +11587,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/paper-library.tsx
