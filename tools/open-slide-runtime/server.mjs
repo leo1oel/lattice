@@ -1241,17 +1241,20 @@ export async function migrateLegacySlideAssets(root, queue = null) {
       const localPath = `./assets/${entry.name}`;
       let targetName = entry.name;
       let targetAsset = path.join(assetsRoot, targetName);
+      // Move only an asset whose import this same step rewrites. Authors, the
+      // agent above all, write a deck's assets before the entry that imports
+      // them; moving such a file away left that import unresolvable the
+      // moment the entry was written.
+      if (!source?.includes(localPath)) continue;
       if (occupied.has(targetName) && !await filesEqual(localAsset, targetAsset)) {
         targetName = availableAssetCopyName(entry.name, occupied);
         targetAsset = path.join(assetsRoot, targetName);
       }
-      if (source?.includes(localPath)) {
-        const next = replaceQuotedAssetPath(source, localPath, `@assets/${targetName}`);
-        // Preserve unusual dynamic references rather than deleting the file
-        // underneath syntax that Open Slide cannot safely rewrite.
-        if (next === source || next.includes(localPath)) continue;
-        source = next;
-      }
+      const next = replaceQuotedAssetPath(source, localPath, `@assets/${targetName}`);
+      // Preserve unusual dynamic references rather than deleting the file
+      // underneath syntax that Open Slide cannot safely rewrite.
+      if (next === source || next.includes(localPath)) continue;
+      source = next;
       if (!occupied.has(targetName)) {
         await fs.copyFile(localAsset, targetAsset);
         occupied.add(targetName);
@@ -1721,6 +1724,56 @@ function previewTarget(slideId, searchParams) {
   return `${target.pathname}${target.search}`;
 }
 
+/**
+ * What Vite reports while compiling `slides/<slideId>/index.tsx` and every
+ * project file it imports, located relative to `root`. A deck that fails to
+ * compile reaches the preview page only as WebKit's "Importing a module script
+ * failed.", so the agent's page preview asks for these first: an unresolved
+ * import, such as an asset that is not where the deck imports it from, then
+ * arrives with its file, line and source line. Import analysis stops at a
+ * module's first unresolved import, so a module yields at most one error.
+ */
+export async function deckBuildErrors(environment, root, slideId) {
+  const errors = [];
+  const visited = new Set();
+  const projectFile = (file) => (
+    typeof file === "string"
+    && file.startsWith(`${root}/`)
+    && !file.slice(root.length).includes("/node_modules/")
+  );
+  const visit = async (url) => {
+    if (visited.has(url)) return;
+    visited.add(url);
+    try {
+      await environment.transformRequest(url);
+    } catch (error) {
+      const file = (error?.loc?.file ?? error?.id ?? "").split("?")[0];
+      const line = error?.loc?.line ?? null;
+      // Vite's own code frame quotes the module after its JSX transform,
+      // whose lines no longer match the file; quote the file's line instead.
+      const text = line && projectFile(file)
+        ? (await fs.readFile(file, "utf8").catch(() => "")).split("\n")[line - 1]
+        : undefined;
+      errors.push({
+        file: projectFile(file) ? path.relative(root, file) : null,
+        line,
+        column: error?.loc?.column ?? null,
+        message: String(error?.message ?? error),
+        frame: text === undefined ? null : `${line} | ${text}`,
+      });
+      return;
+    }
+    const module = await environment.moduleGraph.getModuleByUrl(url);
+    for (const imported of module?.importedModules ?? []) {
+      if (projectFile(imported.file)) await visit(imported.url);
+    }
+  };
+  // Open Slide's dev server roots Vite in its own app and imports each deck
+  // by file system path, as `virtual:open-slide/slides` does.
+  await visit(`/@fs${root}/slides/${slideId}/index.tsx`);
+  return errors;
+}
+
 const PREVIEW_PAGE_RE = /^\/s\/[^/]+\/preview$/;
 const PREVIEW_CAPTURE_MODULE = "\0virtual:lattice-preview-capture";
 
@@ -1804,6 +1857,28 @@ if (window.parent !== window) {
 }
 `;
 
+const DECK_ERROR_OVERLAY_MODULE = "\0virtual:lattice-deck-error-overlay";
+
+/**
+ * Loaded by every Open Slide page. A deck that fails to compile raises Vite's
+ * error overlay, which Vite clears only on its own HMR `update`. Open Slide
+ * reloads an edited deck through `open-slide:slide-changed` instead, so the
+ * overlay outlived the fix until the page reloaded or a click dismissed it.
+ * Each reload drops the overlay for an error in that deck's files: a reload
+ * that still fails compiles the deck again, and Vite raises a fresh one.
+ */
+export const DECK_ERROR_OVERLAY_SOURCE = `
+if (import.meta.hot) {
+  import.meta.hot.on("open-slide:slide-changed", (data) => {
+    const ids = Array.isArray(data?.slideIds) ? data.slideIds : [];
+    for (const overlay of document.querySelectorAll("vite-error-overlay")) {
+      const file = overlay.shadowRoot?.querySelector(".file")?.textContent ?? "";
+      if (ids.some((id) => file.includes("/slides/" + id + "/"))) overlay.close();
+    }
+  });
+}
+`;
+
 export function createOpenSlideSessionScript(sessionToken, preferences = {}) {
   return `(() => {
   const sessionToken = ${scriptJson(sessionToken)};
@@ -1853,6 +1928,11 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
   const access = createAccessPolicy();
   await queue.seed();
   let receivedHostSync = false;
+  // The deck-local assets this runtime started with migrate once. Files that
+  // arrive while it runs stay where they were written: the agent writes an
+  // asset, then an entry importing it as `./assets/...`, and often rewrites
+  // that entry whole from its own copy, which would bring back an import the
+  // migration had just moved out from under it.
   let legacyMigrationNeeded = true;
   let legacyMigrationPromise = null;
   const migrateAssetsIfReady = async () => {
@@ -1864,10 +1944,8 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
     ) return;
     if (legacyMigrationPromise) return legacyMigrationPromise;
     legacyMigrationPromise = (async () => {
-      do {
-        legacyMigrationNeeded = false;
-        await migrateLegacySlideAssets(root, queue);
-      } while (legacyMigrationNeeded && access.writable());
+      legacyMigrationNeeded = false;
+      await migrateLegacySlideAssets(root, queue);
     })();
     try {
       await legacyMigrationPromise;
@@ -1959,6 +2037,19 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
       void migrateAssetsIfReady().catch((error) => console.error("Open Slide asset migration failed", error));
       return;
     }
+    const buildCheck = /^\/__lattice\/build-errors\/([^/]+)$/.exec(url.pathname);
+    if (buildCheck && req.method === "GET" && queue.authorized(req)) {
+      const cors = { "access-control-allow-origin": "*", "cache-control": "no-store" };
+      const slideId = buildCheck[1];
+      try {
+        if (!PRESENTATION_ID_RE.test(slideId)) throw new Error("Invalid presentation ID");
+        await fs.access(path.join(root, "slides", slideId, "index.tsx"));
+        sendJson(res, 200, { errors: await deckBuildErrors(vite.environments.client, root, slideId) }, cors);
+      } catch (error) {
+        sendJson(res, error.code === "ENOENT" ? 404 : 400, { error: error.message }, cors);
+      }
+      return;
+    }
     if (url.pathname === "/__lattice/access" && req.method === "POST" && queue.authorized(req)) {
       try {
         const chunks = [];
@@ -1983,12 +2074,6 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         }
         const body = JSON.parse(Buffer.concat(chunks));
         const operations = Array.isArray(body.operations) ? body.operations : [];
-        if (operations.some((operation) => (
-          typeof operation?.path === "string"
-          && /^slides\/[a-z0-9]+(?:-[a-z0-9]+)*\/assets\//i.test(operation.path)
-        ))) {
-          legacyMigrationNeeded = true;
-        }
         await queue.sync(operations);
         receivedHostSync = true;
         await migrateAssetsIfReady();
@@ -2002,9 +2087,6 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
       try {
         const relative = safeRelativePath(url.searchParams.get("path"));
         await queue.syncFile(relative, req);
-        if (/^slides\/[a-z0-9]+(?:-[a-z0-9]+)*\/assets\//i.test(relative)) {
-          legacyMigrationNeeded = true;
-        }
         res.writeHead(204, { "access-control-allow-origin": "*" }).end();
       } catch (error) {
         res.writeHead(400, { "access-control-allow-origin": "*" }).end(String(error.message));
@@ -2106,6 +2188,10 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
               tag: "script",
               children: createOpenSlideSessionScript(sessionToken, sessionPreferences),
               injectTo: "head-prepend",
+            }, {
+              tag: "script",
+              attrs: { type: "module", src: `/@id/${DECK_ERROR_OVERLAY_MODULE.replace("\0", "__x00__")}` },
+              injectTo: "head",
             }, ...(previewPage ? [{
               tag: "script",
               attrs: { type: "module", src: `/@id/${PREVIEW_CAPTURE_MODULE.replace("\0", "__x00__")}` },
@@ -2114,10 +2200,14 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
           },
         },
         resolveId(id) {
-          return id === PREVIEW_CAPTURE_MODULE || id === PREVIEW_CAPTURE_MODULE.slice(1) ? PREVIEW_CAPTURE_MODULE : undefined;
+          for (const module of [PREVIEW_CAPTURE_MODULE, DECK_ERROR_OVERLAY_MODULE]) {
+            if (id === module || id === module.slice(1)) return module;
+          }
+          return undefined;
         },
         load(id) {
-          return id === PREVIEW_CAPTURE_MODULE ? PREVIEW_CAPTURE_SOURCE : undefined;
+          if (id === PREVIEW_CAPTURE_MODULE) return PREVIEW_CAPTURE_SOURCE;
+          return id === DECK_ERROR_OVERLAY_MODULE ? DECK_ERROR_OVERLAY_SOURCE : undefined;
         },
       },
       {

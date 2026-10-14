@@ -814,6 +814,39 @@ Node.js v24.20.0\n";
     }
 
     #[test]
+    fn shadow_mirrors_every_file_a_deck_can_import_and_sees_later_ones() {
+        let parent = crate::test_support::TempDir::new("presentation-deck-files");
+        let source = parent.join("project");
+        let shadow = parent.join("shadow");
+        for path in [
+            "slides/talk/index.tsx",
+            "slides/talk/assets/chart.png",
+            "slides/talk/assets/fonts/display.woff2",
+            "slides/talk/data/results.json",
+            "slides/talk/embed.html",
+            "assets/logo.svg",
+        ] {
+            parent.write(&format!("project/{path}"), path);
+        }
+
+        synchronize(&source, &shadow).unwrap();
+        let mirrored = native_files(&shadow).unwrap();
+        assert_eq!(
+            mirrored.keys().map(String::as_str).collect::<Vec<_>>(),
+            native_files(&source).unwrap().keys().map(String::as_str).collect::<Vec<_>>()
+        );
+        assert!(mirrored.contains_key("slides/talk/assets/fonts/display.woff2"));
+
+        // An asset written after the runtime started is one that `refresh`
+        // must upload: it is in the project's listing but not the shadow's.
+        parent.write("project/slides/talk/assets/late.png", "late");
+        let source_files = native_files(&source).unwrap();
+        let pending =
+            source_files.keys().filter(|path| !mirrored.contains_key(*path)).collect::<Vec<_>>();
+        assert_eq!(pending, ["slides/talk/assets/late.png"]);
+    }
+
+    #[test]
     fn shadow_sync_does_not_walk_unrelated_project_directories() {
         use std::os::unix::fs::PermissionsExt;
 
