@@ -15,7 +15,9 @@ const request = {
   action: "cite" as const,
   params: { query: "Attention Is All You Need" },
   workspaceRoot: "/workspace/paper",
-  expiresAt: Date.now() + 10_000,
+  // Fixed, not `Date.now() + 10_000`: a clock read at file load expires
+  // before a test that runs more than ten seconds later on a loaded runner.
+  expiresAt: Date.parse("2999-01-01T00:00:00Z"),
 };
 
 describe("agent bibliography host protocol", () => {

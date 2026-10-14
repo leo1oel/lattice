@@ -317,7 +317,16 @@
       // Each rule documents the race it closes in its own module.
       "files": ["**/*.test.{ts,tsx,js,mjs}"],
       "rules": {
-        "lattice/await-changed-alert": "error"
+        "lattice/await-changed-alert": "error",
+        "lattice/module-clock": "error"
+      }
+    },
+    {
+      // The midnight flake in the Known flakes issue (#342), which the
+      // ci-flakes fix replaces. Delete this block when that lands.
+      "files": ["src/overleaf/overleaf-history.test.tsx"],
+      "rules": {
+        "lattice/module-clock": "off"
       }
     },
     {
