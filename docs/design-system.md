@@ -426,11 +426,12 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   the compact control height, centred in it. The 3px left above them is also
   their inset from the panel's side, and their corner is the panel's 10px less
   that inset (7px), so the first tab sits square and concentric in the panel's
-  corner; the panel menu takes the same inset and corner at the other end. The strip, the selected tab and
-  the body below are one surface, the panel's own: the selected tab is told
-  by a hairline ring (`--border-strong`) and the primary ink, the others are
-  their label in the secondary ink with a hover fill, never a fill of their
-  own. A tab's trailing slot (its close button or
+  corner; the panel menu takes the same inset and corner at the other end. The strip and
+  the body below are one surface, the panel's own. The selected tab is told
+  by a fill one step deeper than it (lighter in dark), 10% of the ink laid
+  opaque on the panel's surface, and by the primary ink; it draws no ring except under
+  increased contrast. The others are their label in the secondary ink with a
+  fainter hover fill (`--control-hover-surface`). A tab's trailing slot (its close button or
   unsaved dot) is one width whatever it holds, so hovering, saving or
   selecting never resizes a tab; squeezed below its natural width, an
   unselected tab's empty slot gives its room to the title first. The selected
