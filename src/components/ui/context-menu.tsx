@@ -2,7 +2,7 @@ import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface"
+import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import { FluidHoverSurface } from "./fluid-hover-surface"
 
@@ -51,6 +51,10 @@ function ContextMenuItem({
       data-variant={variant}
       className={cn(menuItemClassName, className)}
       {...props}
+      onPointerLeave={(event) => {
+        props.onPointerLeave?.(event)
+        keepFocusOnClose(event)
+      }}
     />
   )
 }

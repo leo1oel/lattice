@@ -31,7 +31,7 @@ import { EditorView } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
+import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
 import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
 import { ResearchArt } from "@/components/ui/research-art";
@@ -804,6 +804,7 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
             className={menuItemClassName}
             data-variant={entry.danger ? "destructive" : "default"}
             disabled={entry.disabled}
+            onPointerLeave={keepFocusOnClose}
             onSelect={() => {
               onRun();
               entry.run?.();

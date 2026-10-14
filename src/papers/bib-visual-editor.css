@@ -53,7 +53,7 @@
 .bib-visual-divider::after { content: ""; position: absolute; inset: 0 -4px; }
 .bib-visual-divider:hover,
 .bib-visual-divider[data-dragging] { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
-.bib-visual-divider:focus-visible { background: var(--focus-ring); outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 0; }
+.bib-visual-divider:focus-visible:not([data-pointer-focus]) { background: var(--focus-ring); outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 0; }
 .bib-visual[data-resizing] { cursor: col-resize; user-select: none; }
 
 /* Every row is exactly ROW_HEIGHT tall (set inline), so the list can place
@@ -69,7 +69,7 @@
 .bib-row[aria-selected="true"] { background: var(--surface-panel-raised); box-shadow: inset 2px 0 0 var(--mark-weft), 0 0 0 1px var(--border-subtle); }
 .bib-row[aria-selected="true"]::after,
 .bib-row:has(+ .bib-row[aria-selected="true"])::after { visibility: hidden; }
-.bib-visual-list-viewport:focus-visible .bib-row[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--mark-weft), 0 0 0 1px var(--control-active-border-strong); }
+.bib-visual-list-viewport:focus-visible:not([data-pointer-focus]) .bib-row[aria-selected="true"] { box-shadow: inset 2px 0 0 var(--mark-weft), 0 0 0 1px var(--control-active-border-strong); }
 .bib-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bib-row-year { grid-column: 1; grid-row: 1 / span 2; justify-self: end; color: var(--text-secondary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-variant-numeric: oldstyle-nums proportional-nums; }
 .bib-row-title { grid-column: 2; grid-row: 1; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); }

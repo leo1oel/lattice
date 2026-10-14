@@ -514,7 +514,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    the label comes when the wait is long enough to need one. */
 .synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); animation: synara-settings-loading-in var(--motion-moderate) calc(var(--duration-slow) * 2) both; }
 @keyframes synara-settings-loading-in { from { opacity: 0; } }
-.synara-settings-state { position: relative; min-height: var(--settings-embed-min-height); }
+.synara-settings-state { position: relative; min-height: var(--settings-embed-min-height); display: flex; flex-direction: column; }
 .synara-settings-state > .synara-loading-surface { background: var(--surface-panel); }
 .settings-section {
   --form-control-border-width: var(--settings-frame-border-width);

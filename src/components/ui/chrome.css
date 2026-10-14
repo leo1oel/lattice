@@ -401,6 +401,15 @@
   text-align: center;
 }
 
+/* A filling state grows into the rest of a flex column and centres there,
+   never shrinking below its content, so a column too short for it scrolls.
+   A ScrollArea stretches its content to the viewport for one
+   (scroll-area.css), and a drawer becomes that column (surfaces.css). */
+.ui-empty-state[data-fill] {
+  flex: 1 0 auto;
+  justify-content: center;
+}
+
 .ui-empty-state[data-density="compact"] {
   padding: var(--space-3) 0;
   gap: var(--space-2);
@@ -431,6 +440,11 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   font-weight: var(--type-caption-weight);
+}
+
+/* Centred lines balance, so a wrap never leaves one word under the rest. */
+.ui-empty-state[data-align="center"] .ui-empty-state-description {
+  text-wrap: balance;
 }
 
 .ui-empty-state-description code {

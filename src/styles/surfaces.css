@@ -115,6 +115,13 @@
   animation: drawer-in var(--motion-slow);
 }
 
+/* A drawer showing a filling empty state (EmptyState `fill`) is the column
+   the state fills, under the drawer's header and any search above it. */
+.resizable-drawer:has(> .ui-empty-state[data-fill]) {
+  display: flex;
+  flex-direction: column;
+}
+
 @keyframes drawer-in {
   from {
     transform: translateX(24px);

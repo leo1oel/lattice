@@ -630,27 +630,32 @@ export function EditorCommentsPanel(props: {
     </div>
   );
 
-  const list = highlightList || (
+  // Before the first annotation the empty state is all the panel shows, so
+  // it fills the panel and centres; a filter that matches nothing keeps the
+  // list's compact line at the top.
+  const emptyState = !visible.length && (
+    <EmptyState
+      fill={!hasComments}
+      align={hasComments ? "start" : "center"}
+      density={hasComments ? "compact" : "default"}
+      icon={<EmptyIllustration kind={hasComments && query.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
+      description={!hasComments
+        ? props.onReturnToEditor && !props.writingFile
+          ? t`No annotations yet. Open a file, select text and click Annotate`
+          : t`No annotations yet. Select text in the editor or the PDF and click Annotate`
+        : query.trim() ? t`No matches` : filter === "resolved" ? t`No resolved annotations` : t`No open annotations`}
+      actions={!hasComments && props.onReturnToEditor && (
+        <Button size="compact" className="editor-comments-return" onClick={props.onReturnToEditor}>
+          {writingName ? <CornerDownLeft size={13} /> : <FileSearch size={13} />}
+          <span>{writingName ? t`Return to ${writingName}` : t`Open a file`}</span>
+        </Button>
+      )}
+    />
+  );
+  const list = highlightList || (!hasComments && !banner ? emptyState : (
     <div className="annotations-list">
       {banner}
-      {!visible.length && (
-        <EmptyState
-          align={hasComments ? "start" : "center"}
-          density={hasComments ? "compact" : "default"}
-          icon={<EmptyIllustration kind={hasComments && query.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
-          description={!hasComments
-            ? props.onReturnToEditor && !props.writingFile
-              ? t`No annotations yet. Open a file, select text and click Annotate`
-              : t`No annotations yet. Select text in the editor or the PDF and click Annotate`
-            : query.trim() ? t`No matches` : filter === "resolved" ? t`No resolved annotations` : t`No open annotations`}
-          actions={!hasComments && props.onReturnToEditor && (
-            <Button size="compact" className="editor-comments-return" onClick={props.onReturnToEditor}>
-              {writingName ? <CornerDownLeft size={13} /> : <FileSearch size={13} />}
-              <span>{writingName ? t`Return to ${writingName}` : t`Open a file`}</span>
-            </Button>
-          )}
-        />
-      )}
+      {emptyState}
       {groups.map((group) => (
         <Fragment key={group.key}>
           {group.label && <h3 className="annotations-section">{group.label}</h3>}
@@ -658,7 +663,7 @@ export function EditorCommentsPanel(props: {
         </Fragment>
       ))}
     </div>
-  );
+  ));
 
   const footer: ReactNode = rounds && hasComments && (
     <div className="annotations-foot">

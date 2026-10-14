@@ -30,6 +30,7 @@ import {
 import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { Button } from "../components/ui/button";
+import { EmptyState } from "../components/ui/empty-state";
 import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
@@ -307,17 +308,17 @@ export function PaperLibrary(props: PaperLibraryProps) {
             {!kind && !props.importing && loadStatus !== "ready" && (
               <PaperLoadStatus load={props.load} syncing={loadStatus === "syncing"} onRetry={props.onRetryLoad} />
             )}
-            {!kind && !props.importing && loadStatus === "ready" && <div className="papers-empty-state" data-library="empty">
-              {/* Beside the text, not above it: the card sits in a short panel
-                  at startup, and a taller card would overflow it. */}
-              <ResearchArt drawing={CARD_INDEX} />
-              <div className="papers-empty-text">
-                <strong>{t`Your paper library`}</strong>
-                <p>{t`Keep sources beside your writing`}</p>
-                {/* Only focuses the field: what to add is the writer's to type. */}
-                <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>
-              </div>
-            </div>}
+            {!kind && !props.importing && loadStatus === "ready" && (
+              <EmptyState
+                className="papers-empty-state"
+                fill
+                icon={<ResearchArt drawing={CARD_INDEX} />}
+                title={t`Your paper library`}
+                description={t`Keep sources beside your writing`}
+                // Only focuses the field: what to add is the writer's to type.
+                actions={<Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
+              />
+            )}
           </ScrollArea>
         )}
       </div>

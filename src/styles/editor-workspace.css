@@ -814,7 +814,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .source-editor .cm-panel.cm-search label:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .source-editor .cm-panel.cm-search label:has(input:checked) { background: var(--control-active-soft); color: var(--control-active); }
-.source-editor .cm-panel.cm-search label:has(input:focus-visible) { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.source-editor .cm-panel.cm-search label:has(input:focus-visible:not([data-pointer-focus])) { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 .source-editor .cm-panel.cm-search input[type="checkbox"] { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; margin: 0; opacity: 0; cursor: pointer; }
 .source-editor .cm-searchMatch { background: var(--highlight-match-surface); border-radius: 2px; }
 .source-editor .cm-searchMatch-selected { background: var(--highlight-match-current-surface); }
@@ -1353,7 +1353,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:active {
   background: var(--control-pressed-surface) !important;
 }
-.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:focus-visible {
+.spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:focus-visible:not([data-pointer-focus]) {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -1465,7 +1465,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"].univer-bg-primary-600:active:not(:disabled) {
   scale: .96;
 }
-.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:focus-visible {
+.spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:focus-visible:not([data-pointer-focus]) {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }

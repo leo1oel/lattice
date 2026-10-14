@@ -2,7 +2,7 @@ import * as React from "react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "./menu-surface"
+import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "./menu-surface"
 import { popupMotionClassName } from "./popup-motion"
 import { FluidHoverSurface } from "./fluid-hover-surface"
 
@@ -51,6 +51,10 @@ function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof D
       data-variant="default"
       className={cn(menuItemClassName, className)}
       {...props}
+      onPointerLeave={(event) => {
+        props.onPointerLeave?.(event)
+        keepFocusOnClose(event)
+      }}
     />
   )
 }

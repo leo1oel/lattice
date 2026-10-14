@@ -532,6 +532,9 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
           {shown.length === 0 ? (
             <EmptyState
               density="compact"
+              // An empty bibliography is all the list shows; a filter that
+              // matches nothing keeps its line at the top.
+              fill={rows.length === 0}
               title={rows.length === 0 ? t`No references yet` : t`No matching references`}
               description={rows.length === 0 && props.editable ? t`Add one by DOI, arXiv ID, title, or by hand` : undefined}
               actions={rows.length === 0 && props.editable

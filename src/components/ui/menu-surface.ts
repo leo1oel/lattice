@@ -1,8 +1,11 @@
+import type { PointerEvent } from "react";
+
 /**
  * Visual contracts shared by Radix menu-like primitives.
  *
  * Focus management and portal behavior stay with each Radix primitive; these
- * constants only unify surface geometry, typography, and item states.
+ * constants only unify surface geometry, typography, and item states, apart
+ * from `keepFocusOnClose`, which every item wears against one Radix habit.
  *
  * Concentric corners: the surface is 10px (the surface radius) and the
  * viewport pads by 4px, so items inherit the derived 6px radius. The fill is
@@ -29,3 +32,15 @@ export const menuViewportClassName =
 
 export const menuItemClassName =
   "relative flex cursor-default items-center gap-2.5 rounded-[var(--nested-radius,var(--radius-icon))] px-2.5 py-1.5 text-[length:var(--type-body-size)] leading-[var(--type-body-line-height)] font-normal outline-hidden select-none transition-colors duration-[var(--duration-fast)] ease-[var(--ease-fast)] focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:[stroke-width:1.5] [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:text-destructive!";
+
+/**
+ * A menu item's `onPointerLeave` that keeps a closing menu from taking focus
+ * back. Radix focuses the menu itself when the pointer leaves an item, and a
+ * closing menu turns the pointer away (popup-motion.css), so the item under a
+ * resting pointer is left as the exit starts, after the chosen action already
+ * moved focus on: the project tree's New file and New folder lost their name
+ * field to the leaving menu and the blur cancelled the draft.
+ */
+export function keepFocusOnClose(event: PointerEvent<HTMLElement>) {
+  if (event.currentTarget.closest('[role="menu"][data-state="closed"]')) event.preventDefault();
+}

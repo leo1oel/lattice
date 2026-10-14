@@ -379,6 +379,7 @@ export function VersionsState(props: { versions: GitVersions }) {
     return (
       <EmptyState
         className="history-empty"
+        fill
         icon={<ResearchArt drawing={DATED_DRAFTS} />}
         title={t`No version history`}
         description={t`Version history needs Git, which isn’t available on this Mac`}
@@ -401,6 +402,7 @@ export function VersionsState(props: { versions: GitVersions }) {
         {versions.error && <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage>}
         <EmptyState
           className="history-empty"
+          fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`Version tracking is off`}
           description={t`Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away`}
@@ -419,6 +421,7 @@ export function VersionsState(props: { versions: GitVersions }) {
         {versions.error && <InlineMessage level="error" className="versions-inline">{versions.error}</InlineMessage>}
         <EmptyState
           className="history-empty"
+          fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`No versions yet`}
           description={t`Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build`}

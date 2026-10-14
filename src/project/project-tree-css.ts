@@ -130,7 +130,8 @@ button[data-type="item"][data-item-selected="true"] {
   font-weight: var(--weight-medium);
 }
 
-button[data-type="item"][data-item-focused="true"]::before {
+button[data-type="item"][data-item-focused="true"]::before,
+button[data-type="item"][data-pointer-focus]::before {
   outline-color: transparent;
 }
 
