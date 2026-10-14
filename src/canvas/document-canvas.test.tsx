@@ -711,13 +711,19 @@ describe("DocumentCanvas / split ratio", () => {
     const split = documentHost.querySelector<HTMLElement>(".split-canvas")!;
     vi.spyOn(split, "getBoundingClientRect").mockReturnValue(bounds as DOMRect);
     const property = "--split-resizer-offset";
-    const offset = () => Number.parseFloat(split.style.getPropertyValue(property));
-    return { split, property, offset, grip: separator() };
+    const grip = separator();
+    // The grip and both panes each carry the offset; it does not inherit.
+    const offset = () => {
+      const values = [...split.children].map((child) => (child as HTMLElement).style.getPropertyValue(property));
+      expect(new Set(values).size).toBe(1);
+      return Number.parseFloat(values[0]!);
+    };
+    return { split, property, offset, grip };
   }
 
   it("adds boundary-only resistance to the split without saving the offset", () => {
     const inside = 700;
-    const { property, offset, grip } = renderGrip({ left: 100, right: 1700, width: 1600 });
+    const { split, property, offset, grip } = renderGrip({ left: 100, right: 1700, width: 1600 });
     fireEvent.pointerDown(grip, { clientX: inside });
     fireEvent.pointerMove(window, { clientX: inside });
     expect(offset()).toBeCloseTo(0);
@@ -725,7 +731,7 @@ describe("DocumentCanvas / split ratio", () => {
     expect(offset()).toBeLessThan(0);
     expect(offset()).toBeGreaterThanOrEqual(-24);
     expect(grip.style.transform).toBe("");
-    expect(grip.style.getPropertyValue(property)).toBe("");
+    expect(split.style.getPropertyValue(property)).toBe("");
     fireEvent.pointerCancel(window);
     expect(offset()).toBe(0);
     expect(document.body).not.toHaveClass("resizing-split");
@@ -853,12 +859,12 @@ describe("DocumentCanvas / split ratio", () => {
 
   it("respects pixel minimums before ratio limits", () => {
     // 200 of 800 px is inside the 20% ratio limit, but under the source minimum.
-    const { split, property, offset, grip } = renderGrip({ left: 0, right: 800, width: 800 });
+    const { offset, grip } = renderGrip({ left: 0, right: 800, width: 800 });
     fireEvent.pointerDown(grip, { clientX: 400 });
     fireEvent.pointerMove(window, { clientX: 200 });
     expect(offset()).toBeLessThan(0);
     fireEvent.blur(window);
-    expect(split.style.getPropertyValue(property)).toBe("0px");
+    expect(offset()).toBe(0);
     expect(document.body).not.toHaveClass("resizing-split");
   });
 

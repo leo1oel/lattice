@@ -995,7 +995,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-chip > svg { flex: none; color: var(--text-secondary); stroke-width: 1.5; transition: color var(--motion-fast); }
 .paper-chip:hover { background: var(--control-pressed-surface); }
 .paper-chip:hover > svg { color: var(--text-primary); }
-.paper-list { min-height: 0; flex: 1; container: paper-list / inline-size; }
+/* The list and its rows are no query containers: WebKit restyles all a
+   container holds whenever its width changes, every frame of a divider drag.
+   Their widths arrive as attributes instead (paper-library.tsx): the list's
+   data-table and data-below, the rows' data-row-below on .paper-rows. */
+.paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* A paper is a short grid: its glyph on the Project tree's icon gutter, the
    title, and the times the manuscript cites it at the end; under them a
@@ -1004,7 +1008,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    text over its icons); the row's surface is a
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
-.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); --paper-row-padding-inline: var(--space-4); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; padding: var(--paper-row-padding) var(--paper-row-padding-inline); border-radius: var(--radius-icon); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: start; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
 /* A long list draws only the rows near the view and stands a gap for the
    rest (paper-list-window.ts): the row drawn after a gap keeps the margin and
    hairline it has after a row, and the list does its own scroll anchoring. */
@@ -1014,7 +1018,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    either side. */
 :is(.paper-row, .paper-rows-gap) + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding-inline); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
-.paper-rows { --fluid-hover-fill: var(--navigation-tree-hover-surface); }
+.paper-rows { --paper-row-padding-inline: var(--space-4); --fluid-hover-fill: var(--navigation-tree-hover-surface); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
 .paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
 /* The button is the whole row under its text, so its ring is the row's;
@@ -1054,7 +1058,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-byline > .paper-venue { flex: 0 1 auto; }
 .paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-year, .paper-cell-year { font-variant-numeric: tabular-nums; }
-@container paper-row (width < 260px) { .paper-byline > .paper-venue { display: none; } }
+:where(.paper-rows[data-row-below~="260"]) .paper-byline > .paper-venue { display: none; }
 /* A full-text hit is a line quoted from the paper, so it reads as one. */
 .paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
 /* The row's citation-health notice. */
@@ -1084,11 +1088,9 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .paper-row:is(:hover, :focus-within, .active) .paper-row-actions { display: flex; }
 .paper-row-actions:has(> .paper-cite-key) { min-width: calc(6 * var(--type-micro-size) + 3 * 24px); }
 @keyframes paper-row-actions-in { from { opacity: 0; } }
-@container paper-row (width < 300px) {
-  .paper-row:is(:hover, :focus-within, .active) .paper-byline { display: none; }
-  .paper-row-actions { flex-grow: 1; }
-  .paper-row-actions > .paper-cite-key { margin-inline: calc(-1 * var(--space-2)) auto; }
-}
+:where(.paper-rows[data-row-below~="300"]) .paper-row:is(:hover, :focus-within, .active) .paper-byline { display: none; }
+:where(.paper-rows[data-row-below~="300"]) .paper-row-actions { flex-grow: 1; }
+:where(.paper-rows[data-row-below~="300"]) .paper-row-actions > .paper-cite-key { margin-inline: calc(-1 * var(--space-2)) auto; }
 /* Placed on no grid line, so its box is the row's, not the byline column's;
    it grows leftwards from the row's end, so it is capped at the row. */
 .paper-row > .paper-meta:not(:has(> .paper-byline)) { grid-column: auto; position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-2)); inset-inline-end: var(--space-3); max-width: calc(100% - 2 * var(--space-3)); margin: 0; }
@@ -1103,11 +1105,9 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 /* At the panel's narrowest the key alone would push Edit and Remove out of
    the row, so it keeps only its copy icon; its name and tooltip still say
    which key it copies. Four icons fit any row the panel can hold. */
-@container paper-row (width < 200px) {
-  .paper-row-actions:has(> .paper-cite-key) { min-width: 0; }
-  .paper-row-actions > .paper-cite-key { width: 24px; min-width: 0; margin-inline: calc(-1 * var(--space-3)) auto; padding: 0; justify-content: center; }
-  .paper-cite-key > code { display: none; }
-}
+:where(.paper-rows[data-row-below~="200"]) .paper-row-actions:has(> .paper-cite-key) { min-width: 0; }
+:where(.paper-rows[data-row-below~="200"]) .paper-row-actions > .paper-cite-key { width: 24px; min-width: 0; margin-inline: calc(-1 * var(--space-3)) auto; padding: 0; justify-content: center; }
+:where(.paper-rows[data-row-below~="200"]) .paper-cite-key > code { display: none; }
 .row-delete, .row-edit-bib, .row-open-link { position: relative; width: 24px !important; height: 24px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
 .row-delete svg, .row-edit-bib svg, .row-open-link svg { stroke-width: 1.5; }
 .row-edit-bib:hover, .row-open-link:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
@@ -1122,32 +1122,30 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    Venue · Cited. A notice or a search hit takes a second line under the
    title. A lit row's actions surface over the end of its line. */
 .paper-table-head { display: none; }
-@container paper-list (width >= 680px) {
-  .paper-table-head, .paper-row { --paper-table-columns: 16px minmax(0, 1fr) minmax(0, min(200px, 22%)) 52px minmax(0, min(170px, 18%)) 52px; }
-  .paper-table-head { position: sticky; top: 0; z-index: 2; margin-bottom: var(--space-1); padding: var(--space-2) var(--space-6); display: grid; grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); align-items: center; background: var(--surface-sidebar); box-shadow: 0 1px 0 var(--border-subtle); }
-  .paper-table-sort { min-width: 0; height: 24px; margin-inline: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-1); justify-self: start; background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-  .paper-table-sort > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .paper-table-sort > svg { flex: none; }
-  .paper-table-sort:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-  .paper-table-sort[aria-pressed="true"] { color: var(--text-primary); }
-  .paper-table-head > :last-child { justify-self: end; }
-  .paper-row { --paper-row-padding: var(--space-4); --paper-row-padding-inline: var(--space-6); grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); }
-  .paper-list .paper-row > .paper-title { -webkit-line-clamp: 1; line-clamp: 1; }
-  .paper-row > .paper-cell { grid-row: 1; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-subtitle-line-height); }
-  .paper-row > .paper-cell-authors { grid-column: 3; }
-  .paper-row > .paper-cell-year { grid-column: 4; }
-  .paper-row > .paper-cell-venue { grid-column: 5; }
-  .paper-row > .paper-uses { grid-column: 6; justify-content: flex-end; }
-  .paper-row > :is(.paper-tags, .paper-snippet) { grid-column: 2 / span 4; }
-  .paper-list .paper-row > .paper-snippet { margin-top: var(--space-1); }
-  .paper-row > .paper-tags { margin-top: var(--space-2); }
-  /* The byline's facts are the columns; the line keeps only the actions,
-     over the end of the title's line. */
-  .paper-row > .paper-meta { grid-column: auto; position: absolute; z-index: 1; inset-block: calc(var(--paper-row-padding) + (var(--type-subtitle-line-height) - 24px) / 2) auto; inset-inline-end: var(--space-4); max-width: calc(100% - 2 * var(--space-4)); height: 24px; margin: 0; }
-  .paper-row > .paper-meta > .paper-byline { display: none; }
-  .paper-row > .paper-meta > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
-  .paper-group { margin-inline: var(--space-6); }
-}
+:where(.paper-list[data-table]) .paper-table-head, :where(.paper-list[data-table]) .paper-row { --paper-table-columns: 16px minmax(0, 1fr) minmax(0, min(200px, 22%)) 52px minmax(0, min(170px, 18%)) 52px; }
+:where(.paper-list[data-table]) .paper-table-head { position: sticky; top: 0; z-index: 2; margin-bottom: var(--space-1); padding: var(--space-2) var(--space-6); display: grid; grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); align-items: center; background: var(--surface-sidebar); box-shadow: 0 1px 0 var(--border-subtle); }
+:where(.paper-list[data-table]) .paper-table-sort { min-width: 0; height: 24px; margin-inline: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-1); justify-self: start; background: transparent; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+:where(.paper-list[data-table]) .paper-table-sort > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.paper-list[data-table]) .paper-table-sort > svg { flex: none; }
+:where(.paper-list[data-table]) .paper-table-sort:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+:where(.paper-list[data-table]) .paper-table-sort[aria-pressed="true"] { color: var(--text-primary); }
+:where(.paper-list[data-table]) .paper-table-head > :last-child { justify-self: end; }
+:where(.paper-list[data-table]) .paper-row { --paper-row-padding: var(--space-4); --paper-row-padding-inline: var(--space-6); grid-template-columns: var(--paper-table-columns); column-gap: var(--space-6); }
+.paper-list:where([data-table]) .paper-row > .paper-title { -webkit-line-clamp: 1; line-clamp: 1; }
+:where(.paper-list[data-table]) .paper-row > .paper-cell { grid-row: 1; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-subtitle-line-height); }
+:where(.paper-list[data-table]) .paper-row > .paper-cell-authors { grid-column: 3; }
+:where(.paper-list[data-table]) .paper-row > .paper-cell-year { grid-column: 4; }
+:where(.paper-list[data-table]) .paper-row > .paper-cell-venue { grid-column: 5; }
+:where(.paper-list[data-table]) .paper-row > .paper-uses { grid-column: 6; justify-content: flex-end; }
+:where(.paper-list[data-table]) .paper-row > :is(.paper-tags, .paper-snippet) { grid-column: 2 / span 4; }
+.paper-list:where([data-table]) .paper-row > .paper-snippet { margin-top: var(--space-1); }
+:where(.paper-list[data-table]) .paper-row > .paper-tags { margin-top: var(--space-2); }
+/* The byline's facts are the columns; the line keeps only the actions,
+   over the end of the title's line. */
+:where(.paper-list[data-table]) .paper-row > .paper-meta { grid-column: auto; position: absolute; z-index: 1; inset-block: calc(var(--paper-row-padding) + (var(--type-subtitle-line-height) - 24px) / 2) auto; inset-inline-end: var(--space-4); max-width: calc(100% - 2 * var(--space-4)); height: 24px; margin: 0; }
+:where(.paper-list[data-table]) .paper-row > .paper-meta > .paper-byline { display: none; }
+:where(.paper-list[data-table]) .paper-row > .paper-meta > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
+:where(.paper-list[data-table]) .paper-group { margin-inline: var(--space-6); }
 /* What the box will add, said before it happens (the add row), and the
    import under way (the pending row): soft plates above the list, on the
    rows' own inset, whose secondary line gives way first in a narrow panel. */
@@ -1194,7 +1192,7 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 /* A paper this window just added keeps its key and actions out, as a lit
    row does, until the next add. */
 .paper-row.just-added .paper-row-actions { display: flex; }
-@container paper-row (width < 300px) { .paper-row.just-added .paper-byline { display: none; } }
+:where(.paper-rows[data-row-below~="300"]) .paper-row.just-added .paper-byline { display: none; }
 /* Drawing beside the text, straight on the panel: the panel is already the
    card, so a plate here would be a card inside it. */
 .papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
@@ -1210,12 +1208,10 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 /* Too narrow for the button beside the drawing ("Add your first paper" needs
    about 140px), the button takes a row of its own under both; the heading and
    its line stay beside the drawing, so the card grows by no more than that. */
-@container paper-list (width < 260px) {
-  .papers-empty-state[data-library="empty"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; row-gap: var(--space-1); }
-  .papers-empty-state[data-library="empty"] .research-art { grid-row: span 2; }
-  .papers-empty-state[data-library="empty"] .papers-empty-text { display: contents; }
-  .papers-empty-state[data-library="empty"] .ui-button { grid-column: 1 / -1; margin-top: var(--space-4); }
-}
+:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; row-gap: var(--space-1); }
+:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .research-art { grid-row: span 2; }
+:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .papers-empty-text { display: contents; }
+:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .ui-button { grid-column: 1 / -1; margin-top: var(--space-4); }
 /* The library before its list is read: one line on the rows' icon gutter and
    inset, in the secondary ink, where the first row will be. It holds back a
    moment before showing, so a list read at once never flashes it; a read that
@@ -1229,9 +1225,7 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 .papers-load-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .papers-load-status .ui-button { align-self: center; }
 /* Too narrow for the retry beside the reason, it takes a line of its own under it. */
-@container paper-list (width < 240px) {
-  .papers-load-status[data-state="error"] .ui-button { grid-column: 2 / -1; justify-self: start; margin-top: var(--space-3); }
-}
+:where(.paper-list[data-below~="240"]) .papers-load-status[data-state="error"] .ui-button { grid-column: 2 / -1; justify-self: start; margin-top: var(--space-3); }
 @keyframes papers-load-in { from { opacity: 0; } }
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }

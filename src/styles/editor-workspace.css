@@ -1,4 +1,12 @@
-.split-canvas { --split-ratio: 0.5; --split-resizer-offset: 0px; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+/* A drag writes the split's ratio, and the pull past a pane's minimum, on
+   every pointer move. Registered as non-inherited, a change restyles only the
+   boxes that read it: an inherited one restyled all a pane holds, every block
+   of a long visual document (18 ms a frame in WebKit). The offset is written
+   on each of the three children, which are what read it (split-resizer.ts). */
+@property --split-ratio { syntax: "<number>"; inherits: false; initial-value: 0.5; }
+@property --split-resizer-offset { syntax: "<length>"; inherits: false; initial-value: 0px; }
+.split-canvas > * { --split-resizer-offset: 0px; }
+.split-canvas { --split-ratio: 0.5; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-column, .split-canvas > .markdown-preview, .split-canvas > .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .source-workspace, .source-editor, .pdf-preview, .pdf-column, .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .html-preview, .canvas-body > .asset-preview, .canvas-body > .paper-reader-shell { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }
@@ -1077,7 +1085,10 @@ button.citation-card-title:hover, button.citation-card-title:focus-visible { tex
 .split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 .resizing-split .split-canvas > * { transition: none; }
-.resizing-split { cursor: col-resize; user-select: none; }
+/* The drag's cursor, and no selection or hover under the pointer, from a
+   shield over the window: on the body itself they would be inherited, and
+   WebKit restyled the whole document on the press and the release. */
+body.resizing-split::after { content: ""; position: fixed; inset: 0; z-index: var(--z-drag-ghost); cursor: col-resize; user-select: none; -webkit-user-select: none; }
 .markdown-preview { height: 100%; background: var(--editor-bg); color: var(--text-primary); }
 /* A .bib file's reference list (papers/bib-visual-editor.css draws its inside). */
 .bib-preview { height: 100%; min-width: 0; min-height: 0; background: var(--editor-bg); }
