@@ -423,6 +423,19 @@
 .lattice-trellis [data-trellis-part="divider"]::after { background: color-mix(in srgb, var(--control-active) 55%, transparent); border-radius: var(--radius-pill); }
 .lattice-trellis [data-trellis-part="divider"][data-axis="x"]::after { left: calc(50% - 1px); width: var(--space-1); }
 .lattice-trellis [data-trellis-part="divider"][data-axis="y"]::after { top: calc(50% - 1px); height: var(--space-1); }
+/* A divider drag puts a shield over the docked panels, under the dividers:
+   it holds the resize cursor wherever the pointer goes and lights nothing on
+   the way, the tab bars included (they set their own cursor). Trellis's own
+   way, the cursor on its root and the panels' content taken out of the
+   pointer's way, changes inherited properties of everything in the
+   workspace, and WebKit restyled all of it on the press and twice on the
+   release: 40-80 ms frames beside a long document. Those properties now stay
+   as they are; only the shield comes and goes. A tab drag keeps Trellis's. */
+.lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"]) { cursor: inherit; user-select: inherit; -webkit-user-select: inherit; }
+.lattice-trellis .trellis[data-busy]:not([data-dragging], [data-resizing="float"]) [data-trellis-part="content"] { pointer-events: inherit; user-select: inherit; -webkit-user-select: inherit; }
+.lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"])::after { content: ""; position: absolute; inset: 0; z-index: 15; user-select: none; -webkit-user-select: none; }
+.lattice-trellis .trellis[data-resizing="x"]::after { cursor: col-resize; }
+.lattice-trellis .trellis[data-resizing="y"]::after { cursor: row-resize; }
 
 /* ---------------------------------------------------------------- drop previews
    Where a dragged tab or panel will land takes the drop target's wash and a

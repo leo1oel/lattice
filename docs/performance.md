@@ -680,6 +680,22 @@ in brackets, which gained from some of them too):
 | 1,930-page PDF jump to 70 % → painted (ms) | 82 (65) | 64 (58) |
 | 1,930-page PDF fast scroll (fps) | 119 (106) | 120 (106) |
 
+### Divider drags: the Papers list, the split ratio, press and release (October 2026)
+
+Dragging a boundary felt sticky. Measured in Playwright's WebKit over the
+mock backend (600 papers, `long.tex` or the 400 KB `large.md` in Split open),
+2 s drags with a 120 Hz pointer; "work" is the time from a frame's
+animation callbacks to the end of its rendering. Three causes, all ours:
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| The Papers list and each of its rows were size containers. WebKit restyles everything inside a query container whose width changes, so every frame of a drag that moved the left column restyled every row drawn | Project/Papers ↔ editor: work 18 → 10 ms a frame (p95 23 → 14), frames 19 → 17 ms | the list's and rows' widths reach the CSS as attributes, `data-table` and `data-below` on `.paper-list`, `data-row-below` on `.paper-rows`, written by a ResizeObserver only when a step is crossed (`project/paper-library.tsx`); the geometry is identical at every width, the steps' edges included |
+| The source/preview split moved `--split-ratio` (and the pull past a minimum, `--split-resizer-offset`) on the split itself. Unregistered custom properties inherit, so each pointer move restyled all both panes hold, every block of a long visual document | Markdown split drag: work p95 26 → 8 ms, frames p95 49 → 20 ms | both are registered as non-inherited (`editor-workspace.css`); the offset is written on the grip and the two panes, which read it |
+| The press and the release set inherited properties on everything: Trellis puts the cursor and `user-select` on its root and takes the panels' content out of the pointer's way; the split put them on `body`. WebKit restyled the whole workspace on the press and twice on the release | 40–80 ms frames at the press and the release beside the long Markdown document; none over 34 ms after | a shield takes the pointer instead, over the docked panels (Trellis's root `::after`, under the dividers) or the window (`body.resizing-split::after`); it holds the resize cursor everywhere, so the tab bars no longer show their own mid-drag; a tab drag keeps Trellis's way (`trellis/trellis.css`) |
+
+The split's grip also holds the pointer now, so a drag across an HTML
+preview's frame keeps moving the split.
+
 ### First opens and TexLab traffic (October 2026)
 
 Two measure-first proposals, run in the real-window lab with the scenarios
