@@ -1,4 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, useRef } from "react";
+import { Check, Moon } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
@@ -70,42 +71,52 @@ export function CodeThemeSettingsGroup(props: CodeThemeSettingsProps) {
 
   return (
     <SettingsGroup title={t`Code theme`}>
-      <CodeThemeCards
-        label={t`Code theme`}
-        value={codeTheme}
-        options={CODE_THEMES.map((id) => ({
-          id,
-          name: nameOf(id),
-          variants: variantsOf(id),
-          style: codeThemeProperties(id, resolveCodeThemeKind(id, codeThemeVariant, props.theme), props.theme) as CSSProperties,
-        }))}
-        onChange={(next) => patch({ codeTheme: next })}
-      />
       <SettingsRow
         data-setting="code-theme-variant"
         label={t`Light or dark`}
         description={only === "dark"
           ? t`${nameOf(codeTheme)} comes in dark only`
-          : only === "light" ? t`${nameOf(codeTheme)} comes in light only` : undefined}
+          : only === "light" ? t`${nameOf(codeTheme)} comes in light only` : t`Themes with both variants follow this; dark-only themes stay dark`}
       >
-        {!only && (
-          <SegmentedControl<CodeThemeVariant>
-            ariaLabel={t`Light or dark`}
-            value={codeThemeVariant}
-            onChange={(next) => patch({ codeThemeVariant: next })}
-            items={[
-              { value: "auto", label: t`Match app` },
-              { value: "light", label: t`Light` },
-              { value: "dark", label: t`Dark` },
-            ]}
-          />
-        )}
+        <SegmentedControl<CodeThemeVariant>
+          ariaLabel={t`Light or dark`}
+          value={codeThemeVariant}
+          onChange={(next) => patch({ codeThemeVariant: next })}
+          items={[
+            { value: "auto", label: t`Match app` },
+            { value: "light", label: t`Light` },
+            { value: "dark", label: t`Dark` },
+          ]}
+        />
       </SettingsRow>
+      <CodeThemeCards
+        label={t`Code theme`}
+        value={codeTheme}
+        options={CODE_THEMES.map((id) => {
+          const both = codeThemeKinds(id).length === 2;
+          // Weft & Warp's colors are the app's own (--lattice-*), so each of
+          // its variants is drawn in a theme-preview scope of that appearance.
+          const layer = (kind: Theme): PreviewLayer => ({
+            style: codeThemeProperties(id, kind, props.theme) as CSSProperties,
+            scope: id === "lattice" ? { "data-theme-preview": kind, "data-tint-preview": props.appearance.tint } : undefined,
+          });
+          return {
+            id,
+            name: nameOf(id),
+            variants: variantsOf(id),
+            darkOnly: !both && codeThemeKinds(id)[0] === "dark",
+            layers: both ? [layer("light"), layer("dark")] : [layer(resolveCodeThemeKind(id, codeThemeVariant, props.theme))],
+          };
+        })}
+        onChange={(next) => patch({ codeTheme: next })}
+      />
     </SettingsGroup>
   );
 }
 
-type CodeThemeOption = { id: CodeTheme; name: string; variants: string; style: CSSProperties };
+type PreviewLayer = { style: CSSProperties; scope?: Record<"data-theme-preview" | "data-tint-preview", string> };
+
+type CodeThemeOption = { id: CodeTheme; name: string; variants: string; darkOnly: boolean; layers: PreviewLayer[] };
 
 /**
  * The theme cards as one radio group: one tab stop, arrow keys move and
@@ -146,21 +157,33 @@ function CodeThemeCards(props: {
           onClick={() => props.onChange(option.id)}
           onKeyDown={(event) => onKeyDown(event, index)}
         >
-          <span className="code-theme-preview" style={option.style} aria-hidden="true">
-            {PREVIEW.map((line, row) => (
-              <span key={row} className="code-theme-preview-line">
-                {line.map(([text, role], column) => (role
-                  ? <span key={column} style={{ color: `var(${syntaxProperty(role)})`, ...ROLE_FACE[role] }}>{text}</span>
-                  : text))}
-              </span>
+          <span className="code-theme-preview-frame" aria-hidden="true">
+            {option.layers.map((layer, index) => (
+              <Preview key={index} layer={layer} className={index ? "code-theme-preview-second" : undefined} />
             ))}
+            {option.darkOnly && <span className="code-theme-badge"><Moon size={10} strokeWidth={2} /></span>}
           </span>
-          <span className="code-theme-card-copy" aria-hidden="true">
-            <span className="code-theme-card-name">{option.name}</span>
-            <span className="code-theme-card-variants">{option.variants}</span>
+          <span className="code-theme-card-name" aria-hidden="true">
+            {index === selected && <Check size={12} strokeWidth={2.2} />}
+            <span>{option.name}</span>
           </span>
         </button>
       ))}
     </div>
+  );
+}
+
+/** The specimen in one variant's colors; a second variant lies over the first, clipped to its diagonal. */
+function Preview(props: { layer: PreviewLayer; className?: string }) {
+  return (
+    <span className={props.className ? `code-theme-preview ${props.className}` : "code-theme-preview"} style={props.layer.style} {...props.layer.scope}>
+      {PREVIEW.map((line, row) => (
+        <span key={row} className="code-theme-preview-line">
+          {line.map(([text, role], column) => (role
+            ? <span key={column} style={{ color: `var(${syntaxProperty(role)})`, ...ROLE_FACE[role] }}>{text}</span>
+            : text))}
+        </span>
+      ))}
+    </span>
   );
 }

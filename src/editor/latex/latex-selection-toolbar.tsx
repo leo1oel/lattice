@@ -77,6 +77,9 @@ export function LatexSelectionToolbar(props: {
   canProofread?: boolean;
   /** The colour of the highlight around the selection (`latex-highlights.ts`), or null outside one. */
   highlight?: string | null;
+  /** The selection's text and the document's highlight colours, for the custom picker. */
+  sample?: string;
+  documentColors?: readonly string[];
   onAction: (action: LatexSelectionAction, value?: string) => void;
   onDismiss: () => void;
 }) {
@@ -181,9 +184,20 @@ export function LatexSelectionToolbar(props: {
                 <button type="button" className="hl-caret" aria-label={t`Highlight color`}><ChevronDown size={12} strokeWidth={1.8} /></button>
               </PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-highlight-picker" onOpenAutoFocus={(event) => event.preventDefault()}>
+            <PopoverContent
+              side="top"
+              sideOffset={8}
+              className="latex-highlight-picker"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+              // Esc in a meaning being renamed reverts the name; the next one closes.
+              onEscapeKeyDown={(event) => {
+                if (event.target instanceof Element && event.target.closest(".hl-rename-input")) event.preventDefault();
+              }}
+            >
               <HighlightPalette
                 current={props.highlight ?? null}
+                sample={props.sample}
+                documentColors={props.documentColors}
                 onApply={applyHighlight}
                 onRemove={() => {
                   props.onAction("unhighlight");

@@ -412,6 +412,13 @@ function App() {
   }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
+  // Where Settings returns focus if not to what held it as Settings opened
+  // (the project menu's trigger, when Settings is opened from that menu), the
+  // row it opens on when the palette found one, and whether a section was
+  // asked for: one state, as each hook is paid on every App render.
+  const [settingsEntry, setSettingsEntry] = useState<{ returnFocus: HTMLElement | null; reveal: SettingsSearchEntry | null; page: boolean }>(
+    { returnFocus: null, reveal: null, page: false },
+  );
   const synara = useSynaraHost({
     project,
     projectRef,
@@ -426,6 +433,7 @@ function App() {
     bridge: {
       openProviderSettings: () => {
         setSettingsTab("agent");
+        setSettingsEntry({ returnFocus: null, reveal: null, page: true });
         startSettingsOpen(() => setSettingsOpen(true));
       },
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
@@ -1122,17 +1130,10 @@ function App() {
     persistSettingsTab(tab);
   }, [requestSynaraRuntime]);
 
-  // Where Settings returns focus if not to what held it as Settings opened
-  // (the project menu's trigger, when Settings is opened from that menu), and
-  // the row it opens on when the palette found one: one state, as each hook
-  // is paid on every App render.
-  const [settingsEntry, setSettingsEntry] = useState<{ returnFocus: HTMLElement | null; reveal: SettingsSearchEntry | null }>(
-    { returnFocus: null, reveal: null },
-  );
   /** Opens on `tab`, or without one on the page Settings was last left on; on `reveal`'s row, if given. */
   const openSettings = useCallback((requested?: SettingsTab, returnFocus: HTMLElement | null = null, reveal: SettingsSearchEntry | null = null) => {
     showSettingsTab(requested ?? loadSettingsTab());
-    setSettingsEntry({ returnFocus, reveal });
+    setSettingsEntry({ returnFocus, reveal, page: requested !== undefined || reveal !== null });
     startSettingsOpen(() => setSettingsOpen(true));
   }, [showSettingsTab]);
   useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
@@ -1141,7 +1142,7 @@ function App() {
   // pending open, so a Settings closed from its loading shell stays closed.
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
-    setSettingsEntry({ returnFocus: null, reveal: null });
+    setSettingsEntry({ returnFocus: null, reveal: null, page: false });
   }, []);
 
   const settingsDialog = (<>
@@ -1153,6 +1154,7 @@ function App() {
       {settingsOpen && <SettingsDialog
         covered={settingsLate}
         reveal={settingsEntry.reveal}
+        openOnPage={settingsEntry.page}
         synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
         onRetrySynaraRuntime={synara.retry}

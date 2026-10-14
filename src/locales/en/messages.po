@@ -471,6 +471,10 @@ msgstr "{matchSummary} in {fileSummary} (showing first 200)"
 msgid "{meaning}, {color}"
 msgstr "{meaning}, {color}"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "{meaning}, {color}, the pen's colour"
+msgstr "{meaning}, {color}, the pen's colour"
+
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
@@ -1013,10 +1017,6 @@ msgstr "Add block below"
 msgid "Add comment"
 msgstr "Add comment"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Add current color"
-msgstr "Add current color"
-
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
@@ -1129,6 +1129,10 @@ msgstr "Adds it to {bibliography} and fetches the full text"
 msgid "Adds it to {bibliography}, with its full text when there is one"
 msgstr "Adds it to {bibliography}, with its full text when there is one"
 
+#: src/settings/theme-settings.tsx
+msgid "Adjusted so links and selected text read at {ratio}:1"
+msgstr "Adjusted so links and selected text read at {ratio}:1"
+
 #: src/build/tex-setup.ts
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
@@ -1226,9 +1230,17 @@ msgstr "All ({threadCount})"
 msgid "All {total} references verified"
 msgstr "All {total} references verified"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "All colours"
+msgstr "All colours"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "All Functions…"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "All highlights"
+msgstr "All highlights"
 
 #: src/telemetry/app-log.tsx
 msgid "All levels"
@@ -1385,6 +1397,10 @@ msgstr "Annotations"
 msgid "Annotations {list}"
 msgstr "Annotations {list}"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Annotations and highlights"
+msgstr "Annotations and highlights"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -1454,6 +1470,7 @@ msgstr "Applied"
 msgid "Applied. The entry now matches the verified record."
 msgstr "Applied. The entry now matches the verified record."
 
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Apply"
@@ -1471,10 +1488,6 @@ msgstr "Apply 1 fix"
 #: src/overleaf/overleaf-review.tsx
 msgid "Apply and sync"
 msgstr "Apply and sync"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Apply highlight color"
-msgstr "Apply highlight color"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Apply link"
@@ -1627,7 +1640,7 @@ msgstr "Automatic updates"
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Azure"
 msgstr "Azure"
 
@@ -1780,9 +1793,13 @@ msgstr "Binary file changed"
 msgid "Binomial coefficient"
 msgstr "Binomial coefficient"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Black"
 msgstr "Black"
+
+#: src/components/ui/color-picker.tsx
+msgid "Black text reads clearly"
+msgstr "Black text reads clearly"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
@@ -1802,15 +1819,11 @@ msgstr "Block type"
 msgid "Blog"
 msgstr "Blog"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "Blue"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Blue value"
-msgstr "Blue value"
 
 #: src/settings/acknowledged-software.ts
 msgid "Board typefaces"
@@ -2049,6 +2062,7 @@ msgstr "Can take up to 15 minutes"
 #: src/canvas/annotation-composer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
+#: src/components/ui/color-picker.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -2075,10 +2089,6 @@ msgstr "Cancel"
 #: src/papers/bibliography-audit.tsx
 msgid "Cancel check"
 msgstr "Cancel check"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Cancel color selection"
-msgstr "Cancel color selection"
 
 #: src/project/project-file-tree.tsx
 msgid "Cancel creation"
@@ -2694,14 +2704,6 @@ msgstr "Collecting runtime logs…"
 #: src/settings/settings-search-index.ts
 msgid "color"
 msgstr "color"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Color selection mode"
-msgstr "Color selection mode"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Color spectrum"
-msgstr "Color spectrum"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -3334,9 +3336,21 @@ msgid "current match"
 msgstr "current match"
 
 #: src/settings/settings-search-index.ts
-#: src/settings/theme-settings.tsx
 msgid "Custom"
 msgstr "Custom"
+
+#. placeholder {0}: props.accent.toUpperCase()
+#: src/settings/theme-settings.tsx
+msgid "Custom · {0}"
+msgstr "Custom · {0}"
+
+#: src/settings/theme-settings.tsx
+msgid "Custom · adjusted to read as text"
+msgstr "Custom · adjusted to read as text"
+
+#: src/settings/theme-settings.tsx
+msgid "Custom accent"
+msgstr "Custom accent"
 
 #: src/settings/theme-settings.tsx
 msgid "Custom accent color"
@@ -3346,12 +3360,16 @@ msgstr "Custom accent color"
 msgid "Custom colour…"
 msgstr "Custom colour…"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Custom highlight colour"
+msgstr "Custom highlight colour"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
 msgstr "Cut"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Cyan"
 msgstr "Cyan"
 
@@ -3368,16 +3386,17 @@ msgid "Daleth"
 msgstr "Daleth"
 
 #: src/settings/code-theme-settings.tsx
+#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Dark"
 msgstr "Dark"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Dark {name}"
 msgstr "Dark {name}"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Dark Gray"
 msgstr "Dark Gray"
 
@@ -3690,7 +3709,6 @@ msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
 #: src/canvas/proofread-card.tsx
-#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3903,10 +3921,6 @@ msgstr "Edit link"
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
-#: src/editor/latex/highlight-palette.tsx
-msgid "Edit meanings…"
-msgstr "Edit meanings…"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
 msgstr "Edit message"
@@ -4066,6 +4080,10 @@ msgstr "English"
 #: src/settings/settings-search-index.ts
 msgid "English, with Harper"
 msgstr "English, with Harper"
+
+#: src/components/ui/color-picker.tsx
+msgid "Enter 6 hex digits"
+msgstr "Enter 6 hex digits"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Enter a line between 1 and {maxLine}"
@@ -4386,6 +4404,10 @@ msgstr "Filter annotations…"
 #: src/app/shortcut-sheet.tsx
 msgid "Filter by name or key"
 msgstr "Filter by name or key"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter highlights by colour"
+msgstr "Filter highlights by colour"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
@@ -4831,7 +4853,7 @@ msgstr "Graphite"
 msgid "Grave accent example"
 msgstr "Grave accent example"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Gray"
 msgstr "Gray"
 
@@ -4839,19 +4861,11 @@ msgstr "Gray"
 msgid "Greater than or equal"
 msgstr "Greater than or equal"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "Green"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Green value"
-msgstr "Green value"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Grid"
-msgstr "Grid"
 
 #: src/App.tsx
 msgid "Grid generator"
@@ -4948,11 +4962,7 @@ msgctxt "macOS menu bar"
 msgid "Help"
 msgstr "Help"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Hex"
-msgstr "Hex"
-
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Hex color"
 msgstr "Hex color"
 
@@ -4987,6 +4997,7 @@ msgstr "Hide Others"
 msgid "Hide the PDF"
 msgstr "Hide the PDF"
 
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
 msgstr "Highlight"
@@ -5013,8 +5024,8 @@ msgid "Highlighted code"
 msgstr "Highlighted code"
 
 #: src/editor/latex/highlight-palette.tsx
-msgid "Highlighter meanings"
-msgstr "Highlighter meanings"
+msgid "Highlighted text"
+msgstr "Highlighted text"
 
 #: src/editor/latex/highlight-palette.tsx
 msgid "Highlighters"
@@ -5068,6 +5079,10 @@ msgstr "HTML zoom controls"
 #: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML zoom percentage"
+
+#: src/components/ui/color-picker.tsx
+msgid "Hue"
+msgstr "Hue"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hyperlink with text"
@@ -5228,6 +5243,7 @@ msgid "In the project now · {here}"
 msgstr "In the project now · {here}"
 
 #: src/App.tsx
+#: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
 msgstr "In this document"
 
@@ -5243,6 +5259,10 @@ msgstr "In this paper"
 msgctxt "the manuscript, where a library paper is cited"
 msgid "In this paper"
 msgstr "In this paper"
+
+#: src/settings/theme-settings.tsx
+msgid "In use"
+msgstr "In use"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -5280,7 +5300,7 @@ msgstr "Independent metadata unavailable"
 msgid "index"
 msgstr "index"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Indigo"
 msgstr "Indigo"
 
@@ -5955,6 +5975,7 @@ msgid "License text"
 msgstr "License text"
 
 #: src/settings/code-theme-settings.tsx
+#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Light"
@@ -5964,7 +5985,7 @@ msgstr "Light"
 msgid "Light and dark"
 msgstr "Light and dark"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Light Gray"
 msgstr "Light Gray"
 
@@ -5977,7 +5998,11 @@ msgstr "Light only"
 msgid "Light or dark"
 msgstr "Light or dark"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
+msgid "Lighten"
+msgstr "Lighten"
+
+#: src/components/ui/color-picker.tsx
 msgid "Lime"
 msgstr "Lime"
 
@@ -6288,7 +6313,7 @@ msgstr "lower case"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Magenta"
 msgstr "Magenta"
 
@@ -6373,6 +6398,10 @@ msgstr "Match case"
 msgid "Match system"
 msgstr "Match system"
 
+#: src/settings/theme-settings.tsx
+msgid "Match system follows macOS"
+msgstr "Match system follows macOS"
+
 #: src/App.tsx
 msgid "Match the system theme"
 msgstr "Match the system theme"
@@ -6436,6 +6465,10 @@ msgstr "MCP"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Meaning of {color}"
+msgstr "Meaning of {color}"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Media"
@@ -6644,10 +6677,6 @@ msgstr "Multi-line aligned equations"
 msgid "Multiset union"
 msgstr "Multiset union"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Muted {name}"
-msgstr "Muted {name}"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "Nabla / del"
@@ -6683,10 +6712,6 @@ msgstr "Named operator"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Native app"
 msgstr "Native app"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Native color picker"
-msgstr "Native color picker"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
@@ -7300,6 +7325,10 @@ msgstr "not written"
 msgid "Note"
 msgstr "Note"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Notes"
+msgstr "Notes"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
@@ -7435,6 +7464,10 @@ msgstr "Omega"
 msgid "on line"
 msgstr "on line"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "On paper, as in the PDF"
+msgstr "On paper, as in the PDF"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgctxt "margin review"
 msgid "On screen"
@@ -7463,14 +7496,6 @@ msgstr "Only operation metadata and counts. Nothing leaves this Mac until you co
 #: src/App.tsx
 msgid "only the editor"
 msgstr "only the editor"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Opacity"
-msgstr "Opacity"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Opacity value"
-msgstr "Opacity value"
 
 #: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -7773,7 +7798,7 @@ msgstr "Operation metadata"
 msgid "or"
 msgstr "or"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Orange"
@@ -7985,6 +8010,10 @@ msgstr "Page of a labeled item"
 msgid "Pages"
 msgstr "Pages"
 
+#: src/components/ui/color-picker.tsx
+msgid "Pale {name}"
+msgstr "Pale {name}"
+
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Pan down"
 msgstr "Pan down"
@@ -8049,6 +8078,10 @@ msgstr "Paper import cancelled before making changes."
 #: src/app/use-open-documents.ts
 msgid "Paper switch"
 msgstr "Paper switch"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Paper tones"
+msgstr "Paper tones"
 
 #: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
@@ -8253,9 +8286,13 @@ msgstr "Pi"
 msgid "Pick an emoji to insert at the cursor."
 msgstr "Pick an emoji to insert at the cursor."
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Pick color from screen"
 msgstr "Pick color from screen"
+
+#: src/settings/theme-settings.tsx
+msgid "Picked"
+msgstr "Picked"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Piecewise definition"
@@ -8375,6 +8412,10 @@ msgstr "Preprint check returned an incomplete or ambiguous result."
 #: src/settings/acknowledgements-settings.tsx
 msgid "Presentation runtime"
 msgstr "Presentation runtime"
+
+#: src/settings/theme-settings.tsx
+msgid "Presets"
+msgstr "Presets"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Press ⌘⇧K in the editor to cite one"
@@ -8723,6 +8764,10 @@ msgstr "Reading the rounds…"
 msgid "Reading the third-party notices…"
 msgstr "Reading the third-party notices…"
 
+#: src/settings/theme-settings.tsx
+msgid "Reads as text at {ratio}:1, used as picked"
+msgstr "Reads as text at {ratio}:1, used as picked"
+
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "Ready to compile"
@@ -8740,13 +8785,8 @@ msgid "Real part"
 msgstr "Real part"
 
 #: src/App.tsx
-#: src/components/ui/apple-color-picker.tsx
 msgid "Recent"
 msgstr "Recent"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Recent color {color}"
-msgstr "Recent color {color}"
 
 #: src/app/command-palette.tsx
 msgid "Recent files"
@@ -8781,13 +8821,9 @@ msgstr "Record"
 msgid "Record identity"
 msgstr "Record identity"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Red"
 msgstr "Red"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Red value"
-msgstr "Red value"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Redefine a command"
@@ -8970,12 +9006,17 @@ msgstr "Removed one file from Overleaf"
 msgid "Removes .aux, .log and other build files"
 msgstr "Removes .aux, .log and other build files"
 
+#: src/editor/latex/highlight-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "Rename"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Rename {meaning}"
+msgstr "Rename {meaning}"
 
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
@@ -9209,10 +9250,6 @@ msgstr "Research"
 #: src/project/project-dialogs.tsx
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
-
-#: src/editor/latex/highlight-palette.tsx
-msgid "Reset"
-msgstr "Reset"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9669,6 +9706,16 @@ msgstr "Sage"
 msgid "Sans-serif text"
 msgstr "Sans-serif text"
 
+#. placeholder {0}: Math.round(hsv.s)
+#. placeholder {1}: Math.round(hsv.v)
+#: src/components/ui/color-picker.tsx
+msgid "Saturation {0}%, brightness {1}%"
+msgstr "Saturation {0}%, brightness {1}%"
+
+#: src/components/ui/color-picker.tsx
+msgid "Saturation and brightness"
+msgstr "Saturation and brightness"
+
 #: src/app/use-open-documents.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -9922,10 +9969,6 @@ msgstr "Section sign"
 msgid "Select {0}"
 msgstr "Select {0}"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Select {color}"
-msgstr "Select {color}"
-
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -10084,6 +10127,10 @@ msgstr "Show {name} panel"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "Show All"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Show all colours"
+msgstr "Show all colours"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Show all references"
@@ -10287,10 +10334,6 @@ msgstr "Slash commands"
 msgid "Sleeping · click to open"
 msgstr "Sleeping · click to open"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Slider"
-msgstr "Slider"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Small capitals"
 msgstr "Small capitals"
@@ -10303,7 +10346,7 @@ msgstr "Small section heading."
 msgid "Smile relation"
 msgstr "Smile relation"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Soft {name}"
 msgstr "Soft {name}"
 
@@ -10432,10 +10475,6 @@ msgstr "South-west arrow"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "Spade suit"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Spectrum"
-msgstr "Spectrum"
 
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
@@ -10813,7 +10852,7 @@ msgstr "Task List"
 msgid "Tau"
 msgstr "Tau"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/settings/theme-settings.tsx
 msgid "Teal"
 msgstr "Teal"
@@ -10982,6 +11021,10 @@ msgstr "The bundled Agent service could not start"
 #: src/agent/use-synara-runtime.ts
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
+
+#: src/settings/theme-settings.tsx
+msgid "The colour of the window's surfaces"
+msgstr "The colour of the window's surfaces"
 
 #: src/App.tsx
 msgid "the comment or suggestion by the caret"
@@ -11263,6 +11306,10 @@ msgstr "Theme"
 #: src/App.tsx
 msgid "theme appearance"
 msgstr "theme appearance"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Themes with both variants follow this; dark-only themes stay dark"
+msgstr "Themes with both variants follow this; dark-only themes stay dark"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -11559,6 +11606,10 @@ msgstr "TODOs"
 #: src/canvas/proofread-layer.tsx
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
+
+#: src/components/ui/color-picker.tsx
+msgid "Too dark for black text"
+msgstr "Too dark for black text"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -12141,7 +12192,7 @@ msgstr "View repair"
 msgid "Vim mode"
 msgstr "Vim mode"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Violet"
 msgstr "Violet"
 
@@ -12253,7 +12304,7 @@ msgstr "When a collaborator edits with Track changes on, each edit waits here fo
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "White"
 
@@ -12409,7 +12460,7 @@ msgstr "Year"
 msgid "Year unavailable"
 msgstr "Year unavailable"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "Yellow"

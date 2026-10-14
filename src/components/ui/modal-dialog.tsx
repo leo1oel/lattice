@@ -38,6 +38,8 @@ export function ModalDialog(props: {
    * is inert, and takes no focus on open, until uncovered.
    */
   covered?: boolean;
+  /** Escape before it closes the dialog: a dialog with a step to go back to takes it first by preventing it. */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
   backdropClassName?: string;
   windowDragTop?: {
     onMouseDown: MouseEventHandler<HTMLDivElement>;
@@ -87,6 +89,7 @@ export function ModalDialog(props: {
     if (event.target instanceof Element && event.target.closest('[role="combobox"][aria-expanded="true"]')) {
       event.preventDefault();
     }
+    if (!event.defaultPrevented) props.onEscapeKeyDown?.(event);
   };
   const backdropRef = useRef<HTMLDivElement>(null);
   // Closing unmounts the dialog; its scrim and card leave on the slow tier's exit.

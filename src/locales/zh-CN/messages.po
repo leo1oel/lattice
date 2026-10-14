@@ -471,6 +471,10 @@ msgstr "{fileSummary}中共 {matchSummary}（显示前 200 处）"
 msgid "{meaning}, {color}"
 msgstr "{meaning}，{color}"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "{meaning}, {color}, the pen's colour"
+msgstr "{meaning}，{color}，当前画笔颜色"
+
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
@@ -1013,10 +1017,6 @@ msgstr "加一段"
 msgid "Add comment"
 msgstr "添加评论"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Add current color"
-msgstr "添加当前颜色"
-
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "一次只能加一条"
@@ -1129,6 +1129,10 @@ msgstr "写入 {bibliography} 并获取全文"
 msgid "Adds it to {bibliography}, with its full text when there is one"
 msgstr "写入 {bibliography}，有全文时一并获取"
 
+#: src/settings/theme-settings.tsx
+msgid "Adjusted so links and selected text read at {ratio}:1"
+msgstr "已调整，链接和选中文字的对比度为 {ratio}:1"
+
 #: src/build/tex-setup.ts
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
@@ -1226,9 +1230,17 @@ msgstr "全部（{threadCount}）"
 msgid "All {total} references verified"
 msgstr "全部 {total} 条文献已核实"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "All colours"
+msgstr "全部颜色"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "全部函数…"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "All highlights"
+msgstr "全部高亮"
 
 #: src/telemetry/app-log.tsx
 msgid "All levels"
@@ -1385,6 +1397,10 @@ msgstr "批注"
 msgid "Annotations {list}"
 msgstr "批注 {list}"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Annotations and highlights"
+msgstr "批注与高亮"
+
 #: src/app/use-overleaf-workspace.ts
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -1454,6 +1470,7 @@ msgstr "已应用"
 msgid "Applied. The entry now matches the verified record."
 msgstr "已应用，条目现在与核实记录一致。"
 
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Apply"
@@ -1471,10 +1488,6 @@ msgstr "应用 1 处修改"
 #: src/overleaf/overleaf-review.tsx
 msgid "Apply and sync"
 msgstr "确认同步"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Apply highlight color"
-msgstr "应用高亮颜色"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Apply link"
@@ -1627,7 +1640,7 @@ msgstr "自动更新"
 msgid "Auxiliary files"
 msgstr "临时文件"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Azure"
 msgstr "天蓝色"
 
@@ -1780,9 +1793,13 @@ msgstr "文件已改动（无法预览）"
 msgid "Binomial coefficient"
 msgstr "二项式系数"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Black"
 msgstr "黑色"
+
+#: src/components/ui/color-picker.tsx
+msgid "Black text reads clearly"
+msgstr "黑色文字清晰可读"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
@@ -1802,15 +1819,11 @@ msgstr "段落样式"
 msgid "Blog"
 msgstr "概览"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "蓝色"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Blue value"
-msgstr "蓝色值"
 
 #: src/settings/acknowledged-software.ts
 msgid "Board typefaces"
@@ -2049,6 +2062,7 @@ msgstr "最多 15 分钟"
 #: src/canvas/annotation-composer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
+#: src/components/ui/color-picker.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -2075,10 +2089,6 @@ msgstr "取消"
 #: src/papers/bibliography-audit.tsx
 msgid "Cancel check"
 msgstr "停止检查"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Cancel color selection"
-msgstr "取消选择颜色"
 
 #: src/project/project-file-tree.tsx
 msgid "Cancel creation"
@@ -2694,14 +2704,6 @@ msgstr "正在收集日志…"
 #: src/settings/settings-search-index.ts
 msgid "color"
 msgstr "颜色 色彩"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Color selection mode"
-msgstr "颜色选择模式"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Color spectrum"
-msgstr "色谱"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -3334,9 +3336,21 @@ msgid "current match"
 msgstr "当前匹配项"
 
 #: src/settings/settings-search-index.ts
-#: src/settings/theme-settings.tsx
 msgid "Custom"
 msgstr "自定义"
+
+#. placeholder {0}: props.accent.toUpperCase()
+#: src/settings/theme-settings.tsx
+msgid "Custom · {0}"
+msgstr "自定义 · {0}"
+
+#: src/settings/theme-settings.tsx
+msgid "Custom · adjusted to read as text"
+msgstr "自定义 · 已调整以便作为文字阅读"
+
+#: src/settings/theme-settings.tsx
+msgid "Custom accent"
+msgstr "自定义强调色"
 
 #: src/settings/theme-settings.tsx
 msgid "Custom accent color"
@@ -3346,12 +3360,16 @@ msgstr "自选颜色"
 msgid "Custom colour…"
 msgstr "自定义颜色…"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "Custom highlight colour"
+msgstr "自定义高亮颜色"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
 msgstr "剪切"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Cyan"
 msgstr "青色"
 
@@ -3368,16 +3386,17 @@ msgid "Daleth"
 msgstr "达列特"
 
 #: src/settings/code-theme-settings.tsx
+#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Dark"
 msgstr "深色"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Dark {name}"
 msgstr "深{name}"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Dark Gray"
 msgstr "深灰色"
 
@@ -3690,7 +3709,6 @@ msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
 #: src/canvas/proofread-card.tsx
-#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3903,10 +3921,6 @@ msgstr "编辑链接"
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
-#: src/editor/latex/highlight-palette.tsx
-msgid "Edit meanings…"
-msgstr "编辑含义…"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
 msgstr "编辑消息"
@@ -4066,6 +4080,10 @@ msgstr "英文"
 #: src/settings/settings-search-index.ts
 msgid "English, with Harper"
 msgstr "英文（Harper 检查）"
+
+#: src/components/ui/color-picker.tsx
+msgid "Enter 6 hex digits"
+msgstr "请输入 6 位十六进制"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Enter a line between 1 and {maxLine}"
@@ -4386,6 +4404,10 @@ msgstr "筛选批注…"
 #: src/app/shortcut-sheet.tsx
 msgid "Filter by name or key"
 msgstr "按名称或按键搜索"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Filter highlights by colour"
+msgstr "按颜色筛选高亮"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Filter languages"
@@ -4831,7 +4853,7 @@ msgstr "石墨"
 msgid "Grave accent example"
 msgstr "抑音符示例"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Gray"
 msgstr "灰色"
 
@@ -4839,19 +4861,11 @@ msgstr "灰色"
 msgid "Greater than or equal"
 msgstr "大于或等于"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "绿色"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Green value"
-msgstr "绿色值"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Grid"
-msgstr "网格"
 
 #: src/App.tsx
 msgid "Grid generator"
@@ -4948,11 +4962,7 @@ msgctxt "macOS menu bar"
 msgid "Help"
 msgstr "帮助"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Hex"
-msgstr "十六进制"
-
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Hex color"
 msgstr "十六进制颜色"
 
@@ -4987,6 +4997,7 @@ msgstr "隐藏其他"
 msgid "Hide the PDF"
 msgstr "隐藏 PDF"
 
+#: src/editor/latex/highlight-palette.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
 msgstr "高亮"
@@ -5013,8 +5024,8 @@ msgid "Highlighted code"
 msgstr "高亮代码"
 
 #: src/editor/latex/highlight-palette.tsx
-msgid "Highlighter meanings"
-msgstr "荧光笔含义"
+msgid "Highlighted text"
+msgstr "高亮的文字"
 
 #: src/editor/latex/highlight-palette.tsx
 msgid "Highlighters"
@@ -5068,6 +5079,10 @@ msgstr "HTML 缩放控件"
 #: src/canvas/html-preview.tsx
 msgid "HTML zoom percentage"
 msgstr "HTML 缩放百分比"
+
+#: src/components/ui/color-picker.tsx
+msgid "Hue"
+msgstr "色相"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hyperlink with text"
@@ -5228,6 +5243,7 @@ msgid "In the project now · {here}"
 msgstr "正在项目中 · {here}"
 
 #: src/App.tsx
+#: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
 msgstr "本文档"
 
@@ -5243,6 +5259,10 @@ msgstr "本论文"
 msgctxt "the manuscript, where a library paper is cited"
 msgid "In this paper"
 msgstr "本文中"
+
+#: src/settings/theme-settings.tsx
+msgid "In use"
+msgstr "实际使用"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -5280,7 +5300,7 @@ msgstr "没有可核对的资料"
 msgid "index"
 msgstr "索引"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Indigo"
 msgstr "靛蓝色"
 
@@ -5955,6 +5975,7 @@ msgid "License text"
 msgstr "许可证文本"
 
 #: src/settings/code-theme-settings.tsx
+#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Light"
@@ -5964,7 +5985,7 @@ msgstr "浅色"
 msgid "Light and dark"
 msgstr "浅色与深色"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Light Gray"
 msgstr "浅灰色"
 
@@ -5977,7 +5998,11 @@ msgstr "仅浅色"
 msgid "Light or dark"
 msgstr "浅色或深色"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
+msgid "Lighten"
+msgstr "调浅"
+
+#: src/components/ui/color-picker.tsx
 msgid "Lime"
 msgstr "黄绿色"
 
@@ -6288,7 +6313,7 @@ msgstr "小写"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Magenta"
 msgstr "品红色"
 
@@ -6373,6 +6398,10 @@ msgstr "区分大小写"
 msgid "Match system"
 msgstr "跟随系统"
 
+#: src/settings/theme-settings.tsx
+msgid "Match system follows macOS"
+msgstr "“跟随系统”与 macOS 外观一致"
+
 #: src/App.tsx
 msgid "Match the system theme"
 msgstr "跟随系统"
@@ -6436,6 +6465,10 @@ msgstr "MCP"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Meaning of {color}"
+msgstr "{color}的含义"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Media"
@@ -6644,10 +6677,6 @@ msgstr "多行对齐的公式"
 msgid "Multiset union"
 msgstr "多重集并"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Muted {name}"
-msgstr "灰{name}"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
@@ -6683,10 +6712,6 @@ msgstr "命名算子"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Native app"
 msgstr "原生应用"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Native color picker"
-msgstr "系统取色"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
@@ -7300,6 +7325,10 @@ msgstr "未生成"
 msgid "Note"
 msgstr "备注"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Notes"
+msgstr "批注"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
@@ -7435,6 +7464,10 @@ msgstr "欧米伽"
 msgid "on line"
 msgstr "位于行"
 
+#: src/editor/latex/highlight-palette.tsx
+msgid "On paper, as in the PDF"
+msgstr "纸面效果，与 PDF 一致"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgctxt "margin review"
 msgid "On screen"
@@ -7463,14 +7496,6 @@ msgstr "只含操作记录和计数。复制或下载前不会离开这台 Mac"
 #: src/App.tsx
 msgid "only the editor"
 msgstr "只留编辑器"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Opacity"
-msgstr "不透明度"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Opacity value"
-msgstr "不透明度值"
 
 #: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -7773,7 +7798,7 @@ msgstr "操作记录"
 msgid "or"
 msgstr "或"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Orange"
@@ -7985,6 +8010,10 @@ msgstr "带标签项所在页码"
 msgid "Pages"
 msgstr "页码"
 
+#: src/components/ui/color-picker.tsx
+msgid "Pale {name}"
+msgstr "淡{name}"
+
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Pan down"
 msgstr "向下平移"
@@ -8049,6 +8078,10 @@ msgstr "已取消导入，没有改动"
 #: src/app/use-open-documents.ts
 msgid "Paper switch"
 msgstr "切换论文"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Paper tones"
+msgstr "纸面色"
 
 #: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
@@ -8253,9 +8286,13 @@ msgstr "派"
 msgid "Pick an emoji to insert at the cursor."
 msgstr "选个表情插入"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Pick color from screen"
 msgstr "屏幕取色"
+
+#: src/settings/theme-settings.tsx
+msgid "Picked"
+msgstr "所选"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Piecewise definition"
@@ -8375,6 +8412,10 @@ msgstr "预印本检查结果不明确"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Presentation runtime"
 msgstr "幻灯片组件"
+
+#: src/settings/theme-settings.tsx
+msgid "Presets"
+msgstr "预设"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Press ⌘⇧K in the editor to cite one"
@@ -8723,6 +8764,10 @@ msgstr "正在读取各轮修改…"
 msgid "Reading the third-party notices…"
 msgstr "正在读取第三方声明…"
 
+#: src/settings/theme-settings.tsx
+msgid "Reads as text at {ratio}:1, used as picked"
+msgstr "作为文字的对比度为 {ratio}:1，按所选颜色使用"
+
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "可以编译了"
@@ -8740,13 +8785,8 @@ msgid "Real part"
 msgstr "实部"
 
 #: src/App.tsx
-#: src/components/ui/apple-color-picker.tsx
 msgid "Recent"
 msgstr "最近"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Recent color {color}"
-msgstr "最近使用的颜色 {color}"
 
 #: src/app/command-palette.tsx
 msgid "Recent files"
@@ -8781,13 +8821,9 @@ msgstr "记录"
 msgid "Record identity"
 msgstr "文献身份"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Red"
 msgstr "红色"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Red value"
-msgstr "红色值"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Redefine a command"
@@ -8970,12 +9006,17 @@ msgstr "已从 Overleaf 删除 1 个文件"
 msgid "Removes .aux, .log and other build files"
 msgstr "删除 .aux、.log 等临时文件"
 
+#: src/editor/latex/highlight-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "重命名"
+
+#: src/editor/latex/highlight-palette.tsx
+msgid "Rename {meaning}"
+msgstr "重命名“{meaning}”"
 
 #: src/project/project-dialogs.tsx
 msgid "Rename citation key"
@@ -9209,10 +9250,6 @@ msgstr "文献"
 #: src/project/project-dialogs.tsx
 msgid "Research, written with evidence"
 msgstr "让论文写作有据可依"
-
-#: src/editor/latex/highlight-palette.tsx
-msgid "Reset"
-msgstr "重置"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9669,6 +9706,16 @@ msgstr "鼠尾草"
 msgid "Sans-serif text"
 msgstr "无衬线文本"
 
+#. placeholder {0}: Math.round(hsv.s)
+#. placeholder {1}: Math.round(hsv.v)
+#: src/components/ui/color-picker.tsx
+msgid "Saturation {0}%, brightness {1}%"
+msgstr "饱和度 {0}%，亮度 {1}%"
+
+#: src/components/ui/color-picker.tsx
+msgid "Saturation and brightness"
+msgstr "饱和度与亮度"
+
 #: src/app/use-open-documents.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -9922,10 +9969,6 @@ msgstr "节标记"
 msgid "Select {0}"
 msgstr "选择 {0}"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Select {color}"
-msgstr "选择 {color}"
-
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
@@ -10084,6 +10127,10 @@ msgstr "显示{name}"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "全部显示"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Show all colours"
+msgstr "显示全部颜色"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Show all references"
@@ -10287,10 +10334,6 @@ msgstr "插入菜单"
 msgid "Sleeping · click to open"
 msgstr "已休眠 · 点击打开"
 
-#: src/components/ui/apple-color-picker.tsx
-msgid "Slider"
-msgstr "滑块"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Small capitals"
 msgstr "小型大写字母"
@@ -10303,7 +10346,7 @@ msgstr "小标题"
 msgid "Smile relation"
 msgstr "上弧关系"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Soft {name}"
 msgstr "浅{name}"
 
@@ -10432,10 +10475,6 @@ msgstr "左下箭头"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "黑桃"
-
-#: src/components/ui/apple-color-picker.tsx
-msgid "Spectrum"
-msgstr "色谱"
 
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
@@ -10813,7 +10852,7 @@ msgstr "待办清单"
 msgid "Tau"
 msgstr "陶"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/settings/theme-settings.tsx
 msgid "Teal"
 msgstr "青色"
@@ -10982,6 +11021,10 @@ msgstr "AI 助手没能启动"
 #: src/agent/use-synara-runtime.ts
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "AI 助手没能启动"
+
+#: src/settings/theme-settings.tsx
+msgid "The colour of the window's surfaces"
+msgstr "窗口各表面的底色"
 
 #: src/App.tsx
 msgid "the comment or suggestion by the caret"
@@ -11263,6 +11306,10 @@ msgstr "主题"
 #: src/App.tsx
 msgid "theme appearance"
 msgstr "主题 外观 theme appearance"
+
+#: src/settings/code-theme-settings.tsx
+msgid "Themes with both variants follow this; dark-only themes stay dark"
+msgstr "有深浅两版的主题随此切换；仅深色的主题保持深色"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -11559,6 +11606,10 @@ msgstr "待办"
 #: src/canvas/proofread-layer.tsx
 msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 msgstr "这些修改合起来会改到 LaTeX，请少选几处或重新校对"
+
+#: src/components/ui/color-picker.tsx
+msgid "Too dark for black text"
+msgstr "颜色过深，黑字难以阅读"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -12141,7 +12192,7 @@ msgstr "查看修复"
 msgid "Vim mode"
 msgstr "Vim 模式"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "Violet"
 msgstr "紫罗兰色"
 
@@ -12253,7 +12304,7 @@ msgstr "协作者开启“修订”编辑时，每处改动都会在这里等你
 msgid "When you delete a file here"
 msgstr "在这里删除文件时"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "白色"
 
@@ -12409,7 +12460,7 @@ msgstr "年份"
 msgid "Year unavailable"
 msgstr "无年份"
 
-#: src/components/ui/apple-color-picker.tsx
+#: src/components/ui/color-picker.tsx
 #: src/editor/latex/highlighters.ts
 msgid "Yellow"
 msgstr "黄色"

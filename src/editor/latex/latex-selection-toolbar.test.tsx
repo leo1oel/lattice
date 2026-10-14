@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LatexSelectionToolbar } from "./latex-selection-toolbar";
@@ -19,7 +19,7 @@ const openCustomPicker = async () => {
 };
 const openPicker = async () => {
   await openCustomPicker();
-  fireEvent.click(await screen.findByRole("button", { name: "Select #FFCC00" }));
+  fireEvent.click(within(await screen.findByRole("radiogroup", { name: "Paper tones" })).getByRole("radio", { name: /#FFE0C6$/ }));
 };
 
 afterEach(() => {
@@ -42,8 +42,8 @@ describe("LaTeX selection toolbar", () => {
   });
 
   it.each([
-    ["applies a drafted highlight color", "Apply highlight color", [["highlight", "#FFCC00"]]],
-    ["discards a drafted highlight color when cancelled", "Cancel color selection", []],
+    ["applies a drafted highlight color", "Highlight", [["highlight", "#FFE0C6"]]],
+    ["discards a drafted highlight color when cancelled", "Cancel", []],
   ])("%s", async (_name, control, calls) => {
     const { onAction } = renderToolbar();
     await openPicker();
@@ -59,7 +59,7 @@ describe("LaTeX selection toolbar", () => {
     await openCustomPicker();
     fireEvent.click(await screen.findByRole("button", { name: "Pick color from screen" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("sample_screen_color"));
-    fireEvent.click(button("Apply highlight color"));
+    fireEvent.click(button("Highlight"));
     expect(onAction).toHaveBeenCalledWith("highlight", "#AABBCC");
     expect(nativePicker).not.toHaveBeenCalled();
     nativePicker.mockRestore();

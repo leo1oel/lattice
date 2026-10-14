@@ -226,7 +226,7 @@ describe("welcome screen", () => {
     expect(section("Appearance")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/latex editor font/i)).not.toBeInTheDocument();
-    await chooseOption("Color theme", "Dark");
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Color theme" })).getByRole("radio", { name: "Dark" }));
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
     expect(localStorage.getItem("lattice.theme-preference.v1")).toBe("dark");
     expect(screen.queryByLabelText("Interface font")).not.toBeInTheDocument();

@@ -22,6 +22,21 @@ export type Highlighter = {
   key: string;
 };
 
+/** The ink a highlight is printed under, in the PDF and on the palette's specimens. */
+export const PAPER_INK = "#242426";
+
+/**
+ * Paper tones the custom picker offers: eight hues at three strengths (OKLCH
+ * lightness 0.965, 0.925 and 0.88 at chroma 0.04, 0.07 and 0.095), each
+ * keeping PAPER_INK above 10.5:1, as the six highlighters do (11.8 to 13.6:1),
+ * so nothing offered prints as a dark block under black text.
+ */
+export const PAPER_TONES: readonly string[] = [
+  "#F9F5D6", "#FFF1E5", "#FEF0ED", "#FEEFF4", "#F5F1FE", "#ECF4FE", "#DDF7F5", "#E4FBE3",
+  "#F3E9B0", "#FFE0C6", "#FFDDD8", "#FEDBE8", "#EAE0FF", "#D7E8FF", "#C2EEEA", "#CAF3CA",
+  "#EAD98A", "#FFCCA1", "#FFC9C1", "#FFC5DA", "#DECEFE", "#BEDAFF", "#9FE2DC", "#B0E9B1",
+];
+
 export const HIGHLIGHTERS: readonly Highlighter[] = [
   { hex: "#FFF1A6", name: msg`Yellow`, meaning: msg`To check`, key: "1" },
   { hex: "#CFEFC6", name: msg`Green`, meaning: msg`Keep`, key: "2" },
