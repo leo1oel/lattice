@@ -9,7 +9,7 @@ import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
-import { onOverleafEvent } from "../overleaf/overleaf-realtime-listen";
+import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
@@ -74,8 +74,9 @@ type OverleafSyncOptions = {
   includeWholeFilePaths?: readonly string[];
 };
 
+/** A failure the next sync can get past: the network, or a refusal while the session is still valid (SESSION_STILL_VALID in overleaf_rt.rs). */
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return /could not reach overleaf|error decoding response body/i.test(toMessage(reason));
+  return /could not reach overleaf|error decoding response body|session is still valid/i.test(toMessage(reason));
 }
 
 /** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
@@ -311,6 +312,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const root = projectRef.current?.root;
     if (root) loadOverleafLink(root);
   }, [loadOverleafLink, projectRef]);
+  // A session Overleaf turned away ends syncing and live editing here too,
+  // whichever window's request found out; the link stays for the next sign-in.
+  useEffect(() => onOverleafSessionChanged(refreshOverleafLink), [refreshOverleafLink]);
 
   const publishProjectToOverleaf = useCallback(async (projectName: string): Promise<boolean> => {
     if (!project || overleafSyncingRef.current) return false;

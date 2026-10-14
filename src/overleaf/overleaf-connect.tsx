@@ -33,6 +33,7 @@ import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } fr
 import { InlineMessage } from "../components/ui/inline-message";
 import { notifyError, notifyInfo, notifySuccess } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
+import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
 
@@ -303,6 +304,9 @@ export function OverleafSettingsSection(props: {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  // The backend marks the session expired the moment Overleaf turns it away,
+  // from whichever request noticed; this page must not keep saying signed in.
+  useEffect(() => onOverleafSessionChanged(() => void load()), [load]);
 
   /**
    * Pausing keeps the link and everything it needs to start again, so
@@ -418,12 +422,20 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
             </Button>
           </StatusRow>
         )}
+        {known?.expired && (
+          <StatusRow dot="paused" icon={<CloudAlert size={15} />} title={t`Your Overleaf session expired. Sign in again`} detail={known.email ?? known.name ?? known.host}>
+            <Button size="compact" disabled={disconnecting} onClick={() => void disconnect()}>
+              {disconnecting && <InfinityLoader size={12} />}
+              {t`Sign out`}
+            </Button>
+          </StatusRow>
+        )}
         {known && !known.connected ? (
           <div className="overleaf-connect-card">
             <div className="overleaf-connect-card-body">
               <LoginControls
                 login={login}
-                label={t`Connect to Overleaf`}
+                label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
                 hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />
             </div>
@@ -516,28 +528,11 @@ function OverleafPicker(props: PickerProps) {
   const [publishing, setPublishing] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
   const [publishName, setPublishName] = useState(props.currentProject?.name ?? "");
-  const [reconnectRequired, setReconnectRequired] = useState(false);
   const login = useOverleafLogin((session) => {
-    setReconnectRequired(false);
     setStatus(session);
     props.onConnectionChanged?.();
   });
   const { onClose, onConnectionChanged } = props;
-
-  /** A failed Overleaf request: an expired session becomes the reconnect state, anything else is reported. */
-  const handleFailure = useCallback(async (reason: unknown, report: (message: string) => void) => {
-    if (!/overleaf session expired/i.test(toMessage(reason))) return report(toMessage(reason));
-    // Once Overleaf has rejected this session it is no longer a connection.
-    // Remove the dead credential so Settings and background sync agree with
-    // the reconnect state this panel now shows; project links stay on disk.
-    await invoke("overleaf_disconnect").catch(() => {});
-    setProjects(null);
-    setProjectsError(null);
-    setStatusError(null);
-    setReconnectRequired(true);
-    setStatus((current) => ({ connected: false, email: null, name: null, host: current?.host ?? "https://www.overleaf.com" }));
-    onConnectionChanged?.();
-  }, [onConnectionChanged]);
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -549,6 +544,17 @@ function OverleafPicker(props: PickerProps) {
     }
     setStatusLoading(false);
   }, []);
+
+  /** A failed Overleaf request: an expired session becomes the reconnect state, anything else is reported. */
+  const handleFailure = useCallback(async (reason: unknown, report: (message: string) => void) => {
+    if (!/overleaf session expired/i.test(toMessage(reason))) return report(toMessage(reason));
+    // The backend has already recorded the expiry (Settings and background
+    // sync read the same record), so re-reading the status shows reconnect.
+    setProjects(null);
+    setProjectsError(null);
+    await loadStatus();
+    onConnectionChanged?.();
+  }, [loadStatus, onConnectionChanged]);
 
   const loadProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -747,15 +753,15 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
         {known && !known.connected && (
           <div className="overleaf-stage" data-plain="">
-            <StageMessage glyph={reconnectRequired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={reconnectRequired ? "warning" : "accent"}>
+            <StageMessage glyph={known.expired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={known.expired ? "warning" : "accent"}>
               <p className="overleaf-stage-text">
-                {reconnectRequired
+                {known.expired
                   ? t`Your Overleaf session expired. Sign in again`
                   : t`Connect your Overleaf account to see your projects`}
               </p>
               <LoginControls
                 login={login}
-                label={reconnectRequired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
+                label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
                 hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />
             </StageMessage>

@@ -3,7 +3,7 @@
 //! connect, a stale React cleanup or a queued event from acting on the wrong
 //! project.
 
-use super::overleaf::overleaf_config_dir;
+use super::overleaf::{overleaf_config_dir, settled};
 use super::{current_root, pinned_root, run_blocking, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::overleaf;
@@ -196,7 +196,7 @@ pub async fn overleaf_rt_connect(
                     realtime.cancel(Some(&root));
                 }
             }
-            return Err(error);
+            return settled(&app, Err(error)).await;
         }
     };
     // Answering with the project tree, rather than only emitting it, is what
