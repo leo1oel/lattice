@@ -362,8 +362,20 @@ fn handle_event(shared: &Arc<Shared>, data: &str) -> Result<(), String> {
             shared.emit(RealtimeEvent::Connected { public_id });
         }
         "connectionRejected" => {
-            let message = error_or("Overleaf rejected the realtime connection.");
+            // The handshake answers 200 to any cookie, so a dead session first
+            // shows here, as the realtime server failing to look it up. Name
+            // it as the REST calls do; the command checks it with the
+            // dashboard before anything is marked expired.
+            let message = match error_or("Overleaf rejected the realtime connection.") {
+                rejected if rejected == "invalid session" => SESSION_EXPIRED.to_string(),
+                rejected => rejected,
+            };
+            // Overleaf accepts the connection (`1::`) before it rejects it, so
+            // the connect gate has usually opened already; the join is what is
+            // still waiting. Without the reason it would only hear that the
+            // socket closed, which reads as a blip and is retried forever.
             shared.resolve(CONNECT_SLOT, Err(message.clone()));
+            shared.resolve(JOIN_SLOT, Err(message.clone()));
             return Err(message);
         }
         "otUpdateApplied" => {

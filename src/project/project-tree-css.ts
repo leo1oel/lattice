@@ -135,8 +135,10 @@ button[data-type="item"][data-item-focused="true"]::before {
 }
 
 /* The product's one ring, drawn inside the row: rows touch, and the
-   virtualized scroller clips anything outside them. */
-button[data-type="item"]:focus-visible::before {
+   virtualized scroller clips anything outside them. Not on a row a pointer
+   focused (components/ui/pointer-focus.ts); the page's override cannot reach
+   into this shadow root. */
+button[data-type="item"]:focus-visible:not([data-pointer-focus])::before {
   outline: var(--focus-ring-width) solid var(--navigation-focus-ring);
   outline-offset: calc(-1 * var(--focus-ring-width));
 }

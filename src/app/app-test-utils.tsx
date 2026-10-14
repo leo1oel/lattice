@@ -351,7 +351,7 @@ export const overleafLink = (link: object = {}) => ({
   projectId: "ol-project", projectName: "Overleaf paper", host: "https://www.overleaf.com", lastSync: null, paused: false, ...link,
 });
 export const overleafStatus = (status: object = {}) => ({
-  connected: true, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com", ...status,
+  connected: true, expired: false, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com", ...status,
 });
 export const overleafProbe = (probe: object = {}) => ({
   changed: false, localChanged: false, versionKnown: true, remoteVersion: 1, lastSync: null, ...probe,

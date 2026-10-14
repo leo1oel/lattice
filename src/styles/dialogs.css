@@ -366,10 +366,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* A small dialog or picker stands in the upper third, where the eye already
    is, and its top stays put as a list under it grows or shrinks. One taller
    than the room below rises just enough to keep a 20px margin. Sheets,
-   Settings and a dialog that holds a whole tool (`modal-large`: a review, a
-   conflict, a project browser) stay centred. The leaving picture is the same
-   element, so it leaves from where it stood. */
-.modal-dialog-content:has(> .modal:not(.sheet-dialog, .modal-large)) { top: 18vh; transform: translate(-50%, min(0px, calc(82vh - 100% - 20px))); }
+   Settings, a dialog that holds a whole tool (`modal-large`: a review, a
+   conflict, a project browser) and a confirmation stay centred: a
+   confirmation has no list to grow, and it often stands over Settings, whose
+   top edge it straddled at 18vh. The leaving picture is the same element, so
+   it leaves from where it stood. */
+.modal-dialog-content:has(> .modal:not(.sheet-dialog, .modal-large, .confirm-action-modal)) { top: 18vh; transform: translate(-50%, min(0px, calc(82vh - 100% - 20px))); }
 /* Dialogs arrive: the scrim fades in while the card rises a few pixels and
    settles. `translate` and `scale` are their own properties, so they compose
    with the centring transform above instead of replacing it. A closed dialog
@@ -674,7 +676,9 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .modal-actions { margin-top: var(--space-12); display: flex; justify-content: flex-end; gap: var(--space-4); }
 .destructive-button-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; transform-origin: 50% 70%; }
 .confirm-action-modal { width: min(410px, calc(100vw - 40px)); }
-.confirm-action-modal > p { max-width: 340px; }
+/* A message's own line breaks (a second paragraph, a list of names) show as
+   written rather than running together. */
+.confirm-action-modal > p { max-width: 340px; white-space: pre-line; }
 .confirm-action-modal .ui-button--ghost.confirm-action-danger { color: var(--status-danger); }
 .confirm-action-modal .ui-button--ghost.confirm-action-danger:hover:not(:disabled) { background: var(--status-danger-soft); color: var(--status-danger); }
 /* The shortcut sheet (shortcut-sheet.tsx): the groups flow in two columns

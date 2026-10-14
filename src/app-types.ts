@@ -326,6 +326,8 @@ export type CanvasRequests = {
 
 export type OverleafStatus = {
   connected: boolean;
+  /** Overleaf turned the stored session away: not connected, but the account is still known. */
+  expired: boolean;
   email: string | null;
   name: string | null;
   host: string;

@@ -647,7 +647,7 @@ function bibliographyAuditScan() {
 
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
-  // `?overleaf=review` (or `long`) links the open project to Overleaf (bench-overleaf.ts).
+  // `?overleaf=review` (or `long`, `expired`) links the open project to Overleaf (bench-overleaf.ts).
   const overleaf = overleafAnswer(command, args, {
     params, lang, emit, root: () => current.root,
     text: (path) => {
@@ -710,7 +710,7 @@ function answer(command: string, args: Args): unknown {
     case "count_project_words":
       return { text: 120_000, headers: 400, captions: 0, total: 120_400, source: "texcount" };
     case "overleaf_status":
-      return { connected: false, email: null, name: null, host: "https://www.overleaf.com" };
+      return { connected: false, expired: false, email: null, name: null, host: "https://www.overleaf.com" };
     case "git_status":
       return { available: Boolean(scale.gitVersions), repository: Boolean(scale.gitVersions), branch: scale.gitVersions ? "main" : null, files: [] };
     case "git_log":

@@ -177,9 +177,10 @@
   --nested-radius: calc(var(--surface-radius) - var(--surface-inset));
 }
 
-/* A compact menu that opens in place (not a Radix portaled surface). */
+/* A compact menu that opens in place (not a Radix portaled surface), on a
+   popover's corner like every other menu, so its rows keep a control's. */
 .venue-menu {
-  --surface-radius: var(--radius-control);
+  --surface-radius: var(--radius-surface);
   --surface-inset: var(--space-2);
   padding: var(--surface-inset);
   border-radius: var(--surface-radius);

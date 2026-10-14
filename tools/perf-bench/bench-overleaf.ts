@@ -8,6 +8,9 @@
  * whose text was deleted) and references.bib, tracked changes in main.tex
  * from three people, chat and presence. `?overleaf=long` gives the same with
  * 45-character names and an unbroken URL in a comment, for width checks.
+ * `?overleaf=expired` keeps the link but has Overleaf turn the stored session
+ * away, the state Settings offers to reconnect from; `expired-long` gives the
+ * account a 45-character address.
  * The comments are in the page's language (`?lang=`).
  */
 export const NOT_HANDLED = Symbol("not handled");
@@ -158,11 +161,15 @@ function presence() {
 }
 
 export function overleafAnswer(command: string, args: Record<string, unknown> | undefined, context: Context): unknown {
-  if (!["review", "long"].includes(context.params.get("overleaf") ?? "")) return NOT_HANDLED;
+  const mode = context.params.get("overleaf") ?? "";
+  if (!["review", "long", "expired", "expired-long"].includes(mode)) return NOT_HANDLED;
   const entities = DOCS.map((doc) => ({ ...doc, kind: "doc" }));
   switch (command) {
-    case "overleaf_status":
-      return { connected: true, email: PEOPLE.me.email, name: PEOPLE.me.name, host: "https://www.overleaf.com" };
+    case "overleaf_status": {
+      const expired = mode.startsWith("expired");
+      const email = mode === "expired-long" ? "leonardo.researcher.long.name@mails.example.edu" : PEOPLE.me.email;
+      return { connected: !expired, expired, email, name: PEOPLE.me.name, host: "https://www.overleaf.com" };
+    }
     case "overleaf_link":
       return {
         projectId: "ol-understanding-attention", projectName: "Understanding Attention", host: "https://www.overleaf.com",

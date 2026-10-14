@@ -22,7 +22,9 @@ msgstr " 等"
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
 "\n"
 "Files that differ are kept side by side. Nothing is overwritten"
-msgstr "“{0}”里已有文件，且没关联 Overleaf\\n\\n不同的文件会并排保留，不会覆盖"
+msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
+"\n"
+"不同的文件会并排保留，不会覆盖"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -446,7 +448,8 @@ msgstr "{installedProduct} 已装好，但没能最后检查"
 #: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
-msgstr "{installedProduct} 已装好，但以下检查未通过：\\n{0}"
+msgstr "{installedProduct} 已装好，但以下检查未通过：\n"
+"{0}"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "{label} · {place} — click to jump there"
@@ -7811,6 +7814,10 @@ msgstr "Overleaf 历史里留有副本"
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf 上保留"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
+msgstr "Overleaf 一直拒绝这个项目的实时协作，但你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目。"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
 msgstr "Overleaf 按文件保存修订建议，这里显示当前文件的建议"
@@ -7834,6 +7841,10 @@ msgstr "Overleaf 选项"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf 项目"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Overleaf refused this project"
+msgstr "Overleaf 拒绝访问这个项目"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf rejected a live update ({detail})."
@@ -10165,7 +10176,9 @@ msgstr "退出登录"
 msgid "Sign out of Overleaf?\n"
 "\n"
 "Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac."
-msgstr "退出 Overleaf？\\n\\n关联的项目会停止同步，直到重新登录。已下载的文件仍在这台 Mac 上"
+msgstr "退出 Overleaf？\n"
+"\n"
+"关联的项目会停止同步，直到重新登录。已下载的文件仍在这台 Mac 上"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
@@ -11850,7 +11863,9 @@ msgstr "正在更新…"
 msgid "Upload “{name}” to Overleaf and connect this folder?\n"
 "\n"
 "Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac."
-msgstr "把“{name}”上传到 Overleaf 并关联？\\n\\n会用要同步的文件新建一个 Overleaf 项目。应用数据、账号信息、编译结果和 Git 记录仍留在这台 Mac"
+msgstr "把“{name}”上传到 Overleaf 并关联？\n"
+"\n"
+"会用要同步的文件新建一个 Overleaf 项目。应用数据、账号信息、编译结果和 Git 记录仍留在这台 Mac"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload and connect"
@@ -12356,6 +12371,10 @@ msgstr "黄色"
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "你"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
+msgstr "你仍处于登录状态。请确认在 Overleaf 上还能打开这个项目；你的修改保留在这台 Mac 上"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"

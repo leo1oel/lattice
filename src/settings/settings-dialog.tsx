@@ -6,7 +6,6 @@ import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
-import { spring } from "../components/ui/motion-values";
 import { CloseButton } from "../components/ui/icon-button";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
@@ -273,7 +272,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
         <CloseButton className="settings-close" label={t`Close settings`} tooltip={false} onClick={props.onClose} />
         <div className="settings-body" data-narrow-view={narrowPage ? "page" : "root"}>
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
-            <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection follow={null} transition={spring.moderate} />
+            <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection follow={null} />
             <h2 className="settings-root-title">{t`Settings`}</h2>
             <SettingsSearch
               inputRef={searchRef}

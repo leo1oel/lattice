@@ -7814,6 +7814,10 @@ msgstr "Overleaf history keeps a copy"
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
+msgstr "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
 msgstr "Overleaf keeps suggestions with each file; they show here for the file in front"
@@ -7837,6 +7841,10 @@ msgstr "Overleaf project actions"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "Overleaf refused this project"
+msgstr "Overleaf refused this project"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf rejected a live update ({detail})."
@@ -12363,6 +12371,10 @@ msgstr "Yellow"
 #: src/overleaf/overleaf-comments.tsx
 msgid "You"
 msgstr "You"
+
+#: src/app/use-overleaf-workspace.ts
+msgid "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
+msgstr "You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"

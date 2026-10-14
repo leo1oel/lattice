@@ -64,6 +64,14 @@ export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 export const isOwnUpdate = (source: string | null, publicId: string | null, submittedVia: readonly string[] = []) =>
   Boolean(source) && (source === publicId || submittedVia.includes(source!));
 
+/**
+ * Overleaf refused a request while the session is still valid
+ * (SESSION_STILL_VALID in overleaf_rt.rs): often brief, but a lost share
+ * persists, so it is retried only this many times before being reported.
+ */
+export const OVERLEAF_REFUSAL_RETRIES = 3;
+export const isOverleafProjectRefusal = (reason: string) => /session is still valid/i.test(reason);
+
 /** Authentication and project-identity failures need user action, not a retry loop. */
 export function shouldRetryConnection(reason: string): boolean {
   return !/session expired|not connected to overleaf|cookie|sign.?in|authentication|unauthorized|forbidden|permission|project changed|not linked|newer overleaf connection|invalid project/i
