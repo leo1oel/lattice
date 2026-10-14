@@ -187,11 +187,12 @@ jobs:
         run: pnpm i18n:check
 
   # The bench page every benchmark shard below measures, built once here
-  # rather than by each shard: the build is the same bytes on Linux and macOS
-  # (`--build-only` prints its hash and `--dist` repeats it in each shard's
-  # log), and on a macOS runner it took about 120 s against 40 s here. The
-  # shards wait for this job through .github/actions/bench-page instead of
-  # `needs:`, so they set up while it builds.
+  # rather than by each shard, so the macOS shards (the run's slowest jobs,
+  # on runners capped at five per account) no longer spend about 40 s each on
+  # it. The build is the same bytes on Linux and macOS: `--build-only` prints
+  # its hash and `--dist` repeats it in each shard's log. The shards wait for
+  # this job through .github/actions/bench-page instead of `needs:`, so they
+  # set up while it builds.
   bench-page:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
