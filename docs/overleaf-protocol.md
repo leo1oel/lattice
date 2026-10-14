@@ -119,7 +119,10 @@ What that implies, in practice:
 - The handshake is a plain `GET` returning text
   `{sid}:{heartbeat}:{close}:{transports}`, not JSON. A redirect to `/login` or
   an HTML body means the session cookie is dead — that is the signal, and it
-  must not be retried as a transport error.
+  must not be retried as a transport error. Overleaf Cloud's handshake answers
+  200 to any cookie, though, so a dead session usually first shows as a
+  `connectionRejected` "invalid session", which fails the pending join as an
+  expired session (`handle_event` in `src-tauri/src/overleaf_rt/client.rs`).
 - Frames are `{type}:{id}:{endpoint}:{data}`, with the trailing `:{data}`
   omitted when there is no payload. A heartbeat is therefore the three-byte
   string `2::`, and the server drops clients that do not echo it promptly.
@@ -156,6 +159,15 @@ purpose.
   legacy project-list meta tags, including HTML entity decoding.
 - Mutating HTTP requests carry the CSRF value from the same authenticated
   origin.
+- A signed-out answer (a login redirect, a 401 or 403, a page where a ZIP or
+  CSRF token belonged, a realtime "invalid session") is checked against the
+  dashboard before the session is called expired: a 403 can be one project's
+  permission. A dashboard that turns the cookie away marks the stored session
+  `expired`, which Settings, sync and live editing all read until the next
+  sign-in, and every window hears `overleaf-session`; one that still opens
+  makes the error `SESSION_STILL_VALID`, retried a few times
+  (`OVERLEAF_REFUSAL_RETRIES`) and then reported as a refusal of this project
+  (`settle_session_error` in `src-tauri/src/overleaf/account.rs`).
 - A transient failure is retried at most twice, with backoff, and only when
   the retry cannot do anything twice: any request that never connected or was
   answered 429 (honouring a `Retry-After` of up to 8 s), and a safe one (GET
@@ -229,7 +241,8 @@ purpose.
 - A transient disconnect retries with bounded exponential backoff. Network
   recovery and window focus may request an immediate retry, but authentication,
   authorization and project-identity failures stop the loop and require user
-  action. Reconnect rejoins and reconciles uncertain documents before ordinary
+  action. A refusal while the session is still valid is the one bounded
+  exception (see [Authentication and HTTP](#authentication-and-http)). Reconnect rejoins and reconciles uncertain documents before ordinary
   synchronization may own them again.
 - Serialized Tauri event names, camelCase field names, command names and
   acknowledgement ordering are part of the frontend/backend contract.
