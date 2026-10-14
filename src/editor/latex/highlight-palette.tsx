@@ -141,7 +141,6 @@ export function HighlightPalette(props: {
           aria-pressed={on}
           aria-label={pen ? t`${meaning}, ${color}, the pen's colour` : t`${meaning}, ${color}`}
           onClick={() => props.onApply(item.hex)}
-          onDoubleClick={() => setRenaming(item.hex)}
         >
           <span className="hl-chip" style={{ background: item.hex }} aria-hidden="true">{SPECIMEN}</span>
           <span className="hl-meaning">{meaning}</span>

@@ -158,7 +158,7 @@ export function ColorPicker(props: {
   };
   const legibility = props.legibility?.(hex);
   const confirm = () => {
-    if (!hexInvalid) props.onConfirm?.(hex);
+    if (!hexInvalid) props.onConfirm?.((hexText !== null && normalizeHex(hexText)) || hex);
   };
 
   return (

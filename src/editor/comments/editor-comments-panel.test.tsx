@@ -61,4 +61,23 @@ describe("EditorCommentsPanel", () => {
     expect(screen.getByText("No open annotations")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Return to/ })).not.toBeInTheDocument();
   });
+
+  it("returns to the notes when the open file has no highlights left", () => {
+    const comment = createEditorComment({
+      path: "main.tex", source: "Hello bold world", from: 6, to: 10, body: "Tighten this", authorId: "ada", authorName: "Ada",
+    })!;
+    const panel = (source: string) => (
+      <EditorCommentsPanel
+        embedded comments={[comment]} activePath="main.tex" sourceFor={() => source} currentAuthorId="ada"
+        onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()} onUpdateBody={vi.fn()} onReply={vi.fn()}
+      />
+    );
+    const { rerender } = render(panel("Hello \\colorbox[HTML]{FFF1A6}{bold} world"));
+    fireEvent.click(screen.getByRole("button", { name: /^Highlights/ }));
+    expect(screen.queryByText("Tighten this")).not.toBeInTheDocument();
+
+    rerender(panel("Hello bold world"));
+    expect(screen.getByText("Tighten this")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Show annotations" })).toBeInTheDocument();
+  });
 });

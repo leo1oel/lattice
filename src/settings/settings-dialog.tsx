@@ -54,6 +54,8 @@ type SettingsDialogProps = DoctorSettingsProps & {
   onRetrySynaraRuntime: () => void;
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
+  /** Opens on the section's page rather than the section list, when narrow. */
+  openOnPage?: boolean;
   overleafSyncMode: OverleafSyncMode;
   overleafRemoteDelete: OverleafRemoteDelete;
   onOverleafRemoteDeleteChange: (mode: OverleafRemoteDelete) => void;
@@ -195,7 +197,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   // returns focus to the section's row.
   const modalRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
-  const [narrowPage, setNarrowPage] = useState(false);
+  const [narrowPage, setNarrowPage] = useState(Boolean(props.openOnPage));
   useLayoutEffect(() => {
     const modal = modalRef.current;
     if (!modal || typeof ResizeObserver === "undefined") return;

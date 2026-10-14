@@ -159,7 +159,7 @@ export function EditorCommentsPanel(props: {
   /** The highlighter whose highlights the list shows instead of the notes (its hex, or `OTHER`). */
   const [highlightKind, setHighlightKind] = useState<string | null>(null);
   /** Notes and the file's highlights are peers; a color filter narrows the highlights. */
-  const [mode, setMode] = useState<"notes" | "highlights">("notes");
+  const [chosenMode, setMode] = useState<"notes" | "highlights">("notes");
   const [kindMenuOpen, setKindMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -262,6 +262,7 @@ export function EditorCommentsPanel(props: {
     for (const highlight of highlights) counts.set(highlight.kind, (counts.get(highlight.kind) ?? 0) + 1);
     return [...HIGHLIGHTERS.map((item) => item.hex), OTHER].filter((kind) => counts.has(kind)).map((kind) => ({ kind, count: counts.get(kind)! }));
   }, [highlights]);
+  const mode = highlightKinds.length > 0 ? chosenMode : "notes";
   const kindLabel = (kind: string) => {
     const item = highlighterOf(kind);
     return item ? highlightPrefs.meaningOf(item) : t`Other colours`;
