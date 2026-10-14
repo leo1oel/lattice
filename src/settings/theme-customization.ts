@@ -83,9 +83,18 @@ function fromOklch(lightness: number, chroma: number, hue: number): Rgb | null {
  * menus and dialogs) in dark. Each theme's --accent-contrast label then
  * clears 5:1.
  */
+const ACCENT_GROUND_LUMINANCE: Record<Theme, number> = { light: 0.8581, dark: 0.01871 };
+const ACCENT_FLOOR = 4.6;
+
+/** The accent's contrast on the surface closest to it in `theme`, the one fitAccent holds to its floor. */
+export function accentContrast(hex: string, theme: Theme): number {
+  const [lighter, darker] = [luminance(parseHex(hex)), ACCENT_GROUND_LUMINANCE[theme]].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 const ACCENT_LUMINANCE_LIMIT: Record<Theme, (value: number) => boolean> = {
-  light: (value) => (0.8581 + 0.05) / (value + 0.05) >= 4.6,
-  dark: (value) => (value + 0.05) / (0.01871 + 0.05) >= 4.6,
+  light: (value) => (ACCENT_GROUND_LUMINANCE.light + 0.05) / (value + 0.05) >= ACCENT_FLOOR,
+  dark: (value) => (value + 0.05) / (ACCENT_GROUND_LUMINANCE.dark + 0.05) >= ACCENT_FLOOR,
 };
 
 /**

@@ -31,7 +31,7 @@ import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
-import { highlightAround, highlightOpening, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
+import { highlightAround, highlightOpening, latexHighlights, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
@@ -528,6 +528,8 @@ export function DocumentCanvas(props: {
   const visualRevealRef = useLatestRef(visualReveal);
   const [selectedText, setSelectedText] = useState("");
   const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition; highlight: string | null } | null>(null);
+  const toolbarShown = selectionToolbar !== null;
+  const documentColors = useMemo(() => toolbarShown ? documentHighlightColors(settledSource) : [], [toolbarShown, settledSource]);
   const commentsForActiveFile = useMemo(() => editorComments.filter((comment) => comment.path === activeFile), [activeFile, editorComments]);
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
@@ -1553,6 +1555,8 @@ export function DocumentCanvas(props: {
           canComment
           canProofread={isLatexSourcePath(activeFile) && Boolean(props.projectRoot)}
           highlight={selectionToolbar.highlight}
+          sample={selectedText}
+          documentColors={documentColors}
           commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}
@@ -1692,4 +1696,15 @@ export function DocumentCanvas(props: {
     </>
   );
 
+}
+
+/** The highlight colors a source already uses, most used first, for the custom picker's "In this document". */
+function documentHighlightColors(source: string | undefined): string[] {
+  if (!source) return [];
+  const counts = new Map<string, number>();
+  for (const highlight of latexHighlights(source)) {
+    const hex = highlight.color?.toUpperCase();
+    if (hex && /^#[0-9A-F]{6}$/.test(hex)) counts.set(hex, (counts.get(hex) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([hex]) => hex);
 }

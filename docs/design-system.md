@@ -104,6 +104,16 @@ Presets live in `src/styles/theme.css` as attribute blocks that apply to any
 element, so a Settings swatch carrying `data-tint` or `data-accent` shows the
 real color in the current light or dark.
 
+To draw an appearance the window is not wearing, an element takes a theme
+preview scope: `data-theme-preview="light|dark"` with `data-tint-preview`
+naming a tint. The base and tint blocks in `theme.css` and the role block in
+`foundations.css` also match that scope, so every palette value and role is
+recomputed on the element for that appearance and tint. Settings draws its
+Color theme windows, its split tint tiles and Weft & Warp's other variant
+this way, from the same declarations as the window, never from copied values.
+The scope resets `--accent`; a preview that shows the current accent takes it
+from an ancestor first (`--tile-accent` in `dialogs.css`).
+
 ## Private interface fonts
 
 The Timeless type family (Timeless Free Font License 1.2; get the fonts and

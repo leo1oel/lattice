@@ -99,76 +99,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .heading-menu button { justify-content: space-between; }
 .heading-menu code { color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .latex-highlight-picker { width: auto; padding: 0; border: 0; border-radius: var(--radius-surface); background: transparent; box-shadow: none; }
-.apple-color-picker,
-.apple-color-picker button,
-.apple-color-picker input { font-family: var(--ui-font); }
-.apple-color-picker {
-  box-shadow: var(--elevation-popover);
-  box-sizing: border-box;
-  width: 232px;
-  border-radius: var(--radius-surface);
-  background: var(--surface-panel-raised);
-  color: var(--text-primary);
-  overflow: hidden;
-  user-select: none;
-}
-.highlight-picker-header { min-height: 46px; padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.highlight-picker-title { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
-.highlight-picker-title > span:last-child { min-width: 0; display: grid; gap: 1px; }
-.highlight-picker-title strong { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-semibold); }
-.highlight-picker-title small { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 12px; font-variant-numeric: tabular-nums; }
-.highlight-current-color { width: 28px; height: 28px; flex: none; border: 1px solid var(--border-strong); border-radius: var(--radius-chrome); background: var(--surface-input); overflow: hidden; }
-.highlight-current-color > span { width: 100%; height: 100%; border-radius: calc(var(--radius-chrome) - 1px); display: block; }
-.highlight-picker-actions { display: flex; align-items: center; gap: var(--space-1); }
-.highlight-picker-confirm { color: var(--control-active); }
-.highlight-picker-body { padding: var(--space-5); display: grid; gap: var(--space-5); }
-.highlight-picker-tabs.ui-segmented { width: 100%; }
-.highlight-picker-tab.ui-segmented-tab { height: 100%; flex: 1 1 0; padding-inline: var(--space-3); }
-.highlight-picker-main { position: relative; height: 144px; overflow: hidden; }
-.highlight-picker-panel { position: absolute; inset: 0; width: 100%; height: 100%; }
-.highlight-color-grid { height: 100%; padding: var(--space-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-input); display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); gap: var(--space-1); overflow: hidden; }
-.highlight-color-swatch { position: relative; min-width: 0; min-height: 0; padding: 0; border: 1px solid color-mix(in srgb, #000 12%, transparent); border-radius: var(--radius-compact); color: white; display: grid; place-items: center; transition: border-color var(--motion-fast), scale var(--motion-fast); }
-.highlight-color-swatch:hover { z-index: 1; border-color: color-mix(in srgb, #000 32%, transparent); scale: 1.08; }
-.highlight-color-swatch[aria-pressed="true"] { z-index: 2; }
-.highlight-color-selection { position: absolute; inset: -1px; border: 1px solid var(--text-primary); border-radius: inherit; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-panel-raised) 80%, transparent), 0 0 0 1px var(--surface-panel-raised); display: grid; place-items: center; pointer-events: none; }
-.highlight-color-selection svg,
-.highlight-recent-swatch svg { color: white; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 70%)); }
-.highlight-spectrum { --spectrum-value: 100%; position: relative; width: 100%; height: 100%; border: 0; border-radius: var(--radius-control); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%); touch-action: none; cursor: crosshair; overflow: hidden; }
-.highlight-spectrum::before { position: absolute; inset: 0; background: linear-gradient(to bottom, white, transparent), linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%); filter: brightness(var(--spectrum-value)); content: ""; }
-.highlight-spectrum-thumb { --spectrum-x: 0%; --spectrum-y: 0%; position: absolute; z-index: 1; left: clamp(10px, var(--spectrum-x), calc(100% - 10px)); top: clamp(10px, var(--spectrum-y), calc(100% - 10px)); width: 20px; height: 20px; border: 2px solid white; border-radius: var(--radius-pill); box-shadow: 0 1px 4px rgb(0 0 0 / 38%); pointer-events: none; translate: -50% -50%; }
-.highlight-slider-panel { height: 100%; padding: var(--space-2) 0; display: flex; flex-direction: column; justify-content: space-between; }
-.highlight-slider-row,
-.highlight-hex-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; align-items: center; column-gap: var(--space-4); }
-.highlight-slider-label { color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); text-align: start; }
-.highlight-slider-track,
-.highlight-opacity-track { position: relative; height: 18px; min-width: 0; flex: 1; border: 0; border-radius: var(--radius-pill); box-shadow: inset 0 1px 2px rgb(0 0 0 / 12%); }
-.highlight-range-input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.highlight-slider-thumb,
-.highlight-opacity-thumb { --slider-position: 0%; position: absolute; top: 50%; left: clamp(9px, var(--slider-position), calc(100% - 9px)); width: 18px; height: 18px; border: 0; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 2px rgb(255 255 255 / 82%), 0 1px 3px rgb(0 0 0 / 24%); pointer-events: none; translate: -50% -50%; }
-.highlight-number-input { height: var(--control-height-compact); width: 44px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); background: var(--field-control-background); color: var(--text-primary); text-align: center; font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; outline: none; }
-.highlight-number-input::-webkit-inner-spin-button,
-.highlight-number-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
-.highlight-number-input:focus { border-color: var(--field-control-interactive-border-color); }
-.highlight-hex-row { height: var(--control-height-compact); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-medium); }
-.highlight-hex-input-wrap { grid-column: 2 / 4; justify-self: end; height: var(--control-height-compact); width: 78px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); padding: 0 var(--space-2); background: var(--field-control-background); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-1); }
-.highlight-hex-input-wrap:focus-within { border-color: var(--field-control-interactive-border-color); }
-.highlight-hex-input { min-width: 0; width: 100%; border: 0; padding: 0; background: transparent; color: var(--text-primary); text-align: right; font-size: var(--type-micro-size); font-weight: var(--weight-medium); text-transform: uppercase; outline: none; }
-.highlight-opacity,
-.highlight-recents { padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
-.highlight-section-label { margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--weight-medium); }
-.highlight-opacity-row { display: flex; align-items: center; gap: var(--space-4); }
-.highlight-opacity-track { overflow: visible; }
-.highlight-opacity-value { position: relative; width: 44px; height: var(--control-height-compact); flex: none; }
-.highlight-opacity-value .highlight-number-input { width: 100%; padding: 0 13px 0 var(--space-2); }
-.highlight-opacity-value > span { position: absolute; top: 50%; right: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); translate: 0 -50%; pointer-events: none; }
-.highlight-recents { min-width: 0; }
-.highlight-recent-grid { display: grid; grid-template-columns: repeat(9, 18px); justify-content: space-between; gap: var(--space-2); }
-.highlight-recent-swatch,
-.highlight-recent-add { width: 18px; height: 18px; padding: 0; border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent); border-radius: var(--radius-pill); display: grid; place-items: center; }
-.highlight-recent-swatch:hover,
-.highlight-recent-add:hover { border-color: var(--text-secondary); }
-.highlight-recent-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-panel-raised), 0 0 0 3px var(--text-secondary); }
-.highlight-recent-add { background: var(--control-hover-surface); color: var(--text-secondary); }
 .link-menu { width: 250px; display: flex; align-items: end; gap: var(--gap-inline-tight); }
 .link-menu label { min-width: 0; flex: 1; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .link-menu input { width: 100%; height: var(--control-height-compact); margin-top: var(--space-2); border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text-primary); font-size: var(--type-micro-size); outline: none; }
@@ -1707,3 +1637,31 @@ body > [role="tooltip"].univer-bg-gray-700 > div + div { display: none; }
   counter-reset: none;
 }
 .board-editor-root .tl-rich-text .ProseMirror p { margin: 0; }
+
+/* Highlights painted in the source (latex-highlight-paint.ts). On paper the
+   tint sits under black ink, so a light editor shows exactly that; a dark one
+   (the app's, or a dark-only code theme's) keeps its own ink and shows the
+   tint as a wash and an underline instead of a pastel block. */
+.cm-hl-paint {
+  --hl: transparent;
+  background: var(--hl);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+:root:not([data-code-theme-kind="dark"]) .cm-hl-paint,
+:root:not([data-code-theme-kind="dark"]) .cm-hl-paint * { color: #242426 !important; }
+:root[data-code-theme-kind="dark"] .cm-hl-paint {
+  background: color-mix(in srgb, var(--hl) 18%, transparent);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--hl) 75%, transparent);
+}
+.cm-hl-wrap { opacity: 0.45; }
+.cm-hl-swatch {
+  display: inline-block;
+  inline-size: 0.72em;
+  block-size: 0.72em;
+  margin-inline-end: 0.35em;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(36 36 38 / 18%);
+  vertical-align: -0.04em;
+}

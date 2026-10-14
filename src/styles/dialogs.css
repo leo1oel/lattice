@@ -691,3 +691,217 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .shortcut-row > dd { margin: 0; flex: none; }
 .shortcut-combos { display: inline-flex; align-items: center; gap: var(--space-2); }
 .shortcut-combo-separator { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* The Theme group draws what it changes (Perplexity, hilos, ClickUp): the
+   appearances as miniature windows in the current tint and accent, each tint
+   as its light and dark halves, every option named. The art sits in theme-
+   preview scopes (theme.css), so it reads the real palettes. The accent is
+   taken where the window's own is in force, before a scope resets it. */
+.theme-tiles { --tile-accent: var(--accent); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-4); min-width: 0; }
+.theme-tile {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+.theme-tile-art {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  transition: box-shadow var(--motion-fast);
+}
+.theme-tile:hover .theme-tile-art { box-shadow: 0 0 0 1px var(--border-strong); }
+.theme-tile[aria-checked="true"] .theme-tile-art { box-shadow: 0 0 0 2px var(--surface-panel-raised), 0 0 0 3.5px var(--text-primary); }
+.theme-tile-check {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--surface-panel-raised);
+  color: var(--surface-panel-raised);
+  display: grid;
+  place-items: center;
+}
+.theme-tile-name {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-tile[aria-checked="true"] .theme-tile-name { color: var(--text-primary); font-weight: var(--weight-medium); }
+.theme-tiles-mode .theme-tile { width: 88px; }
+.theme-window, .theme-window-split { position: relative; display: block; width: 88px; aspect-ratio: 84 / 52; border-radius: var(--radius-control); overflow: hidden; }
+.theme-window-split > .theme-window { position: absolute; inset: 0; width: 100%; }
+.theme-window-second { clip-path: polygon(58% 0, 100% 0, 100% 100%, 42% 100%); }
+.theme-window-art { display: block; width: 100%; height: 100%; }
+.theme-art-chrome { fill: var(--surface-chrome); }
+.theme-art-sheet { fill: var(--surface-panel); }
+.theme-art-ink { fill: var(--text-tertiary); opacity: 0.55; }
+.theme-art-accent { fill: var(--tile-accent); }
+.theme-art-page { fill: var(--pdf-page-surface); stroke: rgb(0 0 0 / 8%); stroke-width: 0.5; }
+.theme-art-print { fill: #B4B4B9; }
+.theme-tiles-tint { gap: var(--space-3); }
+.theme-tiles-tint .theme-tile { width: 56px; }
+.theme-tint-art {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 56px;
+  aspect-ratio: 56 / 36;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  font: var(--type-micro-size)/1 var(--display-font);
+}
+.theme-tint-half { display: grid; place-items: center; background: linear-gradient(to bottom, var(--surface-chrome) 0 30%, var(--surface-panel) 30%); color: var(--text-primary); }
+.theme-tint-mark { position: absolute; left: 50%; top: 3px; width: 8px; height: 4px; border-radius: var(--radius-compact); background: var(--tint-mark); translate: -50% 0; }
+
+/* A custom accent: the color picked, and when the theme had to adjust it to
+   read as text, the color in use and why (fitAccent). */
+.theme-swatch-plus { position: relative; color: white; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 40%)); pointer-events: none; }
+.theme-accent-note { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.theme-accent-pair { display: inline-flex; align-items: center; gap: 3px; color: var(--text-tertiary); }
+.theme-accent-pair i { width: 10px; height: 10px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.theme-accent-popover {
+  box-sizing: border-box;
+  width: min(272px, var(--radix-popover-content-available-width, 272px));
+  padding: 0;
+  border-radius: var(--radius-surface);
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+}
+.theme-accent-popover .color-picker { inline-size: 100%; }
+.theme-accent-head { padding: var(--space-5) var(--space-5) var(--space-2); display: grid; gap: var(--space-3); min-width: 0; }
+.theme-accent-title { font-size: var(--type-body-compact-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-semibold); }
+.theme-accent-chips { display: flex; flex-wrap: wrap; gap: var(--space-3); min-width: 0; }
+.theme-accent-chip {
+  max-width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-input);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-micro-size);
+  white-space: nowrap;
+}
+.theme-accent-chip i { width: 14px; height: 14px; flex: none; border-radius: var(--radius-compact); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.theme-accent-chip code { color: var(--text-primary); font: var(--weight-medium) var(--type-micro-size)/1 var(--editor-font); }
+.theme-accent-why { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.theme-accent-why svg { margin-top: var(--space-1); }
+.theme-accent-why[data-adjusted] { color: var(--text-primary); }
+.theme-accent-presets { display: grid; gap: var(--space-2); }
+
+/* A theme with both variants shows both at once, split on a diagonal (hilos,
+   GitHub's split swatches); a dark-only theme is all dark, with a moon. Names
+   take one line and a check, so nine cards stop reading as five white
+   rectangles in the light theme. */
+.code-theme-cards { gap: var(--space-8) var(--space-4); }
+.code-theme-preview-frame { position: relative; display: block; border-radius: var(--radius-control); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-subtle); transition: box-shadow var(--motion-fast); }
+.code-theme-preview-frame .code-theme-preview { border-radius: 0; box-shadow: none; }
+.code-theme-preview-second { position: absolute; inset: 0; clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%); }
+.code-theme-card:hover .code-theme-preview-frame { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.code-theme-card[aria-checked="true"] .code-theme-preview-frame { box-shadow: 0 0 0 2px var(--settings-card-surface), 0 0 0 3.5px var(--text-primary); }
+.code-theme-badge { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: var(--radius-pill); background: rgb(255 255 255 / 14%); color: rgb(255 255 255 / 80%); display: grid; place-items: center; }
+.code-theme-card-name { min-width: 0; display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-medium); }
+.code-theme-card[aria-checked="true"] .code-theme-card-name { color: var(--text-primary); }
+.code-theme-card-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Narrow Settings. Below 560px of dialog the two columns stop sharing the
+   width: the sections are a list of rows, each with its value and a chevron,
+   and a section opens as its own page with a way back (GitHub, Craft and
+   Outlook on a phone; Linear's drill-in rows). settings-dialog.tsx holds the
+   same width for focus and Escape. */
+.settings-modal { container: settings / inline-size; }
+.settings-root-title, .settings-back, .settings-nav-value, .settings-nav-chevron { display: none; }
+@container settings (max-width: 560px) {
+  .settings-modal .settings-body { grid-template-columns: minmax(0, 1fr); }
+  .settings-modal .settings-body[data-narrow-view="root"] .settings-content { display: none; }
+  .settings-modal .settings-body[data-narrow-view="page"] .settings-nav { display: none; }
+  .settings-modal .settings-nav { padding: var(--space-5) var(--space-6) var(--space-8); border-right: 0; background: var(--surface-panel); }
+  .settings-root-title {
+    display: block;
+    margin: 0 calc(var(--control-size-icon) + var(--space-4)) var(--space-5) var(--space-2);
+    font: var(--type-title-weight) var(--type-title-size)/var(--control-height-compact) var(--type-title-font);
+  }
+  .settings-modal .settings-search { margin-bottom: var(--space-8); }
+  .settings-modal .settings-nav-group + .settings-nav-group { margin-top: var(--space-8); }
+  .settings-modal .settings-nav-group-label { margin: 0 0 var(--space-3); padding-inline: var(--space-2); }
+  .settings-modal .settings-nav .settings-nav-group > button {
+    height: auto;
+    min-height: 44px;
+    padding: 0 var(--space-5) 0 var(--space-6);
+    border: 1px solid var(--border-subtle);
+    border-top-width: 0;
+    border-radius: 0;
+    background: var(--settings-card-surface);
+    color: var(--text-primary);
+    font-size: var(--type-body-size);
+    font-weight: var(--weight-regular);
+  }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button { border-top-width: 1px; border-radius: var(--settings-card-radius) var(--settings-card-radius) 0 0; }
+  .settings-modal .settings-nav-group > button:last-child { border-radius: 0 0 var(--settings-card-radius) var(--settings-card-radius); }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button:last-child { border-radius: var(--settings-card-radius); }
+  .settings-modal .settings-nav .settings-nav-group > button:hover { background: var(--control-hover-surface); }
+  .settings-modal .settings-nav-group > button.active { background: var(--settings-card-surface); color: var(--text-primary); font-weight: var(--weight-regular); }
+  .settings-modal .settings-nav-group > button > span[title] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .settings-nav-value { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
+  .settings-nav-chevron { display: block; flex: none; color: var(--text-tertiary); }
+  .settings-back {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    padding: 0 var(--space-5) 0 var(--space-4);
+    border: 0;
+    border-radius: 0;
+    background: var(--surface-panel);
+    color: var(--control-active);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font: var(--weight-medium) var(--type-body-compact-size)/1 var(--ui-font);
+  }
+  .settings-modal .settings-section { padding-top: var(--space-4); }
+}
+
+/* A row that cannot hold its label and its control side by side wraps the
+   control under the label rather than squeezing the label to a character a
+   line (Notion and Craft on a phone). Selects keep their own width at the
+   right; pictured choices, sliders and segmented controls take the line;
+   switches stay where they are. */
+.settings-section { container: settings-page / inline-size; }
+@container settings-page (max-width: 520px) {
+  .settings-section .ui-settings-row { flex-wrap: wrap; row-gap: var(--space-4); }
+  .settings-section .ui-settings-row-copy { flex: 1 1 160px; }
+  .settings-section .ui-settings-row-control { flex: 0 1 auto; max-width: 100%; margin-inline-start: auto; }
+  .settings-section .ui-settings-row-control > :only-child:where([data-slot="select-trigger"], [data-slot="input"], [data-slot="button"]) { width: auto; min-width: 132px; max-width: 100%; }
+  .settings-section .ui-settings-row:has(.theme-tiles, .ui-segmented, .settings-row-slider, .theme-swatches) .ui-settings-row-control { flex: 1 1 100%; justify-content: flex-start; margin-inline-start: 0; }
+  .settings-section .settings-row-slider { width: 100%; }
+  .settings-section .ui-settings-row-control > .ui-segmented { width: 100%; }
+  .settings-section .ui-settings-row-control > .ui-segmented .ui-segmented-tab { flex: 1 1 0; }
+  .settings-section .theme-tiles { flex-wrap: nowrap; width: 100%; justify-content: flex-start; }
+  .settings-section .theme-tiles-mode { gap: var(--space-3); }
+  .settings-section .theme-tiles-tint { gap: var(--space-2); }
+  .settings-section .theme-tiles .theme-tile { flex: 1 1 0; width: auto; justify-items: stretch; }
+  .settings-section .theme-tiles .theme-tile-name { justify-self: center; }
+  .settings-section .theme-tiles :is(.theme-window, .theme-window-split, .theme-tint-art) { width: 100%; }
+}

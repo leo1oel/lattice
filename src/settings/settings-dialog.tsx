@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
@@ -86,6 +87,9 @@ type SettingsDialogProps = DoctorSettingsProps & {
   reveal?: SettingsSearchEntry | null;
   onClose: () => void;
 };
+
+/** Below this dialog width the sections and the page take turns (dialogs.css holds the same number). */
+const NARROW_SETTINGS_WIDTH = 560;
 
 export function SettingsDialog(props: SettingsDialogProps) {
   const { t } = useLingui();
@@ -185,7 +189,38 @@ export function SettingsDialog(props: SettingsDialogProps) {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [reveal, props.covered]);
+  // In a dialog too narrow for two columns (dialogs.css, at the same 560px),
+  // the sections are a list and a section is a page with a way back, as
+  // GitHub, Craft and Outlook do on a phone. Entering a page moves focus to
+  // its back button, Escape goes back before it closes, and going back
+  // returns focus to the section's row.
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [narrowPage, setNarrowPage] = useState(false);
+  useLayoutEffect(() => {
+    const modal = modalRef.current;
+    if (!modal || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width <= NARROW_SETTINGS_WIDTH));
+    observer.observe(modal);
+    return () => observer.disconnect();
+  }, []);
+  // Focus follows the page in and out, found from the element that acted.
+  const focusInModal = (from: EventTarget | null, selector: string) => {
+    const modal = from instanceof Element ? from.closest(".settings-modal") : null;
+    requestAnimationFrame(() => modal?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true }));
+  };
+  const openPage = (tab: SettingsTab, from: EventTarget) => {
+    props.setTab(tab);
+    setNarrowPage(true);
+    if (narrow) focusInModal(from, ".settings-back");
+  };
+  const closePage = (from: EventTarget | null) => {
+    setNarrowPage(false);
+    focusInModal(from, '.settings-nav-group > button[aria-current="page"]');
+  };
+  const themeSummary = { system: t`Match system`, light: t`Light`, dark: t`Dark` }[props.themePreference];
   const openSearchResult = (entry: SettingsSearchEntry) => {
+    setNarrowPage(true);
     props.setTab(entry.tab);
     setReveal({ entry });
   };
@@ -218,8 +253,13 @@ export function SettingsDialog(props: SettingsDialogProps) {
       covered={props.covered}
       backdropClassName={replacesShell ? "settings-replaces-shell" : undefined}
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
+      onEscapeKeyDown={(event) => {
+        if (!narrow || !narrowPage) return;
+        event.preventDefault();
+        closePage(event.target);
+      }}
     >
-      <div className="settings-modal">
+      <div className="settings-modal" ref={modalRef}>
         {/* No title bar: each page's own title names it, and the dialog is
             labelled for assistive technology. What the bar did stays: its
             top edge still drags the window, and the close floats in the
@@ -231,9 +271,10 @@ export function SettingsDialog(props: SettingsDialogProps) {
           onDoubleClick={toggleWindowFullscreen}
         />
         <CloseButton className="settings-close" label={t`Close settings`} tooltip={false} onClick={props.onClose} />
-        <div className="settings-body">
+        <div className="settings-body" data-narrow-view={narrowPage ? "page" : "root"}>
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
             <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection follow={null} transition={spring.moderate} />
+            <h2 className="settings-root-title">{t`Settings`}</h2>
             <SettingsSearch
               inputRef={searchRef}
               autoFocus={!replacesShell}
@@ -252,16 +293,22 @@ export function SettingsDialog(props: SettingsDialogProps) {
                     type="button"
                     className={props.tab === item.tab ? "active" : ""}
                     aria-current={props.tab === item.tab ? "page" : undefined}
-                    onClick={() => props.setTab(item.tab)}
+                    onClick={(event) => openPage(item.tab, event.currentTarget)}
                   >
                     <AnimatedProductIcon kind={item.icon} size={15} />
                     <span title={item.label}>{item.label}</span>
+                    {item.tab === "appearance" && <span className="settings-nav-value" aria-hidden="true">{themeSummary}</span>}
+                    <ChevronRight className="settings-nav-chevron" size={14} strokeWidth={1.6} aria-hidden="true" />
                   </button>
                 ))}
               </div>
             ))}
           </nav>
           <ScrollArea className="settings-content" viewportRef={settingsViewportRef} fadeEdges={false}>
+            <button type="button" className="settings-back" onClick={(event) => closePage(event.currentTarget)}>
+              <ChevronLeft size={15} strokeWidth={1.7} aria-hidden="true" />
+              <span>{t`Settings`}</span>
+            </button>
             <SynaraSettingsPane
               runtime={props.synaraRuntime}
               section={synaraSettingsSection}

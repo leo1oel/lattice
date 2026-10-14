@@ -22,7 +22,7 @@
  * hover < pressed, and hover < selected < active. A hover is 5% of the text
  * colour and a press 8%; a selected row is 8% and turns medium.
  */
-:root {
+:root, [data-theme-preview] {
   /* Typography: six roles.
    *
    *   display    30/36  400  serif  the one title on a page that has only one
