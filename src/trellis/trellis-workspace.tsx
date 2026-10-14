@@ -882,7 +882,7 @@ const TOKENS: Record<string, string> = {
   "--trellis-menu": "var(--surface-panel-raised)",
   "--trellis-menu-hover": "var(--chrome-hover-surface)",
   "--trellis-radius": "var(--radius-surface)",
-  "--trellis-tab-radius": "var(--radius-chrome)",
+  // The tabs' inset and corner are trellis.css's, on the tab bar.
   "--trellis-tabbar-height": "var(--tab-strip-height)",
   "--trellis-gap": "var(--space-3)",
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS box-shadow value
@@ -1473,7 +1473,6 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         keymap={TRELLIS_KEYMAP}
         navigation="free"
         floating="overlay"
-        tabs={{ inset: 6 }}
         defaultLayout={initial}
         onDocumentChange={onDocumentChange}
         onFocus={onFocus}

@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
+import { useExitPicture } from "../components/ui/exit-picture";
+import { popupMotionClassName } from "../components/ui/popup-motion";
 import type { AnnotationIntent } from "../editor/comments/editor-comment-data";
 import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { clamp } from "../settings/app-settings";
@@ -20,6 +22,8 @@ export function PdfAnnotationComposer(props: {
   const { t } = useLingui();
   const { selection } = props;
   const popupRef = useRef<HTMLDivElement>(null);
+  // It grows from the selection above it as every popup does, and leaves on the popup exit.
+  useExitPicture([popupRef]);
   const [mapped, setMapped] = useState<MappedPdfSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -80,7 +84,7 @@ export function PdfAnnotationComposer(props: {
   return (
     <div
       ref={popupRef}
-      className="editor-comment-popover annotation-composer pdf-annotation-composer"
+      className={`editor-comment-popover annotation-composer pdf-annotation-composer ${popupMotionClassName}`}
       style={{ bottom: "auto", right: "auto" }}
       role="dialog"
       aria-label={t`Annotate the PDF`}

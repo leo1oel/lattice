@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
+import { LeavesOnClose } from "../components/ui/exit-picture";
+import { popupMotionClassName } from "../components/ui/popup-motion";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import { addListeners } from "./pdf-viewer-utils";
 
@@ -83,8 +85,11 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
       void computePosition(target.link, card, {
         strategy: "fixed", placement: "top",
         middleware: [offset(8), flip(), shift({ padding: 8 })],
-      }).then(({ x, y }) => {
-        if (!disposed) Object.assign(card.style, { left: `${x}px`, top: `${y}px`, visibility: "visible" });
+      }).then(({ x, y, placement }) => {
+        if (disposed) return;
+        // The side it landed on, which the popup motion rises or drops from.
+        card.dataset.side = placement.split("-")[0];
+        Object.assign(card.style, { left: `${x}px`, top: `${y}px`, visibility: "visible" });
       });
     });
     return () => { disposed = true; stop(); };
@@ -93,9 +98,10 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
   if (!target || !citations.includes(target.citation)) return null;
   const citation = target.citation;
   const publication = [citation.venue, citation.year].filter(Boolean).join(" · ");
-  return createPortal(<div
+  // It arrives and leaves as every hover card does (`.popup-motion`).
+  return <LeavesOnClose surface={cardRef}>{createPortal(<div
     ref={cardRef}
-    className="citation-hover-card pdf-citation-hover"
+    className={`citation-hover-card pdf-citation-hover ${popupMotionClassName}`}
     role="group"
     aria-label={citation.title || citation.key}
     style={{ position: "fixed", visibility: "hidden", zIndex: 1000 }}
@@ -113,5 +119,5 @@ export function PdfCitationHover({ hostRef, citations = [], canOpenCitation, onO
       : <strong className="citation-card-title">{citation.title || citation.key}</strong>}
     {citation.authors && <span className="citation-card-authors">{citation.authors.replace(/ and /g, " · ")}</span>}
     {publication && <em className="citation-card-venue">{publication}</em>}
-  </div>, document.body);
+  </div>, document.body)}</LeavesOnClose>;
 }

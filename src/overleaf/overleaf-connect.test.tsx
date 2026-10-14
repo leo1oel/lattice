@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ confirm: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn() }));
 
-const disconnected: OverleafStatus = { connected: false, email: null, name: null, host: "https://www.overleaf.com" };
+const disconnected: OverleafStatus = { connected: false, expired: false, email: null, name: null, host: "https://www.overleaf.com" };
 const connected: OverleafStatus = { ...disconnected, connected: true, email: "researcher@example.edu", name: "Robin" };
 const linkedProject: OverleafLink = {
   projectId: "p1", projectName: "Attention Paper", host: "https://www.overleaf.com", lastSync: "2026-07-24T00:00:00Z", paused: false,
@@ -405,20 +405,25 @@ describe("Overleaf picker dialog", () => {
 
   it("turns an expired project-list session into a guided reconnect state", async () => {
     let listAttempts = 0;
+    let status = connected;
     mockConnectedPicker({
+      overleaf_status: () => status,
       overleaf_list_projects: () => {
         listAttempts += 1;
-        if (listAttempts === 1) throw new Error("Overleaf session expired. Reconnect in Settings → Overleaf.");
+        if (listAttempts === 1) {
+          // The backend records the expiry before it answers.
+          status = { ...connected, connected: false, expired: true };
+          throw new Error("Overleaf session expired. Reconnect in Settings → Overleaf.");
+        }
         return projects;
       },
-      overleaf_disconnect: undefined,
       ...signsIn,
     });
     renderPicker();
 
     expect(await screen.findByText(/Your Overleaf session expired/)).toBeInTheDocument();
     expect(screen.queryByText(/Reconnect in Settings/)).not.toBeInTheDocument();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_disconnect"));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_disconnect");
     fireEvent.click(screen.getByRole("button", { name: "Reconnect to Overleaf" }));
 
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();

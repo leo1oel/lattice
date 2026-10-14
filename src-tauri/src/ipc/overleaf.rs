@@ -10,7 +10,7 @@ use crate::{command_diagnostics, git, overleaf, wide_event};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::{AppHandle, Manager, State, Window};
+use tauri::{AppHandle, Emitter, Manager, State, Window};
 use tokio::time::Instant;
 
 const LOGIN_WINDOW: &str = "overleaf-login";
@@ -19,6 +19,9 @@ const CHAT: &str = "The Overleaf chat task";
 const COMMENTS: &str = "The Overleaf comment task";
 const HISTORY: &str = "The Overleaf history";
 const COMPARISON: &str = "The Overleaf comparison";
+/// Told to every window when Overleaf turns the stored session away, so
+/// Settings, sync and live editing re-read the one account state together.
+const SESSION_EVENT: &str = "overleaf-session";
 
 /// At most one full project download per this interval, across every window.
 const FULL_SYNC_MIN_GAP: Duration = Duration::from_secs(7);
@@ -29,6 +32,26 @@ pub(crate) fn overleaf_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| format!("Could not resolve the app config folder: {error}"))
 }
 
+/// A command's result once the account has had its say: an answer that looked
+/// signed out is checked against Overleaf's dashboard
+/// ([`overleaf::settle_session_error`]), and a session found dead is announced
+/// to every window.
+pub(crate) async fn settled<T>(app: &AppHandle, result: Result<T, String>) -> Result<T, String> {
+    let error = match result {
+        Err(error) if overleaf::is_session_rejection(&error) => error,
+        other => return other,
+    };
+    let config = overleaf_config_dir(app)?;
+    let (error, expired) = run_quietly("The Overleaf session check", move || {
+        Ok(overleaf::settle_session_error(&config, error))
+    })
+    .await?;
+    if expired {
+        let _ = app.emit(SESSION_EVENT, ());
+    }
+    Err(error)
+}
+
 /// Run an Overleaf REST call with the stored session for the window's pinned
 /// project. `call` receives the config folder and the project root.
 async fn rest_call<T: Send + 'static>(
@@ -37,7 +60,7 @@ async fn rest_call<T: Send + 'static>(
 ) -> Result<T, String> {
     let config = overleaf_config_dir(app)?;
     let root = scoped_root(state, window, project_root)?;
-    run_blocking(label, move || call(&config, &root)).await
+    settled(app, run_blocking(label, move || call(&config, &root)).await).await
 }
 
 /// [`rest_call`] under the project's shared sync lease, so the call cannot
@@ -181,7 +204,7 @@ pub async fn overleaf_list_projects(
     app: AppHandle,
 ) -> Result<Vec<overleaf::OverleafProject>, String> {
     let config = overleaf_config_dir(&app)?;
-    run_blocking(TASK, move || overleaf::list_projects(&config)).await
+    settled(&app, run_blocking(TASK, move || overleaf::list_projects(&config)).await).await
 }
 
 /// Where Overleaf projects are downloaded to.
@@ -214,7 +237,7 @@ pub async fn overleaf_clone_project(
 ) -> Result<String, String> {
     let config = overleaf_config_dir(&app)?;
     let parent = overleaf_projects_dir(&app)?;
-    let root = run_blocking("The Overleaf download", move || {
+    let downloaded = run_blocking("The Overleaf download", move || {
         let access_level = access_level.as_deref();
         if adopt.unwrap_or(false) {
             let target = overleaf::clone_target(&project_id, &name, &parent)?;
@@ -231,7 +254,8 @@ pub async fn overleaf_clone_project(
         }
         overleaf::clone_project(&config, &project_id, &name, &parent, access_level)
     })
-    .await?;
+    .await;
+    let root = settled(&app, downloaded).await?;
     // Cloned projects start version tracking immediately so the Versions
     // timeline can show what each future sync changed.
     let _ = git::init(&root);
@@ -270,7 +294,8 @@ pub async fn overleaf_chat_messages(
     let limit = limit.unwrap_or(80);
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
-    run_quietly(CHAT, move || overleaf::chat_messages(&config, &root, limit)).await
+    settled(&app, run_quietly(CHAT, move || overleaf::chat_messages(&config, &root, limit)).await)
+        .await
 }
 
 #[tauri::command]
@@ -410,7 +435,10 @@ pub async fn overleaf_delete_entity(
     let _lease = state.lease(&project_root, Lease::Shared).await;
     let config = overleaf_config_dir(&app)?;
     let root = pinned_root(&state, &window, &project_root, "the Overleaf item could be removed")?;
-    run_blocking(TASK, move || overleaf::delete_entity(&config, &root, &kind, &entity_id)).await
+    let deleted =
+        run_blocking(TASK, move || overleaf::delete_entity(&config, &root, &kind, &entity_id))
+            .await;
+    settled(&app, deleted).await
 }
 
 #[tauri::command]
@@ -521,10 +549,11 @@ pub async fn overleaf_probe(
     let root = scoped_root(&state, &window, &project_root)?;
     let local_live_paths =
         check_local.unwrap_or(false).then(|| with_joined_paths(&lease, &root, live));
-    run_quietly("The Overleaf check", move || {
+    let probed = run_quietly("The Overleaf check", move || {
         overleaf::probe(&config, &root, local_live_paths.as_ref())
     })
-    .await
+    .await;
+    settled(&app, probed).await
 }
 
 #[tauri::command]
@@ -545,11 +574,12 @@ pub async fn overleaf_sync(
             let entities =
                 realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
             // Quietly: the operation's event already carries any failure.
-            run_quietly("The Overleaf sync", move || {
+            let synced = run_quietly("The Overleaf sync", move || {
                 overleaf::sync_relocations(&config, &root, entities)?;
                 overleaf::sync(&config, &root, &live, observed_remote_version)
             })
-            .await
+            .await;
+            settled(&app, synced).await
         }))
         .await
 }

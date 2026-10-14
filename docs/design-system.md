@@ -197,7 +197,12 @@ at a 2px offset, in weft blue under Graphite (`--focus`, `#3B5BD6`, 5.5:1 on
 the sheet; `#7F97FF` in dark) and in the accent under a colored preset, so
 focus never reads as the grey of a selected row. A drop target (Trellis's
 drop slot) takes the same colour as its edge and a faint wash of it.
-Components do not add a second ring. The native `:focus` halo stays suppressed,
+Components do not add a second ring. The ring is for the keyboard only: focus
+that script moves after a click or under a moving pointer (a menu's rows, a
+trigger a closing menu or Select hands focus back to, a dialog's opener)
+matches `:focus-visible` too, so `src/components/ui/pointer-focus.ts` marks it
+`data-pointer-focus` and no ring draws on it; any key hands focus back to the
+keyboard. The native `:focus` halo stays suppressed,
 and text entry is deliberately excluded from the ring because a field already
 answers with the border treatment in its `--field-control-*` contract. Menu
 items (Radix's, and the buttons of the project tree's row menu) answer with
@@ -360,7 +365,10 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   container declares `--surface-radius` and `--surface-inset`, and the child uses
   `border-radius: var(--nested-radius)`, which resolves to
   `outer - inset` so the two curves stay parallel. This covers segmented tabs,
-  menu items, and dialog list rows. Cards with generous padding are not nesting
+  menu items, dialog list rows and a panel's tabs (Trellis's
+  `--trellis-tab-radius` from the panel's radius and `--trellis-tab-inset`, in
+  `src/trellis/trellis.css`). A menu stands on the 10px
+  surface corner with a 4px inset, so its rows keep a control's 6px. Cards with generous padding are not nesting
   in this sense and keep an independent radius.
 - A control may be painted smaller than `--hit-area-min` (24px), but its pointer
   target may not be. Add `data-hit-area` and it gets a centered, invisible
@@ -405,7 +413,10 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   Short of room the field narrows, then folds to its icon before any control
   is shed.
 - Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
-  the compact control height, centred in it. The strip, the selected tab and
+  the compact control height, centred in it. The 3px left above them is also
+  their inset from the panel's side, and their corner is the panel's 10px less
+  that inset (7px), so the first tab sits square and concentric in the panel's
+  corner; the panel menu takes the same inset and corner at the other end. The strip, the selected tab and
   the body below are one surface, the panel's own: the selected tab is told
   by a hairline ring (`--border-strong`) and the primary ink, the others are
   their label in the secondary ink with a hover fill, never a fill of their
@@ -593,7 +604,8 @@ all take it.
   caption role at medium weight in the primary ink and standing 12px apart,
   default (32px) fields, and the action row 24px below. It stands in the upper
   third of the window (18vh), so its top stays put as a list in it changes;
-  one taller than the room below rises to keep a 20px margin. It closes on
+  one taller than the room below rises to keep a 20px margin. A confirmation
+  has no list and often stands over Settings, so it is centred. It closes on
   Escape, a backdrop click and its Cancel; it draws no X. A tool too large for
   that shape is a `SheetDialog`, whose title row is a `PanelHeader`; a dialog
   that holds a whole tool without being a sheet (a review, a conflict, the

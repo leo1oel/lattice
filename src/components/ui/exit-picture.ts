@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from "react";
+import { useLayoutEffect, type ReactNode, type RefObject } from "react";
 
 /** Overlays mounted so far; a close that sees this move took no exit alone. */
 let mounts = 0;
@@ -62,4 +62,16 @@ export function useExitPicture(refs: readonly RefObject<HTMLElement | null>[]) {
     // The refs are the overlay's own elements, fixed for its life.
     // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, []);
+}
+
+/**
+ * Mounted for as long as `surface` is open: closed, the surface leaves as a
+ * picture of itself on its stylesheet's exit (`useExitPicture`) instead of
+ * vanishing. For a surface rendered conditionally by the component that owns
+ * its state: the hook needs a component that mounts and unmounts with it, and
+ * an owner (not the surface), so it sees the ref still set.
+ */
+export function LeavesOnClose({ surface, children }: { surface: RefObject<HTMLElement | null>; children: ReactNode }) {
+  useExitPicture([surface]);
+  return children;
 }

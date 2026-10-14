@@ -80,24 +80,32 @@
 /* Declared on the panel so it resolves against the panel's own surface: what
    a dragged tab and the header's raised controls stand on. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
+/* The tabs stand as far from the panel's side as from its top: the compact
+   tab centred in the 34px strip leaves 3px all round. The first tab's corner
+   then runs parallel to the panel's, inner radius = outer radius - inset
+   (styles/surfaces.css, concentric nesting), never below a control's: 7px.
+   Trellis draws the tabs from this pair; the panel menu at the bar's other
+   end stands at the same inset with the same corner. */
 .lattice-trellis [data-trellis-part="tabbar"] {
+  --trellis-tab-inset: calc((var(--tab-strip-height) - var(--control-height-compact)) / 2);
+  --trellis-tab-radius: max(var(--radius-control), calc(var(--radius-surface) - var(--trellis-tab-inset)));
   gap: 0;
-  padding: 0 var(--space-2) 0 0;
+  padding: 0 var(--trellis-tab-inset) 0 0;
   background: var(--lattice-tabstrip);
   box-shadow: none;
 }
 .lattice-trellis [data-trellis-part="tabs"] {
   gap: var(--space-1);
-  padding-block: calc((var(--tab-strip-height) - var(--control-height-compact)) / 2);
+  padding-block: var(--trellis-tab-inset);
 }
 .lattice-trellis [data-trellis-part="tab"] {
   min-width: 56px;
   max-width: 200px;
   gap: var(--space-3);
-  /* 14px puts the tab's icon on the panel's one icon gutter, with the Project
+  /* Puts the tab's icon on the panel's one icon gutter, with the Project
      tree's glyphs and the Papers search icon (app-shell.css). */
   padding: 0 var(--space-2) 0 var(--tab-inset-inline);
-  border-radius: var(--radius-chrome);
+  border-radius: var(--trellis-tab-radius);
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
   font-weight: var(--weight-medium);
@@ -137,7 +145,7 @@
 .lattice-trellis [data-trellis-part="tab-close"]:hover,
 .lattice-trellis [data-trellis-part="panel-menu"]:hover,
 .lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
-.lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); }
+.lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); border-radius: var(--trellis-tab-radius); }
 
 /* Tabs use the space left after the action row and compress together to 100px,
    which the Trellis patch (planHeader) keeps free as the panel's minimum, up

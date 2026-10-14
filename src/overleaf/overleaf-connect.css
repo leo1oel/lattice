@@ -93,7 +93,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.overleaf-status-text small { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+/* An account address has no break points; wrap it rather than clip it at a narrow width. */
+.overleaf-status-text small { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow-wrap: anywhere; }
 
 .overleaf-connect-card { margin-top: var(--space-6); display: flex; align-items: flex-start; gap: var(--space-6); }
 .overleaf-connect-card-body { flex: 1 1 auto; min-width: 0; }

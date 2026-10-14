@@ -2,7 +2,7 @@
 //! project list, and the cookie rules the sign-in window relies on.
 
 use super::api::{fetch_projects_page, full_name, http_client, json_str, meta_content};
-use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED};
+use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED, SESSION_STILL_VALID};
 use crate::util::err;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,6 +17,9 @@ const SESSION_FILE: &str = "overleaf-session.json";
 #[serde(rename_all = "camelCase")]
 pub struct OverleafStatus {
     pub connected: bool,
+    /// Overleaf turned the stored session away: signed out, but with the
+    /// account still known, so Settings can offer to reconnect it.
+    pub expired: bool,
     pub email: Option<String>,
     pub name: Option<String>,
     pub host: String,
@@ -73,11 +76,16 @@ pub(super) struct SessionFile {
     /// reading whether it is on for us needs to know which one we are.
     #[serde(default)]
     pub user_id: Option<String>,
+    /// Set once Overleaf's dashboard turned this cookie away; see
+    /// [`settle_session_error`]. Cleared only by signing in again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub expired: bool,
 }
 
 impl SessionFile {
     fn status(self) -> OverleafStatus {
-        OverleafStatus { connected: true, email: self.email, name: self.name, host: self.host }
+        let SessionFile { host, email, name, expired, .. } = self;
+        OverleafStatus { connected: !expired, expired, email, name, host }
     }
 }
 
@@ -85,10 +93,22 @@ fn session_path(config_dir: &Path) -> PathBuf {
     config_dir.join(SESSION_FILE)
 }
 
-pub(super) fn load_session(config_dir: &Path) -> Result<SessionFile, String> {
+/// The stored session, whether or not Overleaf still accepts it.
+fn read_session(config_dir: &Path) -> Result<SessionFile, String> {
     let raw =
         fs::read_to_string(session_path(config_dir)).map_err(|_| NOT_CONNECTED.to_string())?;
     serde_json::from_str(&raw).map_err(|_| NOT_CONNECTED.to_string())
+}
+
+/// The stored session, for a request to Overleaf. One already known to be
+/// expired fails here, so every request agrees with Settings instead of
+/// asking Overleaf again with a cookie it has turned away.
+pub(super) fn load_session(config_dir: &Path) -> Result<SessionFile, String> {
+    let session = read_session(config_dir)?;
+    if session.expired {
+        return Err(SESSION_EXPIRED.to_string());
+    }
+    Ok(session)
 }
 
 pub(super) fn save_session(config_dir: &Path, session: &SessionFile) -> Result<(), String> {
@@ -162,9 +182,72 @@ pub fn normalize_host(host: &str) -> String {
 pub fn session_status(config_dir: &Path) -> Result<OverleafStatus, String> {
     let signed_out = || {
         let host = DEFAULT_HOST.to_string();
-        OverleafStatus { connected: false, email: None, name: None, host }
+        OverleafStatus { connected: false, expired: false, email: None, name: None, host }
     };
-    Ok(load_session(config_dir).map_or_else(|_| signed_out(), SessionFile::status))
+    Ok(read_session(config_dir).map_or_else(|_| signed_out(), SessionFile::status))
+}
+
+/// Whether an error is Overleaf answering as if nobody were signed in,
+/// however a step wrapped it ("Failed to upload … to Overleaf: …").
+pub fn is_session_rejection(error: &str) -> bool {
+    error.ends_with(SESSION_EXPIRED)
+}
+
+/// Decide what one signed-out answer means for the account, and say so once
+/// for every surface: the error to report, and whether the session has just
+/// been marked expired.
+///
+/// A login redirect, a 401 or 403, or a page where a zip or a CSRF token
+/// should have been all read as [`SESSION_EXPIRED`], and so does the live
+/// channel's "invalid session". Only some of them mean the session is gone: a
+/// 403 can be one project's permission, and a page can be an error. The
+/// dashboard is what sign-in itself is validated against, so it decides. A
+/// session it turns away is marked expired in the stored file, which
+/// Settings, sync and live editing all read until the next sign-in; one it
+/// still accepts makes the error a refusal worth retrying, and a dashboard
+/// that cannot be reached says only that.
+///
+/// Settings used to read the stored file alone while sync reported the
+/// rejection, so the two disagreed until the user signed out by hand.
+pub fn settle_session_error(config_dir: &Path, error: String) -> (String, bool) {
+    if !is_session_rejection(&error) {
+        return (error, false);
+    }
+    let Ok(session) = read_session(config_dir) else { return (error, false) };
+    if session.expired {
+        return (error, false);
+    }
+    let checked = http_client(20)
+        .and_then(|client| fetch_projects_page(&client, &session.host, &session.cookie));
+    match checked {
+        Ok(html) if opens_dashboard(&html) => (SESSION_STILL_VALID.to_string(), false),
+        Ok(_) => (error, mark_expired(config_dir, &session.cookie)),
+        Err(rejected) if rejected == SESSION_EXPIRED => {
+            (error, mark_expired(config_dir, &session.cookie))
+        }
+        Err(unreachable) => (unreachable, false),
+    }
+}
+
+/// Record that Overleaf turned `cookie` away, unless a sign-in has replaced
+/// it since the check began. Answers whether it was recorded.
+fn mark_expired(config_dir: &Path, cookie: &str) -> bool {
+    let Ok(mut session) = read_session(config_dir) else { return false };
+    if session.cookie != cookie || session.expired {
+        return false;
+    }
+    session.expired = true;
+    save_session(config_dir, &session).is_ok()
+}
+
+/// Whether a dashboard page is a signed-in one. Accept any signed-in marker
+/// rather than insisting on the projects blob alone: if Overleaf renames that
+/// meta tag, connecting should still succeed and the project list should be
+/// the thing that reports a clear parse error.
+fn opens_dashboard(html: &str) -> bool {
+    ["ol-prefetchedProjectsBlob", "ol-projects", "ol-user", "ol-usersEmail"]
+        .iter()
+        .any(|name| meta_content(html, name).is_some())
 }
 
 pub fn store_session_cookie(
@@ -184,14 +267,8 @@ pub fn store_session_cookie(
         }
     })?;
     // The page fetch already rejects anything that redirected to the login
-    // page, so reaching here means the cookie works. Accept any signed-in
-    // marker rather than insisting on the projects blob alone: if Overleaf
-    // renames that meta tag, connecting should still succeed and the project
-    // list should be the thing that reports a clear parse error.
-    let signed_in = ["ol-prefetchedProjectsBlob", "ol-projects", "ol-user", "ol-usersEmail"]
-        .iter()
-        .any(|name| meta_content(&html, name).is_some());
-    if !signed_in {
+    // page, so reaching here means the cookie works.
+    if !opens_dashboard(&html) {
         return Err(
             "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
                 .to_string(),
@@ -199,7 +276,7 @@ pub fn store_session_cookie(
     }
     let (email, name) = parse_user_meta(&html);
     let user_id = meta_content(&html, "ol-user_id");
-    let session = SessionFile { host, cookie, email, name, user_id };
+    let session = SessionFile { host, cookie, email, name, user_id, expired: false };
     save_session(config_dir, &session)?;
     Ok(session.status())
 }

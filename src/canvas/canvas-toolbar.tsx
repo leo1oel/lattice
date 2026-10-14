@@ -121,7 +121,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
               </button>
             </Tip>
             {props.overleafLinked && props.onOverleafOpenCurrent && props.onOverleafOpen && (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"

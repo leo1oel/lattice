@@ -32,13 +32,13 @@
  * walk the pips or cards from one that has focus; "Review here" in the
  * palette starts the walk at the caret.
  */
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "@codemirror/view";
 import { X } from "lucide-react";
 import type { OverleafThread } from "../app-types";
-import { useExitPicture } from "../components/ui/exit-picture";
+import { LeavesOnClose } from "../components/ui/exit-picture";
 import { IconButton } from "../components/ui/icon-button";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -90,16 +90,6 @@ type Opened = { key: string; via: "hover" | "click" | "rail" } | null;
 function place(element: HTMLElement, x: number, y: number) {
   element.style.setProperty("--margin-x", `${x}px`);
   element.style.setProperty("--margin-y", `${y}px`);
-}
-
-/**
- * Mounted for as long as `surface` is open: closed, the surface leaves as a
- * picture of itself on its stylesheet's exit (`useExitPicture`) instead of
- * vanishing. Its owner, not the surface, so the hook sees the ref still set.
- */
-function LeavesOnClose({ surface, children }: { surface: RefObject<HTMLElement | null>; children: ReactNode }) {
-  useExitPicture([surface]);
-  return children;
 }
 
 const isTyping = (target: EventTarget | null) =>

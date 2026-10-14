@@ -3,7 +3,9 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { EditorView } from "@codemirror/view";
 import { frameCoalescer } from "../../app/effect-helpers";
+import { useExitPicture } from "../../components/ui/exit-picture";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
+import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { flattenOutline, outlineNumbers, parseLatexOutline, type OutlineNode } from "./latex-outline";
 
@@ -24,6 +26,9 @@ const CLOSE_DELAY_MS = 200;
 /** The writer moving on by hand, which ends a jump's hold on the current section. */
 const RELEASES = ["wheel", "touchmove", "pointerdown", "keydown"] as const;
 const ROW = ".latex-outline-rail-row";
+/** The open outline, not one still leaving (see OutlinePanel), and its rows. */
+const OPEN_PANEL = ".latex-outline-rail-panel:not([data-leaving])";
+const OPEN_ROW = `${OPEN_PANEL} ${ROW}`;
 const CURRENT_ROW = '.latex-outline-rail-row[data-item-selected="true"]';
 
 type RailEntry = { node: OutlineNode; number: string | undefined; depth: number };
@@ -72,7 +77,7 @@ function showCurrent(state: Live, root: HTMLElement | null, force = false) {
   state.shown = current;
   const mark = current >= 0 ? state.outline?.markOf[current] ?? -1 : -1;
   root.querySelectorAll(".latex-outline-rail-mark").forEach((node, index) => node.toggleAttribute("data-current", index === mark));
-  root.querySelectorAll(ROW).forEach((node, index) => {
+  root.querySelectorAll(OPEN_ROW).forEach((node, index) => {
     if (index === current) {
       node.setAttribute("data-item-selected", "true");
       node.setAttribute("aria-current", "location");
@@ -218,7 +223,7 @@ export function LatexOutlineRail({ view, path, source, nodes, rootPath, label, p
   };
   const focusCurrentRow = () => {
     const root = rootRef.current;
-    (root?.querySelector<HTMLElement>(CURRENT_ROW) ?? root?.querySelector<HTMLElement>(ROW))?.focus();
+    (root?.querySelector<HTMLElement>(`${OPEN_ROW}${CURRENT_ROW}`) ?? root?.querySelector<HTMLElement>(OPEN_ROW))?.focus();
   };
   const openFromKeyboard = () => {
     if (open) focusCurrentRow();
@@ -242,7 +247,7 @@ export function LatexOutlineRail({ view, path, source, nodes, rootPath, label, p
       onPointerLeave={(event) => {
         if (event.pointerType === "touch") return;
         // A keyboard working in the outline keeps it open; the pointer alone closes it.
-        if (rootRef.current?.querySelector(".latex-outline-rail-panel")?.contains(document.activeElement)) return;
+        if (rootRef.current?.querySelector(OPEN_PANEL)?.contains(document.activeElement)) return;
         settle(false, CLOSE_DELAY_MS);
       }}
       onBlur={(event) => {
@@ -296,7 +301,12 @@ export function LatexOutlineRail({ view, path, source, nodes, rootPath, label, p
   );
 }
 
-/** The opened outline: numbers, titles and pages, one row per heading. */
+/**
+ * The opened outline: numbers, titles and pages, one row per heading. It
+ * grows from the rail as every popup does (`.popup-motion`) and, closed,
+ * leaves as a picture of itself on the popup exit (`useExitPicture`), which
+ * the rail's own lookups step over until it is gone.
+ */
 function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, onChoose }: {
   entries: RailEntry[];
   path: string;
@@ -307,7 +317,9 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
   onChoose: (index: number) => void;
 }) {
   const { t } = useLingui();
+  const panelRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  useExitPicture([panelRef]);
   // The pages come from the compiled PDF's SyncTeX map, once per build and outline.
   const pageKey = useMemo(() => pdfUrl && entries.length
     ? `${pdfUrl}\n${entries.map(({ node }) => `${node.path}:${node.line}`).join("\n")}`
@@ -359,7 +371,7 @@ function OutlinePanel({ entries, path, label, documentName, pdfUrl, onEscape, on
   };
 
   return (
-    <nav className="latex-outline-rail-panel" aria-label={label} onKeyDown={moveFocus}>
+    <nav ref={panelRef} className={`latex-outline-rail-panel ${popupMotionClassName}`} aria-label={label} onKeyDown={moveFocus}>
       <div className="latex-outline-rail-header">
         <span>{label}</span>
         <span className="latex-outline-rail-document" title={documentName}>{documentName}</span>

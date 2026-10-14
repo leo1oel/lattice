@@ -680,6 +680,7 @@ mod tests {
             email: None,
             name: None,
             user_id: None,
+            expired: false,
         };
         let state = SyncState {
             host: "https://overleaf.example/project-path".to_string(),

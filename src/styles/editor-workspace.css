@@ -62,14 +62,15 @@
 .math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .math-preview-body { color: var(--text-primary); overflow-x: auto; }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--code-ground); }
+/* Placed with `translate`, so `.popup-motion` keeps `transform` for its entrance. */
 .latex-selection-toolbar-anchor {
   position: fixed;
   z-index: var(--z-selection-toolbar);
-  transform: translate(-50%, -100%);
+  translate: -50% -100%;
   pointer-events: none;
 }
 body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor, .pdf-citation-hover) { display: none; }
-.latex-selection-toolbar-anchor.below { transform: translate(-50%, 0); }
+.latex-selection-toolbar-anchor.below { translate: -50% 0; }
 .latex-selection-toolbar {
   max-width: 100%;
   padding: 3px;
@@ -857,6 +858,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-citation-icon { grid-column: 1; grid-row: 1 / span 2; width: 14px; height: 14px; margin-top: var(--space-1); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; color: var(--text-secondary); }
 .source-editor .cm-citation-option .cm-completionLabel { grid-column: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 .source-editor .cm-citation-option .cm-completionDetail { grid-column: 2; margin-left: 0; max-width: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* A tooltip CodeMirror placed above its anchor rises from it (see
+   `popupMotionTooltips` in latex-editor.ts). */
+.source-editor .cm-tooltip-above.popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
 /* Readable by default: a transparent host leaves any card without its own
    background sitting directly on the document, with the prose showing through.
    The cards that genuinely draw their own chrome strip it below. Its edge is
@@ -1201,6 +1205,9 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   font: var(--type-body-weight) var(--type-body-size)/var(--type-body-line-height) var(--ui-font);
   pointer-events: auto;
 }
+/* It grows out of the marks at its top right corner, as the review card grows
+   out of its pip. */
+.latex-outline-rail-panel.popup-motion { --popup-motion-from: translateX(4px); --popup-motion-origin: top right; }
 .latex-outline-rail-header { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: var(--gap-inline); padding: var(--space-3) var(--pad-inline-control-tight) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-header > span:first-child { flex: none; }
 .latex-outline-rail-document { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1209,6 +1216,10 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .latex-outline-rail-scroll { --fluid-hover-fill: var(--control-hover-surface); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .latex-outline-rail-scroll [data-slot="scroll-area-viewport"] { flex: 1 1 auto; height: auto; min-height: 0; overscroll-behavior: contain; }
 .latex-outline-rail-list { margin: 0; padding: 0; list-style: none; }
+/* A list long enough to scroll gives the overlay scrollbar (scroll-area.css)
+   its own 10px lane: the rows' fill and their page numbers stop where the
+   track starts instead of running under the thumb. */
+.latex-outline-rail-scroll [data-has-vertical-overflow="true"] .latex-outline-rail-list { padding-inline-end: var(--space-5); }
 /* align-content centres the one line in a row taller than it: baseline
    alignment alone sets it at the top of the stretched track. */
 .latex-outline-rail-row { display: grid; grid-template-columns: 2.5ch minmax(0, 1fr) auto; align-items: baseline; align-content: center; column-gap: var(--gap-inline); width: 100%; min-height: var(--control-height-compact); padding: var(--space-2) var(--pad-inline-control-tight); border: 0; border-radius: var(--nested-radius); background: transparent; color: inherit; font: inherit; text-align: start; }

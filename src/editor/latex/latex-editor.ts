@@ -5,11 +5,12 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchKeymap } from "@codemirror/search";
 import { Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
-import { EditorView, keymap, tooltips, type Command, type KeyBinding } from "@codemirror/view";
+import { EditorView, keymap, tooltips, ViewPlugin, type Command, type KeyBinding } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import type { PaperSummary } from "../../app-types";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
+import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { withoutAppShortcuts } from "../editor-app-shortcuts";
 import { centerMatch, revealExtension } from "../editor-reveal";
 import { harperSpellcheck } from "../harper-spellcheck";
@@ -211,6 +212,26 @@ export function selectionVisibilityExtension(): Extension {
   ];
 }
 
+/**
+ * CodeMirror's tooltips (completions, hover cards, diagnostics) arrive as
+ * every popup does, on `.popup-motion`. CodeMirror makes and removes their
+ * elements itself and takes no class for the host its hover cards share, so
+ * each is marked as it lands in the editor; a card joining a host already
+ * shown does not replay it. They still leave at once: CodeMirror removes a
+ * tooltip the moment it closes.
+ */
+const popupMotionTooltips = ViewPlugin.define((view) => {
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof HTMLElement && node.classList.contains("cm-tooltip")) node.classList.add(popupMotionClassName);
+      }
+    }
+  });
+  observer.observe(view.dom, { childList: true });
+  return { destroy: () => observer.disconnect() };
+});
+
 /** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
 export function textEditorExtensions(
   spellcheck = false,
@@ -233,6 +254,7 @@ export function textEditorExtensions(
     compactSearchPanel(),
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),
+    popupMotionTooltips,
     ...(spellcheck ? [harperSpellcheck(live)] : []),
     ...(onPasteImage ? [EditorView.domEventHandlers({
       paste(event) {

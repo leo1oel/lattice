@@ -574,7 +574,8 @@
   background: var(--surface-elevated);
   box-shadow: var(--elevation-popover);
   pointer-events: auto;
-  transform: translate(-50%, calc(-100% - var(--space-4)));
+  /* `translate`, so `.popup-motion` keeps `transform` for its entrance. */
+  translate: -50% calc(-100% - var(--space-4));
 }
 .lx-md-editor .lx-md-table-span-toolbar button {
   display: inline-flex;
