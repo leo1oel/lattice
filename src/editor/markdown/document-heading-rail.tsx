@@ -304,26 +304,30 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
         })}
 
         <div className="visual-heading-rail-previews" aria-hidden="true">
-          {items.map((item) => (
-            <div className="visual-heading-rail-preview-row" key={item.id}>
-              {/* The preview the pointer moves off fades on the popup exit
-                  while the next one arrives. */}
-              <AnimatePresence>
-                {item.id === displayedId && (
-                  <motion.div
-                    key={item.id}
-                    className="visual-heading-rail-preview-anchor"
-                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 3, filter: "blur(3px)" }}
-                    animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, transition: reduceMotion ? { duration: 0 } : springExit.moderate }}
-                    transition={reduceMotion ? { duration: 0 } : spring.moderate}
-                  >
-                    <div className="visual-heading-rail-preview-card">{item.label}</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
+          {/* Only the displayed heading's preview is drawn, in its own row of
+              the rail. One presence for the rail, not one per row (which
+              rendered with every row on every update): the preview the
+              pointer moves off fades on the popup exit while the next
+              arrives. */}
+          <AnimatePresence>
+            {displayedIndex >= 0 && (
+              <div
+                className="visual-heading-rail-preview-row"
+                key={items[displayedIndex]!.id}
+                style={{ gridRowStart: displayedIndex + 1 }}
+              >
+                <motion.div
+                  className="visual-heading-rail-preview-anchor"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 3, filter: "blur(3px)" }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, transition: reduceMotion ? { duration: 0 } : springExit.moderate }}
+                  transition={reduceMotion ? { duration: 0 } : spring.moderate}
+                >
+                  <div className="visual-heading-rail-preview-card">{items[displayedIndex]!.label}</div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
     </div>
