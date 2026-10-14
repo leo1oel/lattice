@@ -50,7 +50,18 @@ function insertBlock(editor: Editor, range: Range, node: PmNode, select: "inside
   }
   if (select === "node") transaction.setSelection(NodeSelection.create(transaction.doc, position));
   else if (select === "inside") transaction.setSelection(TextSelection.near(transaction.doc.resolve(position + 1)));
-  else transaction.setSelection(TextSelection.near(transaction.doc.resolve(position + node.nodeSize)));
+  else {
+    // The caret goes to a paragraph right after the block, made if there is
+    // none: `near` from past a last block falls back into the block itself,
+    // and a Mermaid block's source is hidden behind its preview, so WebKit
+    // puts the caret at the document start instead (an empty paragraph has
+    // no Markdown, so it costs the file nothing).
+    const after = position + node.nodeSize;
+    if (transaction.doc.resolve(after).nodeAfter?.type.name !== "paragraph") {
+      transaction.insert(after, editor.schema.nodes.paragraph!.create());
+    }
+    transaction.setSelection(TextSelection.create(transaction.doc, after + 1));
+  }
   editor.view.dispatch(transaction.scrollIntoView());
   editor.view.focus();
 }
