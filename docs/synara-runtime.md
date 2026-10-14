@@ -407,6 +407,7 @@ Keep the previous checkout available until the upgrade audit passes.
    `SYNARA_SOURCE_DIR` overrides the new source location; `SYNARA_PREVIOUS_SOURCE_DIR` overrides the previous checkout's location when it differs from the old pin's `sourceDirectory`.
    Point the latter at the checkout previously used by Lattice, including any committed-but-unpinned fixes; both checkouts still must be clean and their history is checked.
    This is a local pre-publication check, not a replacement for browser regressions or a CI check that can see uncommitted files on another machine.
+   CI's `synara-pin` job runs the published half on every pull request that moves the pin: `node scripts/check-synara-pin.mjs <base-lattice-ref>` fetches the fork's commits and fails unless the pin is on its declared `branch` and descends from the base's pin.
    Push the verified fork commit before publishing the Lattice pin.
 7. Run `pnpm prepare:synara` and the Lattice frontend/Rust checks before producing an installer.
 
