@@ -195,16 +195,17 @@ export function SettingsDialog(props: SettingsDialogProps) {
   // GitHub, Craft and Outlook do on a phone. Entering a page moves focus to
   // its back button, Escape goes back before it closes, and going back
   // returns focus to the section's row.
-  const modalRef = useRef<HTMLDivElement>(null);
+  // Held in state, not a ref: the dialog's portal mounts this element after
+  // the first commit, so the observer attaches once the element exists.
+  const [modal, setModal] = useState<HTMLDivElement | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [narrowPage, setNarrowPage] = useState(Boolean(props.openOnPage));
   useLayoutEffect(() => {
-    const modal = modalRef.current;
     if (!modal || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width <= NARROW_SETTINGS_WIDTH));
     observer.observe(modal);
     return () => observer.disconnect();
-  }, []);
+  }, [modal]);
   // Focus follows the page in and out, found from the element that acted.
   const focusInModal = (from: EventTarget | null, selector: string) => {
     const modal = from instanceof Element ? from.closest(".settings-modal") : null;
@@ -260,7 +261,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
         closePage(event.target);
       }}
     >
-      <div className="settings-modal" ref={modalRef}>
+      <div className="settings-modal" ref={setModal}>
         {/* No title bar: each page's own title names it, and the dialog is
             labelled for assistive technology. What the bar did stays: its
             top edge still drags the window, and the close floats in the
