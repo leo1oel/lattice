@@ -291,6 +291,10 @@ msgstr "{count} figures"
 msgid "{count} hits"
 msgstr "{count} hits"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "{count} items with these names are already here"
+msgstr "{count} items with these names are already here"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} line"
 msgstr "{count} line"
@@ -1275,10 +1279,18 @@ msgstr "Allow external commands"
 msgid "Alpha"
 msgstr "Alpha"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Already in {targetDirectory}:"
+msgstr "Already in {targetDirectory}:"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/project/paper-library.tsx
 msgid "Already in Papers"
 msgstr "Already in Papers"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Already in the project root:"
+msgstr "Already in the project root:"
 
 #. placeholder {0}: list(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
@@ -1317,9 +1329,17 @@ msgstr "An existing bibliography entry has an invalid citation key."
 msgid "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
 msgstr "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
 
+#: src/project/import-conflict-dialog.tsx
+msgid "An item with this name is already here"
+msgstr "An item with this name is already here"
+
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "An update from Overleaf did not fit this document; it needs to be reloaded."
+
+#: src/project/import-conflict-dialog.tsx
+msgid "and {hidden} more"
+msgstr "and {hidden} more"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
@@ -2062,6 +2082,7 @@ msgstr "Can take up to 15 minutes"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/import-conflict-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
@@ -2340,6 +2361,14 @@ msgstr "Choose a reference to see what was checked."
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "Choose a reference to see where it is cited and edit its fields"
+
+#: src/app/use-project-tree.ts
+msgid "Choose files and folders to import into {targetDirectory}"
+msgstr "Choose files and folders to import into {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Choose files and folders to import into the project root"
+msgstr "Choose files and folders to import into the project root"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4604,6 +4633,10 @@ msgstr "For Agent failures. Credentials are masked, but paths and document text 
 msgid "For all"
 msgstr "For all"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "For each item already here"
+msgstr "For each item already here"
+
 #: src/App.tsx
 msgid "Format"
 msgstr "Format"
@@ -5104,6 +5137,11 @@ msgstr "Imaginary part"
 msgid "Implies"
 msgstr "Implies"
 
+#: src/app/use-project-tree.ts
+#: src/project/import-conflict-dialog.tsx
+msgid "Import"
+msgstr "Import"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
@@ -5116,6 +5154,15 @@ msgstr "Import figures"
 #: src/app/use-project-tree.ts
 msgid "Import figures into {targetDirectory}"
 msgstr "Import figures into {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Import files"
+msgstr "Import files"
+
+#: src/project/project-file-tree.tsx
+#: src/project/project-new-entries.ts
+msgid "Import files…"
+msgstr "Import files…"
 
 #: src/project/project-file-tree.tsx
 msgid "Import images here"
@@ -5133,6 +5180,14 @@ msgstr "Import ZIP"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Important"
 msgstr "Important"
+
+#: src/app/use-project-tree.ts
+msgid "Imported “{name}” into {targetDirectory}"
+msgstr "Imported “{name}” into {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Imported “{name}” into the project root"
+msgstr "Imported “{name}” into the project root"
 
 #: src/app/use-reference-import.ts
 msgid "Imported “{title}” — cite it with {citationCommand}."
@@ -5158,10 +5213,22 @@ msgstr "Imported {count} figures into {targetDirectory}."
 msgid "Imported {count} figures into the project root."
 msgstr "Imported {count} figures into the project root."
 
+#: src/app/use-project-tree.ts
+msgid "Imported {count} items into {targetDirectory}"
+msgstr "Imported {count} items into {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Imported {count} items into the project root"
+msgstr "Imported {count} items into the project root"
+
 #. placeholder {0}: work.arxivId
 #: src/papers/literature-discovery-panel.tsx
 msgid "Imported arXiv:{0}"
 msgstr "Imported arXiv:{0}"
+
+#: src/app/use-project-tree.ts
+msgid "Importing files…"
+msgstr "Importing files…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Importing ZIP…"
@@ -5562,6 +5629,10 @@ msgstr "Kappa"
 msgid "Keep"
 msgstr "Keep"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Keep both"
+msgstr "Keep both"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep both, yours first"
 msgstr "Keep both, yours first"
@@ -5593,6 +5664,10 @@ msgstr "Keep sources beside your writing"
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Keep what is here and import the rest"
+msgstr "Keep what is here and import the rest"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keeping both"
@@ -7278,6 +7353,10 @@ msgstr "Nothing has changed yet"
 msgid "Nothing here"
 msgstr "Nothing here"
 
+#: src/app/use-project-tree.ts
+msgid "Nothing imported"
+msgstr "Nothing imported"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "Nothing is sent or fetched until you resume"
@@ -7915,6 +7994,10 @@ msgstr "Overview"
 msgid "Overview only"
 msgstr "Overview only"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Overwrite files of the same name; merge folders"
+msgstr "Overwrite files of the same name; merge folders"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "p.{page}"
@@ -8439,6 +8522,7 @@ msgid "project"
 msgstr "project"
 
 #: src/app/palette-sections.ts
+#: src/app/use-project-tree.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "Project"
@@ -9041,6 +9125,7 @@ msgstr "Repeated author names; verify against the publication's author list befo
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/project/import-conflict-dialog.tsx
 msgid "Replace"
 msgstr "Replace"
 
@@ -10232,12 +10317,22 @@ msgid "Skills"
 msgstr "Skills"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/import-conflict-dialog.tsx
 msgid "Skip"
 msgstr "Skip"
 
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
 msgstr "Skip to the next finding"
+
+#. placeholder {0}: skipped[0]
+#: src/app/use-project-tree.ts
+msgid "Skipped “{0}”, which is already there."
+msgstr "Skipped “{0}”, which is already there."
+
+#: src/app/use-project-tree.ts
+msgid "Skipped {skippedCount} items that are already there."
+msgstr "Skipped {skippedCount} items that are already there."
 
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 msgid "Slash commands"
@@ -11016,6 +11111,10 @@ msgstr "The files already read as {name}."
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/project/import-conflict-dialog.tsx
+msgid "The imported copies get a numbered name"
+msgstr "The imported copies get a numbered name"
 
 #: src/papers/audit-messages.ts
 msgid "The inline reference agrees with the verified record."

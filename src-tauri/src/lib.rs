@@ -393,6 +393,7 @@ pub fn run() {
             ipc::files::import_project_assets,
             ipc::files::read_agent_composer_files,
             ipc::files::import_project_files,
+            ipc::files::choose_import_entries,
             ipc::files::import_project_sources,
             ipc::files::import_clipboard_image,
             ipc::files::read_project_asset,

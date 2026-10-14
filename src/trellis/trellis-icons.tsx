@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2,
-  FileText, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
+  FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
   Minimize2, PenLine, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
@@ -73,6 +73,7 @@ export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
   "new-latex": <FileCode2 />,
   "new-markdown": <FileText />,
   "new-folder": <FolderPlus />,
+  "new-import": <FolderInput />,
   "new-spreadsheet": <Table2 />,
   "new-board": <Shapes />,
   "new-presentation": <Presentation />,

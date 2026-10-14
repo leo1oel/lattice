@@ -16,15 +16,16 @@ import { waitForAgentSpreadsheetDocument } from "../agent/agent-spreadsheet-tool
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "../editor/insert/clipboard-image";
 import { rewriteMovedDocumentAssetPaths } from "../editor/insert/figure-insertion";
 import type { OverleafSyncMode } from "../settings/app-settings";
-import { logAction } from "../telemetry/app-notify";
+import { logAction, notifyInfo, updateAppToastProgress } from "../telemetry/app-notify";
 import type { TrellisController } from "../trellis/trellis-controller";
-import { disposeWhenSettled } from "./effect-helpers";
+import { disposeWhenSettled, subscribeTauriEvent } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { showError } from "./notify";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLibrary } from "./use-project-library";
 import type { ProjectState, useProjectTreeWatch } from "./use-project-state";
+import { listenInThisWindow } from "./window-events";
 
 const loadWebview = () => import("@tauri-apps/api/webview");
 const loadClipboard = () => import("@tauri-apps/plugin-clipboard-manager");
@@ -83,6 +84,53 @@ function trellisTakesProjectDrag(trellis: TrellisController, path: string, point
   if (inside) return false;
   window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: pointer.pointerId, pointerType: pointer.pointerType }));
   return trellis.beginFileDrag(path, pointer);
+}
+
+/** What an import does with a name the target folder already has (see `NameConflict` in imports.rs). */
+export type NameConflict = "keepBoth" | "replace" | "skip";
+
+/** `import_project_files`' answer; `conflicts` is only filled when it was asked without a policy. */
+type ProjectImport = {
+  conflicts: string[];
+  files: { path: string; kind: string }[];
+  /** The top-level files and folders that landed. */
+  entries: string[];
+  skipped: string[];
+};
+
+/** An import waiting for one answer about the names its target already has; `null` cancels it. */
+export type ImportConflictRequest = {
+  names: string[];
+  targetDirectory: string;
+  answer: (choice: NameConflict | null) => void;
+};
+
+/** The toast a long import reports progress in, which its outcome then replaces. */
+const IMPORT_TOAST = "project-import";
+/** An import that outlasts a glance shows its progress. */
+const IMPORT_PROGRESS_DELAY_MS = 400;
+
+/** Run an import, showing its `project-import-progress` in a toast once it takes long enough to wait on. */
+async function withImportProgress<T>(source: string, title: string, run: () => Promise<T>): Promise<T> {
+  let fraction = 0;
+  let shown = false;
+  const timer = window.setTimeout(() => {
+    shown = true;
+    notifyInfo(source, title, { progress: fraction, dedupeKey: IMPORT_TOAST });
+  }, IMPORT_PROGRESS_DELAY_MS);
+  const stop = subscribeTauriEvent<{ written: number; total: number }>(
+    (handler) => listenInThisWindow("project-import-progress", handler),
+    ({ written, total }) => {
+      fraction = total ? written / total : 1;
+      if (shown) updateAppToastProgress(IMPORT_TOAST, fraction);
+    },
+  );
+  try {
+    return await run();
+  } finally {
+    window.clearTimeout(timer);
+    stop();
+  }
 }
 
 /** Read the image on the system clipboard as PNG bytes. */
@@ -146,6 +194,8 @@ export function useProjectTree(deps: ProjectTreeDeps) {
   const [editorDropActive, setEditorDropActive] = useState(false);
   const [fileDropTargetActive, setFileDropTargetActive] = useState(false);
   const [agentPanelDropActive, setAgentPanelDropActive] = useState(false);
+  const [importConflict, setImportConflict] = useState<ImportConflictRequest | null>(null);
+  const [revealRequest, setRevealRequest] = useState<{ paths: string[]; serial: number } | null>(null);
   const nativeDragPathsRef = useRef<string[]>([]);
   const suppressedFigureClick = useRef<string | null>(null);
   const suppressedFileClick = useRef<string | null>(null);
@@ -244,9 +294,13 @@ export function useProjectTree(deps: ProjectTreeDeps) {
 
   /**
    * Run an import into the project tree and settle what it added: re-admit
-   * the paths to view-state memory, then refresh the tree and history.
+   * the paths to view-state memory, then refresh the tree and history. A
+   * failure goes to `fail`, or an error toast.
    */
-  const importIntoProject = useCallback(async (run: () => Promise<string[]>): Promise<string[]> => {
+  const importIntoProject = useCallback(async (
+    run: () => Promise<string[]>,
+    fail?: (reason: unknown) => void,
+  ): Promise<string[]> => {
     if (assetImportingRef.current) return [];
     setAssetImporting(true);
     const settle = async () => {
@@ -257,7 +311,8 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return imported;
     };
     return settle().catch((reason: unknown) => {
-      showError(toMessage(reason));
+      if (fail) fail(reason);
+      else showError(toMessage(reason));
       return [];
     }).finally(() => {
       setAssetImporting(false);
@@ -272,25 +327,90 @@ export function useProjectTree(deps: ProjectTreeDeps) {
   ), [importIntoProject, projectRoot]);
 
   /**
-   * Finder-style tree drops: any mix of files and folders, routed by the
-   * backend on content (UTF-8 text through the transaction log, the rest
-   * copied).
+   * Bring files and folders from the Mac into `targetDirectory` ("" is the
+   * project root): Finder drops onto the tree and Import files… alike. The
+   * backend routes each file on content (UTF-8 text through the transaction
+   * log, the rest copied). Names the target already has are asked about once
+   * for the whole batch; a long copy shows its progress; what landed is
+   * summarized and selected in the tree. Nothing opens.
    */
-  const importFiles = useCallback(async (paths: string[], targetDirectory = "", copyExisting = false) => (
-    paths.length ? importIntoProject(async () => {
-      const imported = await invoke<{ path: string }[]>("import_project_files", {
-        paths, targetDirectory, projectRoot,
-        ...(copyExisting ? { copyExisting: true } : {}),
-      });
-      return imported.map((file) => file.path);
-    }) : []
-  ), [importIntoProject, projectRoot]);
+  const importEntries = useCallback(async (paths: string[], targetDirectory: string) => {
+    if (!paths.length) return;
+    const trace = logAction(t`Project`, t`Import files`, paths.join(", "), "import-files");
+    const request = (conflict?: NameConflict) => withImportProgress(t`Project`, t`Importing files…`, () => (
+      invoke<ProjectImport>("import_project_files", {
+        paths, targetDirectory, projectRoot, ...(conflict ? { conflict } : {}),
+      })
+    ));
+    const landed: { result?: ProjectImport } = {};
+    await importIntoProject(async () => {
+      let result = await request();
+      if (result.conflicts.length) {
+        const choice = await new Promise<NameConflict | null>((resolve) => setImportConflict({
+          names: result.conflicts,
+          targetDirectory,
+          answer: (answer) => {
+            setImportConflict(null);
+            resolve(answer);
+          },
+        }));
+        if (!choice) return [];
+        result = await request(choice);
+      }
+      landed.result = result;
+      return result.files.map((file) => file.path);
+    }, (reason) => trace.fail(reason, { dedupeKey: IMPORT_TOAST }));
+    const { result } = landed;
+    if (!result) {
+      trace.finish("cancelled");
+      return;
+    }
+    const { entries, skipped } = result;
+    trace.enrich({ entries: entries.length, files: result.files.length, skipped: skipped.length });
+    const [entry] = entries;
+    const name = entry?.split("/").at(-1) ?? "";
+    const count = entries.length;
+    const title = !count ? t`Nothing imported`
+      : targetDirectory
+        ? count === 1 ? t`Imported “${name}” into ${targetDirectory}` : t`Imported ${count} items into ${targetDirectory}`
+        : count === 1 ? t`Imported “${name}” into the project root` : t`Imported ${count} items into the project root`;
+    const skippedCount = skipped.length;
+    const detail = skippedCount === 1 ? t`Skipped “${skipped[0]}”, which is already there.`
+      : skippedCount ? t`Skipped ${skippedCount} items that are already there.` : undefined;
+    trace.ok(title, { detail, dedupeKey: IMPORT_TOAST });
+    if (!count) return;
+    setRevealRequest((previous) => ({ paths: entries, serial: (previous?.serial ?? 0) + 1 }));
+    // As with a new file, a live-synced Overleaf project gets the imports now
+    // rather than at the next save or poll; other modes sync them as usual.
+    const { overleaf } = depsRef.current;
+    if (overleaf.link && overleaf.syncMode === "live") void overleaf.syncRef.current({ auto: true });
+  }, [depsRef, importIntoProject, projectRoot, t]);
 
-  /** Duplicate project entries into `targetDirectory` (the tree's copy and paste). */
-  const copyEntries = useCallback((paths: string[], targetDirectory: string) => (project
-    ? importFiles(paths.map((path) => absoluteProjectPath(project.root, path)), targetDirectory, true)
+  /** Import files…: the Mac's open panel, files and folders together, into `targetDirectory`. */
+  const chooseFiles = useCallback(async (targetDirectory: string) => {
+    const chosen = await invoke<string[] | null>("choose_import_entries", {
+      title: targetDirectory
+        ? t`Choose files and folders to import into ${targetDirectory}`
+        : t`Choose files and folders to import into the project root`,
+      prompt: t`Import`,
+    }).catch((reason: unknown) => {
+      showError(toMessage(reason));
+      return null;
+    });
+    if (chosen?.length) await importEntries(chosen, targetDirectory);
+  }, [importEntries, t]);
+
+  /** Duplicate project entries into `targetDirectory` (the tree's copy and paste); a taken name keeps both. */
+  const copyEntries = useCallback((paths: string[], targetDirectory: string) => (project && paths.length
+    ? importIntoProject(async () => {
+      const copied = await invoke<ProjectImport>("import_project_files", {
+        paths: paths.map((path) => absoluteProjectPath(project.root, path)),
+        targetDirectory, projectRoot: project.root, copyExisting: true, conflict: "keepBoth",
+      });
+      return copied.files.map((file) => file.path);
+    })
     : Promise.resolve([])
-  ), [importFiles, project]);
+  ), [importIntoProject, project]);
 
   const chooseAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
@@ -359,9 +479,10 @@ export function useProjectTree(deps: ProjectTreeDeps) {
           });
         } else if (targetDirectory !== null) {
           // The Project tree takes any mix, Finder-style, into the folder
-          // under the pointer ("" is the project root). Imported files land
-          // without opening; editor/canvas drops import and open instead.
-          void importFiles(event.payload.paths, targetDirectory);
+          // under the pointer ("" is the project root), as Import files…
+          // does. Imported files land without opening; editor/canvas drops
+          // import and open instead.
+          void importEntries(event.payload.paths, targetDirectory);
         } else if (dropKind === "source") {
           showError(t`Drop source files onto an editor or the Project pane`);
         } else if (dropKind === "mixed") {
@@ -389,7 +510,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       active = false;
       dispose();
     };
-  }, [activeFileRef, depsRef, importAssets, importFiles, importSources, openAsset, openFile, project, t]);
+  }, [activeFileRef, depsRef, importAssets, importEntries, importSources, openAsset, openFile, project, t]);
 
   /** Turn a figure the LaTeX toolchain cannot include as-is into one it can; resolves the path to include. */
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
@@ -587,7 +708,11 @@ export function useProjectTree(deps: ProjectTreeDeps) {
     /** Where a Finder drag is over: a figure would insert into the editor, a file would open there, the Agent would attach it. */
     drops: { editor: editorDropActive, fileTarget: fileDropTargetActive, agentPanel: agentPanelDropActive },
     openFileFromClick, openAssetFromClick, beginFigureDrag, beginFileDrag,
-    createEntry, deleteEntries, renameEntry, moveEntries, copyEntries, revealItem, chooseAssets,
+    createEntry, deleteEntries, renameEntry, moveEntries, copyEntries, revealItem, chooseAssets, chooseFiles,
+    /** The answer an import is waiting on, for names its target already has. */
+    importConflict,
+    /** What the last import added, for the tree to select. */
+    revealRequest,
     importSystemClipboardImage, importClipboardImageFile, pasteImageFile, pasteClipboardImage, prepareLatexFigure,
   };
 }

@@ -12,7 +12,7 @@ use super::tree::{classify_regular_file, is_paper_library_path, is_supported_ass
 use crate::project_fs::ProjectDir;
 use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -219,18 +219,45 @@ pub struct ImportedProjectFile {
     pub kind: String,
 }
 
-/// One Finder drop, any mix of files and folders. Folder imports preserve their
-/// hierarchy under one collision-free top-level name; hidden entries are
-/// omitted and symbolic links are not followed. Content — not extension —
-/// decides each file's route. UTF-8 text lands through the undoable transaction
-/// log like `import_sources`; figures keep the `import_assets` copy route and
-/// classify as "binary" (SVG is text bytes but a figure); everything else is
-/// copied verbatim. Files already inside the
-/// project are registered without copying.
-pub fn import_files(
-    root: &Path, sources: &[String], target_directory: &str,
-) -> Result<Vec<ImportedProjectFile>, String> {
-    import_files_with_copy(root, sources, target_directory, false)
+/// What an import does with a top-level item whose name the target folder
+/// already has. Nothing in the project is ever deleted: a replaced folder is
+/// merged into, and an item whose kind differs from what it would replace (a
+/// file over a folder) keeps both instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NameConflict {
+    /// Land beside it under the next free numbered name (`data-2.csv`).
+    KeepBoth,
+    /// Overwrite same-named files; merge into a same-named folder.
+    Replace,
+    /// Leave it alone and import the rest.
+    Skip,
+}
+
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectImport {
+    /// Names the target already has, when the import was asked without a
+    /// policy: nothing was imported, and the caller decides how to go on.
+    pub conflicts: Vec<String>,
+    pub files: Vec<ImportedProjectFile>,
+    /// The project paths of the top-level files and folders that landed.
+    pub entries: Vec<String>,
+    /// Names left out under `NameConflict::Skip`.
+    pub skipped: Vec<String>,
+}
+
+/// One import into the project tree: Finder drops onto it, Import files…, and
+/// the tree's own copy and paste.
+#[derive(Clone, Copy)]
+pub struct ImportRequest<'a> {
+    pub sources: &'a [String],
+    pub target_directory: &'a str,
+    /// Duplicate sources already inside the project (paste) instead of only
+    /// registering them (a Finder drop of a project file).
+    pub copy_existing: bool,
+    /// `None` asks first: a name conflict returns the names and imports nothing.
+    pub conflict: Option<NameConflict>,
 }
 
 /// What an import does with one file once the whole drop has been checked.
@@ -267,9 +294,21 @@ impl ImportPlan<'_> {
         };
         let relative = relative_to(self.canonical_root, destination.as_deref().unwrap_or(source))?;
         validate_user_entry(&relative)?;
+        // A replaced folder merges, so a file inside it can meet a folder of
+        // its name; refusing here keeps the whole batch from half-landing.
+        if destination.as_deref().is_some_and(Path::is_dir) {
+            return Err(format!("{relative} is already a folder in this project."));
+        }
+        // The transaction log records the text it replaces, so a text file
+        // replacing one that is not text is copied verbatim instead.
+        let replaces_binary = destination
+            .as_deref()
+            .is_some_and(|path| path.is_file() && fs::read_to_string(path).is_err());
         let planned = match destination {
             None => Planned::Existing,
-            Some(_) if text => Planned::Text { content: fs::read_to_string(source).map_err(err)? },
+            Some(_) if text && !replaces_binary => {
+                Planned::Text { content: fs::read_to_string(source).map_err(err)? }
+            }
             Some(destination) => Planned::Binary { source: source.to_path_buf(), destination },
         };
         self.files.push((ImportedProjectFile { path: relative, kind: kind.into() }, planned));
@@ -301,6 +340,10 @@ impl ImportPlan<'_> {
             let suffix = entry.path().strip_prefix(source).map_err(err)?;
             let entry_destination = destination.map(|target| target.join(suffix));
             if file_type.is_dir() {
+                if let Some(path) = entry_destination.as_deref().filter(|path| path.is_file()) {
+                    let relative = relative_to(self.canonical_root, path)?;
+                    return Err(format!("{relative} is already a file in this project."));
+                }
                 self.directories.extend(entry_destination);
             } else if file_type.is_file() {
                 self.file(entry.path(), entry_destination)?;
@@ -312,18 +355,51 @@ impl ImportPlan<'_> {
     }
 }
 
-/// Explicit tree copies duplicate in-project sources; ordinary drops only register them.
-pub fn import_files_with_copy(
-    root: &Path, sources: &[String], target_directory: &str, copy_existing: bool,
-) -> Result<Vec<ImportedProjectFile>, String> {
+/// Any mix of files and folders. Folder imports preserve their hierarchy under
+/// one top-level name; hidden entries are omitted and symbolic links are not
+/// followed. Content — not extension — decides each file's route. UTF-8 text
+/// lands through the undoable transaction log like `import_sources`; figures
+/// keep the `import_assets` copy route and classify as "binary" (SVG is text
+/// bytes but a figure); everything else is copied verbatim. Files already
+/// inside the project are registered without copying unless `copy_existing`.
+/// `progress` hears (files written, files planned) as the copy goes.
+pub fn import_files(
+    root: &Path, request: ImportRequest, progress: &mut dyn FnMut(usize, usize),
+) -> Result<ProjectImport, String> {
+    let ImportRequest { sources, target_directory, copy_existing, conflict } = request;
     if sources.is_empty() {
         return Err("Drop one or more files or folders first.".to_string());
     }
     let (canonical_root, target) =
         drop_target(root, target_directory, "Drop files and folders onto a project folder.")?;
 
+    // Asked without a policy, a taken name stops the import before anything
+    // is read, so the answer can come back with the same sources.
+    let Some(conflict) = conflict else {
+        let mut conflicts = Vec::new();
+        for source in sources {
+            let requested = Path::new(source);
+            let registers_in_place = !copy_existing
+                && requested.canonicalize().is_ok_and(|path| path.starts_with(&canonical_root));
+            let name = file_name(requested, "An imported file")?;
+            if !registers_in_place && target.join(name).exists() {
+                conflicts.push(name.to_string());
+            }
+        }
+        if !conflicts.is_empty() {
+            return Ok(ProjectImport { conflicts, ..ProjectImport::default() });
+        }
+        return import_files(
+            root,
+            ImportRequest { conflict: Some(NameConflict::KeepBoth), ..request },
+            progress,
+        );
+    };
+
     let mut plan =
         ImportPlan { canonical_root: &canonical_root, directories: Vec::new(), files: Vec::new() };
+    let mut entries = Vec::new();
+    let mut skipped = Vec::new();
     let mut reserved = BTreeSet::new();
     for source in sources {
         let requested = Path::new(source);
@@ -346,6 +422,7 @@ pub fn import_files_with_copy(
             } else {
                 plan.file(&canonical_source, None)?;
             }
+            entries.push(relative_to(&canonical_root, &canonical_source)?);
             continue;
         }
         let file_name = file_name(requested, "An imported file")?;
@@ -355,8 +432,22 @@ pub fn import_files_with_copy(
                 "{name} contains the current project and cannot be imported into it."
             ));
         }
-        let destination = available_path(&target, file_name, !file_type.is_dir(), &reserved);
+        let taken = target.join(file_name);
+        // Two sources of one name in the same batch never replace each other.
+        let destination = if !taken.exists() || reserved.contains(&taken) {
+            available_path(&target, file_name, !file_type.is_dir(), &reserved)
+        } else {
+            match conflict {
+                NameConflict::Skip => {
+                    skipped.push(file_name.to_string());
+                    continue;
+                }
+                NameConflict::Replace if taken.is_dir() == file_type.is_dir() => taken,
+                _ => available_path(&target, file_name, !file_type.is_dir(), &reserved),
+            }
+        };
         reserved.insert(destination.clone());
+        entries.push(relative_to(&canonical_root, &destination)?);
         if file_type.is_dir() {
             plan.directory(&canonical_source, Some(&destination))?;
         } else {
@@ -368,20 +459,30 @@ pub fn import_files_with_copy(
     for directory in &plan.directories {
         fs::create_dir_all(directory).map_err(err)?;
     }
+    let total = plan.files.len();
+    let mut written = 0;
     let mut edits = Vec::new();
     for (file, planned) in &plan.files {
         match planned {
-            Planned::Existing => {}
+            Planned::Existing => written += 1,
             Planned::Text { content } => edits.push((file.path.clone(), content.clone())),
             Planned::Binary { source, destination } => {
                 fs::copy(source, destination).map_err(err)?;
+                written += 1;
+                progress(written, total);
             }
         }
     }
     if !edits.is_empty() {
         apply_transaction(root, &import_label(&edits, "files"), edits)?;
     }
-    Ok(plan.files.into_iter().map(|(file, _)| file).collect())
+    progress(total, total);
+    Ok(ProjectImport {
+        conflicts: Vec::new(),
+        files: plan.files.into_iter().map(|(file, _)| file).collect(),
+        entries,
+        skipped,
+    })
 }
 
 /// `.research` paths raw byte writes never touch.
@@ -431,6 +532,25 @@ mod tests {
 
     fn paths<P: AsRef<Path>>(files: impl IntoIterator<Item = P>) -> Vec<String> {
         files.into_iter().map(|path| path.as_ref().to_string_lossy().to_string()).collect()
+    }
+
+    /// The tree's import as a drop or paste makes it: taken names keep both.
+    fn import_files_with_copy(
+        root: &Path, sources: &[String], target_directory: &str, copy_existing: bool,
+    ) -> Result<Vec<ImportedProjectFile>, String> {
+        let request = ImportRequest {
+            sources,
+            target_directory,
+            copy_existing,
+            conflict: Some(NameConflict::KeepBoth),
+        };
+        super::import_files(root, request, &mut |_, _| {}).map(|import| import.files)
+    }
+
+    fn import_files(
+        root: &Path, sources: &[String], target_directory: &str,
+    ) -> Result<Vec<ImportedProjectFile>, String> {
+        import_files_with_copy(root, sources, target_directory, false)
     }
 
     fn routes(files: &[ImportedProjectFile]) -> Vec<(&str, &str)> {

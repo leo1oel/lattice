@@ -139,6 +139,57 @@ function kindOf(path: string): string {
 /** Folders created in the page; any other folder exists through the files in it. */
 const folders = new Set<string>();
 
+/**
+ * Import files…, as far as a page without a Mac can take it. The open panel
+ * answers with `?importPick=` (comma-separated Finder items: a name with an
+ * extension is a file, one without a folder holding `notes.txt` and
+ * `results.csv`; default `main.tex,chapters,references.bib`, two of which the
+ * fixture's root already has), and the import lands them as the backend
+ * does: asked without a policy, names the target already has come back as
+ * conflicts. `?importDelay=<ms>` stretches the copy
+ * and reports its progress, to look at the progress toast.
+ */
+const importPick = (params.get("importPick") ?? "main.tex,chapters,references.bib").split(",").filter(Boolean);
+const importDelay = Number(params.get("importDelay")) || 0;
+
+async function importEntries(args: Args) {
+  const target = String(args?.targetDirectory ?? "").replace(/\/+$/, "");
+  const conflict = args?.conflict as "keepBoth" | "replace" | "skip" | undefined;
+  const join = (name: string) => (target ? `${target}/${name}` : name);
+  const taken = (path: string) => current.files.has(path) || folders.has(path)
+    || [...current.files.keys()].some((file) => file.startsWith(`${path}/`));
+  const names = (args?.paths as string[] ?? []).map((path) => path.split("/").pop() ?? path);
+  if (!conflict) {
+    const conflicts = names.filter((name) => taken(join(name)));
+    if (conflicts.length) return { conflicts, files: [], entries: [], skipped: [] };
+  }
+  const entries: string[] = [];
+  const skipped: string[] = [];
+  const files: { path: string; kind: string }[] = [];
+  for (const name of names) {
+    let path = join(name);
+    if (taken(path) && conflict === "skip") {
+      skipped.push(name);
+      continue;
+    }
+    if (taken(path) && conflict !== "replace") {
+      const dot = name.includes(".") ? name.lastIndexOf(".") : name.length;
+      for (let number = 2; taken(path); number += 1) path = join(`${name.slice(0, dot)}-${number}${name.slice(dot)}`);
+    }
+    entries.push(path);
+    const contents = name.includes(".") ? [[path, `% ${name}\n`]] : [[`${path}/notes.txt`, "Notes\n"], [`${path}/results.csv`, "a,b\n1,2\n"]];
+    for (const [file, text] of contents) {
+      current.files.set(file, text);
+      files.push({ path: file, kind: "text" });
+    }
+  }
+  for (let step = 1; importDelay && step <= 10; step += 1) {
+    await new Promise((resolve) => setTimeout(resolve, importDelay / 10));
+    emit("project-import-progress", { written: step, total: 10 });
+  }
+  return { conflicts: [], files, entries, skipped };
+}
+
 /** Create and rename in the tree, so new, long and deeply nested names can be looked at. */
 function createEntry(args: Args): string {
   const path = pathArg(args);
@@ -801,6 +852,10 @@ function answer(command: string, args: Args): unknown {
     case "synara_ensure_ready":
     case "create_project_entry":
       return createEntry(args);
+    case "choose_import_entries":
+      return importPick.map((name) => `/Users/bench/Downloads/${name}`);
+    case "import_project_files":
+      return importEntries(args);
     case "rename_project_entry":
       return renameEntry(args);
     case "run_doctor":

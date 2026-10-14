@@ -1,6 +1,6 @@
 //! macOS window chrome helpers: traffic lights, window backing colors, AppKit
-//! event monitors (pinch, Command-C), the screen color sampler, and quarantine
-//! cleanup.
+//! event monitors (pinch, Command-C), the screen color sampler, the Import
+//! files… open panel, and quarantine cleanup.
 
 use block2::RcBlock;
 use objc2_app_kit::{NSColor, NSEvent, NSEventMask, NSWindow};
@@ -763,6 +763,61 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
     .map_err(|reason| format!("Could not start the screen color sampler: {reason}"))?;
 
     receiver.await.map_err(|_| "The screen color sampler ended without a result.".to_string())
+}
+
+/// Ask for files and folders to import, as a sheet on `window`, and resolve
+/// with their paths (`None` when canceled). The dialog plugin's panels take
+/// either files or folders; Finder's own Import panels take both at once.
+pub async fn choose_files_and_folders(
+    window: &tauri::Window, title: &str, prompt: &str,
+) -> Result<Option<Vec<String>>, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+    use std::sync::Arc;
+
+    let address = window
+        .ns_window()
+        .ok()
+        .filter(|pointer| !pointer.is_null())
+        .map(|pointer| pointer as usize)
+        .ok_or_else(|| "The window is not ready for a file panel.".to_string())?;
+    let (title, prompt) = (title.to_string(), prompt.to_string());
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    let sender = Arc::new(Mutex::new(Some(sender)));
+    window
+        .run_on_main_thread(move || unsafe {
+            let panel = NSOpenPanel::openPanel(MainThreadMarker::new_unchecked());
+            panel.setCanChooseFiles(true);
+            panel.setCanChooseDirectories(true);
+            panel.setAllowsMultipleSelection(true);
+            panel.setCanCreateDirectories(false);
+            panel.setMessage(Some(&NSString::from_str(&title)));
+            panel.setPrompt(Some(&NSString::from_str(&prompt)));
+            let chosen = panel.clone();
+            let handler = RcBlock::new(move |response: isize| {
+                let paths = (response == NSModalResponseOK).then(|| {
+                    chosen
+                        .URLs()
+                        .iter()
+                        .filter_map(|url| url.path().map(|path| path.to_string()))
+                        .collect::<Vec<_>>()
+                });
+                if let Some(sender) = sender.lock().ok().and_then(|mut slot| slot.take()) {
+                    let _ = sender.send(paths);
+                }
+            });
+            // SAFETY: the pointer is this window's live NSWindow, read on the
+            // thread that owns it; the sheet retains the panel and the block
+            // until the user answers.
+            panel.beginSheetModalForWindow_completionHandler(
+                &*(address as *const NSWindow),
+                &handler,
+            );
+        })
+        .map_err(|reason| format!("Could not open the file panel: {reason}"))?;
+
+    receiver.await.map_err(|_| "The file panel closed without an answer.".to_string())
 }
 
 /// Strip Gatekeeper quarantine from our bundle (and an enclosing Lattice folder when present).

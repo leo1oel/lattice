@@ -9,7 +9,8 @@ use crate::models;
 use crate::project::{AnnotationRound, Annotations, AssetPreview, EditorComment};
 use crate::{export, project};
 use std::path::Path;
-use tauri::{State, Window};
+use std::time::{Duration, Instant};
+use tauri::{Emitter, State, Window};
 
 #[tauri::command]
 pub async fn list_project_tree_with_hidden(
@@ -122,22 +123,53 @@ pub async fn read_agent_composer_files(
     run_blocking("Reading dropped files", move || project::read_agent_composer_files(&paths)).await
 }
 
+/// `project-import-progress` payload: files written of the files planned.
+#[derive(Clone, serde::Serialize)]
+pub struct ImportProgress {
+    written: usize,
+    total: usize,
+}
+
+/// How often a long import reports how far it has got.
+const IMPORT_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+
 #[tauri::command]
 pub async fn import_project_files(
     state: State<'_, AppState>, window: Window, paths: Vec<String>, target_directory: String,
-    project_root: String, copy_existing: Option<bool>,
-) -> Result<Vec<project::ImportedProjectFile>, String> {
+    project_root: String, copy_existing: Option<bool>, conflict: Option<project::NameConflict>,
+) -> Result<project::ProjectImport, String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
     let root = pinned_root(&state, &window, &project_root, "the files could be imported")?;
-    let copy_existing = copy_existing.unwrap_or(false);
     run_blocking("File import", move || {
-        if copy_existing {
-            project::import_files_with_copy(&root, &paths, &target_directory, true)
-        } else {
-            project::import_files(&root, &paths, &target_directory)
-        }
+        let request = project::ImportRequest {
+            sources: &paths,
+            target_directory: &target_directory,
+            copy_existing: copy_existing.unwrap_or(false),
+            conflict,
+        };
+        let mut reported = Instant::now();
+        project::import_files(&root, request, &mut |written, total| {
+            if written < total && reported.elapsed() < IMPORT_PROGRESS_INTERVAL {
+                return;
+            }
+            reported = Instant::now();
+            // `emit` would reach every window, and only this one is importing.
+            let _ = window.emit_to(
+                window.label(),
+                "project-import-progress",
+                ImportProgress { written, total },
+            );
+        })
     })
     .await
+}
+
+/// The native open panel for Import files…: any mix of files and folders.
+#[tauri::command]
+pub async fn choose_import_entries(
+    window: Window, title: String, prompt: String,
+) -> Result<Option<Vec<String>>, String> {
+    crate::macos_window::choose_files_and_folders(&window, &title, &prompt).await
 }
 
 #[tauri::command]

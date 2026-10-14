@@ -1620,6 +1620,7 @@ function App() {
     onError: showError,
     onReveal: tree.revealItem,
     onImportAssets: tree.chooseAssets,
+    onImportFiles: (targetDirectory: string) => void tree.chooseFiles(targetDirectory),
     onPasteImage: (targetDirectory: string) => void tree.importSystemClipboardImage(targetDirectory),
   });
   const paperLibraryHandlers = useStableHandlers({
@@ -2000,6 +2001,7 @@ function App() {
               projectKey={project.root}
               searchOpen={projectSearchOpen}
               newEntryRequest={newEntryRequest}
+              revealRequest={tree.revealRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGit.gitFiles}
@@ -2219,6 +2221,7 @@ function App() {
             setRenameTarget(null);
           },
         }}
+        importConflict={tree.importConflict}
       />
 
       {renderCommandPalette()}

@@ -107,6 +107,7 @@ objc2-foundation = { version = "0.3", default-features = false, features = [
   "NSArray",
   "NSGeometry",
   "NSString",
+  "NSURL",
   "NSUserDefaults",
 ] }
 objc2-app-kit = { version = "0.3", default-features = false, features = [
@@ -122,9 +123,12 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
   "NSControl",
   "NSEvent",
   "NSGraphics",
+  "NSOpenPanel",
+  "NSPanel",
   "NSPrintInfo",
   "NSPrintOperation",
   "NSResponder",
+  "NSSavePanel",
   "NSToolbar",
   "NSView",
   "NSVisualEffectView",

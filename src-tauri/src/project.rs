@@ -64,8 +64,8 @@ pub use history::{
 };
 pub use history::{HistoryItem, TransactionRecord};
 pub use imports::{
-    import_assets, import_files, import_files_with_copy, import_image_bytes, import_sources,
-    read_agent_composer_files, write_bytes, AgentComposerFile, ImportedProjectFile,
+    import_assets, import_files, import_image_bytes, import_sources, read_agent_composer_files,
+    write_bytes, AgentComposerFile, ImportRequest, NameConflict, ProjectImport,
 };
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,

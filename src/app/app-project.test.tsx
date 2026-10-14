@@ -905,7 +905,7 @@ describe("project tree and projects", () => {
       ...projectCommands(null), initial_project: () => structuredClone(snapshot), refresh_project: () => structuredClone(snapshot),
       import_project_files: () => {
         snapshot.files.push(fileNode("main-2.tex"));
-        return [{ path: "main-2.tex", kind: "text" }];
+        return { conflicts: [], files: [{ path: "main-2.tex", kind: "text" }], entries: ["main-2.tex"], skipped: [] };
       },
     });
     fireEvent.click(await findProjectTreeItem("main.tex"));
@@ -913,7 +913,7 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("/tmp/lattice-paper/main.tex"));
     fireEvent.keyDown(await findProjectTreeItem("main.tex"), { key: "v", metaKey: true });
     await expectInvoked("import_project_files", {
-      paths: ["/tmp/lattice-paper/main.tex"], targetDirectory: "", projectRoot: ROOT, copyExisting: true,
+      paths: ["/tmp/lattice-paper/main.tex"], targetDirectory: "", projectRoot: ROOT, copyExisting: true, conflict: "keepBoth",
     });
     expect(await findProjectTreeItem("main-2.tex")).toBeInTheDocument();
     expect(queryProjectTreeItem("main.tex")).not.toBeNull();
@@ -940,7 +940,10 @@ describe("project tree and projects", () => {
     ],
   ])("%s", async (_name, targetDirectory, paths, imported) => {
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), dirNode("sections", [fileNode("sections/intro.tex")])] });
-    renderApp({ ...refreshableProject(snapshot), import_project_files: () => imported });
+    renderApp({
+      ...refreshableProject(snapshot),
+      import_project_files: () => ({ conflicts: [], files: imported, entries: imported.map((file) => file.path), skipped: [] }),
+    });
     if (targetDirectory) {
       fireEvent.click(await findProjectTreeItem("sections/"));
       stubElementFromPoint(await findProjectTreeItem("sections/intro.tex"));

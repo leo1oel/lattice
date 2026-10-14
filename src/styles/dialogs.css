@@ -681,6 +681,21 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .confirm-action-modal > p { max-width: 340px; white-space: pre-line; }
 .confirm-action-modal .ui-button--ghost.confirm-action-danger { color: var(--status-danger); }
 .confirm-action-modal .ui-button--ghost.confirm-action-danger:hover:not(:disabled) { background: var(--status-danger-soft); color: var(--status-danger); }
+/* An import's name conflicts (import-conflict-dialog.tsx): the taken names,
+   each cut with an ellipsis rather than widening the dialog, then the three
+   answers, each a radio row with its consequence on a second line. */
+.import-conflict-modal { width: min(420px, calc(100vw - 40px)); }
+.import-conflict-names { margin-bottom: var(--space-8); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.import-conflict-names p { margin: 0; }
+.import-conflict-names ul { margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.import-conflict-names li { overflow: hidden; color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
+.import-conflict-names li.import-conflict-more { color: var(--text-tertiary); font-family: inherit; }
+.import-conflict-modal [role="radiogroup"] { margin-inline: calc(-1 * var(--space-5)); width: auto; }
+.import-conflict-modal [data-slot="fluid-hover-highlight"] { background: var(--control-hover-surface); }
+.import-conflict-option { position: relative; }
+.import-conflict-radio { height: 50px; align-items: flex-start; padding: var(--space-4) var(--space-5); font-family: var(--ui-font); }
+.import-conflict-radio > div:first-child { align-self: center; }
+.import-conflict-description { position: absolute; top: 27px; left: calc(var(--space-5) + var(--space-8) + var(--space-4)); right: var(--space-5); overflow: hidden; pointer-events: none; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 /* The shortcut sheet (shortcut-sheet.tsx): the groups flow in two columns
    that fold to one on a narrow window, and scroll under the filter. */
 .modal.sheet-dialog.shortcut-sheet { overflow: hidden; }
