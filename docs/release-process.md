@@ -128,6 +128,7 @@ reaches users.
 ### `release-cache.yml`
 
 A separate workflow on `main` warms two caches in parallel.
+A push that changes no Rust input, such as a Synara pin bump, skips the Rust job; the weekly schedule and a manual run warm both.
 The Rust job compiles the release dependency graph with the same target and `MACOSX_DEPLOYMENT_TARGET` as Tauri, so a nominal cache hit does not trigger a second macOS dependency build inside the release.
 It deliberately does **not** set `LATTICE_FIRECRAWL_KEY`, and `rust-cache` removes the workspace crate before saving, so the key never lands in a cache artifact.
 
