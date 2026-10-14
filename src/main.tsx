@@ -23,10 +23,12 @@ import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
 import { installNativeLocaleSync } from "./app/native-locale";
+import { installPointerFocus } from "./components/ui/pointer-focus";
 
 async function startApp() {
   await browserRuntimeReady();
   installGlobalErrorCapture();
+  installPointerFocus();
 
   // Dev-only perf probe (docs/performance.md). The DEV guard makes the whole
   // branch dead code in production builds; the dynamic import keeps it out of

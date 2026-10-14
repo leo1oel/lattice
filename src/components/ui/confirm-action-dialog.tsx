@@ -20,8 +20,13 @@ type PendingConfirmation = {
 
 let nextConfirmationId = 1;
 
+/**
+ * The message's leading question, as the title: "?" in English, "？" in
+ * Chinese. A "？" inside quotes is quoted text (references shown as “？”),
+ * not the end of a question.
+ */
 function firstQuestion(message: string): { title: string | null; description: string } {
-  const question = message.indexOf("?");
+  const question = message.search(/\?|？(?![”"’」』）)])/);
   if (question < 0 || question > 96) return { title: null, description: message };
   return { title: message.slice(0, question + 1).trim(), description: message.slice(question + 1).trim() };
 }
