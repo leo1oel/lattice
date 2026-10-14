@@ -228,7 +228,8 @@
 .history-fold .history-row-glyph { background: var(--surface-input); }
 
 /* ---- Empty states, drawn */
-.history-empty { margin: var(--space-16) auto 0; padding: 0 var(--space-6); --art-paper: var(--surface-input); }
+/* Each fills the room under the toolbar and centres in it (EmptyState fill). */
+.history-empty { padding: var(--space-8) var(--space-6); --art-paper: var(--surface-input); }
 .history-empty .research-art { width: 128px; }
 .history-empty .ui-empty-state-description { max-width: 36ch; text-wrap: pretty; }
 @container history (width < 300px) {

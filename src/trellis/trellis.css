@@ -712,7 +712,9 @@
   width: 100%; min-width: 0;
   border: 0; border-radius: var(--nested-radius);
   background: var(--segmented-selected-surface);
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  /* A text field's own focused border (the field contract), as the project
+     tree's name field wears it, not the keyboard ring. */
+  box-shadow: 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color);
   color: var(--text-primary);
   outline: none;
 }

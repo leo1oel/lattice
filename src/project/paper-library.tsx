@@ -30,6 +30,7 @@ import {
 import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { Button } from "../components/ui/button";
+import { EmptyState } from "../components/ui/empty-state";
 import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
@@ -127,8 +128,10 @@ const INSPECTOR_MIN_WIDTH = 860;
  */
 /** From this width the list is a table (`data-table`). */
 const TABLE_MIN_WIDTH = 680;
-/** The list's widths below which its empty and error states stack (`data-below`). */
-const LIST_STEPS = [260, 240];
+/** The list's widths below which its error state stacks (`data-below`). */
+const LIST_STEPS = [240];
+/** The list's height below which its empty state lets its drawing go (`data-short`). */
+const EMPTY_ART_MIN_HEIGHT = 190;
 /** The rows' content widths below which their lines give way (`data-row-below` on `.paper-rows`). */
 const ROW_STEPS = [300, 260, 200];
 
@@ -141,7 +144,7 @@ function setSteps(element: HTMLElement, name: string, width: number, steps: read
 
 const contentWidth = (entry: ResizeObserverEntry) => entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
 
-/** The ref of a `.paper-list` scroll area: marks the steps its own width has passed. */
+/** The ref of a `.paper-list` scroll area: marks the steps its own width has passed, and whether it is short. */
 function observeListSteps(list: HTMLDivElement | null) {
   if (!list || typeof ResizeObserver === "undefined") return undefined;
   const observer = new ResizeObserver(([entry]) => {
@@ -149,6 +152,7 @@ function observeListSteps(list: HTMLDivElement | null) {
     const width = contentWidth(entry);
     list.toggleAttribute("data-table", width >= TABLE_MIN_WIDTH);
     setSteps(list, "data-below", width, LIST_STEPS);
+    list.toggleAttribute("data-short", (entry.contentBoxSize?.[0]?.blockSize ?? entry.contentRect.height) < EMPTY_ART_MIN_HEIGHT);
   });
   observer.observe(list);
   return () => observer.disconnect();
@@ -357,17 +361,17 @@ export function PaperLibrary(props: PaperLibraryProps) {
             {!kind && !props.importing && loadStatus !== "ready" && (
               <PaperLoadStatus load={props.load} syncing={loadStatus === "syncing"} onRetry={props.onRetryLoad} />
             )}
-            {!kind && !props.importing && loadStatus === "ready" && <div className="papers-empty-state" data-library="empty">
-              {/* Beside the text, not above it: the card sits in a short panel
-                  at startup, and a taller card would overflow it. */}
-              <ResearchArt drawing={CARD_INDEX} />
-              <div className="papers-empty-text">
-                <strong>{t`Your paper library`}</strong>
-                <p>{t`Keep sources beside your writing`}</p>
-                {/* Only focuses the field: what to add is the writer's to type. */}
-                <Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>
-              </div>
-            </div>}
+            {!kind && !props.importing && loadStatus === "ready" && (
+              <EmptyState
+                className="papers-empty-state"
+                fill
+                icon={<ResearchArt drawing={CARD_INDEX} />}
+                title={t`Your paper library`}
+                description={t`Keep sources beside your writing`}
+                // Only focuses the field: what to add is the writer's to type.
+                actions={<Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
+              />
+            )}
           </ScrollArea>
         )}
       </div>

@@ -322,6 +322,7 @@ export function ProjectFindDialog(props: {
         {!trimmedQuery && (
           <EmptyState
             density="compact"
+            fill
             icon={<EmptyIllustration kind="search" size="compact" />}
             description={t`Search your files and saved papers.`}
           />
@@ -330,6 +331,7 @@ export function ProjectFindDialog(props: {
           fileHits.length + paperHits.length ? (
             <EmptyState
               density="compact"
+              fill
               icon={<EmptyIllustration kind="search" size="compact" />}
               title={scope === "file" ? t`No files match “${trimmedQuery}”` : t`No papers match “${trimmedQuery}”`}
               actions={<Button size="compact" variant="secondary" onClick={() => changeScope("all")}><Trans>Show all results</Trans></Button>}
@@ -337,6 +339,7 @@ export function ProjectFindDialog(props: {
           ) : (
             <EmptyState
               density="compact"
+              fill
               icon={<EmptyIllustration kind="search" size="compact" />}
               title={t`No results for “${trimmedQuery}”`}
               description={t`Try a shorter phrase or different terms`}

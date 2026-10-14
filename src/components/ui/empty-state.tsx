@@ -9,6 +9,11 @@ export type EmptyStateProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
   actions?: ReactNode;
   density?: "compact" | "default";
   align?: "start" | "center";
+  /**
+   * All its surface shows: takes the rest of the column it ends and stands
+   * centred in it, under whatever sits above (a toolbar, a search field).
+   */
+  fill?: boolean;
 };
 
 /** A reusable no-content state without feature-specific class dependencies. */
@@ -18,6 +23,7 @@ export function EmptyState({
   className,
   density = "default",
   description,
+  fill,
   icon,
   title,
   ...props
@@ -27,6 +33,7 @@ export function EmptyState({
       data-slot="empty-state"
       data-align={align}
       data-density={density}
+      data-fill={fill || undefined}
       className={cn("ui-empty-state", className)}
       {...props}
     >

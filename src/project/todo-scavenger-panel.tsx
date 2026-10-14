@@ -26,39 +26,42 @@ export function TodoScavengerPanel(props: {
         {count === 0 ? (
           <EmptyState
             className="todo-empty"
+            fill
             icon={<EmptyIllustration kind="done" />}
             title={t`No TODO markers found`}
             description={<Trans>Looks for <code>% TODO</code>, <code>% FIXME</code>, <code>% XXX</code> and <code>\todo</code></Trans>}
           />
         ) : (
-          <div className="project-replace-preview-summary">
-            {count === 1 ? t`${count} marker` : t`${count} markers`}
-          </div>
+          <>
+            <div className="project-replace-preview-summary">
+              {count === 1 ? t`${count} marker` : t`${count} markers`}
+            </div>
+            <div className="todo-hits fluid-hover-surface">
+              <FluidHoverSurface selector=".project-replace-hit" follow={null} />
+              <ul className="project-replace-hits">
+                {props.hits.map((hit) => (
+                  <li key={`${hit.path}:${hit.line}:${hit.kind}:${hit.preview}`}>
+                    <button
+                      type="button"
+                      className="project-replace-hit"
+                      onClick={() => props.onOpen(hit.path, hit.line)}
+                    >
+                      <span className="project-find-hit-icon" aria-hidden="true">
+                        <CircleDot size={12} className={`todo-kind ${hit.kind.toLowerCase()}`} />
+                      </span>
+                      <span className="project-find-hit-heading">
+                        <span className="project-find-hit-name">{hit.kind}</span>
+                        <span className="project-find-hit-folder">{hit.path}</span>
+                        <span className="project-find-hit-line">{hit.line}</span>
+                      </span>
+                      <span className="project-replace-hit-preview">{hit.preview}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
         )}
-        <div className="todo-hits fluid-hover-surface">
-          <FluidHoverSurface selector=".project-replace-hit" follow={null} />
-          <ul className="project-replace-hits">
-            {props.hits.map((hit) => (
-              <li key={`${hit.path}:${hit.line}:${hit.kind}:${hit.preview}`}>
-                <button
-                  type="button"
-                  className="project-replace-hit"
-                  onClick={() => props.onOpen(hit.path, hit.line)}
-                >
-                  <span className="project-find-hit-icon" aria-hidden="true">
-                    <CircleDot size={12} className={`todo-kind ${hit.kind.toLowerCase()}`} />
-                  </span>
-                  <span className="project-find-hit-heading">
-                    <span className="project-find-hit-name">{hit.kind}</span>
-                    <span className="project-find-hit-folder">{hit.path}</span>
-                    <span className="project-find-hit-line">{hit.line}</span>
-                  </span>
-                  <span className="project-replace-hit-preview">{hit.preview}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
     </ResizableDrawer>
   );
 }

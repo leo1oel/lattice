@@ -430,7 +430,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.lx-md-toolbar, .lx-md-emoji-pic
 }
 .lx-md-editor .lx-md-surface .lx-md-change.is-insert { box-shadow: inset 0 -2px 0 var(--lx-md-change-color); }
 .lx-md-editor .lx-md-surface .lx-md-change.is-delete { text-decoration: line-through 2px var(--lx-md-change-color); }
-.lx-md-editor .lx-md-surface .lx-md-change:focus-visible { outline: 2px solid var(--lx-md-change-color); outline-offset: 2px; }
+.lx-md-editor .lx-md-surface .lx-md-change:focus-visible:not([data-pointer-focus]) { outline: 2px solid var(--lx-md-change-color); outline-offset: 2px; }
 
 .lx-md-change-popover {
   --lx-md-change-color: var(--control-active);

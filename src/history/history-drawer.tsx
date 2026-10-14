@@ -525,6 +525,7 @@ export function HistoryDrawer(props: {
             ) : (
               <EmptyState
                 className="history-empty"
+                fill
                 icon={<ResearchArt drawing={DATED_DRAFTS} />}
                 title={t`Nothing has changed yet`}
                 description={t`Every edit you, the agent or the citation tool make shows here, and each can be undone`}
@@ -548,6 +549,7 @@ export function HistoryDrawer(props: {
         {!rows.length && !waiting && (
           <EmptyState
             className="history-empty"
+            fill
             icon={<ResearchArt drawing={DATED_DRAFTS} />}
             title={t`Nothing has changed yet`}
             description={t`Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here`}

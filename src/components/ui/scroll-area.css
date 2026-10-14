@@ -271,3 +271,21 @@
   background: color-mix(in srgb, var(--text-primary) 18%, transparent);
   background-clip: padding-box;
 }
+
+/* An EmptyState with `fill` as its content's child: the content stands at
+   least as tall as the viewport and becomes the column the state fills, so
+   the state centres in the room under its siblings and still scrolls where
+   that room is too short. The touch path has no content shell. */
+[data-slot="scroll-area-content-shell"]:has(> [data-slot="scroll-area-content"] > .ui-empty-state[data-fill]) {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+[data-slot="scroll-area-content"]:has(> .ui-empty-state[data-fill]) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+[data-slot="scroll-area-viewport"] > [data-slot="scroll-area-content"]:has(> .ui-empty-state[data-fill]) {
+  min-height: 100%;
+}

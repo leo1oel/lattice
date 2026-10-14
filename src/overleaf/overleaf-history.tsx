@@ -322,6 +322,7 @@ export function OverleafHistoryState(props: { history: OverleafHistory; alone: b
       {props.alone && !history.loading && !history.updates.length && !history.error && (
         <EmptyState
           className="history-empty"
+          fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`No Overleaf history yet`}
           description={t`Every edit made on Overleaf, by anyone, is kept here and can be restored`}

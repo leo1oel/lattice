@@ -62,7 +62,9 @@ input[type="search"]:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 /* Specific enough to beat a component's own ring (`.ui-checkbox:focus-visible`,
-   `.latex-selection-tool button:focus-visible`), so one rule covers them all. */
+   `.latex-selection-tool button:focus-visible`), so one rule covers them all.
+   A ring more specific than this, or drawn some other way (a fill, a shadow,
+   a parent's outline), checks the mark itself. */
 :root [data-pointer-focus]:focus-visible { outline-color: transparent; }
 
 .app-shell { height: 100%; background: var(--surface-window); display: flex; flex-direction: column; }
@@ -511,7 +513,6 @@ input[type="search"]:focus-visible {
    the matched text. */
 /* Find's empty and no-result states stand centred in the room the results
    would take, a step down from the filters. */
-.project-find .project-replace-preview > .ui-empty-state { margin-top: var(--space-16); }
 :is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
 :is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
 /* Find's current hit is the one highlight, which the pointer moves as well
@@ -998,7 +999,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 /* The list and its rows are no query containers: WebKit restyles all a
    container holds whenever its width changes, every frame of a divider drag.
    Their widths arrive as attributes instead (paper-library.tsx): the list's
-   data-table and data-below, the rows' data-row-below on .paper-rows. */
+   data-table, data-below and data-short, the rows' data-row-below on .paper-rows. */
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* A paper is a short grid: its glyph on the Project tree's icon gutter, the
@@ -1193,25 +1194,19 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
    row does, until the next add. */
 .paper-row.just-added .paper-row-actions { display: flex; }
 :where(.paper-rows[data-row-below~="300"]) .paper-row.just-added .paper-byline { display: none; }
-/* Drawing beside the text, straight on the panel: the panel is already the
-   card, so a plate here would be a card inside it. */
-.papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
-.papers-empty-text { min-width: 0; display: grid; gap: var(--space-1); }
-.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
-.papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-/* The empty library: the card box, and the action that takes the writer to
-   the import field above. */
-.papers-empty-state[data-library="empty"] { padding: var(--space-4); gap: var(--space-4); }
-.papers-empty-state[data-library="empty"] .research-art { width: 64px; }
-.papers-empty-state[data-library="empty"] p { margin-bottom: var(--space-1); }
-.papers-empty-state .ui-button { justify-self: start; max-width: 100%; }
-/* Too narrow for the button beside the drawing ("Add your first paper" needs
-   about 140px), the button takes a row of its own under both; the heading and
-   its line stay beside the drawing, so the card grows by no more than that. */
-:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; row-gap: var(--space-1); }
-:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .research-art { grid-row: span 2; }
-:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .papers-empty-text { display: contents; }
-:where(.paper-list[data-below~="260"]) .papers-empty-state[data-library="empty"] .ui-button { grid-column: 1 / -1; margin-top: var(--space-4); }
+/* The empty library: the card-index drawing over its heading, its line and
+   the action that takes the writer to the import field above, filling the
+   room under that field like every other empty panel. The list's top padding
+   matches the section's bottom one, so the state centres between the field
+   and the panel's edge. Straight on the panel: the panel is already the card. */
+.paper-list-content:has(> .papers-empty-state) { padding-block: var(--space-5) 0; }
+.papers-empty-state { --art-paper: var(--lattice-panel-surface, var(--surface-app)); padding: var(--space-6) var(--space-4); }
+.papers-empty-state .research-art { width: 64px; }
+.papers-empty-state .ui-button { max-width: 100%; }
+/* A short list (the startup layout on a small screen, `data-short`) keeps the
+   words and the action and lets the drawing go, rather than scrolling the
+   button away. */
+:where(.paper-list[data-short]) .papers-empty-state .ui-empty-state-icon { display: none; }
 /* The library before its list is read: one line on the rows' icon gutter and
    inset, in the secondary ink, where the first row will be. It holds back a
    moment before showing, so a list read at once never flashes it; a read that

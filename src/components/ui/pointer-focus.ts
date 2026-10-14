@@ -47,13 +47,25 @@ export function installPointerFocus() {
   window.addEventListener("keydown", () => {
     pointerMovedLast = false;
   }, true);
-  document.addEventListener("focusin", (event) => {
-    const target = focusTarget(event);
-    if (!target) return;
-    if (pointerMovedLast) target.setAttribute(MARK, "");
-    else target.removeAttribute(MARK);
-  }, true);
-  document.addEventListener("focusout", (event) => {
-    focusTarget(event)?.removeAttribute(MARK);
-  }, true);
+  const watched = new WeakSet<Node>();
+  const watch = (root: Document | ShadowRoot) => {
+    watched.add(root);
+    root.addEventListener("focusin", (event) => {
+      const target = focusTarget(event as FocusEvent);
+      if (!target) return;
+      if (pointerMovedLast) target.setAttribute(MARK, "");
+      else target.removeAttribute(MARK);
+      // Focus moving from one element to another inside the same shadow root
+      // (row to row in the project tree) never reaches the document: the
+      // event stops where its target and related target retarget to the same
+      // host. Focus has to enter the root from outside first, which the
+      // document does see, so the root is watched from then on.
+      const root = target.getRootNode();
+      if (root instanceof ShadowRoot && !watched.has(root)) watch(root);
+    }, true);
+    root.addEventListener("focusout", (event) => {
+      focusTarget(event as FocusEvent)?.removeAttribute(MARK);
+    }, true);
+  };
+  watch(document);
 }

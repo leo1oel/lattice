@@ -419,6 +419,7 @@ export function LiteratureDiscoveryPanel(props: {
       {!loading && !results.length && !error && !notice && (
         <EmptyState
           className="literature-empty"
+          fill
           icon={<ResearchArt drawing={READING_FOLIO} />}
           title={t`Find your next source`}
           description={t`Search alphaXiv and OpenAlex by title or topic`}
