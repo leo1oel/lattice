@@ -16,7 +16,14 @@ textarea {
   word-break: break-word;
 }
 
-:root {
+/*
+ * Theme previews. An element marked data-theme-preview="light|dark" (with
+ * data-tint-preview naming a tint) takes the palette of that appearance and
+ * tint whatever the window wears, and foundations.css recomputes every role
+ * on it, so Settings can draw both appearances of a tint or code theme from
+ * these blocks instead of copying their values.
+ */
+:root, [data-theme-preview] {
   /* Font roles. A build that embeds the Timeless family puts its faces
      first (scripts/private-fonts.ts); every other build uses these stacks.
      PingFang SC sets Chinese in both. Code stays on --editor-font. */
@@ -147,7 +154,7 @@ textarea {
  * that the panels, the editor and the fields share, and the lift that menus,
  * popovers, toasts and dialogs stand on.
  */
-:root, [data-tint="graphite"] {
+:root, [data-tint="graphite"], [data-theme-preview="light"][data-tint-preview="graphite"] {
   --bg: #f7f7f6;
   --panel: #fafafa;
   --panel-strong: #ffffff;
@@ -158,7 +165,7 @@ textarea {
   --tint-mark: #a4a4a6;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"], [data-theme-preview="dark"] {
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.12);
   --text: #e9e9e7;
@@ -226,7 +233,7 @@ textarea {
   --lattice-syntax-reference: #d59bf0;
 }
 
-:root[data-theme="dark"], :root[data-theme="dark"] [data-tint="graphite"] {
+:root[data-theme="dark"], :root[data-theme="dark"] [data-tint="graphite"], [data-theme-preview="dark"][data-tint-preview="graphite"] {
   --bg: #171718;
   --panel: #1a1a1c;
   /* Lifts step about 6% above the sheet, so a menu or dialog reads off it
@@ -248,7 +255,7 @@ textarea {
  * takes the full tint; the editor and panels take 70% of it. Text and lines
  * stay neutral. Graphite, the default, is the palette above.
  */
-[data-tint="paper"] {
+[data-tint="paper"], [data-theme-preview="light"][data-tint-preview="paper"] {
   --bg: #fbf6ef;
   --panel: #fefaf5;
   --panel-strong: #fcf9f4;
@@ -258,14 +265,14 @@ textarea {
   --editor-gutter: #fcf9f4;
   --tint-mark: #cdb38c;
 }
-:root[data-theme="dark"] [data-tint="paper"], :root[data-theme="dark"][data-tint="paper"] {
+:root[data-theme="dark"] [data-tint="paper"], :root[data-theme="dark"][data-tint="paper"], [data-theme-preview="dark"][data-tint-preview="paper"] {
   --bg: #191713;
   --panel: #1d1b18;
   --panel-strong: #22201d;
   --chrome-surface: #171410;
   --side-surface: #1d1b18;
 }
-[data-tint="sage"] {
+[data-tint="sage"], [data-theme-preview="light"][data-tint-preview="sage"] {
   --bg: #f2f9f3;
   --panel: #f8fdf8;
   --panel-strong: #f6fbf6;
@@ -275,14 +282,14 @@ textarea {
   --editor-gutter: #f6fbf6;
   --tint-mark: #9dc3a3;
 }
-:root[data-theme="dark"] [data-tint="sage"], :root[data-theme="dark"][data-tint="sage"] {
+:root[data-theme="dark"] [data-tint="sage"], :root[data-theme="dark"][data-tint="sage"], [data-theme-preview="dark"][data-tint-preview="sage"] {
   --bg: #141915;
   --panel: #191c1a;
   --panel-strong: #1e211f;
   --chrome-surface: #111612;
   --side-surface: #191c1a;
 }
-[data-tint="mist"] {
+[data-tint="mist"], [data-theme-preview="light"][data-tint-preview="mist"] {
   --bg: #f0f8ff;
   --panel: #f6fcff;
   --panel-strong: #f4faff;
@@ -292,14 +299,14 @@ textarea {
   --editor-gutter: #f4faff;
   --tint-mark: #98bcdc;
 }
-:root[data-theme="dark"] [data-tint="mist"], :root[data-theme="dark"][data-tint="mist"] {
+:root[data-theme="dark"] [data-tint="mist"], :root[data-theme="dark"][data-tint="mist"], [data-theme-preview="dark"][data-tint-preview="mist"] {
   --bg: #12181d;
   --panel: #181c1f;
   --panel-strong: #1d2125;
   --chrome-surface: #0f151a;
   --side-surface: #181c1f;
 }
-[data-tint="dusk"] {
+[data-tint="dusk"], [data-theme-preview="light"][data-tint-preview="dusk"] {
   --bg: #f8f5ff;
   --panel: #fcfaff;
   --panel-strong: #faf8ff;
@@ -309,7 +316,7 @@ textarea {
   --editor-gutter: #faf8ff;
   --tint-mark: #bdafd9;
 }
-:root[data-theme="dark"] [data-tint="dusk"], :root[data-theme="dark"][data-tint="dusk"] {
+:root[data-theme="dark"] [data-tint="dusk"], :root[data-theme="dark"][data-tint="dusk"], [data-theme-preview="dark"][data-tint-preview="dusk"] {
   --bg: #18161d;
   --panel: #1c1a1f;
   --panel-strong: #211f24;
@@ -358,7 +365,7 @@ textarea {
  * more coat together, a white veil of --glass-lift. The editors, PDFs, the
  * agent, the tool panels and every dialog stay opaque.
  */
-:root {
+:root, [data-theme-preview] {
   --window: var(--bg);
   --glass-shell: 100%;
   --glass-panel: 100%;

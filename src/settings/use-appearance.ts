@@ -74,6 +74,9 @@ export function useAppearance(): Appearance {
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.codeTheme = codeTheme;
+    // Whether the source editor's ground is light or dark, which a dark-only
+    // code theme makes independent of the app's appearance.
+    root.dataset.codeThemeKind = codeThemeKind;
     for (const [name, value] of Object.entries(codeThemeProperties(codeTheme, codeThemeKind, theme))) {
       root.style.setProperty(name, value);
     }
