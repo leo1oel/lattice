@@ -70,16 +70,24 @@
 .lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--drop-target-edge) 45%, var(--border-subtle)), var(--elevation-dialog-shadow); }
 
 /* ---------------------------------------------------------------- header
-   Every panel's header is its own surface: the strip, the selected tab and
-   the body below are one sheet, with no fill to tell them apart. The selected
-   tab is a hairline-ringed plate standing on the compact control height,
-   centred in the strip, in the primary ink; the other tabs are only their
-   label in the secondary ink until a pointer finds them. The whole strip
-   drags the panel, and tabs, actions and the menu never overlap. */
+   Every panel's header is its own surface: the strip and the body below are
+   one sheet. The selected tab is a plate one step deeper than that sheet (one
+   step lighter in dark: a tint of the ink), with no ring, standing on the
+   compact control height, centred in the strip, in the primary ink; the
+   other tabs are only their label in the secondary ink until a pointer finds
+   them, with a fainter fill. The whole strip drags the panel, and tabs,
+   actions and the menu never overlap. */
 .lattice-trellis .trellis { --lattice-tabstrip: transparent; }
 /* Declared on the panel so it resolves against the panel's own surface: what
-   a dragged tab and the header's raised controls stand on. */
-.lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
+   a dragged tab and the header's raised controls stand on. The selected
+   tab's plate is 10% of the ink, twice a hovered tab's 5%
+   (--control-hover-surface): at the tree's 8% the two read as one. It is laid
+   on that surface rather than over it, so it stays opaque while the tab rides
+   over its neighbours in a drag. */
+.lattice-trellis [data-trellis-part="panel"] {
+  --trellis-tab-active: var(--lattice-panel-surface);
+  --trellis-tab-selected: color-mix(in srgb, var(--text-primary) 10%, var(--trellis-tab-active));
+}
 /* The tabs stand as far from the panel's side as from its top: the compact
    tab centred in the 34px strip leaves 3px all round. The first tab's corner
    then runs parallel to the panel's, inner radius = outer radius - inset
@@ -116,9 +124,16 @@
 .lattice-trellis [data-trellis-part="tab"][data-selected]:hover,
 .lattice-trellis [data-trellis-part="panel"][data-focused] [data-trellis-part="tab"][data-selected],
 .lattice-trellis [data-trellis-part="tabbar"][data-focused] [data-trellis-part="tab"][data-selected] {
-  background: transparent;
+  background: var(--trellis-tab-selected);
   color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
+  box-shadow: none;
+}
+/* Increased contrast keeps the fill and rings it too, as the panel is ringed. */
+@media (prefers-contrast: more) {
+  .lattice-trellis [data-trellis-part="tab"][data-selected],
+  .lattice-trellis [data-trellis-part="tab"][data-selected]:hover,
+  .lattice-trellis [data-trellis-part="panel"][data-focused] [data-trellis-part="tab"][data-selected],
+  .lattice-trellis [data-trellis-part="tabbar"][data-focused] [data-trellis-part="tab"][data-selected] { box-shadow: inset 0 0 0 1px var(--border-strong); }
 }
 /* No flared corners: the selected tab no longer runs into the body below. */
 .lattice-trellis [data-trellis-part="tab"][data-selected]::before,
