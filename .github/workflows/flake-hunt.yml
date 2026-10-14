@@ -1,0 +1,102 @@
+name: Flake hunt
+
+# Runs the suites more often, and under more stress, than one CI run does, so
+# a flake shows up here at night rather than on a worker's pull request. Each
+# failure is commented on the "Known flakes" issue by scripts/known-flakes.mjs.
+#
+# - The three Vitest shards, three passes each. Two passes move the wall
+#   clock with libfaketime, which starts it afresh in every process, and so in
+#   every isolated test file: `before-midnight` loads each file at 23:59:50
+#   UTC, so a time taken at load and one taken during the test can fall on
+#   different days; `after-midnight` loads it at 00:00:05, so a fixture dated
+#   a little before "now" lands on yesterday. That pass reproduced the
+#   overleaf-history flake on its first run.
+#   `lattice/module-clock` rejects the commonest form statically; these
+#   passes catch the rest.
+# - `cargo test` three times with 16 threads, more than the runner has cores,
+#   which widens races between tests such as two binding the same free port.
+on:
+  schedule:
+    # 07:17 UTC: away from the hour, when scheduled runs queue, and from the
+    # working day's macOS runner demand.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  vitest:
+    name: vitest (${{ matrix.pass }}, ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+        pass: [plain, before-midnight, after-midnight]
+        include:
+          - pass: before-midnight
+            clock: "23:59:50"
+          - pass: after-midnight
+            clock: "00:00:05"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      # The transforms main's CI last cached, as ci.yml's test shards do.
+      - uses: actions/cache/restore@v5
+        with:
+          path: node_modules/.experimental-vitest-cache
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - if: ${{ !matrix.clock }}
+        run: pnpm vitest run --shard=${{ matrix.shard }}/3
+      - if: ${{ matrix.clock }}
+        name: pnpm vitest run, each process starting at ${{ matrix.clock }} UTC
+        env:
+          TZ: UTC
+          # Timers and performance.now() keep real time; only the wall clock
+          # is moved.
+          FAKETIME_DONT_FAKE_MONOTONIC: "1"
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q faketime
+          faketime -f "@$(date -u +%F) ${{ matrix.clock }}" pnpm vitest run --shard=${{ matrix.shard }}/3
+
+  # Named `rust` like ci.yml's job: rust-cache keys its cache by job id, so
+  # this restores what main's CI last compiled instead of building cold.
+  rust:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: false
+      - name: Stub bundled runtime resources for compilation
+        run: |
+          mkdir -p src-tauri/synara-runtime
+          echo stub > src-tauri/synara-runtime/placeholder.txt
+      # Every pass runs even after one fails, so one night counts each flake.
+      - run: |
+          failed=0
+          for pass in 1 2 3; do
+            echo "::group::pass $pass"
+            cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=16 || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+  record:
+    needs: [vitest, rust]
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/known-flakes.mjs
+          sparse-checkout-cone-mode: false
+      - run: node scripts/known-flakes.mjs --run ${{ github.run_id }} --attempt ${{ github.run_attempt }} --kind hunt

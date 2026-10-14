@@ -22,6 +22,13 @@ it is green locally but red in CI, suspect its freshness cache first:
 
 ## A failed check
 
+A red CI check that your change cannot reach is probably a known flake: search
+the pinned [Known flakes](https://github.com/leo1oel/lattice/issues/342) issue
+for the test's name before you investigate it. When CI fails on `main`,
+`flake-rerun.yml` re-runs the failed jobs once and records any that pass there.
+`flake-hunt.yml` records what fails in its nightly stress passes. The issue
+also holds the quarantine policy. Otherwise:
+
 1. Read the failing CI job's log, or your local log file, from the **first**
    fatal error; a tail-only summary hides it. Keep long output in a file under
    `.tmp/<task>/` and print bounded excerpts (`grep -n -m 20`, `sed -n`).
