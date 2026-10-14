@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.classify.outputs.code }}
+      synara-pin: ${{ steps.classify.outputs.synara-pin }}
     steps:
       # A pull_request run checks out the PR merged into its base, so the merge
       # commit's first parent is the base and the diff between them is exactly
@@ -51,15 +52,18 @@ jobs:
         run: |
           if [ "$EVENT" != pull_request ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "synara-pin=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # --no-renames lists a rename as its deletion plus its addition, so
           # moving code into docs/ still counts as touching code.
           changed=$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD)
           code=false
+          synara_pin=false
           [ -n "$changed" ] || code=true
           while IFS= read -r path; do
             [ -n "$path" ] || continue
+            [ "$path" != scripts/synara-runtime.json ] || synara_pin=true
             case "$path" in
               THIRD_PARTY_NOTICES.md) ;;
               docs/* | .github/ISSUE_TEMPLATE/*) continue ;;
@@ -72,6 +76,24 @@ jobs:
             code=true
           done <<< "$changed"
           echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+          echo "synara-pin=$synara_pin" | tee -a "$GITHUB_OUTPUT"
+
+  # A Synara pin move must keep the fork's history linear: the pin reachable
+  # from its declared branch, and the previous pin its ancestor, so a pin cut
+  # from a side branch cannot drop another lane's Synara change. The previous
+  # pin is the base's (the merge commit's first parent on a pull request, the
+  # prior main commit on a push). It fetches only the fork's commits and needs
+  # no install. Pushes to main always start it; the script exits at once when
+  # the pin did not move.
+  synara-pin:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.synara-pin != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - run: node scripts/check-synara-pin.mjs HEAD^1
 
   test:
     name: test (${{ matrix.shard }}/3)

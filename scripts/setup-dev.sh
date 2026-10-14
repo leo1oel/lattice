@@ -18,7 +18,7 @@
 #      aarch64-apple-darwin target;
 #   4. installs a pinned, checksum-verified `uv` (optional — see that step);
 #   5. installs locked dependencies for the app, literature-worker and the
-#      Open Slide runtime;
+#      Open Slide runtime, and registers the catalog merge driver;
 #   6. fetches the pinned Synara source into SYNARA_SOURCE_DIR (defaulting to
 #      the `sourceDirectory` in scripts/synara-runtime.json) and installs it
 #      with bun — only needed to run the real agent sidecar;
@@ -26,7 +26,7 @@
 #      manifest without a staged Synara bundle;
 #   8. warms the cargo registry.
 #
-# It only writes inside the repository, ~/.local, ~/.cargo and the Synara source
+# It only writes inside the repository (including its git config), ~/.local, ~/.cargo and the Synara source
 # directory. It does not edit your shell profile: the last thing it prints is
 # the PATH line to add yourself.
 #
@@ -186,6 +186,9 @@ bun_bin="$repo_root/node_modules/.bin/bun"
 if ! "$bun_bin" --version >/dev/null 2>&1; then
   node node_modules/bun/install.js
 fi
+# The merge driver .gitattributes names for the Lingui catalogs, so branches
+# that each add a string stop conflicting on the generated messages.po files.
+node scripts/merge-po.mjs --install
 finish_step
 
 start_step "Installing pinned Synara dependencies"
