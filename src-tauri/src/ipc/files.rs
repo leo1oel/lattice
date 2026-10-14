@@ -154,7 +154,11 @@ pub async fn import_project_files(
             }
             reported = Instant::now();
             // `emit` would reach every window, and only this one is importing.
-            let _ = window.emit_to(window.label(), "project-import-progress", ImportProgress { written, total });
+            let _ = window.emit_to(
+                window.label(),
+                "project-import-progress",
+                ImportProgress { written, total },
+            );
         })
     })
     .await

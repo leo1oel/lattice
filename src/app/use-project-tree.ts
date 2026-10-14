@@ -294,11 +294,12 @@ export function useProjectTree(deps: ProjectTreeDeps) {
 
   /**
    * Run an import into the project tree and settle what it added: re-admit
-   * the paths to view-state memory, then refresh the tree and history.
+   * the paths to view-state memory, then refresh the tree and history. A
+   * failure goes to `fail`, or an error toast.
    */
   const importIntoProject = useCallback(async (
     run: () => Promise<string[]>,
-    fail: (reason: unknown) => void = (reason) => showError(toMessage(reason)),
+    fail?: (reason: unknown) => void,
   ): Promise<string[]> => {
     if (assetImportingRef.current) return [];
     setAssetImporting(true);
@@ -310,7 +311,8 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       return imported;
     };
     return settle().catch((reason: unknown) => {
-      fail(reason);
+      if (fail) fail(reason);
+      else showError(toMessage(reason));
       return [];
     }).finally(() => {
       setAssetImporting(false);
