@@ -120,7 +120,8 @@ export function ProjectTreeBackgroundMenu({ actions }: { actions: MenuAction[] }
         <ContextMenuItem
           key={action.label}
           {...menuItemRole(action)}
-          // Only a creation must wait for the menu to release focus.
+          disabled={action.disabled}
+          // Only a creation or an import must wait for the menu to release focus.
           onSelect={action.checked === undefined ? () => afterMenuClose(action.run) : action.run}
         >
           <action.icon size={14} />{action.label}

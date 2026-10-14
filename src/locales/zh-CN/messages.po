@@ -291,6 +291,10 @@ msgstr "{count} 张图片"
 msgid "{count} hits"
 msgstr "{count} 处"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "{count} items with these names are already here"
+msgstr "已有 {count} 个同名项目"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} line"
 msgstr "{count} 行"
@@ -1259,10 +1263,18 @@ msgstr "外部程序"
 msgid "Alpha"
 msgstr "阿尔法"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Already in {targetDirectory}:"
+msgstr "已在 {targetDirectory} 中："
+
 #: src/papers/add-papers-sheet.tsx
 #: src/project/paper-library.tsx
 msgid "Already in Papers"
 msgstr "已在论文库"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Already in the project root:"
+msgstr "已在项目根目录中："
 
 #. placeholder {0}: list(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
@@ -1301,9 +1313,17 @@ msgstr "有一条文献的引用名无效"
 msgid "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
 msgstr "索引已对上这条文献，但没能连上官方论文集来确认。这不代表这条有错。"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "An item with this name is already here"
+msgstr "已有同名项目"
+
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "Overleaf 的更新对不上，需要重新载入"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "and {hidden} more"
+msgstr "另有 {hidden} 项"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
@@ -2044,6 +2064,7 @@ msgstr "最多 15 分钟"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/import-conflict-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
@@ -2326,6 +2347,14 @@ msgstr "选一条文献，看看查了什么"
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "选择一条文献，查看它在哪里被引用并编辑字段"
+
+#: src/app/use-project-tree.ts
+msgid "Choose files and folders to import into {targetDirectory}"
+msgstr "选择要导入到 {targetDirectory} 的文件和文件夹"
+
+#: src/app/use-project-tree.ts
+msgid "Choose files and folders to import into the project root"
+msgstr "选择要导入到项目根目录的文件和文件夹"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4574,6 +4603,10 @@ msgstr "用于排查 AI 问题。密码已隐藏，但可能含路径和正文"
 msgid "For all"
 msgstr "任意"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "For each item already here"
+msgstr "对每个同名项目"
+
 #: src/App.tsx
 msgid "Format"
 msgstr "排版"
@@ -5081,6 +5114,11 @@ msgstr "虚部"
 msgid "Implies"
 msgstr "蕴含"
 
+#: src/app/use-project-tree.ts
+#: src/project/import-conflict-dialog.tsx
+msgid "Import"
+msgstr "导入"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
@@ -5093,6 +5131,15 @@ msgstr "导入图片"
 #: src/app/use-project-tree.ts
 msgid "Import figures into {targetDirectory}"
 msgstr "导入图片到 {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Import files"
+msgstr "导入文件"
+
+#: src/project/project-file-tree.tsx
+#: src/project/project-new-entries.ts
+msgid "Import files…"
+msgstr "导入文件…"
 
 #: src/project/project-file-tree.tsx
 msgid "Import images here"
@@ -5110,6 +5157,14 @@ msgstr "导入 ZIP"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Important"
 msgstr "重要"
+
+#: src/app/use-project-tree.ts
+msgid "Imported “{name}” into {targetDirectory}"
+msgstr "已导入“{name}”到 {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Imported “{name}” into the project root"
+msgstr "已导入“{name}”到项目根目录"
 
 #: src/app/use-reference-import.ts
 msgid "Imported “{title}” — cite it with {citationCommand}."
@@ -5135,10 +5190,22 @@ msgstr "已导入 {count} 张图片到 {targetDirectory}"
 msgid "Imported {count} figures into the project root."
 msgstr "已导入 {count} 张图片到项目根目录"
 
+#: src/app/use-project-tree.ts
+msgid "Imported {count} items into {targetDirectory}"
+msgstr "已导入 {count} 项到 {targetDirectory}"
+
+#: src/app/use-project-tree.ts
+msgid "Imported {count} items into the project root"
+msgstr "已导入 {count} 项到项目根目录"
+
 #. placeholder {0}: work.arxivId
 #: src/papers/literature-discovery-panel.tsx
 msgid "Imported arXiv:{0}"
 msgstr "已导入 arXiv:{0}"
+
+#: src/app/use-project-tree.ts
+msgid "Importing files…"
+msgstr "正在导入文件…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Importing ZIP…"
@@ -5534,6 +5601,10 @@ msgstr "卡帕"
 msgid "Keep"
 msgstr "保留"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Keep both"
+msgstr "保留两者"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep both, yours first"
 msgstr "两边都留，你的在前"
@@ -5565,6 +5636,10 @@ msgstr "把参考文献放在写作旁边"
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "用本机的"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "Keep what is here and import the rest"
+msgstr "保留现有项目，只导入其余的"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keeping both"
@@ -7241,6 +7316,10 @@ msgstr "还没有任何改动"
 msgid "Nothing here"
 msgstr "这里没有内容"
 
+#: src/app/use-project-tree.ts
+msgid "Nothing imported"
+msgstr "没有导入任何项目"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
 msgstr "继续前不会收发任何内容"
@@ -7882,6 +7961,10 @@ msgstr "导读"
 msgid "Overview only"
 msgstr "只有概览"
 
+#: src/project/import-conflict-dialog.tsx
+msgid "Overwrite files of the same name; merge folders"
+msgstr "覆盖同名文件，合并同名文件夹"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "{page} 页"
@@ -8390,6 +8473,7 @@ msgid "project"
 msgstr "项目"
 
 #: src/app/palette-sections.ts
+#: src/app/use-project-tree.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "项目"
@@ -8992,6 +9076,7 @@ msgstr "作者名重复，请先对照原文再删"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/project/import-conflict-dialog.tsx
 msgid "Replace"
 msgstr "替换"
 
@@ -10177,12 +10262,22 @@ msgid "Skills"
 msgstr "技能"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/import-conflict-dialog.tsx
 msgid "Skip"
 msgstr "跳过"
 
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
 msgstr "跳到下一个问题"
+
+#. placeholder {0}: skipped[0]
+#: src/app/use-project-tree.ts
+msgid "Skipped “{0}”, which is already there."
+msgstr "已跳过“{0}”，它已存在。"
+
+#: src/app/use-project-tree.ts
+msgid "Skipped {skippedCount} items that are already there."
+msgstr "已跳过 {skippedCount} 个已存在的项目。"
 
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 msgid "Slash commands"
@@ -10961,6 +11056,10 @@ msgstr "文件已与{name}一致。"
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处：{path}:{line}"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "The imported copies get a numbered name"
+msgstr "导入的副本使用带编号的名称"
 
 #: src/papers/audit-messages.ts
 msgid "The inline reference agrees with the verified record."

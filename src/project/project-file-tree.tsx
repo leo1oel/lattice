@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import { Check, ClipboardPaste, Copy, Eye, FilePlus, FolderOpen, FolderPlus, ImagePlus, Pencil } from "lucide-react";
+import { Check, ClipboardPaste, Copy, Eye, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil } from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { absoluteProjectPath } from "../app-utils";
@@ -39,8 +39,10 @@ const PROJECT_TREE_ITEM_HEIGHT = 28;
 export type ProjectFileTreeProps = {
   projectKey: string;
   searchOpen: boolean;
-  /** The latest creation the panel's + or ⋯ menu asked for. */
+  /** The latest creation (or import) the panel's + or ⋯ menu asked for. */
   newEntryRequest: NewEntryRequest | null;
+  /** Project paths an import just added: the tree reveals and selects them. */
+  revealRequest: { paths: string[]; serial: number } | null;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -59,6 +61,8 @@ export type ProjectFileTreeProps = {
   onCopyEntries: (paths: string[], targetDirectory: string) => Promise<string[]>;
   onReveal: (path: string) => void;
   onImportAssets: (targetDirectory?: string) => void;
+  /** Import files and folders from the Mac; "" is the project root. */
+  onImportFiles: (targetDirectory: string) => void;
   onPasteImage: (targetDirectory: string) => void;
   onError: (message: string) => void;
   /** "" targets the project root; only null means "no asset drag". */
@@ -208,6 +212,36 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     }
   }, [activePath, model, treeSignature]);
 
+  // An import selects what it added, opening the folders down to it and
+  // bringing the first into view. The paths can reach the tree a render after
+  // the request, so the request waits, through tree changes, until every one
+  // is listed; selecting here, like the sync above, opens no file.
+  const revealedSerialRef = useRef(0);
+  useEffect(() => {
+    const request = props.revealRequest;
+    if (!request || request.serial === revealedSerialRef.current) return;
+    const { nodes } = treeRef.current;
+    const ids = request.paths.map((path) => [path, toPierreDirectoryPath(path)].find((id) => nodes.has(id)));
+    if (!ids.length || ids.some((id) => id === undefined)) return;
+    revealedSerialRef.current = request.serial;
+    syncingSelectionRef.current = true;
+    try {
+      for (const id of ids as string[]) {
+        const segments = fromPierrePath(id).split("/").slice(0, -1);
+        segments.forEach((_segment, index) => {
+          const folder = model.getItem(toPierreDirectoryPath(segments.slice(0, index + 1).join("/")));
+          if (folder && "expand" in folder && !folder.isExpanded()) folder.expand();
+        });
+      }
+      for (const selected of model.getSelectedPaths()) model.getItem(selected)?.deselect();
+      for (const id of ids as string[]) model.getItem(id)?.select();
+      model.focusPath(ids[0] as string);
+      model.scrollToPath(ids[0] as string, { focus: false, offset: "nearest" });
+    } finally {
+      syncingSelectionRef.current = false;
+    }
+  }, [model, props.revealRequest, treeRef, treeSignature]);
+
   useEffect(() => {
     if (props.searchOpen) model.openSearch();
     else model.closeSearch();
@@ -272,6 +306,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     if (type === "latex") creation.begin(directory(), "file", "tex", true);
     else if (type === "markdown") creation.begin(directory(), "file", "md", true);
     else if (type === "folder") creation.begin(directory(), "folder");
+    else if (type === "import") props.onImportFiles(directory());
     else if (type === "spreadsheet") creation.begin("", "file", "lattice-sheet");
     else if (type === "board") creation.begin("", "file", "tldr");
     else creation.begin("slides", "presentation");
@@ -280,6 +315,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const creationActions = (directory: string): MenuAction[] => [
     { icon: FilePlus, label: t`New file`, run: () => creation.begin(directory, "file") },
     { icon: FolderPlus, label: t`New folder`, run: () => creation.begin(directory, "folder") },
+    { icon: FolderInput, label: t`Import files…`, disabled: props.assetImporting, run: () => props.onImportFiles(directory) },
   ];
   const hiddenFilesAction: MenuAction = {
     icon: showHidden ? Check : Eye,
