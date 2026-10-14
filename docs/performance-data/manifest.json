@@ -440,6 +440,209 @@
       "section": "Startup and project open (October 2026)",
       "header": "Cause | Where | Fix",
       "why": "Causes, the code they lived in and their fixes; the measurements are the prose below the table."
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
+      "header": "Cause | Fix",
+      "why": "Causes and their fixes; the measurements are the two tables below it."
+    },
+    {
+      "kind": "measured",
+      "doc": "docs/performance.md",
+      "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
+      "before": "394babf31223fef1f9cc5bff3b6a083050515524",
+      "after": "0102ff0bca0581ab65aeab9ea9f4329125ead866",
+      "afterNote": "The pull request's branch head (main merged), whose src/ the runs measured; the driver and this entry landed in the commit after it, which changed no file under src/.",
+      "argv": [
+        "node",
+        "scripts/perf-bench/divider-drag-timing.mjs",
+        "--before-ref",
+        "394babf31223fef1f9cc5bff3b6a083050515524",
+        "--runs",
+        "5",
+        "--json",
+        "docs/performance-data/divider-drag-2026-10-14-webkit.json"
+      ],
+      "fixture": "divider-drag-timing.mjs's FIXTURE (scripts/perf-fixture.mjs's project at largeMarkdownBytes 400000, chapterBytes 60000, longTexBytes 3200000, notes 40, codeBlocks 150, pdfPages 200, logLines 4000, with paperCount 600 papers in the library) on a production build of the bench page, light theme, English; scene tex opens long.tex, scene split opens large.md in Split",
+      "engine": "Playwright headless WebKit (playwright-core 1.63.0)",
+      "node": "26.5.0",
+      "viewport": "1440×900 at device scale 1",
+      "runs": "5 pairs per scene, tex then split; each pair loads a fresh page of each variant, before first in even pairs (0, 2, 4) and after first in odd ones; each page drags its boundaries one after another. Taken with a 1-minute load average of 12-26 (other work on the machine)",
+      "raw": "docs/performance-data/divider-drag-2026-10-14-webkit.json",
+      "figures": "scripts/perf-bench/divider-drag-figures.mjs",
+      "metrics": {
+        "work median ms": "Median over a drag's frames, from the press to 800 ms after the release, of the ms from the frame's animation callbacks to a task posted from them: the frame's scripts, style, layout and paint",
+        "work p95 ms": "The 95th percentile of those per-frame times (the value at floor(0.95 n) of the sorted list)",
+        "resize cursor %": "Of the drag's frames after the first pointer move, the share whose element under the pointer shows col-resize (row-resize for Project ↕ Papers), reading a shield drawn as an element's ::after as that pseudo-element's cursor"
+      },
+      "aggregation": "Median across a variant's 5 runs of one boundary in one scene (scripts/check-perf-evidence.mjs's median, the driver's). Cells round half away from zero to whole numbers.",
+      "header": "WebKit, `long.tex` | Left column, before | after | Project ↕ Papers, before | after | Editor ↔ PDF, before | after",
+      "columns": [
+        {
+          "scene": "tex",
+          "divider": "left",
+          "variant": "before"
+        },
+        {
+          "scene": "tex",
+          "divider": "left",
+          "variant": "after"
+        },
+        {
+          "scene": "tex",
+          "divider": "papers",
+          "variant": "before"
+        },
+        {
+          "scene": "tex",
+          "divider": "papers",
+          "variant": "after"
+        },
+        {
+          "scene": "tex",
+          "divider": "pdf",
+          "variant": "before"
+        },
+        {
+          "scene": "tex",
+          "divider": "pdf",
+          "variant": "after"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Work a frame, median (ms)",
+          "figures": [
+            "work median ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Work a frame, p95 (ms)",
+          "figures": [
+            "work p95 ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Frames with the resize cursor under the pointer (%)",
+          "figures": [
+            "resize cursor %"
+          ],
+          "digits": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "measured",
+      "doc": "docs/performance.md",
+      "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
+      "before": "394babf31223fef1f9cc5bff3b6a083050515524",
+      "after": "0102ff0bca0581ab65aeab9ea9f4329125ead866",
+      "afterNote": "The pull request's branch head (main merged), whose src/ the runs measured; the driver and this entry landed in the commit after it, which changed no file under src/.",
+      "argv": [
+        "node",
+        "scripts/perf-bench/divider-drag-timing.mjs",
+        "--before-ref",
+        "394babf31223fef1f9cc5bff3b6a083050515524",
+        "--runs",
+        "5",
+        "--json",
+        "docs/performance-data/divider-drag-2026-10-14-webkit.json"
+      ],
+      "fixture": "divider-drag-timing.mjs's FIXTURE (scripts/perf-fixture.mjs's project at largeMarkdownBytes 400000, chapterBytes 60000, longTexBytes 3200000, notes 40, codeBlocks 150, pdfPages 200, logLines 4000, with paperCount 600 papers in the library) on a production build of the bench page, light theme, English; scene tex opens long.tex, scene split opens large.md in Split",
+      "engine": "Playwright headless WebKit (playwright-core 1.63.0)",
+      "node": "26.5.0",
+      "viewport": "1440×900 at device scale 1",
+      "runs": "5 pairs per scene, tex then split; each pair loads a fresh page of each variant, before first in even pairs (0, 2, 4) and after first in odd ones; each page drags its boundaries one after another. Taken with a 1-minute load average of 12-26 (other work on the machine)",
+      "raw": "docs/performance-data/divider-drag-2026-10-14-webkit.json",
+      "figures": "scripts/perf-bench/divider-drag-figures.mjs",
+      "metrics": {
+        "work median ms": "Median over a drag's frames, from the press to 800 ms after the release, of the ms from the frame's animation callbacks to a task posted from them: the frame's scripts, style, layout and paint",
+        "work p95 ms": "The 95th percentile of those per-frame times (the value at floor(0.95 n) of the sorted list)",
+        "resize cursor %": "Of the drag's frames after the first pointer move, the share whose element under the pointer shows col-resize (row-resize for Project ↕ Papers), reading a shield drawn as an element's ::after as that pseudo-element's cursor"
+      },
+      "aggregation": "Median across a variant's 5 runs of one boundary in one scene (scripts/check-perf-evidence.mjs's median, the driver's). Cells round half away from zero to whole numbers.",
+      "header": "WebKit, `large.md` in Split | Source ↔ preview, before | after | Left column, before | after | Project ↕ Papers, before | after | Editor ↔ PDF, before | after",
+      "columns": [
+        {
+          "scene": "split",
+          "divider": "split",
+          "variant": "before"
+        },
+        {
+          "scene": "split",
+          "divider": "split",
+          "variant": "after"
+        },
+        {
+          "scene": "split",
+          "divider": "left",
+          "variant": "before"
+        },
+        {
+          "scene": "split",
+          "divider": "left",
+          "variant": "after"
+        },
+        {
+          "scene": "split",
+          "divider": "papers",
+          "variant": "before"
+        },
+        {
+          "scene": "split",
+          "divider": "papers",
+          "variant": "after"
+        },
+        {
+          "scene": "split",
+          "divider": "pdf",
+          "variant": "before"
+        },
+        {
+          "scene": "split",
+          "divider": "pdf",
+          "variant": "after"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Work a frame, median (ms)",
+          "figures": [
+            "work median ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Work a frame, p95 (ms)",
+          "figures": [
+            "work p95 ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Frames with the resize cursor under the pointer (%)",
+          "figures": [
+            "resize cursor %"
+          ],
+          "digits": [
+            0
+          ]
+        }
+      ]
     }
   ]
 }

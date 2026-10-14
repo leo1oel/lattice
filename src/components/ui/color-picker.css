@@ -1,0 +1,169 @@
+/* The one-surface color picker (color-picker.tsx). Its geometry follows the
+ * desktop editors it is held to (Figma, Framer, Confluence): a field, a hue
+ * strip with the eyedropper beside it, a hex row, then swatch groups. Focus
+ * is the app's one outline ring; nothing here draws its own. */
+
+.color-picker {
+  --cp-gap: var(--space-4);
+  box-sizing: border-box;
+  inline-size: 248px;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--cp-gap);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+}
+
+/* How the color reads where it lands, such as paper for a highlight. */
+.cp-preview { min-inline-size: 0; }
+
+.cp-verdict {
+  min-block-size: 20px;
+  margin-top: calc(var(--cp-gap) * -0.5);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  color: var(--status-warning);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+}
+.cp-verdict[data-ok] { color: var(--text-secondary); }
+.cp-verdict[data-ok] svg { color: var(--status-success); }
+.cp-verdict-text { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-verdict-ratio { margin-inline-start: var(--space-2); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.cp-verdict-fix {
+  block-size: 20px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: var(--status-warning-soft);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-medium);
+}
+
+/* Saturation across, brightness up. The hue is a custom property, so a drag
+   repaints one gradient rather than the swatches. */
+.cp-field {
+  --cp-hue: hsl(0 100% 50%);
+  position: relative;
+  block-size: 128px;
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(to top, #000, transparent),
+    linear-gradient(to right, #FFF, var(--cp-hue));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+  touch-action: none;
+  cursor: crosshair;
+}
+.cp-field-thumb, .cp-hue-thumb {
+  position: absolute;
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 2px #FFF, 0 0 0 3px rgb(0 0 0 / 22%), 0 1px 4px rgb(0 0 0 / 30%);
+  translate: -50% -50%;
+}
+
+.cp-strip-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: var(--space-4); }
+.cp-eyedropper {
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-input);
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+}
+.cp-eyedropper:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.cp-hue {
+  position: relative;
+  block-size: 10px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(to right, #F00 0%, #FF0 17%, #0F0 33%, #0FF 50%, #00F 67%, #F0F 83%, #F00 100%);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+}
+.cp-hue input { position: absolute; inset: -6px 0; inline-size: 100%; block-size: calc(100% + 12px); margin: 0; opacity: 0; cursor: pointer; }
+.cp-hue-thumb { inset-block-start: 50%; pointer-events: none; }
+/* The range input is invisible, so its thumb carries the ring. */
+.cp-hue:has(input:focus-visible) .cp-hue-thumb { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+.cp-hex {
+  block-size: var(--control-height-compact);
+  min-inline-size: 0;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--field-control-border-color);
+  border-radius: var(--radius-control);
+  background: var(--field-control-background);
+  display: grid;
+  grid-template-columns: 16px auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  font-size: var(--type-caption-size);
+}
+.cp-hex:focus-within { border-color: var(--field-control-interactive-border-color); }
+.cp-hex[data-invalid] { border-color: var(--control-invalid-border); }
+.cp-hex-chip { inline-size: 16px; block-size: 16px; border-radius: var(--radius-compact); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.cp-hex-hash { color: var(--text-tertiary); font-family: var(--editor-font); }
+.cp-hex-input {
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--weight-medium) var(--type-caption-size)/1 var(--editor-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  outline: none;
+}
+.cp-hex-name { max-inline-size: 110px; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.cp-hex[data-invalid] .cp-hex-name { color: var(--status-warning); }
+
+.cp-swatches { display: grid; gap: var(--space-2); min-inline-size: 0; }
+.cp-swatches-label { color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--weight-medium); }
+.cp-swatch-grid { --cp-columns: 8; display: grid; grid-template-columns: repeat(var(--cp-columns), minmax(0, 1fr)); gap: var(--space-2); }
+.cp-swatch {
+  aspect-ratio: 1;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-compact);
+  box-shadow: inset 0 0 0 1px rgb(36 36 38 / 10%);
+  color: #242426;
+  display: grid;
+  place-items: center;
+  transition: scale var(--motion-fast);
+}
+.cp-swatch:hover { scale: 1.08; }
+.cp-swatch[aria-checked="true"] { box-shadow: inset 0 0 0 1px rgb(36 36 38 / 10%), 0 0 0 2px var(--surface-elevated), 0 0 0 3.5px var(--text-primary); }
+
+.cp-footer {
+  margin: 0 calc(var(--space-4) * -1) calc(var(--space-4) * -1);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.cp-button {
+  block-size: var(--control-height-compact);
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--weight-medium) var(--type-caption-size)/1 var(--ui-font);
+}
+.cp-button:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.cp-button-primary, .cp-button-primary:hover { background: var(--control-active); color: var(--control-active-contrast); }
+.cp-button-primary svg { opacity: 0.7; }
+.cp-button:disabled { opacity: var(--control-disabled-opacity); }

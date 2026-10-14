@@ -37,6 +37,7 @@ import type { CitationInfo, DefinitionTarget, LocalMacro, ReferenceInfo, SymbolT
 import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
+import { highlightPaint } from "./latex-highlight-paint";
 
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 
@@ -361,6 +362,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
   };
   return [
     ...textEditorExtensions(options.spellcheck, options.live, options.onPasteImage),
+    highlightPaint(),
     citationTooltips(live, onGotoDefinition),
     referenceTooltips(live, options.loadReferenceImage),
     options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
