@@ -31,6 +31,11 @@
  *   --shard K/N     run every N-th scenario (then layout check), starting
  *                   at the K-th: CI splits one engine's run across N runners
  *   --runs N        runs per scenario; each gated count is its lowest across them (default 2)
+ *   --against REF   A/B instead of ceilings: build REF (such as origin/main) beside
+ *                   this checkout and run each scenario on both, alternating, in
+ *                   one browser; print each count on both sides and the change.
+ *                   Exits 0 whatever moved: a local red against a ceiling on a
+ *                   busy machine is answered by whether REF measures the same.
  *   --json FILE     write every run, with the components that rendered and why
  *   --dev           use the Vite dev server: readable component names and
  *                   profiles, and counts equal to production's (not gated)
@@ -78,14 +83,15 @@
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
-import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
+import { applyBudgets, bestOf, COUNTS, gatedCounts } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
@@ -123,7 +129,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
+  const options = { runs: 2, against: null, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -133,6 +139,7 @@ function parseArgs(argv) {
     else if (arg === "--dev") options.dev = true;
     else if (arg === "--keep-open") options.keepOpen = true;
     else if (arg === "--runs") options.runs = Number(argv[++index]);
+    else if (arg === "--against") options.against = argv[++index];
     else if (arg === "--only") options.only = argv[++index].split(",");
     else if (arg === "--shard") options.shard = parseShard(argv[++index]);
     else if (arg === "--json") options.json = argv[++index];
@@ -164,6 +171,11 @@ function parseArgs(argv) {
   if (options.locale && !options.smoke) throw new Error("--locale sets the browser language of --smoke's page; add --smoke");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
+  if (options.against !== null) {
+    if (!options.against) throw new Error("--against takes a git ref, such as origin/main");
+    const clash = ["--check", "--ratchet", "--update", "--layout", "--serve", "--smoke", "--url", "--dev", "--profile", "--json", "--keep-open", "--dist"].filter((flag) => argv.includes(flag));
+    if (clash.length) throw new Error(`--against compares two production builds and holds no ceilings; it cannot take ${clash.join(", ")}`);
+  }
   return options;
 }
 
@@ -217,6 +229,10 @@ function freePort() {
  */
 const buildDirs = new Set();
 function removeBuildDir(dir) {
+  // --against's base tree links this checkout's node_modules; unlink that
+  // first so removing the tree can never reach into the real one.
+  const link = path.join(dir, "node_modules");
+  if (lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync(link);
   rmSync(dir, { recursive: true, force: true });
   buildDirs.delete(dir);
 }
@@ -226,8 +242,9 @@ process.on("exit", () => {
 
 /**
  * Runs a slow step, saying on stderr what it is when it starts and every 15 s
- * until it ends. A production build takes about 15 s and prints nothing
- * itself (logLevel "warn"), so without this a caller waiting for --serve's URL
+ * until it ends. A production build takes about 40 s on a Linux CI runner and
+ * 2 min on a macOS one, more on a busy laptop, and prints nothing itself
+ * (logLevel "warn"), so without this a caller waiting for --serve's URL
  * could not tell a slow build from a hung one, and a run killed by a timeout
  * left no trace of where it was.
  */
@@ -261,9 +278,10 @@ function closedOnShutdown(close) {
   return { close: closeOnce };
 }
 
-function startPage(options, settings) {
+function startPage(options, settings = {}) {
   if (options.dist) return step(`serving the bench page built in ${options.dist} (sha256 ${hashTree(options.dist)})`, () => startVite(true, { ...settings, dist: options.dist }));
-  return step(options.dev ? "starting the dev server" : "building the bench page (a production build, about 15 s; --dev skips it)", () => startVite(!options.dev, settings));
+  const what = settings.label ?? "the bench page";
+  return step(options.dev ? "starting the dev server" : `building ${what} (a production build, 40 s to 2 min; --dev skips it)`, () => startVite(!options.dev, settings));
 }
 
 /**
@@ -275,10 +293,10 @@ function startPage(options, settings) {
  * wants to see the edit. `dist`, a --build-only directory, is served as it
  * is and left in place.
  */
-async function startVite(production, { port = 0, live = false, dist = null } = {}) {
+async function startVite(production, { port = 0, live = false, root = repo, dist = null } = {}) {
   const { createServer, preview } = await import("vite");
   if (!port) port = await freePort();
-  const shared = viteShared();
+  const shared = viteShared(root);
   if (production) {
     const outDir = dist ?? mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-dist-"));
     const removeOwnBuild = () => {
@@ -286,7 +304,7 @@ async function startVite(production, { port = 0, live = false, dist = null } = {
     };
     if (!dist) buildDirs.add(outDir);
     try {
-      if (!dist) await buildPage(outDir);
+      if (!dist) await buildPage(outDir, root);
       const server = await withoutSigtermExit(() => preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } }));
       return {
         server: closedOnShutdown(async () => {
@@ -309,26 +327,35 @@ async function startVite(production, { port = 0, live = false, dist = null } = {
   return { server: closedOnShutdown(() => server.close()), origin: `http://127.0.0.1:${port}`, outDir: null };
 }
 
-function viteShared() {
-  return { root: repo, configFile: path.join(repo, "vite.config.ts"), logLevel: "warn", clearScreen: false };
+function viteShared(root = repo) {
+  return { root, configFile: path.join(root, "vite.config.ts"), logLevel: "warn", clearScreen: false };
 }
 
-/** The production build of the bench page into `outDir`, which it empties. */
-async function buildPage(outDir) {
+/** The production build of the bench page in `root` into `outDir`, which it empties. */
+async function buildPage(outDir, root = repo) {
   const { build } = await import("vite");
-  await build({
-    ...viteShared(),
-    build: {
-      outDir,
-      emptyOutDir: true,
-      rolldownOptions: {
-        input: { bench: path.join(repo, BENCH_PAGE) },
-        // The bench page must install its mock backend before the app's
-        // modules run; the app config merges them into one chunk.
-        output: { strictExecutionOrder: true },
+  // Lingui finds its config, and matches catalogs to it, from the working
+  // directory rather than Vite's root, so --against's base tree builds from
+  // inside it. Builds run one at a time, so the switch is never shared.
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    await build({
+      ...viteShared(root),
+      build: {
+        outDir,
+        emptyOutDir: true,
+        rolldownOptions: {
+          input: { bench: path.join(root, BENCH_PAGE) },
+          // The bench page must install its mock backend before the app's
+          // modules run; the app config merges them into one chunk.
+          output: { strictExecutionOrder: true },
+        },
       },
-    },
-  });
+    });
+  } finally {
+    process.chdir(cwd);
+  }
 }
 
 /**
@@ -655,6 +682,7 @@ async function main() {
   if (options.serve) return serve(options);
   if (options.smoke) return smoke(options);
   const { scenarios, checks } = selectWork(options);
+  if (options.against) return against(options, scenarios);
   const vite = options.url ? null : await startPage(options);
   try {
     if (scenarios.length) await benchmark(options, scenarios, vite);
@@ -664,58 +692,70 @@ async function main() {
   }
 }
 
+/**
+ * The first load pays for Vite's dependency optimisation, which may reload
+ * the page once; measuring starts on the next, warm load.
+ */
+async function warmUp(browser, url) {
+  const warm = await browser.open();
+  await warm.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
+  await loadApp(warm, url).catch((error) => {
+    console.error(warm.console.slice(-30).join("\n"));
+    throw error;
+  });
+  await warm.close();
+}
+
+/** One run of one scenario on a fresh page of `url`. */
+async function runScenario(browser, url, scenario, options, run, tag = "") {
+  const page = await browser.open();
+  await page.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
+  try {
+    let driver;
+    if (scenario.startup) {
+      await page.navigate("about:blank");
+      driver = Object.assign(new BenchDriver(page), { url });
+    } else {
+      driver = await loadApp(page, url);
+      await scenario.setup(driver);
+      await driver.settle({ quietMs: 1_000, timeout: 60_000 });
+    }
+    const profileTo = options.profile && run === 0 ? path.join(options.profile, `${scenario.name}.cpuprofile`) : null;
+    return await measure(page, driver, scenario, profileTo);
+  } catch (error) {
+    const shot = await page.send("Page.captureScreenshot", { format: "png" }).catch(() => null);
+    const file = path.join(os.tmpdir(), `lattice-perf-bench-${scenario.name}${tag}.png`);
+    if (shot) {
+      writeFileSync(file, Buffer.from(shot.data, "base64"));
+      console.error(`Screenshot of the failure: ${file}`);
+    }
+    console.error(page.console.slice(-30).join("\n"));
+    throw new Error(`${scenario.name}${tag}: ${error.message}`, { cause: error });
+  } finally {
+    if (!options.keepOpen) await page.close();
+  }
+}
+
+/** The per-run spread of the counts that move most, so noise shows next to a result. */
+function acrossRuns(options, runs) {
+  const across = [["commits", (run) => run.commits], ["idle commits", (run) => run.info.idleCommits]];
+  if (options.engine === "chromium") across.push(["recalcs", (run) => run.recalcs]);
+  return across.map(([name, of]) => `${name} ${runs.map(of).join("/")}`).join(", ");
+}
+
 /** Measures each scenario, prints the table and holds the counts to their ceilings. */
 async function benchmark(options, scenarios, vite) {
   const browser = await launchBrowser(options);
   const results = [];
   try {
     const url = options.url ?? benchUrl(vite.origin);
-    // The first load pays for Vite's dependency optimisation, which may reload
-    // the page once; measuring starts on the next, warm load.
-    {
-      const warm = await browser.open();
-      await warm.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
-      await loadApp(warm, url).catch((error) => {
-        console.error(warm.console.slice(-30).join("\n"));
-        throw error;
-      });
-      await warm.close();
-    }
+    await warmUp(browser, url);
     for (const scenario of scenarios) {
       const runs = [];
-      for (let run = 0; run < options.runs; run += 1) {
-        const page = await browser.open();
-        await page.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
-        try {
-          let driver;
-          if (scenario.startup) {
-            await page.navigate("about:blank");
-            driver = Object.assign(new BenchDriver(page), { url });
-          } else {
-            driver = await loadApp(page, url);
-            await scenario.setup(driver);
-            await driver.settle({ quietMs: 1_000, timeout: 60_000 });
-          }
-          const profileTo = options.profile && run === 0 ? path.join(options.profile, `${scenario.name}.cpuprofile`) : null;
-          runs.push(await measure(page, driver, scenario, profileTo));
-        } catch (error) {
-          const shot = await page.send("Page.captureScreenshot", { format: "png" }).catch(() => null);
-          const file = path.join(os.tmpdir(), `lattice-perf-bench-${scenario.name}.png`);
-          if (shot) {
-            writeFileSync(file, Buffer.from(shot.data, "base64"));
-            console.error(`Screenshot of the failure: ${file}`);
-          }
-          console.error(page.console.slice(-30).join("\n"));
-          throw new Error(`${scenario.name}: ${error.message}`, { cause: error });
-        } finally {
-          if (!options.keepOpen) await page.close();
-        }
-      }
+      for (let run = 0; run < options.runs; run += 1) runs.push(await runScenario(browser, url, scenario, options, run));
       const result = bestOf(scenario.name, runs);
       results.push({ scenario, result, runs });
-      const across = [["commits", (run) => run.commits], ["idle commits", (run) => run.info.idleCommits]];
-      if (options.engine === "chromium") across.push(["recalcs", (run) => run.recalcs]);
-      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")} (across runs: ${across.map(([name, of]) => `${name} ${runs.map(of).join("/")}`).join(", ")})`);
+      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")} (across runs: ${acrossRuns(options, runs)})`);
     }
   } finally {
     if (!options.keepOpen) await browser.close();
@@ -754,6 +794,84 @@ async function benchmark(options, scenarios, vite) {
     console.log(`work is intended, raise the ceiling in ${path.relative(repo, budgetsFile)} and say why in the pull request.`);
     if (options.check) process.exitCode = 1;
   }
+}
+
+/**
+ * `--against REF`: the A/B a local red calls for. A ceiling was set on a CI
+ * runner, and a laptop running other builds measures some counts well above
+ * it (long-tex-typing's mutations read 165 in one run and 214 in another on
+ * main, against a ceiling of 195), so a red here says little until the base
+ * measures the same. This builds REF from `git archive` into a temporary
+ * directory that borrows this checkout's node_modules (no worktree is
+ * registered), serves both builds, and runs every scenario on each in one
+ * browser, alternating which goes first, so load and order fall on both
+ * sides alike. The scenarios and their driver are this checkout's.
+ */
+async function against(options, scenarios) {
+  const sha = execFileSync("git", ["rev-parse", "--verify", `${options.against}^{commit}`], { cwd: repo, encoding: "utf8" }).trim();
+  const label = `${options.against} (${sha.slice(0, 9)})`;
+  const baseRoot = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-base-"));
+  buildDirs.add(baseRoot);
+  await step(`extracting ${label}`, async () => {
+    execFileSync("sh", ["-c", 'git archive "$1" | tar -x -C "$2"', "sh", sha, baseRoot], { cwd: repo });
+    symlinkSync(path.join(repo, "node_modules"), path.join(baseRoot, "node_modules"), "dir");
+  });
+  const sameLockfile = (() => {
+    try {
+      execFileSync("git", ["diff", "--quiet", sha, "--", "pnpm-lock.yaml"], { cwd: repo });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (!sameLockfile) console.error(`perf-bench: pnpm-lock.yaml differs from ${label}; its build uses this checkout's dependencies`);
+
+  const head = await startPage(options, { label: "this checkout's bench page" });
+  const base = await startPage(options, { label: `the bench page of ${label}`, root: baseRoot });
+  const browser = await step(`starting ${options.engine}`, () => launchBrowser(options));
+  const sides = [
+    { name: "base", url: benchUrl(base.origin) },
+    { name: "head", url: benchUrl(head.origin) },
+  ];
+  const rows = [];
+  try {
+    for (const side of sides) await warmUp(browser, side.url);
+    for (const scenario of scenarios) {
+      const runs = { base: [], head: [] };
+      for (let run = 0; run < options.runs; run += 1) {
+        for (const side of run % 2 ? [...sides].reverse() : sides) {
+          runs[side.name].push(await runScenario(browser, side.url, scenario, options, run, ` (${side.name})`));
+        }
+      }
+      const best = { base: bestOf(scenario.name, runs.base), head: bestOf(scenario.name, runs.head) };
+      rows.push({ scenario, best, runs });
+      console.error(`${scenario.name}: base ${acrossRuns(options, runs.base)}; head ${acrossRuns(options, runs.head)}`);
+    }
+  } finally {
+    await browser.close();
+    await head.server.close();
+    await base.server.close();
+    removeBuildDir(baseRoot);
+  }
+
+  console.log(`\nA/B per ${options.runs} run(s) each, base ${label} vs head (this checkout); each count is its fewest across runs.`);
+  // Every run's value beside the fewest, so a count that moves this much
+  // between runs of one side reads as noise, not as the change.
+  const table = [["scenario", "count", "base", "head", "change", "base runs", "head runs"]];
+  for (const { scenario, best, runs } of rows) {
+    const gated = gatedCounts(scenario.name);
+    for (const key of COUNTS) {
+      const [a, b] = [best.base[key], best.head[key]];
+      if (a === null || b === null) continue;
+      const change = a === b ? "=" : `${b > a ? "+" : ""}${b - a}${a ? ` (${b > a ? "+" : ""}${Math.round(((b - a) / a) * 100)}%)` : ""}`;
+      const each = (side) => runs[side].map((run) => run[key]).join("/");
+      table.push([scenario.name, gated.includes(key) ? key : `${key} (report-only)`, String(a), String(b), change, each("base"), each("head")]);
+    }
+  }
+  const widths = table[0].map((_, column) => Math.max(...table.map((row) => row[column].length)));
+  console.log(table.map((row) => row.map((cell, column) => cell.padEnd(widths[column])).join("  ")).join("\n"));
+  console.log("\nCeilings are not checked here; CI holds them. A change within either side's own spread across runs");
+  console.log("is noise; a regression worth a look multiplies a count, on every run. Add --runs to narrow a close call.");
 }
 
 await main().catch((error) => {

@@ -101,6 +101,11 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `--profile DIR` saves a CPU profile of each scenario to open in DevTools.
 - `--url URL` measures an already running app (for example the browser-hosted
   real app) with the same probe, without ceilings.
+- `--against REF` (for example `origin/main`) is the A/B for a local red. It
+  builds REF from `git archive` beside this checkout, runs each scenario on both
+  builds in one browser, alternating which goes first, and prints every count on
+  both sides with the change. It holds no ceilings and exits 0. Pick the
+  scenarios with `--only`.
 - `--engine webkit` runs the scenarios in Playwright's WebKit (install it once
   with `pnpm exec playwright-core install webkit`) against
   `scripts/perf-bench/budgets-webkit.json`; CI runs it too (the
@@ -113,7 +118,9 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   (`scripts/perf-bench/layout-checks.mjs`), each check on a fresh page at its
   own viewport and query, and exits 1 with a screenshot when one fails. Alone it
   runs no benchmark; with `--check` it runs after the benchmark on the same
-  build, which is how CI runs it in both engines. `paper-header-long-doi` opens a Paper
+  build, which is how CI runs it in both engines. A failing CI shard uploads
+  its screenshots as the `perf-bench-<k>-screenshots` or
+  `perf-bench-webkit-<k>-screenshots` artifact of the run. `paper-header-long-doi` opens a Paper
   with a very long DOI in a ~500px reader header and fails when the PDF action
   overlaps the source link or takes a click on its arrow.
   `reading-field-focus-after-shrink` shrinks the window under the Reading

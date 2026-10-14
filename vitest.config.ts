@@ -64,8 +64,9 @@ export default defineConfig({
     // `.tmp/` is the scratch directory for throwaway builds and debug dumps. A
     // checkout staged in there brings its own test suite, and vitest's default
     // glob happily collected hundreds of foreign tests that fail under this
-    // config — enough to make `pnpm check` unusable.
-    exclude: ["**/node_modules/**", "literature-worker/**", ".tmp/**"],
+    // config — enough to make `pnpm check` unusable. A Synara checkout staged
+    // in the worktree as `.synara-src/` (SYNARA_SOURCE_DIR) does the same.
+    exclude: ["**/node_modules/**", "literature-worker/**", ".tmp/**", ".synara-src/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],
     // Several suites mount the complete app or visual Markdown editor. Running

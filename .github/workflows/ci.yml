@@ -263,7 +263,20 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - uses: ./.github/actions/bench-page
-      - run: pnpm perf:bench --check --layout --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
+      # A failed scenario or layout check writes a screenshot to the temporary
+      # directory, which dies with the runner. Pointing TMPDIR at the runner's
+      # temp keeps it for the upload below, as bench-harness.yml does.
+      - run: |
+          mkdir -p "$TMPDIR"
+          pnpm perf:bench --check --layout --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
+        env:
+          TMPDIR: ${{ runner.temp }}/perf-bench
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-bench-${{ matrix.shard }}-screenshots
+          path: ${{ runner.temp }}/perf-bench/lattice-perf-bench-*.png
+          if-no-files-found: ignore
 
   # The one check that reports the Chromium benchmark, under the name it had
   # before it was sharded.
@@ -304,7 +317,18 @@ jobs:
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm exec playwright-core install webkit
       - uses: ./.github/actions/bench-page
-      - run: pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
+      # Screenshots of a failure survive for the upload, as in perf-bench-shard.
+      - run: |
+          mkdir -p "$TMPDIR"
+          pnpm perf:bench --check --layout --engine webkit --shard ${{ matrix.shard }}/2 --dist "$RUNNER_TEMP/bench-page"
+        env:
+          TMPDIR: ${{ runner.temp }}/perf-bench
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-bench-webkit-${{ matrix.shard }}-screenshots
+          path: ${{ runner.temp }}/perf-bench/lattice-perf-bench-*.png
+          if-no-files-found: ignore
 
   # The one check that reports the WebKit benchmark, under its old name.
   perf-bench-webkit:
