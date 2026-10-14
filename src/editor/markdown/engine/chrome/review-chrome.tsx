@@ -104,7 +104,7 @@ export function CommentCard({ editor, host }: { editor: Editor; host: ChromeHost
       ref={setCard}
       id={id}
       role="tooltip"
-      className="lx-md-comment-card"
+      className={`lx-md-comment-card ${popupMotionClassName}`}
       style={{ position: "fixed", left: 0, top: 0 }}
       onMouseLeave={(event) => {
         if (!(event.relatedTarget instanceof Node && open.mark.contains(event.relatedTarget))) setOpen(null);

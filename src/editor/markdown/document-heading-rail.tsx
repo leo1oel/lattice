@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MAGNET_SPRING, spring } from "../../components/ui/motion-values";
+import { MAGNET_SPRING, spring, springExit } from "../../components/ui/motion-values";
 
 const MAX_DETAILED_HEADINGS = 28;
 const MIN_RAIL_VIEWPORT_WIDTH = 480;
@@ -304,21 +304,30 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
         })}
 
         <div className="visual-heading-rail-previews" aria-hidden="true">
-          {items.map((item) => (
-            <div className="visual-heading-rail-preview-row" key={item.id}>
-              {item.id === displayedId && (
+          {/* Only the displayed heading's preview is drawn, in its own row of
+              the rail. One presence for the rail, not one per row (which
+              rendered with every row on every update): the preview the
+              pointer moves off fades on the popup exit while the next
+              arrives. */}
+          <AnimatePresence>
+            {displayedIndex >= 0 && (
+              <div
+                className="visual-heading-rail-preview-row"
+                key={items[displayedIndex]!.id}
+                style={{ gridRowStart: displayedIndex + 1 }}
+              >
                 <motion.div
-                  key={item.id}
                   className="visual-heading-rail-preview-anchor"
                   initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 3, filter: "blur(3px)" }}
                   animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, transition: reduceMotion ? { duration: 0 } : springExit.moderate }}
                   transition={reduceMotion ? { duration: 0 } : spring.moderate}
                 >
-                  <div className="visual-heading-rail-preview-card">{item.label}</div>
+                  <div className="visual-heading-rail-preview-card">{items[displayedIndex]!.label}</div>
                 </motion.div>
-              )}
-            </div>
-          ))}
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
     </div>

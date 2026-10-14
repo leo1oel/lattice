@@ -13,11 +13,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
-import { PopIn } from "../../components/ui/motion";
+import { useExitPicture } from "../../components/ui/exit-picture";
+import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { Tip } from "../../components/icon-tip";
 import { HighlightPalette } from "./highlight-palette";
 import { highlighterOf, rememberHighlight, useHighlightPrefs } from "./highlighters";
@@ -84,6 +85,9 @@ export function LatexSelectionToolbar(props: {
   const [linkOpen, setLinkOpen] = useState(false);
   const [highlightOpen, setHighlightOpen] = useState(false);
   const highlightPrefs = useHighlightPrefs();
+  // It grows from the selection as every popup does and, gone, fades where it stood.
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  useExitPicture([anchorRef]);
   const lastHighlighter = highlighterOf(highlightPrefs.last);
   const lastHighlight = lastHighlighter ? highlightPrefs.meaningOf(lastHighlighter) : highlightPrefs.last;
   const applyLink = () => {
@@ -110,7 +114,9 @@ export function LatexSelectionToolbar(props: {
   }, [onDismiss]);
   return createPortal(
     <div
-      className={`latex-selection-toolbar-anchor${props.position.below ? " below" : ""}`}
+      ref={anchorRef}
+      className={`latex-selection-toolbar-anchor ${popupMotionClassName}${props.position.below ? " below" : ""}`}
+      data-side={props.position.below ? "bottom" : "top"}
       style={{
         left: props.position.left,
         top: props.position.top,
@@ -122,7 +128,7 @@ export function LatexSelectionToolbar(props: {
         if (!(event.target as HTMLElement).closest("input")) event.preventDefault();
       }}
     >
-      <PopIn className="latex-selection-toolbar" side={props.position.below ? "bottom" : "top"}>
+      <div className="latex-selection-toolbar">
         {visibleActions.map(({ action, label: descriptor, icon: Icon, separated, shortcut }, index) => {
           const label = i18n._(descriptor);
           return (
@@ -189,7 +195,7 @@ export function LatexSelectionToolbar(props: {
           </Popover>
         </span>
         </>}
-      </PopIn>
+      </div>
     </div>,
     document.body,
   );

@@ -585,7 +585,10 @@ function PaperShelf(props: PaperLibraryProps & {
                 {filteredPapers.length !== total ? `${shown}/${totalText}` : totalText}
               </span>
             </p>
-            <DropdownMenu>
+            {/* Not modal, as the app's other menus are: a modal menu hides the
+                whole window from assistive tech and locks its scrolling as it
+                opens, which in WebKit held the menu back by about 50ms. */}
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 {/* The filter's name is the chip under the toolbar, which clears it. */}
                 <ListTool
@@ -612,7 +615,7 @@ function PaperShelf(props: PaperLibraryProps & {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <ListTool
                   icon={<ArrowDownUp size={14} aria-hidden="true" />}
