@@ -68,6 +68,6 @@ pub(crate) const SESSION_EXPIRED: &str =
     "Overleaf session expired. Reconnect in Settings → Overleaf.";
 pub(crate) const NOT_CONNECTED: &str = "Not connected to Overleaf. Connect in Settings → Overleaf.";
 /// A request answered as if signed out while the dashboard still accepts the
-/// session: a refusal to retry, worded so the live channel retries it too.
+/// session: retried a few times, then reported as this project's access.
 pub(crate) const SESSION_STILL_VALID: &str =
-    "Overleaf turned this request away, though the session is still valid. Lattice will try again.";
+    "Overleaf turned this request away, though the session is still valid.";

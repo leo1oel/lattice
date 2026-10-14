@@ -11,6 +11,7 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
+import { isOverleafProjectRefusal, OVERLEAF_REFUSAL_RETRIES } from "../overleaf/overleaf-realtime-model";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments, type OverleafComments } from "../overleaf/use-overleaf-comments";
@@ -74,9 +75,8 @@ type OverleafSyncOptions = {
   includeWholeFilePaths?: readonly string[];
 };
 
-/** A failure the next sync can get past: the network, or a refusal while the session is still valid (SESSION_STILL_VALID in overleaf_rt.rs). */
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return /could not reach overleaf|error decoding response body|session is still valid/i.test(toMessage(reason));
+  return /could not reach overleaf|error decoding response body/i.test(toMessage(reason));
 }
 
 /** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
@@ -231,6 +231,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
+  /** Syncs Overleaf refused in a row while the session stayed valid. */
+  const overleafRefusalsRef = useRef(0);
   // Tokens distinguish edits arriving during a network-bound sync from the
   // batch it owns. A completed older pass must not retire the newer work.
   const externalChangesRef = useRef(new Map<string, symbol>());
@@ -412,6 +414,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       }, { operationId: trace.id });
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
+      overleafRefusalsRef.current = 0;
       trace.enrich({
         automatic: options?.auto === true, pulled: result.pulled.length, pushed: result.pushed.length,
         merged: result.merged.length, conflicts: result.conflicts.length, deleted_local: result.deletedLocal.length,
@@ -554,7 +557,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       refreshOverleafLink();
     } catch (reason) {
       if (stillCurrent()) {
-        if (options?.auto && isTransientOverleafTransportFailure(reason)) {
+        const refused = isOverleafProjectRefusal(toMessage(reason));
+        if (refused) overleafRefusalsRef.current += 1;
+        const retryable = isTransientOverleafTransportFailure(reason)
+          || (refused && overleafRefusalsRef.current < OVERLEAF_REFUSAL_RETRIES);
+        if (options?.auto && retryable) {
           // The live loop retries on its rate-limited cadence: retrying now
           // risks another 429, and a toast for a brief outage interrupts work.
           overleafTransportRetryRef.current = true;
@@ -568,6 +575,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
             title: t`Overleaf sync paused`,
             detail: t`Your Overleaf session ended. Your edits stay on this Mac until you sign in`,
             primaryAction: { label: t`Sign in to Overleaf`, onClick: () => openOverleafSettingsRef.current() },
+          });
+        } else if (refused) {
+          // Signed in, yet this project's requests keep being turned away:
+          // most often a share that was removed. Live mode stops retrying.
+          overleafTransportRetryRef.current = false;
+          trace.fail(reason, {
+            title: t`Overleaf refused this project`,
+            detail: t`You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac`,
+            primaryAction: { label: t`Sync again`, onClick: () => void overleafSyncRef.current() },
           });
         } else if (isTransientOverleafTransportFailure(reason)) {
           trace.fail(reason, {
@@ -653,6 +669,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   useEffect(() => {
     const clearProjectSyncState = () => {
       overleafTransportRetryRef.current = false;
+      overleafRefusalsRef.current = 0;
       externalChangesRef.current.clear();
       deferredWholeFilePathsRef.current.clear();
       wholeFileBoundaryPathsRef.current.clear();
@@ -681,15 +698,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       running = true;
       try {
         if (!overleafSyncingRef.current) {
-          const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
-          wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
+          // A refused probe is a probe without a version: sync on the slow
+          // clock, and let the sync count the refusals and report them.
+          const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot }).catch((reason: unknown) => {
+            if (isOverleafProjectRefusal(toMessage(reason)) && overleafRefusalsRef.current < OVERLEAF_REFUSAL_RETRIES) return null;
+            throw reason;
+          });
+          wait = probe?.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
           const sinceLastSync = Date.now() - lastAutoSyncRef.current;
           const gapElapsed = sinceLastSync >= minimumSyncGap(overleafChannelLiveRef.current);
           const retry = overleafTransportRetryRef.current || externalChangesRef.current.size > 0;
           if (stopped) return;
           if (retry && gapElapsed) {
             await autoSync();
-          } else if (!probe.versionKnown) {
+          } else if (!probe?.versionKnown) {
             // No change signal: sync on a slow clock instead.
             if (sinceLastSync >= OVERLEAF_BLIND_POLL_MS) await autoSync();
           } else if (probe.changed && gapElapsed) {

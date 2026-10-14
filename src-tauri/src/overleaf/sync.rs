@@ -607,7 +607,10 @@ pub fn classify_sync_error(error: &str) -> Failure {
             fix: "Reconnect in Settings → Overleaf, then sync again.",
         }
     } else if error == SESSION_STILL_VALID {
-        Failure { kind: "server_refused", fix: "Sync again; the session is still signed in." }
+        Failure {
+            kind: "server_refused",
+            fix: "Check the project still opens on Overleaf, then sync again.",
+        }
     } else if error == PAUSED {
         Failure { kind: "paused", fix: "Resume syncing in Settings → Overleaf." }
     } else if error.starts_with("Could not reach Overleaf") {
