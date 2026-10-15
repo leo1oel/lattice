@@ -76,7 +76,7 @@ const lineAt = (source: string, offset: number) => source.slice(0, offset).split
 
 /** What the rounds read and do in the app, attached by App once it has them. */
 export type AnnotationRoundsDeps = {
-  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "setActiveId" | "openComment">;
+  store: Pick<EditorComments, "stateRef" | "commit" | "create" | "setActiveId" | "openComment" | "resolve" | "reply">;
   projectRootRef: Ref<string | null>;
   activeFileRef: Ref<string>;
   /** The active file's live text. */
@@ -483,6 +483,19 @@ export class AnnotationRounds {
     const annotation = this.find(id);
     if (annotation) this.open(annotation, true);
   };
+
+  /** Resolve from the annotation's card on the PDF, with the toast that offers it back. */
+  resolve = (id: string) => this.deps?.store.resolve(id);
+
+  /** Who writes from the PDF's cards. */
+  author = () => {
+    const author = this.deps?.author;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
+    return { id: author?.id ?? "", name: author?.name.trim() || "Anonymous" };
+  };
+
+  /** Reply from the annotation's card on the PDF. */
+  reply = (id: string, body: string) => this.deps?.store.reply(id, body);
 
   openRounds = () => this.publish({ roundsOpen: true });
   closeRounds = () => this.publish({ roundsOpen: false });

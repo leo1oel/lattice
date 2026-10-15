@@ -1,0 +1,173 @@
+/* A comment's card on the document (comment-card.tsx): the source editor's
+   hover card and the PDF's, and the lighter preview the PDF and the visual
+   Markdown editor show on hover. Drawn like the collaboration panel's thread
+   card (overleaf-collab.css): the author line in the caption role, the note
+   in the body role under the name, Resolve as a check at the line's end, and
+   Reply as the field it becomes. */
+.comment-card {
+  /* The pin or dot stands in an 18px cell; the note and replies line up after it. */
+  --comment-card-marker: 18px;
+  --comment-card-indent: calc(var(--comment-card-marker) + var(--space-3));
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(240px, 100%);
+  max-width: min(320px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-5) var(--space-6);
+  border-radius: var(--radius-surface);
+  /* Opaque on purpose: a translucent card over body text is unreadable, and
+     it sits directly on the line it describes. */
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+  overflow-y: auto;
+  cursor: default;
+}
+/* The last thread resolved: the whole card leaves on the popup exit (popup-motion.css, data-leaving). */
+
+.comment-card-thread { min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.comment-card-thread + .comment-card-thread { padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
+/* One of several threads resolved: it leaves where it stands, the rest stay. */
+.comment-card-thread[data-leaving] { animation: comment-card-thread-leave var(--motion-moderate-exit) both; }
+
+.comment-card-meta {
+  min-width: 0;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.comment-card-meta > .annotation-pin { flex: none; }
+.comment-card-marker { flex: none; width: var(--comment-card-marker); display: grid; place-items: center; }
+.comment-card-dot { width: 8px; height: 8px; border-radius: 50%; }
+/* A long name gives way before the time does, and says itself in full on hover. */
+.comment-card-author {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: var(--type-subtitle-weight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comment-card-time { flex: none; color: var(--text-secondary); white-space: nowrap; }
+.comment-card-resolve {
+  margin: calc(var(--space-2) * -1) calc(var(--space-2) * -1) calc(var(--space-2) * -1) auto;
+}
+.comment-card .comment-card-resolve:hover:not(:disabled) { color: var(--status-success); }
+/* Pressed and answered: the check holds its pressed plate in green while the thread leaves. */
+.comment-card .comment-card-resolve[data-done] {
+  background: color-mix(in srgb, var(--status-success) 14%, transparent);
+  color: var(--status-success);
+  opacity: 1;
+}
+
+.comment-card-body {
+  margin: 0 0 0 var(--comment-card-indent);
+  min-width: 0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-card-replies {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.comment-card-reply { min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+/* A reply sent from this card arrives into the thread. */
+.comment-card-reply[data-new] { animation: comment-card-reply-in var(--motion-moderate) both; }
+
+.comment-card-reply-field,
+.comment-card-reply-box { margin: var(--space-3) 0 0 var(--comment-card-indent); }
+.comment-card-reply-field {
+  min-width: 0;
+  height: var(--control-height-compact);
+  padding: 0 var(--space-4);
+  border: var(--field-control-border-width) solid var(--field-control-border-color);
+  border-radius: var(--field-control-radius);
+  background: var(--field-control-background);
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: start;
+  cursor: text;
+  transition: border-color var(--motion-fast);
+}
+.comment-card-reply-field:hover:not(:disabled) { border-color: var(--border-strong); }
+/* The field with its send button inside it, as Notion and Figma reply. */
+.comment-card-reply-box {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+  border: var(--field-control-border-width) solid var(--field-control-border-color);
+  border-radius: var(--field-control-radius);
+  background: var(--field-control-background);
+  transition: border-color var(--motion-fast);
+}
+.comment-card-reply-box:focus-within { border-color: var(--field-control-interactive-border-color); }
+.comment-card .comment-card-reply-input {
+  flex: 1 1 auto;
+  min-height: var(--control-size-icon-compact);
+  max-height: 120px;
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  background: transparent;
+  resize: none;
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+}
+.comment-card-send { flex: none; }
+.comment-card-send:disabled { background: var(--control-hover-surface); color: var(--text-secondary); }
+
+.comment-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-3) * -1) calc(var(--space-2) * -1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* The hover preview: the same lines, the note clamped, nothing to press. */
+.comment-preview {
+  max-width: min(300px, calc(100vw - 16px));
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  overflow: hidden;
+}
+.comment-preview .comment-card-body {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.comment-preview .comment-card-reply .comment-card-body { -webkit-line-clamp: 2; }
+.comment-preview-more {
+  margin-left: var(--comment-card-indent);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+
+@keyframes comment-card-thread-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-2px); }
+}
+@keyframes comment-card-reply-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

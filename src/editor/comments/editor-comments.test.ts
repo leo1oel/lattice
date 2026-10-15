@@ -12,7 +12,6 @@ import {
 } from "./editor-comment-data";
 import {
   buildCommentDecorations,
-  buildCommentTooltipDom,
   commentMarkStyle,
   commentsAtPosition,
   editorCommentsExtension,
@@ -151,46 +150,7 @@ describe("editor comment decorations", () => {
   });
 });
 
-describe("editor comment tooltip", () => {
-  it("renders a read-only hover card with the author name and body", () => {
-    const dom = buildCommentTooltipDom([comment({ body: "please clarify", authorName: "Ada Lovelace" })]);
-    expect(dom.querySelector(".cm-editor-comment-tooltip-author")?.textContent).toBe("Ada Lovelace");
-    expect(dom.querySelector(".cm-editor-comment-tooltip-body")?.textContent).toBe("please clarify");
-    expect(dom.querySelector(".cm-editor-comment-tooltip-actions")).toBeNull();
-  });
-
-  it("renders reply threads and Resolve/Reply actions when actions are provided", () => {
-    const item = {
-      ...comment(),
-      replies: [createEditorCommentReply({ body: "will do", authorId: "b", authorName: "Bo" })!],
-    };
-    const resolved: string[] = [];
-    const replied: string[] = [];
-    const dom = buildCommentTooltipDom([item], {
-      onResolve: (id) => resolved.push(id),
-      onReply: (target) => replied.push(target.id),
-    });
-    expect(dom.querySelector(".cm-editor-comment-tooltip-reply .cm-editor-comment-tooltip-body")?.textContent)
-      .toBe("will do");
-    const buttons = Array.from(dom.querySelectorAll<HTMLButtonElement>(".cm-editor-comment-tooltip-actions button"));
-    expect(buttons.map((button) => button.textContent)).toEqual(["Resolve", "Reply"]);
-    for (const button of buttons) button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(resolved).toEqual([item.id]);
-    expect(replied).toEqual([item.id]);
-  });
-
-  it("uses localized labels in comment tooltips", () => {
-    const dom = buildCommentTooltipDom(
-      [{ ...comment(), authorName: "Anonymous", body: "" }],
-      { onResolve: () => undefined, onReply: () => undefined },
-      Date.parse("2026-01-01T12:00:00.000Z"),
-      { locale: "zh-CN", anonymous: "匿名", noCommentText: "（无评论内容）", reopen: "重新打开", resolve: "解决评论", reply: "回复" },
-    );
-    expect(dom.textContent).toContain("匿名");
-    expect(dom.textContent).toContain("（无评论内容）");
-    expect(Array.from(dom.querySelectorAll("button"), (button) => button.textContent)).toEqual(["解决评论", "回复"]);
-  });
-
+describe("editor comment timestamps", () => {
   it("formats comment timestamps relative to now", () => {
     const now = Date.parse("2026-01-01T12:00:00.000Z");
     expect(formatCommentTimestamp("2026-01-01T11:57:00.000Z", now)).toBe("3 minutes ago");

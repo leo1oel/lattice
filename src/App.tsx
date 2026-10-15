@@ -1855,8 +1855,9 @@ function App() {
       onCreateEditorComment={editorComments.create}
       annotationRounds={annotationRounds}
       onOpenEditorComments={() => tools.open("comments")}
-      onResolveEditorComment={editorComments.toggleResolved}
+      onResolveEditorComment={editorComments.resolve}
       onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
+      onPostEditorCommentReply={editorComments.reply}
       commentFocusRequest={editorComments.focusRequest}
       onCommentFocusHandled={editorComments.focusHandled}
       todoCount={todoHits.length}
