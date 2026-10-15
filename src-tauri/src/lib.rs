@@ -208,9 +208,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if background {
-        app.state::<browser_host::BrowserHost>()
-            .keep_resident(app.handle())
-            .map_err(std::io::Error::other)?;
+        app.state::<browser_host::BrowserHost>().keep_resident();
     }
     // After an update changed a tool pin, this rebuilds the uvx
     // environment now instead of during the user's first import.
@@ -327,9 +325,7 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| {
-                    !label.starts_with("browser-") && label != browser_host::SERVICE_WINDOW_LABEL
-                })
+                .with_filter(|label| !label.starts_with("browser-"))
                 .build(),
         )
         .on_window_event(on_window_event)
@@ -358,6 +354,10 @@ pub fn run() {
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_key,
             #[cfg(feature = "perf-lab")]
+            perf_lab::perf_shortcut,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_edit_menu,
+            #[cfg(feature = "perf-lab")]
             perf_lab::perf_wheel,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_mouse,
@@ -379,6 +379,7 @@ pub fn run() {
             ipc::windows::restart_after_update,
             ipc::windows::set_window_material,
             ipc::windows::set_native_locale,
+            ipc::windows::native_edit_history,
             ipc::windows::align_traffic_lights,
             ipc::windows::sample_screen_color,
             ipc::files::list_project_tree_with_hidden,
@@ -537,6 +538,12 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
         tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
+        // `code` is None only when the last window closed.
+        tauri::RunEvent::ExitRequested { code: None, api, .. }
+            if app_handle.state::<browser_host::BrowserHost>().is_resident() =>
+        {
+            api.prevent_exit()
+        }
         _ => {}
     });
 }

@@ -365,6 +365,98 @@ pub async fn perf_key(window: WebviewWindow, text: String) -> Result<f64, String
     })
 }
 
+/// Where `perf_shortcut` sent a press.
+#[derive(Serialize)]
+pub struct ShortcutSent {
+    sent: f64,
+    key_window: bool,
+    via: &'static str,
+}
+
+/// Press ⌘`key` (⇧ too with `shift`) through `-[NSApplication sendEvent:]`,
+/// where the window server's key events arrive and AppKit offers a ⌘ key to
+/// the window's views and the main menu as a key equivalent before anything
+/// else; `perf_key` posts to the window, which skips that pass.
+///
+/// AppKit offers key equivalents only to the key window, and a lab window is
+/// not key while the console session is locked. Then the press takes the
+/// same steps by hand: the window's views, then the main menu, then the
+/// window's `keyDown:`; `via` names the step that took it.
+#[tauri::command]
+pub async fn perf_shortcut(
+    window: WebviewWindow, key: char, shift: bool,
+) -> Result<ShortcutSent, String> {
+    on_main(&window, move |ns_window, _view| unsafe {
+        const COMMAND: usize = 1 << 20;
+        const SHIFT: usize = 1 << 17;
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let number: isize = msg_send![ns_window, windowNumber];
+        let typed = if shift { key.to_ascii_uppercase() } else { key };
+        let chars = NSString::from_str(&typed.to_string());
+        let flags = COMMAND | if shift { SHIFT } else { 0 };
+        let key_window: bool = msg_send![ns_window, isKeyWindow];
+        let sent = epoch_ms();
+        let mut via = "app";
+        for kind in [10usize, 11usize] {
+            let event: *mut AnyObject = msg_send![class!(NSEvent),
+                keyEventWithType: kind,
+                location: NSPoint::new(0.0, 0.0),
+                modifierFlags: flags,
+                timestamp: uptime(),
+                windowNumber: number,
+                context: std::ptr::null_mut::<AnyObject>(),
+                characters: &*chars,
+                charactersIgnoringModifiers: &*chars,
+                isARepeat: Bool::NO,
+                keyCode: key_code(key)];
+            if event.is_null() {
+                continue;
+            }
+            if key_window {
+                let _: () = msg_send![app, sendEvent: event];
+            } else if kind == 10 {
+                let _: () = msg_send![app, _setCurrentEvent: event];
+                let menu: *mut AnyObject = msg_send![app, mainMenu];
+                let by_view: Bool = msg_send![ns_window, performKeyEquivalent: event];
+                via = if by_view.as_bool() {
+                    "view"
+                } else if !menu.is_null() && {
+                    let by_menu: Bool = msg_send![menu, performKeyEquivalent: event];
+                    by_menu.as_bool()
+                } {
+                    "menu"
+                } else {
+                    let _: () = msg_send![ns_window, sendEvent: event];
+                    "keyDown"
+                };
+            }
+        }
+        ShortcutSent { sent, key_window, via }
+    })
+}
+
+/// Choose Edit ▸ Undo or Redo as a click on the item does: the menu bar's
+/// third menu (after the app's and File) performs its first or second item.
+#[tauri::command]
+pub async fn perf_edit_menu(window: WebviewWindow, redo: bool) -> Result<bool, String> {
+    on_main(&window, move |_ns_window, _view| unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let menu: *mut AnyObject = msg_send![app, mainMenu];
+        if menu.is_null() {
+            return false;
+        }
+        let edit: *mut AnyObject = msg_send![menu, itemAtIndex: 2isize];
+        let submenu: *mut AnyObject =
+            if edit.is_null() { std::ptr::null_mut() } else { msg_send![edit, submenu] };
+        if submenu.is_null() {
+            return false;
+        }
+        let _: () =
+            msg_send![submenu, performActionForItemAtIndex: if redo { 1isize } else { 0isize }];
+        true
+    })
+}
+
 #[derive(Serialize)]
 pub struct WheelSent {
     sent: f64,

@@ -26,7 +26,10 @@ use std::{
     io,
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 use tauri::{Manager, WebviewUrl};
@@ -34,11 +37,13 @@ use tauri_plugin_opener::OpenerExt;
 
 const PREFERRED_PORT: u16 = 18452;
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
-pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
 
 #[derive(Default)]
 pub(crate) struct BrowserHost {
     running: Mutex<Option<RunningServer>>,
+    /// Whether closing the last native window leaves Lattice running for the
+    /// browser workspaces (see `keep_resident`).
+    resident: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -131,8 +136,8 @@ impl BrowserHost {
         let project_root = state.root_for(label)?;
         // Closing the native window must not end the process while the tab
         // still needs its host, nor once that tab is gone.
-        let resident_was_present = app.get_window(SERVICE_WINDOW_LABEL).is_some();
-        self.keep_resident(app)?;
+        let resident_was_present = self.is_resident();
+        self.keep_resident();
         let opened = self.open_session(app, |origin| BrowserSession {
             source_label: Some(label.to_string()),
             project_root,
@@ -150,9 +155,7 @@ impl BrowserHost {
             }
             Err(reason) => {
                 if !resident_was_present {
-                    if let Some(window) = app.get_window(SERVICE_WINDOW_LABEL) {
-                        let _ = window.destroy();
-                    }
+                    self.resident.store(false, Ordering::Relaxed);
                 }
                 Err(reason)
             }
@@ -285,24 +288,23 @@ impl BrowserHost {
         self.ensure_server(app).map(|server| server.port)
     }
 
-    /// A native window with no WebView keeps Tauri's event loop alive after the
-    /// last browser workspace is torn down. Unlike retaining the bridge, this
-    /// costs no renderer and owns no project; an explicit app Quit still exits
-    /// normally because the window is only hidden, not an exit interceptor.
-    pub(crate) fn keep_resident(&self, app: &tauri::AppHandle) -> Result<(), String> {
-        if app.get_window(SERVICE_WINDOW_LABEL).is_some() {
-            return Ok(());
-        }
-        tauri::window::WindowBuilder::new(app, SERVICE_WINDOW_LABEL)
-            .title("")
-            .inner_size(1.0, 1.0)
-            .visible(false)
-            .focused(false)
-            .focusable(false)
-            .skip_taskbar(true)
-            .build()
-            .map(|_| ())
-            .map_err(|error| format!("Could not keep local browser access ready: {error}"))
+    /// Keep Tauri's event loop alive after the last window, native or browser
+    /// bridge, is torn down: `lib.rs` then prevents the exit Tauri requests
+    /// when its last window goes. Unlike retaining the bridge, this costs no
+    /// renderer and owns no project; Quit still exits, since AppKit
+    /// terminates without asking.
+    ///
+    /// A hidden window without a WebView used to do this, but building one
+    /// takes Tauri's `unstable` feature, which turns every window's WebView
+    /// into a child WebView, and wry hands a child WebView's ⌘ keys to the
+    /// menu without the page seeing them: ⌘Z went to WebKit's own undo and
+    /// never reached the editors (`native_locale.rs`'s test keeps it off).
+    pub(crate) fn keep_resident(&self) {
+        self.resident.store(true, Ordering::Relaxed);
+    }
+
+    pub(crate) fn is_resident(&self) -> bool {
+        self.resident.load(Ordering::Relaxed)
     }
 
     /// Register a new session, start its hidden host, and open its page in

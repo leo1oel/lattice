@@ -8,7 +8,9 @@
 //! wins harmlessly.
 
 use serde::Deserialize;
-use tauri::menu::{AboutMetadata, CheckMenuItem, Menu, MenuEvent, PredefinedMenuItem, Submenu};
+use tauri::menu::{
+    AboutMetadata, CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
+};
 use tauri::{AppHandle, Runtime};
 
 /// Translated titles for the app menu. Predefined items keep their native
@@ -60,6 +62,13 @@ const MARGIN_REVIEW_PREFIX: &str = "margin-review:";
 /// The event a choice sends to the window it was made in.
 const MARGIN_REVIEW_EVENT: &str = "margin-review-mode";
 
+/// Menu ids of Edit ▸ Undo and Redo; the part after the prefix is the
+/// direction the web UI names.
+const EDIT_HISTORY_PREFIX: &str = "edit-history:";
+/// The event Undo or Redo sends to the focused window, which hands it to
+/// the focused editor (src/app/edit-history.ts).
+const EDIT_HISTORY_EVENT: &str = "edit-history";
+
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
     "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
@@ -109,8 +118,25 @@ pub(crate) fn build_menu<R: Runtime>(
         &labels.edit,
         true,
         &[
-            &PredefinedMenuItem::undo(app, Some(labels.undo.as_str()))?,
-            &PredefinedMenuItem::redo(app, Some(labels.redo.as_str()))?,
+            // Not the predefined items: theirs send AppKit's `undo:`, which
+            // reaches only WebKit's own undo stack, and that holds no edit
+            // CodeMirror or ProseMirror made. The page sees ⌘Z first and its
+            // editors take it; these run for a click, or for a ⌘Z no editor
+            // took (src/app/edit-history.ts).
+            &MenuItem::with_id(
+                app,
+                format!("{EDIT_HISTORY_PREFIX}undo"),
+                &labels.undo,
+                true,
+                Some("CmdOrCtrl+Z"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                format!("{EDIT_HISTORY_PREFIX}redo"),
+                &labels.redo,
+                true,
+                Some("CmdOrCtrl+Shift+Z"),
+            )?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::cut(app, Some(labels.cut.as_str()))?,
             &PredefinedMenuItem::copy(app, Some(labels.copy.as_str()))?,
@@ -164,14 +190,47 @@ pub(crate) fn build_menu<R: Runtime>(
 }
 
 /// A margin review choice goes to the window it was made in, which keeps it
-/// as its own and sends the menu back with the new check.
+/// as its own and sends the menu back with the new check; Undo and Redo go
+/// to the focused window's focused editor.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::Emitter;
 
-    let Some(mode) = event.id().as_ref().strip_prefix(MARGIN_REVIEW_PREFIX) else { return };
+    let id = event.id().as_ref();
+    let (name, payload) = if let Some(mode) = id.strip_prefix(MARGIN_REVIEW_PREFIX) {
+        (MARGIN_REVIEW_EVENT, mode)
+    } else if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {
+        (EDIT_HISTORY_EVENT, direction)
+    } else {
+        return;
+    };
     let Some(label) = crate::macos_window::focused_window_label() else { return };
-    let _ = app.emit_to(tauri::EventTarget::webview_window(label), MARGIN_REVIEW_EVENT, mode);
+    let _ = app.emit_to(tauri::EventTarget::webview_window(label), name, payload);
 }
+
+/// What the predefined Undo and Redo items did: send AppKit's `undo:` or
+/// `redo:` down the key window's responder chain, where WebKit undoes the
+/// typing it recorded itself, in a text field or a frame. The web UI asks for
+/// this when no editor of its own took the command.
+#[cfg(target_os = "macos")]
+pub(crate) fn send_native_edit_history<R: Runtime>(app: &AppHandle<R>, redo: bool) {
+    let _ = app.run_on_main_thread(move || {
+        use objc2::runtime::{AnyObject, Bool};
+        use objc2::{class, msg_send, sel};
+
+        let action = if redo { sel!(redo:) } else { sel!(undo:) };
+        let nothing = std::ptr::null_mut::<AnyObject>();
+        // SAFETY: on the main thread; a nil target and sender are what a menu
+        // item without a target sends, and AppKit finds the target in the
+        // responder chain.
+        unsafe {
+            let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+            let _: Bool = msg_send![app, sendAction: action, to: nothing, from: nothing];
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn send_native_edit_history<R: Runtime>(_app: &AppHandle<R>, _redo: bool) {}
 
 /// The bundle localizations `AppleLanguages` may name: the ones Info.plist
 /// declares in `CFBundleLocalizations`.
@@ -254,6 +313,20 @@ mod tests {
         );
         let labels: MenuLabels = serde_json::from_value(margin).expect("margin review labels");
         assert_eq!(labels.margin_review.map(|margin| margin.mode).as_deref(), Some("auto"));
+    }
+
+    /// Tauri's `unstable` feature builds every window's WebView as a child
+    /// WebView, and wry sends a child WebView's ⌘ keys straight to this menu:
+    /// the page never sees ⌘Z or ⇧⌘Z, so Edit ▸ Undo runs WebKit's own undo,
+    /// which undoes nothing in CodeMirror, ProseMirror or a React field.
+    #[test]
+    fn tauri_unstable_stays_off_so_the_page_sees_command_keys_first() {
+        let manifest = include_str!("../Cargo.toml");
+        let tauri = manifest
+            .lines()
+            .find(|line| line.starts_with("tauri = "))
+            .expect("the tauri dependency line");
+        assert!(!tauri.contains("\"unstable\""), "{tauri}");
     }
 
     #[test]

@@ -127,12 +127,16 @@ describe("Tauri security boundary", () => {
   it("keeps the fixed browser entry local and authenticated, and bridge windows hidden", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.
-    expectContains(rustApp, '!label.starts_with("browser-")', "label != browser_host::SERVICE_WINDOW_LABEL");
+    expectContains(rustApp, '.with_filter(|label| !label.starts_with("browser-"))');
     expectContains(browserHost, '.title("")');
     expect(config.app.windows[0]?.visible).toBe(false);
     expectContains(rustApp, ".arg(BROWSER_HOST_ARG)", "browser_host_launch()");
-    expectContains(browserHost, "tauri::window::WindowBuilder::new(app, SERVICE_WINDOW_LABEL)",
-      "Ipv4Addr::LOCALHOST, PREFERRED_PORT", "valid_loopback_host(&headers, state.port)",
+    // Browser access outlives the last window by declining Tauri's exit, not
+    // through a window without a WebView: building one takes Tauri's
+    // `unstable` feature, which hid ⌘Z from the page (native_locale.rs).
+    expectContains(rustApp, "RunEvent::ExitRequested { code: None, api, .. }", "api.prevent_exit()");
+    expect(browserHost).not.toContain("tauri::window::WindowBuilder");
+    expectContains(browserHost, "Ipv4Addr::LOCALHOST, PREFERRED_PORT", "valid_loopback_host(&headers, state.port)",
       "Some(session.browser_origin.as_str())", 'header::CACHE_CONTROL, HeaderValue::from_static("no-store")');
     expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
   });
