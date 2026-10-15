@@ -1142,6 +1142,7 @@ msgstr "Adjusted so links and selected text read at {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
 
+#: src/agent/agent-visual-save.ts
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -5082,6 +5083,10 @@ msgstr "How the entry reads"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
+
+#: src/agent/agent-visual-save.ts
+msgid "HTML document"
+msgstr "HTML document"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -9819,6 +9824,14 @@ msgstr "Save to workspace"
 msgid "Save version"
 msgstr "Save version"
 
+#: src/agent/agent-visual-save.ts
+msgid "Save visual"
+msgstr "Save visual"
+
+#: src/agent/agent-visual-save.ts
+msgid "Save visual as HTML"
+msgstr "Save visual as HTML"
+
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -9827,6 +9840,7 @@ msgstr "Saved"
 msgid "Saved by Lattice after syncs and builds since {since}"
 msgstr "Saved by Lattice after syncs and builds since {since}"
 
+#: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
@@ -12229,6 +12243,10 @@ msgstr "Vim mode"
 #: src/components/ui/color-picker.tsx
 msgid "Violet"
 msgstr "Violet"
+
+#: src/agent/agent-visual-save.ts
+msgid "Visual"
+msgstr "Visual"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."

@@ -16,6 +16,7 @@ import {
 } from "../agent/agent-project-document-tools";
 import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
+import { SYNARA_SAVE_VISUAL, parseAgentVisualSave, saveAgentVisual } from "../agent/agent-visual-save";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
@@ -230,6 +231,10 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         // WebKit does not hand an embedded frame's `_blank` navigation to the system browser.
         const url = stringField(data.url);
         if (/^https?:\/\//i.test(url)) void openUrl(url).catch(() => undefined);
+      },
+      [SYNARA_SAVE_VISUAL]: (data) => {
+        const request = parseAgentVisualSave(data);
+        if (request) saveAgentVisual(request);
       },
       "synara:open-review": (data, host) => {
         // A file row opens in the host's file surface; the bare Review button
