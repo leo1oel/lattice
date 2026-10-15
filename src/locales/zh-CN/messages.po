@@ -48,8 +48,7 @@ msgstr "（空）"
 msgid "(new paragraph)"
 msgstr "（新增段落）"
 
-#: src/canvas/document-canvas.tsx
-#: src/editor/comments/editor-comments.ts
+#: src/editor/comments/comment-card.tsx
 msgid "(no comment text)"
 msgstr "（无内容）"
 
@@ -479,6 +478,7 @@ msgstr "{meaning}，{color}，当前画笔颜色"
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "{more} more replies"
 msgstr "另有 {more} 条回复"
@@ -743,6 +743,7 @@ msgstr "1 处修改待审"
 msgid "1 hit"
 msgstr "1 处"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "1 more reply"
 msgstr "另有 1 条回复"
@@ -1389,8 +1390,10 @@ msgstr "已删除批注"
 #: src/app/app-editor-panels.tsx
 #: src/app/use-editor-comments.ts
 #: src/canvas/canvas-toolbar.tsx
+#: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
@@ -1406,9 +1409,8 @@ msgid "Annotations and highlights"
 msgstr "批注与高亮"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
@@ -2063,7 +2065,6 @@ msgid "Can take up to 15 minutes"
 msgstr "最多 15 分钟"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/annotation-composer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/components/ui/color-picker.tsx
@@ -2752,6 +2753,7 @@ msgstr "命令面板"
 msgid "comment"
 msgstr "评论"
 
+#: src/editor/comments/comment-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
@@ -2774,6 +2776,10 @@ msgstr "评论所选"
 msgid "Comment or uncomment lines"
 msgstr "注释开关"
 
+#: src/app/use-editor-comments.ts
+msgid "Comment resolved"
+msgstr "评论已解决"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
 msgstr "评论来源"
@@ -2786,6 +2792,7 @@ msgstr "评论筛选"
 msgid "comments"
 msgstr "注释"
 
+#: src/app/use-editor-comments.ts
 #: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
@@ -7333,6 +7340,11 @@ msgstr "未生成"
 msgid "Note"
 msgstr "备注"
 
+#: src/canvas/document-canvas.tsx
+#: src/pdf/pdf-annotations.tsx
+msgid "Note discarded"
+msgstr "已舍弃批注"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Notes"
 msgstr "批注"
@@ -9072,9 +9084,8 @@ msgstr "正在对比…"
 msgid "Rendering first page…"
 msgstr "正在显示第一页…"
 
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "重新打开"
@@ -9208,9 +9219,8 @@ msgstr "替换可在历史中撤回"
 msgid "Replacing…"
 msgstr "正在替换…"
 
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
@@ -9219,6 +9229,7 @@ msgstr "回复"
 msgid "Reply to {author}"
 msgstr "回复 {author}"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "回复…"
@@ -9309,7 +9320,7 @@ msgstr "调整右侧面板大小"
 msgid "Resolve"
 msgstr "查找"
 
-#: src/editor/comments/editor-comments.ts
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgctxt "comment thread"
 msgid "Resolve"
@@ -9318,10 +9329,6 @@ msgstr "标为解决"
 #: src/history/conflict-resolver.tsx
 msgid "Resolve changes to {path}"
 msgstr "处理 {path} 的改动"
-
-#: src/canvas/document-canvas.tsx
-msgid "Resolve comment"
-msgstr "标为解决"
 
 #: src/history/conflict-resolver.tsx
 msgid "Resolve conflicts in {path}"
@@ -9562,6 +9569,10 @@ msgstr "查看 Overleaf 改动"
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "保存前再看一遍"
+
+#: src/pdf/pdf-annotations.tsx
+msgid "Review the proposal"
+msgstr "审阅这条建议"
 
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
@@ -10076,6 +10087,10 @@ msgstr "Semantic Scholar 暂不可用，已跳过"
 msgid "Send message"
 msgstr "发送"
 
+#: src/editor/comments/comment-card.tsx
+msgid "Send reply"
+msgstr "发送回复"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sent to Crossref for faster lookups. No key needed"
@@ -10181,6 +10196,10 @@ msgstr "历史中显示"
 #: src/papers/bib-visual-editor.tsx
 msgid "Show in source"
 msgstr "在源码中显示"
+
+#: src/pdf/pdf-annotations.tsx
+msgid "Show in the source"
+msgstr "在源码中定位"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
@@ -11781,8 +11800,10 @@ msgstr "下划线"
 
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
+#: src/canvas/document-canvas.tsx
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"

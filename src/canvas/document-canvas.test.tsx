@@ -114,7 +114,7 @@ const HANDLERS = [
   "onGotoDefinition", "onTexlabGoto", "onFindReferences", "onRenameSymbol", "onRenameEnvironment", "onWrapEnvironment",
   "onGotoLineRequest", "onOutlineOpenChange", "onOutlineNavigate",
   "onTableGeneratorOpenChange", "onForwardSync", "onPdfSource",
-  "onCreateEditorComment", "onOpenEditorComments", "onResolveEditorComment", "onReplyEditorComment",
+  "onCreateEditorComment", "onOpenEditorComments", "onResolveEditorComment", "onReplyEditorComment", "onPostEditorCommentReply",
   "onCommentFocusHandled", "onOpenTodos", "onPdfPageCount", "onPdfPageChange", "onCreateMissingFile",
   "onOpenMarkdownPath", "onOpenCitation",
 ] as const satisfies readonly (keyof CanvasProps)[];
@@ -464,7 +464,7 @@ describe("DocumentCanvas / mode", () => {
     }
   });
 
-  it("highlights the source selection while composing and removes only the draft on cancel", async () => {
+  it("highlights the source selection while composing and removes only the draft when a click lands outside", async () => {
     const source = "Hello bold world";
     const existing = createEditorComment({ path: "main.tex", source, from: 6, to: 10, body: "Existing", authorId: "ada", authorName: "Ada" })!;
     const { props } = renderCanvas({ source, editorComments: [existing] });
@@ -474,8 +474,12 @@ describe("DocumentCanvas / mode", () => {
     );
     expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
     expect(props.onCreateEditorComment).not.toHaveBeenCalled();
-    fireEvent.click(within(composer).getByRole("button", { name: "Cancel" }));
-    expect(view.dom.querySelector(".editor-comment-draft")).toBeNull();
+    // No button closes the note: a click anywhere else does, as a popover's would.
+    expect(within(composer).queryByRole("button", { name: "Cancel" })).toBeNull();
+    fireEvent.pointerDown(composer);
+    expect(view.dom.querySelector(".editor-comment-draft")?.textContent).toBe("bold");
+    fireEvent.pointerDown(view.contentDOM);
+    await waitFor(() => expect(view.dom.querySelector(".editor-comment-draft")).toBeNull());
     expect(view.dom.querySelector(".cm-editor-comment")?.textContent).toBe("bold");
   });
 

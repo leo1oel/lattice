@@ -15,12 +15,12 @@ import "../editor/comments/annotations.css";
 import { useIntentLabels } from "../editor/comments/use-intent-labels";
 import { clamp } from "../settings/app-settings";
 import { onLayoutChange } from "../app/effect-helpers";
+import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
 import { useLatestRef } from "../hooks/use-latest-ref";
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names, drawn as glyphs */
 const SAVE_KEYS = comboText(parseKeyName("Mod-Enter"));
 const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
-const CANCEL_KEYS = comboText(parseKeyName("Escape"));
 /* eslint-enable lingui/no-unlocalized-strings */
 
 /** A note being written on a source selection, before it is saved. */
@@ -41,7 +41,9 @@ export type AnnotationDraft = {
 /**
  * The note itself: the quoted passage in the highlighter's amber with where
  * it is, a line for what should change, the optional intent chips, and Save
- * or Save and revise now. Shared by the source and the PDF composers.
+ * or Save and revise now. Shared by the source and the PDF composers, which
+ * close on Esc or a click anywhere outside them, as a popover does, so the
+ * note draws no button for it.
  */
 export function AnnotationForm(props: {
   quote: string;
@@ -114,9 +116,6 @@ export function AnnotationForm(props: {
           </Button>
         )}
         {props.footnote && <span className="annotation-form-hint">{props.footnote}</span>}
-        <button type="button" className="annotation-form-cancel" aria-label={t`Cancel`} onClick={props.onCancel}>
-          {CANCEL_KEYS}
-        </button>
       </div>
     </div>
   );
@@ -133,7 +132,8 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
   anchorKey: string;
   canRevise: boolean;
   onChange: (change: Partial<Pick<AnnotationDraft, "body" | "intent">>) => void;
-  onCancel: () => void;
+  /** Esc closed the note, or a click outside it, which goes on to do what it does there. */
+  onCancel: (outside: boolean) => void;
   onSave: (revise: boolean) => void;
 }) {
   const { t } = useLingui();
@@ -141,6 +141,7 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
   const draftRef = useLatestRef(draft);
   // It grows from the text it quotes as every popup does, and leaves on the popup exit.
   useExitPicture([popupRef]);
+  useDismissOnOutsidePointer(popupRef, () => onCancel(true));
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");
@@ -194,7 +195,7 @@ export function AnnotationComposer({ draft, view, anchorKey, canRevise, onChange
         canRevise={canRevise}
         onBodyChange={(body) => onChange({ body })}
         onIntentChange={(intent) => onChange({ intent })}
-        onCancel={onCancel}
+        onCancel={() => onCancel(false)}
         onSave={onSave}
       />
     </div>

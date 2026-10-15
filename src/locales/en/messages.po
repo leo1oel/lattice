@@ -48,8 +48,7 @@ msgstr "(empty span)"
 msgid "(new paragraph)"
 msgstr "(new paragraph)"
 
-#: src/canvas/document-canvas.tsx
-#: src/editor/comments/editor-comments.ts
+#: src/editor/comments/comment-card.tsx
 msgid "(no comment text)"
 msgstr "(no comment text)"
 
@@ -479,6 +478,7 @@ msgstr "{meaning}, {color}, the pen's colour"
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "{more} more replies"
 msgstr "{more} more replies"
@@ -743,6 +743,7 @@ msgstr "1 fix to review"
 msgid "1 hit"
 msgstr "1 hit"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "1 more reply"
 msgstr "1 more reply"
@@ -1389,8 +1390,10 @@ msgstr "Annotation deleted"
 #: src/app/app-editor-panels.tsx
 #: src/app/use-editor-comments.ts
 #: src/canvas/canvas-toolbar.tsx
+#: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
@@ -1406,9 +1409,8 @@ msgid "Annotations and highlights"
 msgstr "Annotations and highlights"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
@@ -2063,7 +2065,6 @@ msgid "Can take up to 15 minutes"
 msgstr "Can take up to 15 minutes"
 
 #: src/build/tex-dependency-installer.tsx
-#: src/canvas/annotation-composer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 #: src/components/ui/color-picker.tsx
@@ -2752,6 +2753,7 @@ msgstr "Command palette"
 msgid "comment"
 msgstr "comment"
 
+#: src/editor/comments/comment-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Comment"
@@ -2774,6 +2776,10 @@ msgstr "Comment on selected Markdown"
 msgid "Comment or uncomment lines"
 msgstr "Comment or uncomment lines"
 
+#: src/app/use-editor-comments.ts
+msgid "Comment resolved"
+msgstr "Comment resolved"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
 msgstr "Comment source"
@@ -2786,6 +2792,7 @@ msgstr "Comment visibility"
 msgid "comments"
 msgstr "comments"
 
+#: src/app/use-editor-comments.ts
 #: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
@@ -7333,6 +7340,11 @@ msgstr "not written"
 msgid "Note"
 msgstr "Note"
 
+#: src/canvas/document-canvas.tsx
+#: src/pdf/pdf-annotations.tsx
+msgid "Note discarded"
+msgstr "Note discarded"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Notes"
 msgstr "Notes"
@@ -9072,9 +9084,8 @@ msgstr "Rendering diff…"
 msgid "Rendering first page…"
 msgstr "Rendering first page…"
 
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "Reopen"
@@ -9208,9 +9219,8 @@ msgstr "Replacements are recorded in project history"
 msgid "Replacing…"
 msgstr "Replacing…"
 
-#: src/canvas/document-canvas.tsx
+#: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/comments/editor-comments.ts
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
@@ -9219,6 +9229,7 @@ msgstr "Reply"
 msgid "Reply to {author}"
 msgstr "Reply to {author}"
 
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "Reply…"
@@ -9309,7 +9320,7 @@ msgstr "Resize right panel"
 msgid "Resolve"
 msgstr "Resolve"
 
-#: src/editor/comments/editor-comments.ts
+#: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgctxt "comment thread"
 msgid "Resolve"
@@ -9318,10 +9329,6 @@ msgstr "Resolve"
 #: src/history/conflict-resolver.tsx
 msgid "Resolve changes to {path}"
 msgstr "Resolve changes to {path}"
-
-#: src/canvas/document-canvas.tsx
-msgid "Resolve comment"
-msgstr "Resolve comment"
 
 #: src/history/conflict-resolver.tsx
 msgid "Resolve conflicts in {path}"
@@ -9562,6 +9569,10 @@ msgstr "Review Overleaf changes"
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "Review the final file before saving"
+
+#: src/pdf/pdf-annotations.tsx
+msgid "Review the proposal"
+msgstr "Review the proposal"
 
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
@@ -10076,6 +10087,10 @@ msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 msgid "Send message"
 msgstr "Send message"
 
+#: src/editor/comments/comment-card.tsx
+msgid "Send reply"
+msgstr "Send reply"
+
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sent to Crossref for faster lookups. No key needed"
@@ -10181,6 +10196,10 @@ msgstr "Show in history"
 #: src/papers/bib-visual-editor.tsx
 msgid "Show in source"
 msgstr "Show in source"
+
+#: src/pdf/pdf-annotations.tsx
+msgid "Show in the source"
+msgstr "Show in the source"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Show Mermaid preview"
@@ -11781,8 +11800,10 @@ msgstr "Underline"
 
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
+#: src/canvas/document-canvas.tsx
 #: src/editor/editor-keymap.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/pdf/pdf-annotations.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"

@@ -131,15 +131,40 @@ export function useEditorComments({
     ))));
   }, [commit]);
 
-  const toggleResolved = useCallback((id: string) => {
+  const setResolved = useCallback((id: string, resolved: boolean) => {
     const threadId = overleafThreadOf(id);
     if (!threadId) {
-      update(id, (item) => ({ resolved: !item.resolved }));
+      update(id, () => ({ resolved }));
       return;
     }
-    const thread = overleafCommentsRef.current.threads.find((item) => item.id === threadId);
-    void overleafCommentsRef.current.setResolved(threadId, !thread?.resolved).catch((reason) => showError(toMessage(reason)));
+    void overleafCommentsRef.current.setResolved(threadId, resolved).catch((reason) => showError(toMessage(reason)));
   }, [overleafCommentsRef, update]);
+
+  const toggleResolved = useCallback((id: string) => {
+    const threadId = overleafThreadOf(id);
+    const resolved = threadId
+      ? overleafCommentsRef.current.threads.find((item) => item.id === threadId)?.resolved
+      : stateRef.current.annotations.find((item) => item.id === id)?.resolved;
+    setResolved(id, !resolved);
+  }, [overleafCommentsRef, setResolved]);
+
+  /**
+   * Resolve from a comment's card on the document, which leaves with it: the
+   * toast says it happened and offers it back, in the project it happened in.
+   */
+  const resolve = useCallback((id: string) => {
+    const root = projectRootRef.current;
+    setResolved(id, true);
+    notifyInfo(t`Comments`, t`Comment resolved`, {
+      dedupeKey: `editor-comment-resolved:${id}`,
+      primaryAction: {
+        label: t`Undo`,
+        onClick: () => {
+          if (projectRootRef.current === root) setResolved(id, false);
+        },
+      },
+    });
+  }, [projectRootRef, setResolved, t]);
 
   const reply = useCallback((commentId: string, body: string) => {
     const threadId = overleafThreadOf(commentId);
@@ -253,7 +278,7 @@ export function useEditorComments({
   }, [agentOptionsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, rounds: state.rounds, stateRef, commit, all, update, create, toggleResolved, reply, reset, load, openComment,
+    comments, rounds: state.rounds, stateRef, commit, all, update, create, toggleResolved, resolve, reply, reset, load, openComment,
     deleteComment, panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, focusHandled,
   };
