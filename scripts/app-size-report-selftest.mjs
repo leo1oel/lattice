@@ -121,7 +121,7 @@ for (const [overrides, error] of [
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: 120 * MiB }, null],
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: null }, /must bundle its standalone Node binary/],
   [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
-  [{ presentationRuntimeBytes: 65 * MiB + 1 }, /Presentation runtime.*budget/],
+  [{ presentationRuntimeBytes: 66 * MiB + 1 }, /Presentation runtime.*budget/],
 ]) {
   const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));

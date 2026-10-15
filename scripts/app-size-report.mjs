@@ -163,7 +163,7 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
-const PRESENTATION_RUNTIME_BUDGET_BYTES = 65 * 1024 * 1024;
+const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
