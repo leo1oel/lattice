@@ -716,7 +716,11 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    as its light and dark halves, every option named. The art sits in theme-
    preview scopes (theme.css), so it reads the real palettes. The accent is
    taken where the window's own is in force, before a scope resets it. */
-.theme-tiles { --tile-accent: var(--accent); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-4); min-width: 0; }
+.theme-tiles { --tile-accent: var(--accent); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-6); min-width: 0; }
+/* A row of pictures stands off its hairlines a step further than a row of
+   text: the selected tile's ring reaches past the art, and at the rows' own
+   inset it ran into the divider above. */
+.settings-section .ui-settings-group-body > .ui-settings-row:has(.theme-tiles) { padding-block: var(--space-6); }
 .theme-tile {
   min-width: 0;
   padding: 0;
@@ -726,7 +730,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   color: var(--text-secondary);
   display: grid;
   justify-items: center;
-  gap: var(--space-2);
+  gap: var(--space-4);
   cursor: pointer;
 }
 .theme-tile-art {
@@ -772,7 +776,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-art-accent { fill: var(--tile-accent); }
 .theme-art-page { fill: var(--pdf-page-surface); stroke: rgb(0 0 0 / 8%); stroke-width: 0.5; }
 .theme-art-print { fill: #B4B4B9; }
-.theme-tiles-tint { gap: var(--space-3); }
+.theme-tiles-tint { gap: var(--space-5); }
 .theme-tiles-tint .theme-tile { width: 56px; }
 .theme-tint-art {
   position: relative;
@@ -918,8 +922,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   .settings-section .ui-settings-row-control > .ui-segmented { width: 100%; }
   .settings-section .ui-settings-row-control > .ui-segmented .ui-segmented-tab { flex: 1 1 0; }
   .settings-section .theme-tiles { flex-wrap: nowrap; width: 100%; justify-content: flex-start; }
-  .settings-section .theme-tiles-mode { gap: var(--space-3); }
-  .settings-section .theme-tiles-tint { gap: var(--space-2); }
+  .settings-section .theme-tiles-mode { gap: var(--space-5); }
+  .settings-section .theme-tiles-tint { gap: var(--space-4); }
   .settings-section .theme-tiles .theme-tile { flex: 1 1 0; width: auto; justify-items: stretch; }
   .settings-section .theme-tiles .theme-tile-name { justify-self: center; }
   .settings-section .theme-tiles :is(.theme-window, .theme-window-split, .theme-tint-art) { width: 100%; }

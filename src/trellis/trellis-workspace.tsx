@@ -821,24 +821,22 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
   );
 }
 
-function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => void }) {
+function PanelMenu({ request, open, onDismiss, onClose }: {
+  request: MenuRequest;
+  open: boolean;
+  onDismiss: () => void;
+  onClose: () => void;
+}) {
   // Closing plays the shared exit (`.popup-motion[data-state="closed"]`) and
   // drops the request when it ends: unmounting the menu with its owner would
   // cut it. With no exit to play, Radix has already removed the content, so the
   // request goes at once. A new request opens at once, even over one leaving.
-  const [open, setOpen] = useState(true);
-  const [shown, setShown] = useState(request);
-  if (shown !== request) {
-    setShown(request);
-    setOpen(true);
-  }
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open && !content.current) onClose();
   }, [open, onClose]);
-  const close = () => setOpen(false);
   return (
-    <MenuPrimitive.Root open={open} modal={false} onOpenChange={(next) => { if (!next) close(); }}>
+    <MenuPrimitive.Root open={open} modal={false} onOpenChange={(next) => { if (!next) onDismiss(); }}>
       <MenuPrimitive.Trigger asChild>
         <span aria-hidden="true" style={{ position: "fixed", left: request.x, top: request.y, width: 0, height: 0 }} />
       </MenuPrimitive.Trigger>
@@ -849,13 +847,19 @@ function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => 
           sideOffset={4}
           className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
           onCloseAutoFocus={(event) => event.preventDefault()}
+          // A press on the button the menu opened from is that button's: its
+          // click closes the menu (openMenu). Dismissed here too, the menu
+          // would close on the press and open again on the click.
+          onInteractOutside={(event) => {
+            if (event.target instanceof Node && request.anchor?.contains(event.target)) event.preventDefault();
+          }}
           ref={content}
           onAnimationEnd={(event) => {
             if (!open && event.target === event.currentTarget) onClose();
           }}
         >
           <FluidHoverSurface />
-          <MenuEntries entries={request.entries} onRun={close} />
+          <MenuEntries entries={request.entries} onRun={onDismiss} />
         </MenuPrimitive.Content>
       </MenuPrimitive.Portal>
     </MenuPrimitive.Root>
@@ -923,6 +927,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   });
   const [ws, setWs] = useState<WorkspaceHandle | null>(null);
   const [menu, setMenu] = useState<MenuRequest | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const handleRef = useCallback((handle: WorkspaceHandle | null) => {
     controller.attachWorkspace(handle);
     setWs(handle);
@@ -1425,15 +1430,30 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
   const actions = (kind: "project" | "papers" | "agent" | "pdf") => () => controller.bridge?.panelMenu(kind) ?? [];
   const menuRef = useRef<MenuRequest | null>(null);
+  const menuOpenRef = useRef(false);
+  const dismissMenu = useCallback(() => {
+    menuOpenRef.current = false;
+    setMenuOpen(false);
+  }, []);
   const openMenu = useCallback((request: MenuRequest) => {
+    // The button that opened the menu closes it again, as a menu button does.
+    if (menuOpenRef.current && request.anchor && request.anchor === menuRef.current?.anchor) {
+      request.close();
+      dismissMenu();
+      return;
+    }
     menuRef.current?.close();
     menuRef.current = request;
+    menuOpenRef.current = true;
     setMenu(request);
-  }, []);
+    setMenuOpen(true);
+  }, [dismissMenu]);
   const closeMenu = useCallback(() => {
     menuRef.current?.close();
     menuRef.current = null;
+    menuOpenRef.current = false;
     setMenu(null);
+    setMenuOpen(false);
   }, []);
   // A document panel's menu repeats its header tools, so hiding them loses nothing.
   const fileMenu = (view: ViewHandle): MenuEntry[] => {
@@ -1531,7 +1551,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           <WorkspaceEmpty controller={controller} />
         </Workspace.Empty>
       </Workspace>
-      {menu && <PanelMenu request={menu} onClose={closeMenu} />}
+      {menu && <PanelMenu request={menu} open={menuOpen} onDismiss={dismissMenu} onClose={closeMenu} />}
     </>
   );
 });

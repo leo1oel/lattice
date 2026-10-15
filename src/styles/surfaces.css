@@ -81,6 +81,23 @@
   overflow-wrap: break-word;
 }
 
+/* A modal popup (every select, a context menu, a menu left modal) holds the
+ * window: Radix turns pointer events off on `body` and marks it scroll-locked.
+ * Trellis turns them back on for its panels, so a press beside the popup
+ * reached the workspace under it: it placed the caret, jumped the PDF, or went
+ * into an iframe (the Agent, an HTML preview), where the page never heard it
+ * and the popup stayed open over a window that would no longer scroll. A
+ * press on the popup's own trigger fell through the same way. This shield sits
+ * over everything but the popup, so any press beside it lands on `body`, which
+ * Radix reads as outside, and only closes the popup. Toasts stay above it. */
+body[data-scroll-locked]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup-shield);
+  pointer-events: auto;
+}
+
 /* Raised: a plate resting on its surface, such as the welcome screen's mark. */
 .brand-mark {
   background: var(--surface-elevated);

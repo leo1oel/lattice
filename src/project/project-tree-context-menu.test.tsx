@@ -25,6 +25,7 @@ function renderMenu() {
       destructive={{ label: "Delete", run: vi.fn() }}
     />
   </>);
+  return context;
 }
 
 it("lets the arrows, Home and End reach the enabled items from the row that opened it", () => {
@@ -46,4 +47,16 @@ it("lets the arrows, Home and End reach the enabled items from the row that open
   expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveFocus();
   fireEvent.keyDown(document.activeElement!, { key: "Home" });
   expect(screen.getByRole("menuitem", { name: "New file" })).toHaveFocus();
+});
+
+it("closes on a press anywhere but the menu, the row it opened from and a press that cancels itself included", () => {
+  const context = renderMenu();
+  fireEvent.pointerDown(screen.getByRole("menuitem", { name: "New file" }));
+  expect(context.close).not.toHaveBeenCalled();
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Row" }));
+  expect(context.close).toHaveBeenCalledTimes(1);
+  // The PDF's text cancels its pointerdown, so no mousedown follows for Pierre to see.
+  document.body.addEventListener("pointerdown", (event) => event.preventDefault(), { once: true });
+  fireEvent.pointerDown(document.body);
+  expect(context.close).toHaveBeenCalledTimes(2);
 });
