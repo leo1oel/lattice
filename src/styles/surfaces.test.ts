@@ -201,6 +201,16 @@ describe("shared surface contracts", () => {
     expect(appCss).not.toMatch(frostedChrome)
   })
 
+  // Trellis panels take pointer events back under Radix's lock on `body`, so
+  // a press beside a select reached the workspace (or an iframe) under it and
+  // the select stayed open.
+  it("shields the window under a modal popup, below the popup and above every dialog", () => {
+    expect(surfacesCss).toMatch(/body\[data-scroll-locked\]::after \{[^}]*position: fixed;[^}]*inset: 0;[^}]*z-index: var\(--z-popup-shield\);[^}]*pointer-events: auto;/)
+    const z = (name: string) => Number(foundations.match(new RegExp(`--z-${name}: (\\d+);`))?.[1])
+    expect(z("popup-shield")).toBeGreaterThan(z("nested-modal"))
+    expect(z("popup-shield")).toBeLessThan(z("radix-popper"))
+  })
+
   // One feature rule per decision, each pinned where a regression once landed.
   it.each<[string, Pattern[], Pattern[]?]>([
     ["keeps PDF.js annotation layers below application drawers", [

@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { ContextMenuContent, ContextMenuItem } from "../components/ui/context-menu";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 /** One project-tree menu entry; `checked` makes it a checkbox item. */
 export type MenuAction = {
@@ -69,6 +70,19 @@ export function ProjectTreeItemMenu(props: {
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, []);
+  // A press anywhere but the menu closes it, the row it opened from included,
+  // as a native context menu closes. Pierre's own dismissal ignores presses in
+  // the tree and listens for mousedown, which never fires after a cancelled
+  // pointerdown (the PDF's text cancels its own, to keep its selection).
+  const contextRef = useLatestRef(props.context);
+  useLayoutEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      contextRef.current.close();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [contextRef]);
   const menuLeft = props.context.anchorRect.right + 4;
   const menuTop = props.context.anchorRect.top;
   // Keep the whole menu on screen, re-measured after every render.

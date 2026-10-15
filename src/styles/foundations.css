@@ -440,6 +440,8 @@
   --z-drawer-backdrop: 20;
   --z-nested-modal-backdrop: 30;
   --z-nested-modal: 31;
+  /* Under a modal popup (a select, a context menu): takes every press beside it (surfaces.css). */
+  --z-popup-shield: 49;
   --z-radix-popper: 50;
   --z-selection-toolbar: 80;
   --z-tooltip: 81;
