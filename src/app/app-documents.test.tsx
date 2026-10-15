@@ -1,4 +1,4 @@
-import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, renderApp, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, queryProjectTreeItem, renderApp, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { syntaxTree } from "@codemirror/language";
@@ -185,6 +185,31 @@ describe("documents and editors", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open a file" }));
     expect(await screen.findByPlaceholderText("Open file…")).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Return to main.tex" })).toBeNull();
+  });
+
+  it("reopens a file from the tree after its last tab closed", async () => {
+    // Regression: closing the last tab kept the file selected in the tree, and
+    // the tree opens files on a selection change, so clicking it again did nothing.
+    renderApp(projectCommands(projectSnapshot({ files: [fileNode("main.tex"), dirNode("chapters", fileNodes("chapters/intro.tex"))] })));
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await findProjectTreeItem("chapters/"));
+
+    const closeTab = async (name: string) => {
+      const close = screen.getByRole("tab", { name }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+      fireEvent.pointerDown(close, { button: 0 });
+      fireEvent.click(close, { button: 0 });
+      await waitFor(() => expect(screen.queryByRole("tab", { name })).toBeNull());
+    };
+    for (const path of ["main.tex", "chapters/intro.tex"]) {
+      await openTreeFile(path);
+      const name = path.split("/").at(-1)!;
+      await closeTab(name);
+      await waitFor(() => expect(queryProjectTreeItem(path)).not.toHaveAttribute("data-item-selected"));
+
+      await openTreeFile(path);
+      expect(await findProjectTreeItem(path)).toHaveAttribute("data-item-selected", "true");
+      await closeTab(name);
+    }
   });
 
   it("lists sections from included chapters in Go to symbol without the outline open", async () => {
