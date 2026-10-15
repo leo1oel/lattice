@@ -1,16 +1,12 @@
 import { msg } from "@lingui/core/macro";
 import { RangeSet, StateEffect, StateField, type Extension, type StateEffectType, type Text } from "@codemirror/state";
-import { Decoration, EditorView, gutter, GutterMarker, hoverTooltip, type DecorationSet } from "@codemirror/view";
+import {
+  activateHover, closeHoverTooltip, Decoration, EditorView, gutter, GutterMarker, hoverTooltip, type DecorationSet,
+} from "@codemirror/view";
 import { peerColorForKey } from "../../components/ui/collab-colors";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
-import {
-  annotationStatus,
-  editorCommentAuthorDisplayName,
-  resolveCommentAnchor,
-  type EditorComment,
-  type EditorCommentReply,
-} from "./editor-comment-data";
+import { annotationStatus, resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
 
 export const setEditorCommentsEffect = StateEffect.define<EditorComment[]>();
 
@@ -142,100 +138,62 @@ export function formatCommentTimestamp(iso: string, now = Date.now(), locale = "
   return new Date(then).toLocaleDateString(locale);
 }
 
-export type EditorCommentLocalization = {
-  locale: string;
-  anonymous: string;
-  noCommentText: string;
-  reopen: string;
-  resolve: string;
-  reply: string;
-  /** A gutter pin's label, naming the annotations on its line; English when absent. */
-  pins?: (numbers: number[]) => string;
+/** A gutter pin's label, naming the annotations on its line. */
+function defaultPinLabel(numbers: number[]): string {
+  const list = numbers.join(", ");
+  return numbers.length === 1 ? i18n._(msg`Annotation ${list}`) : i18n._(msg`Annotations ${list}`);
+}
+
+/**
+ * The comment card one editor shows over a comment's passage, which React
+ * draws into `host` (canvas/editor-comment-cards.tsx): CodeMirror places,
+ * flips and sizes the hover tooltip, and the card inside it is the shared
+ * `CommentCard`.
+ */
+export type CommentCardMount = {
+  key: number;
+  host: HTMLElement;
+  comments: EditorComment[];
+  /**
+   * The card stays when the pointer leaves, until a click outside it, Esc or
+   * `close`: a reply is being written in it.
+   */
+  pinned: boolean;
+  /** The thread whose reply field the card opens with. */
+  replyingTo: string | null;
+  /** Keep the card while a reply to `id` is written; it is drawn again, pinned. */
+  pin: (id: string) => void;
+  close: () => void;
+  /** Fade the passage of the comment `id` as it resolves. */
+  fade: (id: string) => void;
+  focusEditor: () => void;
 };
 
-function defaultCommentLocalization(): EditorCommentLocalization {
-  return {
-    locale: i18n.locale,
-    anonymous: i18n._(msg`Anonymous`),
-    noCommentText: i18n._(msg`(no comment text)`),
-    reopen: i18n._(msg`Reopen`),
-    resolve: i18n._(msg({ message: "Resolve", context: "comment thread" })),
-    reply: i18n._(msg`Reply`),
-    pins: (numbers) => {
-      const list = numbers.join(", ");
-      return numbers.length === 1 ? i18n._(msg`Annotation ${list}`) : i18n._(msg`Annotations ${list}`);
-    },
+/** The comment cards on screen, one per editor at most, for React to draw. */
+export class CommentCardHosts {
+  private mounts: readonly CommentCardMount[] = [];
+  private listeners = new Set<() => void>();
+  private nextKey = 0;
+
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
   };
-}
 
-type CommentTooltipActions = {
-  onResolve: (id: string) => void;
-  onReply: (comment: EditorComment) => void;
-};
+  getSnapshot = () => this.mounts;
 
-/** One author/time/body row, shared by the comment head and each reply. */
-function commentLine(
-  entry: Pick<EditorCommentReply, "authorId" | "authorName" | "authorColor" | "body">,
-  when: string,
-  className: string,
-  now: number,
-  localization: EditorCommentLocalization,
-): HTMLElement {
-  const dot = element("span", "cm-editor-comment-tooltip-dot");
-  dot.style.backgroundColor = (entry.authorColor ?? peerColorForKey(entry.authorId || entry.authorName)).color;
-  const head = element("div", "cm-editor-comment-tooltip-head");
-  head.append(
-    dot,
-    element("span", "cm-editor-comment-tooltip-author", editorCommentAuthorDisplayName(entry.authorName, localization.anonymous)),
-    element("span", "cm-editor-comment-tooltip-time", formatCommentTimestamp(when, now, localization.locale)),
-  );
-  const line = element("div", className);
-  line.append(head, element("div", "cm-editor-comment-tooltip-body", entry.body || localization.noCommentText));
-  return line;
-}
-
-/** Build the hover-card DOM shown when the pointer rests on a comment mark. */
-export function buildCommentTooltipDom(
-  comments: EditorComment[],
-  actions?: CommentTooltipActions,
-  now = Date.now(),
-  localization = defaultCommentLocalization(),
-): HTMLElement {
-  const dom = element("div", "cm-editor-comment-tooltip");
-  for (const comment of comments) {
-    const item = element("div", "cm-editor-comment-tooltip-item");
-    item.append(
-      commentLine(comment, comment.updatedAt || comment.createdAt, "cm-editor-comment-tooltip-main", now, localization),
-      ...(comment.replies ?? []).map((reply) =>
-        commentLine(reply, reply.createdAt, "cm-editor-comment-tooltip-reply", now, localization)),
-    );
-    if (actions) {
-      const row = element("div", "cm-editor-comment-tooltip-actions");
-      const buttons: Array<[string, () => void]> = [
-        [comment.resolved ? localization.reopen : localization.resolve, () => actions.onResolve(comment.id)],
-        // Matches the drawer's own Reply button; an ellipsis would promise a menu.
-        [localization.reply, () => actions.onReply(comment)],
-      ];
-      for (const [label, run] of buttons) {
-        const button = element("button", "", label);
-        button.type = "button";
-        // Keep the hover tooltip alive: a mousedown outside the range would
-        // otherwise dismiss it before the click lands.
-        button.addEventListener("mousedown", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        });
-        button.addEventListener("click", (event) => {
-          event.preventDefault();
-          run();
-        });
-        row.append(button);
-      }
-      item.append(row);
-    }
-    dom.append(item);
+  add(mount: Omit<CommentCardMount, "key">) {
+    this.publish([...this.mounts, { ...mount, key: ++this.nextKey }]);
   }
-  return dom;
+
+  remove(host: HTMLElement) {
+    if (this.mounts.some((mount) => mount.host === host)) this.publish(this.mounts.filter((mount) => mount.host !== host));
+  }
+
+  private publish(mounts: readonly CommentCardMount[]) {
+    this.mounts = mounts;
+    for (const listener of this.listeners) listener();
+  }
 }
 
 export type EditorCommentsExtensionOptions = {
@@ -245,11 +203,12 @@ export type EditorCommentsExtensionOptions = {
    */
   getComments?: () => EditorComment[];
   getDraft?: () => EditorCommentDraft | null;
-  onResolve?: (id: string) => void;
-  onReply?: (comment: EditorComment) => void;
+  /** Where the comment card over a hovered passage is drawn; without it a passage shows no card. */
+  cards?: CommentCardHosts;
   /** A gutter pin was clicked: show its annotation. */
   onOpenAnnotation?: (comment: EditorComment) => void;
-  getLocalization?: () => EditorCommentLocalization;
+  /** A gutter pin's label, naming the annotations on its line; English when absent. */
+  pinLabel?: (numbers: number[]) => string;
 };
 
 /** The value of the last `type` effect in a transaction; undefined when there is none. */
@@ -260,8 +219,7 @@ function lastEffectValue<T>(effects: readonly StateEffect<unknown>[], type: Stat
 }
 
 export function editorCommentsExtension(path: string, options: EditorCommentsExtensionOptions = {}): Extension {
-  const { getComments, onResolve, onReply } = options;
-  const tooltipActions = onResolve && onReply ? { onResolve, onReply } : undefined;
+  const { getComments, cards } = options;
   // Drafts decorate the document without becoming interactive, persisted comments.
   const draftDecorations = (doc: Text, draft: EditorCommentDraft | null) => {
     const range = draft?.path === path ? resolveCommentAnchor(doc.toString(), draft) : null;
@@ -282,7 +240,7 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
     },
     provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
   });
-  const pinLabel = (numbers: number[]) => (options.getLocalization?.()?.pins ?? defaultCommentLocalization().pins!)(numbers);
+  const pinLabel = (numbers: number[]) => (options.pinLabel ?? defaultPinLabel)(numbers);
   type Anchored = { comments: EditorComment[]; decorations: DecorationSet; pins: RangeSet<GutterMarker> };
   const anchor = (doc: Text, comments: EditorComment[]): Anchored => {
     const anchored = anchoredComments(doc.toString(), path, comments);
@@ -334,9 +292,15 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
     },
   });
 
-  const commentHover = hoverTooltip((view, pos) => {
+  /** Where the card was last asked for, so a reply can pin it there. */
+  let hovered = { pos: 0, side: 1 as -1 | 1 };
+  /** The reply that the next card opens with, pinned; set just before it is drawn again. */
+  let pinFor: string | null = null;
+  const commentHover = hoverTooltip((view, pos, side) => {
+    if (!cards) return null;
     const hits = commentsAtPosition(view.state.doc.toString(), path, view.state.field(field).comments, pos);
     if (!hits.length) return null;
+    hovered = { pos, side };
     const from = Math.min(pos, ...hits.map((hit) => hit.from));
     const to = Math.max(pos, ...hits.map((hit) => hit.to));
     // Anchor to the hovered line, not to the start of the whole span.
@@ -356,17 +320,39 @@ export function editorCommentsExtension(path: string, options: EditorCommentsExt
       // The arrow counts as part of the tooltip for hit-testing, bridging the
       // gap between the card and the text.
       arrow: true,
-      create: () => ({
-        dom: buildCommentTooltipDom(
-          hits.map((hit) => hit.comment),
-          tooltipActions,
-          Date.now(),
-          options.getLocalization?.() ?? defaultCommentLocalization(),
-        ),
+      create: () => {
+        const host = element("div", "cm-editor-comment-card-host");
+        // The card handles its own clicks; the editor and the canvas around it must not take them as theirs.
+        host.addEventListener("mousedown", (event) => event.stopPropagation());
+        // The panel around the editor clips what crosses its edge: the card takes the editor's width at most.
+        host.style.setProperty("--comment-card-room", `${Math.max(0, view.dom.clientWidth - 16)}px`);
+        const replyingTo = pinFor;
+        pinFor = null;
+        cards.add({
+          host,
+          comments: hits.map((hit) => hit.comment),
+          pinned: replyingTo !== null,
+          replyingTo,
+          // A hover card closes once the pointer leaves it, which would lose a
+          // reply being typed. Opened again through activateHover, the same
+          // card stays (CodeMirror locks a tooltip opened that way) until it
+          // is closed.
+          pin: (id) => {
+            pinFor = id;
+            activateHover(view, hovered.pos, hovered.side, { tooltip: commentHover });
+          },
+          close: () => view.dispatch({ effects: closeHoverTooltip(commentHover) }),
+          fade: (id) => {
+            for (const mark of view.contentDOM.querySelectorAll(`[data-comment-id="${CSS.escape(id)}"]`)) {
+              mark.classList.add("cm-editor-comment-resolving");
+            }
+          },
+          focusEditor: () => view.focus(),
+        });
         // Constrain long threads to the available space on the chosen side
         // of the line; the card scrolls without hiding its actions off-screen.
-        resize: true,
-      }),
+        return { dom: host, resize: true, destroy: () => cards.remove(host) };
+      },
     };
   });
 

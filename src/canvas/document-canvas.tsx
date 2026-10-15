@@ -40,7 +40,7 @@ import {
   createEditorComment, resolveCommentAnchor, type AnnotationIntent, type EditorComment,
 } from "../editor/comments/editor-comment-data";
 import {
-  editorCommentsExtension, setEditorCommentsEffect, setEditorCommentDraftEffect, type EditorCommentLocalization,
+  CommentCardHosts, editorCommentsExtension, setEditorCommentsEffect, setEditorCommentDraftEffect,
   type EditorCommentsExtensionOptions,
 } from "../editor/comments/editor-comments";
 import { clamp, type AppLocale, type Theme } from "../settings/app-settings";
@@ -76,8 +76,10 @@ import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { ChunkGate } from "../components/chunk-gate";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer, type AnnotationDraft } from "./annotation-composer";
+import { EditorCommentCards } from "./editor-comment-cards";
 import { AnnotationReviewLayer } from "./annotation-review";
 import type { AnnotationRounds } from "../app/annotation-rounds";
+import { notifyInfo } from "../telemetry/app-notify";
 import { annotationReviewExtension } from "../editor/annotation-review-anchor";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
@@ -307,8 +309,12 @@ export function DocumentCanvas(props: {
   onOpenEditorComments: () => void;
   /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
   annotationRounds: AnnotationRounds;
+  /** Resolve from a comment's card on the document, which offers it back in a toast. */
   onResolveEditorComment: (id: string) => void;
+  /** Open the comments panel at this comment's reply (a click on a comment in the visual Markdown editor). */
   onReplyEditorComment: (commentId: string) => void;
+  /** Post a reply written in a comment's card on the document. */
+  onPostEditorCommentReply: (commentId: string, body: string) => void;
   commentFocusRequest: { id: string; nonce: string } | null;
   onCommentFocusHandled: (nonce: string) => void;
   todoCount: number;
@@ -359,16 +365,15 @@ export function DocumentCanvas(props: {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
     cite: citeInsertRequest, figure: figureDropRequest, proofread: proofreadRequest,
   } = props.requests;
-  const { i18n, t } = useLingui();
-  const editorCommentLocalization = useMemo<EditorCommentLocalization>(() => ({
-    locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
-    reopen: t`Reopen`, resolve: t`Resolve comment`, reply: t`Reply`,
-    pins: (numbers) => {
-      const list = numbers.join(", ");
-      return numbers.length === 1 ? t`Annotation ${list}` : t`Annotations ${list}`;
-    },
-  }), [i18n.locale, t]);
-  const editorCommentLocalizationRef = useLatestRef(editorCommentLocalization);
+  const { t } = useLingui();
+  const annotationPinLabel = useCallback((numbers: number[]) => {
+    const list = numbers.join(", ");
+    return numbers.length === 1 ? t`Annotation ${list}` : t`Annotations ${list}`;
+  }, [t]);
+  const annotationPinLabelRef = useLatestRef(annotationPinLabel);
+  /** The comment cards the source editors show over a hovered comment, drawn by EditorCommentCards. */
+  const [commentCards] = useState(() => new CommentCardHosts());
+  const commentAuthor = useMemo(() => ({ id: commentAuthorId, name: commentAuthorName }), [commentAuthorId, commentAuthorName]);
   // The newest props for CodeMirror extensions and window listeners, so those
   // never rebuild for them; also the LaTeX editors' live data (citations, macros).
   const latestRef = useRef(props);
@@ -786,6 +791,29 @@ export function DocumentCanvas(props: {
     setCommentComposer(null);
     commentComposerViewRef.current?.focus();
   };
+  /**
+   * Esc or a click outside closed the note. A click outside goes on to do
+   * what it does there, so the editor does not take focus back from it. A
+   * note with words in it is offered back, in the file it was written on.
+   */
+  const dismissCommentComposer = (outside: boolean) => {
+    const draft = commentComposer;
+    if (outside) setCommentComposer(null);
+    else closeCommentComposer();
+    if (!draft?.body.trim()) return;
+    notifyInfo(t`Annotations`, t`Note discarded`, {
+      dedupeKey: "annotation-draft-discarded",
+      primaryAction: {
+        label: t`Undo`,
+        onClick: () => {
+          const view = primaryViewRef.current;
+          if (!view || latestRef.current.activeFile !== draft.path) return;
+          commentComposerViewRef.current = view;
+          setCommentComposer({ ...draft, error: null });
+        },
+      },
+    });
+  };
   const saveCommentComposer = (revise: boolean) => {
     if (!commentComposer || !activeFile) return;
     if (commentComposer.path !== activeFile) {
@@ -844,9 +872,8 @@ export function DocumentCanvas(props: {
     ]),
     ...extra,
     editorCommentsExtension(path, {
-      getLocalization: () => editorCommentLocalizationRef.current,
-      onResolve: (id) => latestRef.current.onResolveEditorComment(id),
-      onReply: (comment) => latestRef.current.onReplyEditorComment(comment.id),
+      pinLabel: (numbers) => annotationPinLabelRef.current(numbers),
+      cards: commentCards,
       onOpenAnnotation: (comment) => latestRef.current.annotationRounds.open(comment),
       ...comments,
     }),
@@ -1508,6 +1535,12 @@ export function DocumentCanvas(props: {
             annotations={editorComments}
             rounds={props.annotationRounds}
           />
+          <EditorCommentCards
+            cards={commentCards}
+            author={commentAuthor}
+            onResolve={props.onResolveEditorComment}
+            onReply={props.onPostEditorCommentReply}
+          />
           {commentComposer && (
             <AnnotationComposer
               draft={commentComposer}
@@ -1516,7 +1549,7 @@ export function DocumentCanvas(props: {
               anchorKey={`${activeFile}\n${editorKey}`}
               canRevise
               onChange={(change) => setCommentComposer((current) => current ? { ...current, ...change } : current)}
-              onCancel={closeCommentComposer}
+              onCancel={dismissCommentComposer}
               onSave={saveCommentComposer}
             />
           )}

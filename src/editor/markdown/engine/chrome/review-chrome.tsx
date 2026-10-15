@@ -25,7 +25,7 @@ import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { Button } from "../../../../components/ui/button";
 import { hueColor } from "../../../../components/ui/collab-colors";
 import { Textarea } from "../../../../components/ui/textarea";
-import { buildCommentTooltipDom } from "../../../comments/editor-comments";
+import { CommentPreview } from "../../../comments/comment-card";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
@@ -94,7 +94,6 @@ export function CommentCard({ editor, host }: { editor: Editor; host: ChromeHost
   const comment = open ? host.props().editorComments?.find((candidate) => candidate.id === open.id) ?? null : null;
   useLayoutEffect(() => {
     if (!card || !open || !comment) return;
-    card.replaceChildren(buildCommentTooltipDom([comment]));
     place(card, open.mark);
   }, [card, comment, open]);
 
@@ -109,7 +108,9 @@ export function CommentCard({ editor, host }: { editor: Editor; host: ChromeHost
       onMouseLeave={(event) => {
         if (!(event.relatedTarget instanceof Node && open.mark.contains(event.relatedTarget))) setOpen(null);
       }}
-    />,
+    >
+      <CommentPreview comments={[comment]} />
+    </div>,
     document.body,
   );
 }

@@ -277,6 +277,14 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .source-editor .cm-annotation[data-annotation-status="proposed"] { --annotation-mark-ink: var(--annotation-proposed-ink); background: color-mix(in srgb, var(--annotation-proposed-ink) 10%, transparent); }
 .source-editor .cm-annotation[data-annotation-status="asked"] { --annotation-mark-ink: var(--annotation-asked-ink); background: color-mix(in srgb, var(--annotation-asked-ink) 10%, transparent); }
+/* Resolved from its card: the mark fades with the card before it is taken
+   away (an Overleaf thread's colours are inline, hence the importance). */
+.source-editor .cm-editor-comment.cm-editor-comment-resolving {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none;
+  transition: background-color var(--motion-moderate-exit), border-color var(--motion-moderate-exit), box-shadow var(--motion-moderate-exit);
+}
 /* Annotation pins (editor/comments/editor-comments.ts): a zero-width gutter
    beside the text whose pins lie over the fold column, quiet until the pointer
    is over the gutter, so a numbered amber mark reads right after the line number. */
@@ -316,14 +324,13 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 /* Hover cards shown when the pointer rests on a suggestion or a comment mark.
    Both draw their own card over CodeMirror's see-through tooltip, so its chrome
    is stripped; the suggestion card's minimum width keeps Accept and Reject
-   inside its edges. */
+   inside its edges. The comment card is comments/comment-card.css. */
 .cm-tooltip.cm-tooltip-hover:has(.cm-tracked-change-tooltip),
-.cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-tooltip) {
+.cm-tooltip.cm-tooltip-hover:has(.cm-editor-comment-card-host) {
   border: none;
   background: transparent;
 }
-.cm-tracked-change-tooltip,
-.cm-editor-comment-tooltip {
+.cm-tracked-change-tooltip {
   box-shadow: var(--elevation-popover);
   /* Prose in the UI face, not the editor's monospace, which .cm-editor would
      otherwise impose on everything inside it. */
@@ -341,37 +348,18 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   line-height: 1.45;
 }
 .cm-tracked-change-tooltip { min-width: 220px; max-width: 340px; }
-.cm-editor-comment-tooltip { max-width: 320px; }
 .cm-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: var(--space-2); }
-.cm-editor-comment-tooltip-item,
-.cm-editor-comment-tooltip-main { display: flex; flex-direction: column; gap: var(--gap-tight); }
-.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item,
-.cm-editor-comment-tooltip-item + .cm-editor-comment-tooltip-item {
+.cm-tracked-change-tooltip-item + .cm-tracked-change-tooltip-item {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
-.cm-tracked-change-tooltip-head,
-.cm-editor-comment-tooltip-head { display: flex; align-items: center; gap: var(--space-3); }
-.cm-tracked-change-tooltip-dot,
-.cm-editor-comment-tooltip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
-.cm-tracked-change-tooltip-author,
-.cm-editor-comment-tooltip-author { font-weight: 600; }
-.cm-tracked-change-tooltip-time,
-.cm-editor-comment-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
-.cm-tracked-change-tooltip-body,
-.cm-editor-comment-tooltip-body { white-space: pre-wrap; word-break: break-word; }
-.cm-editor-comment-tooltip-reply {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-tight);
-  margin-top: var(--space-3);
-  padding-left: var(--space-5);
-  border-left: 2px solid var(--border-subtle);
-}
+.cm-tracked-change-tooltip-head { display: flex; align-items: center; gap: var(--space-3); }
+.cm-tracked-change-tooltip-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.cm-tracked-change-tooltip-author { font-weight: 600; }
+.cm-tracked-change-tooltip-time { margin-left: auto; opacity: .6; font-size: var(--type-caption-size); }
+.cm-tracked-change-tooltip-body { white-space: pre-wrap; word-break: break-word; }
 .cm-tracked-change-tooltip-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); }
-.cm-editor-comment-tooltip-actions { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
-.cm-tracked-change-tooltip-actions button,
-.cm-editor-comment-tooltip-actions button {
+.cm-tracked-change-tooltip-actions button {
   flex: 0 0 auto;
   padding: 3px var(--space-6);
   border: 1px solid var(--border-strong);
@@ -382,9 +370,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   font-weight: 600;
   cursor: pointer;
 }
-.cm-editor-comment-tooltip-actions button { padding-inline: var(--space-5); }
-.cm-tracked-change-tooltip-actions button:hover:not(:disabled),
-.cm-editor-comment-tooltip-actions button:hover {
+.cm-tracked-change-tooltip-actions button:hover:not(:disabled) {
   background: var(--control-active-soft);
   border-color: var(--control-active);
 }
@@ -803,7 +789,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 /* These three draw their own card, so the host must not draw a second one
    around it. */
 .source-editor .cm-tooltip-hover:has(.cm-tooltip-lint),
-.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip),
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host),
 .source-editor .cm-tooltip-hover:has(.cm-tracked-change-tooltip) {
   border: 0;
   background: transparent;
@@ -811,11 +797,19 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 /* Keep the hover arrow outside the host, but scroll the card within the
    available height CodeMirror measures above or below the anchor. */
-.source-editor .cm-tooltip-hover:has(.cm-editor-comment-tooltip) { overflow: visible; }
-.source-editor .cm-tooltip-hover .cm-editor-comment-tooltip {
-  max-height: 100%;
-  overflow-y: auto;
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) { overflow: visible; }
+/* `--comment-card-room` is the editor's width less its margins, set as the card opens. */
+.cm-editor-comment-card-host { --comment-card-room: 320px; display: flex; flex-direction: column; max-height: 100%; }
+.cm-editor-comment-card-host > .comment-card {
+  min-width: min(240px, var(--comment-card-room));
+  max-width: min(320px, var(--comment-card-room));
+  min-height: 0;
+  flex: 0 1 auto;
 }
+/* The card's tail leaves with it when its last thread is resolved. */
+.cm-tooltip-hover:has(.comment-card[data-leaving]) .cm-tooltip-arrow { opacity: 0; transition: opacity var(--motion-moderate-exit); }
+/* Above its line, the card rises into place instead of dropping. */
+.cm-tooltip-above .cm-editor-comment-card-host > .popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
 /* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that carries
    .cm-tooltip-lint. Match it on its own (not only combined with
    .cm-tooltip-hover): hovering the gutter marker puts both classes on one

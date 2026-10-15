@@ -112,20 +112,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Esc, which also closes the note, as a quiet button for the pointer. */
-.annotation-form-cancel {
-  height: 24px;
-  margin-inline-start: auto;
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  cursor: pointer;
-}
-.annotation-form-cancel:hover { background: var(--control-hover-surface); color: var(--text-primary); }
-.annotation-form-hint + .annotation-form-cancel { margin-inline-start: 0; }
 @container (max-width: 320px) {
   .annotation-form-actions kbd { display: none; }
 }
@@ -556,6 +542,23 @@
   border-radius: var(--radius-compact);
   background: var(--annotation-highlight);
   box-shadow: inset 0 -2px 0 var(--annotation-highlight-edge);
+  transition: background-color var(--motion-fast);
+}
+/* The passage under the pointer deepens, and the text over it takes a pointer: a click opens its card. */
+.pdf-annotation-mark[data-hovered] .pdf-annotation-highlight { background: color-mix(in srgb, var(--annotation-highlight-edge) 45%, var(--annotation-highlight)); }
+[data-annotation-hover] .textLayer,
+[data-annotation-hover] .textLayer * { cursor: pointer; }
+/* Resolved from its card: the highlight and pin fade with the card before they are taken away. */
+.pdf-annotation-mark[data-resolving] { opacity: 0; transition: opacity var(--motion-moderate-exit); }
+/* An annotation's card and its preview, above the passage on its page (pdf-annotations.tsx). */
+.pdf-comment-popup { position: absolute; z-index: 7; display: flex; flex-direction: column; }
+.pdf-comment-popup > .comment-card { width: 100%; max-width: none; min-height: 0; flex: 0 1 auto; }
+.pdf-comment-popup[data-side="top"] > .popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
+/* The preview never stands in the pointer's way, and fades in on the fast tier. */
+.pdf-comment-preview { pointer-events: none; animation: pdf-comment-preview-in var(--motion-fast) both; }
+@keyframes pdf-comment-preview-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .pdf-annotation-pin {
   position: absolute;

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
@@ -6,8 +6,11 @@ import { useExitPicture } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import type { AnnotationIntent } from "../editor/comments/editor-comment-data";
 import type { PdfTextSelection } from "../pdf/pdf-annotations";
-import { clamp } from "../settings/app-settings";
+import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
+import { usePdfAnchoredPopup } from "../pdf/use-pdf-anchored-popup";
 import { AnnotationForm } from "./annotation-composer";
+
+const COMPOSER_PLACE = { side: "below", width: 360 } as const;
 
 /**
  * The note for text selected on the PDF: it maps the selection to the source
@@ -17,7 +20,11 @@ import { AnnotationForm } from "./annotation-composer";
 export function PdfAnnotationComposer(props: {
   selection: PdfTextSelection;
   rounds: AnnotationRounds;
+  /** What a note offered back after it was dismissed opens with. */
+  initial?: { body: string; intent?: AnnotationIntent };
   onDone: () => void;
+  /** Esc or a click outside closed the note, with what was written in it. */
+  onDismiss: (written: { body: string; intent?: AnnotationIntent }) => void;
 }) {
   const { t } = useLingui();
   const { selection } = props;
@@ -26,8 +33,8 @@ export function PdfAnnotationComposer(props: {
   useExitPicture([popupRef]);
   const [mapped, setMapped] = useState<MappedPdfSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [body, setBody] = useState("");
-  const [intent, setIntent] = useState<AnnotationIntent | undefined>();
+  const [body, setBody] = useState(props.initial?.body ?? "");
+  const [intent, setIntent] = useState<AnnotationIntent | undefined>(props.initial?.intent);
   const { rounds } = props;
 
   useEffect(() => {
@@ -44,40 +51,9 @@ export function PdfAnnotationComposer(props: {
   }, [rounds, selection]);
 
   // Under the selection on its page, kept there as the PDF scrolls or zooms.
-  useLayoutEffect(() => {
-    const popup = popupRef.current;
-    const column = popup?.parentElement;
-    if (!popup || !column) return;
-    const place = () => {
-      const page = column.querySelector<HTMLElement>(`[data-page-number="${selection.page}"]`);
-      const last = selection.rects.at(-1);
-      const first = selection.rects[0];
-      if (!page || !last || !first) {
-        popup.style.visibility = "hidden";
-        return;
-      }
-      const pageBox = page.getBoundingClientRect();
-      const bounds = column.getBoundingClientRect();
-      const width = Math.min(360, Math.max(0, bounds.width - 16));
-      const below = pageBox.top - bounds.top + (last.y + last.height) * pageBox.height + 8;
-      const visible = below > 0 && below < bounds.height;
-      Object.assign(popup.style, {
-        visibility: visible ? "visible" : "hidden",
-        width: `${width}px`,
-        left: `${clamp(pageBox.left - bounds.left + first.x * pageBox.width, 8, Math.max(8, bounds.width - width - 8))}px`,
-        top: `${below}px`,
-        maxHeight: `${Math.max(0, bounds.height - below - 8)}px`,
-      });
-    };
-    place();
-    column.addEventListener("scroll", place, { capture: true, passive: true });
-    const observer = new ResizeObserver(place);
-    observer.observe(column);
-    return () => {
-      column.removeEventListener("scroll", place, { capture: true });
-      observer.disconnect();
-    };
-  }, [selection]);
+  usePdfAnchoredPopup(popupRef, selection, COMPOSER_PLACE);
+  // A click outside closes it (and still selects, or presses, where it lands).
+  useDismissOnOutsidePointer(popupRef, () => props.onDismiss({ body, intent }));
 
   const name = mapped ? mapped.path.split("/").at(-1) ?? mapped.path : null;
   const location = mapped ? t`PDF p.${selection.page} → ${name}:${mapped.line}` : t`PDF p.${selection.page} → …`;
@@ -101,7 +77,7 @@ export function PdfAnnotationComposer(props: {
         canRevise
         onBodyChange={setBody}
         onIntentChange={setIntent}
-        onCancel={props.onDone}
+        onCancel={() => props.onDismiss({ body, intent })}
         onSave={(revise) => {
           if (!mapped) return;
           if (rounds.createFromPdf(selection, mapped, body, intent, revise)) props.onDone();
