@@ -2655,6 +2655,10 @@ msgstr "Close settings"
 msgid "Close the tab"
 msgstr "Close the tab"
 
+#: src/agent/agent-visual-dialog.tsx
+msgid "Close visual"
+msgstr "Close visual"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
@@ -2978,6 +2982,7 @@ msgstr "Convert selection to footnote"
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
+#: src/agent/agent-visual-dialog.tsx
 #: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
@@ -3064,6 +3069,10 @@ msgstr "Copy notification command"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "Copy path"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Copy source"
+msgstr "Copy source"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy the whole build log"
@@ -3782,6 +3791,10 @@ msgstr "Download a new copy"
 #: src/project/paper-library.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Download HTML"
+msgstr "Download HTML"
 
 #: src/telemetry/app-log.tsx
 msgid "Download JSON"

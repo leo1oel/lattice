@@ -592,6 +592,17 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   opacity: 1;
   transform: none;
 }
+/* An Agent visual shown over the window (agent-visual-dialog.tsx): the frame
+   takes the height its page reports, and the dialog scrolls past that. */
+.modal.sheet-dialog.agent-visual-dialog { gap: var(--space-4); }
+.agent-visual-frame {
+  display: block;
+  flex: none;
+  width: 100%;
+  min-height: 80px;
+  border: 0;
+  background: transparent;
+}
 /* Native-drag hover cue; an ::after overlay because the embedded frame paints
    over the shell's own box. Mirrors .source-editor.file-drop-active. */
 .synara-frame-shell.agent-drop-active::after {

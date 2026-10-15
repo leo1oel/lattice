@@ -16,7 +16,10 @@ import {
 } from "../agent/agent-project-document-tools";
 import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
-import { SYNARA_SAVE_VISUAL, parseAgentVisualSave, saveAgentVisual } from "../agent/agent-visual-save";
+import {
+  SYNARA_EXPAND_VISUAL, SYNARA_SAVE_VISUAL, parseAgentVisualExpand, parseAgentVisualSave, saveAgentVisual,
+  type AgentVisualExpand,
+} from "../agent/agent-visual-save";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
@@ -125,6 +128,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   const [readyFrameKey, setReadyFrameKey] = useState<string | null>(null);
   const [permissionMode, setPermissionMode] = useState<SynaraPermissionMode>("full-access");
   const [autoModeAvailable, setAutoModeAvailable] = useState(true);
+  /** An inline visual the panel asked to show over the window. */
+  const [expandedVisual, setExpandedVisual] = useState<AgentVisualExpand | null>(null);
+  const closeExpandedVisual = useCallback(() => setExpandedVisual(null), []);
   const frameKey = origin && project ? `${origin}\0${project.root}` : null;
   const frameReady = frameKey !== null && readyFrameKey === frameKey;
   const projectRootRef = useLatestRef(project?.root ?? null);
@@ -235,6 +241,10 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       [SYNARA_SAVE_VISUAL]: (data) => {
         const request = parseAgentVisualSave(data);
         if (request) saveAgentVisual(request);
+      },
+      [SYNARA_EXPAND_VISUAL]: (data) => {
+        const visual = parseAgentVisualExpand(data);
+        if (visual) setExpandedVisual(visual);
       },
       "synara:open-review": (data, host) => {
         // A file row opens in the host's file surface; the bare Review button
@@ -364,6 +374,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     frameRef, sourceControlFrameRef, frameMounted, frameAttempt, frameReady,
     permissionMode, autoModeAvailable, changePermissionMode,
     postMessage, notifyPanelOpened, showThread,
+    expandedVisual, closeExpandedVisual,
     /** Delivery state for the snapshots useAgentContext posts; not for rendering. */
     latest,
     deliverable: Boolean(origin && frameMounted && frameReady && agentVisible),

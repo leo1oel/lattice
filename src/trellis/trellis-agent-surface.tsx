@@ -5,6 +5,7 @@
  */
 import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { AgentVisualDialog } from "../agent/agent-visual-dialog";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { synaraEmbedUrl } from "../app/app-synara-embed";
 import type { SynaraHost } from "../app/use-synara-host";
@@ -18,7 +19,9 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
   dropActive: boolean;
 }) {
   const { t } = useLingui();
-  const { origin, runtime, frameMounted, frameAttempt, frameReady, frameRef, retryAgent } = synara;
+  const {
+    origin, runtime, frameMounted, frameAttempt, frameReady, frameRef, retryAgent, expandedVisual, closeExpandedVisual,
+  } = synara;
   // Recording navigation must not change src and reload an in-progress turn.
   const src = useMemo(() => origin
     ? synaraEmbedUrl({ origin, authToken: runtime.authToken, projectRoot, theme, locale: appLocale })
@@ -36,6 +39,7 @@ function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive
         sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
       />}
       {!frameReady && <SynaraLoadingSurface thread waiting={frameMounted} runtime={runtime} preparingWorkspace={Boolean(origin)} onRetry={retryAgent} />}
+      {expandedVisual && <AgentVisualDialog visual={expandedVisual} theme={theme} onClose={closeExpandedVisual} />}
     </div>
   );
 }

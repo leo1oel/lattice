@@ -2655,6 +2655,10 @@ msgstr "关闭"
 msgid "Close the tab"
 msgstr "关闭标签"
 
+#: src/agent/agent-visual-dialog.tsx
+msgid "Close visual"
+msgstr "关闭可视化内容"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
@@ -2978,6 +2982,7 @@ msgstr "改成脚注"
 msgid "Convert selection to inline math"
 msgstr "改成公式"
 
+#: src/agent/agent-visual-dialog.tsx
 #: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
@@ -3064,6 +3069,10 @@ msgstr "复制命令"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Copy source"
+msgstr "复制源代码"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy the whole build log"
@@ -3782,6 +3791,10 @@ msgstr "重新下载"
 #: src/project/paper-library.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Download HTML"
+msgstr "下载 HTML"
 
 #: src/telemetry/app-log.tsx
 msgid "Download JSON"
