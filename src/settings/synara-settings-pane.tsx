@@ -8,6 +8,7 @@ import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
 import { LATTICE_HOST_THEME_REQUEST, readAgentHostTheme } from "../agent/agent-host-theme";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
+import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import {
   applySynaraSettingsHeight,
@@ -121,6 +122,7 @@ export function SynaraSettingsPane(props: {
   const key = frame && section ? `${frame.url}#${section}` : null;
   useSynaraNotificationBridge({ frameRef, origin, source: t`Synara settings` });
   useSynaraConfirmationBridge({ frameRef, origin });
+  useSynaraPopupDismissalBridge({ frameRef, origin });
 
   // Ask for the tab's section once the page listens; the page it already shows
   // needs no request.

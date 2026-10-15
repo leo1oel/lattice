@@ -18,6 +18,7 @@ import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest 
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
+import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
@@ -115,6 +116,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useSynaraConfirmationBridge({ frameRef, origin });
   useSynaraNotificationBridge({ frameRef: sourceControlFrameRef, origin, source: t`Synara source control` });
   useSynaraConfirmationBridge({ frameRef: sourceControlFrameRef, origin });
+  useSynaraPopupDismissalBridge({ frameRef, origin });
+  useSynaraPopupDismissalBridge({ frameRef: sourceControlFrameRef, origin });
   const [frameMounted, setFrameMounted] = useState(false);
   /** Part of the agent frame's key: Retry remounts a frame that never said it was ready. */
   const [frameAttempt, setFrameAttempt] = useState(0);
