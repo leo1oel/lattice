@@ -50,9 +50,6 @@ describe("runtime pruning", () => {
       "pkg/node_modules/nested/package.json": JSON.stringify({ name: "nested" }),
       "pkg/node_modules/nested/index.js": "",
       "pkg/node_modules/nested/README.md": "",
-      "pi/package.json": JSON.stringify({ name: "pi" }),
-      "pi/index.js": "",
-      "pi/README.md": "",
       "ts-entry/package.json": JSON.stringify({ name: "ts-entry", exports: "./src/index.ts" }),
       "ts-entry/src/index.ts": "",
     });
@@ -60,9 +57,9 @@ describe("runtime pruning", () => {
     mkdirSync(join(modules, ".bin"));
     symlinkSync("../pkg/lib/index.js", join(modules, ".bin/pkg"));
 
-    pruneNodeModules(modules, { platform: "darwin-arm64", typeScriptSources: "remove", keepDocsFor: ["pi"] });
+    pruneNodeModules(modules, { platform: "darwin-arm64", typeScriptSources: "remove" });
 
-    const kept = ["pkg/lib/index.js", "pkg/docs/runtime.js", "pkg/LICENSE", "pkg/NOTICE.md", "pkg/node_modules/nested/index.js", "pi/README.md", "ts-entry/src/index.ts"];
+    const kept = ["pkg/lib/index.js", "pkg/docs/runtime.js", "pkg/LICENSE", "pkg/NOTICE.md", "pkg/node_modules/nested/index.js", "ts-entry/src/index.ts"];
     const removed = ["pkg/lib/index.js.map", "pkg/lib/index.d.ts", "pkg/lib/util.ts", "pkg/lib/util.test.js", "pkg/README.md", "pkg/CHANGELOG.md", "pkg/test", "pkg/examples", "pkg/node_modules/nested/README.md", ".bin"];
     for (const file of kept) expect(existsSync(join(modules, file)), file).toBe(true);
     for (const file of removed) expect(existsSync(join(modules, file)), file).toBe(false);

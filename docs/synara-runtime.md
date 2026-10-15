@@ -209,7 +209,7 @@ A quit marks a running turn interrupted; after an unexpected stop (Lattice or th
 The Lattice host policy now tells the agent to repeat `wait_for_tasks` with the returned run ids until every delegated task is terminal, as upstream's own policy does.
 The sidebar's **Working and unread on top** ordering, browser tabs that keep their page, and Hubs keeping their chosen access mode are standalone surfaces that Lattice does not embed.
 Inline visuals (`synara_show_visual`) were Beta-only in 1.0.4, so the Stable feature boundary kept them out of Lattice; the Computer Use paste and recovery fixes leave the boundary above unchanged.
-Pi still runs on the bundled SDK without a CLI probe, but now reports "not set up" (localized in zh-CN) when neither an instance API key nor a configured Pi credentials or models file exists, instead of showing ready.
+Pi still runs on its SDK without a CLI probe, but now reports "not set up" (localized in zh-CN) when neither an instance API key nor a configured Pi credentials or models file exists, instead of showing ready.
 
 ### Synara 1.0.5 compatibility
 
@@ -378,7 +378,8 @@ went stale before.
 - `pnpm prepare:synara:dev` accepts a dirty local Synara checkout for development.
 - `pnpm prepare:synara` is the release path. It refuses a dirty checkout or a revision that differs
   from the pin.
-- The preparation script builds the production web/server artifacts, downloads and verifies the official target-specific Node fallback, installs production dependencies, and stages the result under `src-tauri/synara-runtime`.
+- The preparation script builds the production web/server artifacts, downloads and verifies the official target-specific Node fallback, installs production dependencies except the Pi and OpenCode packages (see [Pi and OpenCode install on demand](#pi-and-opencode-install-on-demand)), and stages the result under `src-tauri/synara-runtime`.
+- It strips the Node binary's local symbols (`strip -x`, kept: global symbols and the export trie that native addons bind through) and prunes what the server never loads: source maps, declarations, published TypeScript sources, other platforms' prebuilds, Shiki's grammars and themes (the server only parses patches; the build fails if it starts using `@pierre/diffs` for more), and KaTeX's woff/ttf fallbacks behind a woff2 source.
 - Tauri's documented `TAURI_ENV_DEBUG` hook signal selects the package staging profile through `scripts/prepare-build.mjs`.
 - Synara and Open Slide run on that standalone Node in every build (`src-tauri/src/sidecar.rs`).
 - Claude sessions use the external `claude` executable selected in Provider settings (or found on
@@ -391,13 +392,20 @@ went stale before.
 Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, and provider executables.
 
 The staged runtimes are **enforced**, not merely observed.
-Both staging scripts prune through `scripts/lib/runtime-prune.mjs`: source maps, typings, tests, package docs, npm's `.bin` links, and binaries the target cannot load, never a file a `package.json` entry point names; Synara's also drops TypeScript sources, which Node will not load from `node_modules`, and strips the bundled Node's local symbols.
+Both staging scripts prune through `scripts/lib/runtime-prune.mjs`: source maps, typings, tests, package docs, npm's `.bin` links, and binaries the target cannot load, never a file a `package.json` entry point names; Synara's also drops TypeScript sources, which Node will not load from `node_modules`.
 `scripts/app-size-report.mjs` applies an uncompressed budget to Open Slide, and the Release workflow runs its `--app` mode on the built bundle, which prints the installed size per folder and fails above the installed-size ceiling.
 It also fails if a staged Synara runtime lacks its standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
 Read the current constants from that file rather than trusting a number quoted here; the recorded totals belong in the release notes for the version that measured them.
 
-Provider-specific lazy packaging is the next place to optimize if installer size becomes a
-constraint.
+### Pi and OpenCode install on demand
+
+The Pi (`@earendil-works/*`) and OpenCode (`@opencode/client`, `@opencode-ai/sdk`) packages are not in the bundle; with their dependency trees they were more than half of it.
+The fork loads them through `apps/server/src/provider/providerRuntimes.ts`: from the server's own `node_modules` when present (a development checkout or standalone Synara), otherwise from an install under the agent data directory (`<app data>/synara/provider-runtimes/<runtime>/<lockfile hash>/`).
+Until a runtime is installed, its provider reports `runtimeInstall: {status: "missing"}` and Settings → Providers, the model picker and the chat's provider banner offer a one-click install (`server.installProviderRuntime`); Claude and Codex do not depend on it.
+
+The install downloads exactly the tarballs named by the fork's committed npm lockfile (`apps/server/providerRuntimes/<runtime>/package-lock.json`, whose root versions the preparation script checks against Synara's `bun.lock`) from the npm registry, rejects any whose bytes miss the lockfile's sha512 integrity, runs no package scripts, and keeps it only after a fresh Node process loads every module the server imports from it.
+An interrupted or rejected install leaves nothing behind and can be retried; an installed runtime needs no network.
+A new Synara pin that changes a lockfile asks for the install again.
 
 ## Syncing upstream
 

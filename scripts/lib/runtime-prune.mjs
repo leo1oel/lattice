@@ -9,7 +9,7 @@
 // never candidates: the license obligations travel with the code.
 import { chmodSync, closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { readJson, removePath, run, walkFiles } from "./util.mjs";
+import { readJson, removePath, walkFiles } from "./util.mjs";
 
 // Package-root files that only describe the package to people.
 const PACKAGE_DOC_FILE = /^(?:readme|changelog|changes|history|upgrading|migrating|contributing|code_of_conduct|security)(?:\.(?:md|markdown|txt|rst))?$/i;
@@ -165,12 +165,11 @@ function restoreEsbuildLaunchers(packages, platform) {
  * - `typeScriptSources`: whether TypeScript sources go too. Node refuses to
  *   strip types under node_modules, so a Node-only runtime can never load
  *   them; a runtime that serves packages through Vite can.
- * - `keepDocsFor`: package names that read their own README or docs at runtime.
  *
  * @param {string} nodeModules
- * @param {{ platform: string, typeScriptSources: "keep" | "remove", keepDocsFor?: string[] }} options
+ * @param {{ platform: string, typeScriptSources: "keep" | "remove" }} options
  */
-export function pruneNodeModules(nodeModules, { platform, typeScriptSources, keepDocsFor = [] }) {
+export function pruneNodeModules(nodeModules, { platform, typeScriptSources }) {
   if (typeScriptSources !== "keep" && typeScriptSources !== "remove") {
     throw new Error(`typeScriptSources must be "keep" or "remove", not ${typeScriptSources}`);
   }
@@ -192,10 +191,7 @@ export function pruneNodeModules(nodeModules, { platform, typeScriptSources, kee
   removedBytes += removePath(join(nodeModules, ".bin"));
   for (const directory of packages) removedBytes += removePath(join(directory, "node_modules/.bin"));
 
-  const keepDocs = new Set(keepDocsFor);
   for (const directory of packages) {
-    const name = relative(nodeModules, directory).split("node_modules/").at(-1);
-    if (keepDocs.has(name)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       const removable = entry.isDirectory() ? PACKAGE_DOC_DIRECTORIES.has(entry.name) : PACKAGE_DOC_FILE.test(entry.name);
@@ -226,17 +222,3 @@ export function pruneNodeModules(nodeModules, { platform, typeScriptSources, kee
   }
   return removedBytes;
 }
-
-/**
- * Drop a Mach-O executable's local symbols (`strip -x`) and re-sign it ad hoc
- * so it still runs on Apple Silicon before the Developer ID pass. Global
- * symbols stay: native addons resolve Node's N-API exports from the executable
- * when they load. Returns the bytes saved.
- */
-export function stripLocalSymbols(path) {
-  const before = readFileSync(path).length;
-  run("/usr/bin/strip", ["-x", path]);
-  run("/usr/bin/codesign", ["--force", "--sign", "-", path]);
-  return before - readFileSync(path).length;
-}
-
