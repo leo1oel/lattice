@@ -231,6 +231,11 @@ Without Lattice changes, 1.0.5 also pins Claude's **Ask for approval** to Claude
 `device_wait`, `device_logs` and `device_configure` join the allowlisted simulator tools, since the existing device tool descriptions now point to them.
 The new strings that render in the panel are in the zh-CN catalog.
 
+The Agent header's usage chip shows what is left of the active provider's tightest window, and hovering it lists every window the provider reports (Claude's 5-hour, weekly and per-model windows; Codex's 5-hour and weekly) with its reset countdown; the ring beside the model picker shows context use.
+For a draft the chip follows the composer's model. It stays hidden while the provider reports nothing, and the usage read never holds up the panel or a turn.
+A wrapper `claude` that sets `CLAUDE_CONFIG_DIR` only for its own child (an account switcher, for example) keeps the login in a config-dir-scoped Keychain item Synara cannot name, so usage used to read "not signed in" and the chip never appeared.
+The fork now asks the configured `claude` for `/usage` through the Agent SDK whenever no stored credential works: no settings sources run, the read holds the auth-status lock, and a CLI that cannot answer is not asked again for ten minutes.
+
 `LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **32** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
