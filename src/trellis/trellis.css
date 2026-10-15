@@ -112,7 +112,7 @@
   gap: var(--space-3);
   /* Puts the tab's icon on the panel's one icon gutter, with the Project
      tree's glyphs and the Papers search icon (app-shell.css). */
-  padding: 0 var(--space-2) 0 var(--tab-inset-inline);
+  padding: 0 var(--trellis-tab-inset) 0 var(--tab-inset-inline);
   border-radius: var(--trellis-tab-radius);
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
@@ -153,6 +153,14 @@
   border-radius: var(--radius-icon);
   color: var(--text-tertiary);
   opacity: 1;
+}
+/* The close button nests in its tab as the tab nests in the strip: a square
+   held off the tab's top, end and bottom by the strip's own inset, its corner
+   the tab's less that inset. Full height, it ran into the tab's edges. */
+.lattice-trellis [data-trellis-part="tab-close"] {
+  width: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
+  height: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
+  border-radius: calc(var(--trellis-tab-radius) - var(--trellis-tab-inset));
 }
 .lattice-trellis [data-trellis-part="tab-close"] { opacity: 0; }
 .lattice-trellis [data-trellis-part="tab"]:hover [data-trellis-part="tab-close"],

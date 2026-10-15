@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocument, layout as L, type LayoutDocument, type LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
@@ -516,5 +516,28 @@ describe("a titlebar panel toggle", () => {
     act(() => controller.togglePanel("project"));
     expect(controller.panelState("project")).toBe("shown");
     expect(groupOf(ws.getDocument(), "project")).toEqual({ views: ["project", "agent"], selected: "project" });
+  });
+});
+
+describe("a panel's menu", () => {
+  withWindowBox();
+
+  // The press on ⋯ dismissed the open menu as a press outside it, and the
+  // click that ended the press opened it again, so ⋯ never closed its menu.
+  it("closes on a second press of the button that opened it", async () => {
+    await open("/a", ["main.tex"]);
+    const button = document.querySelector<HTMLElement>('[data-trellis-part="panel-menu"]')!;
+    const press = () => {
+      fireEvent.pointerDown(button, { button: 0, pointerType: "mouse" });
+      fireEvent.click(button);
+    };
+    act(press);
+    const menu = await screen.findByRole("menu");
+    expect(menu).toHaveAttribute("data-state", "open");
+    // Radix starts listening for presses outside a tick after the menu opens.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    act(press);
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(button).not.toHaveAttribute("aria-expanded");
   });
 });
