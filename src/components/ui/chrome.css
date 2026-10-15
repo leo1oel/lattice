@@ -5,7 +5,8 @@
   padding: 0;
   flex: none;
   border: 0;
-  border-radius: var(--radius-icon);
+  border-radius: calc(var(--radius-icon) * var(--corner-smoothing));
+  corner-shape: squircle;
   outline: none;
   background: transparent;
   color: var(--text-secondary);
@@ -62,7 +63,8 @@
   margin: 0;
   padding: 0 var(--space-6);
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: calc(var(--radius-control) * var(--corner-smoothing));
+  corner-shape: squircle;
   outline: none;
   display: inline-flex;
   align-items: center;
@@ -171,7 +173,8 @@
   height: var(--control-height-compact);
   padding: 0 var(--pad-inline-control);
   border: var(--sliding-tab-border);
-  border-radius: var(--radius-icon);
+  border-radius: calc(var(--radius-icon) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: transparent;
   color: var(--text-secondary);
   display: inline-flex;
@@ -282,7 +285,8 @@
    out by its feature. */
 .ui-settings-group-body:has(> :is(.ui-settings-row, .ui-switch-field)) {
   border: 1px solid var(--border-subtle);
-  border-radius: var(--settings-card-radius);
+  border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--settings-card-surface);
   overflow: clip;
 }
@@ -561,7 +565,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   --surface-inset: var(--space-1);
   height: var(--control-height-compact);
   padding: var(--surface-inset);
-  border-radius: var(--surface-radius);
+  border-radius: calc(var(--surface-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--segmented-surface);
   display: flex;
   align-items: stretch;
@@ -576,7 +581,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   min-width: 0;
   height: 100%;
   padding: 0 var(--segmented-tab-padding-inline);
-  border-radius: var(--nested-radius);
+  border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -744,7 +750,8 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   height: 18px;
   padding: 0 var(--space-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-compact);
+  border-radius: calc(var(--radius-compact) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--surface-panel-raised);
   box-shadow: 0 1px 0 var(--border-subtle);
   color: var(--text-secondary);

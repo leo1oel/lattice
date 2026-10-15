@@ -190,6 +190,13 @@ body[data-scroll-locked]::after {
  * This applies to tight nesting: menu items, segmented tabs, chips. A card with
  * generous padding is not concentric nesting, and its inner elements keep an
  * independently chosen radius.
+ *
+ * Every container that nests draws its own corner as a squircle
+ * (foundations.css, --corner-smoothing), so it hands its children the shape
+ * with the radius: `--nested-corner-shape` and `--nested-corner-smoothing`.
+ * A child draws `calc(var(--nested-radius) * var(--nested-corner-smoothing, 1))`
+ * with `corner-shape: var(--nested-corner-shape, round)`, and the fallbacks
+ * keep a list that sets `--nested-radius` by hand on round corners.
  */
 :where(
   .ui-segmented,
@@ -199,6 +206,8 @@ body[data-scroll-locked]::after {
   .quick-open-list
 ) {
   --nested-radius: calc(var(--surface-radius) - var(--surface-inset));
+  --nested-corner-shape: squircle;
+  --nested-corner-smoothing: var(--corner-smoothing);
 }
 
 /* A compact menu that opens in place (not a Radix portaled surface), on a
@@ -207,7 +216,8 @@ body[data-scroll-locked]::after {
   --surface-radius: var(--radius-surface);
   --surface-inset: var(--space-2);
   padding: var(--surface-inset);
-  border-radius: var(--surface-radius);
+  border-radius: calc(var(--surface-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   display: grid;
   gap: var(--space-1);
 }
@@ -217,5 +227,6 @@ body[data-scroll-locked]::after {
   --surface-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
   --surface-inset: var(--gap-inline-tight);
   padding: var(--surface-inset);
-  border-radius: var(--surface-radius);
+  border-radius: calc(var(--surface-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
 }

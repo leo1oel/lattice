@@ -26,7 +26,8 @@
   width: 212px;
   max-width: var(--radix-popover-content-available-width, 212px);
   padding: var(--surface-inset);
-  border-radius: var(--surface-radius);
+  border-radius: calc(var(--surface-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--surface-elevated);
   box-shadow: var(--elevation-popover);
   color: var(--text-primary);
@@ -42,7 +43,8 @@
   min-height: var(--control-height-compact);
   padding: 0 var(--pad-inline-control-tight) 0 var(--space-2);
   border: 0;
-  border-radius: var(--nested-radius);
+  border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   background: transparent;
   color: var(--text-secondary);
   display: grid;
@@ -59,7 +61,7 @@
 
 /* A highlighter row: the apply button fills it; the rename pencil takes the
    digit's place on hover or focus, so the row never grows. */
-.hl-item { position: relative; min-width: 0; border-radius: var(--nested-radius); }
+.hl-item { position: relative; min-width: 0; border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); }
 .hl-item[data-on] { background: var(--control-active-soft); }
 .hl-item-apply {
   inline-size: 100%;
@@ -68,6 +70,7 @@
   padding: 0 var(--pad-inline-control-tight) 0 var(--space-2);
   border: 0;
   border-radius: inherit;
+  corner-shape: inherit;
   background: transparent;
   color: var(--text-primary);
   display: grid;

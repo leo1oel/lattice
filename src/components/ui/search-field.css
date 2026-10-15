@@ -3,7 +3,8 @@
   min-width: 0;
   height: var(--search-control-height);
   border: var(--search-control-border-width) solid var(--search-control-border-color);
-  border-radius: var(--search-control-radius);
+  border-radius: calc(var(--search-control-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--search-control-background);
   color: var(--text-tertiary);
   display: inline-flex;
@@ -87,7 +88,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-icon);
+  border-radius: calc(var(--radius-icon) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: transparent;
   color: var(--text-tertiary);
 }

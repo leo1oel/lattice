@@ -61,7 +61,8 @@ describe("shared chrome primitives", () => {
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
     expect(menuViewportClassName).not.toContain("scrollbar-width:none");
     for (const token of [
-      "rounded-[var(--nested-radius,var(--radius-icon))]", "duration-[var(--duration-fast)]", "ease-[var(--ease-fast)]",
+      "rounded-[calc(var(--nested-radius,var(--radius-icon))*var(--nested-corner-smoothing,1))]",
+      "[corner-shape:var(--nested-corner-shape,round)]", "duration-[var(--duration-fast)]", "ease-[var(--ease-fast)]",
       "[&_svg]:[stroke-width:1.5]",
     ]) expect(menuItemClassName).toContain(token);
   });
