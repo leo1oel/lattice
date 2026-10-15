@@ -1632,7 +1632,109 @@ async function texlabEqualRevision() {
   return { items, first: Number(durations[0].toFixed(1)), equalRevision: stats(durations.slice(1)) };
 }
 
+// ⌘Z / ⇧⌘Z and Edit ▸ Undo / Redo on each kind of text surface, pressed
+// through NSApplication like the window server's events, so AppKit's key
+// equivalent pass (the Edit menu) sees them as it does for the writer.
+// Each `undo…`/`redo…` is how many presses took the text back to before or
+// after the typing (an undo step may hold only part of it), null if three
+// did not. `keydowns` lists the ⌘Z presses the page saw at all.
+async function editUndoOn(focus, read, text = "undoprobe") {
+  const keydowns = [];
+  const onKeydown = (event) => {
+    if (!event.metaKey || event.key.toLowerCase() !== "z") return;
+    const name = event.shiftKey ? "⇧⌘Z" : "⌘Z";
+    // Read once the event has gone through the page: did a surface take it?
+    setTimeout(() => keydowns.push(`${name}${event.defaultPrevented ? " taken" : ""}`), 0);
+  };
+  window.addEventListener("keydown", onKeydown, { capture: true });
+  const routes = new Set();
+  const press = (shift) => async () => {
+    const { key_window: key, via } = await invoke("perf_shortcut", { key: "z", shift });
+    routes.add(key ? via : `${via} (not key)`);
+  };
+  const choose = (redo) => () => invoke("perf_edit_menu", { redo });
+  const until = async (send, goal) => {
+    for (let presses = 1; presses <= 3; presses += 1) {
+      await send();
+      await sleep(1000);
+      await nextPaint();
+      if (read() === goal) return presses;
+    }
+    return null;
+  };
+  try {
+    await focus();
+    const base = read();
+    await input.keys(text);
+    await sleep(1000);
+    await nextPaint();
+    const typed = read();
+    const undoKey = await until(press(false), base);
+    const redoKey = undoKey && await until(press(true), typed);
+    const undoMenu = redoKey && await until(choose(false), base);
+    const redoMenu = undoMenu && await until(choose(true), typed);
+    return { typed: typed !== base, undoKey, redoKey, undoMenu, redoMenu, routes: [...routes], keydowns };
+  } finally {
+    window.removeEventListener("keydown", onKeydown, { capture: true });
+  }
+}
+
+async function editUndo() {
+  const results = {};
+  const attempt = async (name, run) => {
+    try {
+      results[name] = await run();
+    } catch (error) {
+      results[name] = { error: error instanceof Error ? error.message : String(error) };
+    }
+  };
+  await attempt("latexSource", async () => {
+    await openFile("chapters/ch01.tex");
+    await settle(800);
+    let view = null;
+    // Enter is CodeMirror's own edit (insertNewlineKeepIndent), which WebKit's undo never holds.
+    return editUndoOn(async () => { view = await clickLine(4); }, () => view.state.doc.toString(), "undoprobe\n");
+  });
+  // A note and the 2 MB document, whose surface draws only the blocks near the view.
+  for (const [name, path, nth] of [["markdownVisual", "notes/note-000.md", 0], ["markdownVisualLarge", "large.md", 2]]) {
+    await attempt(name, async () => {
+      await openFile(path);
+      await selectView("Preview");
+      await settle(1500, 30_000);
+      const paragraph = await waitFor(() => document.querySelectorAll(".ProseMirror p")[nth], "visual paragraph", 15_000);
+      paragraph.scrollIntoView({ block: "center" });
+      await settle(600);
+      // The surface's text moves with the blocks it draws; count the probe word instead.
+      const probes = () => document.querySelector(".ProseMirror")?.textContent?.split("undoprobe").length - 1;
+      return editUndoOn(async () => { await input.click(paragraph, 0.02, 0.3); await sleep(300); }, probes);
+    });
+  }
+  await attempt("quickOpenField", async () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", metaKey: true, bubbles: true, cancelable: true }));
+    const field = await waitFor(() => document.querySelector('[role="dialog"] input'), "quick open input", 5000);
+    try {
+      return await editUndoOn(async () => { field.focus(); await sleep(200); }, () => field.value);
+    } finally {
+      syntheticKey("Escape");
+      await waitFor(() => !document.querySelector('[role="dialog"]'), "quick open closed", 3000).catch(() => null);
+    }
+  });
+  await attempt("settingsField", async () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", metaKey: true, bubbles: true, cancelable: true }));
+    await waitFor(() => document.querySelector(".settings-modal:not(.tool-loading-shell-body)"), "settings", 10_000);
+    const field = await waitFor(() => document.querySelector('[data-setting="author-name"] input, .settings-modal input[type="text"], .settings-modal input:not([type])'), "settings text field", 5000);
+    try {
+      return await editUndoOn(async () => { await input.click(field); await sleep(200); }, () => field.value);
+    } finally {
+      syntheticKey("Escape");
+      await waitFor(() => !document.querySelector(".settings-modal"), "settings closed", 3000).catch(() => null);
+    }
+  });
+  return results;
+}
+
 const SCENARIOS = {
+  editUndo,
   texlabEqualRevision,
   coldSettings: () => coldTool("settings"),
   coldHistory: () => coldTool("history"),

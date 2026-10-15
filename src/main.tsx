@@ -24,6 +24,7 @@ import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
 import { installNativeLocaleSync } from "./app/native-locale";
+import { installEditHistoryMenu } from "./app/edit-history";
 import { installPointerFocus } from "./components/ui/pointer-focus";
 
 async function startApp() {
@@ -51,6 +52,7 @@ async function startApp() {
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
   installNativeLocaleSync();
+  installEditHistoryMenu();
   if (lab) void lab.startLabHarness();
   root.render(
     <MotionConfig reducedMotion="user">

@@ -4,7 +4,6 @@
 //! browser workspace that WebView is deliberately hidden, so these commands
 //! show unparented rfd panels instead.
 
-use super::SERVICE_WINDOW_LABEL;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -73,7 +72,7 @@ fn dialog_path(path: PathBuf) -> String {
 async fn run_browser_dialog<T: Send + 'static>(
     window: &tauri::WebviewWindow, kind: &str, pick: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, String> {
-    if !window.label().starts_with("browser-") || window.label() == SERVICE_WINDOW_LABEL {
+    if !window.label().starts_with("browser-") {
         return Err("Browser dialogs are only available to a browser workspace.".to_string());
     }
     tauri::async_runtime::spawn_blocking(pick)

@@ -190,6 +190,13 @@ pub fn set_native_locale(
     Ok(())
 }
 
+/// Edit ▸ Undo or Redo that no editor of the page took: WebKit's own undo
+/// (`native_locale::send_native_edit_history`).
+#[tauri::command]
+pub fn native_edit_history(app: AppHandle, redo: bool) {
+    native_locale::send_native_edit_history(&app, redo);
+}
+
 #[tauri::command]
 pub fn align_traffic_lights(
     window: WebviewWindow, center_from_top: f64,
