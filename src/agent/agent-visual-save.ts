@@ -32,6 +32,7 @@ const MAX_DOCUMENT_LENGTH = 4 * 1024 * 1024;
 // eslint-disable-next-line lingui/no-unlocalized-strings -- HTML the panel builds, never shown
 const HOST_DOCUMENT_PREFIX = `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none';`;
 const VISUAL_SIZE_METHOD = "ui/notifications/size-changed";
+const VISUAL_ESCAPE_METHOD = "synara/notifications/escape";
 const MIN_VISUAL_HEIGHT = 80;
 const MAX_VISUAL_HEIGHT = 20_000;
 
@@ -63,14 +64,20 @@ export function parseAgentVisualExpand(data: Record<string, unknown>): AgentVisu
   return { title: title.trim().slice(0, MAX_TITLE_LENGTH) || i18n._(msg`Visual`), html, document };
 }
 
-/** The height an expanded visual's page reports, which is all Lattice reads from it. */
-export function readAgentVisualHeight(data: unknown): number | null {
+/**
+ * What Lattice reads from an expanded visual's page: the height it reports,
+ * and an Escape it left alone (focus inside the frame keeps the key from the
+ * dialog). Anything else is ignored.
+ */
+export function readAgentVisualMessage(data: unknown): { height: number } | { escape: true } | null {
   if (typeof data !== "object" || data === null) return null;
   const { jsonrpc, method, params } = data as Record<string, unknown>;
-  if (jsonrpc !== "2.0" || method !== VISUAL_SIZE_METHOD || typeof params !== "object" || params === null) return null;
+  if (jsonrpc !== "2.0") return null;
+  if (method === VISUAL_ESCAPE_METHOD) return { escape: true };
+  if (method !== VISUAL_SIZE_METHOD || typeof params !== "object" || params === null) return null;
   const height = (params as Record<string, unknown>).height;
   if (typeof height !== "number" || !Number.isFinite(height) || height <= 0) return null;
-  return Math.min(MAX_VISUAL_HEIGHT, Math.max(MIN_VISUAL_HEIGHT, Math.round(height)));
+  return { height: Math.min(MAX_VISUAL_HEIGHT, Math.max(MIN_VISUAL_HEIGHT, Math.round(height))) };
 }
 
 /** Ask where to save the visual, then write it there; a cancelled panel saves nothing. */
