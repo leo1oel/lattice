@@ -163,7 +163,7 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
-const PRESENTATION_RUNTIME_BUDGET_BYTES = 120 * 1024 * 1024;
+const PRESENTATION_RUNTIME_BUDGET_BYTES = 65 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
@@ -250,7 +250,7 @@ export async function checkAppSizeBudgets(
 // The installed app is what a user's disk pays for, so this budget counts
 // allocated blocks (what `du` and Finder's "on disk" report): thousands of
 // small runtime files each round up to a 4 KiB block.
-const INSTALLED_APP_BUDGET_BYTES = 540 * 1024 * 1024;
+const INSTALLED_APP_BUDGET_BYTES = 470 * 1024 * 1024;
 
 // Each file counts toward the longest of these prefixes it sits under; the
 // runtimes are split where their size is decided.
