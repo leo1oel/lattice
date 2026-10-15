@@ -139,7 +139,7 @@
 }
 .pdf-loading-quiet { top: var(--space-6); transform: translateX(-50%); opacity: 0.85; }
 .pdf-load-progress { width: calc(var(--space-16) * 2); height: var(--space-2); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
-.pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--motion-slow); }
+.pdf-load-progress-fill { height: 100%; border-radius: inherit; corner-shape: inherit; background: var(--control-active); transition: width var(--motion-slow); }
 .pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
 .pdf-toolbar .pdf-overflow-trigger { display: none; }

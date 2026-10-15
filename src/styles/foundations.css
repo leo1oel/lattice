@@ -187,6 +187,12 @@
   --radius-surface: var(--radius-panel);
   --radius-dialog: 14px;
   --radius-pill: 999px;
+  /* Continuous corners. The steps above are the corner as designed; a surface
+     that draws it as a squircle (`corner-shape: squircle`) multiplies its
+     radius by this factor, since the same radius on a squircle cuts far less
+     off the corner and reads sharper. 1 wherever `corner-shape` is unknown,
+     so the declaration falls away and the corner stays exactly as it was. */
+  --corner-smoothing: 1;
 
   /* Controls: a two-step ladder. Every control a pointer lands on, whether
    a button, field, select, segmented track, toolbar or panel action, is
@@ -658,6 +664,17 @@
     --ease-fast: linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1);
     --ease-moderate: linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1);
     --ease-slow: linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1);
+  }
+}
+/* The factor matches a squircle's corner to the round one it replaces where
+   the curve crosses the diagonal: (1 - 2^-1/2) / (1 - 2^-1/4), the depth a
+   round corner cuts there over the depth a squircle of the same radius does.
+   A nested corner stays parallel too: the factor scales the outer corner and
+   the derived inner one alike (`outer - inset` before the factor, never after),
+   so the inset holds along the diagonal. */
+@supports (corner-shape: squircle) {
+  :root, [data-theme-preview] {
+    --corner-smoothing: 1.8408964152537137;
   }
 }
 @media (prefers-contrast: more) {

@@ -311,6 +311,43 @@ describe("design token contract", () => {
     expect(scopes).toContain("quick-open-list")
   })
 
+  it("draws a squircle only on a compensated radius, and only where the engine knows the shape", () => {
+    // The factor is 1 until `corner-shape` exists, so an engine without it
+    // keeps every corner exactly as designed.
+    expect(foundations).toMatch(/--corner-smoothing: 1;/)
+    const factor = foundations.match(/@supports \(corner-shape: squircle\) \{\s*:root, \[data-theme-preview\] \{\s*--corner-smoothing: ([\d.]+);/)
+    expect(Number(factor?.[1])).toBeCloseTo((1 - 2 ** -0.5) / (1 - 2 ** -0.25), 12)
+
+    // A squircle on the bare radius reads sharper than the corner it replaces,
+    // and a scaled radius without the shape is a rounder round corner: the
+    // two go in the same rule. A nested corner takes both from its container,
+    // and a radius that inherits takes the shape along.
+    const offenders: string[] = []
+    for (const { file, rules } of sources) {
+      if (file.endsWith(".css")) {
+        for (const [, selector, body] of rules.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+          const where = `${file}: ${selector.trim()}`
+          const radius = body.match(/(?<![\w-])border-radius:([^;]+)/)?.[1] ?? ""
+          const shape = body.match(/(?<![\w-])corner-shape:([^;]+)/)?.[1]?.trim()
+          if (/var\(--corner-smoothing\)/.test(radius) !== (shape === "squircle")) {
+            // Trellis draws its panel chrome from --trellis-radius, scaled where it is set.
+            if (!(shape === "squircle" && !radius && file === "src/trellis/trellis.css")) offenders.push(where)
+          }
+          if (/--nested-corner-smoothing/.test(radius) !== (shape === "var(--nested-corner-shape, round)")) offenders.push(where)
+          if ((radius.trim() === "inherit") !== (shape === "inherit")) offenders.push(where)
+        }
+      } else {
+        for (const [classes] of rules.matchAll(/"[^"\n]*rounded-\[[^"\n]*"/g)) {
+          if (/\*var\(--corner-smoothing\)\)\]/.test(classes) !== classes.includes("[corner-shape:squircle]")) offenders.push(file)
+          if (/\*var\(--nested-corner-smoothing,1\)\)\]/.test(classes) !== classes.includes("[corner-shape:var(--nested-corner-shape,round)]")) offenders.push(file)
+          if (classes.includes("rounded-[inherit]") !== classes.includes("[corner-shape:inherit]")) offenders.push(file)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+    expect(read("src/trellis/trellis-workspace.tsx")).toContain(`"--trellis-radius": "calc(var(--radius-surface) * var(--corner-smoothing))"`)
+  })
+
   it("reserves !important for surfaces the app does not own", () => {
     // `!important` is a statement that something outside this codebase is
     // competing: CodeMirror, Radix, the Pierre tree and diff, a shadow root, or

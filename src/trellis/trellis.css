@@ -88,6 +88,26 @@
   --trellis-tab-active: var(--lattice-panel-surface);
   --trellis-tab-selected: color-mix(in srgb, var(--text-primary) 10%, var(--trellis-tab-active));
 }
+/* Continuous corners. Trellis draws the panel, its strip and its body, a
+   collapsed group and the slot a dragged view leaves from --trellis-radius, which
+   trellis-workspace.tsx already scales by --corner-smoothing; these draw it as
+   a squircle (foundations.css). The tabs, the close button and the panel menu
+   below derive their corners from the panel's and follow it. */
+.lattice-trellis :is(
+  [data-trellis-part="panel"],
+  [data-trellis-part="tabbar"],
+  [data-trellis-part="surface"],
+  [data-trellis-part="group"],
+  [data-trellis-part="backdrop"],
+  [data-trellis-part="stage-empty"],
+  [data-trellis-part="source-slot"]
+) { corner-shape: squircle; }
+/* The navigation ring stands 3px off the panel, so its corner is the panel's
+   plus that, before the factor. */
+.lattice-trellis :is([data-trellis-part="snap-preview"], [data-trellis-part="marquee-target"]) {
+  border-radius: calc((var(--radius-surface) + 3px) * var(--corner-smoothing));
+  corner-shape: squircle;
+}
 /* The tabs stand as far from the panel's side as from its top: the compact
    tab centred in the 34px strip leaves 3px all round. The first tab's corner
    then runs parallel to the panel's, inner radius = outer radius - inset
@@ -113,7 +133,8 @@
   /* Puts the tab's icon on the panel's one icon gutter, with the Project
      tree's glyphs and the Papers search icon (app-shell.css). */
   padding: 0 var(--trellis-tab-inset) 0 var(--tab-inset-inline);
-  border-radius: var(--trellis-tab-radius);
+  border-radius: calc(var(--trellis-tab-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
   font-weight: var(--weight-medium);
@@ -160,7 +181,8 @@
 .lattice-trellis [data-trellis-part="tab-close"] {
   width: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
   height: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
-  border-radius: calc(var(--trellis-tab-radius) - var(--trellis-tab-inset));
+  border-radius: calc((var(--trellis-tab-radius) - var(--trellis-tab-inset)) * var(--corner-smoothing));
+  corner-shape: squircle;
 }
 .lattice-trellis [data-trellis-part="tab-close"] { opacity: 0; }
 .lattice-trellis [data-trellis-part="tab"]:hover [data-trellis-part="tab-close"],
@@ -168,7 +190,7 @@
 .lattice-trellis [data-trellis-part="tab-close"]:hover,
 .lattice-trellis [data-trellis-part="panel-menu"]:hover,
 .lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
-.lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); border-radius: var(--trellis-tab-radius); }
+.lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); border-radius: calc(var(--trellis-tab-radius) * var(--corner-smoothing)); corner-shape: squircle; }
 
 /* Tabs use the space left after the action row and compress together to 100px,
    which the Trellis patch (planHeader) keeps free as the panel's minimum, up
@@ -244,7 +266,7 @@
 .lattice-trellis [data-trellis-part="accessory"][data-inactive] { visibility: hidden; pointer-events: none; }
 .trellis-slot-inline { display: flex; align-items: center; min-width: 0; }
 .trellis-accessory-host { min-width: 0; display: flex; align-items: center; gap: var(--gap-hairline); }
-.trellis-accessory-host button:not([data-slot="select-trigger"]) { width: var(--navigation-action-size); height: var(--navigation-action-size); border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; }
+.trellis-accessory-host button:not([data-slot="select-trigger"]) { width: var(--navigation-action-size); height: var(--navigation-action-size); border-radius: calc(var(--radius-icon) * var(--corner-smoothing)); corner-shape: squircle; background: transparent; color: var(--text-tertiary); display: grid; place-items: center; }
 .trellis-accessory-host button:not([data-slot="select-trigger"]):hover:not(:disabled),
 .trellis-accessory-host button:not([data-slot="select-trigger"])[aria-pressed="true"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
 .trellis-accessory-host button:not([data-slot="select-trigger"]):disabled { opacity: .4; }
@@ -291,6 +313,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
+  corner-shape: inherit;
   background: currentColor;
   opacity: 0;
   pointer-events: none;
@@ -473,7 +496,8 @@
    blue edge, a tab's target and a split's alike, and its label ("Add as
    tab") sits in a lifted pill, so it reads over a page of PDF text. */
 .lattice-trellis [data-trellis-part="drop-slot"] {
-  border-radius: var(--radius-surface);
+  border-radius: calc(var(--radius-surface) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: var(--drop-target-surface);
   box-shadow: inset 0 0 0 var(--focus-ring-width) var(--drop-target-edge);
 }
@@ -679,7 +703,8 @@
 .trellis-titlebar .trellis-presets .trellis-preset {
   height: 100%;
   padding: 0 var(--space-5) 0 var(--space-4);
-  border-radius: var(--nested-radius);
+  border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   color: var(--text-secondary);
   font-size: var(--type-body-compact-size);
   font-weight: inherit;
@@ -698,7 +723,8 @@
 .trellis-titlebar .trellis-presets .trellis-workspace-add {
   width: var(--control-height-compact); height: 100%;
   justify-content: center; padding: 0;
-  border-radius: var(--nested-radius);
+  border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   color: var(--text-tertiary);
 }
 .trellis-titlebar .trellis-presets .trellis-workspace-add:hover { background: transparent; color: var(--text-primary); }
@@ -733,7 +759,8 @@
 .trellis-titlebar[data-compact] .trellis-workspace-name::after { overflow: hidden; }
 .trellis-workspace-name-input {
   width: 100%; min-width: 0;
-  border: 0; border-radius: var(--nested-radius);
+  border: 0; border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   background: var(--segmented-selected-surface);
   /* A text field's own focused border (the field contract), as the project
      tree's name field wears it, not the keyboard ring. */

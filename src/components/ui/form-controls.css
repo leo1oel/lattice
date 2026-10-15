@@ -19,7 +19,8 @@
 .ui-input,
 [data-slot="select-trigger"] {
   height: var(--control-height-default);
-  border-radius: var(--form-control-radius);
+  border-radius: calc(var(--form-control-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   padding: 0 var(--field-control-padding-inline);
   overflow-x: hidden;
   text-overflow: ellipsis;
@@ -34,7 +35,8 @@
 
 .ui-textarea {
   min-height: var(--form-control-textarea-min-height);
-  border-radius: var(--form-control-radius);
+  border-radius: calc(var(--form-control-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
   padding: var(--space-4) var(--space-5);
   resize: vertical;
   font-family: var(--ui-font);
@@ -85,7 +87,8 @@
 }
 
 [data-slot="select-trigger"] {
-  border-radius: var(--form-control-select-radius);
+  border-radius: calc(var(--form-control-select-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
 }
 
 [data-slot="select-trigger"] > svg {

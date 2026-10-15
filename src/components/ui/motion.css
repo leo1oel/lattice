@@ -35,6 +35,7 @@
   z-index: 0;
   border: 1px solid var(--border-strong);
   border-radius: inherit;
+  corner-shape: inherit;
   background: var(--surface-panel-raised);
 }
 

@@ -296,7 +296,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 /* The row's button lies under its text: positioned, so it paints over the
    title, while the byline line and the preview, positioned later, sit above
    it and let a click through only where they hold nothing to press. */
-.literature-open { position: absolute; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.literature-open { position: absolute; inset: 0; padding: 0; border: 0; border-radius: inherit; corner-shape: inherit; background: transparent; cursor: pointer; }
 .literature-open:focus-visible { outline-offset: calc(-1 * var(--focus-ring-width)); }
 .literature-title { padding-inline-end: var(--space-6); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .literature-result[data-expanded] .literature-title { display: block; }

@@ -886,7 +886,7 @@ const TOKENS: Record<string, string> = {
   "--trellis-slot": "color-mix(in srgb, var(--control-active) 14%, transparent)",
   "--trellis-menu": "var(--surface-panel-raised)",
   "--trellis-menu-hover": "var(--chrome-hover-surface)",
-  "--trellis-radius": "var(--radius-surface)",
+  "--trellis-radius": "calc(var(--radius-surface) * var(--corner-smoothing))",
   // The tabs' inset and corner are trellis.css's, on the tab bar.
   "--trellis-tabbar-height": "var(--tab-strip-height)",
   "--trellis-gap": "var(--space-3)",
