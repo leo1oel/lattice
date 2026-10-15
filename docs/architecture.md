@@ -591,7 +591,8 @@ skipped when its declared `sources` have not changed (`[tasks.check]`):
 
 CI (`.github/workflows/ci.yml`) covers the same ground across five jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
-`open-slide-runtime` (`test` in `tools/open-slide-runtime`),
+`open-slide-runtime` (`test` in `tools/open-slide-runtime`, then staging the
+pruned runtime, which serves the editor from it),
 `lint-and-build` (`pnpm lint`, `pnpm knip`, `pnpm build` and `pnpm notices:check`
 as parallel steps, then `pnpm i18n:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). `test` is three

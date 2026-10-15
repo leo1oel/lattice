@@ -51,6 +51,7 @@
   height: 100%;
   overflow: hidden;
   border-radius: inherit;
+  corner-shape: inherit;
   background: var(--control-active);
   transition: width var(--motion-slow);
 }
@@ -196,7 +197,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-row.ok .checklist-meter { --meter-tone: var(--status-success); }
 .checklist-row.warn .checklist-meter { --meter-tone: var(--status-warning); }
 .checklist-row .checklist-meter > span { position: absolute; inset-block: 0; left: 0; display: block; }
-.checklist-row .checklist-meter-fill { border-radius: inherit; background: color-mix(in srgb, var(--meter-tone) 56%, transparent); }
+.checklist-row .checklist-meter-fill { border-radius: inherit; corner-shape: inherit; background: color-mix(in srgb, var(--meter-tone) 56%, transparent); }
 /* Over the limit, the allowance itself is not the problem: it greys out and
    only the excess, past a notch at the limit, carries the warning. */
 .checklist-row .checklist-meter.over .checklist-meter-fill { border-radius: var(--radius-pill) 0 0 var(--radius-pill); background: color-mix(in srgb, var(--text-secondary) 42%, transparent); }
@@ -308,7 +309,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-panel);
+  border-radius: calc(var(--radius-panel) * var(--corner-smoothing));
+  corner-shape: squircle;
   background: transparent;
   color: var(--text-secondary);
   display: grid;
@@ -413,7 +415,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    something dangerous, a serif title, one line of copy, the fields, and the
    action row. Fields stand 12px apart; a title followed straight by a field
    keeps the copy's distance from it. */
-.modal { width: min(390px, calc(100vw - 40px)); border-radius: var(--radius-dialog); padding: var(--space-10) var(--space-10) var(--space-8); text-align: left; }
+.modal { width: min(390px, calc(100vw - 40px)); border-radius: calc(var(--radius-dialog) * var(--corner-smoothing)); corner-shape: squircle; padding: var(--space-10) var(--space-10) var(--space-8); text-align: left; }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
@@ -451,13 +453,15 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* Surfaces with their own scrolling results scroll the list instead of the dialog. */
 .modal.sheet-dialog:is(.project-find, .bibliography-audit) { overflow: hidden; }
 .modal.sheet-dialog.bibliography-audit { gap: 0; }
-.settings-modal { position: relative; width: var(--dialog-large-width); height: var(--dialog-large-height); border-radius: var(--radius-dialog); overflow: hidden; text-align: left; }
+.settings-modal { position: relative; width: var(--dialog-large-width); height: var(--dialog-large-height); border-radius: calc(var(--radius-dialog) * var(--corner-smoothing)); corner-shape: squircle; overflow: hidden; text-align: left; }
 /* The band above the search field and the page title: empty in both columns,
    so it can take the window drag a title bar would. */
 .settings-drag-strip { position: absolute; z-index: 1; inset: 0 0 auto; height: var(--settings-nav-padding-block); user-select: none; }
 .settings-close { position: absolute; z-index: 2; top: var(--space-5); right: var(--space-5); }
 .settings-body { height: 100%; display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); }
-.settings-nav { padding: var(--settings-nav-padding-block) var(--settings-nav-padding-inline); border-right: 1px solid var(--border-subtle); background: var(--surface-chrome); overflow-y: auto; }
+/* Its rows are controls on the dialog's continuous corners, and so is the
+   hover fill that glides between them (fluid-hover.css). */
+.settings-nav { --nested-corner-shape: squircle; --nested-corner-smoothing: var(--corner-smoothing); padding: var(--settings-nav-padding-block) var(--settings-nav-padding-inline); border-right: 1px solid var(--border-subtle); background: var(--surface-chrome); overflow-y: auto; }
 .settings-nav-group + .settings-nav-group { margin-top: var(--settings-nav-group-gap); }
 /* The margin equalizes optical rhythm, not box gaps: nav buttons are 32px tall
    around an 18px line box, so adjacent item labels sit 14px apart, while the
@@ -465,7 +469,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    4px puts the label about the same distance from the first item as the items
    are from each other. */
 .settings-nav-group-label { padding: 0 var(--space-5); margin-bottom: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 600; line-height: 20px; }
-.settings-nav :is(.settings-nav-group, .settings-search-results) > button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); text-align: left; }
+.settings-nav :is(.settings-nav-group, .settings-search-results) > button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: calc(var(--radius-control) * var(--corner-smoothing)); corner-shape: squircle; background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); text-align: left; }
 .settings-nav button > .animated-product-icon { width: 15px; flex: none; }
 .settings-nav .animated-product-icon--sparkle { transform: translateY(-1px); }
 .settings-nav :is(.settings-nav-group, .settings-search-results) > button:hover { background: var(--border-subtle); color: var(--text-primary); }
@@ -544,7 +548,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .settings-section .ui-search-field,
 .settings-section .ui-button {
   min-height: var(--settings-control-height);
-  border-radius: var(--settings-control-radius);
+  border-radius: calc(var(--settings-control-radius) * var(--corner-smoothing));
+  corner-shape: squircle;
 }
 .settings-section [data-slot="select-trigger"],
 .settings-section .ui-input,
@@ -582,7 +587,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-swatch-fill { width: 18px; height: 18px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent); transition: scale var(--motion-fast); }
 .theme-swatch:hover .theme-swatch-fill { scale: 1.1; }
 .theme-swatch:active .theme-swatch-fill { scale: 0.94; }
-.theme-swatch::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--text-tertiary); opacity: 0; scale: 0.8; transition: opacity var(--motion-fast), scale var(--motion-moderate); }
+.theme-swatch::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; corner-shape: inherit; box-shadow: 0 0 0 1.5px var(--text-tertiary); opacity: 0; scale: 0.8; transition: opacity var(--motion-fast), scale var(--motion-moderate); }
 .theme-swatch:is([aria-checked="true"], [aria-pressed="true"])::before { opacity: 1; scale: 1; }
 .theme-swatch[data-accent]::before { box-shadow: 0 0 0 1.5px var(--accent); }
 .theme-swatch-check { position: relative; pointer-events: none; animation: theme-swatch-check var(--motion-moderate); }
@@ -878,9 +883,9 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
     font-size: var(--type-body-size);
     font-weight: var(--weight-regular);
   }
-  .settings-modal .settings-nav-group > .settings-nav-group-label + button { border-top-width: 1px; border-radius: var(--settings-card-radius) var(--settings-card-radius) 0 0; }
-  .settings-modal .settings-nav-group > button:last-child { border-radius: 0 0 var(--settings-card-radius) var(--settings-card-radius); }
-  .settings-modal .settings-nav-group > .settings-nav-group-label + button:last-child { border-radius: var(--settings-card-radius); }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button { border-top-width: 1px; border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)) 0 0; corner-shape: squircle; }
+  .settings-modal .settings-nav-group > button:last-child { border-radius: 0 0 calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button:last-child { border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
   .settings-modal .settings-nav .settings-nav-group > button:hover { background: var(--control-hover-surface); }
   .settings-modal .settings-nav-group > button.active { background: var(--settings-card-surface); color: var(--text-primary); font-weight: var(--weight-regular); }
   .settings-modal .settings-nav-group > button > span[title] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

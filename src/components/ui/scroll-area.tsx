@@ -182,7 +182,7 @@ const ScrollArea = forwardRef<
     ref: viewportCallback,
     "data-slot": "scroll-area-viewport",
     className: cn(
-      "size-full rounded-[inherit] outline-none",
+      "size-full rounded-[inherit] [corner-shape:inherit] outline-none",
       fadeEdges && FADE_CLASS[orientation],
       viewportClassName,
       viewportProps?.className,

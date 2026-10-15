@@ -12,7 +12,8 @@
   left: 0;
   pointer-events: none;
   z-index: -1;
-  border-radius: var(--nested-radius, var(--radius-icon));
+  border-radius: calc(var(--nested-radius, var(--radius-icon)) * var(--nested-corner-smoothing, 1));
+  corner-shape: var(--nested-corner-shape, round);
   background: var(--fluid-hover-fill, var(--control-hover-surface));
 }
 

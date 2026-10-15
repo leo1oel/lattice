@@ -118,7 +118,7 @@ input[type="search"]:focus-visible {
 .compile-diagnostics-toggle:hover { background: var(--tone-hover-surface); }
 .compile-diagnostics-toggle > svg:first-child { width: 15px; height: 15px; flex: none; }
 .compile-diagnostics-toggle span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font-weight: 400; }
-.compile-diagnostics-bar > button:last-child { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; }
+.compile-diagnostics-bar > button:last-child { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); border: 0; border-radius: calc(var(--radius-icon) * var(--corner-smoothing)); corner-shape: squircle; padding: 0; background: transparent; color: inherit; display: grid; place-items: center; }
 .compile-diagnostics-bar > button:last-child:hover { background: var(--tone-hover-surface); }
 .compile-repair-progress { display: flex; align-items: center; gap: var(--space-3); white-space: nowrap; font-size: var(--type-caption-size); }
 .compile-repair-action { flex: none; gap: var(--space-3); }
@@ -299,7 +299,7 @@ input[type="search"]:focus-visible {
    rows that open their drawers, the open count at the end in the accent,
    then the word counts by scope. */
 .status-more-rows { --fluid-hover-fill: var(--control-hover-surface); position: relative; display: grid; padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
-.status-more-row { min-height: var(--row-height-compact); border: 0; border-radius: var(--nested-radius); padding: 0 var(--space-4); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); display: flex; align-items: center; gap: var(--space-4); text-align: left; cursor: pointer; }
+.status-more-row { min-height: var(--row-height-compact); border: 0; border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); padding: 0 var(--space-4); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); display: flex; align-items: center; gap: var(--space-4); text-align: left; cursor: pointer; }
 .status-more-row > svg { flex: none; width: 14px; height: 14px; stroke-width: 1.5; color: var(--text-secondary); }
 .status-more-row > span:first-of-type { flex: 1 1 auto; min-width: 0; }
 .status-more-row .status-count { font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
@@ -321,7 +321,7 @@ input[type="search"]:focus-visible {
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); padding: var(--surface-inset); display: grid; }
 /* Arrowing to a row past the fold stops it clear of the edge fades. */
 .quick-open-scroll [data-slot="scroll-area-viewport"] { max-height: min(360px, 50vh); scroll-padding-block: var(--scroll-fade-size); }
-.quick-open-list button { min-height: var(--row-height-compact); border: 0; border-radius: var(--nested-radius); padding: var(--space-3) var(--space-5); background: transparent; color: var(--text-primary); text-align: left; font-size: var(--type-body-size); line-height: var(--type-body-line-height); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
+.quick-open-list button { min-height: var(--row-height-compact); border: 0; border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); padding: var(--space-3) var(--space-5); background: transparent; color: var(--text-primary); text-align: left; font-size: var(--type-body-size); line-height: var(--type-body-line-height); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 /* The pointer moves the current row too (on a real move), so `.active` is the
    only highlight; a :hover fill would light a second row under a resting
    pointer while the arrows move on. */
@@ -468,7 +468,7 @@ input[type="search"]:focus-visible {
    class, applied in `bib-entry-dialog.tsx`. */
 .venue-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: var(--z-menu-inline-raised); max-height: 232px; overflow: auto; }
 /* 8 outer + 4 pad → 4 item (concentric). */
-.venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 28px; border: 0; border-radius: var(--nested-radius); background: transparent; color: var(--text-primary); padding: 5px var(--space-4); text-align: left; font: var(--type-caption-size)/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
+.venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 28px; border: 0; border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); background: transparent; color: var(--text-primary); padding: 5px var(--space-4); text-align: left; font: var(--type-caption-size)/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
 .venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .venue-menu button em { flex: none; font-style: normal; font-size: var(--type-micro-size); letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
 .venue-menu { --fluid-hover-fill: var(--control-active-soft); }
@@ -794,7 +794,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-failure-copy:hover { color: var(--text-primary); background: var(--tone-hover-surface); }
 .agent-permission-trigger:focus { box-shadow: none; }
-.agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: var(--gap-inline-tight); width: 292px; padding: var(--surface-inset); border-radius: var(--surface-radius); background: var(--editor-bg); }
+.agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: var(--gap-inline-tight); width: 292px; padding: var(--surface-inset); border-radius: calc(var(--surface-radius) * var(--corner-smoothing)); corner-shape: squircle; background: var(--editor-bg); }
 .agent-permission-option { position: relative; }
 .agent-permission-option[data-disabled] { opacity: var(--control-disabled-opacity); }
 .agent-permission-radio { height: 50px; align-items: flex-start; padding: var(--space-4) var(--space-5); font-family: var(--ui-font); }
@@ -954,7 +954,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   min-width: 176px;
   color: var(--text-primary);
 }
-.file-tree-context-menu > button { width: 100%; padding: var(--space-3) var(--space-5); border-radius: var(--nested-radius); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-5); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--type-body-weight); text-align: left; }
+.file-tree-context-menu > button { width: 100%; padding: var(--space-3) var(--space-5); border-radius: calc(var(--nested-radius) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-5); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--type-body-weight); text-align: left; }
 .file-tree-context-menu > button > svg { flex: none; stroke-width: 1.5; color: var(--text-secondary); }
 .file-tree-context-menu > button:is(:hover, :focus-visible):not(:disabled) { background: var(--control-active-soft); color: var(--control-active); }
 .file-tree-context-menu > button:disabled { opacity: .5; }
@@ -1274,7 +1274,7 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
    green dot; dropping to an error pops the red one. Both dots are the same
    element across states, so the animation starts when the class or state
    changes, not on every render, and nothing repeats while the writer works. */
-.overleaf-status-dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--status-success); opacity: 0; animation: overleaf-dot-ripple var(--motion-flourish) both; }
+.overleaf-status-dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; corner-shape: inherit; box-shadow: 0 0 0 1.5px var(--status-success); opacity: 0; animation: overleaf-dot-ripple var(--motion-flourish) both; }
 .overleaf-channel-dot[data-state="error"] { animation: overleaf-dot-pop var(--motion-slow) both; }
 @keyframes overleaf-dot-ripple {
   from { opacity: .9; transform: scale(1); }

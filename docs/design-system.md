@@ -417,6 +417,21 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   a panel, popover, menu or toast (`--radius-panel`, `--radius-surface`), and
   14px for a dialog (`--radius-dialog`). The role names say what holds the
   corner; a new radius picks one of the steps, never a value between them.
+- **Corners are continuous where the engine can draw them.** Panels and their
+  tabs, dialogs, menus and popovers with their rows, filled cards, and the shared
+  controls (buttons, icon buttons, fields, selects, search fields, segmented
+  tracks, keycaps) draw their corner as a squircle: `corner-shape: squircle`
+  on `calc(<the step> * var(--corner-smoothing))`. A squircle of the same
+  radius cuts less off the corner and reads sharper, so the factor (1.84,
+  `foundations.css`) brings it back to the corner the step designs. It is 1
+  wherever `corner-shape` is unknown, today's macOS WebKit included, and the
+  corner stays exactly round. The radius and the shape go in the same rule
+  (`tokens.test.ts` holds that): a squircle on the bare step, or a scaled
+  radius left round, is a different corner. A nested child takes both from
+  its container (`--nested-corner-shape`, `--nested-corner-smoothing`), and a
+  radius that inherits takes the shape along (`corner-shape: inherit`). Pills,
+  switches, checkboxes, avatars, badges and the paper of a page keep their
+  shapes.
 - The titlebar is 40px and hosts the traffic lights, the project switcher and
   the panel controls, with the command palette's search field (⌘K) centred on
   the window between them; the sidebar navigation header matches that height.
