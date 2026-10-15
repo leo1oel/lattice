@@ -174,7 +174,7 @@ changed since the last successful run:
 | `test` | the Vitest suite |
 | `build` | typecheck plus the production web bundle and its size budget |
 | `literature-worker` | `typecheck` and `test` inside `literature-worker/` |
-| `open-slide-runtime` | the Open Slide presentation server's tests inside `tools/open-slide-runtime/` |
+| `open-slide-runtime` | the Open Slide presentation server's tests inside `tools/open-slide-runtime/`, then `pnpm prepare:presentation`, which stages the pruned runtime and fails unless it still serves the editor |
 | `cargo-fmt` | `cargo fmt --check` |
 | `cargo-test` | the Rust tests |
 | `clippy` | Clippy with warnings denied |

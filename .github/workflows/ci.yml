@@ -167,6 +167,9 @@ jobs:
         with:
           project: tools/open-slide-runtime
       - run: pnpm --dir tools/open-slide-runtime test
+      # Stage the pruned runtime as a release does; staging fails when the
+      # pruned tree can no longer serve the editor, a deck, or an export.
+      - run: node scripts/prepare-presentation-runtime.mjs
 
   lint-and-build:
     needs: changes

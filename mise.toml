@@ -213,18 +213,24 @@ run = ["pnpm perf:bench --check --layout", "pnpm perf:bench --check --layout --e
 # The Open Slide presentation server is another nested pnpm project, staged
 # into the app by scripts/prepare-presentation-runtime.mjs. Its tests run on
 # node:test against server.mjs; the install is frozen and fast, so it runs
-# here rather than being a separate setup step to forget.
+# here rather than being a separate setup step to forget. Staging prunes the
+# installed tree and then serves the editor from it, so it proves the pruned
+# runtime still has everything the editor, decks, and exports load.
 [tasks.open-slide-runtime]
-description = "Test the Open Slide presentation server (its own pnpm project)"
+description = "Test the Open Slide presentation server (its own pnpm project) and stage its pruned runtime"
 run = [
   "pnpm --dir tools/open-slide-runtime install --frozen-lockfile",
   "pnpm --dir tools/open-slide-runtime test",
+  "node scripts/prepare-presentation-runtime.mjs",
 ]
 sources = [
   "tools/open-slide-runtime/*.mjs",
   "tools/open-slide-runtime/package.json",
   "tools/open-slide-runtime/pnpm-lock.yaml",
   "src-tauri/src/presentation.rs",
+  "scripts/prepare-presentation-runtime.mjs",
+  "scripts/check-presentation-runtime.mjs",
+  "src-tauri/templates/tutorial/**",
 ]
 
 [tasks.check]
