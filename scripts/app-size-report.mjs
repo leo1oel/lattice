@@ -250,7 +250,7 @@ export async function checkAppSizeBudgets(
 // The installed app is what a user's disk pays for, so this budget counts
 // allocated blocks (what `du` and Finder's "on disk" report): thousands of
 // small runtime files each round up to a 4 KiB block.
-const INSTALLED_APP_BUDGET_BYTES = 470 * 1024 * 1024;
+const INSTALLED_APP_BUDGET_BYTES = 315 * 1024 * 1024;
 
 // Each file counts toward the longest of these prefixes it sits under; the
 // runtimes are split where their size is decided.
