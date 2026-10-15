@@ -267,6 +267,20 @@ pub async fn save_xlsx(request: tauri::ipc::Request<'_>) -> Result<String, Strin
     run_blocking("Excel workbook save", move || export::save(&path, &bytes, &export::XLSX)).await
 }
 
+/// An Agent visual's HTML, which the Agent panel cannot download itself
+/// (WebKit cancels a frame's download), saved where the writer chose.
+#[tauri::command]
+pub async fn save_agent_visual(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let (path, bytes) = binary_save(
+        &request,
+        "x-html-destination",
+        "Choose where to save the visual.",
+        "visual",
+        "The visual was not sent as binary data.",
+    )?;
+    run_blocking("Agent visual save", move || export::save(&path, &bytes, &export::HTML)).await
+}
+
 #[tauri::command]
 pub async fn list_annotations(
     state: State<'_, AppState>, window: Window,

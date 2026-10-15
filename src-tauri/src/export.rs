@@ -1,4 +1,5 @@
-//! Saving a file the writer exports (the compiled PDF, an Excel workbook) to
+//! Saving a file the writer exports (the compiled PDF, an Excel workbook, an
+//! Agent visual's HTML) to
 //! the path they chose. A path without an extension gains the format's own,
 //! any other extension is refused, and the bytes must be that format.
 
@@ -30,12 +31,29 @@ pub(crate) const XLSX: Format = Format {
     validate: validate_xlsx,
 };
 
+pub(crate) const HTML: Format = Format {
+    extension: "html",
+    no_destination: "Choose where to save the visual.",
+    wrong_extension: "The saved visual must use the .html extension.",
+    validate: validate_html,
+};
+
 const MAX_XLSX_BYTES: usize = 100 * 1024 * 1024;
+/// The bundled agent runtime refuses a visual's source above this.
+const MAX_HTML_BYTES: usize = 256 * 1024;
 
 fn validate_pdf(bytes: &[u8]) -> Result<(), String> {
     if !bytes.starts_with(b"%PDF-") {
         return Err("The compiled output is not a valid PDF.".to_string());
     }
+    Ok(())
+}
+
+fn validate_html(bytes: &[u8]) -> Result<(), String> {
+    if bytes.len() > MAX_HTML_BYTES {
+        return Err("The visual is too large to save.".to_string());
+    }
+    std::str::from_utf8(bytes).map_err(|_| "The visual is not UTF-8 text.".to_string())?;
     Ok(())
 }
 

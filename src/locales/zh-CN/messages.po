@@ -1142,6 +1142,7 @@ msgstr "已调整，链接和选中文字的对比度为 {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
 
+#: src/agent/agent-visual-save.ts
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2654,6 +2655,10 @@ msgstr "关闭"
 msgid "Close the tab"
 msgstr "关闭标签"
 
+#: src/agent/agent-visual-dialog.tsx
+msgid "Close visual"
+msgstr "关闭可视化内容"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
@@ -2977,6 +2982,7 @@ msgstr "改成脚注"
 msgid "Convert selection to inline math"
 msgstr "改成公式"
 
+#: src/agent/agent-visual-dialog.tsx
 #: src/editor/latex/latex-hover-cards.ts
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copied"
@@ -3063,6 +3069,10 @@ msgstr "复制命令"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "复制路径"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Copy source"
+msgstr "复制源代码"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Copy the whole build log"
@@ -3781,6 +3791,10 @@ msgstr "重新下载"
 #: src/project/paper-library.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
+
+#: src/agent/agent-visual-dialog.tsx
+msgid "Download HTML"
+msgstr "下载 HTML"
 
 #: src/telemetry/app-log.tsx
 msgid "Download JSON"
@@ -5082,6 +5096,10 @@ msgstr "条目排版预览"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
+
+#: src/agent/agent-visual-save.ts
+msgid "HTML document"
+msgstr "HTML 文档"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -9819,6 +9837,14 @@ msgstr "保存到工作区"
 msgid "Save version"
 msgstr "保存版本"
 
+#: src/agent/agent-visual-save.ts
+msgid "Save visual"
+msgstr "保存可视化内容"
+
+#: src/agent/agent-visual-save.ts
+msgid "Save visual as HTML"
+msgstr "将可视化内容另存为 HTML"
+
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "已保存"
@@ -9827,6 +9853,7 @@ msgstr "已保存"
 msgid "Saved by Lattice after syncs and builds since {since}"
 msgstr "Lattice 自 {since} 起在同步和编译后自动保存"
 
+#: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
@@ -12229,6 +12256,10 @@ msgstr "Vim 模式"
 #: src/components/ui/color-picker.tsx
 msgid "Violet"
 msgstr "紫罗兰色"
+
+#: src/agent/agent-visual-save.ts
+msgid "Visual"
+msgstr "可视化内容"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."

@@ -403,6 +403,7 @@ pub fn run() {
             ipc::files::write_project_bytes,
             ipc::files::prepare_latex_figure,
             ipc::files::save_xlsx,
+            ipc::files::save_agent_visual,
             ipc::files::list_annotations,
             ipc::files::save_annotations,
             ipc::files::save_annotation_round,
