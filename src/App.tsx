@@ -2006,7 +2006,11 @@ function App() {
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGit.gitFiles}
-              activeFile={activeAsset || activePaper ? "" : activeFile}
+              // The tree marks the file in front only while its tab is open.
+              // Closing the last file tab leaves it in front with nothing to
+              // replace it, and a row that stays selected cannot be clicked
+              // open again: the tree opens files on a selection change.
+              activeFile={activeAsset || activePaper || (documents.tabsReady && !documents.tabs.includes(activeFile)) ? "" : activeFile}
               activeAssetPath={activeAsset?.path ?? ""}
               protectedPaths={protectedProjectPaths}
               assetDropTarget={tree.assetDropTarget}
