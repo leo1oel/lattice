@@ -11,4 +11,5 @@ export const SYNARA_RUNTIME_INPUTS = [
   "scripts/synara-codex-host.mjs",
   "scripts/lib/util.mjs",
   "scripts/lib/codesign.mjs",
+  "scripts/lib/runtime-prune.mjs",
 ];

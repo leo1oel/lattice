@@ -26,6 +26,7 @@ import { basename, delimiter, dirname, join, relative, resolve } from "node:path
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
+import { pruneNodeModules, stripLocalSymbols } from "./lib/runtime-prune.mjs";
 import { capture, projectRoot, readJson, removePath, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
 import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
@@ -180,6 +181,8 @@ async function prepareNodeRuntime(stageRoot) {
     mkdirSync(join(stageRoot, "bin"), { recursive: true });
     cpSync(join(extractedRoot, nodeExecutable === "node.exe" ? "node.exe" : "bin/node"), join(stageRoot, "bin", nodeExecutable));
     chmodSync(join(stageRoot, "bin", nodeExecutable), 0o755);
+    // Node's release binary keeps 24 MB of local symbols only a debugger reads.
+    if (target.endsWith("-apple-darwin")) stripLocalSymbols(join(stageRoot, "bin", nodeExecutable));
     mkdirSync(join(stageRoot, "licenses"), { recursive: true });
     cpSync(join(extractedRoot, "LICENSE"), join(stageRoot, "licenses/Node-LICENSE.txt"));
   } finally {
@@ -348,10 +351,11 @@ function replaceUnusedClaudeBinary(stageRoot) {
 }
 
 /**
- * npm packages often publish source maps, Windows debug symbols, and native
+ * npm packages often publish source maps, typings, docs, tests, and native
  * binaries for every supported platform. They are useful to package authors,
  * but never loaded by the staged production runtime and previously inflated
- * the installed app by hundreds of megabytes.
+ * the installed app by hundreds of megabytes. The categories every runtime
+ * shares live in lib/runtime-prune.mjs; the trees below are Synara's own.
  */
 function pruneServerRuntime(stageRoot) {
   const serverRoot = join(stageRoot, "server");
@@ -366,29 +370,15 @@ function pruneServerRuntime(stageRoot) {
     for (const entry of readdirSync(directory)) if (test(entry)) removedBytes += removePath(join(directory, entry));
   };
 
-  // TypeScript declarations are dev-time only; the staged runtime never
-  // typechecks. Keep .d.ts inside dist/ untouched anyway — nothing loads
-  // from node_modules typings at runtime.
-  removeFiles(serverRoot, (path) =>
-    path.endsWith(".map") || path.endsWith(".pdb") || (path.includes("/node_modules/") && /\.d\.[mc]?ts$/.test(path)));
+  removeFiles(distRoot, (path) => path.endsWith(".map"));
 
-  // Documentation, examples, and TS sources published inside node_modules are
-  // never read by the running agent.
+  // Typings packages, and Pi's docs and examples (Pi keeps its README and
+  // CHANGELOG below), are never read by the running agent.
   const junkDirectories = [
     "node_modules/@types",
     "node_modules/@earendil-works/pi-coding-agent/docs",
     "node_modules/@earendil-works/pi-coding-agent/examples",
     "node_modules/@earendil-works/pi-coding-agent/node_modules/@types",
-    "node_modules/@anthropic-ai/sdk/src",
-    // These packages publish their TypeScript sources beside runtime JS. Node's
-    // default import/require conditions resolve dist, esm, or package-root JS;
-    // the source trees are used only by editors and source-aware bundlers.
-    "node_modules/effect/src",
-    "node_modules/zod/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/@mistralai/mistralai/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/openai/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/undici/docs",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/zod/src",
     // ConPTY is Windows-only; keep it when staging a Windows runtime.
     ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
   ];
@@ -404,18 +394,16 @@ function pruneServerRuntime(stageRoot) {
   // server falls back to the identity file when a sidecar is missing, and the
   // iframe loads over loopback where transfer compression buys nothing.
   removeFiles(join(distRoot, "client"), (path) => path.endsWith(".br") || path.endsWith(".gz"));
-  // Vitest suites shipped inside the ACP SDK's published dist.
-  removeFiles(join(serverRoot, "node_modules/@agentclientprotocol/sdk/dist"), (path) => path.endsWith(".test.js"));
 
-  // Pruned packages leave dangling npm .bin symlinks behind, and tauri-build
-  // hard-errors on any broken link inside the bundled resources glob.
-  for (const binDirectory of [join(serverRoot, "node_modules/.bin"), join(agentModules, ".bin")]) {
-    if (!existsSync(binDirectory)) continue;
-    for (const entry of readdirSync(binDirectory)) {
-      const path = join(binDirectory, entry);
-      if (!existsSync(path)) rmSync(path, { force: true }); // existsSync follows links: false = dangling
-    }
-  }
+  // Nothing here runs on anything but Node, which refuses to strip types under
+  // node_modules, so the TypeScript sources packages publish beside their
+  // JavaScript (effect, zod, openai, ...) can never load. Pi reads its own
+  // README and CHANGELOG (`pi` documentation and what's-new notes).
+  removedBytes += pruneNodeModules(join(serverRoot, "node_modules"), {
+    platform: release.platform,
+    typeScriptSources: "remove",
+    keepDocsFor: ["@earendil-works/pi-coding-agent"],
+  });
 
   const platform = release.platform;
   // Pi ships a nested installation containing esbuild's optional binaries for

@@ -5,20 +5,16 @@
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
-import { isMain, projectRoot, readJson, run, walkFiles } from "./lib/util.mjs";
+import { pruneNodeModules } from "./lib/runtime-prune.mjs";
+import { isMain, projectRoot, readJson, run } from "./lib/util.mjs";
 
 export const removablePackageDirectories = [
   // main and module both resolve into dist; Open Slide never imports this source tree.
   "emoji-picker-react/src",
-  // These package-specific documentation/example trees aren't package entry points or exports.
-  "@base-ui/react/docs",
+  // Example trees inside dist, below the package-root docs lib/runtime-prune.mjs removes.
   "@modelcontextprotocol/sdk/dist/cjs/examples",
   "@modelcontextprotocol/sdk/dist/esm/examples",
-  "react-router/docs",
-  "undici/docs",
 ];
-
-const removableFilePattern = /(?:\.map|\.d\.(?:ts|mts|cts))$/;
 
 export function prunePresentationRuntime(runtimeRoot) {
   const nodeModules = join(runtimeRoot, "node_modules");
@@ -39,9 +35,9 @@ export function prunePresentationRuntime(runtimeRoot) {
     }
   }
 
-  for (const path of walkFiles(nodeModules)) {
-    if (removableFilePattern.test(path)) rmSync(path);
-  }
+  // Vite compiles TypeScript straight out of node_modules (Open Slide's own
+  // app ships as src/app), so TypeScript sources stay here.
+  pruneNodeModules(nodeModules, { platform: `${process.platform}-${process.arch}`, typeScriptSources: "keep" });
 }
 
 // Tauri's resource walker omits symbolic links. A normal pnpm layout therefore

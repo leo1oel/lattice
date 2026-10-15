@@ -3,7 +3,13 @@ import { rmSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { checkAppSizeBudgets, createAppSizeReport } from "./app-size-report.mjs";
+import {
+  checkAppSizeBudgets,
+  checkInstalledAppBudget,
+  createAppSizeReport,
+  createInstalledAppReport,
+  formatInstalledAppReport,
+} from "./app-size-report.mjs";
 
 const workspace = await mkdtemp(path.join(os.tmpdir(), "app-size-report-"));
 process.on("exit", () => rmSync(workspace, { recursive: true, force: true }));
@@ -115,10 +121,37 @@ for (const [overrides, error] of [
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: 120 * MiB }, null],
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: null }, /must bundle its standalone Node binary/],
   [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
-  [{ presentationRuntimeBytes: 125 * MiB + 1 }, /Presentation runtime.*budget/],
+  [{ presentationRuntimeBytes: 120 * MiB + 1 }, /Presentation runtime.*budget/],
 ]) {
   const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));
 }
+
+// The installed app: every file counts once toward the longest folder prefix
+// it sits under, links count nothing, and the budget is on allocated blocks.
+const app = path.join(workspace, "Lattice.app");
+await mkdir(path.join(app, "Contents/MacOS"), { recursive: true });
+await mkdir(path.join(app, "Contents/Resources/synara-runtime/server/node_modules/pkg"), { recursive: true });
+await writeFile(path.join(app, "Contents/MacOS/lattice"), Buffer.alloc(10_000));
+await writeFile(path.join(app, "Contents/Resources/synara-runtime/server/node_modules/pkg/index.js"), "x");
+await writeFile(path.join(app, "Contents/Resources/synara-runtime/manifest.json"), "{}");
+await writeFile(path.join(app, "Contents/Info.plist"), "plist");
+await symlink("../MacOS/lattice", path.join(app, "Contents/Resources/lattice-link"));
+const installed = await createInstalledAppReport(app);
+assert.equal(installed.files, 4);
+assert.equal(installed.bytes, 10_000 + 1 + 2 + 5);
+assert.ok(installed.allocatedBytes >= installed.bytes);
+assert.deepEqual(
+  installed.folders.map((folder) => [folder.folder, folder.files]),
+  [
+    ["Contents/MacOS", 1],
+    ["Contents/Resources/synara-runtime/server/node_modules", 1],
+    ["Contents/Resources/synara-runtime", 1],
+    ["Contents", 1],
+  ],
+);
+assert.match(formatInstalledAppReport(installed, 1), /Total/);
+assert.doesNotThrow(() => checkInstalledAppBudget(installed, installed.allocatedBytes));
+assert.throws(() => checkInstalledAppBudget(installed, installed.allocatedBytes - 1), /installed app is .* budget is/);
 
 console.log("app-size-report self-test passed");

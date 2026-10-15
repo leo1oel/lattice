@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, readdir, realpath, stat } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -163,7 +163,7 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
-const PRESENTATION_RUNTIME_BUDGET_BYTES = 125 * 1024 * 1024;
+const PRESENTATION_RUNTIME_BUDGET_BYTES = 120 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
@@ -247,6 +247,81 @@ export async function checkAppSizeBudgets(
   };
 }
 
+// The installed app is what a user's disk pays for, so this budget counts
+// allocated blocks (what `du` and Finder's "on disk" report): thousands of
+// small runtime files each round up to a 4 KiB block.
+const INSTALLED_APP_BUDGET_BYTES = 540 * 1024 * 1024;
+
+// Each file counts toward the longest of these prefixes it sits under; the
+// runtimes are split where their size is decided.
+const APP_FOLDERS = [
+  "Contents/MacOS",
+  "Contents/_CodeSignature",
+  "Contents/Resources/synara-runtime/bin",
+  "Contents/Resources/synara-runtime/server/dist",
+  "Contents/Resources/synara-runtime/server/node_modules",
+  "Contents/Resources/synara-runtime",
+  "Contents/Resources/presentation-runtime/node_modules",
+  "Contents/Resources/presentation-runtime",
+  "Contents/Resources",
+  "Contents",
+];
+
+/** Bytes, allocated bytes, and file count of an installed .app, total and per folder. */
+export async function createInstalledAppReport(app) {
+  const folders = new Map(APP_FOLDERS.map((folder) => [folder, { folder, bytes: 0, allocatedBytes: 0, files: 0 }]));
+  const total = { bytes: 0, allocatedBytes: 0, files: 0 };
+  async function visit(directory) {
+    const children = await readdir(directory);
+    children.sort();
+    for (const child of children) {
+      const entry = path.join(directory, child);
+      // A bundle's links point inside it (framework Versions/Current); its
+      // targets are counted where they live.
+      const info = await lstat(entry);
+      if (info.isDirectory()) {
+        await visit(entry);
+        continue;
+      }
+      if (!info.isFile()) continue;
+      const relative = path.relative(app, entry).split(path.sep).join("/");
+      const folder = APP_FOLDERS.find((prefix) => relative.startsWith(`${prefix}/`)) ?? "Contents";
+      for (const bucket of [folders.get(folder), total]) {
+        bucket.bytes += info.size;
+        bucket.allocatedBytes += info.blocks * 512;
+        bucket.files += 1;
+      }
+    }
+  }
+  if (!(await stat(app)).isDirectory()) throw new Error(`${app} is not an app bundle`);
+  await visit(app);
+  return { ...total, folders: [...folders.values()].filter((folder) => folder.files > 0) };
+}
+
+const mebibytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+
+export function formatInstalledAppReport(report, budgetBytes = INSTALLED_APP_BUDGET_BYTES) {
+  const rows = [["Folder", "On disk", "Files bytes", "Files"], ...report.folders.map((folder) => [
+    folder.folder,
+    mebibytes(folder.allocatedBytes),
+    mebibytes(folder.bytes),
+    folder.files.toLocaleString("en-US"),
+  ]), ["Total", mebibytes(report.allocatedBytes), mebibytes(report.bytes), report.files.toLocaleString("en-US")]];
+  const widths = rows[0].map((_, column) => Math.max(...rows.map((row) => row[column].length)));
+  const lines = rows.map((row) => row.map((cell, column) => column === 0 ? cell.padEnd(widths[0]) : cell.padStart(widths[column])).join("  "));
+  lines.push(`Installed-size budget: ${mebibytes(budgetBytes)} on disk`);
+  return lines.join("\n");
+}
+
+export function checkInstalledAppBudget(report, budgetBytes = INSTALLED_APP_BUDGET_BYTES) {
+  if (report.allocatedBytes > budgetBytes) {
+    throw new Error(
+      `The installed app is ${mebibytes(report.allocatedBytes)} on disk; budget is ${mebibytes(budgetBytes)}. `
+        + "Find the folder that grew above, and lower the budget again when a change shrinks the app.",
+    );
+  }
+}
+
 function humanBytes(bytes) {
   if (bytes === null) return "missing";
   return `${bytes.toLocaleString("en-US")} bytes`;
@@ -272,8 +347,14 @@ export function formatSizeReport(report) {
 async function main() {
   // pnpm forwards its conventional `--` separator to Node scripts.
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
+  if (args[0] === "--app" && args.length === 2) {
+    const report = await createInstalledAppReport(args[1]);
+    console.log(formatInstalledAppReport(report));
+    checkInstalledAppBudget(report);
+    return;
+  }
   if (args.some((arg) => arg !== "--check")) {
-    throw new Error("Usage: node scripts/app-size-report.mjs [--check]");
+    throw new Error("Usage: node scripts/app-size-report.mjs [--check | --app <path/to/Lattice.app>]");
   }
   if (args.includes("--check")) {
     const result = await checkAppSizeBudgets();
