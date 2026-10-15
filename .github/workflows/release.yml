@@ -280,6 +280,12 @@ jobs:
       - name: Check the built app for loose font files
         run: node scripts/check-font-leaks.mjs app src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Lattice.app
 
+      # Prints the signed app's installed size folder by folder and fails above
+      # the ceiling in scripts/app-size-report.mjs, so a runtime that grows
+      # leaves the release a draft instead of reaching users unnoticed.
+      - name: Check the installed app size
+        run: node scripts/app-size-report.mjs --app src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Lattice.app
+
       - name: Notarize the distributable disk image
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}

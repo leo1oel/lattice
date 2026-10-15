@@ -392,7 +392,8 @@ went stale before.
 Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, and provider executables.
 
 The staged runtimes are **enforced**, not merely observed.
-`scripts/app-size-report.mjs` applies an uncompressed budget to Open Slide.
+Both staging scripts prune through `scripts/lib/runtime-prune.mjs`: source maps, typings, tests, package docs, npm's `.bin` links, and binaries the target cannot load, never a file a `package.json` entry point names; Synara's also drops TypeScript sources, which Node will not load from `node_modules`.
+`scripts/app-size-report.mjs` applies an uncompressed budget to Open Slide, and the Release workflow runs its `--app` mode on the built bundle, which prints the installed size per folder and fails above the installed-size ceiling.
 It also fails if a staged Synara runtime lacks its standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
 Read the current constants from that file rather than trusting a number quoted here; the recorded totals belong in the release notes for the version that measured them.
 

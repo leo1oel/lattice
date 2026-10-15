@@ -408,20 +408,23 @@ regression is not visible in a dev build.
 ### 4.1 The eager-startup JavaScript budget
 
 `pnpm build` (the `build` script in `package.json`) runs
-`node scripts/app-size-report.mjs --check` after `vite build`. The `--check` pass enforces four budgets, all in
-`scripts/app-size-report.mjs:158-161`:
+`node scripts/app-size-report.mjs --check` after `vite build`. The `--check` pass enforces four budgets, all constants in
+`scripts/app-size-report.mjs`:
 
 | Budget | Value | Constant |
 | --- | --- | --- |
 | Eager JavaScript (all `<script>` in `index.html`) | `1.35 * 1024 * 1024` = 1,415,577 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
-| macOS Synara runtime resource | 250 MiB | `MACOS_SYNARA_RUNTIME_BUDGET_BYTES` |
+| Staged Open Slide runtime (file bytes) | 66 MiB | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
 
-The check additionally refuses any external (non-local) eager script
-(`app-size-report.mjs:176`), any unexpected eager asset (`:186`), anything other
-than exactly one of each named eager chunk (`:195`), and more than one
-rolldown-runtime chunk (`:200`). The application-owned eager chunks are `app`
+The Release workflow adds a fifth on the built bundle: `node scripts/app-size-report.mjs --app <Lattice.app>`
+prints the installed size folder by folder and fails above `INSTALLED_APP_BUDGET_BYTES`, counted in allocated
+blocks as `du` reports it.
+
+The check (`checkAppSizeBudgets`) additionally refuses any external (non-local)
+eager script, any unexpected eager asset, anything other than exactly one of
+each named eager chunk, and more than one rolldown-runtime chunk. The application-owned eager chunks are `app`
 and `ui`. The production build has a single html entry (`vite.config.ts`), so a
 third eager chunk means the module grouping changed and the allowlist should be
 re-derived rather than widened.

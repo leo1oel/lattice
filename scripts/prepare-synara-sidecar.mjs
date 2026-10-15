@@ -26,6 +26,7 @@ import { basename, delimiter, dirname, join, relative, resolve } from "node:path
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { codesign, signMachOTree, signingIdentity } from "./lib/codesign.mjs";
+import { pruneNodeModules } from "./lib/runtime-prune.mjs";
 import { capture, projectRoot, readJson, removePath, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
 import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
@@ -358,10 +359,11 @@ function replaceUnusedClaudeBinary(stageRoot) {
 }
 
 /**
- * npm packages often publish source maps, Windows debug symbols, and native
+ * npm packages often publish source maps, typings, docs, tests, and native
  * binaries for every supported platform. They are useful to package authors,
  * but never loaded by the staged production runtime and previously inflated
- * the installed app by hundreds of megabytes.
+ * the installed app by hundreds of megabytes. The categories every runtime
+ * shares live in lib/runtime-prune.mjs; the trees below are Synara's own.
  */
 function pruneServerRuntime(stageRoot) {
   const serverRoot = join(stageRoot, "server");
@@ -375,22 +377,11 @@ function pruneServerRuntime(stageRoot) {
     for (const entry of readdirSync(directory)) if (test(entry)) removedBytes += removePath(join(directory, entry));
   };
 
-  // TypeScript declarations are dev-time only; the staged runtime never
-  // typechecks. Keep .d.ts inside dist/ untouched anyway — nothing loads
-  // from node_modules typings at runtime.
-  removeFiles(serverRoot, (path) =>
-    path.endsWith(".map") || path.endsWith(".pdb") || (path.includes("/node_modules/") && /\.d\.[mc]?ts$/.test(path)));
+  removeFiles(distRoot, (path) => path.endsWith(".map"));
 
-  // Documentation, examples, and TS sources published inside node_modules are
-  // never read by the running agent.
   const junkDirectories = [
+    // Typings packages: nothing typechecks at runtime.
     "node_modules/@types",
-    "node_modules/@anthropic-ai/sdk/src",
-    // These packages publish their TypeScript sources beside runtime JS. Node's
-    // default import/require conditions resolve dist, esm, or package-root JS;
-    // the source trees are used only by editors and source-aware bundlers.
-    "node_modules/effect/src",
-    "node_modules/zod/src",
     // ConPTY is Windows-only; keep it when staging a Windows runtime.
     ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
     // The server's only use of @pierre/diffs is parsePatchFiles (checkpointing/
@@ -415,18 +406,16 @@ function pruneServerRuntime(stageRoot) {
   // iframe loads over loopback where transfer compression buys nothing.
   removeFiles(join(distRoot, "client"), (path) => path.endsWith(".br") || path.endsWith(".gz"));
   removedBytes += pruneFallbackFonts(join(distRoot, "client"));
-  // Vitest suites shipped inside the ACP SDK's published dist.
-  removeFiles(join(serverRoot, "node_modules/@agentclientprotocol/sdk/dist"), (path) => path.endsWith(".test.js"));
 
-  // Pruned packages leave dangling npm .bin symlinks behind, and tauri-build
-  // hard-errors on any broken link inside the bundled resources glob.
-  const binDirectory = join(serverRoot, "node_modules/.bin");
-  if (existsSync(binDirectory)) {
-    for (const entry of readdirSync(binDirectory)) {
-      const path = join(binDirectory, entry);
-      if (!existsSync(path)) rmSync(path, { force: true }); // existsSync follows links: false = dangling
-    }
-  }
+  // Nothing here runs on anything but Node, which refuses to strip types under
+  // node_modules, so the TypeScript sources packages publish beside their
+  // JavaScript (effect, zod, the Anthropic SDK, ...) can never load. This also
+  // removes npm's .bin links, which pruned packages would leave dangling, and
+  // tauri-build hard-errors on a broken link inside the resources glob.
+  removedBytes += pruneNodeModules(join(serverRoot, "node_modules"), {
+    platform: release.platform,
+    typeScriptSources: "remove",
+  });
 
   removeEntries(join(serverRoot, "node_modules/node-pty/prebuilds"), (entry) => entry !== release.platform);
   return removedBytes;
