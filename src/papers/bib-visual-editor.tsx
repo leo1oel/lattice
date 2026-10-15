@@ -521,10 +521,14 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
             onScroll: (event) => {
               const { scrollTop, clientHeight } = event.currentTarget;
               // Draw again only once the view nears the end of the rows drawn.
-              const view = drawnRows(scrollTop, clientHeight, rowHeight, shown.length);
+              // Measured from the rows in view, not from `drawnRows`: within
+              // OVERSCAN rows of either end its overscan is cut short, and read
+              // back it puts the view up to OVERSCAN rows away from that end,
+              // which left the rows there undrawn: a blank band at the top.
+              const view = { first: Math.floor(scrollTop / rowHeight), last: Math.ceil((scrollTop + clientHeight) / rowHeight) };
               const covered = clientHeight === viewport.height
-                && (first === 0 || view.first + OVERSCAN - REDRAW_MARGIN >= first)
-                && (last === shown.length || view.last - OVERSCAN + REDRAW_MARGIN <= last);
+                && (first === 0 || view.first - REDRAW_MARGIN >= first)
+                && (last === shown.length || view.last + REDRAW_MARGIN <= last);
               if (!covered) setViewport({ ...viewport, top: scrollTop, height: clientHeight });
             },
           }}
