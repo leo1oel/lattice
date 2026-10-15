@@ -25,7 +25,7 @@ import { createHash } from "node:crypto";
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
+import { codesign, signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { capture, projectRoot, readJson, removePath, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
 import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
@@ -187,11 +187,46 @@ async function prepareNodeRuntime(stageRoot) {
   }
 }
 
+// Pi and OpenCode are left out of the bundle: the fork installs one on demand, from the
+// integrity-pinned lockfile in apps/server/providerRuntimes/<runtime>/, when the user
+// picks that provider (apps/server/src/provider/providerRuntimes.ts). Together with
+// their trees they were roughly half of the staged runtime.
+const OPTIONAL_PROVIDER_RUNTIMES = ["pi", "opencode"];
+
+/**
+ * The packages each optional runtime installs, checked against the versions Synara is
+ * built with: an on-demand install of a different release than bun.lock's would load
+ * an adapter against an API it was never compiled or tested with.
+ */
+function optionalRuntimePackages() {
+  const lockfile = readFileSync(join(sourceRoot, "bun.lock"), "utf8");
+  const packages = new Set();
+  for (const runtime of OPTIONAL_PROVIDER_RUNTIMES) {
+    const directory = join(sourceRoot, "apps/server/providerRuntimes", runtime);
+    const lock = readJson(join(directory, "package-lock.json"));
+    for (const name of Object.keys(readJson(join(directory, "package.json")).dependencies)) {
+      const escaped = name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&");
+      const built = new RegExp(`^\\s*"${escaped}": \\["${escaped}@([^"]+)"`, "m").exec(lockfile)?.[1];
+      const installed = lock.packages[`node_modules/${name}`]?.version;
+      if (!built || built !== installed) {
+        throw new Error(
+          `The ${runtime} runtime lockfile installs ${name} ${installed ?? "(missing)"}, but Synara builds against ${built ?? "(missing)"}. `
+            + "Run node apps/server/providerRuntimes/update-lockfiles.mjs in the Synara checkout.",
+        );
+      }
+      packages.add(name);
+    }
+  }
+  return packages;
+}
+
 function resolveServerDependencies() {
   const catalog = readJson(join(sourceRoot, "package.json")).workspaces?.catalog ?? {};
   const serverPackage = readJson(join(sourceRoot, "apps/server/package.json"));
+  const optional = optionalRuntimePackages();
   const dependencies = {};
   for (const [name, version] of Object.entries(serverPackage.dependencies ?? {})) {
+    if (optional.has(name)) continue;
     if (version === "catalog:") {
       const catalogVersion = catalog[name];
       if (typeof catalogVersion !== "string" || !catalogVersion) {
@@ -205,29 +240,6 @@ function resolveServerDependencies() {
     }
   }
   return { serverPackage, dependencies };
-}
-
-// OpenCode's v2 client declares an optional `effect` peer pinned to a newer
-// prerelease than Synara's catalog `effect`. Bun installs both; npm rejects the
-// root-level peer conflict. Synara loads only the client's promise entry, which
-// never imports `effect`, so the root `effect` satisfies that optional peer
-// while the client's schema and protocol packages keep the exact `effect`
-// they depend on, the version the client's peer names in Synara's lockfile.
-function openCodeClientOverrides(dependencies) {
-  if (!dependencies["@opencode/client"]) return undefined;
-  const lockfile = readFileSync(join(sourceRoot, "bun.lock"), "utf8");
-  const entry = /^\s*"@opencode\/client": (\[.*\]),?$/m.exec(lockfile);
-  const peerEffect = entry ? JSON.parse(entry[1])[2]?.peerDependencies?.effect : undefined;
-  if (typeof peerEffect !== "string" || !peerEffect) {
-    throw new Error("Could not read @opencode/client's effect peer from Synara's bun.lock.");
-  }
-  return {
-    "@opencode/client": {
-      effect: "$effect",
-      "@opencode/schema": { effect: peerEffect },
-      "@opencode/protocol": { effect: peerEffect },
-    },
-  };
 }
 
 // Runs the tool on the standalone Node next to this launcher.
@@ -252,7 +264,6 @@ function installServerRuntime(stageRoot) {
   const serverRoot = join(stageRoot, "server");
   mkdirSync(serverRoot, { recursive: true });
   cpSync(join(sourceRoot, "apps/server/dist"), join(serverRoot, "dist"), { recursive: true });
-  const overrides = openCodeClientOverrides(dependencies);
   writeJson(join(serverRoot, "package.json"), {
     name: "@lattice/synara-runtime",
     private: true,
@@ -260,7 +271,6 @@ function installServerRuntime(stageRoot) {
     type: "module",
     engines: serverPackage.engines,
     dependencies,
-    ...(overrides ? { overrides } : {}),
   });
   mkdirSync(npmCache, { recursive: true });
   run(
@@ -356,7 +366,6 @@ function replaceUnusedClaudeBinary(stageRoot) {
 function pruneServerRuntime(stageRoot) {
   const serverRoot = join(stageRoot, "server");
   const distRoot = join(serverRoot, "dist");
-  const agentModules = join(serverRoot, "node_modules/@earendil-works/pi-coding-agent/node_modules");
   let removedBytes = 0;
   const removeFiles = (root, test) => {
     for (const path of walkFiles(root)) if (test(path)) removedBytes += removePath(path);
@@ -376,22 +385,23 @@ function pruneServerRuntime(stageRoot) {
   // never read by the running agent.
   const junkDirectories = [
     "node_modules/@types",
-    "node_modules/@earendil-works/pi-coding-agent/docs",
-    "node_modules/@earendil-works/pi-coding-agent/examples",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/@types",
     "node_modules/@anthropic-ai/sdk/src",
     // These packages publish their TypeScript sources beside runtime JS. Node's
     // default import/require conditions resolve dist, esm, or package-root JS;
     // the source trees are used only by editors and source-aware bundlers.
     "node_modules/effect/src",
     "node_modules/zod/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/@mistralai/mistralai/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/openai/src",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/undici/docs",
-    "node_modules/@earendil-works/pi-coding-agent/node_modules/zod/src",
     // ConPTY is Windows-only; keep it when staging a Windows runtime.
     ...(target === "x86_64-pc-windows-msvc" ? [] : ["node_modules/node-pty/third_party"]),
+    // The server's only use of @pierre/diffs is parsePatchFiles (checkpointing/
+    // Diffs.ts; assertServerNeverHighlights holds that), which never highlights:
+    // Shiki imports a grammar or theme only when a highlighter is asked for that
+    // language, and the dependency smoke below parses a patch without them. The
+    // embedded client highlights with its own bundled copies under dist/client.
+    "node_modules/@shikijs/langs",
+    "node_modules/@shikijs/themes",
   ];
+  assertServerNeverHighlights(distRoot);
   // Keep installed production packages: upstream's externalized imports change
   // between releases (0.8.3 imports top-level pi-ai providers directly).
   // Prune unused artifacts, not packages based on an older bundle's graph.
@@ -404,37 +414,99 @@ function pruneServerRuntime(stageRoot) {
   // server falls back to the identity file when a sidecar is missing, and the
   // iframe loads over loopback where transfer compression buys nothing.
   removeFiles(join(distRoot, "client"), (path) => path.endsWith(".br") || path.endsWith(".gz"));
+  removedBytes += pruneFallbackFonts(join(distRoot, "client"));
   // Vitest suites shipped inside the ACP SDK's published dist.
   removeFiles(join(serverRoot, "node_modules/@agentclientprotocol/sdk/dist"), (path) => path.endsWith(".test.js"));
 
   // Pruned packages leave dangling npm .bin symlinks behind, and tauri-build
   // hard-errors on any broken link inside the bundled resources glob.
-  for (const binDirectory of [join(serverRoot, "node_modules/.bin"), join(agentModules, ".bin")]) {
-    if (!existsSync(binDirectory)) continue;
+  const binDirectory = join(serverRoot, "node_modules/.bin");
+  if (existsSync(binDirectory)) {
     for (const entry of readdirSync(binDirectory)) {
       const path = join(binDirectory, entry);
       if (!existsSync(path)) rmSync(path, { force: true }); // existsSync follows links: false = dangling
     }
   }
 
-  const platform = release.platform;
-  // Pi ships a nested installation containing esbuild's optional binaries for
-  // every platform. Preserve the host binary in both dependency trees.
-  for (const esbuild of [
-    join(serverRoot, "node_modules/@esbuild"),
-    join(serverRoot, "node_modules/@earendil-works/pi-coding-agent/node_modules/@esbuild"),
-  ]) {
-    if (!existsSync(esbuild)) continue;
-    for (const entry of readdirSync(esbuild)) {
-      if (entry !== platform) removedBytes += removePath(join(esbuild, entry));
+  removeEntries(join(serverRoot, "node_modules/node-pty/prebuilds"), (entry) => entry !== release.platform);
+  return removedBytes;
+}
+
+/**
+ * Pruning Shiki's grammars and themes is safe only while the server bundle
+ * imports @pierre/diffs once, lazily, and takes nothing but parsePatchFiles from
+ * it, and never imports Shiki itself. Loud on purpose: a runtime bump that
+ * starts highlighting on the server must keep them instead.
+ */
+function assertServerNeverHighlights(distRoot) {
+  const bundles = readdirSync(distRoot)
+    .filter((entry) => entry.endsWith(".mjs") && entry !== "runtimeDependencySmoke.mjs")
+    .map((entry) => readFileSync(join(distRoot, entry), "utf8"));
+  const source = bundles.join("\n");
+  const loader = /const (\w+) = lazyModule\(\(\) => import\("@pierre\/diffs"\)\);/.exec(source)?.[1];
+  const calls = loader ? source.split(`${loader}()`).length - 1 : 0;
+  const parses = loader ? source.split(`${loader}()), ({ parsePatchFiles }) =>`).length - 1 : 0;
+  if (
+    source.split('"@pierre/diffs"').length - 1 !== 1 ||
+    !loader ||
+    calls === 0 ||
+    calls !== parses ||
+    /(?:from\s*|import\(\s*)"(?:shiki|@shikijs\/[^"]*)"/.test(source)
+  ) {
+    throw new Error(
+      "The Synara server bundle no longer uses @pierre/diffs for parsePatchFiles alone. "
+        + "Re-check the Shiki prune in pruneServerRuntime against the pinned runtime.",
+    );
+  }
+}
+
+/**
+ * KaTeX's @font-face rules list woff2, then woff, then truetype. A browser takes
+ * the first format it supports, and WKWebView supports woff2, so the two
+ * fallbacks are never requested. Remove a font file only when every reference to
+ * it anywhere in the client is such a fallback behind a woff2 source.
+ */
+function pruneFallbackFonts(clientRoot) {
+  const assets = join(clientRoot, "assets");
+  if (!existsSync(assets)) return 0;
+  const texts = walkFiles(clientRoot)
+    .filter((path) => /\.(?:css|js|mjs|html)$/.test(path))
+    .map((path) => readFileSync(path, "utf8"));
+  const fallbacks = new Map();
+  for (const text of texts) {
+    for (const [, sources] of text.matchAll(/@font-face\s*\{[^}]*?src:([^;}]*)/g)) {
+      const urls = [...sources.matchAll(/url\(([^)]+)\)/g)].map(([, url]) => basename(url.replace(/["']/g, "")));
+      if (!urls[0]?.endsWith(".woff2")) continue;
+      for (const url of urls.slice(1)) fallbacks.set(url, (fallbacks.get(url) ?? 0) + 1);
     }
   }
-  removeEntries(join(serverRoot, "node_modules/node-pty/prebuilds"), (entry) => entry !== platform);
-  removeEntries(
-    join(agentModules, "@mariozechner"),
-    (entry) => entry.startsWith("clipboard-") && entry !== `clipboard-${platform}`,
-  );
+  let removedBytes = 0;
+  for (const entry of readdirSync(assets)) {
+    if (!/\.(?:woff|ttf)$/.test(entry) || !fallbacks.has(entry)) continue;
+    const references = texts.reduce((count, text) => count + text.split(entry).length - 1, 0);
+    if (references === fallbacks.get(entry)) removedBytes += removePath(join(assets, entry));
+  }
   return removedBytes;
+}
+
+/**
+ * The official Node binary keeps its local symbol table, about a fifth of the
+ * file. Nothing reads it while Node runs: dyld binds addons (node-pty) through
+ * the export trie, which `strip -x` keeps together with every global symbol;
+ * the local names only label native frames in a debugger or crash report.
+ * Stripping drops Node's signature, so restore an ad hoc one for development
+ * staging (arm64 refuses unsigned code); releases re-sign with the Developer ID
+ * below.
+ */
+function stripNodeSymbols(stageRoot) {
+  if (!target.endsWith("-apple-darwin")) return 0;
+  const node = join(stageRoot, "bin", nodeExecutable);
+  const before = statSync(node).size;
+  run("/usr/bin/strip", ["-x", node]);
+  if (!signingIdentity()) {
+    codesign(node, { identity: "-", entitlements: join(projectRoot, "src-tauri/Entitlements.plist") });
+  }
+  return before - statSync(node).size;
 }
 
 function restoreHelperExecutableBits(stageRoot) {
@@ -634,13 +706,28 @@ try {
   if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, join(stageRoot, "server/dist/device-helper"))) {
     throw new Error("The staged Synara runtime is missing part of the iOS device helper source tree.");
   }
-  const prunedBytes = replaceUnusedClaudeBinary(stageRoot) + pruneServerRuntime(stageRoot);
+  const prunedBytes =
+    replaceUnusedClaudeBinary(stageRoot) + pruneServerRuntime(stageRoot) + stripNodeSymbols(stageRoot);
+  for (const scope of ["@earendil-works", "@opencode", "@opencode-ai"]) {
+    if (existsSync(join(stageRoot, "server/node_modules", scope))) {
+      throw new Error(`The staged Synara runtime still contains ${scope}, which installs on demand.`);
+    }
+  }
   // Exercise lazy provider imports after pruning, using the shipped Node rather
   // than the development install that can hide missing production dependencies.
   // The provider smoke does not cover the server entry's static imports, so
-  // load that too.
+  // load that too. Pi and OpenCode must report themselves as installable rather
+  // than load, since the slimmed layout leaves them out.
   const stagedNode = join(stageRoot, "bin", nodeExecutable);
-  run(stagedNode, [join(stageRoot, "server/dist/runtimeDependencySmoke.mjs")], { cwd: join(stageRoot, "server") });
+  const smoke = capture(stagedNode, [join(stageRoot, "server/dist/runtimeDependencySmoke.mjs")], {
+    cwd: join(stageRoot, "server"),
+  });
+  process.stdout.write(smoke);
+  for (const runtime of OPTIONAL_PROVIDER_RUNTIMES) {
+    if (!smoke.includes(`Provider runtime ${runtime}: missing.`)) {
+      throw new Error(`The packaged runtime smoke did not report ${runtime} as an on-demand install.`);
+    }
+  }
   run(stagedNode, [join(stageRoot, "server/dist/index.mjs"), "--help"], { cwd: join(stageRoot, "server") });
   signMacRuntime(stageRoot);
   writeJson(join(stageRoot, "manifest.json"), {
