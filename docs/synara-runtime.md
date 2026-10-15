@@ -84,18 +84,18 @@ The read-only `read_editor_comments` tool uses the authenticated host relay to q
 Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
 Neither the context nor the tool mutates comments.
 
-The fork as a whole is **not** small. Measured on 2026-10-14 against upstream
-`v1.0.4` (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`), the current integration changes
-**709 files, +73,774 / −8,249 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-15 against upstream
+`v1.0.5` (`1eb2beb6b5019fc311f23a3deb5362f68d07d537`), the current integration changes
+**734 files, +77,447 / −8,287 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.4 HEAD
+git diff --shortstat v1.0.5 HEAD
 ```
 
-The current pin is the upstream **1.0.4 stable release**, merged with the complete previous
-`amp/lattice-v1.0.3-sync` history (which carries the earlier `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.5 stable release**, merged with the complete previous
+`amp/lattice-v1.0.4-sync` history (which carries the earlier `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -120,7 +120,7 @@ Providers, MCP and Skills follow the native Settings layout (a serif page title,
 ## Agent tool boundary
 
 The Lattice profile renames Synara's tools rather than reimplementing them. `LATTICE_TOOL_ALIASES`
-in the fork's `apps/server/src/agentGateway/hostProfile.ts` maps **24** upstream names onto
+in the fork's `apps/server/src/agentGateway/hostProfile.ts` maps **25** upstream names onto
 Lattice's task vocabulary, rewriting `thread` to `task` throughout:
 
 | Upstream | Lattice |
@@ -148,6 +148,7 @@ Lattice's task vocabulary, rewriting `thread` to `task` throughout:
 | `synara_update_automation_memory` | `update_automation_memory` |
 | `synara_cancel_automation` | `cancel_automation` |
 | `synara_report_automation_result` | `report_automation_result` |
+| `synara_show_visual` | `show_visual` |
 
 `adaptToolsForActiveHost` drops every tool that has neither an alias nor a place in
 `LATTICE_NATIVE_TOOL_NAMES`. Two consequences worth stating explicitly, because both have changed
@@ -207,10 +208,24 @@ The 1.0.4 integration adds faster long-chat opening and steadier scrolling: unme
 A quit marks a running turn interrupted; after an unexpected stop (Lattice or the sidecar killed mid-turn), the next start sends the chat a guarded continuation that tells the agent to verify what already completed. The fork lets that recovery find the running turn's request through its pending message, which upstream's stored messages do not link, and the continuation names Lattice rather than Synara because it reaches the model. Codex turns also survive delayed terminal notifications.
 The Lattice host policy now tells the agent to repeat `wait_for_tasks` with the returned run ids until every delegated task is terminal, as upstream's own policy does.
 The sidebar's **Working and unread on top** ordering, browser tabs that keep their page, and Hubs keeping their chosen access mode are standalone surfaces that Lattice does not embed.
-Inline visuals (`synara_show_visual`) are Beta-only, so the Stable feature boundary keeps them out of Lattice; the Computer Use paste and recovery fixes leave the boundary above unchanged.
+Inline visuals (`synara_show_visual`) were Beta-only in 1.0.4, so the Stable feature boundary kept them out of Lattice; the Computer Use paste and recovery fixes leave the boundary above unchanged.
 Pi still runs on the bundled SDK without a CLI probe, but now reports "not set up" (localized in zh-CN) when neither an instance API key nor a configured Pi credentials or models file exists, instead of showing ready.
 
-`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **28** names that pass the filter *without* being
+### Synara 1.0.5 compatibility
+
+The 1.0.5 composer is a single pill row (+, draft, microphone, send) for every chat in the embed, since the embed has no centered landing; it grows into the block layout for a second line or a long draft, and Lattice's empty-thread starters stay above it.
+Activity above the input (live changes, tasks, workflow, goal, tips, Auto-fix CI, reconnecting) floats as capsules whose panels open in popovers; queued follow-ups keep the stacked rail, and the Lattice context bar floats above them all.
+The row under the composer carries the model picker and context ring; the embed leaves out upstream's permission menu there, because Lattice's Agent header owns the permission mode.
+The /, @ and + menus and the capsules take Lattice's composer surface (`--lattice-agent-composer-surface`), opaque like every embedded panel, and the embed's placeholder names Lattice.
+Inline visuals moved into Stable, so the Lattice profile now offers `synara_show_visual` as `show_visual`, and the host policy tells the agent to send component blocks only.
+The profile's branding rewrite makes the agent place a `lattice-visual` fence, which the transcript accepts beside `synara-visual`; an HTML visual, which needs Synara's Electron host, shows "HTML visuals are not available in Lattice." instead.
+The animated ASCII background and its Appearance switch belong to the standalone empty landing, so the embed keeps its own empty thread; the Activity Priority section and its `mod+alt+a` cycle, the sidebar without subagent rows, remote MCP connectors (Beta-only) and browser focus fixes are standalone surfaces too.
+When a provider handoff is refused because the source still runs background tasks, the composer offers **Stop tasks and switch**.
+Without Lattice changes, 1.0.5 also pins Claude's **Ask for approval** to Claude Code's default permission mode, stops double-counting Claude usage (cache reads are reported apart), and resolves a chat's task state in one pass so task-heavy chats open faster.
+`device_wait`, `device_logs` and `device_configure` join the allowlisted simulator tools, since the existing device tool descriptions now point to them.
+The new strings that render in the panel are in the zh-CN catalog.
+
+`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **32** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
 | Group | Count | Names | Implemented by |
@@ -219,8 +234,9 @@ renamed. They are not all Lattice code:
 | Canvas | 4 | `list_canvas_shapes`, `create_canvas_shapes`, `update_canvas_shapes`, `delete_canvas_shapes` | Lattice. They reach the tldraw surface through the canvas broker (`src/agent/agent-canvas-tools.ts`, actions `list` / `create` / `update` / `delete`). |
 | Spreadsheet | 2 | `spreadsheet_read`, `spreadsheet_batch_update` | Lattice, via `src/agent/agent-spreadsheet-tools.ts` (actions `read` / `batch_update`). |
 | Project documents | 1 | `create_project_document` | Lattice. It creates and opens native `.tldr` boards or `.lattice-sheet` spreadsheets through the project transaction path. |
+| Editor comments | 1 | `read_editor_comments` | Lattice, answered through the shared host-tools poll below. |
 | Presentations | 1 | `preview_presentation_page` | Lattice. The fork relays `{deck, page, step}` like the canvas tools; `src/agent/agent-presentation-tools.ts` brings the presentation runtime up to date with the disk, asks it to compile the deck (`deckBuildErrors` in `tools/open-slide-runtime/server.mjs`; a deck that does not build is answered with `presentation_build_failed` and Vite's located errors), opens its token-gated preview entry in a hidden 1920 × 1080 frame, and the preview page rasterizes itself (`PREVIEW_CAPTURE_SOURCE` in `tools/open-slide-runtime/server.mjs`). The model receives the JPEG as image content, so no shell or local browser is needed. |
-| iOS Simulator | 12 | `device_list`, `device_boot`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/src/synara.rs`). |
+| iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/src/synara.rs`). |
 
 The mutating literature tools run with `HistoryMode::Defer`, so agent bibliography edits fold into
 Lattice's own transaction history instead of committing independently.
