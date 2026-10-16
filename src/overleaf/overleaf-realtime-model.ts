@@ -5,6 +5,7 @@
  * failed connection is worth retrying. The hook owns every piece of state;
  * nothing here does.
  */
+import { mentionsAny } from "../platform/ipc-error-phrases";
 import { transformSpan, type OtDocument, type OtOp } from "./ot";
 
 export type DocEntry = { id: string; path: string };
@@ -70,12 +71,24 @@ export const isOwnUpdate = (source: string | null, publicId: string | null, subm
  * persists, so it is retried only this many times before being reported.
  */
 export const OVERLEAF_REFUSAL_RETRIES = 3;
-export const isOverleafProjectRefusal = (reason: string) => /session is still valid/i.test(reason);
+/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
+export const OVERLEAF_SESSION_STILL_VALID = "session is still valid";
+/** overleaf_rt.rs's SESSION_EXPIRED and NOT_CONNECTED. */
+export const OVERLEAF_SESSION_EXPIRED = "Overleaf session expired";
+export const OVERLEAF_NOT_CONNECTED = "Not connected to Overleaf";
+/** ipc.rs's stale-project refusal, link.rs's unlinked project and the realtime channel's replacement. */
+export const PROJECT_CHANGED = "project changed";
+export const PROJECT_NOT_LINKED = "not linked";
+export const NEWER_OVERLEAF_CONNECTION = "newer Overleaf connection";
+/* eslint-enable lingui/no-unlocalized-strings */
+export const isOverleafProjectRefusal = (reason: string) => mentionsAny(reason, [OVERLEAF_SESSION_STILL_VALID]);
 
 /** Authentication and project-identity failures need user action, not a retry loop. */
 export function shouldRetryConnection(reason: string): boolean {
-  return !/session expired|not connected to overleaf|cookie|sign.?in|authentication|unauthorized|forbidden|permission|project changed|not linked|newer overleaf connection|invalid project/i
-    .test(reason);
+  // The regex's words also catch what Overleaf's servers and the realtime
+  // handshake say in their own words, so no Rust source pins them.
+  return !mentionsAny(reason, [OVERLEAF_NOT_CONNECTED, PROJECT_CHANGED, PROJECT_NOT_LINKED, NEWER_OVERLEAF_CONNECTION])
+    && !/session expired|cookie|sign.?in|authentication|unauthorized|forbidden|permission|invalid project/i.test(reason);
 }
 
 /**

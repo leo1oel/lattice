@@ -79,9 +79,9 @@ const RESULT_MESSAGES: Record<string, MessageDescriptor> = {
   "The verified record differs from this inline reference. Inline references are edited by hand.": msg`The verified record differs from this inline reference. Inline references are edited by hand.`,
 };
 
-/* eslint-disable lingui/no-unlocalized-strings -- prefixes matched in backend text */
-const METADATA_INCOMPLETE = "Metadata check incomplete: ";
-const PREPRINT_INCOMPLETE = "Preprint check incomplete: ";
+/* eslint-disable lingui/no-unlocalized-strings -- prefixes matched in backend text (citation_audit/check.rs) */
+export const METADATA_INCOMPLETE = "Metadata check incomplete: ";
+export const PREPRINT_INCOMPLETE = "Preprint check incomplete: ";
 /* eslint-enable lingui/no-unlocalized-strings */
 
 /** An audit result's `message` in the interface language, when it is one Lattice wrote. */

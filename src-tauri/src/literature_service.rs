@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn public_semantic_scholar_requests_are_rejected_but_personal_and_local_ones_stay_direct() {
         let error = request(
-            &Client::new(),
+            &crate::http::blocking_builder().build().unwrap(),
             "https://api.semanticscholar.org/graph/v1/paper/batch?fields=title&api_key=private&mailto=private",
             Some(serde_json::json!({"ids": ["ARXIV:1706.03762"]})),
             true,
@@ -114,7 +114,11 @@ mod tests {
             ("https://api.openalex.org/works?search=paper", false),
             ("http://127.0.0.1:12345/works", true),
         ] {
-            let request = request(&Client::new(), url, None, public).unwrap().build().unwrap();
+            let request =
+                request(&crate::http::blocking_builder().build().unwrap(), url, None, public)
+                    .unwrap()
+                    .build()
+                    .unwrap();
             assert_eq!(request.url().as_str(), url);
             assert_eq!(request.method(), reqwest::Method::GET);
         }

@@ -11,7 +11,13 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
-import { isOverleafProjectRefusal, OVERLEAF_REFUSAL_RETRIES } from "../overleaf/overleaf-realtime-model";
+import {
+  isOverleafProjectRefusal,
+  OVERLEAF_NOT_CONNECTED,
+  OVERLEAF_REFUSAL_RETRIES,
+  OVERLEAF_SESSION_EXPIRED,
+} from "../overleaf/overleaf-realtime-model";
+import { mentionsAny } from "../platform/ipc-error-phrases";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
 import { useOverleafComments, type OverleafComments } from "../overleaf/use-overleaf-comments";
@@ -75,13 +81,20 @@ type OverleafSyncOptions = {
   includeWholeFilePaths?: readonly string[];
 };
 
+/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
+/** overleaf/api.rs's error for a request that never reached Overleaf. */
+export const OVERLEAF_UNREACHABLE = "Could not reach Overleaf";
+/** reqwest's own text for a body cut off mid-read; a test in overleaf/api.rs pins it. */
+export const RESPONSE_BODY_UNDECODABLE = "error decoding response body";
+/* eslint-enable lingui/no-unlocalized-strings */
+
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  return /could not reach overleaf|error decoding response body/i.test(toMessage(reason));
+  return mentionsAny(toMessage(reason), [OVERLEAF_UNREACHABLE, RESPONSE_BODY_UNDECODABLE]);
 }
 
 /** The backend's session-expired and not-connected errors (overleaf_rt.rs), however a sync step wraps them. */
 function isOverleafSignedOut(reason: unknown): boolean {
-  return /overleaf session expired|not connected to overleaf/i.test(toMessage(reason));
+  return mentionsAny(toMessage(reason), [OVERLEAF_SESSION_EXPIRED, OVERLEAF_NOT_CONNECTED]);
 }
 
 /** How often live mode asks Overleaf whether anything changed. */
