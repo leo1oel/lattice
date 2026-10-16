@@ -167,7 +167,10 @@ pub fn list(store: &Path) -> Result<Vec<LocalTemplate>, String> {
 }
 
 fn validate(item: &LocalTemplate) -> Result<(), String> {
-    if item.name.trim().is_empty() || item.name.chars().count() > 300 || item.version.chars().count() > 300 {
+    if item.name.trim().is_empty()
+        || item.name.chars().count() > 300
+        || item.version.chars().count() > 300
+    {
         return Err("Enter a template name and a short version.".into());
     }
     if !item.source_url.is_empty() {
