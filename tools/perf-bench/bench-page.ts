@@ -353,6 +353,8 @@ let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
     { id: "i5", title: "Cover letter", status: "todo", source: "Program chairs' email of 2 April" },
   ]
   : [];
+
+/**
  * `?terms=1` stages the Terms panel: three rules, British English, and a
  * section whose prose writes the terms other ways, beside the same forms in
  * math, a comment, keys and a path, which stay as written. `?terms=long`
