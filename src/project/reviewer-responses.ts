@@ -34,11 +34,11 @@ export type ReviewerComment = {
   replyChecked: boolean;
   change: ResponseChange;
   /**
-   * The annotations (by pin number) on the passages changed for it. One
-   * annotation can serve several comments: the same new paragraph may answer
-   * two reviewers.
+   * The annotations (by id, as pin numbers are given again once the highest
+   * is deleted) on the passages changed for it. One annotation can serve
+   * several comments: the same new paragraph may answer two reviewers.
    */
-  annotations: number[];
+  annotationIds: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -136,7 +136,7 @@ export function addComments(
         reply: "",
         replyChecked: false,
         change: "todo",
-        annotations: [],
+        annotationIds: [],
         createdAt: now,
         updatedAt: now,
       });
@@ -147,7 +147,7 @@ export function addComments(
 }
 
 /** The writable parts of a comment; its words and number are not among them. */
-export type ReviewerCommentChange = Partial<Pick<ReviewerComment, "owner" | "reply" | "replyChecked" | "change" | "annotations">>;
+export type ReviewerCommentChange = Partial<Pick<ReviewerComment, "owner" | "reply" | "replyChecked" | "change" | "annotationIds">>;
 
 /** Change one comment. A reply edited after it was checked has to be checked again. */
 export function updateComment(
@@ -217,8 +217,8 @@ export function parseResponses(value: unknown): ReviewerResponses | null {
       reply,
       replyChecked: item.replyChecked === true && !!reply.trim(),
       change,
-      annotations: Array.isArray(item.annotations)
-        ? [...new Set(item.annotations.flatMap((annotation) => positive(annotation) ?? []))]
+      annotationIds: Array.isArray(item.annotationIds)
+        ? [...new Set(item.annotationIds.flatMap((annotationId) => text(annotationId) || []))]
         : [],
       createdAt: text(item.createdAt),
       updatedAt: text(item.updatedAt),
@@ -491,7 +491,7 @@ export function escapeLatex(text: string): string {
 export function responseLetter(
   state: ReviewerResponses,
   format: LetterFormat,
-  placeOf: (annotation: number) => LinkPlace,
+  placeOf: (annotationId: string) => LinkPlace,
 ): string {
   /* eslint-disable lingui/no-unlocalized-strings -- the letter goes to the venue, in English */
   const comments = sortedComments(state.comments);
@@ -514,9 +514,9 @@ export function responseLetter(
     for (const [title, labels] of notes) out.push(`> **${title}:** ${labels.join(", ")}`);
     if (notes.length) out.push("");
   }
-  const where = (comment: ReviewerComment): string[] => comment.annotations.map((annotation) => {
-    const place = placeOf(annotation);
-    if (place.state === "missing") return `annotation ${annotation} (deleted)`;
+  const where = (comment: ReviewerComment): string[] => comment.annotationIds.map((annotationId) => {
+    const place = placeOf(annotationId);
+    if (place.state === "missing") return "Annotation deleted";
     const file = latex ? `\\texttt{${escapeLatex(place.path)}}` : `\`${place.path}\``;
     const quote = latex ? `\`\`${escapeLatex(shortQuote(place.quote))}''` : `“${shortQuote(place.quote)}”`;
     return place.state === "placed" ? `${file}, line ${place.line}: ${quote}` : `${file} (passage since rewritten): ${quote}`;

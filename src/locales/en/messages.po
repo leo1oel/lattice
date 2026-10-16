@@ -1863,10 +1863,6 @@ msgstr "Annotation {0}"
 msgid "Annotation {list}"
 msgstr "Annotation {list}"
 
-#: src/project/reviewer-responses-panel.tsx
-msgid "Annotation {number}"
-msgstr "Annotation {number}"
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Annotation {pin}"
 msgstr "Annotation {pin}"
@@ -14212,6 +14208,10 @@ msgstr "Unlink"
 #: src/project/reviewer-responses-panel.tsx
 msgid "Unlink annotation {number}"
 msgstr "Unlink annotation {number}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Unlink the deleted annotation"
+msgstr "Unlink the deleted annotation"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."

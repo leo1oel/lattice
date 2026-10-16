@@ -748,6 +748,7 @@ function App() {
       syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,
       flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
     },
+    flushProjectStores: reviewerResponses.flush,
     resetProjectUi: () => {
       endGuidedTour();
       resetAgentSelection();

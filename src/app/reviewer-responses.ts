@@ -82,13 +82,13 @@ export class ReviewerResponsesStore {
     this.publish({ loaded: true, responses: parseResponses(stored) ?? EMPTY_RESPONSES });
   };
 
-  /** Write what is pending now, to the project it was made in. */
-  flush = () => {
+  /** Write what is pending now, to the project it was made in; settles once every save in line has. */
+  flush = (): Promise<void> => {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     const projectRoot = this.pendingRoot;
     this.pendingRoot = null;
-    if (!projectRoot) return;
+    if (!projectRoot) return this.saving;
     const responses = this.snapshot.responses;
     this.saving = this.saving
       .then(() => invoke("save_reviewer_responses", { projectRoot, responses }))
@@ -97,11 +97,16 @@ export class ReviewerResponsesStore {
           dedupeKey: "reviewer-responses-save",
         });
       });
+    return this.saving;
   };
 
-  /** Stop and forget everything once what is pending is written: the project is closing or changing. */
+  /**
+   * Stop and forget everything: the project is closing or changing. The
+   * switch flushes before the backend lets go of the outgoing project; this
+   * flush only catches a change made after it.
+   */
   reset = () => {
-    this.flush();
+    void this.flush();
     this.generation += 1;
     this.snapshot = EMPTY;
     for (const listener of [...this.listeners]) listener();
@@ -126,15 +131,15 @@ export class ReviewerResponsesStore {
     this.change(updateComment(this.snapshot.responses, id, change));
   };
 
-  link = (id: string, annotation: number) => {
+  link = (id: string, annotationId: string) => {
     const comment = this.snapshot.responses.comments.find((item) => item.id === id);
-    if (!comment || comment.annotations.includes(annotation)) return;
-    this.update(id, { annotations: [...comment.annotations, annotation] });
+    if (!comment || comment.annotationIds.includes(annotationId)) return;
+    this.update(id, { annotationIds: [...comment.annotationIds, annotationId] });
   };
 
-  unlink = (id: string, annotation: number) => {
+  unlink = (id: string, annotationId: string) => {
     const comment = this.snapshot.responses.comments.find((item) => item.id === id);
-    if (comment) this.update(id, { annotations: comment.annotations.filter((item) => item !== annotation) });
+    if (comment) this.update(id, { annotationIds: comment.annotationIds.filter((item) => item !== annotationId) });
   };
 
   /** Remove a comment, with the toast's Undo to bring it back; its number is not given again either way. */
@@ -161,8 +166,8 @@ export class ReviewerResponsesStore {
   };
 
   /** Open a linked annotation in the Annotations panel. */
-  openAnnotation = (number: number) => {
-    const annotation = this.deps?.store.stateRef.current.annotations.find((item) => item.number === number);
+  openAnnotation = (annotationId: string) => {
+    const annotation = this.deps?.store.stateRef.current.annotations.find((item) => item.id === annotationId);
     if (annotation) this.deps?.store.openComment(annotation);
   };
 
@@ -171,10 +176,10 @@ export class ReviewerResponsesStore {
     annotations: readonly EditorComment[],
     running: ReadonlySet<string> = annotationRounds.getSnapshot().running,
   ): string[] => {
-    const linked = new Set(this.snapshot.responses.comments.flatMap((comment) => comment.change === "todo" ? comment.annotations : []));
+    const linked = new Set(this.snapshot.responses.comments.flatMap((comment) => comment.change === "todo" ? comment.annotationIds : []));
     if (!linked.size) return [];
     return annotations
-      .filter((annotation) => annotation.number && linked.has(annotation.number) && revisable(annotation, running))
+      .filter((annotation) => linked.has(annotation.id) && revisable(annotation, running))
       .map((annotation) => annotation.id);
   };
 
@@ -186,27 +191,29 @@ export class ReviewerResponsesStore {
 }
 
 /**
- * Where each linked annotation's passage is now, by pin number: read from the
- * open buffer or the file, so a passage rewritten since it was linked reads
- * as moved rather than pointing at whatever took its place.
+ * Where each linked annotation's passage is now, by annotation id: read from
+ * the open buffer or the file, so a passage rewritten since it was linked
+ * reads as moved rather than pointing at whatever took its place. An id no
+ * annotation has any more is missing, even when a newer annotation took the
+ * deleted one's pin number.
  */
 export async function placeAnnotations(
-  numbers: readonly number[],
+  ids: readonly string[],
   annotations: readonly EditorComment[],
   readSource: (path: string) => Promise<string | null> = annotationRounds.readSource,
-): Promise<Map<number, LinkPlace>> {
-  const places = new Map<number, LinkPlace>();
+): Promise<Map<string, LinkPlace>> {
+  const places = new Map<string, LinkPlace>();
   const sources = new Map<string, Promise<string | null>>();
-  await Promise.all([...new Set(numbers)].map(async (number) => {
-    const annotation = annotations.find((item) => item.number === number);
+  await Promise.all([...new Set(ids)].map(async (id) => {
+    const annotation = annotations.find((item) => item.id === id);
     if (!annotation) {
-      places.set(number, { state: "missing" });
+      places.set(id, { state: "missing" });
       return;
     }
     if (!sources.has(annotation.path)) sources.set(annotation.path, readSource(annotation.path));
     const source = await sources.get(annotation.path);
     const range = source == null ? null : resolveCommentAnchor(source, annotation);
-    places.set(number, range && source != null
+    places.set(id, range && source != null
       ? { state: "placed", path: annotation.path, line: source.slice(0, range.from).split("\n").length, quote: annotation.quote }
       : { state: "moved", path: annotation.path, quote: annotation.quote });
   }));

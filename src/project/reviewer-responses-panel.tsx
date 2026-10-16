@@ -61,7 +61,7 @@ import {
 } from "./reviewer-responses";
 import "./reviewer-responses.css";
 
-type Places = ReadonlyMap<number, LinkPlace>;
+type Places = ReadonlyMap<string, LinkPlace>;
 
 function useStatusLabels(): Record<ResponseStatus, string> {
   const { t } = useLingui();
@@ -88,7 +88,7 @@ async function exportLetter(responses: ReviewerResponses, format: LetterFormat, 
   try {
     const destination = await saveDialog({ title, defaultPath: name });
     if (!destination) return;
-    const text = responseLetter(responses, format, (number) => places.get(number) ?? { state: "missing" });
+    const text = responseLetter(responses, format, (annotationId) => places.get(annotationId) ?? { state: "missing" });
     const written = await invoke<string>("save_source_copy", new TextEncoder().encode(text), {
       headers: { "x-copy-destination": utf8ToBase64(destination) },
     });
@@ -236,31 +236,33 @@ function Intake({ responses, onDone, onCancel }: {
 
 /* ── One comment ──────────────────────────────────────────────────────── */
 
-function LinkedPassage({ number, place, annotation, onOpen, onUnlink }: {
-  number: number;
+/** A linked annotation under its pin number now, or marked deleted once no annotation has its id. */
+function LinkedPassage({ place, annotation, onOpen, onUnlink }: {
   place: LinkPlace | undefined;
   annotation: EditorComment | undefined;
   onOpen: () => void;
   onUnlink: () => void;
 }) {
   const { t } = useLingui();
-  const where = !place ? null
-    : place.state === "placed" ? `${place.path}:${place.line}`
-      : place.state === "moved" ? t`Passage rewritten since it was linked`
-        : t`Annotation deleted`;
-  const lost = place?.state === "moved" || place?.state === "missing";
+  const number = annotation?.number;
+  const where = !annotation ? t`Annotation deleted`
+    : !place ? null
+      : place.state === "placed" ? `${place.path}:${place.line}`
+        : place.state === "moved" ? t`Passage rewritten since it was linked`
+          : t`Annotation deleted`;
+  const lost = !annotation || place?.state === "moved" || place?.state === "missing";
   return (
     <li className="responses-link" data-lost={lost || undefined}>
-      <button type="button" className="responses-link-open" disabled={!annotation} onClick={onOpen} title={t`Show annotation ${number}`}>
-        <AnnotationPin number={number} status={annotation ? annotationStatus(annotation) : "resolved"} />
-        <span className="responses-link-quote">{annotation?.quote.replace(/\s+/g, " ").trim() ?? t`Annotation ${number}`}</span>
+      <button type="button" className="responses-link-open" disabled={!annotation} onClick={onOpen} title={number ? t`Show annotation ${number}` : undefined}>
+        {annotation && number ? <AnnotationPin number={number} status={annotationStatus(annotation)} /> : null}
+        {annotation ? <span className="responses-link-quote">{annotation.quote.replace(/\s+/g, " ").trim()}</span> : null}
         {where ? (
           <span className="responses-link-where">
             {lost ? <AlertTriangle size={12} aria-hidden="true" /> : null}{where}
           </span>
         ) : null}
       </button>
-      <IconButton size="compact" label={t`Unlink annotation ${number}`} onClick={onUnlink}><Unlink size={13} /></IconButton>
+      <IconButton size="compact" label={number ? t`Unlink annotation ${number}` : t`Unlink the deleted annotation`} onClick={onUnlink}><Unlink size={13} /></IconButton>
     </li>
   );
 }
@@ -277,7 +279,7 @@ function CommentDetail({ comment, annotations, places, owners }: {
   useEffect(() => {
     if (replyRef.current) resizeTextareaToContent(replyRef.current);
   }, [comment.reply]);
-  const linkable = annotations.filter((annotation) => annotation.number && !comment.annotations.includes(annotation.number));
+  const linkable = annotations.filter((annotation) => annotation.number && !comment.annotationIds.includes(annotation.id));
   const changes: Array<{ value: ResponseChange; label: string }> = [
     { value: "todo", label: t({ message: "To change", context: "paper change for a reviewer comment" }) },
     { value: "done", label: t({ message: "Changed", context: "paper change for a reviewer comment" }) },
@@ -326,16 +328,15 @@ function CommentDetail({ comment, annotations, places, owners }: {
       </div>
       <div className="responses-field">
         <span>{t`Changed passages`}</span>
-        {comment.annotations.length ? (
+        {comment.annotationIds.length ? (
           <ul className="responses-links">
-            {comment.annotations.map((number) => (
+            {comment.annotationIds.map((annotationId) => (
               <LinkedPassage
-                key={number}
-                number={number}
-                place={places.get(number)}
-                annotation={annotations.find((annotation) => annotation.number === number)}
-                onOpen={() => reviewerResponses.openAnnotation(number)}
-                onUnlink={() => reviewerResponses.unlink(comment.id, number)}
+                key={annotationId}
+                place={places.get(annotationId)}
+                annotation={annotations.find((annotation) => annotation.id === annotationId)}
+                onOpen={() => reviewerResponses.openAnnotation(annotationId)}
+                onUnlink={() => reviewerResponses.unlink(comment.id, annotationId)}
               />
             ))}
           </ul>
@@ -347,7 +348,7 @@ function CommentDetail({ comment, annotations, places, owners }: {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="responses-menu">
               {linkable.length ? linkable.map((annotation) => (
-                <DropdownMenuItem key={annotation.id} onSelect={() => reviewerResponses.link(comment.id, annotation.number!)}>
+                <DropdownMenuItem key={annotation.id} onSelect={() => reviewerResponses.link(comment.id, annotation.id)}>
                   <AnnotationPin number={annotation.number!} status={annotationStatus(annotation)} />
                   <span className="responses-menu-quote">{annotation.quote.replace(/\s+/g, " ").trim()}</span>
                 </DropdownMenuItem>
@@ -417,19 +418,19 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
     if (!loaded) void reviewerResponses.load();
   }, [loaded]);
   // Closing the panel writes a reply still waiting on its pause.
-  useEffect(() => reviewerResponses.flush, []);
+  useEffect(() => () => { void reviewerResponses.flush(); }, []);
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [open, setOpen] = useState<string | null>(null);
   const comments = useMemo(() => sortedComments(responses.comments), [responses.comments]);
 
   // Where each linked passage is now, read again as annotations or links change.
-  const linked = useMemo(() => [...new Set(comments.flatMap((comment) => comment.annotations))].sort((a, b) => a - b), [comments]);
-  const linkedKey = linked.join(",");
+  const linked = useMemo(() => [...new Set(comments.flatMap((comment) => comment.annotationIds))].sort(), [comments]);
+  const linkedKey = JSON.stringify(linked);
   const [places, setPlaces] = useState<Places>(new Map());
   useEffect(() => {
     let current = true;
-    void placeAnnotations(linkedKey ? linkedKey.split(",").map(Number) : [], annotations).then((next) => {
+    void placeAnnotations(JSON.parse(linkedKey) as string[], annotations).then((next) => {
       if (current) setPlaces(next);
     });
     return () => { current = false; };
@@ -447,8 +448,8 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
   const listed = pending.filter((item) => item !== null);
   const summaryDetail = listed.length ? listed.join(" · ") : t`Every comment is answered`;
   const owners = [...new Set(comments.map((comment) => comment.owner.trim()).filter(Boolean))].sort();
-  const isLost = (comment: ReviewerComment) => comment.annotations.some((number) => {
-    const state = places.get(number)?.state;
+  const isLost = (comment: ReviewerComment) => comment.annotationIds.some((annotationId) => {
+    const state = places.get(annotationId)?.state;
     return state === "moved" || state === "missing";
   });
   // A comment open in the list stays listed while it is worked on, even once it is done.

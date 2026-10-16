@@ -1863,10 +1863,6 @@ msgstr "批注 {0}"
 msgid "Annotation {list}"
 msgstr "批注 {list}"
 
-#: src/project/reviewer-responses-panel.tsx
-msgid "Annotation {number}"
-msgstr ""
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Annotation {pin}"
 msgstr "批注 {pin}"
@@ -14210,6 +14206,10 @@ msgstr "取消关联"
 #: src/project/reviewer-responses-panel.tsx
 msgid "Unlink annotation {number}"
 msgstr ""
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Unlink the deleted annotation"
+msgstr "取消关联已删除的批注"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."

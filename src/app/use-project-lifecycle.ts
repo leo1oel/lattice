@@ -43,16 +43,19 @@ export type SaveEveryEditOutcome = "saved" | "composing" | "failed" | "changed";
  * "saved" means letting go loses nothing. An unfinished IME composition
  * cannot be published yet, a failed save is reported where it happened, and
  * an edit typed while the save ran is still only in this page's memory.
+ * The project's own stores (the reviewer responses) write here too, while the
+ * backend still owns the project they are written to.
  */
-export async function saveEveryEdit({ flush, save, flushWholeFiles, hasUnsavedEdits }: {
+export async function saveEveryEdit({ flush, save, flushWholeFiles, flushProjectStores, hasUnsavedEdits }: {
   flush: () => boolean;
   save: () => Promise<boolean>;
   flushWholeFiles: () => Promise<void>;
+  flushProjectStores: () => Promise<void>;
   hasUnsavedEdits: () => boolean;
 }): Promise<SaveEveryEditOutcome> {
   if (!flush()) return "composing";
   if (!(await save())) return "failed";
-  await settleWithin(flushWholeFiles());
+  await settleWithin(Promise.all([flushWholeFiles(), flushProjectStores()]));
   return hasUnsavedEdits() ? "changed" : "saved";
 }
 
@@ -76,6 +79,8 @@ export type ProjectLifecycleDeps = {
     settledRef: RefObject<Promise<void> | null>;
     flushWholeFilesRef: RefObject<() => Promise<void>>;
   };
+  /** Write what per-project stores hold pending, before the backend lets go of the outgoing project. */
+  flushProjectStores: () => Promise<void>;
   /** Put per-project panels back to their defaults, synchronously, as the new project is published. */
   resetProjectUi: () => void;
   /** The project's own scans, which run after its tabs are restored and before its Paper or asset surface opens. */
@@ -179,14 +184,16 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // The editor stayed live while Overleaf settled, so publish and durably
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
-    const saved = await saveEveryEdit({ flush, save, flushWholeFiles: flushWholeFilesRef.current, hasUnsavedEdits });
+    const saved = await saveEveryEdit({
+      flush, save, flushWholeFiles: flushWholeFilesRef.current, flushProjectStores: depsRef.current.flushProjectStores, hasUnsavedEdits,
+    });
     if (saved === "composing") showNotice(t`Finish the current text composition, then switch projects again.`);
     if (saved === "changed") showNotice(t`The document changed while saving. Save it, then switch projects again.`);
     if (saved !== "saved") return false;
     if (beginProjectTransition()) return true;
     showNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
-  }, [beginProjectTransition, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
+  }, [beginProjectTransition, depsRef, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));

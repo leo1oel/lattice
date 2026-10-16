@@ -110,7 +110,8 @@ describe("numbering", () => {
   });
 
   it("survives a round trip through the file and drops what it cannot read", () => {
-    const state = addComments(EMPTY_RESPONSES, [{ reviewer: 1, comments: ["a"] }], "t");
+    const added = addComments(EMPTY_RESPONSES, [{ reviewer: 1, comments: ["a"] }], "t");
+    const state = updateComment(added, added.comments[0].id, { annotationIds: ["note-1", "note-2"] });
     const stored = JSON.parse(JSON.stringify(state));
     expect(parseResponses(stored)).toEqual(state);
     stored.comments.push({ id: "x", reviewer: 0, number: 1, comment: "bad" }, { ...stored.comments[0] });
@@ -139,11 +140,11 @@ describe("status", () => {
 });
 
 describe("responseLetter", () => {
-  const places: Record<number, LinkPlace> = {
-    3: { state: "placed", path: "sections/method.tex", line: 42, quote: "We now report 50% sparsity." },
-    4: { state: "moved", path: "main.tex", quote: "old text" },
+  const places: Record<string, LinkPlace> = {
+    a3: { state: "placed", path: "sections/method.tex", line: 42, quote: "We now report 50% sparsity." },
+    a4: { state: "moved", path: "main.tex", quote: "old text" },
   };
-  const placeOf = (annotation: number) => places[annotation] ?? { state: "missing" as const };
+  const placeOf = (annotationId: string) => places[annotationId] ?? { state: "missing" as const };
 
   function fixture() {
     let state = addComments(EMPTY_RESPONSES, [
@@ -151,7 +152,7 @@ describe("responseLetter", () => {
       { reviewer: 1, name: "xK7p", comments: ["Typo.", "Add a baseline."] },
     ], "t");
     const [r2, r1a, r1b] = state.comments;
-    state = updateComment(state, r2.id, { reply: "Done, see \\cref{sec:sparsity}.", replyChecked: true, change: "done", annotations: [3, 4, 9] });
+    state = updateComment(state, r2.id, { reply: "Done, see \\cref{sec:sparsity}.", replyChecked: true, change: "done", annotationIds: ["a3", "a4", "a9"] });
     state = updateComment(state, r1a.id, { reply: "Fixed.", change: "none" });
     state = updateComment(state, r1b.id, { change: "todo" });
     return state;
@@ -189,7 +190,7 @@ describe("responseLetter", () => {
       "",
       "**Response.** Done, see \\cref{sec:sparsity}.",
       "",
-      "**Changes.** `sections/method.tex`, line 42: “We now report 50% sparsity.”; `main.tex` (passage since rewritten): “old text”; annotation 9 (deleted).",
+      "**Changes.** `sections/method.tex`, line 42: “We now report 50% sparsity.”; `main.tex` (passage since rewritten): “old text”; Annotation deleted.",
       "",
     ].join("\n"));
   });

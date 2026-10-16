@@ -726,7 +726,7 @@ let reviewerResponsesState: unknown = params.get("responses") ? seededResponses(
 function seededResponses() {
   const at = new Date(Date.now() - 3_600_000).toISOString();
   const comment = (id: string, reviewer: number, number: number, text: string, rest: Record<string, unknown> = {}) => ({
-    id, reviewer, number, comment: text, owner: "", reply: "", replyChecked: false, change: "todo", annotations: [],
+    id, reviewer, number, comment: text, owner: "", reply: "", replyChecked: false, change: "todo", annotationIds: [],
     createdAt: at, updatedAt: at, ...rest,
   });
   return {
@@ -735,16 +735,16 @@ function seededResponses() {
     last: { 1: 4, 2: 2 },
     comments: [
       comment("bench-r1-1", 1, 1, "W1: The opening never says what the reader will be able to do after the tutorial. State the goal before defining attention.", {
-        owner: "Leo", reply: "We now open with what the tutorial teaches, before the definition.", replyChecked: true, change: "done", annotations: [1, 3],
+        owner: "Leo", reply: "We now open with what the tutorial teaches, before the definition.", replyChecked: true, change: "done", annotationIds: ["bench-annotation-1", "bench-annotation-3"],
       }),
       comment("bench-r1-2", 1, 2, "W2: The contrast with recurrent networks is implied but never made. One sentence would help readers new to sequence models.\n  - especially in Section 2", {
-        owner: "Maximiliane Rosenkranz-Oyelaran", reply: "Added a clause contrasting parallel training with an RNN's step-by-step pass.", change: "done", annotations: [3],
+        owner: "Maximiliane Rosenkranz-Oyelaran", reply: "Added a clause contrasting parallel training with an RNN's step-by-step pass.", change: "done", annotationIds: ["bench-annotation-3"],
       }),
       comment("bench-r1-4", 1, 4, "Q1: Why is the scale exactly 1/sqrt(d_k)? A short intuition before the variance argument would make §3 easier to follow.", {
-        change: "todo", annotations: [4, 9],
+        change: "todo", annotationIds: ["bench-annotation-4", "bench-annotation-deleted"],
       }),
       comment("bench-r2-1", 2, 1, "The related-work discussion leaves out multiplicative attention variants (Luong et al., 2015).", {
-        owner: "Ada", reply: "We cite Luong et al. and name both variants.", replyChecked: true, change: "todo", annotations: [5],
+        owner: "Ada", reply: "We cite Luong et al. and name both variants.", replyChecked: true, change: "todo", annotationIds: ["bench-annotation-5"],
       }),
       comment("bench-r2-2", 2, 2, "Minor: figure 1's caption repeats the body text.", {
         reply: "Thank you; we shortened the caption.", replyChecked: true, change: "none",

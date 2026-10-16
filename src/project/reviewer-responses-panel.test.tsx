@@ -85,7 +85,7 @@ describe("ReviewerResponsesPanel", () => {
     expect(screen.getByText("1 of 1 answered")).toBeTruthy();
     expect(screen.getByText("1 change to make")).toBeTruthy();
 
-    act(() => reviewerResponses.link(reviewerResponses.getSnapshot().responses.comments[0].id, 4));
+    act(() => reviewerResponses.link(reviewerResponses.getSnapshot().responses.comments[0].id, annotations[0].id));
     await waitFor(() => expect(screen.getByText("main.tex:2")).toBeTruthy());
     expect(screen.getByText("We now report latency on GPUs.")).toBeTruthy();
   });
@@ -93,7 +93,7 @@ describe("ReviewerResponsesPanel", () => {
   it("reopens on what was saved", async () => {
     stored = {
       version: 1, reviewers: { 1: "xK7p" }, last: { 1: 2 },
-      comments: [{ id: "a", reviewer: 1, number: 2, comment: "Why k?", owner: "Ada", reply: "", replyChecked: false, change: "none", annotations: [] }],
+      comments: [{ id: "a", reviewer: 1, number: 2, comment: "Why k?", owner: "Ada", reply: "", replyChecked: false, change: "none", annotationIds: [] }],
     };
     render(<ReviewerResponsesPanel annotations={annotations} onClose={() => {}} />);
     expect(await screen.findByText("R1.2")).toBeTruthy();
