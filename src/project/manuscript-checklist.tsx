@@ -4,9 +4,10 @@ import { Check, ChevronRight, ClipboardCheck, Minus } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
-import type { BodyBoundary } from "../app-types";
+import type { BodyBoundary, ProjectDeadline } from "../app-types";
 import { formatCount } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
+import { DeadlineCard } from "./deadline-card";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -22,6 +23,9 @@ export type ManuscriptChecklistData = {
   /** Where the main body ends, before its appendix or references; the page budget counts only the body. */
   body: BodyBoundary;
   pageBudget: number | null;
+  deadline: ProjectDeadline | null;
+  /** The project template's name ("NeurIPS"), offered as a new deadline's name. */
+  venue: string;
   todos: number;
   unusedLabels: number;
   unusedCitations: number;
@@ -113,6 +117,7 @@ export function ManuscriptChecklistPanel(props: {
   onClose: () => void;
   onOpenTodos: () => void;
   onSaveBudgets: (wordBudget: number | null, pageBudget: number | null) => void;
+  onSaveDeadline: (deadline: ProjectDeadline | null) => void;
 }) {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
@@ -193,6 +198,7 @@ export function ManuscriptChecklistPanel(props: {
           title={t`Submission checklist`}
           onClose={props.onClose}
         />
+        <DeadlineCard deadline={props.data.deadline} venue={props.data.venue} onSave={props.onSaveDeadline} />
         <div className="checklist-summary">
           <p className="checklist-verdict">{verdict}</p>
           <p className="checklist-summary-detail">{summary}</p>

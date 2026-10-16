@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
+import { PROJECT_VENUES } from "../project/project-venues";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
 import { isWholeFileEditorPath, toMessage } from "../app-utils";
@@ -174,6 +175,8 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             pages: props.pdfPageCount,
             body: props.bodyBoundary,
             pageBudget: project.manifest.pageBudget ?? null,
+            deadline: project.manifest.deadline ?? null,
+            venue: PROJECT_VENUES.find((venue) => venue.id === project.manifest.venue)?.label ?? "",
             todos: todoHits.length,
             unusedLabels: unusedSymbols.labels.length,
             unusedCitations: unusedSymbols.citations.length,
@@ -191,6 +194,12 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
               clearWordBudget: wordBudget == null,
               clearPageBudget: pageBudget == null,
             }).then(
+              (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
+              (reason) => showError(toMessage(reason)),
+            );
+          }}
+          onSaveDeadline={(deadline) => {
+            void invoke<ProjectManifest>("set_project_deadline", { deadline }).then(
               (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
               (reason) => showError(toMessage(reason)),
             );
