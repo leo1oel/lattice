@@ -278,9 +278,11 @@ export function useOverleafRealtime(options: {
    * sentence and immediately clicking another file is the ordinary way to use
    * the app, and cancelling that timer on the way out is how the sentence used
    * to vanish. If the document still owes the server an operation after that,
-   * it is kept and stays in its room until the answer arrives: leaving first
-   * would put both the acknowledgement and any rejection somewhere we are no
-   * longer listening.
+   * it is kept and stays in its room until the answer arrives: releasing it
+   * first would forget the document the acknowledgement and any rejection are
+   * for. (Current Overleaf broadcasts to the whole project and treats
+   * `leaveDoc` as a no-op, but older deployments still route by document
+   * room — docs/overleaf-protocol.md.)
    */
   const stopDocument = useCallback(() => {
     documentEpoch.current += 1;

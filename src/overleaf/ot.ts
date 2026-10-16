@@ -385,9 +385,10 @@ export class OtDocument {
     if (!this.pending) return { send: null };
     // Work typed while waiting can cancel out entirely against someone else's
     // edit — both deleted the same words. There is then nothing to send, and
-    // sending an empty operation anyway is worse than useless: nothing goes
-    // on the wire, so no acknowledgement ever comes, and every later edit
-    // queues behind it forever. Overleaf's own client drops it the same way.
+    // sending an empty operation anyway is worse than useless: the server
+    // either rejects it and disconnects or never answers, stalling every
+    // later edit (docs/overleaf-protocol.md). Overleaf's own client drops it
+    // the same way.
     if (this.pending.length === 0) {
       this.pending = null;
       return { send: null };

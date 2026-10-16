@@ -790,9 +790,10 @@ impl RealtimeClient {
     /// nothing to anyone already connected, and their editors only read the
     /// roster once. Row and column are zero-based, the way Overleaf counts.
     pub async fn update_position(&self, doc_id: &str, row: i64, column: i64) -> Result<(), String> {
-        // No ack: Overleaf's own editor sends this and does not wait, and the
-        // server answers nothing on failure either — a position for a document
-        // we have not joined is dropped silently.
+        // No ack, by choice: Overleaf's own editor sends this without a
+        // callback and does not wait. The server would call one if given
+        // (docs/overleaf-protocol.md), but a position is best-effort and an
+        // ack per caret move would only pile up pending slots.
         let position = (CursorPosition { doc_id, row, column },);
         let payload = encode_event("clientTracking.updatePosition", position)?;
         self.shared.send_frame(encode_frame(FRAME_EVENT, "", "", &payload)).await
