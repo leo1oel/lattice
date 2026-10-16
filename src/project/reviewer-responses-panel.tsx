@@ -134,7 +134,19 @@ function Intake({ responses, onDone, onCancel }: {
     const comments = assembleParts(text, reviewer.parts, joined, skipped);
     const first = next.get(number) ?? nextCommentNumber(responses, number);
     next.set(number, first + comments.length);
-    return { reviewer, number, first };
+    // Each part as the preview lists it: whether it continues the one above,
+    // whether its comment is added, and the number it would take.
+    const rows: Array<{ part: (typeof reviewer.parts)[number]; partIndex: number; continues: boolean; open: boolean; shown: string | null }> = [];
+    let label = first;
+    let open = false;
+    for (const [partIndex, part] of reviewer.parts.entries()) {
+      const continues = partIndex > 0 && joined.has(part.start);
+      if (!continues) open = !skipped.has(part.start);
+      const shown = open && !continues ? commentLabel({ reviewer: number, number: label }) : null;
+      if (shown) label += 1;
+      rows.push({ part, partIndex, continues, open, shown });
+    }
+    return { reviewer, number, rows };
   });
   const total = groups.reduce((sum, group) => sum + assembleParts(text, group.reviewer.parts, joined, skipped).length, 0);
   const toggle = (set: ReadonlySet<number>, key: number) => {
@@ -179,45 +191,38 @@ function Intake({ responses, onDone, onCancel }: {
           </Select>
         </div>
       )}
-      {groups.map(({ reviewer, number, first }, index) => {
-        let label = first;
-        let open = false;
-        return (
-          <section key={`${index}-${reviewer.parts[0].start}`} className="responses-intake-group">
-            <h3>{reviewerTitle(responses, number, reviewer.name ?? undefined)}</h3>
-            <ol>
-              {reviewer.parts.map((part, partIndex) => {
-                const continues = partIndex > 0 && joined.has(part.start);
-                if (!continues) open = !skipped.has(part.start);
-                const shown = open && !continues ? commentLabel({ reviewer: number, number: label++ }) : null;
-                return (
-                  <li key={part.start} data-skipped={!open || undefined} data-continues={continues || undefined}>
-                    {continues ? <span className="responses-intake-gap" /> : (
-                      <Checkbox
-                        checked={open}
-                        aria-label={t`Add this comment`}
-                        onChange={() => setSkipped((current) => toggle(current, part.start))}
-                      />
-                    )}
-                    <span className="responses-intake-label">{shown}</span>
-                    <p>{text.slice(part.start, part.end)}</p>
-                    {partIndex > 0 && (open || continues) ? (
-                      <IconButton
-                        size="compact"
-                        label={continues ? t`Make its own comment` : t`Join with the comment above`}
-                        aria-pressed={continues}
-                        onClick={() => setJoined((current) => toggle(current, part.start))}
-                      >
-                        <Link2 size={13} />
-                      </IconButton>
-                    ) : <span />}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        );
-      })}
+      {groups.map(({ reviewer, number, rows }, index) => (
+        <section key={`${index}-${reviewer.parts[0].start}`} className="responses-intake-group">
+          <h3>{reviewerTitle(responses, number, reviewer.name ?? undefined)}</h3>
+          <ol>
+            {rows.map(({ part, partIndex, continues, open, shown }) => {
+              return (
+                <li key={part.start} data-skipped={!open || undefined} data-continues={continues || undefined}>
+                  {continues ? <span className="responses-intake-gap" /> : (
+                    <Checkbox
+                      checked={open}
+                      aria-label={t`Add this comment`}
+                      onChange={() => setSkipped((current) => toggle(current, part.start))}
+                    />
+                  )}
+                  <span className="responses-intake-label">{shown}</span>
+                  <p>{text.slice(part.start, part.end)}</p>
+                  {partIndex > 0 && (open || continues) ? (
+                    <IconButton
+                      size="compact"
+                      label={continues ? t`Make its own comment` : t`Join with the comment above`}
+                      aria-pressed={continues}
+                      onClick={() => setJoined((current) => toggle(current, part.start))}
+                    >
+                      <Link2 size={13} />
+                    </IconButton>
+                  ) : <span />}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
       <footer className="responses-foot">
         <span>{raw.trim() && !total ? t`Nothing to add: every part is left out` : null}</span>
         {onCancel ? <Button size="compact" variant="ghost" onClick={onCancel}>{t`Cancel`}</Button> : null}
@@ -433,7 +438,14 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
   const counts = { unanswered: 0, drafted: 0, changing: 0, done: 0 } satisfies Record<ResponseStatus, number>;
   for (const comment of comments) counts[responseStatus(comment)] += 1;
   const answered = counts.changing + counts.done;
+  const pending = [
+    counts.unanswered === 1 ? t`1 without a reply` : counts.unanswered ? t`${formatCount(counts.unanswered)} without a reply` : null,
+    counts.drafted === 1 ? t`1 reply to check` : counts.drafted ? t`${formatCount(counts.drafted)} replies to check` : null,
+  ];
   const toChange = comments.filter((comment) => comment.change === "todo").length;
+  pending.push(toChange === 1 ? t`1 change to make` : toChange ? t`${formatCount(toChange)} changes to make` : null);
+  const listed = pending.filter((item) => item !== null);
+  const summaryDetail = listed.length ? listed.join(" · ") : t`Every comment is answered`;
   const owners = [...new Set(comments.map((comment) => comment.owner.trim()).filter(Boolean))].sort();
   const isLost = (comment: ReviewerComment) => comment.annotations.some((number) => {
     const state = places.get(number)?.state;
@@ -492,13 +504,7 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
                 <span style={{ width: `${(counts.changing / comments.length) * 100}%` }} data-tone="changing" />
                 <span style={{ width: `${(counts.drafted / comments.length) * 100}%` }} data-tone="drafted" />
               </span>
-              <p className="responses-summary-detail">
-                {[
-                  counts.unanswered ? (counts.unanswered === 1 ? t`1 without a reply` : t`${formatCount(counts.unanswered)} without a reply`) : null,
-                  counts.drafted ? (counts.drafted === 1 ? t`1 reply to check` : t`${formatCount(counts.drafted)} replies to check`) : null,
-                  toChange ? (toChange === 1 ? t`1 change to make` : t`${formatCount(toChange)} changes to make`) : null,
-                ].filter(Boolean).join(" · ") || t`Every comment is answered`}
-              </p>
+              <p className="responses-summary-detail">{summaryDetail}</p>
               <SegmentedControl
                 ariaLabel={t`Which comments to show`}
                 value={filter}

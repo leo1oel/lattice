@@ -16,7 +16,7 @@
 import { isRecord } from "../app-utils";
 
 /** Whether the paper still has to change for a comment, has, or needs no change. */
-export const RESPONSE_CHANGES = ["todo", "done", "none"] as const;
+const RESPONSE_CHANGES = ["todo", "done", "none"] as const;
 export type ResponseChange = (typeof RESPONSE_CHANGES)[number];
 
 export type ReviewerComment = {

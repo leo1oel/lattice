@@ -209,7 +209,7 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
 }
-.responses-intake-group li > .ui-checkbox { margin-top: 2px; }
+.responses-intake-group li > .ui-checkbox { margin-top: var(--space-1); }
 /* A part joined to the one above reads as its continuation: no box, no number. */
 .responses-intake-group li[data-continues] { margin-top: calc(var(--space-2) * -1); padding-top: 0; }
 .responses-intake-group li p {
