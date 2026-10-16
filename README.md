@@ -46,6 +46,7 @@ Comments read as conversations with one colour per person, and margin review set
 <img src="docs/images/review.webp" alt="Annotations panel with a round of agent proposals; one proposal for the abstract is open inline in the source with Accept and Reject" width="900" />
 
 Annotate the source or the PDF, then revise from your annotations in rounds: the agent proposes an edit for each one and you accept or reject it in place.
+**Export review PDF** writes the annotations you tick into a copy of the compiled PDF as standard PDF comments, so collaborators can read them in Preview, Acrobat or Zotero.
 
 ## Read and cite papers
 
