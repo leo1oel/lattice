@@ -1025,7 +1025,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    comments row disclose scroll inside their own box. */
 .modal.arxiv-export-modal { width: min(520px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; display: grid; gap: var(--space-6); }
 .arxiv-export-modal > h2 { margin: 0; }
-.arxiv-export-modal > h2 + * { margin-top: 0; }
+/* The sheet spaces its parts by its grid gap, not the small dialogs' margins. */
+.modal.arxiv-export-modal > h2 + * { margin-top: 0; }
 .arxiv-export-modal .modal-actions { margin-top: var(--space-4); }
 .arxiv-export-summary { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); padding: var(--space-5); border-radius: calc(var(--radius-panel) * var(--corner-smoothing)); corner-shape: squircle; background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
 .arxiv-export-icon { width: 36px; height: 36px; border-radius: var(--radius-icon); display: grid; place-items: center; background: var(--accent-soft); color: var(--text-secondary); }
@@ -1038,7 +1039,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .arxiv-export-files li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); padding: var(--space-1) var(--space-5); color: var(--text-secondary); }
 .arxiv-export-files li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--editor-font); }
 .arxiv-export-files li span:last-child { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-.arxiv-export-left-out { margin: calc(var(--space-2) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow-wrap: anywhere; }
+.modal.arxiv-export-modal > .arxiv-export-left-out { margin: calc(var(--space-2) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow-wrap: anywhere; }
 .arxiv-export-checks { list-style: none; margin: 0; padding: 0; border-radius: calc(var(--radius-panel) * var(--corner-smoothing)); corner-shape: squircle; box-shadow: 0 0 0 1px var(--border-subtle); overflow: hidden; }
 .arxiv-export-checks > li { border-bottom: 1px solid var(--border-subtle); }
 .arxiv-export-checks > li:last-child { border-bottom: 0; }
