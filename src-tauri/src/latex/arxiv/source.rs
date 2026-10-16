@@ -38,6 +38,7 @@ static TODO: LazyLock<Regex> =
 static INPUT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\(input|include)\s*\{([^{}]+)\}").unwrap());
 static CONTROL_WORD_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\[A-Za-z@]+$").unwrap());
+static ENDINPUT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\endinput\b").unwrap());
 static INCLUDEONLY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\includeonly\b").unwrap());
 
 /// One comment the source carries, by its line in the file (from 1).
@@ -276,11 +277,17 @@ fn expand(
                 continue;
             }
             let Some(path) = resolve_input(name, sources) else { continue };
-            if stack.len() > MAX_INPUT_DEPTH || stack.contains(&path) {
+            // `\endinput` ends the file it is read in, which merged would be
+            // this one.
+            if stack.len() > MAX_INPUT_DEPTH
+                || stack.contains(&path)
+                || code_matches(&sources[&path], &ENDINPUT)
+            {
                 continue;
             }
             stack.push(path.clone());
-            let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
+            let mut nested = BTreeSet::new();
+            let inner = expand(&sources[&path], sources, merge_includes, stack, &mut nested);
             stack.pop();
             // TeX skips the spaces that start the file's first line.
             let inner = inner.trim_start_matches([' ', '\t']);
@@ -315,6 +322,7 @@ fn expand(
                 _ => format!("{}\\space", with_line_end(inner)),
             };
             merged.insert(path);
+            merged.append(&mut nested);
             out.push_str(&line[copied..whole.start()]);
             out.push_str(&replacement);
             copied = whole.end();
@@ -461,8 +469,12 @@ mod tests {
         let mut sources = BTreeMap::from([
             ("tool.tex".to_string(), "FooBar\n".to_string()),
             ("gap.tex".to_string(), "\nNext paragraph\n".to_string()),
+            ("intro.tex".to_string(), "Intro.\n\\endinput\nold draft\n".to_string()),
+            ("outer.tex".to_string(), "\\input{tool}\n".to_string()),
         ]);
         for main in [
+            "\\begin{document}\n\\input{intro}\n\\end{document}\n",
+            "We use \\input{outer} daily\n",
             "We use \\input{tool} daily\n",
             "We use \\input{tool}% joined\n",
             "\\foo\\input{tool}\n",
@@ -473,6 +485,12 @@ mod tests {
             assert_eq!(text, main);
             assert!(merged.is_empty(), "{main}");
         }
+
+        sources.insert("intro.tex".to_string(), "Intro.\n% \\endinput\n".to_string());
+        sources.insert("main.tex".to_string(), "\\input{intro}\n".to_string());
+        let (text, merged) = merge_inputs("main.tex", &sources);
+        assert_eq!(text, "Intro.\n% \\endinput\n\\space\n");
+        assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["intro.tex"]);
     }
 
     /// The width TeX typesets `body` at, with `files` beside it.
