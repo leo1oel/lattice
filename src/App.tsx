@@ -2192,6 +2192,7 @@ function App() {
         openProjectAsset={openAsset}
         openProjectFile={openFile}
         prewarmLikelyProjectFile={prewarmLikelyProjectFile}
+        recentPaths={documents.recentPaths}
         insertReference={insertCitation}
         goToLine={(line) => {
           if (activeFile) requestEditorLine(activeFile, line);

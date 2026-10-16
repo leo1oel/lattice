@@ -61,7 +61,8 @@ export function PickerDialog<T>(props: {
   noMatch?: (query: string) => PickerNoMatch<T> | null;
   rank: (query: string) => T[];
   itemKey: (item: T) => string;
-  renderItem: (item: T) => ReactNode;
+  /** Draws a row; `query` is the trimmed text it was ranked against, for marking the match. */
+  renderItem: (item: T, query: string) => ReactNode;
   /** The accessible name, when the rendered item is more than its text. */
   itemLabel?: (item: T) => string | undefined;
   /**
@@ -82,12 +83,12 @@ export function PickerDialog<T>(props: {
   const { rank, onIntent, groupOf, noMatch: describeNoMatch } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const trimmed = query.trim();
   const { results, sectioned, noMatch } = useMemo(() => {
-    const trimmed = query.trim();
     const found = sectionResults(rank(trimmed), groupOf);
     const missing = !found.results.length && trimmed ? describeNoMatch?.(trimmed) ?? null : null;
     return missing?.fallback ? { results: [missing.fallback], sectioned: false, noMatch: missing } : { ...found, noMatch: missing };
-  }, [rank, query, groupOf, describeNoMatch]);
+  }, [rank, trimmed, groupOf, describeNoMatch]);
   const lastIndex = Math.max(0, results.length - 1);
   const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
   useEffect(() => {
@@ -181,7 +182,7 @@ export function PickerDialog<T>(props: {
                   }}
                   onClick={() => props.onSelect(item)}
                 >
-                  {props.renderItem(item)}
+                  {props.renderItem(item, trimmed)}
                 </button>
               </Fragment>
             );

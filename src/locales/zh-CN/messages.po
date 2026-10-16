@@ -1358,6 +1358,10 @@ msgstr "全部 {total} 条文献已核实"
 msgid "All colours"
 msgstr "全部颜色"
 
+#: src/project/quick-open-dialog.tsx
+msgid "All files"
+msgstr "所有文件"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "全部函数…"
@@ -3524,6 +3528,10 @@ msgstr "Crossref 暂时查不到撤稿信息"
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref 报告的更新类型：{updateType}"
 
+#: src/project/quick-open-dialog.tsx
+msgid "Current"
+msgstr "当前"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Current BibTeX"
 msgstr "当前条目"
@@ -5041,7 +5049,9 @@ msgid "Go to line (⌘G)"
 msgstr "跳到行 (⌘G)"
 
 #. placeholder {0}: node.line
+#. placeholder {0}: row.line
 #: src/canvas/document-outline.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Go to line {0}"
 msgstr "跳到第 {0} 行"
 
@@ -6281,6 +6291,7 @@ msgid "Limit 1 word"
 msgstr "上限 1 词"
 
 #: src/editor/goto-line-dialog.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Line"
 msgstr "行"
 
@@ -6892,6 +6903,7 @@ msgid "Most cited here"
 msgstr "本文引用最多"
 
 #: src/app/command-palette.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Move"
 msgstr "移动"
 
@@ -7774,6 +7786,7 @@ msgstr "只留编辑器"
 
 #: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Open"
 msgstr "打开"
 
@@ -9110,6 +9123,7 @@ msgid "Rebuttal"
 msgstr "作者回复"
 
 #: src/App.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "最近"
 
@@ -10314,6 +10328,10 @@ msgstr "节"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Section sign"
 msgstr "节标记"
+
+#: src/project/quick-open-dialog.tsx
+msgid "Sections and labels"
+msgstr "章节与标签"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx

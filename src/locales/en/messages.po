@@ -1358,6 +1358,10 @@ msgstr "All {total} references verified"
 msgid "All colours"
 msgstr "All colours"
 
+#: src/project/quick-open-dialog.tsx
+msgid "All files"
+msgstr "All files"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "All Functions…"
@@ -3524,6 +3528,10 @@ msgstr "Crossref citation-health metadata is currently unavailable"
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref reports update type: {updateType}"
 
+#: src/project/quick-open-dialog.tsx
+msgid "Current"
+msgstr "Current"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Current BibTeX"
 msgstr "Current BibTeX"
@@ -5041,7 +5049,9 @@ msgid "Go to line (⌘G)"
 msgstr "Go to line (⌘G)"
 
 #. placeholder {0}: node.line
+#. placeholder {0}: row.line
 #: src/canvas/document-outline.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Go to line {0}"
 msgstr "Go to line {0}"
 
@@ -6281,6 +6291,7 @@ msgid "Limit 1 word"
 msgstr "Limit 1 word"
 
 #: src/editor/goto-line-dialog.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Line"
 msgstr "Line"
 
@@ -6892,6 +6903,7 @@ msgid "Most cited here"
 msgstr "Most cited here"
 
 #: src/app/command-palette.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Move"
 msgstr "Move"
 
@@ -7774,6 +7786,7 @@ msgstr "only the editor"
 
 #: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Open"
 msgstr "Open"
 
@@ -9110,6 +9123,7 @@ msgid "Rebuttal"
 msgstr "Rebuttal"
 
 #: src/App.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
 
@@ -10314,6 +10328,10 @@ msgstr "Section"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Section sign"
 msgstr "Section sign"
+
+#: src/project/quick-open-dialog.tsx
+msgid "Sections and labels"
+msgstr "Sections and labels"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx

@@ -368,6 +368,17 @@ input[type="search"]:focus-visible {
 .command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .command-palette-footer::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--border-subtle); }
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
+/* Quick open marks the typed characters in each name: semibold on an accent
+   underline, the rest of the name a step quieter, so the match is what reads. */
+.quick-open-list .picker-match { background: none; color: var(--text-primary); font-weight: var(--weight-semibold); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.quick-open-list .picker-file-name:has(.picker-match) { color: var(--text-secondary); }
+/* "Current" or the `:42` a query asked for, at the row's end. */
+.quick-open-list .picker-file-tag { margin-inline-start: auto; flex: none; padding-inline-start: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The prefixes lead at the start; the keys keep the palette's place at the end. */
+.quick-open-footer .quick-open-scopes { display: inline-flex; gap: var(--space-8); margin-inline-end: auto; min-width: 0; overflow: hidden; }
+.quick-open-footer .quick-open-scopes > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
+/* A narrow window drops the line prefix first: it is the one the writer can reach with ⌘G. */
+@media (max-width: 480px) { .quick-open-footer .quick-open-scopes > span:last-child { display: none; } }
 /* Each crumb (separator and button) is the flex item, so it is the one that
    must be allowed under its text's width: then the button ellipsizes, where a
    crumb wider than the bar was cut at both ends of the centred row. */
