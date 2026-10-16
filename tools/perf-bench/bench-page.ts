@@ -14,6 +14,7 @@
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import { arxivAnswer } from "./bench-arxiv";
+import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
 import type { FileNode, ProjectDeadline, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
@@ -56,6 +57,9 @@ const SCALE_NAMES = ["Chen, Wei", "Garcia, Maria", "Smith, John", "Kumar, Priya"
 const scaleTitle = (index: number) => `${SCALE_WORDS[index % 15]} ${SCALE_WORDS[(index * 7 + 3) % 15]} for ${SCALE_WORDS[(index * 11 + 5) % 15]} Models: Study ${index + 1}`;
 const scaleAuthors = (index: number) => [0, 1, 2].slice(0, 1 + (index % 3)).map((offset) => SCALE_NAMES[(index + offset * 3) % 10]).join(" and ");
 const scaleKey = (index: number) => `${SCALE_NAMES[index % 10].split(",")[0].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}${2000 + (index % 26)}${SCALE_WORDS[(index * 7 + 3) % 15].toLowerCase().replace(/[^a-z]/g, "")}${index}`;
+
+const linkedBibliography = linkedLibraryBibliography(params);
+if (linkedBibliography) fixture.files.set("references.bib", linkedBibliography);
 
 if (scale.bibEntries) {
   fixture.files.set("references.bib", Array.from({ length: scale.bibEntries }, (_, index) => {
@@ -844,6 +848,9 @@ function answer(command: string, args: Args): unknown {
   // `?arxiv=ready` (or `running`, `failed`, `unbuilt`, `long`) stages Export for arXiv (bench-arxiv.ts).
   const arxiv = arxivAnswer(command, args, { params, send: sendOnChannel });
   if (arxiv !== NOT_HANDLED) return arxiv;
+  // `?linkedBib=ready` (or `unlinked`, `missing`, `long`) stages the linked library (bench-linked-library.ts).
+  const linked = linkedLibraryAnswer(command, args, { params });
+  if (linked !== NOT_HANDLED) return linked;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "initial_project":

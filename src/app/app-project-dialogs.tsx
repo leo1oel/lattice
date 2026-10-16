@@ -1,7 +1,7 @@
 /**
  * The modal forms that create or rename something: the new-project dialog, the
  * rename dialog (files, folders, labels, citation keys, environments), the Add
- * papers sheet and the bibliography entry editor, with the literature
+ * papers sheet, the linked library's and the bibliography entry editor, with the literature
  * discovery panel that feeds them; the question an import asks about names
  * already in its folder; plus the TeX toolchain setup and package-install
  * dialogs.
@@ -22,6 +22,9 @@ const BibEntryDialog = lazy(() =>
 );
 const AddPapersSheet = lazy(() =>
   import("../papers/add-papers-sheet").then((module) => ({ default: module.AddPapersSheet })),
+);
+const LinkedLibrarySheet = lazy(() =>
+  import("../papers/linked-library-sheet").then((module) => ({ default: module.LinkedLibrarySheet })),
 );
 const ImportConflictDialog = lazy(() => import("../project/import-conflict-dialog"));
 const LiteratureDiscoveryPanel = lazy(() =>
@@ -48,7 +51,7 @@ export function AppProjectDialogs({
   };
   importConflict: ImportConflictRequest | null;
 }) {
-  const { bibEntry, setLiteratureOpen, addSheet } = references;
+  const { bibEntry, setLiteratureOpen, addSheet, linkedLibrary } = references;
   return (
     <>
       <LazyMount when={addSheet.open}>
@@ -64,7 +67,20 @@ export function AppProjectDialogs({
             references.closeAddSheet();
             references.enterBibEntryManually();
           }}
+          onLinkLibrary={() => {
+            references.closeAddSheet();
+            references.openLinkedLibrary();
+          }}
           onClose={references.closeAddSheet}
+        />
+      </LazyMount>
+      <LazyMount when={linkedLibrary.open && Boolean(references.projectRoot)}>
+        <LinkedLibrarySheet
+          key={linkedLibrary.key}
+          projectRoot={references.projectRoot ?? ""}
+          bibliography={references.bibliography}
+          onRewrite={references.rewriteBibliography}
+          onClose={references.closeLinkedLibrary}
         />
       </LazyMount>
       <Suspense fallback={null}>

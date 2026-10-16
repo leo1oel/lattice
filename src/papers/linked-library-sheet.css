@@ -1,0 +1,53 @@
+/* Linked library (linked-library-sheet.tsx), in the Add papers sheet's frame:
+   the linked file and what it updates, then the tabs and the raised list of
+   changes, each a ticked row over the fields it changes, here → library. */
+.linked-library-source { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); }
+.linked-library-source-icon { color: var(--text-secondary); }
+.linked-library-source-text { min-width: 0; display: grid; gap: var(--space-1); }
+.linked-library-source-text > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); }
+.linked-library-source-text > span { min-width: 0; display: flex; align-items: center; gap: var(--space-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.linked-library-into { flex: none; color: var(--text-tertiary); }
+.linked-library-source-actions { display: flex; gap: var(--space-2); }
+.linked-library-source-actions > button { color: var(--text-secondary); }
+
+.linked-library-loading { display: flex; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-12) 0; color: var(--text-secondary); font-size: var(--type-caption-size); }
+.linked-library-intro { display: grid; justify-items: start; gap: var(--space-6); }
+.linked-library-failed { display: grid; justify-items: start; gap: var(--space-4); }
+.linked-library-failed > p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.linked-library-failed > span { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.linked-library-hint { margin: calc(-1 * var(--space-2)) 0 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+
+/* A label, so the whole row ticks; past the dialogs' form-label column. */
+.modal .linked-library-row { padding: var(--space-5) var(--space-6); display: grid; font-weight: var(--weight-regular); text-align: start; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; cursor: default; }
+.linked-library-row .add-papers-main > span { display: flex; gap: var(--space-2); min-width: 0; }
+.linked-library-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.linked-library-row code { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
+.linked-library-rows > li[data-kind="removed"] .add-papers-main > strong { text-decoration: line-through; text-decoration-color: var(--text-tertiary); }
+.linked-library-kind { justify-self: end; max-width: 160px; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.linked-library-kind[data-kind="new"] { color: color-mix(in srgb, var(--status-success) 80%, var(--text-primary)); }
+.linked-library-kind[data-kind="conflict"] { background: var(--status-warning-soft); color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
+
+/* Each changed field on its own line under the title, aligned with it past
+   the checkbox: the name, then the value here → the library's. */
+.linked-library-fields { margin: calc(-1 * var(--space-3)) 0 0; padding: 0 var(--space-6) var(--space-5) calc(var(--space-6) + 16px + var(--space-5)); display: grid; gap: var(--space-2); }
+.linked-library-fields > div { min-width: 0; display: grid; grid-template-columns: minmax(64px, max-content) minmax(0, 1fr); gap: var(--space-5); align-items: baseline; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.linked-library-fields dt { color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-micro-size); }
+.linked-library-fields dd { min-width: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-3); align-items: center; color: var(--text-tertiary); }
+.linked-library-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.linked-library-value[data-side="library"] { color: var(--text-primary); }
+.linked-library-value > em { margin-inline-end: var(--space-2); font-style: normal; color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
+
+/* A narrow window: the two values stack, the library's under the writer's,
+   the actions take their own line, and the kind chip gives way first. */
+@container add-papers (width < 520px) {
+  .linked-library-source { grid-template-columns: auto minmax(0, 1fr); }
+  .linked-library-source-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .linked-library-kind { max-width: 96px; }
+  .linked-library-fields { padding-inline-start: var(--space-6); }
+  .linked-library-fields > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .linked-library-fields dd { grid-template-columns: auto minmax(0, 1fr); row-gap: 0; }
+  .linked-library-fields > div + div { margin-top: var(--space-2); }
+  .linked-library-fields dd > svg { display: none; }
+  .linked-library-value[data-side="library"] { grid-column: 1 / -1; }
+  .linked-library-value[data-side="library"]::before { content: "→ "; color: var(--text-tertiary); }
+}

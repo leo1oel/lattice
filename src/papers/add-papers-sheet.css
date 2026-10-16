@@ -10,8 +10,9 @@
 .add-papers-paste { display: grid; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .add-papers-paste textarea { min-height: 92px; resize: vertical; padding: var(--space-5) var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-input, var(--surface-app)); color: var(--text-primary); font: var(--type-caption-size)/20px var(--editor-font); }
 .add-papers-paste textarea::placeholder { color: var(--text-tertiary); }
-.add-papers-manual { display: flex; margin-top: calc(-1 * var(--space-3)); }
-.add-papers-manual > button { margin-left: calc(-1 * var(--space-4)); color: var(--text-secondary); }
+.add-papers-manual { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: calc(-1 * var(--space-3)); }
+.add-papers-manual > button { color: var(--text-secondary); }
+.add-papers-manual > button:first-child { margin-left: calc(-1 * var(--space-4)); }
 
 .add-papers-empty { --art-paper: var(--surface-panel-raised); display: flex; align-items: center; justify-content: center; gap: var(--space-10); padding: var(--space-6) var(--space-4) var(--space-12); }
 .add-papers-empty .research-art { flex: none; }

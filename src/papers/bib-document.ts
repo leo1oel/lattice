@@ -286,6 +286,17 @@ export function expandBibValue(raw: string, macros: Map<string, string>, depth =
   }).join("");
 }
 
+/**
+ * `raw` as another file reads it without this one's `@string` macros: as
+ * written when it is one braced or quoted value, a number or a month, and
+ * otherwise expanded in braces.
+ */
+export function selfContainedValue(raw: string, macros: Map<string, string>): string {
+  const parts = valueParts(raw);
+  if (parts.length === 1 && (/^[{"]|^\d+$/.test(parts[0]) || MONTH_MACROS.has(parts[0].toLowerCase()))) return raw;
+  return `{${expandBibValue(raw, macros)}}`;
+}
+
 // Accent commands and the combining marks they put on the following letter.
 const ACCENTS: Record<string, string> = {
   '"': "̈", "'": "́", "`": "̀", "^": "̂", "~": "̃", "=": "̄", ".": "̇",

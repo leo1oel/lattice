@@ -6,6 +6,8 @@
 //! - [`annotations`] — local annotations, their revision rounds and the
 //!   rounds' snapshots.
 //! - [`reviews`] — the agent's reviews of the paper.
+//! - [`linked_bibliography`] — a reference manager's `.bib` linked to the
+//!   project's bibliography.
 //! - [`paths`] — the path guards every file operation goes through, and the
 //!   table of text source kinds.
 //! - [`tree`] — file-tree views, content classification, and reading text
@@ -31,6 +33,7 @@ mod create;
 mod entries;
 mod history;
 mod imports;
+mod linked_bibliography;
 mod manifest;
 mod paths;
 mod references;
@@ -70,6 +73,10 @@ pub use history::{HistoryItem, TransactionRecord};
 pub use imports::{
     import_assets, import_files, import_image_bytes, import_sources, read_agent_composer_files,
     write_bytes, AgentComposerFile, ImportRequest, NameConflict, ProjectImport,
+};
+pub use linked_bibliography::{
+    read_bibliography_source, read_linked_bibliography, save_linked_bibliography,
+    unlink_bibliography, LinkedBibliography,
 };
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
