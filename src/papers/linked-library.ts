@@ -11,17 +11,19 @@
  * choose otherwise. A field only the writer changed is never offered.
  *
  * An entry is the same paper in each text by its citation key, or else by
- * its DOI or arXiv id, and keeps the key it has here: a library that renamed
- * its keys does not break a `\cite` in the paper. Nothing is deleted unless
+ * its DOI or arXiv id, or as a last resort by its title and year, and keeps
+ * the key it has here: a library that renamed its keys does not break a
+ * `\cite` in the paper. Nothing is deleted unless
  * the writer ticks it, and never an entry the paper cites. Every change is a
  * splice into the local text (bib-document.ts), so whatever it does not touch
- * stays byte-for-byte as written.
+ * stays byte-for-byte as written. A value naming an `@string` of the library
+ * is written out, since the project's .bib may not define it.
  */
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import {
   addFieldEdit, applyBibEdit, bibUnreadableReason, changeTypeEdit, deleteEntryEdit, expandBibValue,
-  parseBibDocument, removeFieldEdit, replaceValueEdit, summarizeEntry,
+  parseBibDocument, removeFieldEdit, replaceValueEdit, selfContainedValue, summarizeEntry,
   type BibDocument, type BibEdit, type BibEntry,
 } from "./bib-document";
 
@@ -60,8 +62,14 @@ export type LibraryChange = {
   kind: LibraryChangeKind;
   /** The key here (for a new entry, the library's). */
   key: string;
+  /** The library entry it comes from, by its key there; null for a removed entry. */
+  libraryKey: string | null;
   title: string;
-  /** What would change, for "updated" and "conflict". */
+  /**
+   * What would change, for "updated" and "conflict". An entry with both
+   * kinds of field is two changes, so the library's own updates can come in
+   * while the writer's fields stay.
+   */
   fields: FieldChange[];
   /** A removed entry the paper cites: it cannot be removed here. */
   cited: boolean;
@@ -92,12 +100,20 @@ function index(source: string, name: string): Indexed {
   return { document: parse.document, source, byKey, byIdentity };
 }
 
+/** Ways to tell the paper apart from its key, most certain first. */
 function identities(source: string, entry: BibEntry, document: BibDocument): string[] {
-  const { doi, arxivId } = summarizeEntry(source, entry, document.macros);
-  return [doi && `doi:${doi.toLowerCase()}`, arxivId && `arxiv:${arxivId.replace(/v\d+$/, "")}`].filter(Boolean);
+  const { doi, arxivId, title, year } = summarizeEntry(source, entry, document.macros);
+  // A book or a paper without either id, whose key a reference manager regenerated.
+  const words = title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return [
+    doi && `doi:${doi.toLowerCase()}`,
+    arxivId && `arxiv:${arxivId.replace(/v\d+$/, "")}`,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- a key, never shown
+    words && `title:${words}|${year}`,
+  ].filter(Boolean);
 }
 
-/** The same paper in `other`: by key first, then by DOI or arXiv id. */
+/** The same paper in `other`: by key first, then by DOI or arXiv id, then by title and year. */
 function find(other: Indexed, from: Indexed, entry: BibEntry): BibEntry | undefined {
   const byKey = other.byKey.get(entry.key.toLowerCase());
   if (byKey) return byKey;
@@ -142,8 +158,8 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
   local: string;
   libraryName: string;
   localName: string;
-  /** Keys the paper cites. */
-  cited: ReadonlySet<string>;
+  /** Keys the paper cites, or null when they could not be read: then every removed entry counts as cited. */
+  cited: ReadonlySet<string> | null;
 }): LibraryChange[] {
   const theirs = index(library, libraryName);
   const ours = index(local, localName);
@@ -156,7 +172,11 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
     const here = find(ours, theirs, entry) ?? (was && before ? find(ours, before, was) : undefined);
     if (!here) {
       // In the base but gone from here: the writer removed it, or declined it once already.
-      if (!was) changes.push({ id: `new:${entry.key}`, kind: "new", key: entry.key, title: titleOf(theirs, entry), fields: [], cited: false });
+      if (!was) {
+        changes.push({
+          id: `new:${entry.key}`, kind: "new", key: entry.key, libraryKey: entry.key, title: titleOf(theirs, entry), fields: [], cited: false,
+        });
+      }
       continue;
     }
     if (seen.has(here)) continue;
@@ -178,15 +198,14 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
         fields.push({ name, local, library, conflict: local !== null });
       }
     }
-    if (fields.length) {
-      changes.push({
-        id: `entry:${here.key}`,
-        kind: fields.some((field) => field.conflict) ? "conflict" : "updated",
-        key: here.key,
-        title: titleOf(ours, here),
-        fields,
-        cited: false,
-      });
+    const updates = fields.filter((field) => !field.conflict);
+    const conflicts = fields.filter((field) => field.conflict);
+    const title = titleOf(ours, here);
+    if (updates.length) {
+      changes.push({ id: `entry:${here.key}`, kind: "updated", key: here.key, libraryKey: entry.key, title, fields: updates, cited: false });
+    }
+    if (conflicts.length) {
+      changes.push({ id: `conflict:${here.key}`, kind: "conflict", key: here.key, libraryKey: entry.key, title, fields: conflicts, cited: false });
     }
   }
   if (before) {
@@ -196,20 +215,28 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
       if (!here || seen.has(here)) continue;
       seen.add(here);
       changes.push({
-        id: `removed:${here.key}`, kind: "removed", key: here.key, title: titleOf(ours, here), fields: [],
-        cited: [...cited].some((key) => key.toLowerCase() === here.key.toLowerCase()),
+        id: `removed:${here.key}`, kind: "removed", key: here.key, libraryKey: null, title: titleOf(ours, here), fields: [],
+        cited: !cited || [...cited].some((key) => key.toLowerCase() === here.key.toLowerCase()),
       });
     }
   }
   return changes;
 }
 
-/** The library's value for `name` as it is written there, or in braces when it names an `@string` the project lacks. */
+/** The library's value for `name`, readable without its `@string` macros. */
 function libraryRaw(theirs: Indexed, entry: BibEntry, name: string): string | null {
   const field = entry.fields.find((candidate) => candidate.name.toLowerCase() === name);
   if (!field) return null;
-  const raw = theirs.source.slice(field.valueFrom, field.valueTo);
-  return /^[{"]|^\d+$/.test(raw) ? raw : `{${expandBibValue(raw, theirs.document.macros)}}`;
+  return selfContainedValue(theirs.source.slice(field.valueFrom, field.valueTo), theirs.document.macros);
+}
+
+/** A new entry's text as the library writes it, its values readable without the library's `@string` macros. */
+function libraryEntry(theirs: Indexed, entry: BibEntry): string {
+  return entry.fields.reduceRight((text, field) => applyBibEdit(text, {
+    from: field.valueFrom - entry.from,
+    to: field.valueTo - entry.from,
+    insert: selfContainedValue(theirs.source.slice(field.valueFrom, field.valueTo), theirs.document.macros),
+  }), theirs.source.slice(entry.from, entry.to));
 }
 
 /** The splice giving `entry` the library's `name`, or null when neither has it. */
@@ -237,17 +264,20 @@ function updatedEntry(text: string, theirs: Indexed, source: BibEntry, fields: F
 /**
  * The project's .bib with the chosen changes taken in: updated entries keep
  * their keys and place, removed ones go (never one the paper cites), and new
- * ones are added at the end as the library writes them.
+ * ones are added at the end as the library writes them. Each comes from the
+ * library entry the comparison matched, by `libraryKey`.
  */
 export function applyLibraryChanges(local: string, library: string, chosen: readonly LibraryChange[]): string {
   const theirs = index(library, "library");
   const ours = index(local, "bibliography");
   const edits: BibEdit[] = [];
   const added: string[] = [];
+  // An entry's update and its conflict, both ticked, are one splice.
+  const updates = new Map<BibEntry, { source: BibEntry; fields: FieldChange[] }>();
   for (const change of chosen) {
+    const source = change.libraryKey === null ? undefined : theirs.byKey.get(change.libraryKey.toLowerCase());
     if (change.kind === "new") {
-      const entry = theirs.byKey.get(change.key.toLowerCase());
-      if (entry && !ours.byKey.has(change.key.toLowerCase())) added.push(library.slice(entry.from, entry.to));
+      if (source && !ours.byKey.has(change.key.toLowerCase())) added.push(libraryEntry(theirs, source));
       continue;
     }
     const here = ours.byKey.get(change.key.toLowerCase());
@@ -256,10 +286,13 @@ export function applyLibraryChanges(local: string, library: string, chosen: read
       if (!change.cited) edits.push(deleteEntryEdit(local, here));
       continue;
     }
-    const source = find(theirs, ours, here);
     if (!source) continue;
-    const text = local.slice(here.from, here.to);
-    edits.push({ from: here.from, to: here.to, insert: updatedEntry(text, theirs, source, change.fields) });
+    const update = updates.get(here) ?? { source, fields: [] };
+    update.fields.push(...change.fields);
+    updates.set(here, update);
+  }
+  for (const [here, { source, fields }] of updates) {
+    edits.push({ from: here.from, to: here.to, insert: updatedEntry(local.slice(here.from, here.to), theirs, source, fields) });
   }
   let next = edits.sort((a, b) => b.from - a.from).reduce(applyBibEdit, local);
   for (const entry of added) {

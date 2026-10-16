@@ -45,12 +45,22 @@ describe("compareLibrary", () => {
     const local = BASE.replace("Attention Is All You Need", "Attention Is {All} You Need");
     expect(compare(BASE, BASE, local)).toEqual([]);
     const library = BASE.replace("Attention Is All You Need", "Attention is all you need").replace("year = {2017}", "year = {2018}");
-    const [change] = compare(BASE, library, local);
-    expect(change.kind).toBe("conflict");
-    expect(change.fields).toEqual([
-      { name: "title", local: "Attention Is {All} You Need", library: "Attention is all you need", conflict: true },
-      { name: "year", local: "2017", library: "2018", conflict: false },
+    const changes = compare(BASE, library, local);
+    // The library's own update comes apart from the field the writer changed too.
+    expect(changes).toEqual([
+      expect.objectContaining({ id: "entry:vaswani2017", kind: "updated", fields: [{ name: "year", local: "2017", library: "2018", conflict: false }] }),
+      expect.objectContaining({
+        id: "conflict:vaswani2017", kind: "conflict",
+        fields: [{ name: "title", local: "Attention Is {All} You Need", library: "Attention is all you need", conflict: true }],
+      }),
     ]);
+    const updateOnly = applyLibraryChanges(local, library, [changes[0]]);
+    expect(updateOnly).toContain("title = {Attention Is {All} You Need},");
+    expect(updateOnly).toContain("year = {2018},");
+    const both = applyLibraryChanges(local, library, changes);
+    expect(both).toContain("title = {Attention is all you need},");
+    expect(both).toContain("year = {2018},");
+    expect(compare(library, library, both)).toEqual([]);
   });
 
   it("matches a paper whose key the library renamed by its DOI or arXiv id, keeping the key here", () => {
@@ -58,6 +68,35 @@ describe("compareLibrary", () => {
     const changes = compare(BASE, library, BASE);
     expect(changes.map((change) => [change.kind, change.key])).toEqual([["updated", "kingma2014"]]);
     expect(applyLibraryChanges(BASE, library, changes)).toContain("@misc{kingma2014,\n  title = {Adam: A Method for Stochastic Optimization},\n  author = {Kingma, Diederik P. and Ba, Jimmy},\n  year = {2015},");
+  });
+
+  it("matches a paper with neither id by its title and year when the library renamed its key", () => {
+    const local = BASE.replace("  doi = {10.5555/3295222.3295349},\n", "");
+    const library = local.replace("vaswani2017", "vaswaniAttention").replace("Shazeer, Noam}", "Shazeer, Noam and Parmar, Niki}");
+    const changes = compare(local, library, local);
+    expect(changes.map((change) => [change.kind, change.key])).toEqual([["updated", "vaswani2017"]]);
+    const next = applyLibraryChanges(local, library, changes);
+    expect(next).toContain("@article{vaswani2017,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki},");
+    expect(next).not.toContain("vaswaniAttention");
+  });
+
+  it("applies an update matched only through the base, after the writer removed the DOI here", () => {
+    const local = BASE.replace("  doi = {10.5555/3295222.3295349},\n", "").replace("Attention Is All You Need", "Attention, mine");
+    const library = BASE.replace("vaswani2017", "Vaswani_2017").replace("year = {2017}", "year = {2018}");
+    const changes = compare(BASE, library, local);
+    expect(changes).toEqual([expect.objectContaining({ kind: "updated", key: "vaswani2017", libraryKey: "Vaswani_2017" })]);
+    expect(applyLibraryChanges(local, library, changes)).toContain("year = {2018},");
+  });
+
+  it("writes out the library's @string macros, which the project may not define", () => {
+    const library = `@string{jmlr = {Journal of Machine Learning Research}}\n\n${BASE}`
+      .replace("year = {2017}", "year = {2018},\n  journal = {The } # jmlr")
+      .concat("\n@article{he2016,\n  title = {Deep Residual Learning},\n  journal = jmlr,\n  month = jun,\n  year = 2016,\n}\n");
+    const changes = compare(BASE, library, BASE);
+    const next = applyLibraryChanges(BASE, library, changes);
+    expect(next).toContain("  journal = {The Journal of Machine Learning Research},\n");
+    expect(next).toContain("@article{he2016,\n  title = {Deep Residual Learning},\n  journal = {Journal of Machine Learning Research},\n  month = jun,\n  year = 2016,\n}\n");
+    expect(next).not.toContain("@string");
   });
 
   it("takes in a published version's entry type", () => {
@@ -87,6 +126,10 @@ describe("compareLibrary", () => {
     expect(applyLibraryChanges(BASE, library, changes)).toBe(BASE);
     const uncited = compare(BASE, library, BASE);
     expect(applyLibraryChanges(BASE, library, uncited)).toBe(library);
+    // When the citations cannot be read, every dropped paper counts as cited.
+    const unknown = compareLibrary({ base: BASE, library, local: BASE, libraryName: "My Library.bib", localName: "references.bib", cited: null });
+    expect(unknown).toEqual([expect.objectContaining({ kind: "removed", cited: true })]);
+    expect(applyLibraryChanges(BASE, library, unknown)).toBe(BASE);
   });
 
   it("before the first update, settles every difference with the writer and adds what is missing", () => {

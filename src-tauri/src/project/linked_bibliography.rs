@@ -1,6 +1,6 @@
 //! A BibTeX file outside the project that the writer's reference manager
 //! keeps (a Zotero or Paperpile export), linked to the project's
-//! bibliography (`.research/linked-bibliography.json`).
+//! bibliography (`.research/cache/linked-bibliography.json`).
 //!
 //! The record keeps where the file is, which project `.bib` it updates, and
 //! the file's text as it was when its changes were last taken in: the base
@@ -10,6 +10,9 @@
 //! the project `.bib` is the renderer's to decide, and goes through the
 //! ordinary undoable file write; this side only reads the outside file and
 //! keeps the record.
+//!
+//! The record names a file on this machine and copies a whole library, so it
+//! lives in the git-ignored cache, which no export ships either.
 
 use super::paths::safe_path;
 use crate::project_fs::ProjectDir;
@@ -19,7 +22,7 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const RECORD: &str = ".research/linked-bibliography.json";
+const RECORD: &str = ".research/cache/linked-bibliography.json";
 /// Far past any reference manager's export of a working library.
 const MAX_BIB_BYTES: u64 = 16 * 1024 * 1024;
 
@@ -117,6 +120,8 @@ mod tests {
             save_linked_bibliography(&fixture.root, &source, "references.bib", text.clone())
                 .unwrap();
         assert!(saved.updated_at > 0);
+        // Kept out of git with the rest of the cache: it names a path on this machine.
+        assert!(fixture.path(".research/cache/linked-bibliography.json").is_file());
         assert_eq!(read_linked_bibliography(&fixture.root).unwrap(), Some(saved));
         unlink_bibliography(&fixture.root).unwrap();
         assert_eq!(read_linked_bibliography(&fixture.root).unwrap(), None);

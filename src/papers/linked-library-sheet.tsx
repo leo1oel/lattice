@@ -63,11 +63,11 @@ async function readChanges({ source, into, base, projectRoot }: {
     // Tagged, so the sheet can tell a library that is gone from a project file that is.
     invoke<string>("read_bibliography_source", { source }).catch((reason: unknown) => Promise.reject(new SourceUnreadable(reason))),
     invoke<string>("read_project_file", { path: into, projectRoot }),
-    invoke<SymbolOccurrence[]>("list_citation_usages").catch(() => [] as SymbolOccurrence[]),
+    invoke<SymbolOccurrence[]>("list_citation_usages").catch(() => null),
   ]);
   const changes = compareLibrary({
     base, library, local, libraryName: fileName(source), localName: fileName(into),
-    cited: new Set(usages.map((usage) => usage.symbol)),
+    cited: usages && new Set(usages.map((usage) => usage.symbol)),
   });
   return { library, changes };
 }
