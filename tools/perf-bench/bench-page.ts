@@ -13,6 +13,7 @@
  * measures the real app. See scripts/perf-bench.mjs.
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
+import { arxivAnswer } from "./bench-arxiv";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
 import type { FileNode, ProjectDeadline, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
@@ -112,6 +113,8 @@ const tutorialBinary = import.meta.glob<string>(
   { query: "?url", import: "default", eager: true },
 );
 const current = { root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files };
+// `?arxiv=long` names the project at length, for the export sheet's width checks.
+if (params.get("arxiv") === "long") current.name = "Understanding Attention in Transformer Language Models: A Long Study";
 
 /**
  * `?build=typo`: main.tex mistypes \citep as \cietp, the build fails on it
@@ -838,6 +841,9 @@ function answer(command: string, args: Args): unknown {
     },
   });
   if (overleaf !== NOT_HANDLED) return overleaf;
+  // `?arxiv=ready` (or `running`, `failed`, `unbuilt`, `long`) stages Export for arXiv (bench-arxiv.ts).
+  const arxiv = arxivAnswer(command, args, { params, send: sendOnChannel });
+  if (arxiv !== NOT_HANDLED) return arxiv;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "initial_project":
@@ -1019,6 +1025,12 @@ const listeners = new Map<string, Set<number>>();
 let nextCallback = 1;
 let nextEvent = 1;
 const eventIds = new Map<number, { event: string; handler: number }>();
+
+/** What Tauri does for `channel.send`: the channel's callback, with the message's place in order. */
+function sendOnChannel(channel: unknown, message: unknown) {
+  const id = (channel as { id?: number } | undefined)?.id;
+  if (id !== undefined) callbacks.get(id)?.({ index: 0, message });
+}
 
 function emit(event: string, payload: unknown) {
   for (const handler of listeners.get(event) ?? []) {

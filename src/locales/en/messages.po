@@ -275,6 +275,10 @@ msgstr "{author} suggests inserting text"
 msgid "{begin} is closed by {end}"
 msgstr "{begin} is closed by {end}"
 
+#: src/project/arxiv-export.ts
+msgid "{built}; arXiv builds with pdfLaTeX"
+msgstr "{built}; arXiv builds with pdfLaTeX"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -327,9 +331,21 @@ msgstr "{count} character"
 msgid "{count} characters"
 msgstr "{count} characters"
 
+#: src/project/arxiv-export.ts
+msgid "{count} comment lines"
+msgstr "{count} comment lines"
+
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "{count} figures"
 msgstr "{count} figures"
+
+#: src/project/arxiv-export.ts
+msgid "{count} figures, as the last build used them"
+msgstr "{count} figures, as the last build used them"
+
+#: src/project/arxiv-export.ts
+msgid "{count} files"
+msgstr "{count} files"
 
 #: src/project/project-find-dialog.tsx
 msgid "{count} hits"
@@ -354,6 +370,10 @@ msgstr "{count} marker"
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} markers"
 msgstr "{count} markers"
+
+#: src/project/arxiv-export.ts
+msgid "{count} pages"
+msgstr "{count} pages"
 
 #: src/trellis/trellis-labels.ts
 msgid "{count} panels. Double-click to zoom in."
@@ -396,6 +416,14 @@ msgstr "{count} words"
 msgid "{count}+ results for “{shownQuery}”"
 msgstr "{count}+ results for “{shownQuery}”"
 
+#: src/project/arxiv-export.ts
+msgid "{counted}, {todos} of them TODOs"
+msgstr "{counted}, {todos} of them TODOs"
+
+#: src/project/arxiv-export.ts
+msgid "{counted}, 1 of them a TODO"
+msgstr "{counted}, 1 of them a TODO"
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
 msgstr "{current} of {count}"
@@ -432,6 +460,10 @@ msgstr "{description}: {path} could not run: {error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}: not found on PATH"
 
+#: src/project/arxiv-export.ts
+msgid "{engine} in a clean folder…"
+msgstr "{engine} in a clean folder…"
+
 #: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} error"
@@ -447,6 +479,10 @@ msgstr "{failed} not found"
 #: src/project/manuscript-checklist.tsx
 msgid "{failing} checks need attention"
 msgstr "{failing} checks need attention"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "{failures} to fix"
+msgstr "{failures} to fix"
 
 #: src/canvas/status-save-state.tsx
 msgid "{file} · saves a second after you stop typing"
@@ -468,6 +504,10 @@ msgstr "{fileName}, markup included · {characters}"
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
+#: src/project/arxiv-export.ts
+msgid "{first} and {more} more; build again"
+msgstr "{first} and {more} more; build again"
+
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} and {second}"
@@ -475,6 +515,10 @@ msgstr "{first} and {second}"
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} et al."
+
+#: src/project/arxiv-export.ts
+msgid "{first}; build again"
+msgstr "{first}; build again"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{gap} pages over"
@@ -673,6 +717,18 @@ msgstr "{replacementCount} matches"
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} annotations"
 
+#: src/project/arxiv-export.ts
+msgid "{seconds} s"
+msgstr "{seconds} s"
+
+#: src/project/arxiv-export.ts
+msgid "{size} of {limit}"
+msgstr "{size} of {limit}"
+
+#: src/project/arxiv-export.ts
+msgid "{size} of {limit}; leave out large figures"
+msgstr "{size} of {limit}; leave out large figures"
+
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "{span} left"
@@ -796,6 +852,10 @@ msgstr "1 cite"
 msgid "1 comment"
 msgstr "1 comment"
 
+#: src/project/arxiv-export.ts
+msgid "1 comment line"
+msgstr "1 comment line"
+
 #: src/project/deadline-card.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -816,7 +876,12 @@ msgstr "1 entry"
 msgid "1 figure"
 msgstr "1 figure"
 
+#: src/project/arxiv-export.ts
+msgid "1 figure, as the last build used it"
+msgstr "1 figure, as the last build used it"
+
 #: src/history/versions-timeline.tsx
+#: src/project/arxiv-export.ts
 msgid "1 file"
 msgstr "1 file"
 
@@ -858,6 +923,7 @@ msgstr "1 of {total} papers"
 msgid "1 open"
 msgstr "1 open"
 
+#: src/project/arxiv-export.ts
 #: src/trellis/trellis-build-sequence.tsx
 msgid "1 page"
 msgstr "1 page"
@@ -911,6 +977,10 @@ msgstr "1 table"
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
 msgstr "1 thing to tidy in the bibliography"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "1 to fix"
+msgstr "1 to fix"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 vote"
@@ -1732,6 +1802,10 @@ msgstr "Article"
 msgid "Article entry uses booktitle instead of journal."
 msgstr "Article entry uses booktitle instead of journal."
 
+#: src/project/arxiv-export.ts
+msgid "arXiv doesn’t run BibTeX; from your last build"
+msgstr "arXiv doesn’t run BibTeX; from your last build"
+
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
@@ -1967,6 +2041,14 @@ msgstr "Bibliography"
 msgid "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used."
 msgstr "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used."
 
+#: src/project/arxiv-export.ts
+msgid "Bibliography travels as {file}"
+msgstr "Bibliography travels as {file}"
+
+#: src/project/arxiv-export.ts
+msgid "Bibliography travels as a .bbl"
+msgstr "Bibliography travels as a .bbl"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "BibTeX bibliography files"
 msgstr "BibTeX bibliography files"
@@ -2148,6 +2230,7 @@ msgstr "Browser storage is full or unavailable. New entries still reach the log 
 
 #: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
+#: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
@@ -2179,6 +2262,10 @@ msgstr "Build files cleaned"
 msgid "Build log"
 msgstr "Build log"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Build log copied"
+msgstr "Build log copied"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build notes"
 msgstr "Build notes"
@@ -2205,6 +2292,14 @@ msgstr "Build succeeded in {seconds} s"
 msgid "Build superseded"
 msgstr "Build superseded"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Build the paper first. The package is made from the files the last build of {rootDocument} used."
+msgstr "Build the paper first. The package is made from the files the last build of {rootDocument} used."
+
+#: src/project/arxiv-export.ts
+msgid "Build the paper so it has one; arXiv doesn’t run BibTeX"
+msgstr "Build the paper so it has one; arXiv doesn’t run BibTeX"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build this project with pdfLaTeX from now on"
 msgstr "Build this project with pdfLaTeX from now on"
@@ -2227,6 +2322,7 @@ msgid "Build your LaTeX project to see the typeset paper"
 msgstr "Build your LaTeX project to see the typeset paper"
 
 #: src/pdf/pdf-viewer.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-build-sequence.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
@@ -2241,6 +2337,10 @@ msgstr "Builds"
 #: src/settings/settings-search-index.ts
 msgid "Builds 1.2 s after you stop typing"
 msgstr "Builds 1.2 s after you stop typing"
+
+#: src/project/arxiv-export.ts
+msgid "Builds from the package alone"
+msgstr "Builds from the package alone"
 
 #: src/build/build-result-text.ts
 #: src/trellis/trellis-build-sequence.tsx
@@ -2309,6 +2409,7 @@ msgstr "Can take up to 15 minutes"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/paper-library.tsx
@@ -2503,6 +2604,7 @@ msgid "Check accent example"
 msgstr "Check accent example"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "Check again"
 
@@ -2548,6 +2650,10 @@ msgstr "Check your connection and try again"
 msgid "checked"
 msgstr "checked"
 
+#: src/App.tsx
+msgid "Checked, comments removed, builds alone"
+msgstr "Checked, comments removed, builds alone"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "Checking {completed} of {progressTotal}…"
@@ -2575,6 +2681,7 @@ msgstr "Checking your Overleaf connection…"
 
 #: src/build/tex-install-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "Checking…"
@@ -2586,6 +2693,10 @@ msgstr "Checklist"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "Checklist with checkboxes."
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Checks"
+msgstr "Checks"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
@@ -3078,6 +3189,18 @@ msgstr "Comments are signed {0}, from Git or Overleaf"
 msgid "Comments from Overleaf sit here beside the words they are about"
 msgstr "Comments from Overleaf sit here beside the words they are about"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Comments in the source"
+msgstr "Comments in the source"
+
+#: src/project/arxiv-export.ts
+msgid "Comments removed"
+msgstr "Comments removed"
+
+#: src/project/arxiv-export.ts
+msgid "Comments will be published"
+msgstr "Comments will be published"
+
 #: src/app/annotation-rounds.ts
 msgid "Compare"
 msgstr "Compare"
@@ -3322,6 +3445,7 @@ msgid "Copy key"
 msgstr "Copy key"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/project/arxiv-export-dialog.tsx
 msgid "Copy log"
 msgstr "Copy log"
 
@@ -3380,6 +3504,10 @@ msgstr "Could not encode PNG."
 #: src/editor/insert/clipboard-image.ts
 msgid "Could not encode the clipboard image."
 msgstr "Could not encode the clipboard image."
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Could not export for arXiv"
+msgstr "Could not export for arXiv"
 
 #: src/App.tsx
 msgid "Could not find figure “{path}”."
@@ -4529,6 +4657,10 @@ msgstr "Every edit made on Overleaf, by anyone, is kept here and can be restored
 msgid "Every edit you, the agent or the citation tool make shows here, and each can be undone"
 msgstr "Every edit you, the agent or the citation tool make shows here, and each can be undone"
 
+#: src/project/arxiv-export.ts
+msgid "Every figure is included"
+msgstr "Every figure is included"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
@@ -4609,6 +4741,15 @@ msgstr "Export Excel"
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Export for arXiv"
+msgstr "Export for arXiv"
+
+#: src/App.tsx
+#: src/project/project-dialogs.tsx
+msgid "Export for arXiv…"
+msgstr "Export for arXiv…"
+
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
 msgstr "Export preview"
@@ -4618,6 +4759,7 @@ msgstr "Export preview"
 msgid "Export project ZIP"
 msgstr "Export project ZIP"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "Export ZIP"
@@ -4626,9 +4768,17 @@ msgstr "Export ZIP"
 msgid "Export…"
 msgstr "Export…"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Exported {fileName}"
+msgstr "Exported {fileName}"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
 msgstr "Exporting ZIP…"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Exporting…"
+msgstr "Exporting…"
 
 #: src/project/citation-health.ts
 msgid "Expression of concern"
@@ -4713,9 +4863,14 @@ msgid "file upload"
 msgstr "file upload"
 
 #: src/app/command-palette.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "Files"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Files in the package"
+msgstr "Files in the package"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -4725,6 +4880,10 @@ msgstr "Files in this change"
 #: src/overleaf/overleaf-history.tsx
 msgid "Files in this version"
 msgstr "Files in this version"
+
+#: src/project/arxiv-export.ts
+msgid "Files the last build used are missing"
+msgstr "Files the last build used are missing"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
@@ -5078,6 +5237,10 @@ msgstr "full-width text, cards on demand"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "Gamma"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Gathering the files the paper uses…"
+msgstr "Gathering the files the paper uses…"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -6368,6 +6531,14 @@ msgstr "Left normal subgroup"
 msgid "Left normal subgroup eq"
 msgstr "Left normal subgroup eq"
 
+#: src/project/arxiv-export.ts
+msgid "Left out: {names} and {hidden} more, which the paper doesn’t use."
+msgstr "Left out: {names} and {hidden} more, which the paper doesn’t use."
+
+#: src/project/arxiv-export.ts
+msgid "Left out: {names}, which the paper doesn’t use."
+msgstr "Left out: {names}, which the paper doesn’t use."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Left vertical bar"
 msgstr "Left vertical bar"
@@ -6913,6 +7084,10 @@ msgstr "Media"
 msgid "Medium section heading."
 msgstr "Medium section heading."
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Merge \\input files into {rootDocument}"
+msgstr "Merge \\input files into {rootDocument}"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
@@ -7398,6 +7573,10 @@ msgstr "No bibliography entry has the key {key} yet. A build that stops at an er
 msgid "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
 msgstr "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
 
+#: src/project/arxiv-export.ts
+msgid "No bibliography to include"
+msgstr "No bibliography to include"
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
@@ -7417,6 +7596,10 @@ msgstr "No commands or settings match “{query}”"
 #: src/app/command-palette.tsx
 msgid "No commands, files or papers match “{query}”"
 msgstr "No commands, files or papers match “{query}”"
+
+#: src/project/arxiv-export.ts
+msgid "No comments in the source"
+msgstr "No comments in the source"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
@@ -7815,6 +7998,10 @@ msgstr "Note discarded"
 msgid "Notes"
 msgstr "Notes"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Notes to co-authors stay on this Mac"
+msgstr "Notes to co-authors stay on this Mac"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
@@ -7872,6 +8059,10 @@ msgstr "Nothing to rerun"
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
 msgstr "Nothing to show"
+
+#: src/project/arxiv-export.ts
+msgid "Nothing to take out"
+msgstr "Nothing to take out"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -7982,6 +8173,10 @@ msgstr "One record matches"
 #: src/papers/bib-entry-dialog.tsx
 msgid "One record matches. Check it is the one you mean."
 msgstr "One record matches. Check it is the one you mean."
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "One source file, as arXiv prefers"
+msgstr "One source file, as arXiv prefers"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -8333,6 +8528,10 @@ msgstr "Other projects"
 msgid "Outline"
 msgstr "Outline"
 
+#: src/project/arxiv-export.ts
+msgid "Over arXiv’s size limit"
+msgstr "Over arXiv’s size limit"
+
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
@@ -8341,10 +8540,6 @@ msgstr "Outline"
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
-
-#: src/App.tsx
-msgid "Overleaf / arXiv source pack"
-msgstr "Overleaf / arXiv source pack"
 
 #: src/overleaf/ot.ts
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
@@ -8456,6 +8651,10 @@ msgstr "Overleaf sent these empty or much smaller, but its history does not conf
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf sent version {version} while this document is at {current}."
+
+#: src/App.tsx
+msgid "Overleaf source pack"
+msgstr "Overleaf source pack"
 
 #: src/history/version-messages.ts
 msgid "Overleaf sync"
@@ -9314,9 +9513,18 @@ msgstr "Reading the third-party notices…"
 msgid "Reads as text at {ratio}:1, used as picked"
 msgstr "Reads as text at {ratio}:1, used as picked"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Ready"
 msgstr "Ready"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready · {warnings} to look at"
+msgstr "Ready · {warnings} to look at"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready · 1 to look at"
+msgstr "Ready · 1 to look at"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -9513,6 +9721,10 @@ msgstr "Remove {title}"
 #: src/settings/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "Remove {word} from project dictionary"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Remove % comments"
+msgstr "Remove % comments"
 
 #: src/App.tsx
 msgid "Remove citations too"
@@ -10111,6 +10323,11 @@ msgstr "Revert to saved"
 msgid "Review"
 msgstr "Review"
 
+#: src/project/arxiv-export-dialog.tsx
+msgctxt "arXiv export comments"
+msgid "Review"
+msgstr "Review"
+
 #. placeholder {0}: rounds.proposals.length
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Review {0} proposals"
@@ -10429,6 +10646,10 @@ msgstr "Save visual"
 msgid "Save visual as HTML"
 msgstr "Save visual as HTML"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Save your edits before exporting."
+msgstr "Save your edits before exporting."
+
 #: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
@@ -10628,6 +10849,10 @@ msgstr "Section sign"
 #: src/project/quick-open-dialog.tsx
 msgid "Sections and labels"
 msgstr "Sections and labels"
+
+#: src/project/arxiv-export.ts
+msgid "See the log for why"
+msgstr "See the log for why"
 
 #: src/app/whats-new.ts
 msgid "See what’s new"
@@ -10838,6 +11063,7 @@ msgstr "Show document outline"
 msgid "Show hidden files"
 msgstr "Show hidden files"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -11298,6 +11524,10 @@ msgstr "Stop build"
 msgid "Stop the build"
 msgstr "Stop the build"
 
+#: src/project/arxiv-export.ts
+msgid "Stopped after 2 minutes"
+msgstr "Stopped after 2 minutes"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
@@ -11757,6 +11987,10 @@ msgstr "The bibliography entry changed after the scan."
 msgid "The bibliography entry no longer exists."
 msgstr "The bibliography entry no longer exists."
 
+#: src/project/arxiv-export.ts
+msgid "The bibliography has no .bbl"
+msgstr "The bibliography has no .bbl"
+
 #: src/settings/acknowledged-software.ts
 msgid "The board editor"
 msgstr "The board editor"
@@ -11903,9 +12137,25 @@ msgstr "the Overleaf project connection is no longer active"
 msgid "The Overleaf project connection is no longer active."
 msgstr "The Overleaf project connection is no longer active."
 
+#: src/project/arxiv-export.ts
+msgid "The package did not finish building"
+msgstr "The package did not finish building"
+
+#: src/project/arxiv-export.ts
+msgid "The package does not build alone"
+msgstr "The package does not build alone"
+
 #: src/build/tex-setup.ts
 msgid "The package repository does not have this package."
 msgstr "The package repository does not have this package."
+
+#: src/project/arxiv-export.ts
+msgid "The paper has no \\bibliography"
+msgstr "The paper has no \\bibliography"
+
+#: src/project/arxiv-export.ts
+msgid "The paper has no figures"
+msgstr "The paper has no figures"
 
 #: src/project/paper-review-panel.tsx
 msgid "The paper is longer than one review reads, so its end was left out"
@@ -12571,6 +12821,10 @@ msgstr "Unclosed display math {open}."
 msgid "Unclosed inline math {open}."
 msgstr "Unclosed inline math {open}."
 
+#: src/project/arxiv-export.ts
+msgid "Under arXiv’s size limit"
+msgstr "Under arXiv’s size limit"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -12795,6 +13049,10 @@ msgstr "Upload “{name}” to Overleaf and connect this folder?\n"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload and connect"
 msgstr "Upload and connect"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Upload it at arXiv’s Add Files step."
+msgstr "Upload it at arXiv’s Add Files step."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload this project to Overleaf"
@@ -13432,6 +13690,7 @@ msgid "Zeta"
 msgstr "Zeta"
 
 #: src/app/use-project-lifecycle.ts
+#: src/project/arxiv-export-dialog.tsx
 msgid "ZIP archive"
 msgstr "ZIP archive"
 

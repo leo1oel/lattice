@@ -1017,3 +1017,51 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .whats-new-fixes ul { margin: 0; padding-inline-start: 18px; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; display: grid; gap: var(--space-2); }
 .modal-actions.whats-new-actions { margin-top: var(--space-4); justify-content: space-between; align-items: center; }
 .whats-new-link { gap: var(--space-2); color: var(--text-secondary); }
+
+/* Export for arXiv (project/arxiv-export-dialog.tsx): what ships, one list of
+   checks, the two options, and the status beside the actions. Every name
+   ellipsizes and every row's text column can shrink to nothing, so long file
+   names and Chinese copy hold at a 390px window. The lists the summary and the
+   comments row disclose scroll inside their own box. */
+.modal.arxiv-export-modal { width: min(520px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; display: grid; gap: var(--space-6); }
+.arxiv-export-modal > h2 { margin: 0; }
+/* The sheet spaces its parts by its grid gap, not the small dialogs' margins. */
+.modal.arxiv-export-modal > h2 + * { margin-top: 0; }
+.arxiv-export-modal .modal-actions { margin-top: var(--space-4); }
+.arxiv-export-summary { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); padding: var(--space-5); border-radius: calc(var(--radius-panel) * var(--corner-smoothing)); corner-shape: squircle; background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
+.arxiv-export-icon { width: 36px; height: 36px; border-radius: var(--radius-icon); display: grid; place-items: center; background: var(--accent-soft); color: var(--text-secondary); }
+.arxiv-export-summary-text { min-width: 0; display: grid; }
+.arxiv-export-summary-text b { color: var(--text-primary); font-weight: var(--weight-semibold); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arxiv-export-summary-text span { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arxiv-export-disclosure { border: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-1); font: inherit; font-size: var(--type-caption-size); white-space: nowrap; cursor: pointer; }
+.arxiv-export-disclosure:hover { background: var(--control-hover-surface); color: var(--text-primary); }
+.arxiv-export-files, .arxiv-export-comments { list-style: none; margin: 0; padding: var(--space-2) 0; max-height: 160px; overflow-y: auto; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.arxiv-export-files li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); padding: var(--space-1) var(--space-5); color: var(--text-secondary); }
+.arxiv-export-files li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--editor-font); }
+.arxiv-export-files li span:last-child { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.modal.arxiv-export-modal > .arxiv-export-left-out { margin: calc(var(--space-2) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow-wrap: anywhere; }
+.arxiv-export-checks { list-style: none; margin: 0; padding: 0; border-radius: calc(var(--radius-panel) * var(--corner-smoothing)); corner-shape: squircle; box-shadow: 0 0 0 1px var(--border-subtle); overflow: hidden; }
+.arxiv-export-checks > li { border-bottom: 1px solid var(--border-subtle); }
+.arxiv-export-checks > li:last-child { border-bottom: 0; }
+.arxiv-check-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 44px; padding: var(--space-3) var(--space-5); }
+.arxiv-check-icon { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: var(--text-tertiary); }
+.arxiv-export-checks > li[data-state="ok"] .arxiv-check-icon { background: var(--status-success-soft); color: var(--status-success); }
+.arxiv-export-checks > li[data-state="warn"] .arxiv-check-icon { color: var(--status-warning); }
+.arxiv-export-checks > li[data-state="fail"] .arxiv-check-icon { color: var(--status-danger); }
+.arxiv-export-checks > li[data-state="running"] .arxiv-check-icon { color: var(--text-secondary); }
+.arxiv-check-text { min-width: 0; display: grid; }
+.arxiv-check-text b { color: var(--text-primary); font-weight: var(--weight-medium); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.arxiv-export-checks > li[data-state="pending"] .arxiv-check-text b { color: var(--text-tertiary); }
+/* A failure's detail is the reason, so it gets two lines; the rest one. */
+.arxiv-check-text span { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arxiv-export-checks > li[data-state="fail"] .arxiv-check-text span { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.arxiv-check-row .ui-button { white-space: nowrap; }
+.arxiv-export-comments { margin: 0 var(--space-5) var(--space-3) calc(18px + var(--space-4) + var(--space-5)); padding: 0; }
+.arxiv-export-comments li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); padding: var(--space-1) 0; }
+.arxiv-export-comment-where { color: var(--text-tertiary); font-family: var(--editor-font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arxiv-export-comment-text { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arxiv-export-comments li[data-todo] .arxiv-export-comment-text { color: var(--status-warning); }
+.arxiv-export-blocked { display: grid; justify-items: start; gap: var(--space-4); }
+.arxiv-export-options { display: grid; gap: var(--space-4); }
+.arxiv-export-actions { align-items: center; flex-wrap: wrap; }
+.arxiv-export-status { margin-inline-end: auto; min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }

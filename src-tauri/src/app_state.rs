@@ -36,6 +36,8 @@ pub(crate) struct AppState {
 #[derive(Default)]
 pub(crate) struct ProjectResources {
     pub(crate) active_build: latex::ActiveBuild,
+    /// The Export for arXiv sheet's checks, whose test build is its own.
+    pub(crate) arxiv_checks: latex::ArxivChecks,
     pub(crate) texlab: Arc<Mutex<texlab::TexlabPool>>,
     /// Live connection to Overleaf's editing channel, when one is open.
     pub(crate) realtime: Arc<Mutex<OverleafRealtimeState>>,
@@ -145,6 +147,7 @@ impl AppState {
             // keeps compiling into a project nobody has open, and nothing is
             // left watching for it to finish or holding a handle to stop it.
             let _ = latex::abort(&resources.active_build);
+            resources.arxiv_checks.cancel();
             if let Ok(mut pool) = resources.texlab.lock() {
                 pool.reset();
             }

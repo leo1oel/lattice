@@ -7,6 +7,7 @@
 //!   copy for the Log tab.
 //! - `synctex` maps positions between the compiled PDF and its sources.
 //! - `venue` reads which conference template a document's preamble loads.
+//! - `arxiv` makes and checks the source pack an arXiv submission needs.
 //!
 //! This file holds what they share: which document is built, and the PDF.
 
@@ -16,6 +17,7 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod arxiv;
 mod build;
 mod build_log;
 mod build_steps;
@@ -24,6 +26,9 @@ mod prewarm;
 mod synctex;
 mod venue;
 
+pub use arxiv::{
+    check as check_arxiv, export as export_arxiv, ArxivCheck, ArxivChecks, ArxivOptions,
+};
 /// Register an already-running process as a project's build, for tests that
 /// need one in flight without launching latexmk. They must still hand over a
 /// process they own — abort signals a whole process group.
