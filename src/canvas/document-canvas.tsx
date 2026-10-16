@@ -84,7 +84,7 @@ import { annotationReviewExtension } from "../editor/annotation-review-anchor";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
 import { EditorStatusBar } from "./editor-status-bar";
-import type { SaveSlot } from "./status-save-state";
+import type { SaveSlot } from "./save-slot";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {

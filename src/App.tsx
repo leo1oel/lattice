@@ -74,7 +74,7 @@ import { InterfaceZoomHud } from "./app/interface-zoom-hud";
 import { useInterfaceZoom } from "./app/use-interface-zoom";
 import { useWhatsNew } from "./app/use-whats-new";
 import { RUNNING_VERSION } from "./app/whats-new";
-import { overleafSaveState, type OverleafSaveLayer } from "./canvas/status-save-state";
+import { overleafSaveState, type OverleafSaveLayer } from "./canvas/save-slot";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";

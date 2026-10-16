@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { EditorStatusBar } from "./editor-status-bar";
-import { overleafSaveState, type SaveSlot } from "./status-save-state";
+import { overleafSaveState, type SaveSlot } from "./save-slot";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { activateAppLocale } from "../i18n";
 

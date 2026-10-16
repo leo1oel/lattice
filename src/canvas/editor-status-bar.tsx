@@ -10,7 +10,8 @@ import type { EditorKeymap, WordCount } from "../app-types";
 import { formatCount } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { StatusSaveState, type SaveSlot } from "./status-save-state";
+import type { SaveSlot } from "./save-slot";
+import { StatusSaveState } from "./status-save-state";
 
 const CARET_LINE = "\u0001";
 const CARET_COLUMN = "\u0002";
