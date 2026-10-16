@@ -391,7 +391,7 @@ mod tests {
             headers.insert(header::HOST, host.parse().unwrap());
             headers.insert(header::ORIGIN, request_origin.parse().unwrap());
             assert_eq!(
-                valid_session_request(&headers, origin, crate::browser_host::PREFERRED_PORT),
+                valid_session_request(&headers, origin, 18452),
                 allowed,
                 "{host} {request_origin}"
             );
@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn project_pdf_reads_need_the_session_token_in_a_header_from_the_sessions_own_page() {
-        let port = crate::browser_host::PREFERRED_PORT;
+        let port = 18452;
         let origin = "http://127.0.0.1:18452";
         let sessions = HashMap::from([(
             "session-secret".to_string(),

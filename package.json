@@ -25,6 +25,7 @@
     "gate:changed": "node scripts/gate-changed.mjs",
     "test:e2e-harness": "LATTICE_E2E=1 vitest run scripts/perf-bench/smoke.test.mjs",
     "tauri": "tauri",
+    "build:beta": "LATTICE_FLAVOR=beta tauri build --config src-tauri/tauri.beta.conf.json",
     "verify:overleaf": "node scripts/verify-overleaf.mjs",
     "eval:agent": "node scripts/agent-quality-eval.mjs",
     "size:report": "node scripts/app-size-report.mjs",

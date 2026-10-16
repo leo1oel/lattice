@@ -105,7 +105,7 @@ fn overlay_title_bar<'a, R: Runtime, M: Manager<R>>(
 /// policy.
 fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result<WebviewWindow> {
     let builder = WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
-        .title("Lattice")
+        .title(app.package_info().name.as_str())
         .inner_size(1440.0, 900.0)
         .min_inner_size(640.0, 680.0)
         .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
@@ -267,9 +267,12 @@ fn log_level(setting: Option<&str>) -> log::LevelFilter {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let context = tauri::generate_context!();
+    // The process inspector is a bare helper with no identity of its own, so it
+    // runs even from a binary whose flavor and config disagree (`cargo test`
+    // with LATTICE_FLAVOR=beta builds one).
+    process_inspector::run_if_requested();
     app_identity::init(&context.config().identifier);
     http::install_tls_provider();
-    process_inspector::run_if_requested();
     if agent_literature::run_cli() {
         return;
     }
