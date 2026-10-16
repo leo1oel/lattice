@@ -469,6 +469,44 @@ describe("PaperLibrary", () => {
     await settleTextSearch();
 
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+    // What is listed is the metadata half only, and says so.
+    expect(screen.getByRole("status")).toHaveTextContent("Saved-text search unavailable");
+    expect(screen.getByText("Saved-text search unavailable")).toHaveAttribute("title", "Saved-text search unavailable\nindex missing");
+
+    vi.mocked(invoke).mockResolvedValue([{ arxivId: "2010.11929", title: "An Image Is Worth 16x16 Words", snippet: "attention maps" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    // The retry is said at once, in place of the failure it answers.
+    expect(screen.getByRole("status")).toHaveTextContent("Searching saved text…");
+    await settleTextSearch();
+
+    expect(searchCalls()).toEqual([["search_paper_library", { query: "attention" }], ["search_paper_library", { query: "attention" }]]);
+    expect(paperTitles()).toEqual(["Attention Is All You Need", "An Image Is Worth 16x16 Words"]);
+    expect(screen.queryByText("Saved-text search unavailable")).toBeNull();
+    expect(screen.queryByText("Searching saved text…")).toBeNull();
+  });
+
+  it("says a slow full-text search is still under way, and only a quick one stays quiet", async () => {
+    vi.useFakeTimers();
+    let answer: (hits: unknown) => void = () => undefined;
+    vi.mocked(invoke).mockImplementation((command) => (
+      command === "search_paper_library" ? new Promise((resolve) => { answer = resolve; }) : Promise.resolve([])
+    ));
+    const { search } = renderLibrary();
+
+    search("dot-product");
+    await settleTextSearch();
+    // The search has been asked, and has not been long enough to mention.
+    expect(searchCalls()).toHaveLength(1);
+    expect(screen.queryByText("Searching saved text…")).toBeNull();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(screen.getByText("Searching saved text…")).toBeInTheDocument();
+    expect(document.querySelector(".paper-list")).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => { answer([{ arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "scaled dot-product" }]); });
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+    expect(screen.queryByText("Searching saved text…")).toBeNull();
+    expect(document.querySelector(".paper-list")).not.toHaveAttribute("aria-busy");
   });
 
 });

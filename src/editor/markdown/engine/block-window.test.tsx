@@ -233,6 +233,21 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     expect(surface().children[399]?.textContent).toContain("needle");
   });
 
+  it("counts every match, and highlights those in the blocks it draws as they are drawn", async () => {
+    const { geometry } = renderLong(paragraphs(400).join("\n\n"));
+    await loaded();
+    fireEvent.keyDown(surface(), { key: "f", ctrlKey: true });
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Find" }), { target: { value: "paragraph" } });
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 of 400"));
+    const highlighted = () => [...surface().querySelectorAll(".lx-md-find-match")].map((match) => match.closest(".ProseMirror > *"));
+    // One highlight in each drawn block, and none built for the placeholders.
+    expect(highlighted()).toEqual(drawn());
+    expect(drawn().length).toBeLessThan(150);
+    geometry.scrollTo((surface().children[250] as HTMLElement).getBoundingClientRect().top + geometry.scrollTop);
+    expect(drawnText()).toContain("Paragraph 250 of");
+    expect(highlighted()).toEqual(drawn());
+  });
+
   it("lands a jump on an anchor in a block that is not drawn yet, and keeps it there as the blocks above fill in", async () => {
     const observers: Array<() => void> = [];
     vi.stubGlobal("ResizeObserver", class {

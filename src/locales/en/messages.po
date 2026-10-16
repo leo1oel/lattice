@@ -10692,6 +10692,10 @@ msgstr "Saved version"
 msgid "Saved with the project in {STORAGE_PATH}; no server involved"
 msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
 
+#: src/project/paper-library.tsx
+msgid "Saved-text search unavailable"
+msgstr "Saved-text search unavailable"
+
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
@@ -10823,6 +10827,10 @@ msgstr "Search your files and saved papers."
 #: src/project/project-find-dialog.tsx
 msgid "Search…"
 msgstr "Search…"
+
+#: src/project/paper-library.tsx
+msgid "Searching saved text…"
+msgstr "Searching saved text…"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx

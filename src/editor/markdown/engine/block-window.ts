@@ -107,6 +107,38 @@ export function blockWindowMoved(state: EditorState, previous: EditorState): boo
   return now?.from !== before?.from || now?.to !== before?.to;
 }
 
+const drawnCache = new WeakMap<WindowState, readonly Window[]>();
+
+/**
+ * The top-level blocks a state draws, as ranges in document order, or null
+ * while it draws the whole document (a short one, or no layout). A plugin
+ * that would decorate many places, as find does, decorates only these: a
+ * decoration inside a placeholder is never drawn, and a block becomes live in
+ * the same transaction that moves the window, before ProseMirror draws it.
+ * The array is the same while the window is.
+ */
+export function drawnRanges(state: EditorState): readonly Window[] | null {
+  const value = blockWindowKey.getState(state);
+  if (!value?.window) return null;
+  const cached = drawnCache.get(value);
+  if (cached) return cached;
+  const { doc } = state;
+  const starts = new Set(value.pins);
+  doc.nodesBetween(value.window.from, value.window.to, (_node, pos) => {
+    starts.add(pos);
+    return false;
+  });
+  const ranges: Window[] = [];
+  for (const pos of [...starts].sort((a, b) => a - b)) {
+    const end = pos + (doc.nodeAt(pos)?.nodeSize ?? 0);
+    const last = ranges[ranges.length - 1];
+    if (last && last.to >= pos) last.to = Math.max(last.to, end);
+    else ranges.push({ from: pos, to: end });
+  }
+  drawnCache.set(value, ranges);
+  return ranges;
+}
+
 const isLive = (decorations: readonly Decoration[]) => decorations.some((decoration) => (decoration.spec as { latticeLiveBlock?: boolean }).latticeLiveBlock);
 const windowOf = (view: EditorView) => blockWindowKey.getState(view.state)?.window ?? null;
 

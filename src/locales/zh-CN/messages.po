@@ -10692,6 +10692,10 @@ msgstr "手动保存"
 msgid "Saved with the project in {STORAGE_PATH}; no server involved"
 msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 
+#: src/project/paper-library.tsx
+msgid "Saved-text search unavailable"
+msgstr "暂时无法搜索论文全文"
+
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
 msgstr "已保存，含概览"
@@ -10823,6 +10827,10 @@ msgstr "搜索文件和论文库"
 #: src/project/project-find-dialog.tsx
 msgid "Search…"
 msgstr "搜索…"
+
+#: src/project/paper-library.tsx
+msgid "Searching saved text…"
+msgstr "正在搜索论文全文…"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx

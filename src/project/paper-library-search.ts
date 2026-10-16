@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { paperKey } from "../app-utils";
+import { paperKey, toMessage } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { baseArxivId } from "../papers/arxiv-id";
 
@@ -76,15 +76,35 @@ export function rankPapers(
 }
 
 /**
+ * How far the full-text pass has got with the current query. "pending" has
+ * not had long enough to be worth saying; "searching" has, so the list says
+ * its saved-text half is still to come; "failed" means the list holds
+ * metadata matches only. Only "done" (or "idle", no query) is a final answer.
+ */
+export type PaperTextSearchStatus = "idle" | "pending" | "searching" | "failed" | "done";
+
+/** A full-text pass this long under way is said to be under way: a quicker one never shows its status. */
+const SEARCHING_NOTICE_MS = 400;
+
+type SettledSearch = { query: string; attempt: number; hits: PaperLibrarySearchHit[]; error?: string };
+
+/**
  * Debounced full-text search over the local paper cache, keyed by paper
  * identity (first hit wins). Hits for an older query are never returned.
- * `searchNow` skips the debounce for the current query (Enter in the box).
+ * `searchNow` skips the debounce for the current query (Enter in the box);
+ * `retry` runs a failed search again.
  */
 export function usePaperTextSearch(query: string): {
   hits: ReadonlyMap<string, PaperLibrarySearchHit>;
+  status: PaperTextSearchStatus;
+  error?: string;
   searchNow: () => void;
+  retry: () => void;
 } {
-  const [search, setSearch] = useState<{ query: string; hits: PaperLibrarySearchHit[] }>({ query: "", hits: [] });
+  const [settled, setSettled] = useState<SettledSearch>({ query: "", attempt: 0, hits: [] });
+  // A retry is a new attempt at the same query, so its result is told apart from the failure it replaces.
+  const [attempt, setAttempt] = useState(0);
+  const [slow, setSlow] = useState<{ query: string; attempt: number } | null>(null);
   const runNow = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!query) return;
@@ -96,29 +116,47 @@ export function usePaperTextSearch(query: string): {
       window.clearTimeout(timer);
       void invoke<PaperLibrarySearchHit[]>("search_paper_library", { query })
         .then((hits) => {
-          if (!disposed) setSearch({ query, hits: Array.isArray(hits) ? hits : [] });
+          if (!disposed) setSettled({ query, attempt, hits: Array.isArray(hits) ? hits : [] });
         })
-        .catch(() => {
-          // Metadata filtering remains useful if the cache cannot be read.
-          if (!disposed) setSearch({ query, hits: [] });
+        .catch((reason: unknown) => {
+          // Metadata filtering remains useful if the cache cannot be read,
+          // but the list must not read as the whole answer.
+          if (!disposed) setSettled({ query, attempt, hits: [], error: toMessage(reason) });
         });
     };
     const timer = window.setTimeout(run, 120);
+    const notice = window.setTimeout(() => setSlow({ query, attempt }), SEARCHING_NOTICE_MS);
     runNow.current = run;
     return () => {
       disposed = true;
       runNow.current = null;
       window.clearTimeout(timer);
+      window.clearTimeout(notice);
     };
-  }, [query]);
+  }, [query, attempt]);
   const searchNow = useCallback(() => runNow.current?.(), []);
+  const retry = useCallback(() => {
+    setAttempt((value) => value + 1);
+    // Said at once: the writer asked, so the failure gives way to the search it asked for.
+    setSlow({ query, attempt: attempt + 1 });
+  }, [query, attempt]);
+  const current = settled.query === query;
   const hits = useMemo(() => {
     const firstHit = new Map<string, PaperLibrarySearchHit>();
-    for (const hit of search.query === query ? search.hits : []) {
+    for (const hit of current ? settled.hits : []) {
       const identity = paperSearchIdentity(hit);
       if (!firstHit.has(identity)) firstHit.set(identity, hit);
     }
     return firstHit;
-  }, [search, query]);
-  return { hits, searchNow };
+  }, [current, settled.hits]);
+  let status: PaperTextSearchStatus;
+  if (!query) status = "idle";
+  else if (current && settled.attempt === attempt) status = settled.error === undefined ? "done" : "failed";
+  else if (slow?.query === query && slow.attempt === attempt) status = "searching";
+  // A cache that could not be read for the last query most likely cannot for
+  // this one either: the failure stays until this search says otherwise,
+  // rather than blinking out at every keystroke.
+  else if (settled.error !== undefined && settled.attempt === attempt) status = "failed";
+  else status = "pending";
+  return { hits, status, error: status === "failed" ? settled.error : undefined, searchNow, retry };
 }

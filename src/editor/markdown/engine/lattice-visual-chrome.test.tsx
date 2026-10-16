@@ -381,6 +381,33 @@ describe("find and replace (R-CHR-3)", () => {
     expect(document.querySelectorAll(".lx-md-find-match")).toHaveLength(0);
   });
 
+  it("keeps the count exact while the document is edited with Find open", async () => {
+    const { editor } = renderEditor("alpha one\n\nbeta\n\nal\n\npha");
+    caret(editor, 1);
+    fireEvent.keyDown(surface(), { key: "f", ctrlKey: true });
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Find" }), { target: { value: "alpha" } });
+    const status = () => within(screen.getByRole("search")).getByRole("status");
+    await waitFor(() => expect(status()).toHaveTextContent("1 of 1"));
+    const edit = (change: (tr: Editor["state"]["tr"]) => void) => act(() => {
+      const { tr } = editor.state;
+      change(tr);
+      editor.view.dispatch(tr);
+    });
+    // A match typed into another block,
+    edit((tr) => tr.insertText(" ALPHA", nodePos(editor, "beta") + 4));
+    expect(status()).toHaveTextContent("1 of 2");
+    // one made by joining two blocks,
+    edit((tr) => tr.delete(nodePos(editor, "al") + 2, nodePos(editor, "pha")));
+    expect(status()).toHaveTextContent("1 of 3");
+    expect(editor.state.doc.child(2).textContent).toBe("alpha");
+    // and one taken apart, each counted where it is.
+    edit((tr) => tr.delete(2, 3));
+    expect(status()).toHaveTextContent("1 of 2");
+    expect([...document.querySelectorAll(".lx-md-find-match")].map((match) => match.textContent)).toEqual(["ALPHA", "alpha"]);
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Find" }), { key: "Enter" });
+    expect(status()).toHaveTextContent("2 of 2");
+  });
+
   it("opens with Replace from a short selection and replaces every match", async () => {
     const { editor, onChange } = renderEditor("one two one");
     caret(editor, 1, 4);
