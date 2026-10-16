@@ -61,7 +61,6 @@ mod wide_event;
 
 use app_state::AppState;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 
 /// Label Tauri gives the window declared in tauri.conf.json.
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -199,16 +198,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         // Open in browser needs it, and that reports the failure again.
         log::warn!(target: "lattice::browser", "{reason}");
     }
-    // Browser access after login was removed: the local address now lives
-    // exactly as long as Lattice runs. The login item older builds installed
-    // launches `--browser-host` at every login, so switch it off here once.
-    // TODO(next release): drop this cleanup, the autostart plugin and
-    // browser_host/takeover.rs together.
-    if app.autolaunch().is_enabled().unwrap_or(false) {
-        if let Err(error) = app.autolaunch().disable() {
-            log::warn!(target: "lattice::browser", "could not remove the browser login item: {error}");
-        }
-    }
     if background {
         app.state::<browser_host::BrowserHost>().keep_resident();
     }
@@ -319,7 +308,6 @@ pub fn run() {
         // In-app auto-update (checks GitHub Releases, verifies with the updater key).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_autostart::Builder::new().arg(BROWSER_HOST_ARG).build())
         // Remember the window's size + position across launches.
         // The browser bridge is deliberately hidden. The plugin's default
         // restore path shows every newly created dynamic window, even when its

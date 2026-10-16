@@ -16,7 +16,6 @@
 pub(crate) mod dialogs;
 mod server;
 mod session;
-mod takeover;
 
 use super::AppState;
 use serde::Serialize;
@@ -62,17 +61,10 @@ struct HostBridgeConfig<'a> {
 fn bind_browser_listener() -> io::Result<TcpListener> {
     #[cfg(feature = "perf-lab")]
     if let Some(port) = crate::perf_lab::port() {
-        // A lab run has its own port and never takes over anyone's listener.
+        // A lab run has its own port, never the shipped app's.
         return TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
     }
-    let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT);
-    match TcpListener::bind(address) {
-        Ok(listener) => Ok(listener),
-        Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
-            takeover::replace_stale_browser_host(address).ok_or(error)
-        }
-        Err(error) => Err(error),
-    }
+    TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT))
 }
 
 fn new_host_label() -> String {

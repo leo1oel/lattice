@@ -8554,13 +8554,13 @@ the licensed code:
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**926 packages.**
+**920 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT OR Apache-2.0` | 446 |
-| `MIT` | 222 |
-| `Apache-2.0 OR MIT` | 64 |
+| `MIT OR Apache-2.0` | 444 |
+| `MIT` | 219 |
+| `Apache-2.0 OR MIT` | 63 |
 | `MIT/Apache-2.0` | 43 |
 | `Zlib OR Apache-2.0 OR MIT` | 20 |
 | `Apache-2.0` | 18 |
@@ -8599,13 +8599,13 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT AND BSD-3-Clause` | 1 |
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 
-### License texts (95 distinct texts across 926 packages)
+### License texts (95 distinct texts across 920 packages)
 
-#### 1. MIT OR Apache-2.0 (+17 other declarations) — 457 package(s), from `LICENSE-MIT`
+#### 1. MIT OR Apache-2.0 (+17 other declarations) — 454 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
-`adler2@2.0.1` (`0BSD OR MIT OR Apache-2.0`), `aes@0.8.4`, `ahash@0.8.12`, `allocator-api2@0.2.21`, `ammonia@4.1.4`, `android_log-sys@0.3.2`, `android_logger@0.15.1`, `anstream@1.0.0`, `anstyle-parse@1.0.0`, `anstyle-query@1.1.5`, `anstyle-wincon@3.0.11`, `anstyle@1.0.14`, `anyhow@1.0.103`, `arrayvec@0.7.8`, `ash@0.38.0+1.3.281`, `async-channel@2.5.0` (`Apache-2.0 OR MIT`), `async-executor@1.14.0` (`Apache-2.0 OR MIT`), `async-fs@2.2.0` (`Apache-2.0 OR MIT`), `async-io@2.6.0` (`Apache-2.0 OR MIT`), `async-lock@3.4.2` (`Apache-2.0 OR MIT`), `async-net@2.0.0` (`Apache-2.0 OR MIT`), `async-process@2.5.0` (`Apache-2.0 OR MIT`), `async-recursion@1.1.1`, `async-signal@0.2.14` (`Apache-2.0 OR MIT`), `async-task@4.7.1` (`Apache-2.0 OR MIT`), `async-trait@0.1.89`, `atk-sys@0.18.2` (`MIT`), `atk@0.18.2` (`MIT`), `atoi_simd@0.18.1`, `atomic_float@1.1.0` (`Apache-2.0 OR MIT OR Unlicense`), `atomic-waker@1.1.2` (`Apache-2.0 OR MIT`), `autocfg@1.5.1` (`Apache-2.0 OR MIT`), `axum@0.8.9` (`MIT`), `bit-set@0.8.0` (`Apache-2.0 OR MIT`), `bit-vec@0.8.0` (`Apache-2.0 OR MIT`), `bitflags@1.3.2` (`MIT/Apache-2.0`), `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-padding@0.3.3`, `blocking@1.6.2` (`Apache-2.0 OR MIT`), `brotli@8.0.4` (`BSD-3-Clause AND MIT`), `bumpalo@3.20.3`, `bytes@1.12.1` (`MIT`), `cairo-rs@0.18.5` (`MIT`), `cairo-sys-rs@0.18.2` (`MIT`), `camino@1.2.4`, `cargo_metadata@0.19.2` (`MIT`), `cargo-platform@0.1.9`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0` (`Apache-2.0/MIT`), `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clap_builder@4.6.6`, `clap_derive@4.6.4`, `clap_lex@1.1.0`, `clap@4.6.6`, `codepage@0.1.2` (`Apache-2.0 OR MIT`), `colorchoice@1.0.5`, `concurrent-queue@2.5.0` (`Apache-2.0 OR MIT`), `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crypto-common@0.1.7`, `ctor-proc-macro@0.0.7` (`Apache-2.0 OR MIT`), `ctor@0.8.0` (`Apache-2.0 OR MIT`), `cudarc@0.17.8`, `dbus@0.9.12` (`Apache-2.0/MIT`), `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `diffy@0.5.1`, `digest@0.10.7`, `dirs-sys@0.3.7`, `dirs-sys@0.5.0`, `dirs@4.0.0`, `dirs@6.0.0`, `displaydoc@0.2.6`, `dlib@0.5.3` (`MIT`), `document-features@0.2.12`, `downcast-rs@1.2.1` (`MIT/Apache-2.0`), `dtoa@1.0.11`, `dtor-proc-macro@0.0.6` (`Apache-2.0 OR MIT`), `dtor@0.3.0` (`Apache-2.0 OR MIT`), `dyn-clone@1.0.20`, `either@1.17.0`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35` (`(Apache-2.0 OR MIT) AND BSD-3-Clause`), `endi@1.1.1` (`MIT`), `enum-as-inner@0.6.1` (`MIT/Apache-2.0`), `enumflags2_derive@0.7.12`, `enumflags2@0.7.12`, `enumset_derive@0.15.0` (`MIT/Apache-2.0`), `enumset@1.1.14` (`MIT/Apache-2.0`), `env_filter@0.1.4`, `env_filter@2.0.0`, `env_logger@0.11.11`, `equivalent@1.0.2` (`Apache-2.0 OR MIT`), `erased-serde@0.4.10`, `errno@0.3.14`, `event-listener-strategy@0.5.4` (`Apache-2.0 OR MIT`), `event-listener@5.4.1` (`Apache-2.0 OR MIT`), `fallible-iterator@0.3.0` (`MIT/Apache-2.0`), `fallible-streaming-iterator@0.1.9` (`MIT/Apache-2.0`), `fast-float2@0.2.3`, `fastrand@2.4.1` (`Apache-2.0 OR MIT`), `fern@0.7.1` (`MIT`), `fid-rs@0.2.0`, `filetime@0.2.29` (`MIT/Apache-2.0`), `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2` (`MIT/Apache-2.0`), `fixedbitset@0.5.7`, `flate2@1.1.9`, `float-ord@0.3.2` (`MIT / Apache-2.0`), `fnv@1.0.7` (`Apache-2.0 / MIT`), `foreign-types-macros@0.2.3` (`MIT/Apache-2.0`), `foreign-types-shared@0.3.1` (`MIT/Apache-2.0`), `foreign-types@0.5.0` (`MIT/Apache-2.0`), `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1` (`Apache-2.0 OR MIT`), `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gdk-pixbuf-sys@0.18.0` (`MIT`), `gdk-pixbuf@0.18.5` (`MIT`), `gdk-sys@0.18.2` (`MIT`), `gdk@0.18.2` (`MIT`), `gdkwayland-sys@0.18.2` (`MIT`), `gdkx11-sys@0.18.2` (`MIT`), `gdkx11@0.18.2` (`MIT`), `getopts@0.2.24`, `getrandom@0.2.17`, `getrandom@0.3.4`, `getrandom@0.4.3`, `gio-sys@0.18.1` (`MIT`), `gio@0.18.4` (`MIT`), `glib-macros@0.18.5` (`MIT`), `glib-sys@0.18.1` (`MIT`), `glib@0.18.5` (`MIT`), `glob@0.3.3`, `glow@0.16.0` (`MIT OR Apache-2.0 OR Zlib`), `gobject-sys@0.18.0` (`MIT`), `gpu-allocator@0.27.0`, `gtk-sys@0.18.2` (`MIT`), `gtk@0.18.2` (`MIT`), `gtk3-macros@0.18.2` (`MIT`), `h2@0.4.15` (`MIT`), `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `hex@0.4.3`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http-body-util@0.1.4` (`MIT`), `http-body@1.1.0` (`MIT`), `http@1.4.2`, `httparse@1.10.1`, `httpdate@1.0.3`, `hyper-rustls@0.27.9` (`Apache-2.0 OR ISC OR MIT`), `hyper-util@0.1.20` (`MIT`), `hyper@1.10.1` (`MIT`), `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2` (`Apache-2.0 OR MIT`), `idna@1.1.0`, `indexmap@1.9.3` (`Apache-2.0 OR MIT`), `indexmap@2.14.0` (`Apache-2.0 OR MIT`), `inout@0.1.4`, `ipnet@2.12.0`, `is_terminal_polyfill@1.70.2`, `itertools@0.13.0`, `itertools@0.14.0`, `itoa@1.0.18`, `jni-sys@0.3.1`, `jni-sys@0.4.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0` (`MIT/Apache-2.0`), `kqueue-sys@1.1.2` (`MIT`), `kqueue@1.2.1` (`MIT`), `lazy_static@1.5.1`, `levenshtein_automata@0.2.1` (`MIT`), `libc@0.2.189`, `libdbus-sys@0.2.7` (`Apache-2.0/MIT`), `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `libsqlite3-sys@0.38.2` (`MIT`), `linux-raw-sys@0.12.1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `litrs@1.0.0`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2` (`MIT OR Apache-2.0 OR Zlib`), `maplit@1.0.2` (`MIT/Apache-2.0`), `markup5ever@0.38.0`, `markup5ever@0.39.0`, `md-5@0.10.6`, `memmap2@0.9.11`, `memoffset@0.9.1` (`MIT`), `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1` (`MIT/Apache-2.0`), `mio@1.2.2` (`MIT`), `nb@0.1.3`, `nb@1.1.0`, `new_debug_unreachable@1.0.6` (`MIT`), `nom@7.1.3` (`MIT`), `nom@8.0.0` (`MIT`), `notify-types@2.1.0`, `num_cpus@1.17.0`, `num_enum_derive@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_enum@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-conv@0.2.2`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell_polyfill@1.70.2`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-float@4.6.0` (`MIT`), `ordered-float@5.3.0` (`MIT`), `ordered-stream@0.2.0`, `osakit@0.3.1`, `pango-sys@0.18.0` (`MIT`), `pango@0.18.3` (`MIT`), `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1` (`Apache-2.0 OR MIT`), `paste@1.0.15`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `pin-project-lite@0.2.17` (`Apache-2.0 OR MIT`), `piper@0.2.5`, `pkg-config@0.3.33`, `plist@1.10.0` (`MIT`), `png@0.17.16`, `png@0.18.1`, `polling@3.11.0` (`Apache-2.0 OR MIT`), `pollster@0.4.0` (`Apache-2.0/MIT`), `portable-atomic-util@0.2.7` (`Apache-2.0 OR MIT`), `portable-atomic@1.14.0` (`Apache-2.0 OR MIT`), `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `prettyplease@0.2.37`, `proc-macro-crate@1.3.1`, `proc-macro-crate@2.0.2`, `proc-macro-crate@3.5.0`, `proc-macro2@1.0.106`, `quick-error@2.0.1` (`MIT/Apache-2.0`), `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `quote@1.0.46`, `rand_chacha@0.9.0`, `rand_core@0.10.1`, `rand_core@0.6.4`, `rand_core@0.9.5`, `rand_distr@0.5.1`, `rand_pcg@0.10.2`, `rand@0.10.2`, `rand@0.8.7`, `rand@0.9.5`, `rangemap@1.7.1` (`MIT/Apache-2.0`), `rawpointer@0.2.1` (`MIT/Apache-2.0`), `rayon-core@1.13.0`, `rayon@1.12.0`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rusqlite@0.40.2` (`MIT`), `rustc_version@0.4.1`, `rustc-hash@1.1.0` (`Apache-2.0/MIT`), `rustc-hash@2.1.3` (`Apache-2.0 OR MIT`), `rustix@1.1.4` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `rustls-native-certs@0.8.4` (`Apache-2.0 OR ISC OR MIT`), `rustls-pki-types@1.15.0`, `rustls@0.23.42` (`Apache-2.0 OR ISC OR MIT`), `rustversion@1.0.23`, `schannel@0.1.29` (`MIT`), `scoped-tls@1.0.1` (`MIT/Apache-2.0`), `scopeguard@1.2.0`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_spanned@0.6.9`, `serde_spanned@1.1.1`, `serde_urlencoded@0.7.1` (`MIT/Apache-2.0`), `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serde-untagged@0.1.9`, `serde@1.0.229`, `servo_arc@0.4.3`, `sha1@0.10.7`, `sha2@0.10.9`, `sharded-slab@0.1.7` (`MIT`), `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0` (`Apache-2.0 OR MIT`), `slab@0.4.12` (`MIT`), `slug@0.1.6` (`MIT/Apache-2.0`), `smallvec@1.15.2`, `socket2@0.6.5`, `softbuffer@0.4.8`, `stable_deref_trait@1.2.1`, `stable-vec@0.4.2` (`MIT/Apache-2.0`), `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `stringprep@0.1.5` (`MIT/Apache-2.0`), `swift-rs@1.0.7`, `syn@1.0.109`, `syn@2.0.119`, `syn@3.0.3`, `synstructure@0.13.2` (`MIT`), `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `thread_local@1.1.10`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `tinyvec@1.12.0` (`Zlib OR Apache-2.0 OR MIT`), `tokio-rustls@0.26.4`, `tokio-tungstenite@0.29.0` (`MIT`), `toml_datetime@0.6.3`, `toml_datetime@0.7.5+spec-1.1.0`, `toml_datetime@1.1.1+spec-1.1.0`, `toml_edit@0.19.15`, `toml_edit@0.20.2`, `toml_edit@0.25.13+spec-1.1.0`, `toml_parser@1.1.2+spec-1.1.0`, `toml_writer@1.1.2+spec-1.1.0`, `toml@0.8.2`, `toml@0.9.12+spec-1.1.0`, `toml@1.1.3+spec-1.1.0`, `tower-http@0.6.11` (`MIT`), `tower-layer@0.3.3` (`MIT`), `tower-service@0.3.3` (`MIT`), `tower@0.5.3` (`MIT`), `tracing-attributes@0.1.31` (`MIT`), `tracing-core@0.1.36` (`MIT`), `tracing-subscriber@0.3.23` (`MIT`), `tracing@0.1.44` (`MIT`), `trie-rs@0.4.2`, `try-lock@0.2.5` (`MIT`), `ttf-parser@0.25.1`, `tungstenite@0.29.0`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicase@2.9.0`, `unicode_categories@0.1.1`, `unicode-bidi@0.3.18`, `unicode-ident@1.0.24` (`(MIT OR Apache-2.0) AND Unicode-3.0`), `unicode-normalization@0.1.25`, `unicode-properties@0.1.4` (`MIT/Apache-2.0`), `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unindent@0.2.4`, `url@2.5.8`, `urlencoding@2.1.3` (`MIT`), `utf8_iter@1.0.4` (`Apache-2.0 OR MIT`), `utf8parse@0.2.2` (`Apache-2.0 OR MIT`), `uuid@1.24.1` (`Apache-2.0 OR MIT`), `vcpkg@0.2.15` (`MIT/Apache-2.0`), `version-compare@0.2.1` (`MIT`), `want@0.3.1` (`MIT`), `wasi@0.11.1+wasi-snapshot-preview1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wasip2@1.0.4+wasi-0.2.12` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wayland-backend@0.3.15` (`MIT`), `wayland-client@0.31.14` (`MIT`), `wayland-protocols-wlr@0.3.12` (`MIT`), `wayland-protocols@0.32.13` (`MIT`), `wayland-scanner@0.31.10` (`MIT`), `wayland-sys@0.31.11` (`MIT`), `web_atoms@0.2.5`, `web-sys@0.3.103`, `winapi@0.3.9` (`MIT/Apache-2.0`), `winnow@0.5.40` (`MIT`), `winnow@0.7.15` (`MIT`), `winnow@1.0.4` (`MIT`), `winreg@0.10.1` (`MIT`), `winreg@0.55.0` (`MIT`), `wit-bindgen@0.57.1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wl-clipboard-rs@0.9.3` (`MIT/Apache-2.0`), `x11-dl@2.21.0` (`MIT`), `x11@2.21.0` (`MIT`), `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `zbus_macros@5.17.0` (`MIT`), `zbus_names@4.3.3` (`MIT`), `zbus@5.17.0` (`MIT`), `zerocopy-derive@0.8.54` (`BSD-2-Clause OR Apache-2.0 OR MIT`), `zerocopy@0.8.54` (`BSD-2-Clause OR Apache-2.0 OR MIT`), `zeroize@1.9.0` (`Apache-2.0 OR MIT`), `zmij@1.0.23` (`MIT`), `zvariant_derive@5.13.0` (`MIT`), `zvariant_utils@3.5.0` (`MIT`), `zvariant@5.13.0` (`MIT`)
+`adler2@2.0.1` (`0BSD OR MIT OR Apache-2.0`), `aes@0.8.4`, `ahash@0.8.12`, `allocator-api2@0.2.21`, `ammonia@4.1.4`, `android_log-sys@0.3.2`, `android_logger@0.15.1`, `anstream@1.0.0`, `anstyle-parse@1.0.0`, `anstyle-query@1.1.5`, `anstyle-wincon@3.0.11`, `anstyle@1.0.14`, `anyhow@1.0.103`, `arrayvec@0.7.8`, `ash@0.38.0+1.3.281`, `async-channel@2.5.0` (`Apache-2.0 OR MIT`), `async-executor@1.14.0` (`Apache-2.0 OR MIT`), `async-fs@2.2.0` (`Apache-2.0 OR MIT`), `async-io@2.6.0` (`Apache-2.0 OR MIT`), `async-lock@3.4.2` (`Apache-2.0 OR MIT`), `async-net@2.0.0` (`Apache-2.0 OR MIT`), `async-process@2.5.0` (`Apache-2.0 OR MIT`), `async-recursion@1.1.1`, `async-signal@0.2.14` (`Apache-2.0 OR MIT`), `async-task@4.7.1` (`Apache-2.0 OR MIT`), `async-trait@0.1.89`, `atk-sys@0.18.2` (`MIT`), `atk@0.18.2` (`MIT`), `atoi_simd@0.18.1`, `atomic_float@1.1.0` (`Apache-2.0 OR MIT OR Unlicense`), `atomic-waker@1.1.2` (`Apache-2.0 OR MIT`), `autocfg@1.5.1` (`Apache-2.0 OR MIT`), `axum@0.8.9` (`MIT`), `bit-set@0.8.0` (`Apache-2.0 OR MIT`), `bit-vec@0.8.0` (`Apache-2.0 OR MIT`), `bitflags@1.3.2` (`MIT/Apache-2.0`), `bitflags@2.13.1`, `block-buffer@0.10.4`, `block-padding@0.3.3`, `blocking@1.6.2` (`Apache-2.0 OR MIT`), `brotli@8.0.4` (`BSD-3-Clause AND MIT`), `bumpalo@3.20.3`, `bytes@1.12.1` (`MIT`), `cairo-rs@0.18.5` (`MIT`), `cairo-sys-rs@0.18.2` (`MIT`), `camino@1.2.4`, `cargo_metadata@0.19.2` (`MIT`), `cargo-platform@0.1.9`, `cbc@0.1.2`, `cc@1.2.67`, `cexpr@0.6.0` (`Apache-2.0/MIT`), `cfg-expr@0.15.8`, `cfg-if@1.0.4`, `chacha20@0.10.1`, `cipher@0.4.4`, `clap_builder@4.6.6`, `clap_derive@4.6.4`, `clap_lex@1.1.0`, `clap@4.6.6`, `codepage@0.1.2` (`Apache-2.0 OR MIT`), `colorchoice@1.0.5`, `concurrent-queue@2.5.0` (`Apache-2.0 OR MIT`), `const-random-macro@0.1.16`, `const-random@0.1.18`, `constcat@0.6.1`, `cookie@0.18.1`, `core-foundation-sys@0.8.7`, `core-foundation@0.10.1`, `core-foundation@0.9.4`, `core-graphics-types@0.2.0`, `core-graphics@0.25.0`, `cpufeatures@0.2.17`, `cpufeatures@0.3.0`, `critical-section@1.2.0`, `crypto-common@0.1.7`, `ctor-proc-macro@0.0.7` (`Apache-2.0 OR MIT`), `ctor@0.8.0` (`Apache-2.0 OR MIT`), `cudarc@0.17.8`, `dbus@0.9.12` (`Apache-2.0/MIT`), `debug_unsafe@0.1.4`, `defmt-macros@1.1.1`, `defmt@1.1.1`, `deranged@0.5.8`, `diffy@0.5.1`, `digest@0.10.7`, `dirs-sys@0.5.0`, `dirs@6.0.0`, `displaydoc@0.2.6`, `dlib@0.5.3` (`MIT`), `document-features@0.2.12`, `downcast-rs@1.2.1` (`MIT/Apache-2.0`), `dtoa@1.0.11`, `dtor-proc-macro@0.0.6` (`Apache-2.0 OR MIT`), `dtor@0.3.0` (`Apache-2.0 OR MIT`), `dyn-clone@1.0.20`, `either@1.17.0`, `embedded-hal-async@1.0.0`, `embedded-hal@0.2.7`, `embedded-hal@1.0.0`, `encoding_rs@0.8.35` (`(Apache-2.0 OR MIT) AND BSD-3-Clause`), `endi@1.1.1` (`MIT`), `enum-as-inner@0.6.1` (`MIT/Apache-2.0`), `enumflags2_derive@0.7.12`, `enumflags2@0.7.12`, `enumset_derive@0.15.0` (`MIT/Apache-2.0`), `enumset@1.1.14` (`MIT/Apache-2.0`), `env_filter@0.1.4`, `env_filter@2.0.0`, `env_logger@0.11.11`, `equivalent@1.0.2` (`Apache-2.0 OR MIT`), `erased-serde@0.4.10`, `errno@0.3.14`, `event-listener-strategy@0.5.4` (`Apache-2.0 OR MIT`), `event-listener@5.4.1` (`Apache-2.0 OR MIT`), `fallible-iterator@0.3.0` (`MIT/Apache-2.0`), `fallible-streaming-iterator@0.1.9` (`MIT/Apache-2.0`), `fast-float2@0.2.3`, `fastrand@2.4.1` (`Apache-2.0 OR MIT`), `fern@0.7.1` (`MIT`), `fid-rs@0.2.0`, `filetime@0.2.29` (`MIT/Apache-2.0`), `find-msvc-tools@0.1.9`, `fixedbitset@0.4.2` (`MIT/Apache-2.0`), `fixedbitset@0.5.7`, `flate2@1.1.9`, `float-ord@0.3.2` (`MIT / Apache-2.0`), `fnv@1.0.7` (`Apache-2.0 / MIT`), `foreign-types-macros@0.2.3` (`MIT/Apache-2.0`), `foreign-types-shared@0.3.1` (`MIT/Apache-2.0`), `foreign-types@0.5.0` (`MIT/Apache-2.0`), `form_urlencoded@1.2.2`, `futures-channel@0.3.32`, `futures-core@0.3.34`, `futures-executor@0.3.32`, `futures-io@0.3.34`, `futures-lite@2.6.1` (`Apache-2.0 OR MIT`), `futures-macro@0.3.34`, `futures-sink@0.3.34`, `futures-task@0.3.34`, `futures-util@0.3.34`, `gdk-pixbuf-sys@0.18.0` (`MIT`), `gdk-pixbuf@0.18.5` (`MIT`), `gdk-sys@0.18.2` (`MIT`), `gdk@0.18.2` (`MIT`), `gdkwayland-sys@0.18.2` (`MIT`), `gdkx11-sys@0.18.2` (`MIT`), `gdkx11@0.18.2` (`MIT`), `getopts@0.2.24`, `getrandom@0.2.17`, `getrandom@0.3.4`, `getrandom@0.4.3`, `gio-sys@0.18.1` (`MIT`), `gio@0.18.4` (`MIT`), `glib-macros@0.18.5` (`MIT`), `glib-sys@0.18.1` (`MIT`), `glib@0.18.5` (`MIT`), `glob@0.3.3`, `glow@0.16.0` (`MIT OR Apache-2.0 OR Zlib`), `gobject-sys@0.18.0` (`MIT`), `gpu-allocator@0.27.0`, `gtk-sys@0.18.2` (`MIT`), `gtk@0.18.2` (`MIT`), `gtk3-macros@0.18.2` (`MIT`), `h2@0.4.15` (`MIT`), `hashbrown@0.12.3`, `hashbrown@0.13.2`, `hashbrown@0.15.5`, `hashbrown@0.16.1`, `hashbrown@0.17.1`, `heck@0.4.1`, `heck@0.5.0`, `hermit-abi@0.5.2`, `hex@0.4.3`, `html5ever@0.38.0`, `html5ever@0.39.0`, `http-body-util@0.1.4` (`MIT`), `http-body@1.1.0` (`MIT`), `http@1.4.2`, `httparse@1.10.1`, `httpdate@1.0.3`, `hyper-rustls@0.27.9` (`Apache-2.0 OR ISC OR MIT`), `hyper-util@0.1.20` (`MIT`), `hyper@1.10.1` (`MIT`), `iana-time-zone-haiku@0.1.2`, `iana-time-zone@0.1.65`, `idna_adapter@1.2.2` (`Apache-2.0 OR MIT`), `idna@1.1.0`, `indexmap@1.9.3` (`Apache-2.0 OR MIT`), `indexmap@2.14.0` (`Apache-2.0 OR MIT`), `inout@0.1.4`, `ipnet@2.12.0`, `is_terminal_polyfill@1.70.2`, `itertools@0.13.0`, `itertools@0.14.0`, `itoa@1.0.18`, `jni-sys@0.3.1`, `jni-sys@0.4.1`, `jobserver@0.1.35`, `js-sys@0.3.103`, `keyboard-types@0.7.0`, `keyring@3.6.3`, `khronos-egl@6.0.0` (`MIT/Apache-2.0`), `kqueue-sys@1.1.2` (`MIT`), `kqueue@1.2.1` (`MIT`), `lazy_static@1.5.1`, `levenshtein_automata@0.2.1` (`MIT`), `libc@0.2.189`, `libdbus-sys@0.2.7` (`Apache-2.0/MIT`), `liblzma-sys@0.4.7`, `liblzma@0.4.7`, `libsqlite3-sys@0.38.2` (`MIT`), `linux-raw-sys@0.12.1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `litrs@1.0.0`, `lock_api@0.4.14`, `log@0.4.33`, `louds-rs@0.7.0`, `lru-slab@0.1.2` (`MIT OR Apache-2.0 OR Zlib`), `maplit@1.0.2` (`MIT/Apache-2.0`), `markup5ever@0.38.0`, `markup5ever@0.39.0`, `md-5@0.10.6`, `memmap2@0.9.11`, `memoffset@0.9.1` (`MIT`), `metal@0.32.0`, `mime@0.3.17`, `minimal-lexical@0.2.1` (`MIT/Apache-2.0`), `mio@1.2.2` (`MIT`), `nb@0.1.3`, `nb@1.1.0`, `new_debug_unreachable@1.0.6` (`MIT`), `nom@7.1.3` (`MIT`), `nom@8.0.0` (`MIT`), `notify-types@2.1.0`, `num_cpus@1.17.0`, `num_enum_derive@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_enum@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_threads@0.1.7`, `num-bigint@0.4.8`, `num-complex@0.4.6`, `num-conv@0.2.2`, `num-integer@0.1.46`, `num-iter@0.1.46`, `num-rational@0.4.2`, `num-traits@0.2.19`, `num@0.4.3`, `once_cell_polyfill@1.70.2`, `once_cell@1.21.4`, `openssl-probe@0.2.1`, `ordered-float@4.6.0` (`MIT`), `ordered-float@5.3.0` (`MIT`), `ordered-stream@0.2.0`, `osakit@0.3.1`, `pango-sys@0.18.0` (`MIT`), `pango@0.18.3` (`MIT`), `parking_lot_core@0.9.12`, `parking_lot@0.12.5`, `parking@2.2.1` (`Apache-2.0 OR MIT`), `paste@1.0.15`, `percent-encoding@2.3.2`, `petgraph@0.6.5`, `petgraph@0.8.3`, `pin-project-lite@0.2.17` (`Apache-2.0 OR MIT`), `piper@0.2.5`, `pkg-config@0.3.33`, `plist@1.10.0` (`MIT`), `png@0.17.16`, `png@0.18.1`, `polling@3.11.0` (`Apache-2.0 OR MIT`), `pollster@0.4.0` (`Apache-2.0/MIT`), `portable-atomic-util@0.2.7` (`Apache-2.0 OR MIT`), `portable-atomic@1.14.0` (`Apache-2.0 OR MIT`), `powerfmt@0.2.0`, `ppv-lite86@0.2.21`, `presser@0.3.1`, `prettyplease@0.2.37`, `proc-macro-crate@1.3.1`, `proc-macro-crate@2.0.2`, `proc-macro-crate@3.5.0`, `proc-macro2@1.0.106`, `quick-error@2.0.1` (`MIT/Apache-2.0`), `quinn-proto@0.11.16`, `quinn-udp@0.5.15`, `quinn@0.11.11`, `quote@1.0.46`, `rand_chacha@0.9.0`, `rand_core@0.10.1`, `rand_core@0.6.4`, `rand_core@0.9.5`, `rand_distr@0.5.1`, `rand_pcg@0.10.2`, `rand@0.10.2`, `rand@0.8.7`, `rand@0.9.5`, `rangemap@1.7.1` (`MIT/Apache-2.0`), `rawpointer@0.2.1` (`MIT/Apache-2.0`), `rayon-core@1.13.0`, `rayon@1.12.0`, `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `regex-automata@0.4.16`, `regex-syntax@0.8.11`, `regex@1.13.1`, `renderdoc-sys@1.1.0`, `reqwest@0.12.28`, `reqwest@0.13.4`, `rs-conllu@0.3.0`, `rusqlite@0.40.2` (`MIT`), `rustc_version@0.4.1`, `rustc-hash@1.1.0` (`Apache-2.0/MIT`), `rustc-hash@2.1.3` (`Apache-2.0 OR MIT`), `rustix@1.1.4` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `rustls-native-certs@0.8.4` (`Apache-2.0 OR ISC OR MIT`), `rustls-pki-types@1.15.0`, `rustls@0.23.42` (`Apache-2.0 OR ISC OR MIT`), `rustversion@1.0.23`, `schannel@0.1.29` (`MIT`), `scoped-tls@1.0.1` (`MIT/Apache-2.0`), `scopeguard@1.2.0`, `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_spanned@0.6.9`, `serde_spanned@1.1.1`, `serde_urlencoded@0.7.1` (`MIT/Apache-2.0`), `serde_with_macros@3.21.0`, `serde_with@3.21.0`, `serde-untagged@0.1.9`, `serde@1.0.229`, `servo_arc@0.4.3`, `sha1@0.10.7`, `sha2@0.10.9`, `sharded-slab@0.1.7` (`MIT`), `signal-hook-registry@1.4.8`, `simd_cesu8@1.2.0` (`Apache-2.0 OR MIT`), `slab@0.4.12` (`MIT`), `slug@0.1.6` (`MIT/Apache-2.0`), `smallvec@1.15.2`, `socket2@0.6.5`, `softbuffer@0.4.8`, `stable_deref_trait@1.2.1`, `stable-vec@0.4.2` (`MIT/Apache-2.0`), `string_cache_codegen@0.6.1`, `string_cache@0.9.0`, `stringprep@0.1.5` (`MIT/Apache-2.0`), `swift-rs@1.0.7`, `syn@1.0.109`, `syn@2.0.119`, `syn@3.0.3`, `synstructure@0.13.2` (`MIT`), `system-configuration-sys@0.6.0`, `system-configuration@0.7.0`, `system-deps@6.2.2`, `tar@0.4.46`, `tempfile@3.27.0`, `tendril@0.5.1`, `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `thread_local@1.1.10`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `tinyvec@1.12.0` (`Zlib OR Apache-2.0 OR MIT`), `tokio-rustls@0.26.4`, `tokio-tungstenite@0.29.0` (`MIT`), `toml_datetime@0.6.3`, `toml_datetime@0.7.5+spec-1.1.0`, `toml_datetime@1.1.1+spec-1.1.0`, `toml_edit@0.19.15`, `toml_edit@0.20.2`, `toml_edit@0.25.13+spec-1.1.0`, `toml_parser@1.1.2+spec-1.1.0`, `toml_writer@1.1.2+spec-1.1.0`, `toml@0.8.2`, `toml@0.9.12+spec-1.1.0`, `toml@1.1.3+spec-1.1.0`, `tower-http@0.6.11` (`MIT`), `tower-layer@0.3.3` (`MIT`), `tower-service@0.3.3` (`MIT`), `tower@0.5.3` (`MIT`), `tracing-attributes@0.1.31` (`MIT`), `tracing-core@0.1.36` (`MIT`), `tracing-subscriber@0.3.23` (`MIT`), `tracing@0.1.44` (`MIT`), `trie-rs@0.4.2`, `try-lock@0.2.5` (`MIT`), `ttf-parser@0.25.1`, `tungstenite@0.29.0`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicase@2.9.0`, `unicode_categories@0.1.1`, `unicode-bidi@0.3.18`, `unicode-ident@1.0.24` (`(MIT OR Apache-2.0) AND Unicode-3.0`), `unicode-normalization@0.1.25`, `unicode-properties@0.1.4` (`MIT/Apache-2.0`), `unicode-segmentation@1.13.3`, `unicode-width@0.2.2`, `unicode-xid@0.2.6`, `unindent@0.2.4`, `url@2.5.8`, `urlencoding@2.1.3` (`MIT`), `utf8_iter@1.0.4` (`Apache-2.0 OR MIT`), `utf8parse@0.2.2` (`Apache-2.0 OR MIT`), `uuid@1.24.1` (`Apache-2.0 OR MIT`), `vcpkg@0.2.15` (`MIT/Apache-2.0`), `version-compare@0.2.1` (`MIT`), `want@0.3.1` (`MIT`), `wasi@0.11.1+wasi-snapshot-preview1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wasip2@1.0.4+wasi-0.2.12` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wasm-bindgen-futures@0.4.76`, `wasm-bindgen-macro-support@0.2.126`, `wasm-bindgen-macro@0.2.126`, `wasm-bindgen-shared@0.2.126`, `wasm-bindgen@0.2.126`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wayland-backend@0.3.15` (`MIT`), `wayland-client@0.31.14` (`MIT`), `wayland-protocols-wlr@0.3.12` (`MIT`), `wayland-protocols@0.32.13` (`MIT`), `wayland-scanner@0.31.10` (`MIT`), `wayland-sys@0.31.11` (`MIT`), `web_atoms@0.2.5`, `web-sys@0.3.103`, `winapi@0.3.9` (`MIT/Apache-2.0`), `winnow@0.5.40` (`MIT`), `winnow@0.7.15` (`MIT`), `winnow@1.0.4` (`MIT`), `winreg@0.55.0` (`MIT`), `wit-bindgen@0.57.1` (`Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT`), `wl-clipboard-rs@0.9.3` (`MIT/Apache-2.0`), `x11-dl@2.21.0` (`MIT`), `x11@2.21.0` (`MIT`), `x11rb-protocol@0.13.2`, `x11rb@0.13.2`, `xattr@1.6.1`, `zbus_macros@5.17.0` (`MIT`), `zbus_names@4.3.3` (`MIT`), `zbus@5.17.0` (`MIT`), `zerocopy-derive@0.8.54` (`BSD-2-Clause OR Apache-2.0 OR MIT`), `zerocopy@0.8.54` (`BSD-2-Clause OR Apache-2.0 OR MIT`), `zeroize@1.9.0` (`Apache-2.0 OR MIT`), `zmij@1.0.23` (`MIT`), `zvariant_derive@5.13.0` (`MIT`), `zvariant_utils@3.5.0` (`MIT`), `zvariant@5.13.0` (`MIT`)
 
 </details>
 
@@ -9070,15 +9070,15 @@ Apache License
    limitations under the License.
 ```
 
-#### 3. MIT (+6 other declarations) — 144 package(s), from `LICENSE`
+#### 3. MIT (+6 other declarations) — 142 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`anydoc@0.1.9`, `arbitrary@1.4.2` (`MIT OR Apache-2.0`), `arboard@3.6.1` (`MIT OR Apache-2.0`), `ashpd@0.11.1`, `auto-launch@0.5.0`, `axum-core@0.5.6`, `blanket@0.4.0`, `bs58@0.5.1` (`MIT/Apache-2.0`), `burn-autodiff@0.19.1` (`MIT OR Apache-2.0`), `burn-candle@0.19.1` (`MIT OR Apache-2.0`), `burn-common@0.19.1` (`MIT OR Apache-2.0`), `burn-core@0.19.1` (`MIT OR Apache-2.0`), `burn-cubecl@0.19.1` (`MIT OR Apache-2.0`), `burn-derive@0.19.1` (`MIT OR Apache-2.0`), `burn-fusion@0.19.1` (`MIT OR Apache-2.0`), `burn-ndarray@0.19.1` (`MIT OR Apache-2.0`), `burn-tensor@0.19.1` (`MIT OR Apache-2.0`), `burn-wgpu@0.19.1` (`MIT OR Apache-2.0`), `burn@0.19.1` (`MIT OR Apache-2.0`), `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0` (`MIT OR Apache-2.0`), `cubecl-common@0.8.1` (`MIT OR Apache-2.0`), `cubecl-core@0.8.1` (`MIT OR Apache-2.0`), `cubecl-cpu@0.8.1` (`MIT OR Apache-2.0`), `cubecl-cuda@0.8.1` (`MIT OR Apache-2.0`), `cubecl-hip@0.8.1` (`MIT OR Apache-2.0`), `cubecl-runtime@0.8.1` (`MIT OR Apache-2.0`), `cubecl-wgpu@0.8.1` (`MIT OR Apache-2.0`), `cubecl@0.8.1` (`MIT OR Apache-2.0`), `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2` (`MIT OR Apache-2.0`), `diff@0.1.13` (`MIT OR Apache-2.0`), `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2` (`MIT OR Apache-2.0`), `fdeflate@0.3.7` (`MIT OR Apache-2.0`), `field-offset@0.3.6` (`MIT OR Apache-2.0`), `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1` (`MIT OR Apache-2.0`), `ico@0.5.0`, `ident_case@1.0.1` (`MIT/Apache-2.0`), `image@0.25.10` (`MIT OR Apache-2.0`), `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1` (`MIT/Apache-2.0`), `jsonptr@0.6.3` (`MIT OR Apache-2.0`), `libappindicator@0.9.0` (`Apache-2.0 OR MIT`), `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10` (`MIT OR Apache-2.0`), `matchit@0.8.4` (`MIT AND BSD-3-Clause`), `miniz_oxide@0.8.9` (`MIT OR Zlib OR Apache-2.0`), `moddef@0.3.0`, `muda@0.19.3` (`Apache-2.0 OR MIT`), `objc@0.2.7`, `pdf-inspector@1.17.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4` (`MIT OR Apache-2.0`), `proc-macro-error@1.0.4` (`MIT OR Apache-2.0`), `pulp@0.22.3`, `range-alloc@0.1.5` (`MIT OR Apache-2.0`), `raw-window-handle@0.6.2` (`MIT OR Apache-2.0 OR Zlib`), `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0` (`MIT OR Apache-2.0`), `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2` (`MIT OR Apache-2.0`), `serialize-to-javascript@0.1.2` (`MIT OR Apache-2.0`), `simd-adler32@0.3.10`, `simdutf8@0.1.5` (`MIT OR Apache-2.0`), `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0` (`MIT OR Apache-2.0`), `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3` (`Apache-2.0 OR MIT`), `tauri-codegen@2.6.3` (`Apache-2.0 OR MIT`), `tauri-macros@2.6.3` (`Apache-2.0 OR MIT`), `tauri-plugin-autostart@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-clipboard-manager@2.3.2` (`Apache-2.0 OR MIT`), `tauri-plugin-dialog@2.7.2` (`Apache-2.0 OR MIT`), `tauri-plugin-fs@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-log@2.9.0` (`Apache-2.0 OR MIT`), `tauri-plugin-opener@2.5.4` (`Apache-2.0 OR MIT`), `tauri-plugin-process@2.3.1` (`Apache-2.0 OR MIT`), `tauri-plugin-updater@2.10.1` (`Apache-2.0 OR MIT`), `tauri-plugin-window-state@2.4.1` (`Apache-2.0 OR MIT`), `tauri-runtime-wry@2.11.4` (`Apache-2.0 OR MIT`), `tauri-runtime@2.11.3` (`Apache-2.0 OR MIT`), `tauri-utils@2.9.3` (`Apache-2.0 OR MIT`), `tauri@2.11.5` (`Apache-2.0 OR MIT`), `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1` (`MIT OR Apache-2.0 OR Zlib`), `tokio-macros@2.7.2`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1` (`MIT OR Apache-2.0`), `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8` (`MIT OR Apache-2.0`), `unty@0.0.4` (`MIT OR Apache-2.0`), `urlpattern@0.3.0`, `variadics_please@1.1.0` (`MIT OR Apache-2.0`), `web-time@1.1.0` (`MIT OR Apache-2.0`), `wgpu-hal@26.0.6` (`MIT OR Apache-2.0`), `window-vibrancy@0.6.0` (`Apache-2.0 OR MIT`), `wry@0.55.1` (`Apache-2.0 OR MIT`), `zune-core@0.5.1` (`MIT OR Apache-2.0 OR Zlib`), `zune-jpeg@0.5.15` (`MIT OR Apache-2.0 OR Zlib`)
+`anydoc@0.1.9`, `arbitrary@1.4.2` (`MIT OR Apache-2.0`), `arboard@3.6.1` (`MIT OR Apache-2.0`), `ashpd@0.11.1`, `axum-core@0.5.6`, `blanket@0.4.0`, `bs58@0.5.1` (`MIT/Apache-2.0`), `burn-autodiff@0.19.1` (`MIT OR Apache-2.0`), `burn-candle@0.19.1` (`MIT OR Apache-2.0`), `burn-common@0.19.1` (`MIT OR Apache-2.0`), `burn-core@0.19.1` (`MIT OR Apache-2.0`), `burn-cubecl@0.19.1` (`MIT OR Apache-2.0`), `burn-derive@0.19.1` (`MIT OR Apache-2.0`), `burn-fusion@0.19.1` (`MIT OR Apache-2.0`), `burn-ndarray@0.19.1` (`MIT OR Apache-2.0`), `burn-tensor@0.19.1` (`MIT OR Apache-2.0`), `burn-wgpu@0.19.1` (`MIT OR Apache-2.0`), `burn@0.19.1` (`MIT OR Apache-2.0`), `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0` (`MIT OR Apache-2.0`), `cubecl-common@0.8.1` (`MIT OR Apache-2.0`), `cubecl-core@0.8.1` (`MIT OR Apache-2.0`), `cubecl-cpu@0.8.1` (`MIT OR Apache-2.0`), `cubecl-cuda@0.8.1` (`MIT OR Apache-2.0`), `cubecl-hip@0.8.1` (`MIT OR Apache-2.0`), `cubecl-runtime@0.8.1` (`MIT OR Apache-2.0`), `cubecl-wgpu@0.8.1` (`MIT OR Apache-2.0`), `cubecl@0.8.1` (`MIT OR Apache-2.0`), `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2` (`MIT OR Apache-2.0`), `diff@0.1.13` (`MIT OR Apache-2.0`), `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2` (`MIT OR Apache-2.0`), `fdeflate@0.3.7` (`MIT OR Apache-2.0`), `field-offset@0.3.6` (`MIT OR Apache-2.0`), `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1` (`MIT OR Apache-2.0`), `ico@0.5.0`, `ident_case@1.0.1` (`MIT/Apache-2.0`), `image@0.25.10` (`MIT OR Apache-2.0`), `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1` (`MIT/Apache-2.0`), `jsonptr@0.6.3` (`MIT OR Apache-2.0`), `libappindicator@0.9.0` (`Apache-2.0 OR MIT`), `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10` (`MIT OR Apache-2.0`), `matchit@0.8.4` (`MIT AND BSD-3-Clause`), `miniz_oxide@0.8.9` (`MIT OR Zlib OR Apache-2.0`), `moddef@0.3.0`, `muda@0.19.3` (`Apache-2.0 OR MIT`), `objc@0.2.7`, `pdf-inspector@1.17.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4` (`MIT OR Apache-2.0`), `proc-macro-error@1.0.4` (`MIT OR Apache-2.0`), `pulp@0.22.3`, `range-alloc@0.1.5` (`MIT OR Apache-2.0`), `raw-window-handle@0.6.2` (`MIT OR Apache-2.0 OR Zlib`), `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0` (`MIT OR Apache-2.0`), `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2` (`MIT OR Apache-2.0`), `serialize-to-javascript@0.1.2` (`MIT OR Apache-2.0`), `simd-adler32@0.3.10`, `simdutf8@0.1.5` (`MIT OR Apache-2.0`), `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0` (`MIT OR Apache-2.0`), `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3` (`Apache-2.0 OR MIT`), `tauri-codegen@2.6.3` (`Apache-2.0 OR MIT`), `tauri-macros@2.6.3` (`Apache-2.0 OR MIT`), `tauri-plugin-clipboard-manager@2.3.2` (`Apache-2.0 OR MIT`), `tauri-plugin-dialog@2.7.2` (`Apache-2.0 OR MIT`), `tauri-plugin-fs@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-log@2.9.0` (`Apache-2.0 OR MIT`), `tauri-plugin-opener@2.5.4` (`Apache-2.0 OR MIT`), `tauri-plugin-process@2.3.1` (`Apache-2.0 OR MIT`), `tauri-plugin-updater@2.10.1` (`Apache-2.0 OR MIT`), `tauri-plugin-window-state@2.4.1` (`Apache-2.0 OR MIT`), `tauri-runtime-wry@2.11.4` (`Apache-2.0 OR MIT`), `tauri-runtime@2.11.3` (`Apache-2.0 OR MIT`), `tauri-utils@2.9.3` (`Apache-2.0 OR MIT`), `tauri@2.11.5` (`Apache-2.0 OR MIT`), `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1` (`MIT OR Apache-2.0 OR Zlib`), `tokio-macros@2.7.2`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1` (`MIT OR Apache-2.0`), `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8` (`MIT OR Apache-2.0`), `unty@0.0.4` (`MIT OR Apache-2.0`), `urlpattern@0.3.0`, `variadics_please@1.1.0` (`MIT OR Apache-2.0`), `web-time@1.1.0` (`MIT OR Apache-2.0`), `wgpu-hal@26.0.6` (`MIT OR Apache-2.0`), `window-vibrancy@0.6.0` (`Apache-2.0 OR MIT`), `wry@0.55.1` (`Apache-2.0 OR MIT`), `zune-core@0.5.1` (`MIT OR Apache-2.0 OR Zlib`), `zune-jpeg@0.5.15` (`MIT OR Apache-2.0 OR Zlib`)
 
 </details>
 
-Copyright notices (74):
+Copyright notices (73):
 
 ```text
 Copyright (c) 2015 Utkarsh Kukreti
@@ -9133,7 +9133,6 @@ Copyright (c) 2022 Nathaniel Simard & Burn Framework Contributors
 Copyright (c) 2022 Nathaniel Simard & CubeCL Framework Contributors
 Copyright (c) 2022 The Arboard contributors
 Copyright (c) 2022 sarah
-Copyright (c) 2022 zzzgydi
 Copyright (c) 2022-2022 Tauri Programme within The Commons Conservancy
 Copyright (c) 2023 4lDO2
 Copyright (c) 2023 Bincode
@@ -9184,11 +9183,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 4. MIT OR Apache-2.0 (+8 other declarations) — 83 package(s), from `LICENSE-APACHE.md`
+#### 4. MIT OR Apache-2.0 (+8 other declarations) — 82 package(s), from `LICENSE-APACHE.md`
 
 <details><summary>Packages sharing this text</summary>
 
-`allocator-api2@0.2.21`, `anyhow@1.0.103`, `arboard@3.6.1`, `async-trait@0.1.89`, `cudarc@0.17.8`, `dtoa@1.0.11`, `dyn-clone@1.0.20`, `erased-serde@0.4.10`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `half@2.7.1`, `image@0.25.10`, `itoa@1.0.18`, `libc@0.2.189`, `litrs@1.0.0`, `miniz_oxide@0.8.9` (`MIT OR Zlib OR Apache-2.0`), `num_enum_derive@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_enum@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num-conv@0.2.2`, `osakit@0.3.1`, `paste@1.0.15`, `pin-project-lite@0.2.17` (`Apache-2.0 OR MIT`), `portable-atomic-util@0.2.7` (`Apache-2.0 OR MIT`), `portable-atomic@1.14.0` (`Apache-2.0 OR MIT`), `prettyplease@0.2.37`, `proc-macro2@1.0.106`, `quote@1.0.46`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2` (`MIT OR Apache-2.0 OR Zlib`), `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `rustc-hash@2.1.3` (`Apache-2.0 OR MIT`), `rustversion@1.0.23`, `ryu@1.0.23` (`Apache-2.0 OR BSL-1.0`), `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_urlencoded@0.7.1` (`MIT/Apache-2.0`), `serde-untagged@0.1.9`, `serde@1.0.229`, `simdutf8@0.1.5`, `stable-vec@0.4.2` (`MIT/Apache-2.0`), `syn@2.0.119`, `syn@3.0.3`, `sync_wrapper@1.0.2` (`Apache-2.0`), `tauri-build@2.6.3` (`Apache-2.0 OR MIT`), `tauri-codegen@2.6.3` (`Apache-2.0 OR MIT`), `tauri-macros@2.6.3` (`Apache-2.0 OR MIT`), `tauri-plugin-autostart@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-clipboard-manager@2.3.2` (`Apache-2.0 OR MIT`), `tauri-plugin-dialog@2.7.2` (`Apache-2.0 OR MIT`), `tauri-plugin-fs@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-log@2.9.0` (`Apache-2.0 OR MIT`), `tauri-plugin-opener@2.5.4` (`Apache-2.0 OR MIT`), `tauri-plugin-process@2.3.1` (`Apache-2.0 OR MIT`), `tauri-plugin-updater@2.10.1` (`Apache-2.0 OR MIT`), `tauri-plugin-window-state@2.4.1` (`Apache-2.0 OR MIT`), `tauri-runtime-wry@2.11.4` (`Apache-2.0 OR MIT`), `tauri-runtime@2.11.3` (`Apache-2.0 OR MIT`), `tauri-utils@2.9.3` (`Apache-2.0 OR MIT`), `tauri@2.11.5` (`Apache-2.0 OR MIT`), `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicode-ident@1.0.24` (`(MIT OR Apache-2.0) AND Unicode-3.0`), `unindent@0.2.4`, `utf8parse@0.2.2` (`Apache-2.0 OR MIT`), `variadics_please@1.1.0`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wgpu-hal@26.0.6`
+`allocator-api2@0.2.21`, `anyhow@1.0.103`, `arboard@3.6.1`, `async-trait@0.1.89`, `cudarc@0.17.8`, `dtoa@1.0.11`, `dyn-clone@1.0.20`, `erased-serde@0.4.10`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `half@2.7.1`, `image@0.25.10`, `itoa@1.0.18`, `libc@0.2.189`, `litrs@1.0.0`, `miniz_oxide@0.8.9` (`MIT OR Zlib OR Apache-2.0`), `num_enum_derive@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num_enum@0.7.6` (`BSD-3-Clause OR MIT OR Apache-2.0`), `num-conv@0.2.2`, `osakit@0.3.1`, `paste@1.0.15`, `pin-project-lite@0.2.17` (`Apache-2.0 OR MIT`), `portable-atomic-util@0.2.7` (`Apache-2.0 OR MIT`), `portable-atomic@1.14.0` (`Apache-2.0 OR MIT`), `prettyplease@0.2.37`, `proc-macro2@1.0.106`, `quote@1.0.46`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2` (`MIT OR Apache-2.0 OR Zlib`), `ref-cast-impl@1.0.25`, `ref-cast@1.0.25`, `rustc-hash@2.1.3` (`Apache-2.0 OR MIT`), `rustversion@1.0.23`, `ryu@1.0.23` (`Apache-2.0 OR BSL-1.0`), `semver@1.0.28`, `seq-macro@0.3.6`, `serde_bytes@0.11.19`, `serde_core@1.0.229`, `serde_derive_internals@0.29.1`, `serde_derive@1.0.229`, `serde_json@1.0.151`, `serde_path_to_error@0.1.20`, `serde_repr@0.1.20`, `serde_urlencoded@0.7.1` (`MIT/Apache-2.0`), `serde-untagged@0.1.9`, `serde@1.0.229`, `simdutf8@0.1.5`, `stable-vec@0.4.2` (`MIT/Apache-2.0`), `syn@2.0.119`, `syn@3.0.3`, `sync_wrapper@1.0.2` (`Apache-2.0`), `tauri-build@2.6.3` (`Apache-2.0 OR MIT`), `tauri-codegen@2.6.3` (`Apache-2.0 OR MIT`), `tauri-macros@2.6.3` (`Apache-2.0 OR MIT`), `tauri-plugin-clipboard-manager@2.3.2` (`Apache-2.0 OR MIT`), `tauri-plugin-dialog@2.7.2` (`Apache-2.0 OR MIT`), `tauri-plugin-fs@2.5.1` (`Apache-2.0 OR MIT`), `tauri-plugin-log@2.9.0` (`Apache-2.0 OR MIT`), `tauri-plugin-opener@2.5.4` (`Apache-2.0 OR MIT`), `tauri-plugin-process@2.3.1` (`Apache-2.0 OR MIT`), `tauri-plugin-updater@2.10.1` (`Apache-2.0 OR MIT`), `tauri-plugin-window-state@2.4.1` (`Apache-2.0 OR MIT`), `tauri-runtime-wry@2.11.4` (`Apache-2.0 OR MIT`), `tauri-runtime@2.11.3` (`Apache-2.0 OR MIT`), `tauri-utils@2.9.3` (`Apache-2.0 OR MIT`), `tauri@2.11.5` (`Apache-2.0 OR MIT`), `thiserror-impl@1.0.69`, `thiserror-impl@2.0.18`, `thiserror@1.0.69`, `thiserror@2.0.18`, `time-core@0.1.9`, `time-macros@0.2.31`, `time@0.3.53`, `typed-path@0.12.3`, `typeid@1.0.3`, `unicode-ident@1.0.24` (`(MIT OR Apache-2.0) AND Unicode-3.0`), `unindent@0.2.4`, `utf8parse@0.2.2` (`Apache-2.0 OR MIT`), `variadics_please@1.1.0`, `wasm-streams@0.4.2`, `wasm-streams@0.5.0`, `wgpu-hal@26.0.6`
 
 </details>
 
@@ -9379,11 +9378,11 @@ Apache License
    END OF TERMS AND CONDITIONS
 ```
 
-#### 5. MIT (+4 other declarations) — 62 package(s), from `LICENSE`
+#### 5. MIT (+4 other declarations) — 61 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`aho-corasick@1.1.4` (`Unlicense OR MIT`), `async-broadcast@0.7.2` (`MIT OR Apache-2.0`), `base64@0.21.7` (`MIT OR Apache-2.0`), `base64@0.22.1` (`MIT OR Apache-2.0`), `bincode@2.0.1`, `byteorder-lite@0.1.0` (`Unlicense OR MIT`), `byteorder@1.5.0` (`Unlicense OR MIT`), `calamine@0.36.1`, `combine@4.6.7`, `crossbeam-channel@0.5.16` (`MIT OR Apache-2.0`), `crossbeam-deque@0.8.7` (`MIT OR Apache-2.0`), `crossbeam-epoch@0.9.20` (`MIT OR Apache-2.0`), `crossbeam-utils@0.8.22` (`MIT OR Apache-2.0`), `crunchy@0.2.4`, `csv-core@0.1.13` (`Unlicense/MIT`), `csv@1.4.0` (`Unlicense/MIT`), `data-encoding@2.11.0`, `derive_more-impl@1.0.0`, `derive_more-impl@2.1.1`, `derive_more@1.0.0`, `derive_more@2.1.1`, `derive-new@0.7.0`, `embed-resource@3.0.11`, `fsevent-sys@4.1.0`, `fst@0.4.7` (`Unlicense/MIT`), `generic-array@0.14.7`, `javascriptcore-rs-sys@1.1.1`, `javascriptcore-rs@1.1.2`, `jiff-core@0.1.0` (`Unlicense OR MIT`), `jiff-static@0.2.35` (`Unlicense OR MIT`), `jiff-tzdb-platform@0.1.3` (`Unlicense OR MIT`), `jiff-tzdb@0.1.8` (`Unlicense OR MIT`), `jiff@0.2.35` (`Unlicense OR MIT`), `jni@0.21.1` (`MIT/Apache-2.0`), `memchr@2.8.3` (`Unlicense OR MIT`), `mime_guess@2.0.5`, `os_pipe@1.2.3`, `pretty_assertions@1.4.1` (`MIT OR Apache-2.0`), `quick-xml@0.39.4`, `quick-xml@0.41.0`, `raw-cpuid@11.6.0`, `redox_users@0.4.6`, `redox_users@0.5.2`, `same-file@1.0.6` (`Unlicense/MIT`), `shlex@1.3.0` (`MIT OR Apache-2.0`), `shlex@2.0.1` (`MIT OR Apache-2.0`), `soup3-sys@0.5.0`, `soup3@0.5.0`, `spin@0.10.1`, `strsim@0.11.1`, `sysctl@0.6.0`, `sysinfo@0.36.1`, `tauri-winres@0.3.6`, `termcolor@1.4.1` (`Unlicense OR MIT`), `typenum@1.20.1` (`MIT OR Apache-2.0`), `vswhom-sys@0.1.3`, `vswhom@0.1.0`, `walkdir@2.5.0` (`Unlicense/MIT`), `weezl@0.1.12` (`MIT OR Apache-2.0`), `winapi-util@0.1.11` (`Unlicense OR MIT`), `xml-rs@0.8.29`, `zip@8.6.0`
+`aho-corasick@1.1.4` (`Unlicense OR MIT`), `async-broadcast@0.7.2` (`MIT OR Apache-2.0`), `base64@0.21.7` (`MIT OR Apache-2.0`), `base64@0.22.1` (`MIT OR Apache-2.0`), `bincode@2.0.1`, `byteorder-lite@0.1.0` (`Unlicense OR MIT`), `byteorder@1.5.0` (`Unlicense OR MIT`), `calamine@0.36.1`, `combine@4.6.7`, `crossbeam-channel@0.5.16` (`MIT OR Apache-2.0`), `crossbeam-deque@0.8.7` (`MIT OR Apache-2.0`), `crossbeam-epoch@0.9.20` (`MIT OR Apache-2.0`), `crossbeam-utils@0.8.22` (`MIT OR Apache-2.0`), `crunchy@0.2.4`, `csv-core@0.1.13` (`Unlicense/MIT`), `csv@1.4.0` (`Unlicense/MIT`), `data-encoding@2.11.0`, `derive_more-impl@1.0.0`, `derive_more-impl@2.1.1`, `derive_more@1.0.0`, `derive_more@2.1.1`, `derive-new@0.7.0`, `embed-resource@3.0.11`, `fsevent-sys@4.1.0`, `fst@0.4.7` (`Unlicense/MIT`), `generic-array@0.14.7`, `javascriptcore-rs-sys@1.1.1`, `javascriptcore-rs@1.1.2`, `jiff-core@0.1.0` (`Unlicense OR MIT`), `jiff-static@0.2.35` (`Unlicense OR MIT`), `jiff-tzdb-platform@0.1.3` (`Unlicense OR MIT`), `jiff-tzdb@0.1.8` (`Unlicense OR MIT`), `jiff@0.2.35` (`Unlicense OR MIT`), `jni@0.21.1` (`MIT/Apache-2.0`), `memchr@2.8.3` (`Unlicense OR MIT`), `mime_guess@2.0.5`, `os_pipe@1.2.3`, `pretty_assertions@1.4.1` (`MIT OR Apache-2.0`), `quick-xml@0.39.4`, `quick-xml@0.41.0`, `raw-cpuid@11.6.0`, `redox_users@0.5.2`, `same-file@1.0.6` (`Unlicense/MIT`), `shlex@1.3.0` (`MIT OR Apache-2.0`), `shlex@2.0.1` (`MIT OR Apache-2.0`), `soup3-sys@0.5.0`, `soup3@0.5.0`, `spin@0.10.1`, `strsim@0.11.1`, `sysctl@0.6.0`, `sysinfo@0.36.1`, `tauri-winres@0.3.6`, `termcolor@1.4.1` (`Unlicense OR MIT`), `typenum@1.20.1` (`MIT OR Apache-2.0`), `vswhom-sys@0.1.3`, `vswhom@0.1.0`, `walkdir@2.5.0` (`Unlicense/MIT`), `weezl@0.1.12` (`MIT OR Apache-2.0`), `winapi-util@0.1.11` (`Unlicense OR MIT`), `xml-rs@0.8.29`, `zip@8.6.0`
 
 </details>
 
@@ -9940,38 +9939,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-#### 14. Apache-2.0 OR MIT — 9 package(s), from `LICENSE.spdx`
-
-<details><summary>Packages sharing this text</summary>
-
-`tauri-plugin-autostart@2.5.1`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`
-
-</details>
-
-```text
-SPDXVersion: SPDX-2.1
-DataLicense: CC0-1.0
-PackageName: tauri
-DataFormat: SPDXRef-1
-PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
-PackageHomePage: https://tauri.app
-PackageLicenseDeclared: Apache-2.0
-PackageLicenseDeclared: MIT
-PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
-PackageSummary: <text>Tauri is a rust project that enables developers to make secure
-and small desktop applications using a web frontend.
-                </text>
-PackageComment: <text>The package includes the following libraries; see
-Relationship information.
-                </text>
-Created: 2019-05-20T09:00:00Z
-PackageDownloadLocation: git://github.com/tauri-apps/tauri
-PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
-PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
-Creator: Person: Daniel Thompson-Yvetot
-```
-
-#### 15. MIT OR Apache-2.0 — 8 package(s), from `COPYRIGHT`
+#### 14. MIT OR Apache-2.0 — 8 package(s), from `COPYRIGHT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9998,6 +9966,37 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 
 The Rand project includes code from the Rust project
 published under these same licenses.
+```
+
+#### 15. Apache-2.0 OR MIT — 8 package(s), from `LICENSE.spdx`
+
+<details><summary>Packages sharing this text</summary>
+
+`tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`
+
+</details>
+
+```text
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2022, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
 ```
 
 #### 16. MPL-2.0 — 6 package(s), from `LICENSE`
@@ -11347,200 +11346,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 24. MIT OR Apache-2.0 — 4 package(s), from `LICENSE-APACHE`
-
-<details><summary>Packages sharing this text</summary>
-
-`dirs-sys@0.3.7`, `dirs-sys@0.5.0`, `dirs@4.0.0`, `dirs@6.0.0`
-
-</details>
-
-Copyright notices (3):
-
-```text
-(c) You must retain, in the Source form of any Derivative Works
-copyright license to reproduce, prepare Derivative Works of,
-copyright notice that is included in or attached to the work
-```
-
-```text
-Apache License
-                        Version 2.0, January 2004
-                     http://www.apache.org/licenses/
-
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-1. Definitions.
-
-   "License" shall mean the terms and conditions for use, reproduction,
-   and distribution as defined by Sections 1 through 9 of this document.
-
-   "Licensor" shall mean the copyright owner or entity authorized by
-   the copyright owner that is granting the License.
-
-   "Legal Entity" shall mean the union of the acting entity and all
-   other entities that control, are controlled by, or are under common
-   control with that entity. For the purposes of this definition,
-   "control" means (i) the power, direct or indirect, to cause the
-   direction or management of such entity, whether by contract or
-   otherwise, or (ii) ownership of fifty percent (50%) or more of the
-   outstanding shares, or (iii) beneficial ownership of such entity.
-
-   "You" (or "Your") shall mean an individual or Legal Entity
-   exercising permissions granted by this License.
-
-   "Source" form shall mean the preferred form for making modifications,
-   including but not limited to software source code, documentation
-   source, and configuration files.
-
-   "Object" form shall mean any form resulting from mechanical
-   transformation or translation of a Source form, including but
-   not limited to compiled object code, generated documentation,
-   and conversions to other media types.
-
-   "Work" shall mean the work of authorship, whether in Source or
-   Object form, made available under the License, as indicated by a
-   copyright notice that is included in or attached to the work
-   (an example is provided in the Appendix below).
-
-   "Derivative Works" shall mean any work, whether in Source or Object
-   form, that is based on (or derived from) the Work and for which the
-   editorial revisions, annotations, elaborations, or other modifications
-   represent, as a whole, an original work of authorship. For the purposes
-   of this License, Derivative Works shall not include works that remain
-   separable from, or merely link (or bind by name) to the interfaces of,
-   the Work and Derivative Works thereof.
-
-   "Contribution" shall mean any work of authorship, including
-   the original version of the Work and any modifications or additions
-   to that Work or Derivative Works thereof, that is intentionally
-   submitted to Licensor for inclusion in the Work by the copyright owner
-   or by an individual or Legal Entity authorized to submit on behalf of
-   the copyright owner. For the purposes of this definition, "submitted"
-   means any form of electronic, verbal, or written communication sent
-   to the Licensor or its representatives, including but not limited to
-   communication on electronic mailing lists, source code control systems,
-   and issue tracking systems that are managed by, or on behalf of, the
-   Licensor for the purpose of discussing and improving the Work, but
-   excluding communication that is conspicuously marked or otherwise
-   designated in writing by the copyright owner as "Not a Contribution."
-
-   "Contributor" shall mean Licensor and any individual or Legal Entity
-   on behalf of whom a Contribution has been received by Licensor and
-   subsequently incorporated within the Work.
-
-2. Grant of Copyright License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   copyright license to reproduce, prepare Derivative Works of,
-   publicly display, publicly perform, sublicense, and distribute the
-   Work and such Derivative Works in Source or Object form.
-
-3. Grant of Patent License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   (except as stated in this section) patent license to make, have made,
-   use, offer to sell, sell, import, and otherwise transfer the Work,
-   where such license applies only to those patent claims licensable
-   by such Contributor that are necessarily infringed by their
-   Contribution(s) alone or by combination of their Contribution(s)
-   with the Work to which such Contribution(s) was submitted. If You
-   institute patent litigation against any entity (including a
-   cross-claim or counterclaim in a lawsuit) alleging that the Work
-   or a Contribution incorporated within the Work constitutes direct
-   or contributory patent infringement, then any patent licenses
-   granted to You under this License for that Work shall terminate
-   as of the date such litigation is filed.
-
-4. Redistribution. You may reproduce and distribute copies of the
-   Work or Derivative Works thereof in any medium, with or without
-   modifications, and in Source or Object form, provided that You
-   meet the following conditions:
-
-   (a) You must give any other recipients of the Work or
-       Derivative Works a copy of this License; and
-
-   (b) You must cause any modified files to carry prominent notices
-       stating that You changed the files; and
-
-   (c) You must retain, in the Source form of any Derivative Works
-       that You distribute, all copyright, patent, trademark, and
-       attribution notices from the Source form of the Work,
-       excluding those notices that do not pertain to any part of
-       the Derivative Works; and
-
-   (d) If the Work includes a "NOTICE" text file as part of its
-       distribution, then any Derivative Works that You distribute must
-       include a readable copy of the attribution notices contained
-       within such NOTICE file, excluding those notices that do not
-       pertain to any part of the Derivative Works, in at least one
-       of the following places: within a NOTICE text file distributed
-       as part of the Derivative Works; within the Source form or
-       documentation, if provided along with the Derivative Works; or,
-       within a display generated by the Derivative Works, if and
-       wherever such third-party notices normally appear. The contents
-       of the NOTICE file are for informational purposes only and
-       do not modify the License. You may add Your own attribution
-       notices within Derivative Works that You distribute, alongside
-       or as an addendum to the NOTICE text from the Work, provided
-       that such additional attribution notices cannot be construed
-       as modifying the License.
-
-   You may add Your own copyright statement to Your modifications and
-   may provide additional or different license terms and conditions
-   for use, reproduction, or distribution of Your modifications, or
-   for any such Derivative Works as a whole, provided Your use,
-   reproduction, and distribution of the Work otherwise complies with
-   the conditions stated in this License.
-
-5. Submission of Contributions. Unless You explicitly state otherwise,
-   any Contribution intentionally submitted for inclusion in the Work
-   by You to the Licensor shall be under the terms and conditions of
-   this License, without any additional terms or conditions.
-   Notwithstanding the above, nothing herein shall supersede or modify
-   the terms of any separate license agreement you may have executed
-   with Licensor regarding such Contributions.
-
-6. Trademarks. This License does not grant permission to use the trade
-   names, trademarks, service marks, or product names of the Licensor,
-   except as required for reasonable and customary use in describing the
-   origin of the Work and reproducing the content of the NOTICE file.
-
-7. Disclaimer of Warranty. Unless required by applicable law or
-   agreed to in writing, Licensor provides the Work (and each
-   Contributor provides its Contributions) on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-   implied, including, without limitation, any warranties or conditions
-   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-   PARTICULAR PURPOSE. You are solely responsible for determining the
-   appropriateness of using or redistributing the Work and assume any
-   risks associated with Your exercise of permissions under this License.
-
-8. Limitation of Liability. In no event and under no legal theory,
-   whether in tort (including negligence), contract, or otherwise,
-   unless required by applicable law (such as deliberate and grossly
-   negligent acts) or agreed to in writing, shall any Contributor be
-   liable to You for damages, including any direct, indirect, special,
-   incidental, or consequential damages of any character arising as a
-   result of this License or out of the use or inability to use the
-   Work (including but not limited to damages for loss of goodwill,
-   work stoppage, computer failure or malfunction, or any and all
-   other commercial damages or losses), even if such Contributor
-   has been advised of the possibility of such damages.
-
-9. Accepting Warranty or Additional Liability. While redistributing
-   the Work or Derivative Works thereof, You may choose to offer,
-   and charge a fee for, acceptance of support, warranty, indemnity,
-   or other liability obligations and/or rights consistent with this
-   License. However, in accepting such obligations, You may act only
-   on Your own behalf and on Your sole responsibility, not on behalf
-   of any other Contributor, and only if You agree to indemnify,
-   defend, and hold each Contributor harmless for any liability
-   incurred by, or claims asserted against, such Contributor by reason
-   of your accepting any such warranty or additional liability.
-```
-
-#### 25. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
+#### 24. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11552,7 +11358,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 ../../LICENSE-APACHE
 ```
 
-#### 26. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
+#### 25. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11773,7 +11579,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-#### 27. MIT OR Apache-2.0 (+1 other declarations) — 3 package(s), from `LICENSE-APACHE`
+#### 26. MIT OR Apache-2.0 (+1 other declarations) — 3 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11804,7 +11610,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-#### 28. MIT — 3 package(s), from `LICENSE`
+#### 27. MIT — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11845,7 +11651,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 29. BSD-3-Clause (+2 other declarations) — 3 package(s), from `LICENSE.BSD-3-Clause`
+#### 28. BSD-3-Clause (+2 other declarations) — 3 package(s), from `LICENSE.BSD-3-Clause`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11874,7 +11680,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 30. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
+#### 29. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11960,7 +11766,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-#### 31. ISC (+1 other declarations) — 3 package(s), from `LICENSE`
+#### 30. ISC (+1 other declarations) — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -11996,7 +11802,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 32. CDLA-Permissive-2.0 — 3 package(s), from `LICENSE`
+#### 31. CDLA-Permissive-2.0 — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12068,7 +11874,7 @@ of Data, including for example machine learning models and models'
 insights.
 ```
 
-#### 33. MIT OR Apache-2.0 — 3 package(s), from `LICENSE.APACHE`
+#### 32. MIT OR Apache-2.0 — 3 package(s), from `LICENSE.APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12080,7 +11886,7 @@ insights.
 ../LICENSE.APACHE
 ```
 
-#### 34. MIT OR Apache-2.0 — 3 package(s), from `LICENSE.MIT`
+#### 33. MIT OR Apache-2.0 — 3 package(s), from `LICENSE.MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12092,7 +11898,7 @@ insights.
 ../LICENSE.MIT
 ```
 
-#### 35. MIT OR Apache-2.0 OR Zlib — 3 package(s), from `LICENSE-ZLIB.md`
+#### 34. MIT OR Apache-2.0 OR Zlib — 3 package(s), from `LICENSE-ZLIB.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12129,7 +11935,7 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-#### 36. Apache-2.0 OR ISC OR MIT — 3 package(s), from `LICENSE-ISC`
+#### 35. Apache-2.0 OR ISC OR MIT — 3 package(s), from `LICENSE-ISC`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12161,7 +11967,7 @@ ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-#### 37. Zlib OR Apache-2.0 OR MIT (+1 other declarations) — 3 package(s), from `LICENSE-APACHE`
+#### 36. Zlib OR Apache-2.0 OR MIT (+1 other declarations) — 3 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12240,7 +12046,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-#### 38. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-MIT`
+#### 37. MIT OR Apache-2.0 — 3 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12252,7 +12058,7 @@ limitations under the License.
 ../../LICENSE-MIT
 ```
 
-#### 39. Apache-2.0 OR BSL-1.0 (+1 other declarations) — 2 package(s), from `LICENSE`
+#### 38. Apache-2.0 OR BSL-1.0 (+1 other declarations) — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12286,7 +12092,7 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 40. MIT OR Apache-2.0 (+1 other declarations) — 2 package(s), from `LICENSE-APACHE`
+#### 39. MIT OR Apache-2.0 (+1 other declarations) — 2 package(s), from `LICENSE-APACHE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12497,7 +12303,7 @@ Apache License
    limitations under the License.
 ```
 
-#### 41. CC0-1.0 (+1 other declarations) — 2 package(s), from `LICENSE`
+#### 40. CC0-1.0 (+1 other declarations) — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12629,7 +12435,7 @@ express Statement of Purpose.
     this CC0 or use of the Work.
 ```
 
-#### 42. MIT — 2 package(s), from `LICENSE`
+#### 41. MIT — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12654,7 +12460,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 43. Zlib OR Apache-2.0 OR MIT — 2 package(s), from `LICENSE-MIT`
+#### 42. Zlib OR Apache-2.0 OR MIT — 2 package(s), from `LICENSE-MIT`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12680,7 +12486,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 44. MIT — 2 package(s), from `LICENSE`
+#### 43. MIT — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12718,7 +12524,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 45. BSD-2-Clause OR Apache-2.0 OR MIT — 2 package(s), from `LICENSE-BSD`
+#### 44. BSD-2-Clause OR Apache-2.0 OR MIT — 2 package(s), from `LICENSE-BSD`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12760,7 +12566,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 46. Apache-2.0 OR MIT — 2 package(s), from `LICENSE-THIRD-PARTY`
+#### 45. Apache-2.0 OR MIT — 2 package(s), from `LICENSE-THIRD-PARTY`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12823,7 +12629,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-#### 47. BSD-3-Clause OR MIT OR Apache-2.0 — 2 package(s), from `LICENSE-BSD`
+#### 46. BSD-3-Clause OR MIT OR Apache-2.0 — 2 package(s), from `LICENSE-BSD`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12867,7 +12673,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 48. MIT — 2 package(s), from `LICENSE`
+#### 47. MIT — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -12906,6 +12712,199 @@ SOFTWARE.
 
 Some files in the "tests/data" subdirectory of this repository are under other
 licences; see files named LICENSE.*.txt for details.
+```
+
+#### 48. MIT OR Apache-2.0 — 2 package(s), from `LICENSE-APACHE`
+
+<details><summary>Packages sharing this text</summary>
+
+`dirs-sys@0.5.0`, `dirs@6.0.0`
+
+</details>
+
+Copyright notices (3):
+
+```text
+(c) You must retain, in the Source form of any Derivative Works
+copyright license to reproduce, prepare Derivative Works of,
+copyright notice that is included in or attached to the work
+```
+
+```text
+Apache License
+                        Version 2.0, January 2004
+                     http://www.apache.org/licenses/
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+1. Definitions.
+
+   "License" shall mean the terms and conditions for use, reproduction,
+   and distribution as defined by Sections 1 through 9 of this document.
+
+   "Licensor" shall mean the copyright owner or entity authorized by
+   the copyright owner that is granting the License.
+
+   "Legal Entity" shall mean the union of the acting entity and all
+   other entities that control, are controlled by, or are under common
+   control with that entity. For the purposes of this definition,
+   "control" means (i) the power, direct or indirect, to cause the
+   direction or management of such entity, whether by contract or
+   otherwise, or (ii) ownership of fifty percent (50%) or more of the
+   outstanding shares, or (iii) beneficial ownership of such entity.
+
+   "You" (or "Your") shall mean an individual or Legal Entity
+   exercising permissions granted by this License.
+
+   "Source" form shall mean the preferred form for making modifications,
+   including but not limited to software source code, documentation
+   source, and configuration files.
+
+   "Object" form shall mean any form resulting from mechanical
+   transformation or translation of a Source form, including but
+   not limited to compiled object code, generated documentation,
+   and conversions to other media types.
+
+   "Work" shall mean the work of authorship, whether in Source or
+   Object form, made available under the License, as indicated by a
+   copyright notice that is included in or attached to the work
+   (an example is provided in the Appendix below).
+
+   "Derivative Works" shall mean any work, whether in Source or Object
+   form, that is based on (or derived from) the Work and for which the
+   editorial revisions, annotations, elaborations, or other modifications
+   represent, as a whole, an original work of authorship. For the purposes
+   of this License, Derivative Works shall not include works that remain
+   separable from, or merely link (or bind by name) to the interfaces of,
+   the Work and Derivative Works thereof.
+
+   "Contribution" shall mean any work of authorship, including
+   the original version of the Work and any modifications or additions
+   to that Work or Derivative Works thereof, that is intentionally
+   submitted to Licensor for inclusion in the Work by the copyright owner
+   or by an individual or Legal Entity authorized to submit on behalf of
+   the copyright owner. For the purposes of this definition, "submitted"
+   means any form of electronic, verbal, or written communication sent
+   to the Licensor or its representatives, including but not limited to
+   communication on electronic mailing lists, source code control systems,
+   and issue tracking systems that are managed by, or on behalf of, the
+   Licensor for the purpose of discussing and improving the Work, but
+   excluding communication that is conspicuously marked or otherwise
+   designated in writing by the copyright owner as "Not a Contribution."
+
+   "Contributor" shall mean Licensor and any individual or Legal Entity
+   on behalf of whom a Contribution has been received by Licensor and
+   subsequently incorporated within the Work.
+
+2. Grant of Copyright License. Subject to the terms and conditions of
+   this License, each Contributor hereby grants to You a perpetual,
+   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+   copyright license to reproduce, prepare Derivative Works of,
+   publicly display, publicly perform, sublicense, and distribute the
+   Work and such Derivative Works in Source or Object form.
+
+3. Grant of Patent License. Subject to the terms and conditions of
+   this License, each Contributor hereby grants to You a perpetual,
+   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+   (except as stated in this section) patent license to make, have made,
+   use, offer to sell, sell, import, and otherwise transfer the Work,
+   where such license applies only to those patent claims licensable
+   by such Contributor that are necessarily infringed by their
+   Contribution(s) alone or by combination of their Contribution(s)
+   with the Work to which such Contribution(s) was submitted. If You
+   institute patent litigation against any entity (including a
+   cross-claim or counterclaim in a lawsuit) alleging that the Work
+   or a Contribution incorporated within the Work constitutes direct
+   or contributory patent infringement, then any patent licenses
+   granted to You under this License for that Work shall terminate
+   as of the date such litigation is filed.
+
+4. Redistribution. You may reproduce and distribute copies of the
+   Work or Derivative Works thereof in any medium, with or without
+   modifications, and in Source or Object form, provided that You
+   meet the following conditions:
+
+   (a) You must give any other recipients of the Work or
+       Derivative Works a copy of this License; and
+
+   (b) You must cause any modified files to carry prominent notices
+       stating that You changed the files; and
+
+   (c) You must retain, in the Source form of any Derivative Works
+       that You distribute, all copyright, patent, trademark, and
+       attribution notices from the Source form of the Work,
+       excluding those notices that do not pertain to any part of
+       the Derivative Works; and
+
+   (d) If the Work includes a "NOTICE" text file as part of its
+       distribution, then any Derivative Works that You distribute must
+       include a readable copy of the attribution notices contained
+       within such NOTICE file, excluding those notices that do not
+       pertain to any part of the Derivative Works, in at least one
+       of the following places: within a NOTICE text file distributed
+       as part of the Derivative Works; within the Source form or
+       documentation, if provided along with the Derivative Works; or,
+       within a display generated by the Derivative Works, if and
+       wherever such third-party notices normally appear. The contents
+       of the NOTICE file are for informational purposes only and
+       do not modify the License. You may add Your own attribution
+       notices within Derivative Works that You distribute, alongside
+       or as an addendum to the NOTICE text from the Work, provided
+       that such additional attribution notices cannot be construed
+       as modifying the License.
+
+   You may add Your own copyright statement to Your modifications and
+   may provide additional or different license terms and conditions
+   for use, reproduction, or distribution of Your modifications, or
+   for any such Derivative Works as a whole, provided Your use,
+   reproduction, and distribution of the Work otherwise complies with
+   the conditions stated in this License.
+
+5. Submission of Contributions. Unless You explicitly state otherwise,
+   any Contribution intentionally submitted for inclusion in the Work
+   by You to the Licensor shall be under the terms and conditions of
+   this License, without any additional terms or conditions.
+   Notwithstanding the above, nothing herein shall supersede or modify
+   the terms of any separate license agreement you may have executed
+   with Licensor regarding such Contributions.
+
+6. Trademarks. This License does not grant permission to use the trade
+   names, trademarks, service marks, or product names of the Licensor,
+   except as required for reasonable and customary use in describing the
+   origin of the Work and reproducing the content of the NOTICE file.
+
+7. Disclaimer of Warranty. Unless required by applicable law or
+   agreed to in writing, Licensor provides the Work (and each
+   Contributor provides its Contributions) on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied, including, without limitation, any warranties or conditions
+   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+   PARTICULAR PURPOSE. You are solely responsible for determining the
+   appropriateness of using or redistributing the Work and assume any
+   risks associated with Your exercise of permissions under this License.
+
+8. Limitation of Liability. In no event and under no legal theory,
+   whether in tort (including negligence), contract, or otherwise,
+   unless required by applicable law (such as deliberate and grossly
+   negligent acts) or agreed to in writing, shall any Contributor be
+   liable to You for damages, including any direct, indirect, special,
+   incidental, or consequential damages of any character arising as a
+   result of this License or out of the use or inability to use the
+   Work (including but not limited to damages for loss of goodwill,
+   work stoppage, computer failure or malfunction, or any and all
+   other commercial damages or losses), even if such Contributor
+   has been advised of the possibility of such damages.
+
+9. Accepting Warranty or Additional Liability. While redistributing
+   the Work or Derivative Works thereof, You may choose to offer,
+   and charge a fee for, acceptance of support, warranty, indemnity,
+   or other liability obligations and/or rights consistent with this
+   License. However, in accepting such obligations, You may act only
+   on Your own behalf and on Your sole responsibility, not on behalf
+   of any other Contributor, and only if You agree to indemnify,
+   defend, and hold each Contributor harmless for any liability
+   incurred by, or claims asserted against, such Contributor by reason
+   of your accepting any such warranty or additional liability.
 ```
 
 #### 49. Apache-2.0 OR MIT (+1 other declarations) — 2 package(s), from `LICENSE.md`
