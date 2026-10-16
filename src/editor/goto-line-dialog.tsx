@@ -45,7 +45,13 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
             onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") submit();
+              // An Enter that commits an IME composition only ends it.
+              if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+              // Submitting closes the dialog and hands focus back to the
+              // editor before the browser runs this key's default action,
+              // which then types a newline into the source.
+              event.preventDefault();
+              submit();
             }}
           />
         </label>
