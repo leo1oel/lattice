@@ -1346,6 +1346,11 @@ fn a_rejected_upload_names_a_known_overleaf_error_code() {
             "Overleaf returned HTTP 422 during upload (project_has_too_many_files)",
         ),
         (
+            400,
+            r#"{"success":false,"error":"invalid_upload_request"}"#,
+            "Overleaf returned HTTP 400 during upload (invalid_upload_request)",
+        ),
+        (
             200,
             r#"{"success":false,"error":"invalid_filename"}"#,
             "Overleaf rejected the upload (invalid_filename)",
@@ -1368,6 +1373,8 @@ fn a_rejected_upload_names_a_known_overleaf_error_code() {
         let event = &capture.events()[0];
         assert_eq!(event["upload_status"], status, "{event}");
         assert_eq!(event["error_kind"], "server_refused");
+        let code = expected.strip_suffix(')').and_then(|e| e.rsplit_once('(')).map(|(_, c)| c);
+        assert_eq!(event.get("upload_error").and_then(|v| v.as_str()), code, "{event}");
         assert!(!event.to_string().contains("PRIVATE"), "{event}");
     }
 }

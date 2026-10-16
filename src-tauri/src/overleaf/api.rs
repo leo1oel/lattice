@@ -435,6 +435,8 @@ const UPLOAD_ERROR_CODES: &[&str] = &[
     "file_too_large",
     "folder_not_found",
     "invalid_filename",
+    // The endpoint's multipart parse found no file (a 400).
+    "invalid_upload_request",
     "project_has_too_many_files",
 ];
 

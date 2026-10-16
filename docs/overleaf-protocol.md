@@ -65,6 +65,31 @@ not taken from Workshop's code:
 - the heartbeat timeout: `socket.io-client` 0.9.17 `lib/socket.js`
   (`setHeartbeatTimeout`), the version Overleaf ships.
 
+On 2026-10-16 Overleaf Workshop was re-reviewed through default-branch head
+[`835a488a`](https://github.com/overleaf-workshop/Overleaf-Workshop/tree/835a488a7eac760fa2d74685cf1072f95393b30d)
+(2026-10-03), including all 13 open pull requests and all issues updated since
+the 2026-10-01 review; the specifically rechecked open proposals were
+[browser sign-in](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/423)
+at `980b42df5814afef4169bb4897e63c256a45a9df`,
+[save reconciliation](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/419)
+at `d1b6746fc02a5f21aa507d7c10b36f5876551046`,
+[snapshot verification](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/418)
+at `b94ba13c8885e4ae47f040a3b407d97f0b2b99c8`,
+[handshake rejection](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/406)
+at `e92150a4e678e0b5cfa3e90bc9103dd73a31be39`, and
+[three-way merge](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/375)
+at `776073fa441a6392c08a5e74955fb4fd66c8e54b`. The default-branch delta
+contained six dependency updates only; none of those five proposal branches had
+commits after 2026-10-01. Protocol facts were independently checked against
+official Overleaf commit
+[`e039ad26`](https://github.com/overleaf/overleaf/tree/e039ad26c5bf5422eb57b89fc7e57c75055e631d),
+including `Router.js`, `WebsocketController.js`, `DocumentUpdaterController.js`,
+the document updater's ShareJS model, the official web client and
+[`ProjectUploadController.mjs`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/web/app/src/Features/Uploads/ProjectUploadController.mjs#L323-L355)
+(whose `invalid_upload_request` Lattice now names in an upload error). This is a
+review pin, not a historical provenance pin or proof of current Overleaf Cloud
+deployment behavior, and no Workshop source was copied.
+
 One provenance gap has no candidate at all: `OtDocument` in `src/overleaf/ot.ts` says
 its client state mirrors the ShareJS client Overleaf uses, but no repository,
 version or commit for that reference was recorded. Keep it **unknown** rather
@@ -222,8 +247,27 @@ purpose.
   naming those connections — Overleaf then acknowledges a copy that already
   landed instead of applying it twice, which is what its own editor does. It is
   never resent on the connection that already carried it.
-- An operation that transformed to nothing is dropped, never sent: an empty
-  `applyOtUpdate` is not answered, and every later edit would queue behind it.
+- An operation that transformed to nothing is dropped, never sent. The
+  verified server's `applyOtUpdate` schema requires at least one component, so
+  an empty operation fails validation and the server disconnects the client
+  ([`Router.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/Router.js#L34-L76),
+  [`:671-699`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/Router.js#L671-L699));
+  other deployments may leave it unanswered, with every later edit queued
+  behind it. A comment anchor is a real nonempty component and is still sent.
+- Cursor positions (`clientTracking.updatePosition`) go out without an ack.
+  That is a client choice matching Overleaf's own editor, not a server limit:
+  the verified server accepts an optional callback and calls it
+  ([`Router.js:624-668`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/Router.js#L624-L668),
+  [`online-users-context.tsx`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/web/frontend/js/features/ide-react/context/online-users-context.tsx#L211-L225)).
+- Lattice still joins, rejoins and leaves document rooms. On the verified
+  server `joinDoc` authorizes the document and returns its versioned
+  snapshot, but `leaveDoc` is a compatibility no-op (it answers
+  `canSkipLeaveDoc: true`) and applied updates are broadcast to the project
+  room and filtered by document id
+  ([`WebsocketController.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/WebsocketController.js#L350-L373),
+  [`DocumentUpdaterController.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/DocumentUpdaterController.js#L8-L102)).
+  Older deployments may still route by document room, so the calls and their
+  ownership rules stay.
 - Overleaf's document updater replaces every UTF-16 surrogate in inserted text
   with U+FFFD and still acknowledges the operation. Operations never split a
   surrogate pair, and inserted surrogates are replaced before sending — in the
