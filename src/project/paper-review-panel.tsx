@@ -92,9 +92,11 @@ function Running({ run, venue }: { run: PaperReviewRun; venue: string | null }) 
   );
 }
 
-function Finding({ finding, expanded, onToggle }: {
+function Finding({ finding, expanded, busy, onToggle }: {
   finding: ReviewFinding;
   expanded: boolean;
+  /** Whether it is being made an annotation, so it takes no other decision meanwhile. */
+  busy: boolean;
   onToggle: () => void;
 }) {
   const { t } = useLingui();
@@ -124,7 +126,7 @@ function Finding({ finding, expanded, onToggle }: {
                 <span className="review-added"><Check size={14} aria-hidden="true" />{t`Added as a comment`}</span>
               )
             ) : (
-              <Button size="compact" onClick={() => void paperReview.annotate(finding.id)}>
+              <Button size="compact" disabled={busy} onClick={() => void paperReview.annotate(finding.id)}>
                 <MessageSquarePlus size={14} aria-hidden="true" />{t`Add as annotation`}
               </Button>
             )}
@@ -134,7 +136,7 @@ function Finding({ finding, expanded, onToggle }: {
               </Button>
             ) : null}
             {!added ? (
-              <Button size="compact" variant="ghost" className="review-dismiss" onClick={() => paperReview.dismiss(finding.id)}>
+              <Button size="compact" variant="ghost" className="review-dismiss" disabled={busy} onClick={() => paperReview.dismiss(finding.id)}>
                 <X size={14} aria-hidden="true" />{t({ message: "Dismiss", context: "review point" })}
               </Button>
             ) : null}
@@ -145,7 +147,7 @@ function Finding({ finding, expanded, onToggle }: {
   );
 }
 
-function Report({ report, revisable }: { report: PaperReview; revisable: number }) {
+function Report({ report, revisable, annotating }: { report: PaperReview; revisable: number; annotating: ReadonlySet<string> }) {
   const { t, i18n } = useLingui();
   const shown = report.findings.filter((finding) => finding.state !== "dismissed");
   // The first point is open as the report arrives: the one a reviewer would raise first.
@@ -202,6 +204,7 @@ function Report({ report, revisable }: { report: PaperReview; revisable: number 
                     key={finding.id}
                     finding={finding}
                     expanded={open === finding.id}
+                    busy={annotating.has(finding.id)}
                     onToggle={() => setOpen(open === finding.id ? null : finding.id)}
                   />
                 ))}
@@ -233,7 +236,7 @@ export function PaperReviewPanel({ venue, annotations, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useLingui();
-  const { loaded, report, run, error } = useSyncExternalStore(paperReview.subscribe, paperReview.getSnapshot);
+  const { loaded, report, run, error, annotating } = useSyncExternalStore(paperReview.subscribe, paperReview.getSnapshot);
   // A round starting or settling changes what can be revised.
   const { running } = useSyncExternalStore(annotationRounds.subscribe, annotationRounds.getSnapshot);
   useEffect(() => {
@@ -265,7 +268,7 @@ export function PaperReviewPanel({ venue, annotations, onClose }: {
         {run ? (
           <Running run={run} venue={venue} />
         ) : report ? (
-          <Report key={report.id} report={report} revisable={revisable} />
+          <Report key={report.id} report={report} revisable={revisable} annotating={annotating} />
         ) : loaded ? (
           <EmptyState
             fill

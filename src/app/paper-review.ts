@@ -58,9 +58,11 @@ export type PaperReviewSnapshot = {
   run: PaperReviewRun | null;
   /** Why the last review produced nothing. */
   error: string | null;
+  /** The findings being made annotations, which take no other decision meanwhile. */
+  annotating: ReadonlySet<string>;
 };
 
-const EMPTY: PaperReviewSnapshot = { loaded: false, report: null, run: null, error: null };
+const EMPTY: PaperReviewSnapshot = { loaded: false, report: null, run: null, error: null, annotating: new Set() };
 
 /** A sortable, file-safe id for a review started at `ms`: its UTC time to the second. */
 export function reviewId(ms: number): string {
@@ -109,8 +111,6 @@ export class PaperReviews {
   private generation = 0;
   /** The last save in line: each waits for the one before, so the newest decisions land last. */
   private saving: Promise<void> = Promise.resolve();
-  /** Findings being made annotations, so a second click makes no second one. */
-  private readonly annotating = new Set<string>();
 
   attach(deps: PaperReviewDeps) {
     this.deps = deps;
@@ -262,19 +262,22 @@ export class PaperReviews {
     const finding = this.find(id);
     const deps = this.deps;
     const reportId = this.snapshot.report?.id;
-    if (!finding || !deps || finding.state === "added" || this.annotating.has(id)) return;
-    this.annotating.add(id);
+    if (!finding || !deps || finding.state || this.snapshot.annotating.has(id)) return;
+    const generation = this.generation;
+    this.publish({ annotating: new Set([...this.snapshot.annotating, id]) });
     try {
       await this.annotateFinding(finding, deps, reportId);
     } finally {
-      this.annotating.delete(id);
+      if (generation === this.generation) {
+        this.publish({ annotating: new Set([...this.snapshot.annotating].filter((item) => item !== id)) });
+      }
     }
   };
 
   private async annotateFinding(finding: ReviewFinding, deps: PaperReviewDeps, reportId: string | undefined) {
     const { id } = finding;
     const root = deps.projectRootRef.current;
-    const live = () => deps.projectRootRef.current === root && this.snapshot.report?.id === reportId;
+    const live = () => deps.projectRootRef.current === root && this.snapshot.report?.id === reportId && !this.find(id)?.state;
     const placed = await this.place(finding);
     if (!live()) return;
     if (!placed) {
@@ -308,7 +311,7 @@ export class PaperReviews {
   /** Set a finding aside, with the toast's Undo to bring it back. */
   dismiss = (id: string) => {
     const report = this.snapshot.report;
-    if (!this.find(id) || !report) return;
+    if (!this.find(id) || !report || this.snapshot.annotating.has(id)) return;
     this.updateFinding(id, (finding) => ({ ...finding, state: "dismissed" }));
     notifyInfo(i18n._(msg`Review`), i18n._(msg`Point dismissed`), {
       dedupeKey: `paper-review-dismissed:${id}`,

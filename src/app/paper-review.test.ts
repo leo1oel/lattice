@@ -180,6 +180,21 @@ describe("PaperReviews", () => {
     expect(review.getSnapshot().report?.findings[0]).not.toHaveProperty("annotation");
   });
 
+  it("takes no Dismiss while a point is being added, and frees it once added", async () => {
+    await finishedReview();
+    let made = (_made: boolean) => {};
+    vi.mocked(deps.store.create).mockReturnValueOnce(new Promise<boolean>((resolve) => { made = resolve; }));
+    const pending = review.annotate("f1");
+    await vi.waitFor(() => expect(deps.store.create).toHaveBeenCalled());
+    expect(review.getSnapshot().annotating.has("f1")).toBe(true);
+    review.dismiss("f1");
+    expect(review.getSnapshot().report?.findings[0].state).toBeUndefined();
+    made(true);
+    await pending;
+    expect(review.getSnapshot().report?.findings[0].state).toBe("added");
+    expect(review.getSnapshot().annotating.size).toBe(0);
+  });
+
   it("saves one decision at a time, in the order they were made", async () => {
     await finishedReview();
     let release = () => {};
