@@ -17,16 +17,20 @@ const RESPONSES_FILE: &str = ".research/responses.json";
 const MAX_RESPONSES_BYTES: usize = 4 * 1024 * 1024;
 
 /// The project's responses, or none before the first comment is added. A file
-/// that cannot be read or parsed reads as none, so the panel can still open;
-/// the renderer then writes a fresh one only once the writer adds comments.
+/// that is there but cannot be read or parsed (a merge left conflict markers
+/// in it) is an error, never none: the renderer would otherwise save a fresh
+/// one over every comment it still holds.
 pub fn read_responses(root: &Path) -> Result<Option<serde_json::Value>, String> {
-    let Ok(raw) = fs::read_to_string(root.join(RESPONSES_FILE)) else {
-        return Ok(None);
+    let raw = match fs::read_to_string(root.join(RESPONSES_FILE)) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("{RESPONSES_FILE} could not be read: {error}")),
     };
-    Ok(match serde_json::from_str(&raw) {
-        Ok(value @ serde_json::Value::Object(_)) => Some(value),
-        _ => None,
-    })
+    match serde_json::from_str(&raw) {
+        Ok(value @ serde_json::Value::Object(_)) => Ok(Some(value)),
+        Ok(_) => Err(format!("{RESPONSES_FILE} is not a JSON object.")),
+        Err(error) => Err(format!("{RESPONSES_FILE} is not valid JSON: {error}")),
+    }
 }
 
 /// Replace the project's responses.
@@ -58,12 +62,20 @@ mod tests {
     }
 
     #[test]
-    fn a_broken_file_reads_as_none() {
+    fn a_broken_file_is_an_error_and_only_an_absent_one_is_none() {
         let fixture = Fixture::empty("responses-broken");
+        assert_eq!(read_responses(&fixture.root).unwrap(), None);
+        fixture.write(
+            RESPONSES_FILE,
+            "<<<<<<< HEAD\n{ \"version\": 1, \"comments\": [] }\n=======\n{ \"version\": 1 }\n>>>>>>> theirs\n",
+        );
+        assert!(read_responses(&fixture.root).is_err());
         fixture.write(RESPONSES_FILE, "{ \"version\": ");
-        assert_eq!(read_responses(&fixture.root).unwrap(), None);
+        assert!(read_responses(&fixture.root).is_err());
         fixture.write(RESPONSES_FILE, "[1, 2]");
-        assert_eq!(read_responses(&fixture.root).unwrap(), None);
+        assert!(read_responses(&fixture.root).is_err());
+        fs::write(fixture.path(RESPONSES_FILE), [0xff, 0xfe, 0x00]).unwrap();
+        assert!(read_responses(&fixture.root).is_err());
     }
 
     #[test]

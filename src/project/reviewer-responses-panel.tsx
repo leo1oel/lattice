@@ -25,6 +25,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import { EmptyState } from "../components/ui/empty-state";
 import { IconButton } from "../components/ui/icon-button";
+import { InlineMessage } from "../components/ui/inline-message";
 import { Input } from "../components/ui/input";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -82,12 +83,20 @@ function useReviewerTitle() {
 }
 
 /** Ask where the letter goes and write it there; a cancelled panel writes nothing. */
-async function exportLetter(responses: ReviewerResponses, format: LetterFormat, places: Places, title: string, done: (path: string) => string) {
+async function exportLetter(
+  responses: ReviewerResponses,
+  annotations: readonly EditorComment[],
+  format: LetterFormat,
+  title: string,
+  done: (path: string) => string,
+) {
   const name = format === "latex" ? "response-letter.tex" : "response-letter.md";
   const trace = logAction(title, title, name, "reviewer-responses-export");
   try {
     const destination = await saveDialog({ title, defaultPath: name });
     if (!destination) return;
+    // Placed again now, not from the panel's last look: a passage may have been rewritten since.
+    const places = await placeAnnotations(responses.comments.flatMap((comment) => comment.annotationIds), annotations);
     const text = responseLetter(responses, format, (annotationId) => places.get(annotationId) ?? { state: "missing" });
     const written = await invoke<string>("save_source_copy", new TextEncoder().encode(text), {
       headers: { "x-copy-destination": utf8ToBase64(destination) },
@@ -412,7 +421,7 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
 }) {
   const { t } = useLingui();
   const reviewerTitle = useReviewerTitle();
-  const { loaded, responses } = useSyncExternalStore(reviewerResponses.subscribe, reviewerResponses.getSnapshot);
+  const { loaded, unreadable, responses } = useSyncExternalStore(reviewerResponses.subscribe, reviewerResponses.getSnapshot);
   const { running } = useSyncExternalStore(annotationRounds.subscribe, annotationRounds.getSnapshot);
   useEffect(() => {
     if (!loaded) void reviewerResponses.load();
@@ -456,9 +465,9 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
   const shown = filter === "all" ? comments : comments.filter((comment) => responseStatus(comment) !== "done" || comment.id === open);
   const revisable = reviewerResponses.revisableIds(annotations, running).length;
   const exportTitle = t`Export the response letter`;
-  const doExport = (format: LetterFormat) => void exportLetter(responses, format, places, exportTitle, (path) => t`Saved the response letter to ${path}`);
+  const doExport = (format: LetterFormat) => void exportLetter(responses, annotations, format, exportTitle, (path) => t`Saved the response letter to ${path}`);
 
-  const intake = adding || (loaded && !comments.length);
+  const intake = !unreadable && (adding || (loaded && !comments.length));
   return (
     <ResizableDrawer className="reviewer-responses-drawer" onClose={onClose}>
       <PanelHeader
@@ -482,7 +491,14 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
         ) : null}
       />
       <div className="responses-panel">
-        {!loaded ? null : intake ? (
+        {!loaded ? null : unreadable ? (
+          <div className="responses-unreadable">
+            <InlineMessage level="error">
+              {t`The responses file (.research/responses.json) could not be read. Nothing will be saved until it is fixed.`}
+            </InlineMessage>
+            <Button size="compact" variant="secondary" onClick={() => void reviewerResponses.load()}>{t`Try again`}</Button>
+          </div>
+        ) : intake ? (
           comments.length || adding ? (
             <Intake responses={responses} onDone={() => setAdding(false)} onCancel={comments.length ? () => setAdding(false) : null} />
           ) : (

@@ -13459,6 +13459,10 @@ msgstr "所需工具"
 msgid "The responses could not be saved: {0}"
 msgstr ""
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "The responses file (.research/responses.json) could not be read. Nothing will be saved until it is fixed."
+msgstr "无法读取审稿回复文件（.research/responses.json）。修复之前不会保存任何内容。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "找到多篇相似的，无法确定是哪篇"
@@ -13995,6 +13999,7 @@ msgstr "换个更短或不同的词试试"
 #: src/papers/support-panel.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Try again"
 msgstr "重试"
 

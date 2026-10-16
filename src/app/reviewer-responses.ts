@@ -28,10 +28,16 @@ export type ReviewerResponsesDeps = {
 export type ReviewerResponsesSnapshot = {
   /** Whether the project's responses have been read yet. */
   loaded: boolean;
+  /**
+   * Whether the file is there but could not be read or is not one this
+   * version reads; nothing is changed or saved over it until a later read
+   * succeeds.
+   */
+  unreadable: boolean;
   responses: ReviewerResponses;
 };
 
-const EMPTY: ReviewerResponsesSnapshot = { loaded: false, responses: EMPTY_RESPONSES };
+const EMPTY: ReviewerResponsesSnapshot = { loaded: false, unreadable: false, responses: EMPTY_RESPONSES };
 /** Typing in a reply saves once it pauses, not on every key. */
 const SAVE_DELAY_MS = 400;
 
@@ -73,13 +79,17 @@ export class ReviewerResponsesStore {
     for (const listener of [...this.listeners]) listener();
   }
 
-  /** Read the project's responses, once per project. */
+  /** Read the project's responses, once per project, or again while the file is unreadable. */
   load = async () => {
-    if (this.snapshot.loaded) return;
+    if (this.snapshot.loaded && !this.snapshot.unreadable) return;
     const generation = this.generation;
-    const stored = await invoke<unknown>("read_reviewer_responses").catch(() => null);
-    if (generation !== this.generation || this.snapshot.loaded) return;
-    this.publish({ loaded: true, responses: parseResponses(stored) ?? EMPTY_RESPONSES });
+    const before = this.snapshot;
+    const responses = await invoke<unknown>("read_reviewer_responses").then(
+      (stored) => (stored == null ? EMPTY_RESPONSES : parseResponses(stored)),
+      () => null,
+    );
+    if (generation !== this.generation || this.snapshot !== before) return;
+    this.publish(responses ? { loaded: true, unreadable: false, responses } : { loaded: true, unreadable: true, responses: EMPTY_RESPONSES });
   };
 
   /** Write what is pending now, to the project it was made in; settles once every save in line has. */
@@ -114,7 +124,7 @@ export class ReviewerResponsesStore {
 
   private change(next: ReviewerResponses) {
     const projectRoot = this.deps?.projectRootRef.current;
-    if (!projectRoot || !this.snapshot.loaded) return;
+    if (!projectRoot || !this.snapshot.loaded || this.snapshot.unreadable) return;
     // A change for another project than the one pending writes that one first.
     if (this.pendingRoot && this.pendingRoot !== projectRoot) this.flush();
     this.publish({ responses: next });

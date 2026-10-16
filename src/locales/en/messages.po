@@ -13461,6 +13461,10 @@ msgstr "The required tools"
 msgid "The responses could not be saved: {0}"
 msgstr "The responses could not be saved: {0}"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "The responses file (.research/responses.json) could not be read. Nothing will be saved until it is fixed."
+msgstr "The responses file (.research/responses.json) could not be read. Nothing will be saved until it is fixed."
+
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "The results did not identify a unique matching publication."
@@ -13997,6 +14001,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/papers/support-panel.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Try again"
 msgstr "Try again"
 

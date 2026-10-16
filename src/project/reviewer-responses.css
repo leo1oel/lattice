@@ -182,6 +182,7 @@
 .responses-menu [role="menuitem"] { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .responses-menu-quote { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .responses-menu-empty { max-width: 260px; white-space: normal; color: var(--text-secondary); font-weight: var(--weight-regular); }
+.responses-unreadable { display: grid; justify-items: start; gap: var(--space-4); padding-top: var(--space-2); }
 .responses-none { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 
 /* ── Adding comments ── */
