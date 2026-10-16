@@ -61,7 +61,7 @@ fn parse_upstream_url(url: &str) -> Result<reqwest::Url, String> {
 
 async fn start_server() -> Result<ProxyServer, String> {
     let token = Uuid::new_v4().simple().to_string();
-    let client = reqwest::Client::builder()
+    let client = crate::http::async_builder()
         .user_agent("Lattice research writer (paper preview)")
         .timeout(std::time::Duration::from_secs(120))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
@@ -224,9 +224,13 @@ mod tests {
         format!("http://{address}/paper.pdf")
     }
 
+    fn client() -> reqwest::Client {
+        crate::http::async_builder().build().unwrap()
+    }
+
     /// A plain GET of `url` through the proxy.
     async fn fetch(url: &str) -> reqwest::Response {
-        reqwest::get(preview_url(url).await.unwrap()).await.unwrap()
+        client().get(preview_url(url).await.unwrap()).send().await.unwrap()
     }
 
     async fn streams_first_chunk_before_upstream_finishes() {
@@ -272,7 +276,7 @@ mod tests {
         }))
         .await;
         let proxy = preview_url(&url).await.unwrap();
-        let client = reqwest::Client::new();
+        let client = client();
 
         let ranged = client.get(&proxy).header(RANGE, "bytes=1-2").send().await.unwrap();
         assert_eq!(ranged.status(), StatusCode::PARTIAL_CONTENT);
@@ -292,7 +296,7 @@ mod tests {
         let url = origin(get(|| async { Body::from("full PDF") })).await;
         let local = preview_url(&url).await.unwrap();
         assert_eq!(local, preview_url(&format!("{url}#page=2")).await.unwrap());
-        let client = reqwest::Client::new();
+        let client = client();
         let preflight = client.request(Method::OPTIONS, &local).send().await.unwrap();
         assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
         assert_eq!(preflight.headers()[ACCESS_CONTROL_ALLOW_HEADERS], "Range");
@@ -364,7 +368,7 @@ mod tests {
             if forged {
                 proxy = proxy.replace("token=", "token=wrong");
             }
-            assert_eq!(reqwest::get(proxy).await.unwrap().status(), status, "{label}");
+            assert_eq!(client().get(proxy).send().await.unwrap().status(), status, "{label}");
         }
     }
 }

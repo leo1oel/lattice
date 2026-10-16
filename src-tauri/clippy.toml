@@ -1,0 +1,12 @@
+# reqwest is built without a rustls crypto provider (Cargo.toml), so a client
+# built before http::install_tls_provider runs panics. src/http.rs builds them.
+disallowed-methods = [
+  { path = "reqwest::Client::new", reason = "use crate::http::async_builder" },
+  { path = "reqwest::Client::builder", reason = "use crate::http::async_builder" },
+  { path = "reqwest::get", reason = "use crate::http::async_builder" },
+  { path = "reqwest::ClientBuilder::new", reason = "use crate::http::async_builder" },
+  { path = "reqwest::blocking::Client::new", reason = "use crate::http::blocking" },
+  { path = "reqwest::blocking::Client::builder", reason = "use crate::http::blocking" },
+  { path = "reqwest::blocking::get", reason = "use crate::http::blocking" },
+  { path = "reqwest::blocking::ClientBuilder::new", reason = "use crate::http::blocking" },
+]
