@@ -193,6 +193,9 @@ describe("documents and editors", () => {
     renderApp(projectCommands(projectSnapshot({ files: [fileNode("main.tex"), dirNode("chapters", fileNodes("chapters/intro.tex"))] })));
     await waitForSelectedTab("main.tex");
     fireEvent.click(await findProjectTreeItem("chapters/"));
+    // The tree recycles its row elements: until the expanded folder renders,
+    // the row found for main.tex becomes chapters/intro.tex's under the click.
+    await findProjectTreeItem("chapters/intro.tex");
 
     const closeTab = async (name: string) => {
       const close = screen.getByRole("tab", { name }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
