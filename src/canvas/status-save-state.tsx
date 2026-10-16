@@ -41,12 +41,12 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
     : status.phase === "saving" ? t`Saving…`
       : offline ? t`Saved on this Mac`
         : overleaf?.state === "live" ? t`Saved · Synced`
-          : overleaf?.state === "syncing" ? t`Saved · Syncing…`
+          : overleaf?.state === "syncing" || overleaf?.state === "sending" ? t`Saved · Syncing…`
             : t`Saved`;
   // The age is the disk's, so it stays off a label that already speaks of Overleaf.
   const showAge = !failed && status.phase === "saved" && age !== null && (!overleaf || overleaf.state === "manual" || overleaf.state === "paused");
   const icon = failed ? <CircleAlert size={12} aria-hidden="true" />
-    : status.phase === "saving" || overleaf?.state === "syncing" ? <LoaderCircle size={12} aria-hidden="true" className="animate-spin" />
+    : status.phase === "saving" || overleaf?.state === "syncing" || overleaf?.state === "sending" ? <LoaderCircle size={12} aria-hidden="true" className="animate-spin" />
       : offline ? <CloudOff size={12} aria-hidden="true" />
         : overleaf?.state === "live" ? <CloudCheck size={12} aria-hidden="true" />
           : <HardDrive size={12} aria-hidden="true" />;
@@ -101,12 +101,12 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
                   <dt>{t`Overleaf`}</dt>
                   <dd>
                     {overleaf.state === "live" ? t`Live`
-                      : overleaf.state === "syncing" ? t`Syncing…`
+                      : overleaf.state === "syncing" || overleaf.state === "sending" ? t`Syncing…`
                         : overleaf.state === "paused" ? t`Sync paused`
                           : synced ? t`Synced ${synced}` : t`Not synced yet`}
                   </dd>
                   <dd className="word-count-note">
-                    {overleaf.state === "live" ? t`Co-authors see your edits as you type`
+                    {overleaf.state === "live" || overleaf.state === "sending" ? t`Co-authors see your edits as you type`
                       : overleaf.state === "paused" ? t`Resume the link in Overleaf settings to sync again`
                         : t`Co-authors see your changes once you sync`}
                   </dd>

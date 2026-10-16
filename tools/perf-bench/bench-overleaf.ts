@@ -12,6 +12,8 @@
  * away, the state Settings offers to reconnect from; `expired-long` gives the
  * account a 45-character address. `?overleaf=offline` links it but never
  * reaches the live channel, as with the network down.
+ * Overleaf acknowledges each live update after a round trip; `&ack=held`
+ * never does, the edit still on its way that the save slot calls Syncing.
  * The comments are in the page's language (`?lang=`).
  */
 export const NOT_HANDLED = Symbol("not handled");
@@ -29,6 +31,8 @@ type Context = {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
+/** Overleaf's round trip for a live update. */
+const ACK_MS = 150;
 
 const DOCS = [
   { id: "doc-main", path: "main.tex" },
@@ -197,10 +201,16 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
         changes: doc?.id === "doc-main" ? trackedChanges(context) : [], caughtUp: [], resumed: false,
       };
     }
+    case "overleaf_rt_send_ops": {
+      if (context.params.get("ack") !== "held") {
+        const projectRoot = context.root();
+        setTimeout(() => context.emit("overleaf-realtime", { projectRoot, type: "docAck", docId: args?.docId, version: args?.version }), ACK_MS);
+      }
+      return null;
+    }
     case "overleaf_rt_leave_doc":
     case "overleaf_rt_disconnect":
     case "overleaf_rt_update_position":
-    case "overleaf_rt_send_ops":
     case "overleaf_set_permission":
       return null;
     case "overleaf_threads":

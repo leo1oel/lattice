@@ -40,19 +40,40 @@ describe("readManuscript", () => {
   it("reads the root and what it inputs, in reading order, skipping commented-out inputs", async () => {
     const files: Record<string, string> = { "main.tex": MAIN, "sections/method.tex": METHOD, "sections/draft.tex": "draft" };
     const read = vi.fn(async (path: string) => files[path] ?? null);
-    const sources = await readManuscript("main.tex", Object.keys(files), read);
+    const { sources, unread } = await readManuscript("main.tex", Object.keys(files), read);
     expect(sources.map((source) => source.path)).toEqual(["main.tex", "sections/method.tex"]);
+    expect(unread).toEqual([]);
     expect(read).not.toHaveBeenCalledWith("sections/draft.tex");
   });
 
-  it("reads a file inputted twice (or in a cycle) once, and leaves out one it cannot read", async () => {
+  it("reads a file inputted twice (or in a cycle) once, and lists one it cannot read as unread", async () => {
     const files: Record<string, string | null> = {
       "main.tex": "\\input{a}\\input{b}\\input{a}",
       "a.tex": "\\input{main}",
       "b.tex": null,
     };
-    const sources = await readManuscript("main.tex", Object.keys(files), async (path) => files[path] ?? null);
+    const { sources, unread } = await readManuscript("main.tex", Object.keys(files), async (path) => files[path] ?? null);
     expect(sources.map((source) => source.path)).toEqual(["main.tex", "a.tex"]);
+    expect(unread).toEqual(["b.tex"]);
+  });
+
+  it("lists an include nested too deep to follow as unread, unless a shallower include reaches it", async () => {
+    // main → s1 → … → s13: the thirteenth level is past the twelve followed.
+    const files: Record<string, string> = { "main.tex": "\\input{s1}" };
+    for (let level = 1; level <= 13; level += 1) files[`s${level}.tex`] = level < 13 ? `\\input{s${level + 1}}` : "deep";
+    const deep = await readManuscript("main.tex", Object.keys(files), async (path) => files[path] ?? null);
+    expect(deep.unread).toEqual(["s13.tex"]);
+    expect(deep.sources).toHaveLength(13);
+
+    files["main.tex"] = "\\input{s1}\\input{s13}";
+    const reached = await readManuscript("main.tex", Object.keys(files), async (path) => files[path] ?? null);
+    expect(reached.unread).toEqual([]);
+    expect(reached.sources.map((source) => source.path)).toContain("s13.tex");
+  });
+
+  it("does not count an include no project file answers, which TeX may find in its own tree", async () => {
+    const { unread } = await readManuscript("main.tex", ["main.tex"], async () => "\\input{glyphtounicode}");
+    expect(unread).toEqual([]);
   });
 });
 
@@ -83,6 +104,15 @@ describe("reviewPrompt", () => {
     // Comments are not the paper: a TODO to a co-author is not sent.
     expect(prompt).not.toContain("TODO cite more");
     expect(prompt.endsWith("</file>\n</paper>")).toBe(true);
+  });
+
+  it("tells the reviewer which included files it was not given, and says nothing when it has them all", () => {
+    const sources = [{ path: "main.tex", text: "\\documentclass{article}\n\\input{results}\n" }];
+    const partial = reviewPrompt({ sources, unread: ["results.tex"], venue: null, language: "English" });
+    expect(partial.prompt).toContain("These files the paper includes could not be read and are not below: \"results.tex\".");
+    expect(partial.prompt).toMatch(/say in the verdict that those parts were not reviewed/);
+    const whole = reviewPrompt({ sources, unread: [], venue: null, language: "English" });
+    expect(whole.prompt).not.toMatch(/could not be read/);
   });
 
   it("falls back to a peer reviewer, and cuts a paper past the limit short and says so", () => {

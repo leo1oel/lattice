@@ -135,6 +135,21 @@ function stageTypo(files: Map<string, string | Uint8Array>) {
 }
 stageTypo(current.files);
 
+// `?review=unread` has main.tex input a results section whose read fails, as
+// an unreadable file's does, so the review's report says what it did not
+// cover; `?review=unread-long` names that file at length, for narrow panels.
+const UNREAD_INCLUDE = params.get("review") === "unread-long"
+  ? "sections/experimental-results-and-ablations-on-long-context-benchmarks.tex"
+  : "sections/results.tex";
+const unreadInclude = params.get("review")?.startsWith("unread") ?? false;
+function stageUnreadInclude(files: Map<string, string | Uint8Array>) {
+  const main = files.get("main.tex");
+  if (!unreadInclude || typeof main !== "string" || files.has(UNREAD_INCLUDE)) return;
+  files.set("main.tex", main.replace("\\end{document}", `\\input{${UNREAD_INCLUDE.replace(/\.tex$/, "")}}\n\\end{document}`));
+  files.set(UNREAD_INCLUDE, "\\section{Results}\n");
+}
+stageUnreadInclude(current.files);
+
 async function openTutorial(): Promise<ProjectSnapshot> {
   if (current.root !== TUTORIAL_ROOT) {
     const relative = (path: string) => path.slice(path.indexOf("/tutorial/") + "/tutorial/".length);
@@ -145,6 +160,7 @@ async function openTutorial(): Promise<ProjectSnapshot> {
       tutorialFiles.set(relative(path), new Uint8Array(await (await fetch(url)).arrayBuffer()));
     }
     stageTypo(tutorialFiles);
+    stageUnreadInclude(tutorialFiles);
     Object.assign(current, { root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
   }
   return snapshot();
@@ -865,6 +881,7 @@ function answer(command: string, args: Args): unknown {
     case "open_tutorial_project":
       return openTutorial();
     case "read_project_file": {
+      if (unreadInclude && pathArg(args) === UNREAD_INCLUDE) throw new Error("Permission denied (os error 13)");
       const content = current.files.get(pathArg(args));
       if (typeof content !== "string") throw new Error(`No such text file: ${pathArg(args)}`);
       return content;

@@ -120,16 +120,27 @@ describe("the save slot", () => {
     [{ state: "live", lastSync: null }, "Saved · Synced", "saved"],
     [{ state: "offline", lastSync: null }, "Saved on this Mac", "offline"],
     [{ state: "syncing", lastSync: null }, "Saved · Syncing…", "saved"],
+    [{ state: "sending", lastSync: null }, "Saved · Syncing…", "saved"],
   ] as const)("words the Overleaf layer apart from the disk (%o)", (overleaf, name, mode) => {
     renderStatus({ saveSlot: slot({ overleaf }) });
     expect(screen.getByRole("button", { name })).toHaveAttribute("data-mode", mode);
   });
 
   it("calls the Overleaf layer live only for a file the live channel carries", () => {
-    const link = { paused: false, syncing: false, mode: "live", channel: "live", liveFile: true, detail: null } as const;
+    const link = { paused: false, syncing: false, mode: "live", channel: "live", liveFile: true, unacknowledged: false, detail: null } as const;
     expect(overleafSaveState(link)).toBe("live");
+    // Connected is not synced: an edit Overleaf has not acknowledged is still on its way.
+    expect(overleafSaveState({ ...link, unacknowledged: true })).toBe("sending");
     expect(overleafSaveState({ ...link, liveFile: false })).toBe("manual");
     expect(overleafSaveState({ ...link, channel: "connecting", detail: "Reconnecting" })).toBe("offline");
+  });
+
+  it("keeps live editing's promise while an edit is still on its way", () => {
+    renderStatus({ saveSlot: slot({ overleaf: { state: "sending", lastSync: null } }) });
+    fireEvent.click(screen.getByRole("button", { name: "Saved · Syncing…" }));
+    const details = screen.getByRole("dialog", { name: "Save state" });
+    expect(within(details).getByText("Syncing…")).toBeInTheDocument();
+    expect(within(details).getByText("Co-authors see your edits as you type")).toBeInTheDocument();
   });
 
   it("turns red only for a failed write, saying why and how to get the text out", () => {

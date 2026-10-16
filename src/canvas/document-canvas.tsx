@@ -238,6 +238,8 @@ export function DocumentCanvas(props: {
   activeAsset: AssetPreview | null;
   /** The active asset was rewritten on disk: read its new version. */
   onActiveAssetChanged?: () => void;
+  /** Whether a Paper's original PDF is on screen in place of its Markdown. */
+  onPaperPdfOpenChange?: (open: boolean) => void;
   /** The active asset was removed from the project while open. */
   activeAssetMissing?: boolean;
   citationKeys: string[];
@@ -479,6 +481,13 @@ export function DocumentCanvas(props: {
     settledPreviewText,
   });
   const { quoteFallback, returnViewportRef: paperReturnViewportRef } = paperPdf;
+  const paperPdfOpen = paperPdf.pdfView !== null;
+  const { onPaperPdfOpenChange } = props;
+  useLayoutEffect(() => {
+    if (!onPaperPdfOpenChange) return;
+    onPaperPdfOpenChange(paperPdfOpen);
+    return () => onPaperPdfOpenChange(false);
+  }, [onPaperPdfOpenChange, paperPdfOpen]);
   const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownPreviewViewportLockRef = useRef(0);

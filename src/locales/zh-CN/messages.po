@@ -3677,8 +3677,8 @@ msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "无法安全保留此条目中的 BibTeX 表达式。"
 
 #: src/app/use-open-documents.ts
-msgid "Could not save {activeFile}"
-msgstr "{activeFile} 没保存成功"
+msgid "Could not save {failedPath}"
+msgstr "{failedPath} 没保存成功"
 
 #: src/app/use-open-documents.ts
 msgid "Could not save the project"
@@ -8081,6 +8081,14 @@ msgstr "尚未就绪"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "还没同步"
+
+#: src/project/paper-review-panel.tsx
+msgid "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover it."
+msgstr "不是全文：Lattice 读不到 {unreadFiles}，这次审阅没有覆盖它。"
+
+#: src/project/paper-review-panel.tsx
+msgid "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover them."
+msgstr "不是全文：Lattice 读不到 {unreadFiles}，这次审阅没有覆盖这些文件。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
