@@ -160,7 +160,10 @@ export async function createAppSizeReport(workspace = process.cwd()) {
   };
 }
 
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
+// Raised from 1.35 MiB when App.tsx began compiling whole under the React
+// Compiler (2026-10): its memo cache added ~48 KB to the eager `app` chunk.
+// Splitting App further is what wins those bytes back; lower this again then.
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.39 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;
