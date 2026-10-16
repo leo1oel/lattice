@@ -70,11 +70,11 @@ import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { saveSourceCopy } from "./app/save-source-copy";
-import { InterfaceZoomHud } from "./app/interface-zoom-hud";
+import { InterfaceZoomHud as InterfaceZoomPill } from "./app/interface-zoom-hud";
 import { useInterfaceZoom } from "./app/use-interface-zoom";
 import { useWhatsNew } from "./app/use-whats-new";
 import { RUNNING_VERSION } from "./app/whats-new";
-import { overleafSaveState, type OverleafSaveLayer } from "./canvas/save-slot";
+import { overleafSaveState, type SaveSlot } from "./canvas/save-slot";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
@@ -185,6 +185,8 @@ const ConflictResolverDialog = lazy(() =>
 // Memoized: their callbacks come through stable forwarders (useStableHandlers
 // in App), so an editor keystroke does not re-render the file tree or the paper library.
 const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
+// Memoized: its props are stable, and App re-renders on every keystroke.
+const InterfaceZoomHud = memo(InterfaceZoomPill);
 /** Papers' read state while the window's paper list is still another project's. */
 const PAPERS_LOADING = { status: "loading" } as const;
 const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
@@ -1381,13 +1383,23 @@ function App() {
     else void runOverleafSync();
   };
   // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
-  const overleafSaveLayer: OverleafSaveLayer | null = !overleafLink ? null : {
-    lastSync: overleafLink.lastSync,
-    state: overleafSaveState({
-      paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
-      channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile, detail: overleafRealtime.detail,
-    }),
-  };
+  const overleafSaveLayerState = overleafLink ? overleafSaveState({
+    paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
+    channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile, detail: overleafRealtime.detail,
+  }) : null;
+  const overleafLastSync = overleafLink?.lastSync ?? null;
+  const saveSlotHandlers = useStableHandlers({
+    onRetry: () => void documents.save(),
+    onSaveCopy: () => void saveSourceCopy(activeFile, sourceRef.current),
+    onSync: syncOverleaf,
+  });
+  // Memoized, as App re-renders on every keystroke and the slot is a popover.
+  const saveStatus = documents.saveStatus;
+  const saveSlot = useMemo<SaveSlot>(() => ({
+    status: saveStatus,
+    overleaf: overleafSaveLayerState ? { state: overleafSaveLayerState, lastSync: overleafLastSync } : null,
+    ...saveSlotHandlers,
+  }), [overleafLastSync, overleafSaveLayerState, saveSlotHandlers, saveStatus]);
   const editorSelected = agentContext.selectionSource === "editor" && agentContext.selection.trim() !== "";
   /** ⌘K (or ⌘⇧P) opens the palette, and closes it again. */
   const openCommandPalette = () => {
@@ -1972,13 +1984,7 @@ function App() {
       // Papers live under .research/, which Overleaf deliberately
       // excludes from sync.
       editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
-      saveSlot={{
-        status: documents.saveStatus,
-        overleaf: overleafSaveLayer,
-        onRetry: () => void documents.save(),
-        onSaveCopy: () => void saveSourceCopy(activeFile, sourceRef.current),
-        onSync: syncOverleaf,
-      }}
+      saveSlot={saveSlot}
       editorKey={editorKey}
       trellis={{
         editorHost: trellis.hosts.editor,
