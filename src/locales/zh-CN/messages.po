@@ -460,6 +460,26 @@ msgstr "{description}：无法运行 {path}：{error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}：在 PATH 中未找到"
 
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — BibTeX source"
+msgstr "{documentName} — BibTeX 源码"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — HTML source"
+msgstr "{documentName} — HTML 源码"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — LaTeX source"
+msgstr "{documentName} — LaTeX 源码"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — Markdown source"
+msgstr "{documentName} — Markdown 源码"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — source"
+msgstr "{documentName} — 源码"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "正在空白文件夹中用 {engine} 编译…"
@@ -8953,6 +8973,11 @@ msgstr "PDF 页码"
 #: src/project/manuscript-checklist.tsx
 msgid "PDF pages"
 msgstr "PDF 页数"
+
+#: src/pdf/use-pdf-document.ts
+msgctxt "The scrolling area that shows them"
+msgid "PDF pages"
+msgstr "PDF 页面"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "PDF preview paused"

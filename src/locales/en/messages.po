@@ -460,6 +460,26 @@ msgstr "{description}: {path} could not run: {error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}: not found on PATH"
 
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — BibTeX source"
+msgstr "{documentName} — BibTeX source"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — HTML source"
+msgstr "{documentName} — HTML source"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — LaTeX source"
+msgstr "{documentName} — LaTeX source"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — Markdown source"
+msgstr "{documentName} — Markdown source"
+
+#: src/canvas/document-canvas.tsx
+msgid "{documentName} — source"
+msgstr "{documentName} — source"
+
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
 msgstr "{engine} in a clean folder…"
@@ -8951,6 +8971,11 @@ msgid "PDF page number"
 msgstr "PDF page number"
 
 #: src/project/manuscript-checklist.tsx
+msgid "PDF pages"
+msgstr "PDF pages"
+
+#: src/pdf/use-pdf-document.ts
+msgctxt "The scrolling area that shows them"
 msgid "PDF pages"
 msgstr "PDF pages"
 

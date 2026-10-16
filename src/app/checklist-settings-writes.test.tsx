@@ -1,0 +1,117 @@
+import { act, cleanup, render } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import { afterEach, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
+import type { ProjectManifest, ProjectSnapshot } from "../app-types";
+import type { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
+import { AppEditorPanels } from "./app-editor-panels";
+import { showError } from "./notify";
+
+type ChecklistProps = ComponentProps<typeof ManuscriptChecklistPanel>;
+const checklist = vi.hoisted(() => ({ props: null as ChecklistProps | null }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./notify", () => ({ showError: vi.fn() }));
+vi.mock("../trellis/trellis-controller", () => ({ useTrellisController: () => null }));
+vi.mock("../project/manuscript-checklist", () => ({
+  ManuscriptChecklistPanel: (props: ChecklistProps) => {
+    checklist.props = props;
+    return null;
+  },
+}));
+afterEach(() => {
+  cleanup();
+  vi.mocked(invoke).mockReset();
+  vi.mocked(showError).mockReset();
+});
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (reason: unknown) => void = () => undefined;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+const snapshot = (name: string) => ({
+  root: `/${name}`,
+  manifest: { projectId: name, name, rootDocuments: [{ path: `${name}.tex` }] },
+}) as unknown as ProjectSnapshot;
+const answered = (name: string, change: Partial<ProjectManifest>) => ({ ...snapshot(name).manifest, ...change });
+const DEADLINE = { venue: "ICLR", kind: "paper", due: "2027-01-01T23:59" } as const;
+
+/** The panels open on project A's checklist; `current` is what the window shows. */
+function renderPanels() {
+  const window = { current: snapshot("A"), generation: 0 };
+  const captureProjectScope = () => {
+    const { root } = window.current;
+    const generation = window.generation;
+    return () => window.current.root === root && window.generation === generation;
+  };
+  const open = (name: string) => {
+    window.generation += 1;
+    window.current = snapshot(name);
+  };
+  const props = {
+    project: window.current, captureProjectScope,
+    setProject: (update: (current: ProjectSnapshot | null) => ProjectSnapshot | null) => {
+      window.current = update(window.current)!;
+    },
+    activeFile: "A.tex", activeSource: "", openTabs: ["A.tex"], build: null, bodyBoundary: null, pdfPageCount: null,
+    projectWordCount: null, todoHits: [], unusedSymbols: { labels: [], citations: [] }, editorCommentAuthorId: "me",
+    openProjectFile: vi.fn(),
+    tools: { isOpen: { checklist: true }, loading: null, close: vi.fn(), open: vi.fn() },
+    comments: { comments: [], rounds: [], panelOpen: false },
+    annotationRounds: { subscribe: () => () => undefined, getSnapshot: () => ({ roundsOpen: false }) },
+  } as unknown as ComponentProps<typeof AppEditorPanels>;
+  render(<AppEditorPanels {...props} />);
+  return { window, open };
+}
+
+it("installs no manifest a deadline or budget write answers after its project closed", async () => {
+  for (const [save, switches] of [
+    ["deadline", ["B"]], ["deadline", ["B", "A"]], ["budgets", ["B"]], ["budgets", ["B", "A"]],
+  ] as const) {
+    const write = deferred<ProjectManifest>();
+    vi.mocked(invoke).mockReturnValue(write.promise);
+    const { window, open } = renderPanels();
+    act(() => {
+      if (save === "deadline") checklist.props!.onSaveDeadline(DEADLINE);
+      else checklist.props!.onSaveBudgets(8000, 9);
+    });
+    switches.forEach(open);
+    const landed = window.current;
+    await act(async () => {
+      write.resolve(answered("A", save === "deadline" ? { deadline: DEADLINE } : { wordBudget: 8000, pageBudget: 9 }));
+      await write.promise;
+    });
+    expect(window.current).toBe(landed);
+    cleanup();
+  }
+});
+
+it("keeps the newest settings write when an older one answers last, and the project's own failures", async () => {
+  const older = deferred<ProjectManifest>();
+  const newer = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+  const { window, open } = renderPanels();
+  act(() => {
+    checklist.props!.onSaveBudgets(8000, null);
+    checklist.props!.onSaveDeadline(DEADLINE);
+  });
+  await act(async () => {
+    newer.resolve(answered("A", { wordBudget: 8000, deadline: DEADLINE }));
+    await newer.promise;
+    older.resolve(answered("A", { wordBudget: 8000 }));
+    await older.promise;
+  });
+  expect(window.current.manifest).toMatchObject({ name: "A", wordBudget: 8000, deadline: DEADLINE });
+
+  const failing = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(failing.promise);
+  act(() => checklist.props!.onSaveDeadline(null));
+  open("B");
+  await act(async () => {
+    failing.reject(new Error("disk full"));
+    await failing.promise.catch(() => undefined);
+  });
+  expect(showError).not.toHaveBeenCalled();
+});

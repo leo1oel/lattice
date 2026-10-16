@@ -407,6 +407,14 @@ export function DocumentCanvas(props: {
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
   const bibDocument = !props.activePaper && isBibFilePath(activeFile);
+  // The source editor's accessible name: which document, then which kind of
+  // source, so a screen reader tells it from the other editor or a search field.
+  const documentName = props.activePaper?.title || activeFile.slice(activeFile.lastIndexOf("/") + 1);
+  const sourceLabel = isLatexSourcePath(activeFile) ? t`${documentName} — LaTeX source`
+    : markdownDocument ? t`${documentName} — Markdown source`
+    : bibDocument ? t`${documentName} — BibTeX source`
+    : htmlDocument ? t`${documentName} — HTML source`
+    : t`${documentName} — source`;
   // Shown alone, a reference list the file cannot make gives way to the source.
   const bibUnreadable = useBibUnreadable(bibDocument && props.mode === "pdf" ? props.source : null);
   const explicitPreview = props.markdownPreviewSource;
@@ -1509,6 +1517,7 @@ export function DocumentCanvas(props: {
           <CodeMirror
             key={editorKey}
             className="code-editor-root"
+            label={sourceLabel}
             value={props.source}
             editable={props.editorEditable}
             extensions={editorExtensions}

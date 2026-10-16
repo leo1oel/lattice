@@ -193,6 +193,7 @@ export function usePdfDocument({
       loadFailure = reason;
     });
     const { slick, root } = record;
+    root.setAttribute("aria-label", t({ message: "PDF pages", context: "The scrolling area that shows them" }));
     const isActive = () => recordRef.current === record;
     const forwardFindMatches = ({ matchesCount, state }: { matchesCount?: Partial<PdfFindMatches>; state?: number }) => {
       // A pending search still reports the previous query's selection.
@@ -288,6 +289,11 @@ export function usePdfDocument({
       setPdfErrorDetail("");
       callbacks.current.onNumPages?.(pages);
       activate();
+      // A rebuild replaces the pages the reader was paging through by keyboard;
+      // focus follows them rather than falling to the body with the old viewer.
+      if (previous && previous !== record && previous.root.contains(document.activeElement)) {
+        root.focus({ preventScroll: true });
+      }
       if (previous && previous !== record) void destroyViewerRecord(previous);
     };
 

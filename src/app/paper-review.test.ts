@@ -260,6 +260,43 @@ describe("PaperReviews", () => {
     expect(invokeMock.mock.calls.filter(([command]) => command === "read_paper_review")).toHaveLength(1);
   });
 
+  it("never starts a review for the next project when the last one's lookup answers late", async () => {
+    const stored = { version: 1, id: "old", findings: [], verdict: "Kept." };
+    const answerFirst = invokeMock.getMockImplementation()!;
+    const root = deps.projectRootRef as { current: string | null };
+    for (const [switches, answer] of [[["/b"], null], [["/b"], stored], [["/b", "/p"], null], [["/b", "/p"], stored]] as const) {
+      root.current = "/p";
+      review.reset();
+      let release: (value: unknown) => void = () => undefined;
+      const lookup = new Promise((done) => { release = done; });
+      invokeMock.mockImplementation(async (command, args) => (command === "read_paper_review" ? lookup : answerFirst(command, args)));
+      const asked = review.startIfNone();
+      for (const next of switches) {
+        review.reset();
+        root.current = next;
+      }
+      release(answer);
+      await asked;
+      const commands = invokeMock.mock.calls.map(([command]) => command);
+      expect(commands).not.toContain("agent_text_task");
+      expect(commands).not.toContain("save_paper_review");
+      expect(review.getSnapshot()).toMatchObject({ loaded: false, report: null, run: null });
+    }
+  });
+
+  it("starts exactly one review in the project it was asked in when it has none yet", async () => {
+    vi.useFakeTimers();
+    const asked = review.startIfNone();
+    await vi.advanceTimersByTimeAsync(0);
+    const starts = invokeMock.mock.calls.filter(([command, args]) => (
+      command === "agent_text_task" && (args as { action: string }).action === "start"
+    ));
+    expect(starts).toEqual([["agent_text_task", expect.objectContaining({ projectRoot: "/p" })]]);
+    review.cancel();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await asked;
+  });
+
   it("words a failure, and a stop leaves no error", async () => {
     vi.useFakeTimers();
     const failed = review.start();
