@@ -1,21 +1,27 @@
 name: Flake rerun
 
-# When CI fails on main, re-run its failed jobs once. A pass means the first
-# failure was a flake: scripts/known-flakes.mjs comments what failed on the
-# "Known flakes" issue (label `known-flakes`), so main goes green on its own and
-# the next worker who meets that check can look it up instead of re-deriving
-# "it fails on main too". A second failure is real and is left red; this job
-# fails with it. GitHub keeps both attempts on the run page, so a rerun never
-# hides the first failure.
+# A run that passes on a re-run of the same commit failed the attempt before
+# for no reason in the code: that attempt was a flake. `record` gives every
+# such pass to scripts/known-flakes.mjs, which comments what failed on the
+# "Known flakes" issue (label `known-flakes`), so the next worker who meets
+# that check can look it up instead of re-deriving "it fails on main too", and
+# a check seen twice in a week is flagged for quarantine. Most flakes are met
+# on pull requests, whose authors re-run their own red checks, so `record`
+# takes a re-run from any branch, not only main.
 #
-# Only main: a pull request's author reruns their own checks, and a red pull
-# request is the signal they need. Only the first attempt: the re-run's own
-# completion must not re-run it again.
+# When a run fails on main, `rerun` re-runs its failed jobs once, so main goes
+# green on its own; the pass is recorded like any other. A second failure is
+# real and is left red; `rerun` fails with it. GitHub keeps every attempt on
+# the run page, so a rerun never hides the first failure. Only main's pushes:
+# a pull request's author reruns their own checks, and a red pull request is
+# the signal they need. Only the first attempt: the re-run's own completion
+# must not re-run it again.
+#
+# Bench harness is watched beside CI: its smoke test has flaked on main.
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Bench harness]
     types: [completed]
-    branches: [main]
 
 permissions:
   actions: write
@@ -27,6 +33,7 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.run_attempt == 1
     runs-on: ubuntu-latest
     # Covers a re-run that waits for macOS runners behind other lanes.
@@ -36,10 +43,6 @@ jobs:
       REPO: ${{ github.repository }}
       RUN_ID: ${{ github.event.workflow_run.id }}
     steps:
-      - uses: actions/checkout@v7
-        with:
-          sparse-checkout: scripts/known-flakes.mjs
-          sparse-checkout-cone-mode: false
       - name: Re-run the failed jobs once
         run: gh run rerun "$RUN_ID" --failed --repo "$REPO"
       # `gh run watch` could read the finished first attempt before the re-run
@@ -55,9 +58,6 @@ jobs:
           done
           echo "attempt 2: $conclusion"
           echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
-      - name: Record the flake
-        if: steps.rerun.outputs.conclusion == 'success'
-        run: node scripts/known-flakes.mjs --run "$RUN_ID" --attempt 1 --kind rerun
       - name: Leave a real failure red
         if: steps.rerun.outputs.conclusion != 'success'
         env:
@@ -66,3 +66,27 @@ jobs:
         run: |
           echo "Failed twice ($CONCLUSION on the re-run): a real failure, not recorded as a flake. $RUN_URL" | tee -a "$GITHUB_STEP_SUMMARY"
           exit 1
+
+  # The attempt before a passing one is the one that failed. A re-run that
+  # passes after a pass (a whole run re-run by hand) finds no failed job there
+  # and records nothing.
+  record:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.run_attempt > 1
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      KIND: >-
+        ${{ github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' && 'rerun' || 'pr-rerun' }}
+    steps:
+      # workflow_run checks out the default branch, never the run's own
+      # commit, so a pull request cannot change the script that runs here.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/known-flakes.mjs
+          sparse-checkout-cone-mode: false
+      - run: node scripts/known-flakes.mjs --run "$RUN_ID" --attempt "$((ATTEMPT - 1))" --kind "$KIND"

@@ -18,6 +18,11 @@
  *       Synara checkout needed when src-tauri/{synara,presentation}-runtime
  *       are already staged). --as stages a second build beside the first,
  *       e.g. main for a baseline.
+ *   restage <task> [--as SUFFIX]
+ *       Swap a fresh Synara runtime into an already staged bundle without
+ *       rebuilding it: runs `pnpm prepare:synara:dev` (SYNARA_SOURCE_DIR
+ *       picks the checkout), replaces the bundle's synara-runtime and re-signs
+ *       it. For iterations that change only the runtime.
  *   fixture <task> <project-dir> [--name NAME]
  *       Copy a project in as fixture NAME (default "base"). Every run starts
  *       from a fresh copy of it.
@@ -133,6 +138,23 @@ function build(lab, { reuseRuntimes, suffix = "" }) {
   run("codesign", ["--force", "--sign", "-", app]);
   run("chmod", ["-R", "a+rX", app]);
   console.log(`staged ${app}`);
+}
+
+// The app reads the runtime from Contents/Resources/synara-runtime at launch
+// (src-tauri/src/synara.rs), including its manifest.json; nothing in the
+// binary pins its contents, so a swap needs no rebuild. Tauri's bundler copies
+// the resource tree with symlinks (node_modules/.bin) resolved, and so does
+// `cp -L`. The bundle-level ad hoc signature then reseals the new resources.
+function restage(lab, { suffix = "" }) {
+  const app = bundlePath(lab, suffix);
+  if (!existsSync(app)) throw new Error(`${app} is not staged; run build first`);
+  run("pnpm", ["prepare:synara:dev"], { cwd: projectRoot });
+  const bundled = join(app, "Contents/Resources/synara-runtime");
+  run("rm", ["-rf", bundled]);
+  run("cp", ["-RL", join(projectRoot, "src-tauri/synara-runtime"), bundled]);
+  run("codesign", ["--force", "--sign", "-", app]);
+  run("chmod", ["-R", "a+rX", app]);
+  console.log(`restaged ${bundled}`);
 }
 
 function fixture(lab, source, name) {
@@ -468,6 +490,7 @@ async function main() {
     process.exit(2);
   };
   if (command === "build") build(labFor(rest[0]), { reuseRuntimes: options.reuseRuntimes, suffix: options.as ?? "" });
+  else if (command === "restage" && rest[0]) restage(labFor(rest[0]), { suffix: options.as ?? "" });
   else if (command === "fixture" && rest[1]) fixture(labFor(rest[0]), rest[1], options.name ?? "base");
   else if (command === "state" && rest[0] === "save") saveState(labFor(rest[1]));
   else if (command === "run" && rest[2]) {

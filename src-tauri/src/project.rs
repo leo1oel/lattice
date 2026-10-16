@@ -39,6 +39,7 @@ mod symbols;
 pub(crate) mod test_support;
 mod tree;
 
+pub(crate) use annotations::retain_open_annotation_saves;
 pub use annotations::{
     read_annotation_round, read_annotations, save_annotation_round, write_annotations,
     AnnotationRound, Annotations, EditorComment,
@@ -57,6 +58,7 @@ pub(crate) use bibliography::{
 pub use citation_lookup::resolve_citation_query;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use entries::{create_entry, create_open_slide_deck, delete_entry, move_entry, rename_entry};
+pub(crate) use history::retain_open_history;
 pub use history::{
     apply_annotation_restore, apply_citation_transaction, apply_citation_transaction_checked,
     apply_editor_transaction, delete_history, get_history_entry, history, revert,

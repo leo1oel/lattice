@@ -1,9 +1,11 @@
 //! Lattice's Rust host: the Tauri application shell.
 //!
 //! `run` wires plugins, the window lifecycle and the command table together.
-//! Which project each window shows lives in `app_state`; the command handlers
-//! live in `ipc`, one module per area of the app; the behaviour behind them
-//! lives in the domain modules below.
+//! Which project each window shows lives in `app_state`; most command handlers
+//! live in `ipc`, one module per area of the app, while a few self-contained
+//! features (link previews, literature credentials, diagnostic logs, browser
+//! dialogs, the PDF copy text, Synara, Open Slide and the perf lab) register
+//! their own; the behaviour behind them lives in the domain modules below.
 
 mod agent_literature;
 mod alphaxiv;

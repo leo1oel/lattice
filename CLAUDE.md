@@ -23,8 +23,6 @@ node scripts/bump-version.mjs patch   # release: rewrites the version in package
                                       # pushing the tag yourself is what triggers CI to publish.
 ```
 
-The version moves in lockstep across those four files through `bump-version.mjs` only.
-
 Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source.
 Everything else — including `cargo test` and `cargo clippy` — only needs a resource stub for the bundled Synara runtime:
 
@@ -37,17 +35,6 @@ For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at
 its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default is
 `sourceDirectory` in that same file and moves with the pinned branch — derive
 it, don't hardcode it). See CONTRIBUTING.md and `scripts/setup-dev.sh`.
-
-## Gotchas
-
-- Never value-import `tldraw` from eagerly-loaded modules: its barrel has no `sideEffects` flag and drags ~1.5 MB into the startup chunk (`docs/architecture.md` §4.2).
-- `vite.config.ts`'s `shikiTrimPlugin` stubs every shiki grammar/theme outside an allowlist; code that can highlight a new language at runtime must extend it.
-- `panic = "abort"` is intentionally off in `src-tauri/Cargo.toml`'s release profile: a panic must not kill the app with unsaved edits.
-- `scripts/prepare-synara-sidecar.mjs` keeps installed production packages because upstream's externalized imports change between releases.
-  Keep top-level `ajv`, `ajv-formats`, and the runtime JavaScript in `zod` (undeclared runtime requires of the agent SDKs), and verify both the dependency smoke and server entry after pruning.
-  The Claude SDK platform executable must remain a small PATH launcher: sessions use the user's CLI.
-- The App integration suites (`src/app/app-*.test.tsx`) must import `src/app/app-test-utils.tsx` first so its `vi.mock` calls land before any mocked module loads; startup ordering is in `docs/architecture.md` §6.
-- Lint's `--max-warnings` cap in `package.json` is a debt ratchet: lower it when you remove warnings; never raise it.
 
 ## Conventions
 

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+// eslint-disable-next-line no-restricted-imports -- passes a window target and registers alongside onDragDropEvent under one disposed flag, which subscribeTauriEvent cannot express.
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";

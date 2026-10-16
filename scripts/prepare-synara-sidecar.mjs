@@ -108,11 +108,24 @@ function sourceFingerprint(head, excluded = []) {
   return hash.digest("hex");
 }
 
+// A candidate counts only if it runs: pnpm 10 skips dependency install scripts
+// unless package.json allowlists them, and an unbuilt bun package leaves a
+// node_modules/.bin/bun stub that exists but exits with "Bun's postinstall
+// script was not run", which would otherwise shadow a working bun on PATH.
+function runsBun(candidate) {
+  try {
+    capture(candidate, ["--version"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function resolveBun() {
   const configured = process.env.BUN_BIN?.trim();
   const local = join(projectRoot, "node_modules/.bin", process.platform === "win32" ? "bun.exe" : "bun");
-  if (configured && existsSync(configured)) return configured;
-  if (existsSync(local)) return local;
+  if (configured && existsSync(configured) && runsBun(configured)) return configured;
+  if (existsSync(local) && runsBun(local)) return local;
   try {
     return capture(process.platform === "win32" ? "where" : "which", ["bun"], {
       stdio: ["ignore", "pipe", "ignore"],

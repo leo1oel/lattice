@@ -181,7 +181,7 @@ export function parseTrace(text, source = "trace") {
     return parsed;
   } catch {
     try { return { schemaVersion: 1, records: text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)) }; }
-    catch (error) { throw new Error(`${source}: malformed JSON/NDJSON (${error.message})`); }
+    catch (error) { throw new Error(`${source}: malformed JSON/NDJSON (${error.message})`, { cause: error }); }
   }
 }
 

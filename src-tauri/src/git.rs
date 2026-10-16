@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 mod parse;
@@ -104,8 +104,18 @@ static REMOTE_CACHE: LazyLock<Mutex<HashMap<PathBuf, (Instant, Remote)>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 const REMOTE_CACHE_TTL: Duration = Duration::from_secs(30);
 
+/// Forget the remotes of projects no window has open.
+pub(crate) fn retain_open_remotes(open: &HashSet<PathBuf>) {
+    REMOTE_CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .retain(|root, _| open.contains(root));
+}
+
 fn cached_remote(root: &Path) -> Remote {
-    if let Some((resolved_at, remote)) = REMOTE_CACHE.lock().unwrap().get(root) {
+    if let Some((resolved_at, remote)) =
+        REMOTE_CACHE.lock().unwrap_or_else(PoisonError::into_inner).get(root)
+    {
         if resolved_at.elapsed() < REMOTE_CACHE_TTL {
             return remote.clone();
         }
@@ -117,7 +127,10 @@ fn cached_remote(root: &Path) -> Remote {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
     let resolved = (remote, remote_url);
-    REMOTE_CACHE.lock().unwrap().insert(root.to_path_buf(), (Instant::now(), resolved.clone()));
+    REMOTE_CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(root.to_path_buf(), (Instant::now(), resolved.clone()));
     resolved
 }
 

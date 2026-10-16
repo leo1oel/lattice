@@ -4,6 +4,7 @@
  * factory; these helpers only decide what the mocked functions answer.
  */
 import { invoke } from "@tauri-apps/api/core";
+// eslint-disable-next-line no-restricted-imports -- routes the mocked `listen` itself; nothing subscribes here.
 import { listen } from "@tauri-apps/api/event";
 import { act } from "@testing-library/react";
 import { vi } from "vitest";

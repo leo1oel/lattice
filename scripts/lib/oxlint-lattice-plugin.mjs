@@ -1,5 +1,6 @@
 // Lattice's own lint rules, loaded by Oxlint as a JS plugin (.oxlintrc.json
 // `jsPlugins`). Rules use the ESLint rule API, which Oxlint implements.
+import { appTestUtilsFirst } from "./eslint-app-test-utils-first.mjs";
 import { awaitChangedAlert } from "./eslint-await-changed-alert.mjs";
 import { moduleClock } from "./eslint-module-clock.mjs";
 
@@ -29,6 +30,7 @@ const visibleAttributeText = {
 export default {
   meta: { name: "lattice" },
   rules: {
+    "app-test-utils-first": appTestUtilsFirst,
     "await-changed-alert": awaitChangedAlert,
     "module-clock": moduleClock,
     "visible-attribute-text": visibleAttributeText,

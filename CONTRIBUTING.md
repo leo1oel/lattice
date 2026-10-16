@@ -125,7 +125,8 @@ export SYNARA_SOURCE_DIR="$PWD/../synara"
 git clone "$(node -p "require('./scripts/synara-runtime.json').repository")" "$SYNARA_SOURCE_DIR"
 git -C "$SYNARA_SOURCE_DIR" checkout \
   "$(node -p "require('./scripts/synara-runtime.json').revision")"
-# bun is a devDependency of this repo, so no global install is needed.
+# bun is a devDependency of this repo (package.json allowlists its install
+# script for pnpm), so no global install is needed.
 bun_bin="$PWD/node_modules/.bin/bun"
 (cd "$SYNARA_SOURCE_DIR" && "$bun_bin" install --frozen-lockfile)
 

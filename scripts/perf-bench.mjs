@@ -71,6 +71,9 @@
  *                   BRIDGE_NOT_READY; this Chrome falls back to Playwright's
  *                   Chrome for Testing (perf-bench/cdp.mjs).
  *   --port N        the port to serve on (default 18480; 0 picks a free one)
+ *   --stop          SIGTERM the --serve processes started from this checkout
+ *                   (listed in .tmp/perf-bench-serve.pid) and wait for their
+ *                   cleanup; nothing else on the machine is touched
  *   --lang L        the interface language of the page --serve and --smoke
  *                   open: en (default), zh-CN or system
  *   --locale L      with --smoke: the browser language the checked page sees
@@ -85,7 +88,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -110,6 +113,12 @@ const PROBE = readFileSync(path.join(repo, "scripts/perf-bench/probe.js"), "utf8
  * test Lattice builds listen on (18452, 18462, 18472).
  */
 const SERVE_PORT = 18480;
+/**
+ * The --serve processes running from this checkout, one pid per line, so
+ * --stop ends them and nothing else: a machine-wide `pkill -f` takes down
+ * other lanes' servers too.
+ */
+const SERVE_PIDFILE = path.join(repo, ".tmp/perf-bench-serve.pid");
 /** The page's entry, relative to the repository and to a build of it alike. */
 const BENCH_PAGE = "tools/perf-bench/index.html";
 
@@ -129,7 +138,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, against: null, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
+  const options = { runs: 2, against: null, only: null, shard: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dist: null, buildOnly: null, dev: false, serve: false, stop: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -148,6 +157,7 @@ function parseArgs(argv) {
     else if (arg === "--build-only") options.buildOnly = path.resolve(argv[++index]);
     else if (arg === "--profile") options.profile = argv[++index];
     else if (arg === "--serve") options.serve = true;
+    else if (arg === "--stop") options.stop = true;
     else if (arg === "--smoke") options.smoke = true;
     else if (arg === "--chrome") options.chrome = true;
     else if (arg === "--layout") options.layout = true;
@@ -158,6 +168,7 @@ function parseArgs(argv) {
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
+  if (options.stop && argv.length !== 1) throw new Error("--stop ends this checkout's --serve processes; it takes no other option");
   if (options.buildOnly && argv.length !== 2) throw new Error("--build-only builds the page and exits; it takes no other option");
   if (options.dist && (options.dev || options.url)) throw new Error("--dist serves a production build; it cannot take --dev or --url");
   if (options.dist && !existsSync(path.join(options.dist, BENCH_PAGE))) throw new Error(`--dist: ${options.dist} holds no ${BENCH_PAGE}; build it with --build-only`);
@@ -399,6 +410,7 @@ function benchUrl(origin, extra = {}) {
  * with --smoke, once the app mounted in it).
  */
 async function serve(options) {
+  recordServePid();
   const vite = await startPage(options, { port: options.port, live: options.dev });
   const url = benchUrl(vite.origin, { theme: "system", lang: options.lang });
   await step("checking that the page answers", () => assertAnswers(url));
@@ -424,12 +436,69 @@ async function serve(options) {
   await new Promise(() => {});
 }
 
+function servePids() {
+  try {
+    return readFileSync(SERVE_PIDFILE, "utf8").split("\n").filter(Boolean).map(Number);
+  } catch {
+    return [];
+  }
+}
+
+function writeServePids(pids) {
+  if (pids.length) writeFileSync(SERVE_PIDFILE, pids.map((pid) => `${pid}\n`).join(""));
+  else rmSync(SERVE_PIDFILE, { force: true });
+}
+
+/** Whether `pid` is still a perf-bench process, not a stale entry whose pid the system reused. */
+function isPerfBench(pid) {
+  try {
+    return execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("perf-bench");
+  } catch {
+    return false;
+  }
+}
+
+/** Adds this process to the pidfile, and takes it out again however the process exits. */
+function recordServePid() {
+  mkdirSync(path.dirname(SERVE_PIDFILE), { recursive: true });
+  writeServePids([...servePids().filter((pid) => pid !== process.pid && isPerfBench(pid)), process.pid]);
+  process.on("exit", () => writeServePids(servePids().filter((pid) => pid !== process.pid)));
+}
+
+/** `--stop`: SIGTERM (which runs the cleanup) each live --serve from this checkout, then wait for it to exit. */
+async function stopServers() {
+  const pids = servePids().filter(isPerfBench);
+  writeServePids(pids);
+  if (!pids.length) {
+    console.log("perf-bench: no --serve process from this checkout is running");
+    return;
+  }
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // It exited since the check.
+    }
+  }
+  // The shutdown grace (shutdown.mjs) is 15 s; allow a little more.
+  const deadline = Date.now() + 20_000;
+  let alive = pids;
+  while (alive.length && Date.now() < deadline) {
+    await sleep(250);
+    alive = alive.filter(isPerfBench);
+  }
+  // Each server takes itself out on exit; this also drops one that could not.
+  writeServePids(servePids().filter(isPerfBench));
+  if (alive.length) throw new Error(`--serve ${alive.join(", ")} still running 20 s after SIGTERM`);
+  console.log(`perf-bench: stopped --serve ${pids.join(", ")}`);
+}
+
 async function assertAnswers(url) {
   let response;
   try {
     response = await fetch(url);
   } catch (error) {
-    throw new Error(`nothing answered at ${url}: ${error.cause?.message ?? error.message}`);
+    throw new Error(`nothing answered at ${url}: ${error.cause?.message ?? error.message}`, { cause: error });
   }
   if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
 }
@@ -679,6 +748,7 @@ function formatTable(results) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.buildOnly) return buildOnly(options.buildOnly);
+  if (options.stop) return stopServers();
   if (options.serve) return serve(options);
   if (options.smoke) return smoke(options);
   const { scenarios, checks } = selectWork(options);

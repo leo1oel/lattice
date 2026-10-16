@@ -3,12 +3,15 @@
 // a red check up before investigating it (docs/agent-validation.md, "A failed
 // check"). Two workflows call it:
 //
-//   flake-rerun.yml  a CI run on main failed, its failed jobs were re-run once
-//                    and passed; `--kind rerun` records what failed the first
-//                    time. A run that fails twice is not recorded: it is red.
+//   flake-rerun.yml  a CI or Bench harness run passed on a re-run of the same
+//                    commit, so what failed the attempt before was a flake:
+//                    `--kind rerun` when it is main's own re-run of a failed
+//                    push, `--kind pr-rerun` for any other (a pull request's
+//                    author re-running a red check). A run that fails twice is
+//                    not recorded: it is red.
 //   flake-hunt.yml   the nightly stress pass failed; `--kind hunt`.
 //
-//   node scripts/known-flakes.mjs --run <run id> --attempt <n> --kind rerun|hunt [--dry-run]
+//   node scripts/known-flakes.mjs --run <run id> --attempt <n> --kind rerun|pr-rerun|hunt [--dry-run]
 //
 // Needs GH_TOKEN and GITHUB_REPOSITORY (owner/name). --dry-run prints the
 // comment instead of posting it. Each event is one comment, so concurrent
@@ -34,6 +37,7 @@ const MAX_PER_JOB = 5;
 export function failuresInLog(log) {
   const found = new Set();
   for (const raw of log.split("\n")) {
+    // eslint-disable-next-line no-control-regex -- matches ANSI colour codes (ESC [ … m)
     const line = raw.replace(/\x1b\[[0-9;]*m/g, "").replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, "").trimEnd();
     const match =
       // Vitest's summary: ` FAIL  src/a.test.tsx > suite > test`
@@ -48,6 +52,22 @@ export function failuresInLog(log) {
     if (ceiling) found.add(`perf-bench ceiling: ${ceiling[1]}`);
   }
   return [...found];
+}
+
+const KINDS = ["rerun", "pr-rerun", "hunt"];
+
+/**
+ * The comment's first line: what kind of sighting this is, in which workflow
+ * (flake-rerun.yml watches more than CI), and where to read the failed attempt.
+ * A pull request's run names the pull request, unless it came from a fork,
+ * which the run does not link.
+ */
+export function headline(kind, attempt, run) {
+  const where = `[${run.name} run ${run.id}](${run.html_url}/attempts/${attempt}) · \`${run.head_sha.slice(0, 7)}\``;
+  if (kind === "hunt") return `**Failed in the nightly flake hunt** · ${where}`;
+  if (kind === "rerun") return `**Flaky on main**: attempt ${attempt} failed, the re-run of its failed jobs passed · ${where}`;
+  const pulls = (run.pull_requests ?? []).map((pull) => `#${pull.number}`).join(", ");
+  return `**Flaky on ${pulls ? `pull request ${pulls}` : `\`${run.head_branch}\``}**: attempt ${attempt} failed, a re-run of the same commit passed · ${where}`;
 }
 
 /** Times `check` was recorded in the issue's comments within the last week. */
@@ -107,8 +127,8 @@ async function main() {
   const dryRun = values["dry-run"];
   const repo = process.env.GITHUB_REPOSITORY;
   const token = process.env.GH_TOKEN;
-  if (!run || !repo || !token || (kind !== "rerun" && kind !== "hunt")) {
-    throw new Error("usage: GH_TOKEN=… GITHUB_REPOSITORY=owner/name known-flakes.mjs --run <id> --attempt <n> --kind rerun|hunt [--dry-run]");
+  if (!run || !repo || !token || !KINDS.includes(kind)) {
+    throw new Error(`usage: GH_TOKEN=… GITHUB_REPOSITORY=owner/name known-flakes.mjs --run <id> --attempt <n> --kind ${KINDS.join("|")} [--dry-run]`);
   }
   const gh = api(repo, token);
 
@@ -143,10 +163,7 @@ async function main() {
     if (checks.length > MAX_PER_JOB) lines.push(`- \`${job.name}\`: ${checks.length - MAX_PER_JOB} more in [the log](${job.html_url})`);
   }
 
-  const what = kind === "rerun"
-    ? `**Flaky on main**: attempt ${attempt} failed, the re-run of its failed jobs passed`
-    : "**Failed in the nightly flake hunt**";
-  const body = `${what} · [run ${run}](${details.html_url}/attempts/${attempt}) · \`${details.head_sha.slice(0, 7)}\`\n\n${lines.join("\n")}\n`;
+  const body = `${headline(kind, attempt, details)}\n\n${lines.join("\n")}\n`;
 
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${body}\nRecorded in ${issue.html_url}\n`);
   if (dryRun) {
