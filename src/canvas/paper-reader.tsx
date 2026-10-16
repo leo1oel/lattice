@@ -6,6 +6,7 @@ import type { AgentHostSurface } from "../agent/agent-host-context";
 import type { FileViewState, PaperSummary } from "../app-types";
 import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
+import { SavedViewState } from "./saved-view-state";
 import type { usePaperPdf } from "./use-paper-pdf";
 
 /**
@@ -45,7 +46,8 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
   onOpenMarkdownPath: (path: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onTextSelect: (value: string) => void;
-  pdfViewState: { initialViewState?: FileViewState["pdf"]; onViewState: (state: FileViewState["pdf"]) => void };
+  /** The original PDF's saved place, read as it opens (see saved-view-state.tsx), and its writer. */
+  pdfViewState: { read: () => FileViewState["pdf"] | undefined; onViewState: (state: FileViewState["pdf"]) => void };
 }) {
   const { t } = useLingui();
   const shellRef = useRef<HTMLElement | null>(null);
@@ -127,22 +129,26 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
               ) : undefined}
             </PdfPreviewLoading>
           ) : <Suspense fallback={<PdfPreviewLoading />}>
-            <PdfPreview
-              key={`paper-pdf:${view.key}`}
-              url={view.previewUrl}
-              pdfBytes={view.bytes}
-              fileName={view.fileName}
-              initialPage={view.initialPage}
-              sourceQuote={view.quote}
-              onLoadError={() => pdf.fallbackToQuote(view.quote)}
-              saveLabel={t`Download PDF`}
-              timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
-              onTextSelect={props.onTextSelect}
-              onPageChange={pdf.rememberPage}
-              {...props.pdfViewState}
-              onDocumentData={view.bytes ? undefined : pdf.capturePdf}
-              toolbarStart={toolbarStart}
-            />
+            <SavedViewState key={`paper-pdf:${view.key}`} read={props.pdfViewState.read}>
+              {(initialViewState) => (
+                <PdfPreview
+                  url={view.previewUrl}
+                  pdfBytes={view.bytes}
+                  fileName={view.fileName}
+                  initialPage={view.initialPage}
+                  sourceQuote={view.quote}
+                  onLoadError={() => pdf.fallbackToQuote(view.quote)}
+                  saveLabel={t`Download PDF`}
+                  timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
+                  onTextSelect={props.onTextSelect}
+                  onPageChange={pdf.rememberPage}
+                  initialViewState={initialViewState}
+                  onViewState={props.pdfViewState.onViewState}
+                  onDocumentData={view.bytes ? undefined : pdf.capturePdf}
+                  toolbarStart={toolbarStart}
+                />
+              )}
+            </SavedViewState>
           </Suspense>}
         </div>
       ) : markdown}
