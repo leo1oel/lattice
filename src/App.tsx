@@ -108,6 +108,7 @@ import { registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsh
 import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
 import {
   EMPTY_DIAGNOSTICS,
+  diagnosticMatchesFile,
   flattenProjectPaths,
   resolveDiagnosticPath,
   type CompileDiagnostic,
@@ -255,7 +256,7 @@ function App() {
   ) => Promise<void>>(async () => undefined);
   const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const canvasRequests = useCanvasRequests();
-  const { update: updateCanvasRequest } = canvasRequests;
+  const { update: updateCanvasRequest, settle: settleRequest } = canvasRequests;
   // Speculative preview work skips the open document, so it is set up after
   // the store; every open cancels it through this forwarder.
   const cancelPrewarmRef = useRef(() => {});
@@ -673,6 +674,30 @@ function App() {
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
+  // A failed build's suggested fix (compile-explain.ts): the replacement lands
+  // in the editor as a transaction, so ⌘Z takes it back like typing, and once
+  // the canvas has applied it the file is saved and built again. A token that
+  // is no longer on its line changes nothing, and the build reports what is.
+  const pendingReplaceRef = useRef<string | null>(null);
+  const replaceDiagnosticToken = useCallback(async (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
+    const line = diagnostic.line;
+    if (!project || !line) return;
+    const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
+    await showingErrors(async () => {
+      await openFile(path, { line });
+      const id = crypto.randomUUID();
+      pendingReplaceRef.current = id;
+      updateCanvasRequest("replace", { path, line, token, replacement, id });
+    });
+  }, [activeFile, openFile, project, updateCanvasRequest]);
+  const settleCanvasRequest = useCallback((id: string) => {
+    settleRequest(id);
+    if (id !== pendingReplaceRef.current) return;
+    pendingReplaceRef.current = null;
+    void (async () => {
+      if (flush() && await save()) await compileRef.current();
+    })();
+  }, [flush, save, settleRequest]);
 
   const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({
@@ -1794,6 +1819,9 @@ function App() {
               synara.showThread(threadId);
             }}
             onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
+            sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
+            onReplaceToken={(diagnostic, token, replacement) => void replaceDiagnosticToken(diagnostic, token, replacement)}
+            onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
           />
         </Suspense>
       ) : null}
@@ -1822,7 +1850,7 @@ function App() {
       nativeFigureDropActive={tree.drops.editor}
       fileDropTargetActive={tree.drops.fileTarget}
       requests={canvasRequests.requests}
-      onRequestHandled={canvasRequests.settle}
+      onRequestHandled={settleCanvasRequest}
       onEditorPosition={handleEditorPosition}
       onCompletionActiveChange={documents.canvas.onCompletionActiveChange}
       onViewState={(path, state) => rememberFileViewState(path, { text: state })}

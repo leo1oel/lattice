@@ -327,6 +327,8 @@ export type CanvasRequests = {
   figure: FigureDropRequest | null;
   /** Proofread or polish the source editor's selection, as its ⌘⌥P and selection toolbar do. */
   proofread: { mode: "proofread" | "polish"; id: string } | null;
+  /** Replace `token` on a line of `path` (a failed build's suggested fix). */
+  replace: { path: string; line: number; token: string; replacement: string; id: string } | null;
 };
 
 // ---- Overleaf bridge ----------------------------------------------------

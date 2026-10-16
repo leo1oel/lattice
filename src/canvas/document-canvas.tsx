@@ -44,7 +44,7 @@ import {
   type EditorCommentsExtensionOptions,
 } from "../editor/comments/editor-comments";
 import { clamp, type AppLocale, type Theme } from "../settings/app-settings";
-import { editorDiagnosticsForFile, type CompileDiagnostic } from "../build/compile-diagnostics";
+import { editorDiagnosticsForFile, replaceTokenOnLine, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
 import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
@@ -363,7 +363,7 @@ export function DocumentCanvas(props: {
   const settledSource = props.settledSource ?? editorSource;
   const {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
-    cite: citeInsertRequest, figure: figureDropRequest, proofread: proofreadRequest,
+    cite: citeInsertRequest, figure: figureDropRequest, proofread: proofreadRequest, replace: tokenReplaceRequest,
   } = props.requests;
   const { t } = useLingui();
   const annotationPinLabel = useCallback((numbers: number[]) => {
@@ -971,6 +971,23 @@ export function DocumentCanvas(props: {
       onRequestHandled(request.id);
     });
   }, [activeFile, editorNavigation, editorSource, onRequestHandled, props.mode]);
+  // A failed build's suggested fix, once the file it names is the one shown:
+  // App opens it at the line first, so this lands as a jump does.
+  useEffect(() => {
+    const request = tokenReplaceRequest;
+    if (!request || request.path !== activeFile) return;
+    if (props.mode === "pdf" || props.mode === "asset") return;
+    const targetView = () => primaryViewRef.current ?? editorViewRef.current;
+    if (!targetView()) return;
+    return landWhenReady(targetView, editorSource, (view) => {
+      const edit = props.editorEditable
+        ? replaceTokenOnLine(view.state.doc.toString(), request.line, request.token, request.replacement)
+        : null;
+      if (edit) editAndFocus(view, { changes: edit, selection: { anchor: edit.from + edit.insert.length } });
+      editorViewRef.current = view;
+      onRequestHandled(request.id);
+    });
+  }, [activeFile, editorSource, onRequestHandled, props.editorEditable, props.mode, tokenReplaceRequest]);
   useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;

@@ -423,7 +423,7 @@ async function serve(options) {
   if (chrome && !options.chrome) await chrome.close();
   console.log(`Lattice bench page (${options.dev ? "dev server, live reload" : `production build in ${vite.outDir}`}):`);
   console.log(`  ${url}`);
-  console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext|library, build=clean|failed|running, keepStorage=1,");
+  console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext|library, build=clean|failed|typo|running, keepStorage=1,");
   console.log(`  the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters),`);
   console.log("  and a large project's paperCount, bibEntries, historyEntries and gitVersions.");
   if (options.chrome) {

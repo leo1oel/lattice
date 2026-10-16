@@ -113,6 +113,21 @@ const tutorialBinary = import.meta.glob<string>(
 );
 const current = { root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files };
 
+/**
+ * `?build=typo`: main.tex mistypes \citep as \cietp, the build fails on it
+ * and also warns (an unresolved citation, an overfull line), so the
+ * explained build error can be looked at. The tutorial's first \citep is the
+ * one mistyped; the fixture, which cites nothing, gets a paragraph that does.
+ */
+function stageTypo(files: Map<string, string | Uint8Array>) {
+  const main = files.get("main.tex");
+  if (params.get("build") !== "typo" || typeof main !== "string" || main.includes("\\cietp")) return;
+  files.set("main.tex", main.includes("\\citep{")
+    ? main.replace("\\citep{", "\\cietp{")
+    : main.replace("\\end{document}", "Attention follows \\citep{bahdanau2015} and \\citep{vaswani2017}; see \\cietp{luong2015effective}.\n\\end{document}"));
+}
+stageTypo(current.files);
+
 async function openTutorial(): Promise<ProjectSnapshot> {
   if (current.root !== TUTORIAL_ROOT) {
     const relative = (path: string) => path.slice(path.indexOf("/tutorial/") + "/tutorial/".length);
@@ -122,6 +137,7 @@ async function openTutorial(): Promise<ProjectSnapshot> {
     for (const [path, url] of Object.entries(tutorialBinary)) {
       tutorialFiles.set(relative(path), new Uint8Array(await (await fetch(url)).arrayBuffer()));
     }
+    stageTypo(tutorialFiles);
     Object.assign(current, { root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
   }
   return snapshot();
@@ -383,8 +399,9 @@ const counts = new Map<string, number>();
 
 /**
  * A successful build with a handful of warnings, the fixture's log and PDF.
- * `?build=clean` drops the warnings and `?build=failed` fails it, for looking
- * at the other results.
+ * `?build=clean` drops the warnings, `?build=failed` fails it and
+ * `?build=typo` fails it on a mistyped command (stageTypo), for looking at
+ * the other results.
  */
 /** The passes a build of the fixture runs, as latexmk announces them: pdflatex, bibtex, pdflatex again. */
 const BUILD_STEPS = [
@@ -415,27 +432,48 @@ function buildResult() {
     { level: "warning", message: "There were undefined references.", file: "main.tex", line: 4 },
     { level: "warning", message: "Overfull \\hbox (4.2pt too wide) in paragraph", file: "chapters/ch01.tex", line: 12 },
   ];
+  const typo = outcome === "typo" ? typoBuild() : null;
+  const failed = outcome === "failed" || typo !== null;
   return {
-    success: outcome !== "failed",
+    success: !failed,
     hasPdf: true,
-    log: outcome === "failed" ? failedBuildLog() : fixture.buildLog,
+    log: outcome === "failed" ? failedBuildLog(["./main.tex:6: Undefined control sequence.", "l.6 \\include{chapters/ch02}", "                         "])
+      : typo ? failedBuildLog(typo.log) : fixture.buildLog,
     durationMs: 1_234,
     diagnostics: outcome === "clean" ? []
       : outcome === "failed" ? [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 6 }]
-        : warnings,
+        : typo ? typo.diagnostics : warnings,
     rootDocument: "main.tex",
     // The failed build stops in its first pass.
-    steps: outcome === "failed" ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : BUILD_STEPS,
-    pages: outcome === "failed" ? null : sizes.pdfPages ?? PLAYBOOK_FIXTURE.pdfPages,
+    steps: failed ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : BUILD_STEPS,
+    pages: failed ? null : sizes.pdfPages ?? PLAYBOOK_FIXTURE.pdfPages,
     synctex: true,
   };
 }
 
+/** What TeX reports for stageTypo's \\cietp, at the line it is on now: fixed, the build succeeds again. */
+function typoBuild() {
+  const lines = String(current.files.get("main.tex") ?? "").split("\n");
+  const index = lines.findIndex((text) => text.includes("\\cietp"));
+  if (index < 0) return null;
+  const line = index + 1;
+  const text = lines[index]!;
+  const end = text.indexOf("\\cietp") + "\\cietp".length;
+  return {
+    log: [`./main.tex:${line}: Undefined control sequence.`, `l.${line} ${text.slice(0, end)}`, `${" ".repeat(end + 4)}${text.slice(end)}`],
+    diagnostics: [
+      { level: "error", message: "Undefined control sequence.", file: "main.tex", line },
+      { level: "warning", message: "Citation `luong2015effective' on page 1 undefined on input line " + line + "." },
+      { level: "warning", message: "Overfull \\hbox (6.1pt too wide) in paragraph at lines 38--41", file: "main.tex", line: 38 },
+    ],
+  };
+}
+
 /** The fixture's log with TeX's error two thirds of the way down, where a real one stops the run. */
-function failedBuildLog() {
+function failedBuildLog(error: string[]) {
   const lines = fixture.buildLog.split("\n");
   const at = Math.floor(lines.length * 2 / 3);
-  lines.splice(at, 0, "./main.tex:6: Undefined control sequence.", "l.6 \\include{chapters/ch02}", "                         ");
+  lines.splice(at, 0, ...error);
   return lines.join("\n");
 }
 
