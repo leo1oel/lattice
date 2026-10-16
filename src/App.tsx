@@ -41,7 +41,11 @@ import { useSyncTexNavigation } from "./app/use-synctex-navigation";
 import { useSynaraHost } from "./app/use-synara-host";
 import { useAgentContext } from "./app/use-agent-context";
 import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
-import { loadBibliographyIndex, useProjectLibrary } from "./app/use-project-library";
+import { useProjectLibrary } from "./app/use-project-library";
+import { useProjectHistoryItems } from "./app/use-project-history-items";
+import { addSpellingWordToProject } from "./app/project-spelling-action";
+import { submitSymbolRename, type ReferenceHits } from "./app/symbol-rename-action";
+import { removeReference } from "./app/remove-reference-action";
 import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
 import { useSettledSource } from "./app/use-settled-source";
 import {
@@ -132,15 +136,12 @@ import type {
   EditorPosition,
   PaperSummary,
   RenameTarget,
-  RenameSymbolResult,
   SettingsTab,
   InsertSymbolCommand,
   ViewRestoreRequest,
   OverleafStatus,
 } from "./app-types";
 import {
-  chooseAction,
-  confirmAction,
   isOpenSlideDeckPath,
   isProjectAssetFilePath,
   isProjectSourceFilePath,
@@ -154,20 +155,6 @@ import { logAction } from "./telemetry/app-notify";
 // live beside the hooks extracted out of this file so both can use them.
 import { showError, showWarning, showingErrors } from "./app/notify";
 import "./App.css";
-
-type RemoveReferenceResult = {
-  key: string;
-  removed: boolean;
-  blockers: SymbolOccurrence[];
-  changedFiles: string[];
-  removedCitations: number;
-  transactionId?: string | null;
-  changes?: Array<{
-    path: string;
-    before: string;
-    after: string;
-  }>;
-};
 
 const loadTexlabLanguage = () => import("./build/texlab-language");
 const SettingsDialog = lazy(() =>
@@ -327,25 +314,9 @@ function App() {
   }, []);
   // The ref is read by the presence hook, which must not re-subscribe on every keystroke.
   const [editorPosition, setEditorPosition, editorPositionRef] = useRefState<EditorPosition | null>(null);
-  const addProjectSpellingWord = useCallback(async (word: string) => {
-    const current = projectRef.current;
-    const normalized = word.trim();
-    if (!current || !normalized) return false;
-    const words = current.manifest.spellingWords ?? [];
-    if (words.some((existing) => existing.toLocaleLowerCase() === normalized.toLocaleLowerCase())) return true;
-    try {
-      const manifest = await invoke<ProjectManifest>("set_project_spelling_words", {
-        words: [...words, normalized],
-      });
-      if (projectRef.current?.root === current.root) {
-        setProject((snapshot) => snapshot ? { ...snapshot, manifest } : snapshot);
-      }
-      return true;
-    } catch (reason) {
-      showError(toMessage(reason));
-      return false;
-    }
-  }, [projectRef, setProject]);
+  const addProjectSpellingWord = useCallback((word: string) => (
+    addSpellingWordToProject(word, { projectRef, setProject })
+  ), [projectRef, setProject]);
   const setViewRestore = useCallback((update: SetStateAction<ViewRestoreRequest | null>) => {
     updateCanvasRequest("restore", update);
   }, [updateCanvasRequest]);
@@ -417,11 +388,7 @@ function App() {
   const [commandOverlay, setCommandOverlay] = useState<
     { kind: "palette"; recentCommands: string[]; recentFiles: string[] } | { kind: "shortcuts" } | null
   >(null);
-  const [referenceHits, setReferenceHits] = useState<{
-    kind: "label" | "citation";
-    symbol: string;
-    occurrences: SymbolOccurrence[];
-  } | null>(null);
+  const [referenceHits, setReferenceHits] = useState<ReferenceHits | null>(null);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [newEntryRequest, setNewEntryRequest] = useState<NewEntryRequest | null>(null);
   const requestNewEntry = useCallback((type: NewEntryType) => {
@@ -496,10 +463,86 @@ function App() {
   const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
   const { resetQueue: resetBuildQueue, cycleDiagnostic, setDiagnosticsExpanded } = buildPipeline;
-  const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
-    resetAgentCheckpoints();
-    resetBuildQueue(cancelQueuedBuild);
-  }, [resetAgentCheckpoints, resetBuildQueue]);
+  // App's actions whose identity is a contract rather than a cache: effects
+  // clean up through them (the reset below cancels the queued build when it
+  // reruns), the canvas's request effects depend on settleCanvasRequest, and
+  // builds and Settings are reached from hooks, refs, the palette and memoized
+  // panels. Each forwarder keeps its identity for App's lifetime and calls the
+  // body App last committed, so a body may read state declared further down;
+  // the React Compiler caches everything else App renders. Declared ahead of
+  // the effects and hooks that call them: the latest bodies land in a layout
+  // effect, which must run before theirs.
+  const {
+    resetAgentCompileTracking, compile, compileAndShowPdf, openCompileDiagnostic,
+    showSettingsTab, openSettings, closeSettings, settleCanvasRequest,
+  } = useStableHandlers({
+    resetAgentCompileTracking: (cancelQueuedBuild = false) => {
+      resetAgentCheckpoints();
+      resetBuildQueue(cancelQueuedBuild);
+    },
+    compile: async (
+      force = false,
+      sound = false,
+      options?: { consumeAgentAssociations?: boolean },
+    ) => {
+      if (!project) return;
+      await runBuild(force, {
+        immediatePreview: true,
+        requested: true,
+        sound,
+        consumeAgentAssociations: options?.consumeAgentAssociations,
+      });
+    },
+    /**
+     * An explicit build (button, palette) also brings a closed or hidden PDF
+     * panel back under Trellis; in focus mode the PDF stays as the writer set it.
+     */
+    compileAndShowPdf: (
+      force?: boolean,
+      sound?: boolean,
+      options?: { consumeAgentAssociations?: boolean },
+    ) => {
+      if (!trellis.ui.get().focus) trellis.showPanel("pdf", { focus: false });
+      return compile(force, sound, options);
+    },
+    openCompileDiagnostic: async (diagnostic: CompileDiagnostic) => {
+      if (!project) return;
+      const path = resolveDiagnosticPath(
+        diagnostic.file,
+        flattenProjectPaths(project.files),
+        activeFile,
+      );
+      if (!path) {
+        showError(diagnostic.message);
+        return;
+      }
+      await showingErrors(async () => {
+        await openFile(path, { line: diagnostic.line ?? undefined });
+        setDiagnosticsExpanded(true);
+      });
+    },
+    showSettingsTab: (tab: SettingsTab) => {
+      if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
+      setSettingsTab(tab);
+      persistSettingsTab(tab);
+    },
+    /** Opens on `tab`, or without one on the page Settings was last left on; on `reveal`'s row, if given. */
+    openSettings: (requested?: SettingsTab, returnFocus: HTMLElement | null = null, reveal: SettingsSearchEntry | null = null) => {
+      showSettingsTab(requested ?? loadSettingsTab());
+      setSettingsEntry({ returnFocus, reveal, page: requested !== undefined || reveal !== null });
+      startSettingsOpen(() => setSettingsOpen(true));
+    },
+    // An urgent update after the opening transition's: it also withdraws a
+    // pending open, so a Settings closed from its loading shell stays closed.
+    closeSettings: () => {
+      setSettingsOpen(false);
+      setSettingsEntry({ returnFocus: null, reveal: null, page: false });
+    },
+    settleCanvasRequest: (id: string) => {
+      settleRequest(id);
+      settleBuildErrorFix(id);
+    },
+  });
   useEffect(() => {
     resetAgentCompileTracking();
     return () => resetAgentCompileTracking();
@@ -561,32 +604,9 @@ function App() {
   const isFullscreen = useFullscreen();
   const shellRef = useRef<HTMLDivElement | null>(null);
 
-  const projectHistory = useMemo(() => [...history, ...agentCheckpoints.historyItems].sort((left, right) => (
-    right.timestamp.localeCompare(left.timestamp)
-  )), [agentCheckpoints.historyItems, history]);
+  const projectHistory = useProjectHistoryItems(history, agentCheckpoints.historyItems);
 
-  const compile = useCallback(async (
-    force = false,
-    sound = false,
-    options?: { consumeAgentAssociations?: boolean },
-  ) => {
-    if (!project) return;
-    await runBuild(force, {
-      immediatePreview: true,
-      requested: true,
-      sound,
-      consumeAgentAssociations: options?.consumeAgentAssociations,
-    });
-  }, [project, runBuild]);
   useLayoutEffect(() => { compileRef.current = compile; }, [compile]);
-  /**
-   * An explicit build (button, palette) also brings a closed or hidden PDF
-   * panel back under Trellis; in focus mode the PDF stays as the writer set it.
-   */
-  const compileAndShowPdf = useCallback<typeof compile>((...args) => {
-    if (!trellis.ui.get().focus) trellis.showPanel("pdf", { focus: false });
-    return compile(...args);
-  }, [compile, trellis]);
 
   // ---- Overleaf bridge -----------------------------------------------------
   // Link discovery, syncing, the realtime channel and everything that rides it
@@ -671,22 +691,6 @@ function App() {
   const unresolvedComments = editorComments.all.filter((comment) => !comment.resolved).length;
   const unresolvedCommentsRef = useLatestRef(unresolvedComments);
 
-  const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
-    if (!project) return;
-    const path = resolveDiagnosticPath(
-      diagnostic.file,
-      flattenProjectPaths(project.files),
-      activeFile,
-    );
-    if (!path) {
-      showError(diagnostic.message);
-      return;
-    }
-    await showingErrors(async () => {
-      await openFile(path, { line: diagnostic.line ?? undefined });
-      setDiagnosticsExpanded(true);
-    });
-  }, [activeFile, openFile, project, setDiagnosticsExpanded]);
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
@@ -701,13 +705,6 @@ function App() {
     const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
     void buildErrorFix.replaceToken(path, line, token, replacement);
   };
-  // Stable, as the canvas's request effects depend on it.
-  const { settleCanvasRequest } = useStableHandlers({
-    settleCanvasRequest: (id: string) => {
-      settleRequest(id);
-      settleBuildErrorFix(id);
-    },
-  });
 
   const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({
@@ -1040,30 +1037,10 @@ function App() {
 
   const submitRename = useCallback(async (name: string) => {
     if (!renameTarget) return;
-    try {
-      if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
-        const result = await invoke<RenameSymbolResult>("rename_symbol", {
-          kind: renameTarget.kind,
-          oldName: renameTarget.kind === "label" ? renameTarget.label : renameTarget.key,
-          newName: name,
-        });
-        applyBibliographyIndex(await loadBibliographyIndex());
-        await refreshUnusedSymbols();
-        await refreshHistory();
-        if (result.changedFiles.includes(activeFile)) await loadFile(activeFile);
-        forgetIncludedSources();
-        setReferenceHits((current) => current && { kind: renameTarget.kind, symbol: name, occurrences: [] });
-        await showSymbolReferences(renameTarget.kind, name);
-      } else if (renameTarget.kind === "environment") {
-        updateCanvasRequest("rename", { newName: name, id: crypto.randomUUID() });
-      } else if (renameTarget.kind === "wrap-environment") {
-        updateCanvasRequest("wrap", { name, id: crypto.randomUUID() });
-      }
-      setRenameError(null);
-      setRenameTarget(null);
-    } catch (reason) {
-      setRenameError(toMessage(reason));
-    }
+    await submitSymbolRename(renameTarget, name, {
+      activeFile, loadFile, applyBibliographyIndex, refreshUnusedSymbols, refreshHistory, forgetIncludedSources,
+      setReferenceHits, showSymbolReferences, updateCanvasRequest, setRenameError, setRenameTarget,
+    });
   }, [
     activeFile, forgetIncludedSources, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences,
     updateCanvasRequest, applyBibliographyIndex,
@@ -1085,143 +1062,17 @@ function App() {
     () => openFile(occurrence.path, { line: occurrence.line }),
   ), [openFile]);
 
-  const deletePaper = useCallback(async (paper: PaperSummary) => {
-    if (!paper.citationKey) {
-      showError(t`This bibliography entry has no citation key to remove.`);
-      return;
-    }
-    const projectRoot = project?.root;
-    if (!projectRoot) return;
-    const operationIsCurrent = captureProjectScope();
-    try {
-      // The blocker scan runs in Rust against durable project files. Flush the
-      // editor first so a citation removed moments ago does not survive only
-      // on disk and produce a blocker the visible document cannot find.
-      if (!flush()) return;
-      if (!await save()) return;
-      const bibliographyPath = project?.manifest.primaryBibliography;
-      const preview = await invoke<RemoveReferenceResult>("remove_reference", {
-        key: paper.citationKey,
-        citationMode: "preview",
-        projectRoot,
-      });
-      if (!operationIsCurrent()) return;
-      let citationMode: "keep" | "remove" | undefined;
-      const confirmationTitle = t({ message: `Remove “${{ title: paper.title }}” from the bibliography?` });
-      if (preview.blockers.length) {
-        const count = preview.blockers.length;
-        const first = preview.blockers[0];
-        const citationCount = count === 1
-          ? t`This entry is cited in 1 place.`
-          : t({ message: `This entry is cited in ${{ count }} places.` });
-        const location = first
-          ? t({ message: `The first is at ${{ path: first.path }}:${{ line: first.line }}.` })
-          : "";
-        const choice = await chooseAction({
-          title: confirmationTitle,
-          message: [
-            citationCount,
-            location,
-            t`Keeping the citation commands will leave them unresolved.`,
-            t`Downloaded paper files will be kept.`,
-          ].filter(Boolean).join(" "),
-          confirmLabel: t`Remove citations too`,
-          alternativeLabel: t`Keep citations`,
-          alternativeDestructive: true,
-          destructive: true,
-        });
-        if (choice === "cancel") return;
-        citationMode = choice === "confirm" ? "remove" : "keep";
-      } else {
-        const confirmed = await confirmAction({
-          title: confirmationTitle,
-          message: t`Downloaded paper files will be kept.`,
-          confirmLabel: t`Remove entry`,
-          destructive: true,
-        });
-        if (!confirmed) return;
-      }
-      if (!operationIsCurrent()) return;
-      const result = await invoke<RemoveReferenceResult>("remove_reference", {
-        key: paper.citationKey,
-        ...(citationMode ? { citationMode } : {}),
-        projectRoot,
-      });
-      if (!operationIsCurrent()) return;
-      if (!result.removed) {
-        const first = result.blockers[0];
-        const citationCommand = `\\cite{${paper.citationKey}}`;
-        const blocker = first ? `${first.path}:${first.line}` : "";
-        showError(first
-          ? t`The bibliography changed while removing ${citationCommand} (${blocker}). Try again.`
-          : t`Could not remove ${citationCommand}.`);
-        return;
-      }
-
-      // The user can keep editing while the confirmation is
-      // open. Rust returns the exact input/output pair for every file so the UI
-      // can refuse to merge a stale whole-file result into a newer buffer.
-      let conflictPath: string | null = null;
-      for (const change of result.changes ?? []) {
-        const diverged = (text: string) => text !== change.before && text !== change.after;
-        if (activeFileRef.current === change.path && diverged(sourceRef.current)) {
-          conflictPath = change.path;
-          break;
-        }
-      }
-      if (conflictPath) {
-        // Revert itself is compare-and-swap guarded. If disk also changed,
-        // leave both versions intact and direct the user to History.
-        const reverted = Boolean(result.transactionId) && await invoke("revert_transaction", {
-          transactionId: result.transactionId, projectRoot,
-        }).then(() => true, () => false);
-        if (operationIsCurrent()) {
-          showError(reverted
-            ? t`${conflictPath} changed while the reference was being removed. Nothing was removed; try again.`
-            : t`${conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History.`);
-          await refreshProject();
-          await refreshHistory();
-        }
-        return;
-      }
-
-      const changedFiles = result.changedFiles?.length ? result.changedFiles : bibliographyPath ? [bibliographyPath] : [];
-      const returnedChanges = new Map((result.changes ?? []).map((change) => [change.path, change.after]));
-      for (const path of changedFiles) {
-        const content = returnedChanges.get(path) ?? await invoke<string>("read_project_file", { path, projectRoot });
-        if (path === activeFile && accept(path, content)) await markDiskVersion();
-      }
-      if (activePaper && paperKey(activePaper) === paperKey(paper)) leavePaper();
-      await refreshProject();
-      await refreshHistory();
-    } catch (reason) {
-      showError(toMessage(reason));
-    }
-  }, [
+  const deletePaper = useCallback((paper: PaperSummary) => removeReference(paper, {
+    project, captureProjectScope, flush, save, activeFile, activeFileRef, sourceRef, accept, markDiskVersion,
+    activePaper, leavePaper, refreshProject, refreshHistory,
+  }), [
     accept, activeFile, activeFileRef, activePaper, flush, leavePaper, markDiskVersion, project,
-    refreshHistory, refreshProject, save, sourceRef, t, captureProjectScope,
+    refreshHistory, refreshProject, save, sourceRef, captureProjectScope,
   ]);
 
-  const showSettingsTab = useCallback((tab: SettingsTab) => {
-    if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
-    setSettingsTab(tab);
-    persistSettingsTab(tab);
-  }, [requestSynaraRuntime]);
 
-  /** Opens on `tab`, or without one on the page Settings was last left on; on `reveal`'s row, if given. */
-  const openSettings = useCallback((requested?: SettingsTab, returnFocus: HTMLElement | null = null, reveal: SettingsSearchEntry | null = null) => {
-    showSettingsTab(requested ?? loadSettingsTab());
-    setSettingsEntry({ returnFocus, reveal, page: requested !== undefined || reveal !== null });
-    startSettingsOpen(() => setSettingsOpen(true));
-  }, [showSettingsTab]);
   useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
 
-  // An urgent update after the opening transition's: it also withdraws a
-  // pending open, so a Settings closed from its loading shell stays closed.
-  const closeSettings = useCallback(() => {
-    setSettingsOpen(false);
-    setSettingsEntry({ returnFocus: null, reveal: null, page: false });
-  }, []);
 
   const settingsDialog = (<>
     {settingsLate && (

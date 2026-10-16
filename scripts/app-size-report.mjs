@@ -160,7 +160,12 @@ export async function createAppSizeReport(workspace = process.cwd()) {
   };
 }
 
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
+// Raised from 1.35 MiB when App.tsx began compiling whole under the React
+// Compiler (2026-10): its memo cache added ~60 KB to the eager `app` chunk
+// (1,375,178 -> 1,435,677 bytes on CI), accepted for 19-46% fewer renders per
+// interaction. Splitting App further is what wins those bytes back; lower
+// this again then.
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;

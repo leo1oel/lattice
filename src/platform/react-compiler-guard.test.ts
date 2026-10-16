@@ -16,9 +16,8 @@ import { describe, expect, it } from "vitest";
  * cleared bailout lowers the pin in the same change; never raise one without
  * a comment explaining why.
  *
- * Current ceilings (2026-08): the rest are a
- * staged cleanup — App.tsx needs its ~35 try/finally callback bodies hoisted
- * to module helpers, DocumentCanvas is skipped wholesale because its
+ * Current ceilings (2026-10): App.tsx now compiles whole; the rest are a
+ * staged cleanup — DocumentCanvas is skipped wholesale because its
  * intentional-stability memos carry react-hooks/exhaustive-deps disables
  * (that pattern conflicts with compiler memoization and needs its own
  * design), and the remaining files have render-phase ref writes pending a
@@ -30,9 +29,16 @@ const CEILINGS: Record<string, number> = {
   // Lattice Shares branches went. The open documents, the project lifecycle,
   // the project tree, SyncTeX navigation and the LaTeX structure then moved
   // into the hooks below, taking every try/finally and inline import() with
-  // them, so the compiler now gets as far as App's manual memoization: the 11
-  // left are dependency lists it cannot preserve, one report per callback.
-  "src/App.tsx": 11,
+  // them, so the compiler got as far as App's manual memoization: 11 reports
+  // of dependency lists it could not preserve. Those went once the actions
+  // whose identity is a contract moved into App's stable handler map, the
+  // last three try/catch bodies moved to src/app action helpers, and the
+  // history list into its own hook; App now compiles whole.
+  "src/App.tsx": 0,
+  "src/app/use-project-history-items.ts": 0,
+  "src/app/project-spelling-action.ts": 0,
+  "src/app/symbol-rename-action.ts": 0,
+  "src/app/remove-reference-action.ts": 0,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.

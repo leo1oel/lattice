@@ -319,11 +319,11 @@ msgstr "{command} runs past a blank line"
 msgid "{confirmedCount} of {total} confirmed"
 msgstr "{confirmedCount} of {total} confirmed"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
 msgstr "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "{conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History."
 msgstr "{conflictPath} changed while the reference was being removed. The newer text was preserved; review the removal in History."
 
@@ -3814,7 +3814,7 @@ msgstr "Could not record Overleaf's {scopedPermission} permission locally ({deta
 msgid "Could not remove {0} from Overleaf: {1}"
 msgstr "Could not remove {0} from Overleaf: {1}"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Could not remove {citationCommand}."
 msgstr "Could not remove {citationCommand}."
 
@@ -4484,7 +4484,7 @@ msgstr "Download paper"
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Downloaded paper files will be kept."
 msgstr "Downloaded paper files will be kept."
 
@@ -6550,7 +6550,7 @@ msgstr "Keep both"
 msgid "Keep both, yours first"
 msgstr "Keep both, yours first"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Keep citations"
 msgstr "Keep citations"
 
@@ -6594,7 +6594,7 @@ msgstr "Keeping both"
 msgid "Keeping Overleaf's"
 msgstr "Keeping Overleaf's"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Keeping the citation commands will leave them unresolved."
 msgstr "Keeping the citation commands will leave them unresolved."
 
@@ -10292,7 +10292,7 @@ msgstr "Release to focus {title} · Esc to cancel"
 msgid "Remove"
 msgstr "Remove"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Remove “{title}” from the bibliography?"
 msgstr "Remove “{title}” from the bibliography?"
 
@@ -10313,11 +10313,11 @@ msgstr "Remove {word} from project dictionary"
 msgid "Remove % comments"
 msgstr "Remove % comments"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Remove citations too"
 msgstr "Remove citations too"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "Remove entry"
 msgstr "Remove entry"
 
@@ -12733,7 +12733,7 @@ msgstr "The argument of {command} contains a blank line, which usually means a m
 msgid "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
 msgstr "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
 msgstr "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
 
@@ -12847,7 +12847,7 @@ msgstr "The files already read as {name}."
 msgid "The first changes, marked this way"
 msgstr "The first changes, marked this way"
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
 
@@ -13182,7 +13182,7 @@ msgstr "This bibliography can't be shown as a list"
 msgid "This bibliography can't be shown as a list until it reads as BibTeX."
 msgstr "This bibliography can't be shown as a list until it reads as BibTeX."
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "This bibliography entry has no citation key to remove."
 msgstr "This bibliography entry has no citation key to remove."
 
@@ -13222,11 +13222,11 @@ msgstr "This document drifted from Overleaf's copy, so live editing stopped. Syn
 msgid "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 msgstr "This document drifted while live editing started, so Lattice stopped joining it. Syncing will reconcile it."
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "This entry is cited in {count} places."
 msgstr "This entry is cited in {count} places."
 
-#: src/App.tsx
+#: src/app/remove-reference-action.ts
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
 
