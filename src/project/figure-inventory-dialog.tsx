@@ -10,11 +10,10 @@ import { Button } from "../components/ui/button";
 import { InlineMessage } from "../components/ui/inline-message";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
-import { figureReplacement, isFigureAsset, scanFigureInventory, type FigureUse } from "./figure-inventory";
+import { figureArgument, figureReplacement, isFigureAsset, scanFigureInventory, type FigureUse } from "./figure-inventory";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
+import type { FigureEdit as Edit } from "./figure-undo";
 import "./figure-inventory.css";
-
-type Edit = { path: string; before: string; after: string };
 
 /** Each successful file is undoable, including when a later compare-and-swap fails. */
 async function writeFigureEdits(root: string, edits: Edit[], current: () => boolean, applied: (edit: Edit) => void) {
@@ -47,7 +46,7 @@ async function applyFigureEdits(options: {
     }
     await writeFigureEdits(root, edits, current, (edit) => {
       applied.push(edit);
-      if (current()) setUndo((previous) => restoring ? previous.filter((item) => item.path !== edit.path) : [...previous.filter((item) => item.path !== edit.path), { ...edit, before: previous.find((item) => item.path === edit.path)?.before ?? edit.before }]);
+      if (ownsProject()) setUndo((previous) => restoring ? previous.filter((item) => item.path !== edit.path) : [...previous.filter((item) => item.path !== edit.path), { ...edit, before: previous.find((item) => item.path === edit.path)?.before ?? edit.before }]);
     });
   } catch (reason) { if (current()) setError(toMessage(reason)); }
   finally {
@@ -93,6 +92,7 @@ export function FigureInventoryDialog(props: {
   onOpen: OpenProjectFile; onClose: () => void;
   beforeWrite: () => Promise<boolean>; afterWrite: () => Promise<void>;
   captureProjectScope: () => () => boolean;
+  undo: Edit[]; setUndo: (update: (previous: Edit[]) => Edit[]) => void;
 }) {
   const { t } = useLingui();
   const paths = useMemo(() => flattenProjectPaths(props.project.files), [props.project.files]);
@@ -107,7 +107,6 @@ export function FigureInventoryDialog(props: {
   const [selected, setSelected] = useState<string | null>(null);
   const [target, setTarget] = useState("");
   const [plan, setPlan] = useState<Edit[] | null>(null);
-  const [undo, setUndo] = useState<Edit[]>([]);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
@@ -142,7 +141,7 @@ export function FigureInventoryDialog(props: {
   const write = (edits: Edit[], restoring: boolean) => applyFigureEdits({
     root: props.project.root, edits, ownsProject: props.captureProjectScope(), mounted,
     beforeWrite: props.beforeWrite, afterWrite: props.afterWrite,
-    setBusy, setError, setUndo, restoring,
+    setBusy, setError, setUndo: props.setUndo, restoring,
     finish: () => { setPlan(null); setRevision((value) => value + 1); },
   });
   const count = inventory.uses.length;
@@ -151,11 +150,11 @@ export function FigureInventoryDialog(props: {
     <p className="drawer-copy">{t`All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images.`}</p>
     <div className="figure-actions">
       <Button disabled={busy || loading} onClick={() => setRevision((value) => value + 1)}>{t`Refresh`}</Button>
-      {!!undo.length && <Button disabled={busy} onClick={() => void write(undo.map((edit) => ({ path: edit.path, before: edit.after, after: edit.before })), true)}>{t`Undo replacement`}</Button>}
+      {!!props.undo.length && <Button disabled={busy} onClick={() => void write(props.undo.map((edit) => ({ path: edit.path, before: edit.after, after: edit.before })), true)}>{t`Undo replacement`}</Button>}
     </div>
     {busy && <p role="status">{t`Applying figure changes…`}</p>}
     {error && <InlineMessage level="error">{error}</InlineMessage>}
-    {!!undo.length && <InlineMessage>{t`Changes are recorded per file in project history. Undo remains available if a later file fails.`}</InlineMessage>}
+    {!!props.undo.length && <InlineMessage>{t`Changes are recorded per file in project history. Undo remains available if a later file fails.`}</InlineMessage>}
     {loading ? <p role="status">{t`Reading figure usages…`}</p> : <p>{t`${count} literal graphics commands found`}</p>}
     {!!unreadable.length && <InlineMessage level="warning">{t`Could not read:`} {unreadable.join(", ")}</InlineMessage>}
     {!!inventory.limited.length && <InlineMessage level="warning">{t`Static coverage is limited in:`} {inventory.limited.join(", ")}</InlineMessage>}
@@ -189,7 +188,7 @@ export function FigureInventoryDialog(props: {
         }}>{t`Preview replacement`}</Button>
         {freshPlan && <div className="figure-replacement">
           <p>{t`Only the listed graphics arguments will change. Image files stay in place.`}</p>
-          {uses.map((use) => <p key={`${use.source}:${use.from}`}>{use.source}:{use.line}<br /><del>{use.raw}</del> → <ins>{target}</ins></p>)}
+          {uses.map((use) => <p key={`${use.source}:${use.from}`}>{use.source}:{use.line}<br /><del>{use.raw}</del> → <ins>{figureArgument(target)}</ins></p>)}
           <Button variant="primary" disabled={busy} onClick={() => void write(freshPlan, false)}>{t`Replace listed usages`}</Button>
         </div>}
       </>}

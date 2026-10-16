@@ -14,6 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
+import { useProjectFigureUndo } from "../project/figure-undo";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { useLinkedFileStats } from "../project/submission-item-state";
 import { collectFilePaths } from "./workspace-restore";
@@ -125,6 +126,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const { t } = useLingui();
   const [figuresOpen, setFiguresOpen] = useState(false);
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
+  const [figureUndo, setFigureUndo] = useProjectFigureUndo(project.root);
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
   // The budgets, the deadline and the items each read the manifest, change it
@@ -315,7 +317,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
       {figuresOpen && <Suspense fallback={null}><FigureInventoryDialog
         key={project.root} project={project} activeFile={activeFile} activeSource={activeSource} onOpen={props.openFigureFile}
         onClose={() => setFiguresOpen(false)} beforeWrite={props.beforeFigureWrite} afterWrite={props.afterFigureWrite}
-        captureProjectScope={props.captureProjectScope}
+        captureProjectScope={props.captureProjectScope} undo={figureUndo} setUndo={setFigureUndo}
       /></Suspense>}
 >>>>>>> b9b74c3f (feat: inspect figure usages and preview reversible replacements)
       {tools.isOpen.checklist && project && (

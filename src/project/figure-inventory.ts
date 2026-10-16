@@ -93,6 +93,11 @@ export function scanFigureInventory(sources: Record<string, string>, paths: stri
   return { uses, limited: [...limited] };
 }
 
+/** The exact graphics argument a replacement writes, shared by the preview. */
+export function figureArgument(target: string) {
+  return `\\detokenize{${target}}`;
+}
+
 /** Replace only the previewed arguments, in reverse offset order; comments and captions stay intact. */
 export function figureReplacement(sources: Record<string, string>, uses: FigureUse[], target: string) {
   if (!isFigureAsset(target) || /[\\{}%#\r\n]/.test(target)) throw new Error(t`This figure path cannot be inserted safely.`);
@@ -101,7 +106,7 @@ export function figureReplacement(sources: Record<string, string>, uses: FigureU
     let after = before;
     for (const use of uses.filter((use) => use.source === path).sort((a, b) => b.from - a.from)) {
       if (before.slice(use.from, use.to) !== use.raw) throw new Error(t`The figure source changed. Refresh and preview again.`);
-      after = after.slice(0, use.from) + `\\detokenize{${target}}` + after.slice(use.to);
+      after = after.slice(0, use.from) + figureArgument(target) + after.slice(use.to);
     }
     return { path, before, after };
   });
