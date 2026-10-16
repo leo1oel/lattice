@@ -109,30 +109,32 @@ export default function ArxivExportDialog({ projectRoot, projectName, save, buil
     });
     if (!zipPath) return;
     setExporting(true);
-    try {
-      await invoke("export_arxiv_package", { projectRoot, options, digest: pack.digest, zipPath });
-      notifySuccess(t`Export for arXiv`, t`Exported ${fileName}`, {
-        detail: t`Upload it at arXiv’s Add Files step.`,
-        primaryAction: { label: t`Show in Finder`, onClick: () => revealItemInDir(zipPath) },
-      });
-      onClose();
-    } catch (reason) {
-      notifyError(t`Export for arXiv`, t`Could not export for arXiv`, { detail: toMessage(reason) });
-      // The pack changed after its checks: check what is there now.
+    const exported = await invoke("export_arxiv_package", { projectRoot, options, digest: pack.digest, zipPath }).then(
+      () => true,
+      (reason: unknown) => {
+        notifyError(t`Export for arXiv`, t`Could not export for arXiv`, { detail: toMessage(reason) });
+        return false;
+      },
+    );
+    setExporting(false);
+    if (!exported) {
+      // The pack changed after its checks, most likely: check what is there now.
       recheck();
-    } finally {
-      setExporting(false);
+      return;
     }
+    notifySuccess(t`Export for arXiv`, t`Exported ${fileName}`, {
+      detail: t`Upload it at arXiv’s Add Files step.`,
+      primaryAction: { label: t`Show in Finder`, onClick: () => revealItemInDir(zipPath) },
+    });
+    onClose();
   };
 
+  // The build reports its own failure; either way, check what it left.
   const buildFirst = async () => {
     setBuilding(true);
-    try {
-      await build();
-    } finally {
-      setBuilding(false);
-      recheck();
-    }
+    await build().catch(() => {});
+    setBuilding(false);
+    recheck();
   };
 
   const status = running
