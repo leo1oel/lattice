@@ -42,7 +42,6 @@ export function useGitVersions(props: {
   // A full read may have left older versions out; reloads keep reading as far back as was asked.
   const [hasOlder, setHasOlder] = useState(() => entries.length >= LOG_PAGE);
   const logLimit = useRef(LOG_PAGE);
-  const loaded = useRef<GitLogEntry[]>([]);
 
   const callbacksRef = useRef(props);
   useEffect(() => {
@@ -57,12 +56,11 @@ export function useGitVersions(props: {
     setError("");
     try {
       // Asked together: the log of a folder that is not a repository is empty.
-      let limit = logLimit.current;
-      const readLog = () => invoke<GitLogEntry[]>("git_log", { limit }).then(
+      const limit = logLimit.current;
+      const log = invoke<GitLogEntry[]>("git_log", { limit }).then(
         (entries) => ({ entries }),
         (reason: unknown) => ({ reason }),
       );
-      const log = readLog();
       const status = await invoke<GitStatus>("git_status");
       if (seq !== loadSeq.current) return;
       if (!status.available || !status.repository) {
@@ -70,23 +68,9 @@ export function useGitVersions(props: {
         setPhase(status.available ? "no-repo" : "unavailable");
         return;
       }
-      let read = await log;
+      const read = await log;
       if (seq !== loadSeq.current) return;
-      // Versions saved since the last read push the oldest out of a full
-      // page; read that many more (a page more while the last read's newest
-      // is not yet in sight), so a version once listed (and picked) stays.
-      const newest = loaded.current[0]?.hash;
-      const reach = limit;
-      while (newest && "entries" in read && read.entries.length >= limit) {
-        const saved = read.entries.findIndex((entry) => entry.hash === newest);
-        if (saved !== -1 && saved + reach <= limit) break;
-        limit = saved === -1 ? limit + LOG_PAGE : saved + reach;
-        logLimit.current = limit;
-        read = await readLog();
-        if (seq !== loadSeq.current) return;
-      }
       if ("entries" in read) {
-        loaded.current = read.entries;
         if (root) lastLog.set(root, read.entries);
         setEntries(read.entries);
         setHasOlder(read.entries.length >= limit);
@@ -112,7 +96,6 @@ export function useGitVersions(props: {
   useEffect(() => {
     const cancelLoad = () => { ++loadSeq.current; };
     logLimit.current = LOG_PAGE;
-    loaded.current = [];
     void loadRef.current();
     const refresh = () => { void load(); };
     const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;

@@ -39,6 +39,18 @@ const NOW_SETTLE_MS = 300;
 
 type ComparedFile = { path: string; kind: GitLogFileKind; oldPath?: string };
 
+/** The log with each picked version it no longer holds put back where its time places it. */
+function withPicked(entries: readonly GitLogEntry[], picked: ReadonlyArray<GitLogEntry | null>): GitLogEntry[] {
+  const list = [...entries];
+  for (const entry of picked) {
+    if (!entry || list.some((candidate) => candidate.hash === entry.hash)) continue;
+    const time = Date.parse(entry.timestamp);
+    const at = list.findIndex((candidate) => Date.parse(candidate.timestamp) < time);
+    list.splice(at === -1 ? list.length : at, 0, entry);
+  }
+  return list;
+}
+
 /** What a side is called: a version's own name, or Now. */
 function sideName(side: string, entries: readonly GitLogEntry[], now: string): string {
   if (side === NOW) return now;
@@ -55,22 +67,22 @@ export function CompareVersions(props: {
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const { i18n, t } = useLingui();
-  const { entries } = props.versions;
+  const { entries: logged } = props.versions;
   const [showAutomatic, setShowAutomatic] = useState(false);
-  const [chosenFrom, setFrom] = useState<string | null>(null);
-  const [chosenTo, setTo] = useState(NOW);
+  const [chosenFrom, setFrom] = useState<GitLogEntry | null>(null);
+  const [chosenTo, setTo] = useState<GitLogEntry | null>(null);
   const [chosenPath, setChosenPath] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [mode, setMode] = useState<"prose" | "source">("prose");
   const files = useLatestLoad<ComparedFile[]>();
   const fileDiff = useLatestLoad<GitFileDiff>();
   // Until a side is picked, From is the newest version someone saved or named
-  // (else the newest at all) and To is now; a picked version that leaves the
-  // list (the log reloads after a restore) gives way to them again.
-  const known = (hash: string | null) => Boolean(hash && entries.some((entry) => entry.hash === hash));
-  const to = known(chosenTo) ? chosenTo : NOW;
+  // (else the newest at all) and To is now. A picked version stays picked and
+  // listed until another is picked, though the log read later leaves it out.
+  const entries = withPicked(logged, [chosenFrom, chosenTo]);
+  const to = chosenTo?.hash ?? NOW;
   const older = entries.slice(entries.findIndex((entry) => entry.hash === to) + 1);
-  const from = (known(chosenFrom) ? chosenFrom : null)
+  const from = chosenFrom?.hash
     ?? (older.find((entry) => !isAutomaticVersion(entry.message)) ?? older[0])?.hash
     ?? "";
   const toRev = to === NOW ? null : to;
@@ -178,10 +190,10 @@ export function CompareVersions(props: {
                   <em>{entry ? meta(entry) : t`Including changes not saved as a version`}</em>
                 </span>
                 <span role="cell">
-                  <input type="radio" name="compare-from" aria-label={t`From ${name}`} checked={from === side} disabled={index <= toIndex} onChange={() => setFrom(side)} />
+                  <input type="radio" name="compare-from" aria-label={t`From ${name}`} checked={from === side} disabled={index <= toIndex} onChange={() => setFrom(entry ?? null)} />
                 </span>
                 <span role="cell">
-                  <input type="radio" name="compare-to" aria-label={t`To ${name}`} checked={to === side} disabled={index >= fromIndex} onChange={() => setTo(side)} />
+                  <input type="radio" name="compare-to" aria-label={t`To ${name}`} checked={to === side} disabled={index >= fromIndex} onChange={() => setTo(entry ?? null)} />
                 </span>
               </div>
             );

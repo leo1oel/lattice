@@ -108,7 +108,7 @@ describe("CompareVersions", () => {
     expect(screen.queryByRole("button", { name: "Load older versions" })).not.toBeInTheDocument();
   });
 
-  it("keeps a picked version at the end of a full page when new versions are saved", async () => {
+  it("keeps a picked version picked when later reads of the log leave it out", async () => {
     const submitted = entry("d".repeat(40), "Submitted to NeurIPS", 1);
     const history = [
       entry("a".repeat(40), "Rebuttal draft", 20),
@@ -116,26 +116,32 @@ describe("CompareVersions", () => {
       submitted,
       entry("f".repeat(40), "Initialize version tracking", 1),
     ];
-    mockRepository({ git_log: ({ limit }: Record<string, unknown>) => history.slice(0, limit as number) });
+    let compare: (args: Record<string, unknown>) => unknown = () => [{ path: "main.tex", kind: "modified" }];
+    mockRepository({
+      git_log: ({ limit }: Record<string, unknown>) => history.slice(0, limit as number),
+      git_compare_files: (args: Record<string, unknown>) => compare(args),
+    });
     const emit = mockListen();
     renderCompare();
     await openCompare();
     fireEvent.click(screen.getByRole("radio", { name: "From Submitted to NeurIPS" }));
     await waitFor(() => expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null }));
 
-    history.unshift(entry("e".repeat(40), "Auto-saved version", 21));
+    // A version saved on top pushes it out of the page read.
+    history.unshift(entry("e".repeat(40), "Camera-ready draft", 21));
     emit({ root: "/papers/attention", paths: ["main.tex"] });
-    expect(await screen.findByRole("button", { name: "Show 99 automatic versions" })).toBeInTheDocument();
-    expect(invokeCalls("git_log").at(-1)).toEqual({ limit: 101 });
+    expect(await screen.findByText("Camera-ready draft")).toBeInTheDocument();
+    expect(invokeCalls("git_log").at(-1)).toEqual({ limit: 100 });
     expect(screen.getByRole("radio", { name: "From Submitted to NeurIPS" })).toBeChecked();
     expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null });
 
-    // More than a page saved at once (a pull) still keeps it.
-    history.unshift(...Array.from({ length: 150 }, (_, index) => entry(`b${String(index).padStart(39, "0")}`, "Auto-saved version", 22)));
+    // Gone from history altogether (an amend or a reset): said, not swapped for another version.
+    history.splice(0, history.length, ...Array.from({ length: 150 }, (_, index) => entry(`b${String(index).padStart(39, "0")}`, "Auto-saved version", 22)));
+    compare = () => Promise.reject(new Error("Unknown version dddddddd"));
     emit({ root: "/papers/attention", paths: ["main.tex"] });
-    expect(await screen.findByRole("button", { name: "Show 249 automatic versions" })).toBeInTheDocument();
+    expect(await screen.findByText("Unknown version dddddddd")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "From Submitted to NeurIPS" })).toBeChecked();
-    expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null });
+    expect(invokeCalls("git_compare_files").slice(1).every((call) => call.from === submitted.hash)).toBe(true);
   });
 
   it("reads the root document's changes as prose with counts, sections and a stepper, or as source", async () => {

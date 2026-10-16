@@ -26,7 +26,7 @@ export function useLatestLoad<T>() {
   /**
    * Read `key` again behind what is shown: the last answer stays until the new
    * one arrives, and is replaced only when it differs (or by the first answer
-   * when `key` is not the one shown).
+   * when `key` is not the one shown); a failed read is said beside it.
    */
   const revalidate = useCallback((key: string, request: () => Promise<T>) => {
     if (shownKey.current !== key) {
@@ -43,7 +43,7 @@ export function useLatestLoad<T>() {
       },
       (reason) => {
         if (generation.current !== current) return;
-        setState((shown) => (shown.value === null ? { key, value: null, error: toMessage(reason), loading: false } : { ...shown, loading: false }));
+        setState((shown) => ({ ...shown, key, error: toMessage(reason), loading: false }));
       },
     );
   }, [load]);
