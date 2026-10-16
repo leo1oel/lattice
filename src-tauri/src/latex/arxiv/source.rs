@@ -282,9 +282,11 @@ fn expand(
             let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
             stack.pop();
             // Nothing written in its place reads as TeX reads an empty file:
-            // a group starts a table row, a missing line loses a space. The
-            // command stays, and its empty file ships.
-            if inner.is_empty() {
+            // a group starts a table row, a missing line loses a space. Nor
+            // does a file whose last `%` swallows its own line end, as it
+            // would swallow this line's too. The command stays, and its file
+            // ships.
+            if inner.is_empty() || ends_in_comment(&inner) {
                 continue;
             }
             merged.insert(path);
@@ -306,6 +308,18 @@ fn expand(
         out.push_str(&line[copied..]);
     }
     out
+}
+
+/// Whether the last line of `source` TeX reads commands from has a comment.
+fn ends_in_comment(source: &str) -> bool {
+    let mut scanner = Scanner::default();
+    let mut last = false;
+    for line in source.split_inclusive('\n') {
+        if let LineKind::Code { comment, .. } = scanner.classify(split_ending(line).0) {
+            last = comment.is_some();
+        }
+    }
+    last
 }
 
 fn with_line_end(mut text: String) -> String {
@@ -420,6 +434,27 @@ mod tests {
             assert_eq!(text, main);
             assert!(merged.is_empty(), "{main}");
         }
+    }
+
+    #[test]
+    fn a_file_ending_in_a_comment_stays_an_input_as_written() {
+        let main = "We use \\input{tool}\nto do X\n";
+        for tool in ["FooBar%\n", "FooBar % name\n"] {
+            let sources = BTreeMap::from([
+                ("main.tex".to_string(), main.to_string()),
+                ("tool.tex".to_string(), stripped(tool)),
+            ]);
+            let (text, merged) = merge_inputs("main.tex", &sources);
+            assert_eq!(text, main);
+            assert!(merged.is_empty(), "{tool}");
+        }
+        let sources = BTreeMap::from([
+            ("main.tex".to_string(), main.to_string()),
+            ("tool.tex".to_string(), "50\\%\n".to_string()),
+        ]);
+        let (text, merged) = merge_inputs("main.tex", &sources);
+        assert_eq!(text, "We use 50\\%\nto do X\n");
+        assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["tool.tex"]);
     }
 
     #[test]
