@@ -108,6 +108,28 @@ describe("CompareVersions", () => {
     expect(screen.queryByRole("button", { name: "Load older versions" })).not.toBeInTheDocument();
   });
 
+  it("keeps a picked version at the end of a full page when new versions are saved", async () => {
+    const submitted = entry("d".repeat(40), "Submitted to NeurIPS", 1);
+    const history = [
+      entry("a".repeat(40), "Rebuttal draft", 20),
+      ...Array.from({ length: 98 }, (_, index) => entry(String(index).padStart(40, "0"), "Auto-saved version", 10)),
+      submitted,
+      entry("f".repeat(40), "Initialize version tracking", 1),
+    ];
+    mockRepository({ git_log: ({ limit }: Record<string, unknown>) => history.slice(0, limit as number) });
+    const emit = mockListen();
+    renderCompare();
+    await openCompare();
+    fireEvent.click(screen.getByRole("radio", { name: "From Submitted to NeurIPS" }));
+    await waitFor(() => expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null }));
+
+    history.unshift(entry("e".repeat(40), "Auto-saved version", 21));
+    emit({ root: "/papers/attention", paths: ["main.tex"] });
+    await waitFor(() => expect(invokeCalls("git_log").at(-1)).toEqual({ limit: 101 }));
+    expect(screen.getByRole("radio", { name: "From Submitted to NeurIPS" })).toBeChecked();
+    expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null });
+  });
+
   it("reads the root document's changes as prose with counts, sections and a stepper, or as source", async () => {
     mockRepository();
     const onOpenFile = vi.fn();
