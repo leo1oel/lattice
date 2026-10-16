@@ -115,11 +115,11 @@ describe("acting on a paper", () => {
     await settled(support.find(CLAIM));
     await support.cite("p1");
     expect(deps.addCitation).toHaveBeenCalledWith("10.18653/v1/n19-1357");
-    expect(deps.citeAfter).toHaveBeenCalledWith(expect.objectContaining({ path: "main.tex", from: 16 }), "jain2019attention");
+    expect(deps.citeAfter).toHaveBeenCalledWith(expect.objectContaining({ path: "main.tex", from: 16 }), "jain2019attention", expect.any(AbortSignal));
     expect(support.getSnapshot().result?.papers[0]).toMatchObject({ key: "jain2019attention", cited: true });
     await support.cite("p2");
     expect(deps.addCitation).toHaveBeenCalledTimes(1);
-    expect(deps.citeAfter).toHaveBeenLastCalledWith(expect.anything(), "serrano2019");
+    expect(deps.citeAfter).toHaveBeenLastCalledWith(expect.anything(), "serrano2019", expect.anything());
     expect(support.getSnapshot().busy.size).toBe(0);
   });
 
@@ -129,6 +129,21 @@ describe("acting on a paper", () => {
     await support.cite("p1");
     expect(support.getSnapshot().result?.papers[0].cited).toBeUndefined();
     expect(notifyMock).toHaveBeenCalledWith("Find support", expect.stringContaining("\\citep{jain2019attention}"), expect.anything());
+  });
+
+  it("withdraws a citation that found nowhere to go in time", async () => {
+    let signal: AbortSignal | undefined;
+    vi.mocked(deps.citeAfter).mockImplementation((_claim, _key, abort) => {
+      signal = abort;
+      return new Promise(() => {});
+    });
+    await settled(support.find(CLAIM));
+    const citing = support.cite("p1");
+    await vi.advanceTimersByTimeAsync(10_000);
+    await citing;
+    expect(signal?.aborted).toBe(true);
+    expect(support.getSnapshot().result?.papers[0].cited).toBeUndefined();
+    expect(notifyMock).toHaveBeenCalledWith("Find support", expect.stringContaining("nowhere to go"), expect.anything());
   });
 
   it("adds a paper to Papers by its arXiv id, and sets one aside with an Undo", async () => {

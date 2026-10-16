@@ -47,8 +47,8 @@ export type ClaimSupportDeps = {
   addCitation: (query: string) => Promise<string | null>;
   /** Import `query` into Papers with its full text; answers its key, or null when nothing was imported. */
   addToPapers: (query: string) => Promise<string | null>;
-  /** Put `\citep{key}` after the claim in the editor. */
-  citeAfter: (claim: SupportClaim, key: string) => Promise<ClaimCitationOutcome>;
+  /** Put `\citep{key}` after the claim in the editor; once `signal` aborts, the citation must not land. */
+  citeAfter: (claim: SupportClaim, key: string, signal: AbortSignal) => Promise<ClaimCitationOutcome>;
   /** Open Discover literature on `query`, for a search the writer runs themselves. */
   searchLiterature: (query: string) => void;
 };
@@ -284,7 +284,9 @@ export class ClaimSupport {
     const key = paper.key ?? await deps.addCitation(lookup(paper));
     if (!key || !live()) return;
     this.update(id, { key });
-    const outcome = await Promise.race([deps.citeAfter(claim, key), timeout(CITE_WAIT_MS)]);
+    const placing = new AbortController();
+    const outcome = await Promise.race([deps.citeAfter(claim, key, placing.signal), timeout(CITE_WAIT_MS)])
+      .finally(() => placing.abort());
     if (!live()) return;
     if (outcome === "cited" || outcome === "already") {
       this.update(id, { cited: true });

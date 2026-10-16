@@ -838,9 +838,11 @@ function App() {
         return result?.citationKey ?? null;
       },
       // The claim's file comes up first; the canvas places the citation once it shows it.
-      citeAfter: (claim, key) => new Promise((settled) => {
+      citeAfter: (claim, key, signal) => new Promise((settled) => {
+        const id = crypto.randomUUID();
+        signal.addEventListener("abort", () => updateCanvasRequest("cite", (current) => current?.id === id ? null : current), { once: true });
         void openFile(claim.path, { line: claim.line });
-        updateCanvasRequest("cite", { key, command: "citep", id: crypto.randomUUID(), at: { ...claim, settled } });
+        updateCanvasRequest("cite", { key, command: "citep", id, at: { ...claim, settled } });
         reveal("editor");
       }),
       searchLiterature: (query) => {
