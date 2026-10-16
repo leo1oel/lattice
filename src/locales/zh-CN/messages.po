@@ -1079,6 +1079,10 @@ msgstr "有一个图或表比页面高 {points} pt"
 msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 msgstr "这之前打开的一个分组还没有关闭。补上缺少的 {BRACE_CLOSE}。"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "A hidden LaTeX comment stores the editable data with this table."
+msgstr "可编辑数据保存在表格旁的 LaTeX 注释中，不会显示在 PDF 中。"
+
 #: src/build/compile-explain.ts
 msgid "A length without a unit"
 msgstr "长度缺少单位"
@@ -1982,6 +1986,10 @@ msgctxt "macOS menu bar"
 msgid "Auto"
 msgstr "自动"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Auto-detect"
+msgstr "自动识别"
+
 #: src/history/version-messages.ts
 msgid "Auto-saved version"
 msgstr "自动保存"
@@ -2013,6 +2021,7 @@ msgstr "临时文件"
 msgid "Azure"
 msgstr "天蓝色"
 
+#: src/editor/insert/table-generator-dialog.tsx
 #: src/onboarding/guided-tour.tsx
 msgid "Back"
 msgstr "上一步"
@@ -2619,6 +2628,10 @@ msgstr "注意"
 msgid "Cell spanning columns"
 msgstr "跨列单元格"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Center"
+msgstr "居中"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Center the rest of this group"
 msgstr "将本组其余内容居中"
@@ -2693,6 +2706,10 @@ msgstr "重新检查"
 #: src/papers/bibliography-audit.tsx
 msgid "Check all"
 msgstr "检查全部"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Check decimal places (0–8), label (letters, digits, colon, dot, dash or underscore), and LaTeX cells (no table structure, line breaks, & or %)."
+msgstr "请检查小数位数（0–8）、标签（字母、数字、冒号、点、短横线或下划线）及 LaTeX 单元格（不支持表格结构、换行、& 或 %）。"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3203,6 +3220,11 @@ msgstr "颜色主题"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Colored text"
 msgstr "彩色文本"
+
+#. placeholder {0}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Column {0} alignment"
+msgstr "第 {0} 列对齐方式"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Column options"
@@ -3861,6 +3883,10 @@ msgstr "Crossref 暂时查不到撤稿信息"
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref 报告的更新类型：{updateType}"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "CSV (comma)"
+msgstr "CSV（逗号分隔）"
+
 #: src/project/quick-open-dialog.tsx
 msgid "Current"
 msgstr "当前"
@@ -3942,6 +3968,10 @@ msgstr "深灰色"
 msgid "Dark only"
 msgstr "仅深色"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Data format"
+msgstr "数据格式"
+
 #: src/project/deadline-card.tsx
 msgid "Date"
 msgstr "日期"
@@ -3957,6 +3987,10 @@ msgstr "截止时间"
 #: src/project/deadline-card.tsx
 msgid "Deadline for"
 msgstr "名称"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Decimal places (blank preserves values)"
+msgstr "小数位数（留空保留原值）"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -4497,6 +4531,10 @@ msgstr "编辑消息"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message text"
 msgstr "编辑消息内容"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Edit table"
+msgstr "编辑表格"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit the BibTeX source"
@@ -6457,6 +6495,7 @@ msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
 
 #: src/app/shortcut-groups.ts
+#: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
 
@@ -6491,6 +6530,12 @@ msgstr "LaTeX 不认识 {token}。它看起来是 {name} 的笔误。"
 #: src/build/compile-explain.ts
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX 不认识 {name} 环境。检查 \\begin 和 \\end 里的拼写，或加载定义它的宏包。"
+
+#. placeholder {0}: r + 1
+#. placeholder {1}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "LaTeX for row {0}, column {1}"
+msgstr "第 {0} 行第 {1} 列使用 LaTeX"
 
 #: src/app/use-tex-setup.ts
 msgid "LaTeX is ready to build"
@@ -6624,6 +6669,10 @@ msgstr "退出专注"
 #: src/app/focus-mode-bar.tsx
 msgid "Leave focus mode · {exitKeys} or Esc"
 msgstr "退出专注 · {exitKeys} 或 Esc"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Left"
+msgstr "左对齐"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Left alone"
@@ -9059,6 +9108,10 @@ msgstr "粘贴"
 msgid "Paste clipboard image as figure"
 msgstr "贴入图片"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Paste data"
+msgstr "粘贴数据"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
 msgstr "粘贴 DOI、arXiv ID、链接、标题或 BibTeX——每行一条，或整个 .bib 文件"
@@ -9066,6 +9119,10 @@ msgstr "粘贴 DOI、arXiv ID、链接、标题或 BibTeX——每行一条，�
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
 msgstr "粘贴或输入链接"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
+msgstr "粘贴电子表格单元格或 CSV 并核对数据。如需再次编辑，将光标放在生成的表格内，选择“插入表格”。"
 
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
@@ -10059,6 +10116,7 @@ msgstr "正在重命名…"
 msgid "Rendering changes…"
 msgstr "正在加载改动…"
 
+#: src/editor/insert/table-generator-dialog.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "正在对比…"
@@ -10152,6 +10210,10 @@ msgstr "全部替换"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Replace current match"
 msgstr "替换此处"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Replace grid from data"
+msgstr "用数据替换网格"
 
 #: src/App.tsx
 msgid "Replace in project"
@@ -10581,6 +10643,10 @@ msgstr "在此审阅"
 msgid "Review Overleaf changes"
 msgstr "查看 Overleaf 改动"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Review source changes"
+msgstr "预览源码修改"
+
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "保存前再看一遍"
@@ -10626,6 +10692,10 @@ msgstr "重写"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "柔"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Right"
+msgstr "右对齐"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Right angle bracket"
@@ -10703,6 +10773,12 @@ msgstr "第 {0} 轮 · 1 条建议待审阅"
 #: src/app/annotation-rounds.ts
 msgid "Round {number} is saved as a version"
 msgstr "第 {number} 轮已存为一个版本"
+
+#. placeholder {0}: r + 1
+#. placeholder {1}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Row {0}, column {1}"
+msgstr "第 {0} 行第 {1} 列"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
@@ -11625,6 +11701,10 @@ msgstr "源码 ↔ PDF"
 msgid "Source and PDF, linked"
 msgstr "双向跳转"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Source changes"
+msgstr "源码修改"
+
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
 msgstr "Git"
@@ -12061,16 +12141,16 @@ msgid "Table cells"
 msgstr "表格单元格"
 
 #: src/editor/insert/table-generator-dialog.tsx
+msgid "Table data"
+msgstr "表格数据"
+
+#: src/editor/insert/table-generator-dialog.tsx
 msgid "Table generator"
 msgstr "插入表格"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "目录"
-
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "Table preview"
-msgstr "预览"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"
@@ -12360,6 +12440,10 @@ msgstr "文档正文"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "保存时文档又变了，请先保存再切换"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "The document changed. Close and reopen the table before applying."
+msgstr "文档已发生变化。请关闭并重新打开表格后再应用。"
+
 #: src/build/build-log-messages.ts
 msgid "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
 msgstr "文档加载了 fontspec，它把正文字体换成了 Latin Modern：在它之后加上 {command}，或改用 pdfLaTeX 编译。"
@@ -12387,6 +12471,10 @@ msgstr "文件已与{name}一致。"
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处：{path}:{line}"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
+msgstr "第一行为表头。普通文本会自动转义；仅在输入公式或宏时启用 LaTeX。Booktabs 样式需要 booktabs 宏包。"
 
 #: src/project/import-conflict-dialog.tsx
 msgid "The imported copies get a numbered name"
@@ -12853,6 +12941,10 @@ msgstr "这一行的单元格比表格的列多。删掉一个 &，或在表格�
 msgid "This source line has no matching position in the PDF."
 msgstr "这一行在 PDF 里找不到对应位置"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "This table has source edits or unsupported structure. Continue editing it in the source editor."
+msgstr "此表格的源码已被修改，或包含不支持的结构。请继续在源码编辑器中编辑。"
+
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
@@ -13082,6 +13174,10 @@ msgstr "换个说法，或在全部源文件里搜索"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "现在可以再试一次了"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "TSV (tab)"
+msgstr "TSV（制表符分隔）"
 
 #: src/history/versions-timeline.tsx
 msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
@@ -13360,6 +13456,10 @@ msgstr "有更新"
 msgid "Update now"
 msgstr "立即更新"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Update table"
+msgstr "更新表格"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "已更新"
@@ -13454,6 +13554,10 @@ msgstr "浅色"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Use this record"
 msgstr "使用这条记录"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Use valid CSV or TSV with at most 20 rows and 20 columns."
+msgstr "请使用有效的 CSV 或 TSV，最多支持 20 行、20 列。"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"

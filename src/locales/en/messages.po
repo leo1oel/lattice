@@ -1079,6 +1079,10 @@ msgstr "A figure or table is {points} pt taller than the page"
 msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 msgstr "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "A hidden LaTeX comment stores the editable data with this table."
+msgstr "A hidden LaTeX comment stores the editable data with this table."
+
 #: src/build/compile-explain.ts
 msgid "A length without a unit"
 msgstr "A length without a unit"
@@ -1982,6 +1986,10 @@ msgctxt "macOS menu bar"
 msgid "Auto"
 msgstr "Auto"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Auto-detect"
+msgstr "Auto-detect"
+
 #: src/history/version-messages.ts
 msgid "Auto-saved version"
 msgstr "Auto-saved version"
@@ -2013,6 +2021,7 @@ msgstr "Auxiliary files"
 msgid "Azure"
 msgstr "Azure"
 
+#: src/editor/insert/table-generator-dialog.tsx
 #: src/onboarding/guided-tour.tsx
 msgid "Back"
 msgstr "Back"
@@ -2619,6 +2628,10 @@ msgstr "Caution"
 msgid "Cell spanning columns"
 msgstr "Cell spanning columns"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Center"
+msgstr "Center"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Center the rest of this group"
 msgstr "Center the rest of this group"
@@ -2693,6 +2706,10 @@ msgstr "Check again"
 #: src/papers/bibliography-audit.tsx
 msgid "Check all"
 msgstr "Check all"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Check decimal places (0–8), label (letters, digits, colon, dot, dash or underscore), and LaTeX cells (no table structure, line breaks, & or %)."
+msgstr "Check decimal places (0–8), label (letters, digits, colon, dot, dash or underscore), and LaTeX cells (no table structure, line breaks, & or %)."
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3203,6 +3220,11 @@ msgstr "Color theme"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Colored text"
 msgstr "Colored text"
+
+#. placeholder {0}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Column {0} alignment"
+msgstr "Column {0} alignment"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Column options"
@@ -3861,6 +3883,10 @@ msgstr "Crossref citation-health metadata is currently unavailable"
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref reports update type: {updateType}"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "CSV (comma)"
+msgstr "CSV (comma)"
+
 #: src/project/quick-open-dialog.tsx
 msgid "Current"
 msgstr "Current"
@@ -3942,6 +3968,10 @@ msgstr "Dark Gray"
 msgid "Dark only"
 msgstr "Dark only"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Data format"
+msgstr "Data format"
+
 #: src/project/deadline-card.tsx
 msgid "Date"
 msgstr "Date"
@@ -3957,6 +3987,10 @@ msgstr "Deadline"
 #: src/project/deadline-card.tsx
 msgid "Deadline for"
 msgstr "Deadline for"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Decimal places (blank preserves values)"
+msgstr "Decimal places (blank preserves values)"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -4497,6 +4531,10 @@ msgstr "Edit message"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message text"
 msgstr "Edit message text"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Edit table"
+msgstr "Edit table"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit the BibTeX source"
@@ -6457,6 +6495,7 @@ msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
 
 #: src/app/shortcut-groups.ts
+#: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
 
@@ -6491,6 +6530,12 @@ msgstr "LaTeX doesn’t know {token}. It looks like a typo for {name}."
 #: src/build/compile-explain.ts
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
+
+#. placeholder {0}: r + 1
+#. placeholder {1}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "LaTeX for row {0}, column {1}"
+msgstr "LaTeX for row {0}, column {1}"
 
 #: src/app/use-tex-setup.ts
 msgid "LaTeX is ready to build"
@@ -6624,6 +6669,10 @@ msgstr "Leave focus mode"
 #: src/app/focus-mode-bar.tsx
 msgid "Leave focus mode · {exitKeys} or Esc"
 msgstr "Leave focus mode · {exitKeys} or Esc"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Left"
+msgstr "Left"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Left alone"
@@ -9059,6 +9108,10 @@ msgstr "Paste"
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Paste data"
+msgstr "Paste data"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
 msgstr "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
@@ -9066,6 +9119,10 @@ msgstr "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a wh
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
 msgstr "Paste or type a link"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
+msgstr "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
 
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
@@ -10059,6 +10116,7 @@ msgstr "Renaming…"
 msgid "Rendering changes…"
 msgstr "Rendering changes…"
 
+#: src/editor/insert/table-generator-dialog.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "Rendering diff…"
@@ -10152,6 +10210,10 @@ msgstr "Replace all matches"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Replace current match"
 msgstr "Replace current match"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Replace grid from data"
+msgstr "Replace grid from data"
 
 #: src/App.tsx
 msgid "Replace in project"
@@ -10581,6 +10643,10 @@ msgstr "Review here"
 msgid "Review Overleaf changes"
 msgstr "Review Overleaf changes"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Review source changes"
+msgstr "Review source changes"
+
 #: src/history/conflict-resolver.tsx
 msgid "Review the final file before saving"
 msgstr "Review the final file before saving"
@@ -10626,6 +10692,10 @@ msgstr "Rewrite"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "Rho"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Right"
+msgstr "Right"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Right angle bracket"
@@ -10703,6 +10773,12 @@ msgstr "Round {0} · 1 proposal to review"
 #: src/app/annotation-rounds.ts
 msgid "Round {number} is saved as a version"
 msgstr "Round {number} is saved as a version"
+
+#. placeholder {0}: r + 1
+#. placeholder {1}: c + 1
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Row {0}, column {1}"
+msgstr "Row {0}, column {1}"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
@@ -11625,6 +11701,10 @@ msgstr "source ↔ PDF"
 msgid "Source and PDF, linked"
 msgstr "Source and PDF, linked"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Source changes"
+msgstr "Source changes"
+
 #: src/trellis/trellis-titles.ts
 msgid "Source control"
 msgstr "Source control"
@@ -12061,16 +12141,16 @@ msgid "Table cells"
 msgstr "Table cells"
 
 #: src/editor/insert/table-generator-dialog.tsx
+msgid "Table data"
+msgstr "Table data"
+
+#: src/editor/insert/table-generator-dialog.tsx
 msgid "Table generator"
 msgstr "Table generator"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table of contents"
 msgstr "Table of contents"
-
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "Table preview"
-msgstr "Table preview"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Taking longer than usual"
@@ -12360,6 +12440,10 @@ msgstr "The document body"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "The document changed while saving. Save it, then switch projects again."
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "The document changed. Close and reopen the table before applying."
+msgstr "The document changed. Close and reopen the table before applying."
+
 #: src/build/build-log-messages.ts
 msgid "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
 msgstr "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX."
@@ -12387,6 +12471,10 @@ msgstr "The files already read as {name}."
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
+msgstr "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
 
 #: src/project/import-conflict-dialog.tsx
 msgid "The imported copies get a numbered name"
@@ -12853,6 +12941,10 @@ msgstr "This row has more cells than the table has columns. Remove an &, or add 
 msgid "This source line has no matching position in the PDF."
 msgstr "This source line has no matching position in the PDF."
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "This table has source edits or unsupported structure. Continue editing it in the source editor."
+msgstr "This table has source edits or unsupported structure. Continue editing it in the source editor."
+
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
@@ -13082,6 +13174,10 @@ msgstr "Try other words, or search every source file"
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "Try that again now"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "TSV (tab)"
+msgstr "TSV (tab)"
 
 #: src/history/versions-timeline.tsx
 msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
@@ -13360,6 +13456,10 @@ msgstr "Update available"
 msgid "Update now"
 msgstr "Update now"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Update table"
+msgstr "Update table"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Updated"
 msgstr "Updated"
@@ -13454,6 +13554,10 @@ msgstr "Use the light theme"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Use this record"
 msgstr "Use this record"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Use valid CSV or TSV with at most 20 rows and 20 columns."
+msgstr "Use valid CSV or TSV with at most 20 rows and 20 columns."
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"

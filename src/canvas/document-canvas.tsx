@@ -944,13 +944,6 @@ export function DocumentCanvas(props: {
     // eslint-disable-next-line react-hooks-js/exhaustive-deps -- intentional stability
     [activeFile, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
   );
-  const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
-    const view = editorViewRef.current;
-    if (!view) return;
-    const from = view.state.selection.main.head;
-    const anchor = from + Math.min(cursorOffset, insert.length);
-    editAndFocus(view, { changes: { from, insert }, selection: { anchor } });
-  }, []);
   const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
     const view = primaryViewRef.current;
     if (!view || !paths.length) return;
@@ -1654,7 +1647,19 @@ export function DocumentCanvas(props: {
           saveSlot={props.saveSlot}
         />
       </div>
-      <TableGeneratorDialog open={tableGeneratorOpen} onClose={() => onTableGeneratorOpenChange(false)} onInsert={insertTextAtCursor} />
+      {tableGeneratorOpen && <TableGeneratorDialog onClose={() => onTableGeneratorOpenChange(false)} target={() => {
+        const view = editorViewRef.current;
+        if (!view || !props.editorEditable || !isLatexSourcePath(activeFile)) return null;
+        const source = view.state.doc.toString();
+        const owner = { root: props.projectRoot, path: activeFile };
+        return { source, cursor: view.state.selection.main.head, apply: (from, to, insert) => {
+          if (editorViewRef.current !== view || latestRef.current.projectRoot !== owner.root
+            || latestRef.current.activeFile !== owner.path || !latestRef.current.editorEditable
+            || view.state.doc.toString() !== source) return false;
+          editAndFocus(view, { changes: { from, to, insert }, selection: { anchor: from + insert.indexOf("\\begin") } });
+          return true;
+        } };
+      }} />}
       <FigureInsertDialog
         open={Boolean(figureInsertPending)}
         paths={figureInsertPending?.paths ?? []}
