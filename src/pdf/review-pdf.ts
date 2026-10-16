@@ -71,7 +71,7 @@ function pageLetters(runs: readonly TextRun[]): { letters: string; at: Array<[ru
 }
 
 /** The letters a PDF selection reads, as one stretch. */
-export function pdfTextLetters(text: string): string[] {
+function pdfTextLetters(text: string): string[] {
   return [[...text].map(foldLetters).join("")];
 }
 
