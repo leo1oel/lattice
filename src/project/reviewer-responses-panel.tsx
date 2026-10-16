@@ -437,13 +437,23 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
   const linked = useMemo(() => [...new Set(comments.flatMap((comment) => comment.annotationIds))].sort(), [comments]);
   const linkedKey = JSON.stringify(linked);
   const [places, setPlaces] = useState<Places>(new Map());
+  // Editing text does not change `annotations`, so opening a comment and entering or focusing the
+  // panel (at most once a second) read the passages again.
+  const [recheck, setRecheck] = useState(0);
+  const lastRecheck = useRef(0);
+  const requestRecheck = () => {
+    const now = Date.now();
+    if (now - lastRecheck.current < 1000) return;
+    lastRecheck.current = now;
+    setRecheck((count) => count + 1);
+  };
   useEffect(() => {
     let current = true;
     void placeAnnotations(JSON.parse(linkedKey) as string[], annotations).then((next) => {
       if (current) setPlaces(next);
     });
     return () => { current = false; };
-  }, [linkedKey, annotations]);
+  }, [linkedKey, annotations, open, recheck]);
 
   const counts = { unanswered: 0, drafted: 0, changing: 0, done: 0 } satisfies Record<ResponseStatus, number>;
   for (const comment of comments) counts[responseStatus(comment)] += 1;
@@ -490,7 +500,7 @@ export function ReviewerResponsesPanel({ annotations, onClose }: {
           </>
         ) : null}
       />
-      <div className="responses-panel">
+      <div className="responses-panel" onFocus={requestRecheck} onPointerEnter={requestRecheck}>
         {!loaded ? null : unreadable ? (
           <div className="responses-unreadable">
             <InlineMessage level="error">
