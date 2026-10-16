@@ -2739,10 +2739,6 @@ msgstr "居中的多行公式"
 msgid "Change"
 msgstr "更换"
 
-#: src/history/compare-versions.tsx
-msgid "Changed files"
-msgstr "有改动的文件"
-
 #: src/project/terms-panel.tsx
 msgctxt "term"
 msgid "Change"
@@ -2756,6 +2752,10 @@ msgstr "修改 1 处"
 #: src/project/terms-panel.tsx
 msgid "Change all {0}"
 msgstr "全部修改（{0} 处）"
+
+#: src/history/compare-versions.tsx
+msgid "Changed files"
+msgstr "有改动的文件"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Changed here"
@@ -4656,10 +4656,6 @@ msgstr "编辑消息"
 msgid "Edit message text"
 msgstr "编辑消息内容"
 
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "Edit table"
-msgstr "编辑表格"
-
 #: src/project/terms-panel.tsx
 msgid "Edit rule"
 msgstr "编辑规则"
@@ -4668,6 +4664,10 @@ msgstr "编辑规则"
 #: src/project/terms-panel.tsx
 msgid "Edit rule for {0}"
 msgstr "编辑“{0}”的规则"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Edit table"
+msgstr "编辑表格"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit the BibTeX source"

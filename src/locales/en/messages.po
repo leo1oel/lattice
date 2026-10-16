@@ -2739,10 +2739,6 @@ msgstr "Centered multi-line equations"
 msgid "Change"
 msgstr "Change"
 
-#: src/history/compare-versions.tsx
-msgid "Changed files"
-msgstr "Changed files"
-
 #: src/project/terms-panel.tsx
 msgctxt "term"
 msgid "Change"
@@ -2756,6 +2752,10 @@ msgstr "Change 1"
 #: src/project/terms-panel.tsx
 msgid "Change all {0}"
 msgstr "Change all {0}"
+
+#: src/history/compare-versions.tsx
+msgid "Changed files"
+msgstr "Changed files"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Changed here"
@@ -4656,10 +4656,6 @@ msgstr "Edit message"
 msgid "Edit message text"
 msgstr "Edit message text"
 
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "Edit table"
-msgstr "Edit table"
-
 #: src/project/terms-panel.tsx
 msgid "Edit rule"
 msgstr "Edit rule"
@@ -4668,6 +4664,10 @@ msgstr "Edit rule"
 #: src/project/terms-panel.tsx
 msgid "Edit rule for {0}"
 msgstr "Edit rule for {0}"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Edit table"
+msgstr "Edit table"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit the BibTeX source"

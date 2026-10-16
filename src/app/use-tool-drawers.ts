@@ -9,7 +9,7 @@ import { useLoadingShell } from "./use-loading-shell";
 import { focusHistoryEntry } from "../history/history-focus";
 
 /** The tool drawers whose open state App itself keeps; comments and literature keep theirs in their own hooks. */
-export type AppToolDrawer = "history" | "git" | "todos" | "checklist" | "review" | "support", "terms";
+export type AppToolDrawer = "history" | "git" | "todos" | "checklist" | "review" | "support" | "terms";
 
 export type OpenToolOptions = {
   /** Git: show this view of the working tree. */
