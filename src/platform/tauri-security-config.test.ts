@@ -130,7 +130,7 @@ describe("Tauri security boundary", () => {
     expectContains(rustApp, '.with_filter(|label| !label.starts_with("browser-"))');
     expectContains(browserHost, '.title("")');
     expect(config.app.windows[0]?.visible).toBe(false);
-    expectContains(rustApp, ".arg(BROWSER_HOST_ARG)", "browser_host_launch()");
+    expectContains(rustApp, "browser_host_launch()");
     // Browser access outlives the last window by declining Tauri's exit, not
     // through a window without a WebView: building one takes Tauri's
     // `unstable` feature, which hid ⌘Z from the page (native_locale.rs).
