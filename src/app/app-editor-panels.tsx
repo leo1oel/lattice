@@ -9,7 +9,7 @@
  * fallback that covered all of them would unmount an open TODO panel while
  * an unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useMemo, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -34,9 +34,12 @@ import type {
   OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
+  SubmissionItem,
   UnusedSymbols,
   WordCount,
 } from "../app-types";
+
+const EMPTY_ITEMS: SubmissionItem[] = [];
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -103,21 +106,14 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
-  // The budgets, the deadline and the items each answer with the whole
-  // manifest, so only the newest write, still in the project it was made for,
-  // may install its answer: an older or another project's would replace the
-  // name, root documents and every other setting along with the value it changed.
-  const manifestWriteRef = useRef(0);
-  // Each of those writes reads the manifest, changes it and writes it back, so
-  // they run one after the other: two in flight at once (a quick tick while the
-  // deadline saves) could each read the file before the other wrote it, and
-  // the one landing last would undo the other. Run in order, the newest answer
-  // also holds every earlier change.
+  // The budgets, the deadline and the items each read the manifest, change it
+  // and write it back, so they run one after the other: two in flight at once
+  // (a quick tick while the deadline saves) could each read the file before
+  // the other wrote it, and the one landing last would undo the other. Run in
+  // order, they answer in order, so every answer still in the project it was
+  // made for is installed.
   const manifestQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  // A new list for each manifest installed and the same one in between: the
-  // items list tells a new manifest from the one its last edit was built on by
-  // identity, even while it is empty.
-  const submissionItems = useMemo(() => project.manifest.submissionItems ?? [], [project.manifest]);
+  const submissionItems = project.manifest.submissionItems ?? EMPTY_ITEMS;
   // The compiled PDF is the usual thing an item is signed off against; it sits
   // beside the root document, though the project tree leaves it out.
   const rootDocument = props.build?.rootDocument
@@ -131,14 +127,13 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // project is open when they run, so one whose turn comes after its project
   // closed is never sent.
   const writeManifest = (write: () => Promise<ProjectManifest>): Promise<boolean> => {
-    const request = ++manifestWriteRef.current;
     const ownsProject = props.captureProjectScope();
     const queued = manifestQueueRef.current.catch(() => undefined)
       .then(() => ownsProject() ? write() : null);
     manifestQueueRef.current = queued;
     return queued.then(
       (manifest) => {
-        if (manifest && request === manifestWriteRef.current && ownsProject()) {
+        if (manifest && ownsProject()) {
           props.setProject((current) => current ? { ...current, manifest } : current);
         }
         return !!manifest;

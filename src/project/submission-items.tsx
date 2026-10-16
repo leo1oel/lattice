@@ -81,16 +81,22 @@ export function SubmissionItems(props: {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const listId = useId();
   const { items } = props;
-  // `items` changes only when a write answers, so an edit made before the last
-  // one answered builds on the list that edit sent: built on `items`, ticking
-  // one item and then another would send the first back unticked. A new list
-  // from the manifest (any answer, another project) replaces what was sent.
-  const sent = useRef<{ base: SubmissionItem[]; items: SubmissionItem[] } | null>(null);
+  // `items` changes only when a write answers, so while writes are on their
+  // way each edit builds on the list the last one sent: built on `items`,
+  // ticking one item and then another would send the first back unticked.
+  // Once every write has answered, `items` holds the saved list again; a
+  // failed write's list is no base for the next edit, which would resend it.
+  const sent = useRef<{ items: SubmissionItem[]; pending: number } | null>(null);
   const save = (update: (latest: SubmissionItem[]) => SubmissionItem[]) => {
-    const next = update(sent.current?.base === items ? sent.current.items : items);
-    sent.current = { base: items, items: next };
+    const batch = sent.current ?? { items, pending: 0 };
+    const next = update(batch.items);
+    batch.items = next;
+    batch.pending += 1;
+    sent.current = batch;
     void props.onChange(next).then((saved) => {
-      if (!saved && sent.current?.items === next) sent.current = null;
+      if (sent.current !== batch) return;
+      batch.pending -= 1;
+      if ((!saved && batch.items === next) || batch.pending === 0) sent.current = null;
     });
   };
   const replace = (id: string, next: (item: SubmissionItem) => SubmissionItem | null) =>

@@ -15,9 +15,9 @@ const base: ManuscriptChecklistData = {
 function renderChecklist(data: Partial<ManuscriptChecklistData>) {
   const onSaveItems = vi.fn().mockResolvedValue(true);
   const onOpenFile = vi.fn();
-  const { container } = render(
+  const panel = (change: Partial<ManuscriptChecklistData>) => (
     <ManuscriptChecklistPanel
-      data={{ ...base, ...data }}
+      data={{ ...base, ...change }}
       onClose={vi.fn()}
       onOpenTodos={vi.fn()}
       onSaveBudgets={vi.fn()}
@@ -25,10 +25,12 @@ function renderChecklist(data: Partial<ManuscriptChecklistData>) {
       onSaveItems={onSaveItems}
       onOpenFile={onOpenFile}
       onOpenSource={vi.fn()}
-    />,
+    />
   );
+  const view = render(panel(data));
   const row = (label: string) => screen.getByText(label).closest(".checklist-row")!;
-  return { container, row, onSaveItems, onOpenFile };
+  const rerender = (change: Partial<ManuscriptChecklistData>) => view.rerender(panel({ ...data, ...change }));
+  return { container: view.container, row, rerender, onSaveItems, onOpenFile };
 }
 
 describe("ManuscriptChecklistPanel budgets", () => {
@@ -190,6 +192,32 @@ describe("ManuscriptChecklistPanel materials and sign-offs", () => {
     expect(onSaveItems).toHaveBeenLastCalledWith([
       authors,
       { ...authors, id: "b", title: "Ethics form signed", status: "confirmed", confirmedMtimeMs: undefined },
+    ]);
+  });
+
+  it("keeps a saved tick when the write after it fails", async () => {
+    const ethics: SubmissionItem = { ...authors, id: "b", title: "Ethics form signed" };
+    const cover: SubmissionItem = { ...authors, id: "c", title: "Cover letter" };
+    let landFirst: (saved: boolean) => void = () => undefined;
+    let landSecond: (saved: boolean) => void = () => undefined;
+    const first = new Promise<boolean>((done) => { landFirst = done; });
+    const second = new Promise<boolean>((done) => { landSecond = done; });
+    const { rerender, onSaveItems } = renderChecklist({ items: [authors, ethics, cover] });
+    onSaveItems.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “All authors confirmed”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “Ethics form signed”" }));
+    const authorsConfirmed = { ...authors, status: "confirmed", confirmedMtimeMs: undefined } as const;
+    // The first write lands and its answer is installed; the second fails.
+    rerender({ items: [authorsConfirmed, ethics, cover] });
+    await act(async () => {
+      landFirst(true);
+      landSecond(false);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “Cover letter”" }));
+    expect(onSaveItems).toHaveBeenLastCalledWith([
+      authorsConfirmed,
+      ethics,
+      { ...cover, status: "confirmed", confirmedMtimeMs: undefined },
     ]);
   });
 

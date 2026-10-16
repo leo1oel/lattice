@@ -91,7 +91,7 @@ it("installs no manifest a deadline or budget write answers after its project cl
   }
 });
 
-it("keeps the newest settings write when an older one answers last, and the project's own failures", async () => {
+it("installs every settings answer in the order written, and the project's own failures", async () => {
   const older = deferred<ProjectManifest>();
   const newer = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
@@ -101,10 +101,13 @@ it("keeps the newest settings write when an older one answers last, and the proj
     checklist.props!.onSaveDeadline(DEADLINE);
   });
   await act(async () => {
-    newer.resolve(answered("A", { wordBudget: 8000, deadline: DEADLINE }));
-    await newer.promise;
     older.resolve(answered("A", { wordBudget: 8000 }));
     await older.promise;
+  });
+  expect(window.current.manifest).toMatchObject({ name: "A", wordBudget: 8000 });
+  await act(async () => {
+    newer.resolve(answered("A", { wordBudget: 8000, deadline: DEADLINE }));
+    await newer.promise;
   });
   expect(window.current.manifest).toMatchObject({ name: "A", wordBudget: 8000, deadline: DEADLINE });
 
