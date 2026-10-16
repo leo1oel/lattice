@@ -753,6 +753,7 @@ function App() {
       resetEditorComments();
       annotationRounds.reset();
       resetBuildErrorFix();
+      projectSearch.closeReplace();
       paperReview.reset();
       tools.resetForProject();
       setDiskTodos([]);
