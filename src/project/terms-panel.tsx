@@ -50,7 +50,7 @@ const sameForm = (left: string, right: string) => left.trim().toLocaleLowerCase(
 
 function RuleForm(props: {
   rule: TermRule | null;
-  /** The other rules, whose forms a new term may not take. */
+  /** The other rules, whose forms this rule's term and variants may not take. */
   others: readonly TermRule[];
   onSave: (rule: TermRule) => void;
   onCancel: () => void;
@@ -61,10 +61,12 @@ function RuleForm(props: {
   const [note, setNote] = useState(props.rule?.note ?? "");
   const [tried, setTried] = useState(false);
   const trimmed = term.trim();
-  const clash = props.others.find((other) => [other.term, ...other.variants].some((form) => sameForm(form, trimmed)));
+  const clash = props.others
+    .flatMap((other) => [trimmed, ...splitForms(variants)].map((form) => ({ term: other.term, taken: [other.term, ...other.variants], form })))
+    .find(({ taken, form }) => taken.some((covered) => sameForm(covered, form)));
   const error = !trimmed
     ? t`Enter the term the paper should use.`
-    : clash ? t`The rule for “${clash.term}” already covers “${trimmed}”.` : null;
+    : clash ? t`The rule for “${clash.term}” already covers “${clash.form}”.` : null;
   const save = () => {
     setTried(true);
     if (error) return;

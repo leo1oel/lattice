@@ -12991,9 +12991,10 @@ msgid "The rich-text editor"
 msgstr "富文本编辑器"
 
 #. placeholder {0}: clash.term
+#. placeholder {1}: clash.form
 #: src/project/terms-panel.tsx
-msgid "The rule for “{0}” already covers “{trimmed}”."
-msgstr "“{0}”的规则已包含“{trimmed}”。"
+msgid "The rule for “{0}” already covers “{1}”."
+msgstr "“{0}”的规则已包含“{1}”。"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."

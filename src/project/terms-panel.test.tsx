@@ -61,12 +61,18 @@ describe("TermsPanel", () => {
     expect(screen.getByText("2 places kept as written")).toBeInTheDocument();
   });
 
-  it("refuses a rule whose term another rule already finds", async () => {
+  it("refuses a rule whose term or other form another rule already finds", async () => {
     const { onSaveTerms } = renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "Add rule" }));
     fireEvent.change(screen.getByPlaceholderText("zero-shot"), { target: { value: "Zero Shot" } });
     fireEvent.click(screen.getByRole("button", { name: "Save rule" }));
     expect(screen.getByText("The rule for “zero-shot” already covers “Zero Shot”.")).toBeInTheDocument();
+    expect(onSaveTerms).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText("zero-shot"), { target: { value: "zeroshot" } });
+    fireEvent.change(screen.getByPlaceholderText("zero shot, zeroshot"), { target: { value: "Zero-Shot" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save rule" }));
+    expect(screen.getByText("The rule for “zero-shot” already covers “Zero-Shot”.")).toBeInTheDocument();
     expect(onSaveTerms).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByPlaceholderText("zero-shot"), { target: { value: "ResNet" } });

@@ -12991,9 +12991,10 @@ msgid "The rich-text editor"
 msgstr "The rich-text editor"
 
 #. placeholder {0}: clash.term
+#. placeholder {1}: clash.form
 #: src/project/terms-panel.tsx
-msgid "The rule for “{0}” already covers “{trimmed}”."
-msgstr "The rule for “{0}” already covers “{trimmed}”."
+msgid "The rule for “{0}” already covers “{1}”."
+msgstr "The rule for “{0}” already covers “{1}”."
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."

@@ -27,8 +27,9 @@ const MAX_CONTEXT_CHARS: usize = 400;
 
 /// Replace the project's terms and English variant. Each form is trimmed; a
 /// rule keeps the first of forms equal ignoring case, and a later rule for a
-/// term an earlier one already settles is dropped, so the check never asks
-/// for two spellings of one word.
+/// term an earlier one already settles is dropped, as is a later variant an
+/// earlier rule already settles, so the check never asks for two spellings
+/// of one word.
 pub fn set_terms(
     root: &Path, rules: Vec<TermRule>, english_variant: Option<String>,
 ) -> Result<ProjectManifest, String> {
@@ -63,7 +64,7 @@ pub fn set_terms(
         }
         let mut variants: Vec<String> = Vec::new();
         for variant in rule.variants.iter().map(|variant| variant.trim()) {
-            if variant.is_empty() || variant.to_lowercase() == term.to_lowercase() {
+            if variant.is_empty() || variant.to_lowercase() == term.to_lowercase() || settled(variant) {
                 continue;
             }
             if variant.chars().count() > MAX_TERM_CHARS {
@@ -152,13 +153,21 @@ mod tests {
             // Already settled by the first rule: a second spelling of the same word.
             rule("zero shot", &[]),
             rule("ResNet", &[]),
+            // A variant another rule settles would ask for that rule's term back.
+            rule("zeroshot", &["Zero-Shot", "zero_shot"]),
+            rule("ResNets", &["resnet"]),
             rule("", &["dropped"]),
         ];
         let manifest = set_terms(root, rules, Some("british".to_string())).unwrap();
         assert_eq!(manifest.english_variant.as_deref(), Some("british"));
         assert_eq!(
             manifest.term_rules,
-            vec![rule("zero-shot", &["zero shot"]), rule("ResNet", &[])]
+            vec![
+                rule("zero-shot", &["zero shot"]),
+                rule("ResNet", &[]),
+                rule("zeroshot", &["zero_shot"]),
+                rule("ResNets", &[]),
+            ]
         );
         let reread = read_manifest(root).unwrap();
         assert_eq!(reread.term_rules, manifest.term_rules);
