@@ -161,9 +161,24 @@ describe("ManuscriptChecklistPanel materials and sign-offs", () => {
     expect(screen.getByText("1 check needs attention")).toBeInTheDocument();
   });
 
-  it("settles nothing for a confirmed file not read yet", () => {
-    renderChecklist({ ...ready, items: [supplement] });
+  it("settles nothing for a confirmed file not read yet, and unticks it rather than restamping", () => {
+    const { onSaveItems } = renderChecklist({ ...ready, items: [supplement] });
     expect(screen.getByText("Nothing blocks submission")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mark “supplementary.pdf checked” not confirmed" }));
+    expect(onSaveItems).toHaveBeenCalledWith([{ ...supplement, status: "todo", confirmedMtimeMs: undefined }]);
+  });
+
+  it("builds each edit on the last list sent, so quick edits before an answer all land", () => {
+    const { onSaveItems } = renderChecklist({ items: [authors, { ...authors, id: "b", title: "Ethics form signed" }] });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “All authors confirmed”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “Ethics form signed”" }));
+    fireEvent.change(screen.getByLabelText("New item"), { target: { value: "Cover letter" } });
+    fireEvent.submit(screen.getByLabelText("New item").closest("form")!);
+    expect(onSaveItems).toHaveBeenLastCalledWith([
+      { ...authors, status: "confirmed", confirmedMtimeMs: undefined },
+      { ...authors, id: "b", title: "Ethics form signed", status: "confirmed", confirmedMtimeMs: undefined },
+      expect.objectContaining({ title: "Cover letter", status: "todo" }),
+    ]);
   });
 
   it("shows who, which file and where the requirement came from, and opens the file", () => {

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, Circle, CircleDot, FileText, LayoutTemplate, Link2, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -35,6 +35,7 @@ const hostOf = (source: string) => {
 };
 // eslint-disable-next-line lingui/no-unlocalized-strings -- Intl options, not interface text; a bare "YYYY-MM-DD" parses as UTC midnight
 const CHECKED_DAY: Intl.DateTimeFormatOptions = { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" };
+const signedOff = (condition: ItemCondition) => condition === "confirmed" || condition === "pending";
 const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 function ItemMark(props: { condition: ItemCondition }) {
@@ -79,12 +80,26 @@ export function SubmissionItems(props: {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const listId = useId();
   const { items } = props;
-  const replace = (id: string, next: SubmissionItem | null) =>
-    props.onChange(items.flatMap((item) => item.id === id ? next ? [next] : [] : [item]));
+  // `items` changes only when a write answers, so an edit made before the last
+  // one answered builds on the list that edit sent: built on `items`, ticking
+  // one item and then another would send the first back unticked. A new list
+  // from the manifest (any answer, another project) replaces what was sent.
+  const sent = useRef<{ base: SubmissionItem[]; items: SubmissionItem[] } | null>(null);
+  const save = (update: (latest: SubmissionItem[]) => SubmissionItem[]) => {
+    const next = update(sent.current?.base === items ? sent.current.items : items);
+    sent.current = { base: items, items: next };
+    props.onChange(next);
+  };
+  const replace = (id: string, next: (item: SubmissionItem) => SubmissionItem | null) =>
+    save((latest) => latest.flatMap((item) => {
+      if (item.id !== id) return [item];
+      const changed = next(item);
+      return changed ? [changed] : [];
+    }));
   const add = () => {
     const title = adding.trim();
     if (!title) return;
-    props.onChange([...items, newItem(title)]);
+    save((latest) => [...latest, newItem(title)]);
     setAdding("");
   };
   const storeTemplates = (next: SubmissionTemplate[]) => {
@@ -113,11 +128,11 @@ export function SubmissionItems(props: {
             {templates.map((template) => (
               <DropdownMenuItem
                 key={template.name}
-                onSelect={() => props.onChange([
-                  ...items,
+                onSelect={() => save((latest) => [
+                  ...latest,
                   // A template line already on the list is not added twice.
                   ...template.items
-                    .filter((line) => !items.some((item) => item.title === line.title))
+                    .filter((line) => !latest.some((item) => item.title === line.title))
                     .map((line) => newItem(line.title, { file: line.file, source: line.source })),
                 ])}
               >
@@ -155,11 +170,11 @@ export function SubmissionItems(props: {
                 listId={listId}
                 onCancel={() => setEditing(null)}
                 onRemove={() => {
-                  replace(item.id, null);
+                  replace(item.id, () => null);
                   setEditing(null);
                 }}
                 onSave={(next) => {
-                  replace(item.id, next);
+                  replace(item.id, () => next);
                   setEditing(null);
                 }}
               />
@@ -170,10 +185,12 @@ export function SubmissionItems(props: {
               key={item.id}
               item={item}
               condition={condition}
-              onToggle={() => replace(item.id, condition === "confirmed"
-                ? { ...item, status: "todo", confirmedMtimeMs: undefined }
+              // A confirmation whose file is not read yet unticks too: confirming
+              // it again would restamp a change the writer has not seen.
+              onToggle={() => replace(item.id, (latest) => signedOff(condition)
+                ? { ...latest, status: "todo", confirmedMtimeMs: undefined }
                 // Confirming again takes the file as it is now.
-                : { ...item, status: "confirmed", confirmedMtimeMs: undefined })}
+                : { ...latest, status: "confirmed", confirmedMtimeMs: undefined })}
               onEdit={() => setEditing(item.id)}
               onOpenFile={props.onOpenFile}
               onOpenSource={props.onOpenSource}
@@ -232,8 +249,8 @@ function ItemRow(props: {
       <button
         type="button"
         className="submission-toggle"
-        aria-label={condition === "confirmed" ? t`Mark “${title}” not confirmed` : t`Confirm “${title}”`}
-        aria-pressed={condition === "confirmed"}
+        aria-label={signedOff(condition) ? t`Mark “${title}” not confirmed` : t`Confirm “${title}”`}
+        aria-pressed={signedOff(condition)}
         onClick={props.onToggle}
       >
         <ItemMark condition={condition} />

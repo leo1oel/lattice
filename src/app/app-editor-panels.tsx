@@ -34,9 +34,14 @@ import type {
   OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
+  SubmissionItem,
   UnusedSymbols,
   WordCount,
 } from "../app-types";
+
+// One empty list for every render: the items list tells a new manifest from
+// the one its last edit was built on by identity.
+const NO_ITEMS: SubmissionItem[] = [];
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -103,16 +108,18 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
-  // The budgets and the deadline each answer with the whole manifest, so only
-  // the newest write, still in the project it was made for, may install its
-  // answer: an older or another project's would replace the name, root
-  // documents and every other setting along with the value it changed.
+  // The budgets, the deadline and the items each answer with the whole
+  // manifest, so only the newest write, still in the project it was made for,
+  // may install its answer: an older or another project's would replace the
+  // name, root documents and every other setting along with the value it changed.
   const manifestWriteRef = useRef(0);
-  // Each items write reads the manifest, changes it and writes it back, so
-  // two in flight at once (two quick ticks) run one after the other: started
-  // together, the older could land last and undo the newer.
-  const itemsWriteRef = useRef<Promise<unknown>>(Promise.resolve());
-  const submissionItems = project.manifest.submissionItems ?? [];
+  // Each of those writes reads the manifest, changes it and writes it back, so
+  // they run one after the other: two in flight at once (a quick tick while the
+  // deadline saves) could each read the file before the other wrote it, and
+  // the one landing last would undo the other. Run in order, the newest answer
+  // also holds every earlier change.
+  const manifestQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const submissionItems = project.manifest.submissionItems ?? NO_ITEMS;
   // The compiled PDF is the usual thing an item is signed off against; it sits
   // beside the root document, though the project tree leaves it out.
   const rootDocument = props.build?.rootDocument
@@ -125,7 +132,9 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const writeManifest = (write: () => Promise<ProjectManifest>) => {
     const request = ++manifestWriteRef.current;
     const ownsProject = props.captureProjectScope();
-    void write().then(
+    const queued = manifestQueueRef.current.catch(() => undefined).then(write);
+    manifestQueueRef.current = queued;
+    void queued.then(
       (manifest) => {
         if (request === manifestWriteRef.current && ownsProject()) {
           props.setProject((current) => current ? { ...current, manifest } : current);
@@ -258,12 +267,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             clearPageBudget: pageBudget == null,
           }))}
           onSaveDeadline={(deadline) => writeManifest(() => invoke<ProjectManifest>("set_project_deadline", { deadline }))}
-          onSaveItems={(items) => writeManifest(() => {
-            const write = itemsWriteRef.current.catch(() => undefined)
-              .then(() => invoke<ProjectManifest>("set_submission_items", { items }));
-            itemsWriteRef.current = write;
-            return write;
-          })}
+          onSaveItems={(items) => writeManifest(() => invoke<ProjectManifest>("set_submission_items", { items }))}
           onOpenFile={(path) => void openProjectFile(path)}
           onOpenSource={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
         />

@@ -117,6 +117,30 @@ it("keeps the newest settings write when an older one answers last, and the proj
   expect(showError).not.toHaveBeenCalled();
 });
 
+it("runs every manifest write one after another, the newest answer holding them all", async () => {
+  const items = deferred<ProjectManifest>();
+  const deadline = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(items.promise).mockReturnValueOnce(deadline.promise);
+  const { window } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    checklist.props!.onSaveDeadline(DEADLINE);
+  });
+  await act(async () => undefined);
+  expect(vi.mocked(invoke).mock.calls).toEqual([["set_submission_items", { items: [item] }]]);
+  await act(async () => {
+    items.resolve(answered("A", { submissionItems: [item] }));
+    await items.promise;
+  });
+  expect(vi.mocked(invoke).mock.calls[1]).toEqual(["set_project_deadline", { deadline: DEADLINE }]);
+  await act(async () => {
+    deadline.resolve(answered("A", { submissionItems: [item], deadline: DEADLINE }));
+    await deadline.promise;
+  });
+  expect(window.current.manifest).toMatchObject({ submissionItems: [item], deadline: DEADLINE });
+});
+
 it("runs item writes one after another, so an older one never lands over a newer", async () => {
   const first = deferred<ProjectManifest>();
   const second = deferred<ProjectManifest>();
