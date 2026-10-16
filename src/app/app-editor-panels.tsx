@@ -11,9 +11,12 @@
  */
 import { lazy, memo, Suspense, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
+import { useLinkedFileStats } from "../project/submission-item-state";
+import { collectFilePaths } from "./workspace-restore";
 import { PROJECT_VENUES } from "../project/project-venues";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
@@ -105,6 +108,20 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // answer: an older or another project's would replace the name, root
   // documents and every other setting along with the value it changed.
   const manifestWriteRef = useRef(0);
+  // Each items write reads the manifest, changes it and writes it back, so
+  // two in flight at once (two quick ticks) run one after the other: started
+  // together, the older could land last and undo the newer.
+  const itemsWriteRef = useRef<Promise<unknown>>(Promise.resolve());
+  const submissionItems = project.manifest.submissionItems ?? [];
+  // The compiled PDF is the usual thing an item is signed off against; it sits
+  // beside the root document, though the project tree leaves it out.
+  const rootDocument = props.build?.rootDocument
+    ?? project.manifest.rootDocuments.find((document) => document.isDefault)?.path;
+  const compiledPdf = rootDocument?.replace(/\.tex$/i, ".pdf");
+  const linkedFiles = tools.isOpen.checklist
+    ? [...new Set(submissionItems.flatMap((item) => item.file ? [item.file] : []))]
+    : [];
+  const fileStats = useLinkedFileStats(project.root, linkedFiles, project.files, props.build);
   const writeManifest = (write: () => Promise<ProjectManifest>) => {
     const request = ++manifestWriteRef.current;
     const ownsProject = props.captureProjectScope();
@@ -223,6 +240,12 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             unusedCitations: unusedSymbols.citations.length,
             buildOk: props.build ? props.build.success : null,
             buildMessage: props.build?.log?.split("\n").slice(-1)[0] ?? "",
+            items: submissionItems,
+            fileStats,
+            filePaths: [
+              ...(compiledPdf && compiledPdf !== rootDocument ? [compiledPdf] : []),
+              ...collectFilePaths(project.files, (node) => node.path !== compiledPdf),
+            ],
           }}
           onClose={() => tools.close("checklist")}
           // TODOs open beside the checklist, as a tab in its panel (the
@@ -235,6 +258,14 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             clearPageBudget: pageBudget == null,
           }))}
           onSaveDeadline={(deadline) => writeManifest(() => invoke<ProjectManifest>("set_project_deadline", { deadline }))}
+          onSaveItems={(items) => writeManifest(() => {
+            const write = itemsWriteRef.current.catch(() => undefined)
+              .then(() => invoke<ProjectManifest>("set_submission_items", { items }));
+            itemsWriteRef.current = write;
+            return write;
+          })}
+          onOpenFile={(path) => void openProjectFile(path)}
+          onOpenSource={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
         />
       )}
     </>

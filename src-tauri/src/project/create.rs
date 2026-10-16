@@ -121,6 +121,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         page_budget: Some(venue.page_budget()),
         deadline: None,
         spelling_words: Vec::new(),
+        submission_items: Vec::new(),
     }
 }
 

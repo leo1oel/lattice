@@ -1,20 +1,34 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ManuscriptChecklistPanel, type ManuscriptChecklistData } from "./manuscript-checklist";
 import { activateAppLocale } from "../i18n";
+import type { SubmissionItem } from "../app-types";
+import { loadSubmissionTemplates } from "../settings/app-settings";
 
 const base: ManuscriptChecklistData = {
   words: 5_080, wordSource: "texcount", wordBudget: null, pages: 12, body: { kind: "none" }, pageBudget: null,
   deadline: null, venue: "NeurIPS",
   todos: 0, unusedLabels: 0, unusedCitations: 0, buildOk: true, buildMessage: "",
+  items: [], fileStats: {}, filePaths: [],
 };
 
 function renderChecklist(data: Partial<ManuscriptChecklistData>) {
+  const onSaveItems = vi.fn();
+  const onOpenFile = vi.fn();
   const { container } = render(
-    <ManuscriptChecklistPanel data={{ ...base, ...data }} onClose={vi.fn()} onOpenTodos={vi.fn()} onSaveBudgets={vi.fn()} onSaveDeadline={vi.fn()} />,
+    <ManuscriptChecklistPanel
+      data={{ ...base, ...data }}
+      onClose={vi.fn()}
+      onOpenTodos={vi.fn()}
+      onSaveBudgets={vi.fn()}
+      onSaveDeadline={vi.fn()}
+      onSaveItems={onSaveItems}
+      onOpenFile={onOpenFile}
+      onOpenSource={vi.fn()}
+    />,
   );
   const row = (label: string) => screen.getByText(label).closest(".checklist-row")!;
-  return { container, row };
+  return { container, row, onSaveItems, onOpenFile };
 }
 
 describe("ManuscriptChecklistPanel budgets", () => {
@@ -100,5 +114,94 @@ describe("ManuscriptChecklistPanel budgets", () => {
     expect(row("Body words")).toHaveTextContent("Body wordsUnavailableNeeds a root document to count from · Limit 5,500 words");
     expect(row("PDF pages")).toHaveTextContent("PDF pagesBuild to countLimit 9 pages");
     for (const label of ["Body words", "PDF pages"]) expect(row(label)).not.toHaveClass("ok");
+  });
+});
+
+describe("ManuscriptChecklistPanel materials and sign-offs", () => {
+  beforeEach(() => {
+    activateAppLocale("en");
+    localStorage.clear();
+  });
+  afterEach(cleanup);
+
+  const supplement: SubmissionItem = { id: "s", title: "supplementary.pdf checked", status: "confirmed", file: "supplementary.pdf", confirmedMtimeMs: 100 };
+  const authors: SubmissionItem = { id: "a", title: "All authors confirmed", status: "todo", owner: "Ada Lovelace" };
+  // Every automatic check passes.
+  const ready = { wordBudget: 6_000, pageBudget: 12 };
+
+  it("adds an item as still to do, which keeps passing automatic checks from reading as ready", () => {
+    const { onSaveItems } = renderChecklist(ready);
+    expect(screen.getByText("Ready to submit")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("New item"), { target: { value: "  All authors confirmed " } });
+    fireEvent.submit(screen.getByLabelText("New item").closest("form")!);
+    expect(onSaveItems).toHaveBeenCalledWith([expect.objectContaining({ title: "All authors confirmed", status: "todo" })]);
+    cleanup();
+    renderChecklist({ ...ready, items: [authors] });
+    expect(screen.getByText("1 check needs attention")).toBeInTheDocument();
+    expect(screen.getByText("5 of 6 checks pass")).toBeInTheDocument();
+    expect(screen.getByText("To do")).toBeInTheDocument();
+  });
+
+  it("passes a confirmation only while its file is the one that was confirmed", () => {
+    const { row } = renderChecklist({ ...ready, items: [supplement, { ...authors, status: "confirmed" }], fileStats: { "supplementary.pdf": { exists: true, mtimeMs: 100 } } });
+    expect(screen.getByText("Ready to submit")).toBeInTheDocument();
+    expect(row("supplementary.pdf checked")).toHaveClass("ok");
+    cleanup();
+
+    const changed = renderChecklist({ items: [supplement], fileStats: { "supplementary.pdf": { exists: true, mtimeMs: 200 } } });
+    expect(changed.row("supplementary.pdf checked")).toHaveClass("warn");
+    expect(changed.row("supplementary.pdf checked")).toHaveTextContent("Changed since confirmed");
+    // Ticking it again confirms the file as it is now: the backend stamps an item sent without a stamp.
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “supplementary.pdf checked”" }));
+    expect(changed.onSaveItems).toHaveBeenCalledWith([{ ...supplement, confirmedMtimeMs: undefined }]);
+    cleanup();
+
+    const missing = renderChecklist({ items: [supplement], fileStats: { "supplementary.pdf": { exists: false, mtimeMs: 0 } } });
+    expect(missing.row("supplementary.pdf checked")).toHaveTextContent("File missing");
+    expect(screen.getByText("1 check needs attention")).toBeInTheDocument();
+  });
+
+  it("settles nothing for a confirmed file not read yet", () => {
+    renderChecklist({ ...ready, items: [supplement] });
+    expect(screen.getByText("Nothing blocks submission")).toBeInTheDocument();
+  });
+
+  it("shows who, which file and where the requirement came from, and opens the file", () => {
+    const item: SubmissionItem = { ...authors, file: "letters/cover.pdf", source: "https://neurips.cc/Conferences/2027/CallForPapers", sourceChecked: "2027-04-02" };
+    const { row, onOpenFile } = renderChecklist({ items: [item], fileStats: { "letters/cover.pdf": { exists: true, mtimeMs: 1 } } });
+    expect(row("All authors confirmed")).toHaveTextContent("Ada Lovelacecover.pdfneurips.ccchecked Apr 2, 2027");
+    fireEvent.click(within(row("All authors confirmed") as HTMLElement).getByText("cover.pdf"));
+    expect(onOpenFile).toHaveBeenCalledWith("letters/cover.pdf");
+  });
+
+  it("edits an item in place and restamps it when its file changes", () => {
+    const { onSaveItems } = renderChecklist({ items: [supplement] });
+    fireEvent.click(screen.getByText("supplementary.pdf checked"));
+    fireEvent.change(screen.getByLabelText("Material file"), { target: { value: "supplement-v2.pdf" } });
+    fireEvent.change(screen.getByLabelText("Who"), { target: { value: "Grace" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+    expect(onSaveItems).toHaveBeenCalledWith([{ ...supplement, file: "supplement-v2.pdf", owner: "Grace", confirmedMtimeMs: undefined }]);
+  });
+
+  it("saves the list as a template on this Mac and adds it to another paper without its status", async () => {
+    renderChecklist({ items: [supplement, authors] });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Checklist templates" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save these items as a template…" }));
+    fireEvent.change(screen.getByLabelText("Template name"), { target: { value: " Camera-ready " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save template" }));
+    const lines = [{ title: "supplementary.pdf checked", file: "supplementary.pdf" }, { title: "All authors confirmed" }];
+    expect(loadSubmissionTemplates()).toEqual([{ name: "Camera-ready", items: lines }]);
+    cleanup();
+
+    // Another paper already holds one of the lines; only the other is added, still to do.
+    const other = renderChecklist({ items: [{ ...authors, status: "confirmed" }] });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Checklist templates" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Camera-ready/ }));
+    expect(other.onSaveItems).toHaveBeenCalledWith([
+      { ...authors, status: "confirmed" },
+      { id: expect.any(String), title: "supplementary.pdf checked", file: "supplementary.pdf", source: undefined, status: "todo" },
+    ]);
+    localStorage.setItem("lattice.submission-templates.v1", "{not json");
+    expect(loadSubmissionTemplates()).toEqual([]);
   });
 });

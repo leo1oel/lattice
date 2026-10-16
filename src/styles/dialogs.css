@@ -303,6 +303,84 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   font-weight: var(--type-body-compact-weight);
 }
 
+/* The writer's own items: the same hairline list as the automatic checks, the
+   mark a button that ticks the item, the title a button that opens its fields
+   in place. A file gone or changed since sign-off takes the warning mark. */
+.submission-items { margin-bottom: var(--space-8); }
+.submission-items .checklist-rows { margin-bottom: 0; }
+.submission-items-head { min-width: 0; display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+/* The title and its count wrap as words beside the template button, never letter by letter. */
+.submission-items-title { min-width: 0; flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); }
+.submission-items-head h3 { margin: 0; min-width: 0; word-break: keep-all; overflow-wrap: break-word; color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
+.submission-items-title > span { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.submission-items-head > :last-child { flex: none; align-self: start; }
+.submission-template-form { margin-bottom: var(--space-4); }
+.submission-template-menu [data-slot="dropdown-menu-item"] { gap: var(--space-4); }
+.submission-template-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.submission-template-count { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.submission-rows > * + * { border-top: 1px solid var(--border-subtle); }
+.checklist-row.submission-row { grid-template-columns: 18px minmax(0, 1fr); }
+.submission-row span { display: inline; justify-self: auto; text-align: inherit; color: inherit; font: inherit; }
+.submission-toggle {
+  align-self: start;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.submission-toggle .checklist-status { top: 0; transition: box-shadow var(--motion-fast); }
+.submission-toggle:hover .checklist-status { box-shadow: 0 0 0 1px var(--border-strong); }
+.submission-title {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-5);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.submission-title:hover strong { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.submission-title strong { overflow-wrap: anywhere; }
+.submission-row .submission-state { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
+.submission-row.warn .submission-state { color: var(--status-warning); font-weight: var(--weight-medium); }
+/* A narrow drawer puts the state under the title rather than squeezing either. */
+@container checklist-rows (width < 360px) {
+  .submission-title { grid-template-columns: minmax(0, 1fr); }
+  .submission-row .submission-state { white-space: normal; }
+}
+.submission-row .submission-meta { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-4); }
+.submission-meta > * { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.submission-row .submission-owner { color: var(--text-primary); font-weight: var(--weight-medium); }
+.submission-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--control-active);
+  font: inherit;
+  cursor: pointer;
+}
+.submission-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.submission-chip svg { flex: none; }
+.submission-chip:hover > span { text-decoration: underline; text-underline-offset: 2px; }
+.submission-row.warn[data-condition="missing"] .submission-chip { color: var(--text-secondary); text-decoration: line-through; }
+.submission-form { padding: var(--space-5) var(--space-6) var(--space-6); display: grid; }
+.submission-add { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: var(--space-5); padding: var(--space-4) var(--space-6); color: var(--text-tertiary); }
+.submission-add svg { justify-self: center; }
+.submission-add input { min-width: 0; height: var(--control-height-compact); padding: 0; border: 0; outline: none; background: transparent; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.submission-add input::placeholder { color: var(--text-tertiary); }
+.submission-add:focus-within { background: var(--control-hover-surface); }
+
 .welcome-screen { width: 100%; height: 100%; background: var(--surface-backdrop); position: relative; overflow: hidden; }
 .welcome-titlebar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; padding: 0 14px; }
 .welcome-content { position: relative; z-index: 1; width: min(520px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }

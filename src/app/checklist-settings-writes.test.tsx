@@ -33,6 +33,7 @@ function deferred<T>() {
 
 const snapshot = (name: string) => ({
   root: `/${name}`,
+  files: [],
   manifest: { projectId: name, name, rootDocuments: [{ path: `${name}.tex` }] },
 }) as unknown as ProjectSnapshot;
 const answered = (name: string, change: Partial<ProjectManifest>) => ({ ...snapshot(name).manifest, ...change });
@@ -114,4 +115,28 @@ it("keeps the newest settings write when an older one answers last, and the proj
     await failing.promise.catch(() => undefined);
   });
   expect(showError).not.toHaveBeenCalled();
+});
+
+it("runs item writes one after another, so an older one never lands over a newer", async () => {
+  const first = deferred<ProjectManifest>();
+  const second = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  const { window } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "todo" } as const;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    checklist.props!.onSaveItems([{ ...item, status: "confirmed" }]);
+  });
+  await act(async () => undefined);
+  expect(vi.mocked(invoke).mock.calls).toEqual([["set_submission_items", { items: [item] }]]);
+  await act(async () => {
+    first.resolve(answered("A", { submissionItems: [item] }));
+    await first.promise;
+  });
+  expect(vi.mocked(invoke).mock.calls[1]).toEqual(["set_submission_items", { items: [{ ...item, status: "confirmed" }] }]);
+  await act(async () => {
+    second.resolve(answered("A", { submissionItems: [{ ...item, status: "confirmed" }] }));
+    await second.promise;
+  });
+  expect(window.current.manifest.submissionItems).toEqual([{ ...item, status: "confirmed" }]);
 });

@@ -16,7 +16,7 @@ import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scri
 import { arxivAnswer } from "./bench-arxiv";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
-import type { FileNode, ProjectDeadline, ProjectSnapshot } from "../../src/app-types";
+import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
@@ -329,6 +329,31 @@ let benchDeadline: ProjectDeadline | null = (() => {
   return { venue: params.get("deadlineVenue") ?? "NeurIPS 2027", kind: "paper", due: wall.toISOString().slice(0, 16) };
 })();
 
+/**
+ * `?submissionItems=1` stages the checklist's own items in each state: one
+ * confirmed against its file as the bench reports it, one whose file changed
+ * after it was confirmed, one whose file is gone, one to check with a long
+ * owner, source and title, and one to do. The checklist edits them through
+ * `set_submission_items`, which stamps a confirmed file the way the backend does.
+ */
+const BENCH_MTIME = 1_700_000_000_000;
+let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
+  ? [
+    { id: "i1", title: "Reference PDF matches the camera-ready", status: "confirmed", file: "reference.pdf", confirmedMtimeMs: BENCH_MTIME },
+    { id: "i2", title: "Main source signed off by every author", status: "confirmed", file: "main.tex", owner: "All authors", confirmedMtimeMs: BENCH_MTIME - 60_000 },
+    { id: "i3", title: "supplementary.pdf checked", status: "review", file: "supplementary/supplementary-material-final.pdf", owner: "Grace" },
+    {
+      id: "i4",
+      title: "Reproducibility checklist answered and attached as the last page of the supplementary appendix",
+      status: "review",
+      owner: "Ada Lovelace-Byron (corresponding author)",
+      source: "https://neurips.cc/Conferences/2027/PaperInformation/ReproducibilityChecklistGuidelines",
+      sourceChecked: "2027-04-02",
+    },
+    { id: "i5", title: "Cover letter", status: "todo", source: "Program chairs' email of 2 April" },
+  ]
+  : [];
+
 function snapshot(): ProjectSnapshot {
   return {
     root: current.root,
@@ -341,6 +366,7 @@ function snapshot(): ProjectSnapshot {
       trusted: true,
       venue: "neurips",
       deadline: benchDeadline,
+      submissionItems: benchItems,
     },
     files: fileTree(),
   };
@@ -1007,7 +1033,7 @@ function answer(command: string, args: Args): unknown {
       // The fixture PDF has no SyncTeX map: about a page per 45 source lines.
       return (args?.headings as Array<{ line: number }> | undefined ?? []).map(({ line }) => Math.max(1, Math.ceil(line / 45)));
     case "stat_project_file":
-      return { exists: current.files.has(pathArg(args)), mtimeMs: 1_700_000_000_000 };
+      return { exists: current.files.has(pathArg(args)), mtimeMs: BENCH_MTIME };
     case "search_project":
       return searchProject(String(args?.query ?? ""));
     case "harper_lint":
@@ -1151,6 +1177,14 @@ function answer(command: string, args: Args): unknown {
       return importEntries(args);
     case "rename_project_entry":
       return renameEntry(args);
+    case "set_submission_items":
+      benchItems = ((args?.items as SubmissionItem[] | undefined) ?? []).map((item) => ({
+        ...item,
+        confirmedMtimeMs: item.status === "confirmed" && item.file && current.files.has(item.file)
+          ? item.confirmedMtimeMs ?? BENCH_MTIME
+          : undefined,
+      }));
+      return snapshot().manifest;
     case "set_project_deadline":
       benchDeadline = (args?.deadline as ProjectDeadline | null | undefined) ?? null;
       return snapshot().manifest;

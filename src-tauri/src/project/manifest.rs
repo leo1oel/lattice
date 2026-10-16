@@ -5,9 +5,11 @@ use super::create::{default_brief, default_manifest, RESEARCH_GITIGNORE};
 use super::history::{
     prune_conversation_checkpoints, MAX_CHECKPOINTS_PER_SESSION, MAX_CHECKPOINT_BYTES,
 };
-use super::paths::safe_path;
+use super::paths::{safe_path, stays_inside};
 use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
-use crate::models::{FileNode, ProjectDeadline, ProjectManifest, ProjectSnapshot, RootDocument};
+use crate::models::{
+    FileNode, ProjectDeadline, ProjectManifest, ProjectSnapshot, RootDocument, SubmissionItem,
+};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
 use serde::Serialize;
@@ -479,6 +481,77 @@ pub fn set_deadline(
     Ok(manifest)
 }
 
+/// Replace the checklist's own items. Text is trimmed and an empty optional
+/// field is dropped. A confirmed item linked to a file keeps the stamp it was
+/// sent with, or takes the file's current mtime when it arrives without one
+/// (just confirmed, or confirmed again after a change); any other item holds
+/// no stamp.
+pub fn set_submission_items(
+    root: &Path, items: Vec<SubmissionItem>,
+) -> Result<ProjectManifest, String> {
+    fn optional(value: Option<String>, limit: usize, what: &str) -> Result<Option<String>, String> {
+        let value = value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+        match value {
+            Some(value) if value.chars().count() > limit => {
+                Err(format!("Keep the {what} to at most {limit} characters."))
+            }
+            value => Ok(value),
+        }
+    }
+    if items.len() > 200 {
+        return Err("A checklist holds at most 200 items.".to_string());
+    }
+    let mut manifest = read_manifest(root)?;
+    let mut normalized: Vec<SubmissionItem> = Vec::with_capacity(items.len());
+    for item in items {
+        let id = item.id.trim().to_string();
+        if id.is_empty() || id.len() > 64 || normalized.iter().any(|seen| seen.id == id) {
+            return Err("Each checklist item needs its own id.".to_string());
+        }
+        let title = item.title.trim().to_string();
+        if title.is_empty() || title.chars().count() > 200 {
+            return Err("Name each checklist item in at most 200 characters.".to_string());
+        }
+        if !matches!(item.status.as_str(), "todo" | "review" | "confirmed") {
+            return Err("Choose to do, to check, or confirmed.".to_string());
+        }
+        let file = optional(item.file, 500, "file path")?;
+        if file.as_deref().is_some_and(|file| !stays_inside(Path::new(file))) {
+            return Err("Link a file inside the project.".to_string());
+        }
+        let source_checked = optional(item.source_checked, 10, "checked date")?;
+        if let Some(day) = &source_checked {
+            chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+                .map_err(|_| "Give the checked date as a day.".to_string())?;
+        }
+        let confirmed_mtime_ms = match (&file, item.status.as_str()) {
+            (Some(file), "confirmed") => {
+                item.confirmed_mtime_ms.or_else(|| file_mtime_ms(root, file))
+            }
+            _ => None,
+        };
+        normalized.push(SubmissionItem {
+            id,
+            title,
+            status: item.status,
+            file,
+            source: optional(item.source, 500, "source")?,
+            source_checked,
+            owner: optional(item.owner, 80, "owner")?,
+            confirmed_mtime_ms,
+        });
+    }
+    manifest.submission_items = normalized;
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
+fn file_mtime_ms(root: &Path, relative: &str) -> Option<u64> {
+    let modified = safe_path(root, relative).ok()?.metadata().ok()?.modified().ok()?;
+    let since = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+    u64::try_from(since.as_millis()).ok()
+}
+
 /// Replace the project dictionary with single words, unique ignoring ASCII
 /// case (the first spelling wins) and sorted.
 pub fn set_spelling_words(root: &Path, words: Vec<String>) -> Result<ProjectManifest, String> {
@@ -672,6 +745,68 @@ mod tests {
         let words = ["TexLab", "VLM", "texlab"].map(String::from).to_vec();
         assert_eq!(set_spelling_words(root, words).unwrap().spelling_words, vec!["TexLab", "VLM"]);
         assert_eq!(read_manifest(root).unwrap().engine, "xelatex");
+    }
+
+    #[test]
+    fn submission_items_are_validated_and_stamp_the_confirmed_file() {
+        let fixture = Fixture::project("manifest-submission-items");
+        let root = &fixture.root;
+        fixture.write("supplementary.pdf", "%PDF-1.5");
+        let item = |id: &str, title: &str, status: &str, file: Option<&str>| SubmissionItem {
+            id: id.to_string(),
+            title: title.to_string(),
+            status: status.to_string(),
+            file: file.map(str::to_string),
+            source: Some("  ".to_string()),
+            source_checked: None,
+            owner: Some(" Ada ".to_string()),
+            confirmed_mtime_ms: None,
+        };
+        let set = set_submission_items(
+            root,
+            vec![
+                item("a", " supplementary.pdf checked ", "confirmed", Some("supplementary.pdf")),
+                item("b", "All authors approved", "todo", None),
+                item("c", "Cover letter", "confirmed", Some("letter.pdf")),
+            ],
+        )
+        .unwrap();
+        let [supplement, authors, letter] = &set.submission_items[..] else { panic!() };
+        assert_eq!(supplement.title, "supplementary.pdf checked");
+        assert_eq!(
+            (supplement.source.as_deref(), supplement.owner.as_deref()),
+            (None, Some("Ada"))
+        );
+        assert_eq!(supplement.confirmed_mtime_ms, file_mtime_ms(root, "supplementary.pdf"));
+        assert!(supplement.confirmed_mtime_ms.is_some());
+        assert_eq!(authors.confirmed_mtime_ms, None, "an unconfirmed item holds no stamp");
+        assert_eq!(letter.confirmed_mtime_ms, None, "a missing file has no mtime to keep");
+        assert_eq!(read_manifest(root).unwrap().submission_items, set.submission_items);
+
+        // A stamp sent back is kept, so a later edit to the file stays visible.
+        let mut kept = set.submission_items.clone();
+        kept[0].confirmed_mtime_ms = Some(1);
+        assert_eq!(
+            set_submission_items(root, kept).unwrap().submission_items[0].confirmed_mtime_ms,
+            Some(1)
+        );
+
+        for bad in [
+            vec![item("a", "One", "todo", None), item("a", "Two", "todo", None)],
+            vec![item("a", " ", "todo", None)],
+            vec![item("a", "One", "done", None)],
+            vec![item("a", "One", "todo", Some("../outside.pdf"))],
+            vec![item("a", "One", "todo", Some("/etc/hosts"))],
+            vec![SubmissionItem {
+                source_checked: Some("2027-02-30".to_string()),
+                ..item("a", "One", "todo", None)
+            }],
+        ] {
+            assert!(set_submission_items(root, bad.clone()).is_err(), "{bad:?}");
+        }
+        assert_eq!(set_submission_items(root, Vec::new()).unwrap().submission_items, Vec::new());
+        let raw = fs::read_to_string(root.join(MANIFEST_PATH)).unwrap();
+        assert!(!raw.contains("submissionItems"), "an empty list leaves no key behind");
     }
 
     #[test]

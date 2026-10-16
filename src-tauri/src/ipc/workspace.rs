@@ -2,7 +2,7 @@
 
 use super::{current_root, pinned_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
-use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot};
+use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot, SubmissionItem};
 use crate::{fs_watch, latex, project, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
@@ -191,6 +191,15 @@ pub async fn set_project_deadline(
 ) -> Result<ProjectManifest, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Project deadline update", move || project::set_deadline(&root, deadline)).await
+}
+
+#[tauri::command]
+pub async fn set_submission_items(
+    state: State<'_, AppState>, window: Window, items: Vec<SubmissionItem>,
+) -> Result<ProjectManifest, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Submission checklist update", move || project::set_submission_items(&root, items))
+        .await
 }
 
 #[tauri::command]
