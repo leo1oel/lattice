@@ -132,12 +132,12 @@ fi
 "$mise_bin" reshim
 finish_step
 
-start_step "Installing the stable Rust toolchain"
+start_step "Installing the pinned Rust toolchain"
 if [[ ! -x "$HOME/.cargo/bin/rustup" ]]; then
   curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
 fi
-rustup toolchain install stable --profile minimal --component clippy,rustfmt
-rustup target add aarch64-apple-darwin --toolchain stable
+# With no arguments it installs rust-toolchain.toml's release, components and target.
+rustup toolchain install
 finish_step
 
 start_step "Installing uv (optional; set SKIP_UV=1 to skip)"
