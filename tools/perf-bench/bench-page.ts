@@ -857,6 +857,8 @@ function answer(command: string, args: Args): unknown {
       return content;
     }
     case "write_project_file": {
+      // `?save=fail`: every write fails as a full disk does, for the save slot's failed state.
+      if (params.get("save") === "fail") throw new Error("No space left on device (os error 28)");
       const contents = args?.contents ?? args?.content;
       if (typeof contents === "string") current.files.set(pathArg(args), contents);
       return null;

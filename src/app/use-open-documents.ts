@@ -29,6 +29,25 @@ import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 
 export type PaperView = "blog" | "fulltext";
 
+/**
+ * What the status bar's save slot reports: the last write to disk, as the
+ * save promise resolved it. Autosave writes a moment after typing stops, so
+ * "saving" is only shown for a write still running after SAVING_SHOWN_AFTER_MS;
+ * a quick one goes straight from saved to saved, with no flicker.
+ */
+export type SaveStatus = {
+  phase: "saved" | "saving" | "failed";
+  /** When the last write landed or failed; null until this session writes. */
+  at: number | null;
+  /** The file that write was for. */
+  path: string | null;
+  /** Why it failed, in the system's words. */
+  error?: string;
+};
+
+const SAVING_SHOWN_AFTER_MS = 400;
+const NOTHING_SAVED: SaveStatus = { phase: "saved", at: null, path: null };
+
 /** The two cached reading files of an imported Paper. */
 export function paperDocumentPath(arxivId: string, view: PaperView): string {
   // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
@@ -292,6 +311,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   // saves in flight, and a PDF removed from the project while it is open.
   const diskMtimeRef = useRef<number | null>(null);
   const saveActivityRef = useRef({ pending: 0, generation: 0 });
+  // Kept with the project it describes: another project starts from nothing saved.
+  const [saveRecord, setSaveStatus] = useState<SaveStatus & { root?: string }>(NOTHING_SAVED);
+  const saveStatus: SaveStatus = saveRecord.root === projectRoot ? saveRecord : NOTHING_SAVED;
   const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
   const viewerRecheckAtRef = useRef(0);
 
@@ -484,6 +506,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         writtenPaths.push(path);
       }
       if (!writtenPaths.length) return true;
+      setSaveStatus({ phase: "saved", at: Date.now(), path: writtenPaths[0]!, root: current.root });
       // Saving must only wait for durable writes. The derived sidebars are
       // useful, but making file switches and builds wait on six independent
       // project scans turned every save into a visible pause.
@@ -495,6 +518,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       // than a `logAction` trace — a start line per keystroke pause would bury
       // everything else in the log.
       notifyError(t`Save`, activeFile ? t`Could not save ${activeFile}` : t`Could not save the project`, { detail: toMessage(reason) });
+      setSaveStatus({ phase: "failed", at: Date.now(), path: activeFile || null, error: toMessage(reason), root: current.root });
       return false;
     });
   }, [
@@ -506,8 +530,15 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const save = useCallback((): Promise<boolean> => {
     saveActivityRef.current.pending += 1;
     saveActivityRef.current.generation += 1;
-    return saveContents().finally(() => { saveActivityRef.current.pending -= 1; });
-  }, [saveContents]);
+    const root = renderedRef.current.project?.root;
+    const slow = window.setTimeout(() => setSaveStatus((status) => ({ ...(status.root === root ? status : NOTHING_SAVED), phase: "saving", root })), SAVING_SHOWN_AFTER_MS);
+    return saveContents().finally(() => {
+      saveActivityRef.current.pending -= 1;
+      window.clearTimeout(slow);
+      // A slow save that wrote nothing (another save had already written it) leaves the last word standing.
+      setSaveStatus((status) => (status.phase === "saving" ? { ...status, phase: "saved" } : status));
+    });
+  }, [renderedRef, saveContents]);
 
   /**
    * Durable text for `path` reached disk: show it if `path` is the open file.
@@ -1293,6 +1324,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     open, openFile, openAsset, openPaper, close, reopenClosed, go, chooseMode, choosePaperView, reveal, leavePaper,
     recentPaths,
     // Buffers.
+    /** The last write to disk, for the status bar's save slot. */
+    saveStatus,
     flush, save, hasUnsavedEdits, edit: setTextLive, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
     enter, remove, move,

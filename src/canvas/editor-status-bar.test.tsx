@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { EditorStatusBar } from "./editor-status-bar";
+import type { SaveSlot } from "./status-save-state";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { activateAppLocale } from "../i18n";
 
@@ -93,5 +94,49 @@ describe("EditorStatusBar", () => {
     // break: a shrinkable label column, and a note that breaks anywhere.
     expect(getComputedStyle(note.parentElement!).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
     expect(getComputedStyle(note)).toMatchObject({ minWidth: "0px", overflowWrap: "anywhere" });
+  });
+});
+
+describe("the save slot", () => {
+  beforeEach(() => activateAppLocale("en"));
+  afterEach(cleanup);
+
+  const slot = (overrides: Partial<SaveSlot> = {}): SaveSlot => ({
+    status: { phase: "saved", at: Date.now(), path: "main.tex" }, overleaf: null,
+    onRetry: vi.fn(), onSaveCopy: vi.fn(), onSync: vi.fn(), ...overrides,
+  });
+
+  it("says the file is on disk, and how long ago, quietly", () => {
+    renderStatus({ saveSlot: slot() });
+    const button = screen.getByRole("button", { name: "Saved, just now" });
+    expect(button).toHaveAttribute("data-mode", "saved");
+    fireEvent.click(button);
+    const details = screen.getByRole("dialog", { name: "Save state" });
+    expect(within(details).getByText("Saved just now")).toBeInTheDocument();
+    expect(within(details).getByText("main.tex · saves a second after you stop typing")).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ state: "live", lastSync: null }, "Saved · Synced", "saved"],
+    [{ state: "offline", lastSync: null }, "Saved on this Mac", "offline"],
+    [{ state: "syncing", lastSync: null }, "Saved · Syncing…", "saved"],
+  ] as const)("words the Overleaf layer apart from the disk (%o)", (overleaf, name, mode) => {
+    renderStatus({ saveSlot: slot({ overleaf }) });
+    expect(screen.getByRole("button", { name })).toHaveAttribute("data-mode", mode);
+  });
+
+  it("turns red only for a failed write, saying why and how to get the text out", () => {
+    const failed = slot({ status: { phase: "failed", at: Date.now(), path: "chapters/intro.tex", error: "No space left on device" } });
+    renderStatus({ saveSlot: failed });
+    const button = screen.getByRole("button", { name: "Couldn’t save" });
+    expect(button).toHaveAttribute("data-mode", "error");
+    fireEvent.click(button);
+    const details = screen.getByRole("dialog", { name: "Save state" });
+    expect(within(details).getByText("Lattice couldn’t write intro.tex")).toBeInTheDocument();
+    expect(within(details).getByText("No space left on device")).toBeInTheDocument();
+    fireEvent.click(within(details).getByRole("button", { name: "Try again" }));
+    fireEvent.click(within(details).getByRole("button", { name: "Save a copy…" }));
+    expect(failed.onRetry).toHaveBeenCalledOnce();
+    expect(failed.onSaveCopy).toHaveBeenCalledOnce();
   });
 });

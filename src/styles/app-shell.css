@@ -242,6 +242,15 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb > span { min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
 .editor-status-bar .status-vim-mode { min-width: max-content; flex: none; padding: 0 var(--space-3); color: var(--text-primary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 .editor-status-bar .status-vim-compact { display: none; }
+/* The save slot after the caret: tertiary ink while all is well, the
+   secondary ink and a warning-tinted icon offline, danger only for a write
+   that failed. The age trails the label after a dot. */
+.editor-status-bar .status-save { color: var(--text-tertiary); }
+.editor-status-bar .status-save .status-save-age::before { content: "·"; margin-inline-end: var(--space-2); }
+.editor-status-bar .status-save .status-save-age { margin-inline-start: var(--space-2); }
+.editor-status-bar .status-save[data-mode="offline"] { color: var(--text-secondary); }
+.editor-status-bar .status-save[data-mode="offline"] > svg { color: var(--status-warning); }
+.editor-status-bar .status-save[data-mode="error"] { color: var(--status-danger); }
 /* The bar gives way in one order as it narrows, so what stays is what a
    writer glances at most, and nothing ever wraps, overlaps or is cut:
      1. the shortcut hint, help rather than status, goes first;
@@ -251,6 +260,8 @@ input[type="search"]:focus-visible {
         into More (…), which lists the counters and every word count;
      5. the caret shortens to line:column and Vim's mode to its initial;
      6. the counters fold into More.
+   The save slot drops its age with the breadcrumb's parents (2), its label
+   with the breadcrumb (4), and keeps its icon, which still opens its details.
    The caret, Vim's mode and More never leave. Each step is the measured
    width of the English bar that stays (the longer language) with a 5-digit
    line, a 3-digit column, two-digit counts and a 7-digit manuscript, plus the
@@ -262,6 +273,10 @@ input[type="search"]:focus-visible {
    leaves the bar 216px; a panel narrower than both Split minimums shrinks the
    source below that, and the caret ellipsizes before anything spills. */
 @container (max-width: 720px) { .editor-status-bar .status-hint { display: none; } }
+@container (max-width: 600px) { .editor-status-bar .status-save .status-save-age { display: none; } }
+@container (max-width: 680px) { .editor-status-bar:has(.status-vim-mode) .status-save .status-save-age { display: none; } }
+@container (max-width: 420px) { .editor-status-bar .status-save .status-save-label { display: none; } }
+@container (max-width: 500px) { .editor-status-bar:has(.status-vim-mode) .status-save .status-save-label { display: none; } }
 @container (max-width: 800px) { .editor-status-bar:has(.status-vim-mode) .status-hint { display: none; } }
 @container (max-width: 600px) {
   .editor-status-bar .editor-breadcrumb > span:not(:last-child),
@@ -320,6 +335,14 @@ input[type="search"]:focus-visible {
 .word-count-popover dt { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
 .word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; min-width: 0; overflow-wrap: anywhere; }
+/* The save slot's details: a sentence or two above the rows when there is
+   something to say (offline, a failed write), and the actions under them. */
+.save-state-popover { display: grid; gap: var(--space-2); }
+.save-state-popover > strong { padding: var(--space-4) var(--space-6) 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.save-state-popover > p { margin: 0; padding: 0 var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+.save-state-popover > p.save-state-reason { color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); overflow-wrap: anywhere; }
+.save-state-popover .save-state-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-2) var(--space-6) var(--space-4); }
+.save-state-popover > dl + .save-state-actions { padding-top: 0; }
 /* At the narrowest steps More lists what the bar folded: the counters as
    rows that open their drawers, the open count at the end in the accent,
    then the word counts by scope. */

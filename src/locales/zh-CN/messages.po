@@ -443,6 +443,10 @@ msgstr "{failed} 篇没找到"
 msgid "{failing} checks need attention"
 msgstr "{failing} 项需要处理"
 
+#: src/canvas/status-save-state.tsx
+msgid "{file} · saves a second after you stop typing"
+msgstr "{file} · 停止输入约一秒后自动保存"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} 个文件"
@@ -2904,6 +2908,14 @@ msgstr "闭路积分"
 msgid "Club suit"
 msgstr "梅花"
 
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your changes once you sync"
+msgstr "同步之后，合作者才能看到你的修改"
+
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your edits as you type"
+msgstr "你输入时，合作者就能看到你的修改"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Code block"
 msgstr "代码块"
@@ -3542,6 +3554,10 @@ msgstr "无法重新打开“{unopenedName}”：{unopenedReason}"
 #: src/project/project-dialogs.tsx
 msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 msgstr "无法重新打开“{unopenedName}”，它的文件夹可能已被移动或重命名"
+
+#: src/canvas/status-save-state.tsx
+msgid "Couldn’t save"
+msgstr "无法保存"
 
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
@@ -6092,6 +6108,10 @@ msgstr "上次编译"
 msgid "Last checked"
 msgstr "上次检查"
 
+#: src/canvas/status-save-state.tsx
+msgid "Last synced"
+msgstr "上次同步"
+
 #. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
 msgid "Last synced {0}"
@@ -6209,6 +6229,10 @@ msgstr "窗口打不开了"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "没能自动重启，请退出后重新打开"
+
+#: src/canvas/status-save-state.tsx
+msgid "Lattice couldn’t write {file}"
+msgstr "Lattice 无法写入 {file}"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
@@ -6479,6 +6503,10 @@ msgstr "找文献"
 #: src/settings/settings-search-index.ts
 msgid "Literature services"
 msgstr "文献来源"
+
+#: src/canvas/status-save-state.tsx
+msgid "Live"
+msgstr "实时"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live · click to sync"
@@ -7711,6 +7739,7 @@ msgstr "以后再说"
 msgid "Not ready"
 msgstr "尚未就绪"
 
+#: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "还没同步"
@@ -7722,6 +7751,10 @@ msgstr "未确认"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "not written"
 msgstr "未生成"
+
+#: src/canvas/status-save-state.tsx
+msgid "Not yet"
+msgstr "尚未同步"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
@@ -7887,6 +7920,10 @@ msgstr "纸面效果，与 PDF 一致"
 msgctxt "margin review"
 msgid "On screen"
 msgstr "这一屏"
+
+#: src/canvas/status-save-state.tsx
+msgid "On this Mac"
+msgstr "这台 Mac"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -8247,6 +8284,7 @@ msgid "Outline"
 msgstr "大纲"
 
 #: src/app/palette-sections.ts
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -9960,6 +9998,10 @@ msgstr "继续"
 msgid "Resume syncing"
 msgstr "继续同步"
 
+#: src/canvas/status-save-state.tsx
+msgid "Resume the link in Overleaf settings to sync again"
+msgstr "在 Overleaf 设置中恢复关联即可继续同步"
+
 #: src/project/citation-health.ts
 msgid "Retracted"
 msgstr "已撤稿"
@@ -10208,6 +10250,7 @@ msgstr "饱和度 {0}%，亮度 {1}%"
 msgid "Saturation and brightness"
 msgstr "饱和度与亮度"
 
+#: src/app/save-source-copy.ts
 #: src/app/use-open-documents.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -10217,6 +10260,18 @@ msgstr "饱和度与亮度"
 #: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "保存"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy"
+msgstr "保存副本"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy of {name}"
+msgstr "保存 {name} 的副本"
+
+#: src/canvas/status-save-state.tsx
+msgid "Save a copy…"
+msgstr "另存一份…"
 
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
@@ -10282,6 +10337,10 @@ msgstr "请先保存，再更新引用"
 msgid "Save resolved file"
 msgstr "保存文件"
 
+#: src/canvas/status-save-state.tsx
+msgid "Save state"
+msgstr "保存状态"
+
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "请先保存再修复"
@@ -10304,13 +10363,34 @@ msgstr "保存可视化内容"
 msgid "Save visual as HTML"
 msgstr "将可视化内容另存为 HTML"
 
+#: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "已保存"
 
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Synced"
+msgstr "已保存 · 已同步"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Syncing…"
+msgstr "已保存 · 正在同步…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved {age}"
+msgstr "{age}已保存"
+
+#: src/app/save-source-copy.ts
+msgid "Saved a copy to {written}"
+msgstr "副本已保存到 {written}"
+
 #: src/history/versions-timeline.tsx
 msgid "Saved by Lattice after syncs and builds since {since}"
 msgstr "Lattice 自 {since} 起在同步和编译后自动保存"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved on this Mac"
+msgstr "已存在这台 Mac"
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
@@ -10329,6 +10409,7 @@ msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 msgid "Saved, with its overview"
 msgstr "已保存，含概览"
 
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
@@ -11301,15 +11382,27 @@ msgstr "同步规则"
 msgid "Sync mode"
 msgstr "同步方式"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync now"
+msgstr "立即同步"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "点同步按钮时才同步"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync paused"
+msgstr "同步已暂停"
+
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "同步 Overleaf"
+
+#: src/canvas/status-save-state.tsx
+msgid "Synced {synced}"
+msgstr "{synced}同步"
 
 #: src/project/paper-library.tsx
 msgid "Syncing references…"
@@ -11322,6 +11415,10 @@ msgstr "与“{0}”的同步已暂停"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Syncing with Overleaf…"
+msgstr "正在同步…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Syncing…"
 msgstr "正在同步…"
 
 #: src/build/tex-doctor-messages.ts
@@ -12283,6 +12380,7 @@ msgstr "换个更短或不同的词试试"
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
+#: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
@@ -12303,6 +12401,10 @@ msgstr "换个筛选条件试试"
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
+
+#: src/canvas/status-save-state.tsx
+msgid "Try now"
+msgstr "立即重试"
 
 #: src/app/command-palette.tsx
 msgid "Try other words, or search every source file"
@@ -13005,6 +13107,10 @@ msgstr "字数 / 页数 / 待办"
 msgid "Words inside math mode"
 msgstr "数学模式中的词语"
 
+#: src/canvas/status-save-state.tsx
+msgid "Working offline"
+msgstr "离线工作中"
+
 #: src/papers/paper-import-progress.ts
 #: src/project/paper-library.tsx
 msgid "Working…"
@@ -13158,6 +13264,10 @@ msgstr "你的 {BIBITEM} 有出入：{fields}"
 msgid "Your answer…"
 msgstr "你的回答…"
 
+#: src/canvas/status-save-state.tsx
+msgid "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+msgstr "你的修改已存在这台 Mac 上，联网后会同步到 Overleaf。"
+
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "你的颜色"
@@ -13206,6 +13316,10 @@ msgstr "你的文件都在，没有丢失"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your projects"
 msgstr "我的项目"
+
+#: src/canvas/status-save-state.tsx
+msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
+msgstr "文字仍完好地留在这个窗口里，没有丢失任何内容。可以重试，或把副本保存到别处。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Yours"

@@ -69,6 +69,8 @@ import { useLoadingShell } from "./app/use-loading-shell";
 import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
+import { saveSourceCopy } from "./app/save-source-copy";
+import type { OverleafSaveLayer } from "./canvas/status-save-state";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
@@ -1368,6 +1370,18 @@ function App() {
     if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
     else void runOverleafSync();
   };
+  // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
+  // The live channel reconnecting after a drop (it says why in `detail`) or
+  // given up on is offline; its first connection reads as an ordinary link.
+  const overleafSaveLayer: OverleafSaveLayer | null = !overleafLink ? null : {
+    lastSync: overleafLink.lastSync,
+    state: overleafLink.paused ? "paused"
+      : overleafSyncing ? "syncing"
+        : overleafSyncMode !== "live" ? "manual"
+          : overleafRealtime.status === "live" ? "live"
+            : overleafRealtime.status === "error" || (overleafRealtime.status === "connecting" && overleafRealtime.detail) ? "offline"
+              : "manual",
+  };
   const editorSelected = agentContext.selectionSource === "editor" && agentContext.selection.trim() !== "";
   /** ⌘K (or ⌘⇧P) opens the palette, and closes it again. */
   const openCommandPalette = () => {
@@ -1930,6 +1944,13 @@ function App() {
       // Papers live under .research/, which Overleaf deliberately
       // excludes from sync.
       editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
+      saveSlot={{
+        status: documents.saveStatus,
+        overleaf: overleafSaveLayer,
+        onRetry: () => void documents.save(),
+        onSaveCopy: () => void saveSourceCopy(activeFile, sourceRef.current),
+        onSync: syncOverleaf,
+      }}
       editorKey={editorKey}
       trellis={{
         editorHost: trellis.hosts.editor,

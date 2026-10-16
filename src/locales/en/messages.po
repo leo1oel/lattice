@@ -443,6 +443,10 @@ msgstr "{failed} not found"
 msgid "{failing} checks need attention"
 msgstr "{failing} checks need attention"
 
+#: src/canvas/status-save-state.tsx
+msgid "{file} · saves a second after you stop typing"
+msgstr "{file} · saves a second after you stop typing"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -2904,6 +2908,14 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your changes once you sync"
+msgstr "Co-authors see your changes once you sync"
+
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your edits as you type"
+msgstr "Co-authors see your edits as you type"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Code block"
 msgstr "Code block"
@@ -3542,6 +3554,10 @@ msgstr "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
 #: src/project/project-dialogs.tsx
 msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 msgstr "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
+
+#: src/canvas/status-save-state.tsx
+msgid "Couldn’t save"
+msgstr "Couldn’t save"
 
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
@@ -6092,6 +6108,10 @@ msgstr "Last build"
 msgid "Last checked"
 msgstr "Last checked"
 
+#: src/canvas/status-save-state.tsx
+msgid "Last synced"
+msgstr "Last synced"
+
 #. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
 msgid "Last synced {0}"
@@ -6209,6 +6229,10 @@ msgstr "Lattice couldn’t open this window"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
+
+#: src/canvas/status-save-state.tsx
+msgid "Lattice couldn’t write {file}"
+msgstr "Lattice couldn’t write {file}"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
@@ -6479,6 +6503,10 @@ msgstr "Literature"
 #: src/settings/settings-search-index.ts
 msgid "Literature services"
 msgstr "Literature services"
+
+#: src/canvas/status-save-state.tsx
+msgid "Live"
+msgstr "Live"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live · click to sync"
@@ -7711,6 +7739,7 @@ msgstr "Not now"
 msgid "Not ready"
 msgstr "Not ready"
 
+#: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
@@ -7722,6 +7751,10 @@ msgstr "Not verified"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "not written"
 msgstr "not written"
+
+#: src/canvas/status-save-state.tsx
+msgid "Not yet"
+msgstr "Not yet"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
@@ -7887,6 +7920,10 @@ msgstr "On paper, as in the PDF"
 msgctxt "margin review"
 msgid "On screen"
 msgstr "On screen"
+
+#: src/canvas/status-save-state.tsx
+msgid "On this Mac"
+msgstr "On this Mac"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -8247,6 +8284,7 @@ msgid "Outline"
 msgstr "Outline"
 
 #: src/app/palette-sections.ts
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -9960,6 +9998,10 @@ msgstr "Resume"
 msgid "Resume syncing"
 msgstr "Resume syncing"
 
+#: src/canvas/status-save-state.tsx
+msgid "Resume the link in Overleaf settings to sync again"
+msgstr "Resume the link in Overleaf settings to sync again"
+
 #: src/project/citation-health.ts
 msgid "Retracted"
 msgstr "Retracted"
@@ -10208,6 +10250,7 @@ msgstr "Saturation {0}%, brightness {1}%"
 msgid "Saturation and brightness"
 msgstr "Saturation and brightness"
 
+#: src/app/save-source-copy.ts
 #: src/app/use-open-documents.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -10217,6 +10260,18 @@ msgstr "Saturation and brightness"
 #: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "Save"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy"
+msgstr "Save a copy"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy of {name}"
+msgstr "Save a copy of {name}"
+
+#: src/canvas/status-save-state.tsx
+msgid "Save a copy…"
+msgstr "Save a copy…"
 
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
@@ -10282,6 +10337,10 @@ msgstr "Save pending edits before updating references."
 msgid "Save resolved file"
 msgstr "Save resolved file"
 
+#: src/canvas/status-save-state.tsx
+msgid "Save state"
+msgstr "Save state"
+
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
@@ -10304,13 +10363,34 @@ msgstr "Save visual"
 msgid "Save visual as HTML"
 msgstr "Save visual as HTML"
 
+#: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
 
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Synced"
+msgstr "Saved · Synced"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Syncing…"
+msgstr "Saved · Syncing…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved {age}"
+msgstr "Saved {age}"
+
+#: src/app/save-source-copy.ts
+msgid "Saved a copy to {written}"
+msgstr "Saved a copy to {written}"
+
 #: src/history/versions-timeline.tsx
 msgid "Saved by Lattice after syncs and builds since {since}"
 msgstr "Saved by Lattice after syncs and builds since {since}"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved on this Mac"
+msgstr "Saved on this Mac"
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
@@ -10329,6 +10409,7 @@ msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
 
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
@@ -11301,15 +11382,27 @@ msgstr "Sync behavior"
 msgid "Sync mode"
 msgstr "Sync mode"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync now"
+msgstr "Sync now"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "Sync only when you click the sync button"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync paused"
+msgstr "Sync paused"
+
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
+
+#: src/canvas/status-save-state.tsx
+msgid "Synced {synced}"
+msgstr "Synced {synced}"
 
 #: src/project/paper-library.tsx
 msgid "Syncing references…"
@@ -11323,6 +11416,10 @@ msgstr "Syncing with “{0}” is paused"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Syncing with Overleaf…"
 msgstr "Syncing with Overleaf…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Syncing…"
+msgstr "Syncing…"
 
 #: src/build/tex-doctor-messages.ts
 msgid "SyncTeX bidirectional search"
@@ -12283,6 +12380,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
+#: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
@@ -12303,6 +12401,10 @@ msgstr "Try another filter"
 #: src/canvas/document-canvas.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
+
+#: src/canvas/status-save-state.tsx
+msgid "Try now"
+msgstr "Try now"
 
 #: src/app/command-palette.tsx
 msgid "Try other words, or search every source file"
@@ -13005,6 +13107,10 @@ msgstr "Words / pages / TODOs"
 msgid "Words inside math mode"
 msgstr "Words inside math mode"
 
+#: src/canvas/status-save-state.tsx
+msgid "Working offline"
+msgstr "Working offline"
+
 #: src/papers/paper-import-progress.ts
 #: src/project/paper-library.tsx
 msgid "Working…"
@@ -13158,6 +13264,10 @@ msgstr "Your {BIBITEM} differs: {fields}"
 msgid "Your answer…"
 msgstr "Your answer…"
 
+#: src/canvas/status-save-state.tsx
+msgid "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+msgstr "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
@@ -13206,6 +13316,10 @@ msgstr "Your project files are safe"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your projects"
 msgstr "Your projects"
+
+#: src/canvas/status-save-state.tsx
+msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
+msgstr "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Yours"

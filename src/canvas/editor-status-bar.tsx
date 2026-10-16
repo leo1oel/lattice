@@ -10,13 +10,14 @@ import type { EditorKeymap, WordCount } from "../app-types";
 import { formatCount } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { StatusSaveState, type SaveSlot } from "./status-save-state";
 
 const CARET_LINE = "\u0001";
 const CARET_COLUMN = "\u0002";
 
 /**
- * Caret position, Vim mode, section breadcrumb, shortcuts, comments/TODOs, and
- * word counts for the focused editor.
+ * Caret position, save state, Vim mode, section breadcrumb, shortcuts,
+ * comments/TODOs, and word counts for the focused editor.
  *
  * The bar never wraps or clips: as it narrows, app-shell.css's ladder gives
  * way in a fixed order (see the comment there), and whatever leaves the bar is
@@ -39,6 +40,8 @@ export function EditorStatusBar(props: {
   projectWordCount: WordCount | null;
   selectedText: string;
   source: string;
+  /** The save slot after the caret. */
+  saveSlot?: SaveSlot;
 }) {
   const { position, breadcrumb, todoCount } = props;
   const { t } = useLingui();
@@ -74,6 +77,7 @@ export function EditorStatusBar(props: {
           {caretWords[2] && <span className="status-caret-word">{caretWords[2]}</span>}
         </span>
       </button>
+      {props.saveSlot && <StatusSaveState slot={props.saveSlot} path={props.path} />}
       {props.keymap === "vim" && (
         <span className="status-vim-mode" aria-live="polite" title={t`Vim mode`}>
           <span className="status-vim-full">--{props.vimMode.toUpperCase()}--</span>

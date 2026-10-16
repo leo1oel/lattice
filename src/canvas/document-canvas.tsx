@@ -84,6 +84,7 @@ import { annotationReviewExtension } from "../editor/annotation-review-anchor";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
 import { EditorStatusBar } from "./editor-status-bar";
+import type { SaveSlot } from "./status-save-state";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {
@@ -346,6 +347,8 @@ export function DocumentCanvas(props: {
   /** The project's open tabs: every deck among them stays loaded (see OpenSlideDeckPool). */
   openPaths: readonly string[];
   editorEditable: boolean;
+  /** What the status bar's save slot shows, and its actions. */
+  saveSlot?: SaveSlot;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
@@ -1590,6 +1593,7 @@ export function DocumentCanvas(props: {
           projectWordCount={props.projectWordCount}
           selectedText={selectedText}
           source={settledSource}
+          saveSlot={props.saveSlot}
         />
       </div>
       <TableGeneratorDialog open={tableGeneratorOpen} onClose={() => onTableGeneratorOpenChange(false)} onInsert={insertTextAtCursor} />
