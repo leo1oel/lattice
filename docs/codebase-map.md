@@ -268,10 +268,11 @@ them:
 - **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-tool-drawers.ts` (the one owner for opening and closing the tool drawers — history, Git, TODOs, checklist, comments, literature — and their per-kind side effects), `use-app-commands.ts` (the command type, the palette's `runCommand` and the window's one shortcut listener, ⌘/Ctrl keys and F8 alike), `palette-sections.ts` (the sections the palette and the shortcut sheet group commands under), `command-palette.tsx` (the ⌘K palette: commands, and for a typed query the project's files, Papers and Settings rows), `command-palette-leading.ts` (the recent and per-surface commands an empty palette query leads with), `key-combos.ts` (how every keymap's notation is read and drawn), `shortcut-groups.ts` and the lazy `shortcut-sheet.tsx` (the ⌘? sheet, built from the command table, `src/trellis/trellis-keymap.ts`, `src/editor/editor-keymap.ts`, `src/editor/latex/latex-shortcuts.ts` and `src/editor/markdown/engine/engine-shortcuts.ts`, which also bind those keys), and focus mode's `focus-mode-bar.tsx` and `use-focus-mode-escape.ts` (the layout side is a Trellis layout state in `trellis-layout.ts`).
 - **Surfaces:** `app-titlebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, each handed the hook object it renders rather than dozens of loose props. The workspace itself is the Trellis panel layout in `src/trellis/`.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useRefState`, `useStableHandlers`).
+- **Action helpers:** `*-action.ts` (removing a cited entry, renaming a symbol, adding a spelling word) — App's `try/catch` bodies, kept outside it so the React Compiler can compile App.
 
 What remains in App is the wiring between those hooks (what a project entry
-resets and scans, which build follows a save), the Paper actions (fetching,
-removing a cited entry), symbol navigation and rename, the one command table
+resets and scans, which build follows a save), fetching Papers, symbol
+navigation, the one command table
 that drives both the palette and the global shortcuts, and the top-level
 layout. Every way of changing what is open goes through the documents store's
 commands (`openFile`, `openPaper`, `openAsset`, `open`, `close`, `save`, …);
