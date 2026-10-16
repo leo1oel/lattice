@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Cloud, FileArchive, Folder, FolderOpen, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
@@ -18,10 +18,12 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
 import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
-import { LocalTemplates } from "./local-templates";
 import { PROJECT_VENUES } from "./project-venues";
 
 /** A recent project launch could not reopen, with the backend's reason. */
+// Loaded on demand: only the new-project dialog needs it, and the eager-JS budget is tight.
+const LocalTemplates = lazy(() => import("./local-templates").then((module) => ({ default: module.LocalTemplates })));
+
 export type UnopenedProject = RecentProject & { reason: string };
 
 /* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
@@ -182,7 +184,9 @@ export function CreateProjectDialog(props: {
               : t`Official 2026 style · preprint draft`}
           </small>
         </div>
-        <LocalTemplates selected={props.projectVenue} onSelect={props.setProjectVenue} currentProject={props.currentProject} />
+        <Suspense fallback={null}>
+          <LocalTemplates selected={props.projectVenue} onSelect={props.setProjectVenue} currentProject={props.currentProject} />
+        </Suspense>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
