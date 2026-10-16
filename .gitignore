@@ -15,6 +15,7 @@ public/pdfjs
 src/locales/**/*.js
 src/locales/**/*.js.map
 src-tauri/synara-runtime/
+.synara-src/
 src-tauri/presentation-runtime/*
 !src-tauri/presentation-runtime/placeholder.txt
 .agents/artifacts/

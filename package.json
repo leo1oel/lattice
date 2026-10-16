@@ -162,6 +162,9 @@
     "vitest": "^4.1.10"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "bun"
+    ],
     "overrides": {
       "@tiptap/extension-bubble-menu": "3.32.0",
       "@tiptap/extension-bullet-list": "3.32.0",
