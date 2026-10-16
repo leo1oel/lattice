@@ -715,6 +715,43 @@ const REVIEW_REPORT = (zh: boolean) => ({
   ],
 });
 let paperReviewState: unknown = null;
+/**
+ * The reviewer responses the page keeps, as `.research/responses.json` would.
+ * `?responses=1` seeds two reviewers' comments at every status, linked to the
+ * notes `?annotations=1` seeds (one link shared by two comments, one to a
+ * deleted annotation), with a long owner name.
+ */
+let reviewerResponsesState: unknown = params.get("responses") ? seededResponses() : null;
+
+function seededResponses() {
+  const at = new Date(Date.now() - 3_600_000).toISOString();
+  const comment = (id: string, reviewer: number, number: number, text: string, rest: Record<string, unknown> = {}) => ({
+    id, reviewer, number, comment: text, owner: "", reply: "", replyChecked: false, change: "todo", annotations: [],
+    createdAt: at, updatedAt: at, ...rest,
+  });
+  return {
+    version: 1,
+    reviewers: { 1: "xK7p" },
+    last: { 1: 4, 2: 2 },
+    comments: [
+      comment("bench-r1-1", 1, 1, "W1: The opening never says what the reader will be able to do after the tutorial. State the goal before defining attention.", {
+        owner: "Leo", reply: "We now open with what the tutorial teaches, before the definition.", replyChecked: true, change: "done", annotations: [1, 3],
+      }),
+      comment("bench-r1-2", 1, 2, "W2: The contrast with recurrent networks is implied but never made. One sentence would help readers new to sequence models.\n  - especially in Section 2", {
+        owner: "Maximiliane Rosenkranz-Oyelaran", reply: "Added a clause contrasting parallel training with an RNN's step-by-step pass.", change: "done", annotations: [3],
+      }),
+      comment("bench-r1-4", 1, 4, "Q1: Why is the scale exactly 1/sqrt(d_k)? A short intuition before the variance argument would make §3 easier to follow.", {
+        change: "todo", annotations: [4, 9],
+      }),
+      comment("bench-r2-1", 2, 1, "The related-work discussion leaves out multiplicative attention variants (Luong et al., 2015).", {
+        owner: "Ada", reply: "We cite Luong et al. and name both variants.", replyChecked: true, change: "todo", annotations: [5],
+      }),
+      comment("bench-r2-2", 2, 2, "Minor: figure 1's caption repeats the body text.", {
+        reply: "Thank you; we shortened the caption.", replyChecked: true, change: "none",
+      }),
+    ],
+  };
+}
 
 // --- Find support ---------------------------------------------------------
 // OpenAlex's answer for a claim about attention as explanation: three real
@@ -1133,6 +1170,9 @@ function answer(command: string, args: Args): unknown {
       return citationUsages();
     case "list_citations":
       return tutorialCitations();
+    case "plugin:dialog|save":
+      if (!params.get("responses")) throw new Error(`${command} is not part of the performance bench.`);
+      return `/Users/writer/Desktop/${(args?.options as { defaultPath?: string } | undefined)?.defaultPath ?? "untitled"}`;
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":
@@ -1208,6 +1248,18 @@ function answer(command: string, args: Args): unknown {
     case "save_paper_review":
       paperReviewState = args?.review ?? null;
       return null;
+    case "read_reviewer_responses":
+      return reviewerResponsesState;
+    case "save_reviewer_responses":
+      reviewerResponsesState = args?.responses ?? null;
+      return null;
+    // With `?responses=1`, an exported letter "saves" into `window.__latticeBenchSavedText`.
+    case "save_source_copy": {
+      const bytes = args as unknown;
+      (window as unknown as { __latticeBenchSavedText?: string }).__latticeBenchSavedText = bytes instanceof Uint8Array
+        ? new TextDecoder().decode(bytes) : "";
+      return "/Users/writer/Desktop/response-letter";
+    }
     case "save_annotations":
       annotationsState = { annotations: (args?.annotations as BenchAnnotation[]) ?? [], rounds: (args?.rounds as Array<Record<string, unknown>>) ?? [] };
       return null;

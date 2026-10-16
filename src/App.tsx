@@ -25,6 +25,7 @@ import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { annotationRounds, revisable } from "./app/annotation-rounds";
 import { paperReview } from "./app/paper-review";
 import { claimSupport } from "./app/claim-support";
+import { reviewerResponses } from "./app/reviewer-responses";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -197,7 +198,7 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "terms", "git", "overleaf"] as const;
+const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "terms", "responses", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
@@ -756,6 +757,7 @@ function App() {
       projectSearch.closeReplace();
       paperReview.reset();
       claimSupport.reset();
+      reviewerResponses.reset();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -849,6 +851,7 @@ function App() {
         tools.open("literature");
       },
     });
+    reviewerResponses.attach({ store: editorComments, projectRootRef });
   });
   const { clearStage: clearImportStage } = referenceImport;
   const { openForMissingPaperTools } = texSetup;
@@ -1422,6 +1425,10 @@ function App() {
         tools.open("review");
         void paperReview.startIfNone();
       },
+    },
+    {
+      id: "reviewer-responses", when: inProject, label: t`Respond to reviewers`, detail: t`Each comment numbered, answered and checked`, group: "research",
+      run: () => tools.open("responses"),
     },
     { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
     {

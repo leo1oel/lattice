@@ -2,9 +2,9 @@
  * The panels that hang off the editor rather than the project: the
  * Annotations panel and its Revision rounds sheet, the TODO scavenger, the
  * submission checklist, the reviewer's pass over the paper, the support
- * found for a claim, and Terms.
+ * found for a claim, Terms, and the answers to the venue's reviewers.
  *
- * The annotations, the review and the support are lazy, so each carries its own
+ * The annotations, the review, the support and the responses are lazy, so each carries its own
  * `Suspense` rather than sharing one with the other drawers — a `null`
  * fallback that covered all of them would unmount an open TODO panel while
  * an unrelated chunk loads.
@@ -55,6 +55,9 @@ const SupportPanel = lazy(() =>
 );
 const TermsPanel = lazy(() =>
   import("../project/terms-panel").then((module) => ({ default: module.TermsPanel })),
+);
+const ReviewerResponsesPanel = lazy(() =>
+  import("../project/reviewer-responses-panel").then((module) => ({ default: module.ReviewerResponsesPanel })),
 );
 const AnnotationRoundsDialog = lazy(() =>
   import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
@@ -294,6 +297,11 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             onOpen={(path, line) => void openProjectFile(path, { line })}
             onClose={() => tools.close("terms")}
           />
+        </Suspense>
+      )}
+      {tools.isOpen.responses && (
+        <Suspense fallback={null}>
+          <ReviewerResponsesPanel annotations={comments.comments} onClose={() => tools.close("responses")} />
         </Suspense>
       )}
       {tools.isOpen.checklist && project && (

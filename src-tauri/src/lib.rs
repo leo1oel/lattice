@@ -410,6 +410,8 @@ pub fn run() {
             ipc::files::save_annotations,
             ipc::files::read_paper_review,
             ipc::files::save_paper_review,
+            ipc::files::read_reviewer_responses,
+            ipc::files::save_reviewer_responses,
             ipc::files::save_annotation_round,
             ipc::files::read_annotation_round,
             ipc::files::restore_annotation_round,

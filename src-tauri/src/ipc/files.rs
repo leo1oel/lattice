@@ -332,6 +332,24 @@ pub async fn save_paper_review(
     run_blocking("Paper review save", move || project::write_review(&root, &id, &review)).await
 }
 
+/// The writer's answers to the venue's reviewers, or none before the first comment.
+#[tauri::command]
+pub async fn read_reviewer_responses(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Option<serde_json::Value>, String> {
+    in_project(&state, &window, "Reviewer responses read", project::read_responses).await
+}
+
+/// Keep the reviewer comments, their replies and what changed for them.
+#[tauri::command]
+pub async fn save_reviewer_responses(
+    state: State<'_, AppState>, window: Window, project_root: String, responses: serde_json::Value,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "saving the reviewer responses")?;
+    run_blocking("Reviewer responses save", move || project::write_responses(&root, &responses))
+        .await
+}
+
 /// Keep a revision round's files; a settled round also becomes one history
 /// entry, whose id this returns.
 #[tauri::command]
