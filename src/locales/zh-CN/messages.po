@@ -8182,10 +8182,6 @@ msgstr "未注明出处"
 msgid "No version history"
 msgstr "没有版本记录"
 
-#: src/history/compare-versions.tsx
-msgid "No versions to compare yet"
-msgstr "还没有可对比的版本"
-
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
 msgstr "还没有版本"
@@ -10998,10 +10994,6 @@ msgstr "另存一份…"
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
 msgstr "保存一个版本，标记一份随时能回来的草稿。关联 Overleaf 的项目每次同步和编译成功后也会自动保存一个"
-
-#: src/history/compare-versions.tsx
-msgid "Save a version to mark a draft, and it can be compared with any later one, or with now"
-msgstr "存一个版本标记当前草稿，之后就能拿它和任何更新的版本或当前内容对比"
 
 #: src/App.tsx
 msgid "Save and build"

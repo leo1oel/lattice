@@ -105,8 +105,10 @@ export function prosePassages(before: string, after: string): ProsePassage[] | n
   return passages;
 }
 
-/** A run of Latin letters or digits is one word; each CJK character is one too, as a Chinese count reads. */
-const WORD = /[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*|[\u3400-\u9fff\uf900-\ufaff]/g;
+/** Each Han, kana or Hangul character is one word, as a CJK count reads; otherwise a run of letters or digits is. */
+const CJK = String.raw`[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]`;
+const LETTERS = String.raw`(?:(?!${CJK})[\p{L}\p{M}\p{N}])+`;
+const WORD = new RegExp(String.raw`${CJK}|${LETTERS}(?:['’-]${LETTERS})*`, "gu");
 
 const words = (text: string) => text.match(WORD)?.length ?? 0;
 

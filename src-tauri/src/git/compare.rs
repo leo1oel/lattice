@@ -29,29 +29,29 @@ pub fn compare_files(root: &Path, from: &str, to: Option<&str>) -> Result<Vec<Gi
     let mut files = parse_name_status_z(&git_output(root, &args)?);
     if to.is_none() {
         let untracked = git_output(root, &["ls-files", "-z", "--others", "--exclude-standard"])?;
-        files.extend(
-            nul_separated(&untracked)
-                .filter(|path| !is_internal_path(path))
-                .map(|path| GitLogFile { path: path.to_string(), kind: "added".to_string() }),
-        );
+        files.extend(nul_separated(&untracked).filter(|path| !is_internal_path(path)).map(
+            |path| GitLogFile { path: path.to_string(), kind: "added".to_string(), old_path: None },
+        ));
     }
     Ok(files)
 }
 
-/// One file as `from` left it and as `to` (or the disk, when `None`) has it;
-/// a side where the file does not exist is `None`.
+/// One file as `from` left it (at `from_path`, when it was renamed since) and
+/// as `to` (or the disk, when `None`) has it; a side where the file does not
+/// exist is `None`.
 pub fn compare_file(
-    root: &Path, from: &str, to: Option<&str>, path: &str,
+    root: &Path, from: &str, to: Option<&str>, path: &str, from_path: Option<&str>,
 ) -> Result<GitFileDiff, String> {
     ensure_repository(root)?;
     let from = validate_rev(from)?;
     let to = to.map(validate_rev).transpose()?;
     let relative = normalize_relative(path)?;
+    let from_relative = from_path.map(normalize_relative).transpose()?.unwrap_or(relative.clone());
     let on_disk = project::safe_path(root, &relative)?;
     if is_binary_path(&relative) {
         return Ok(GitFileDiff { before: None, after: None, binary: true });
     }
-    let before = show_blob_bytes(root, &format!("{from}:{relative}"));
+    let before = show_blob_bytes(root, &format!("{from}:{from_relative}"));
     let after = match to {
         Some(to) => show_blob_bytes(root, &format!("{to}:{relative}")),
         None => fs::read(on_disk).ok(),

@@ -421,6 +421,9 @@ pub struct GitLogFile {
     pub path: String,
     /// "added" | "modified" | "deleted" | "renamed"
     pub kind: String,
+    /// Where a renamed or copied file was before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -609,11 +612,22 @@ mod tests {
     #[test]
     fn compares_any_two_versions_and_writes_either_out() {
         let Some(root) = repo("compare") else { return };
-        let files =
-            [(".gitignore", ".research/\n*.aux\n"), ("main.tex", "one\n"), ("old.tex", "o\n")];
+        let intro = "a\nb\nc\nd\n";
+        let files = [
+            (".gitignore", ".research/\n*.aux\n"),
+            ("main.tex", "one\n"),
+            ("old.tex", "o\n"),
+            ("intro.tex", intro),
+        ];
         let first = commit(&root, &files, "first");
         fs::remove_file(root.join("old.tex")).unwrap();
-        let second = commit(&root, &[("main.tex", "two\n"), ("sec/intro.tex", "i\n")], "second");
+        fs::remove_file(root.join("intro.tex")).unwrap();
+        let files = [
+            ("main.tex", "two\n"),
+            ("sec/intro.tex", "i\n"),
+            ("sections/intro.tex", "a\nb\nc\nD\n"),
+        ];
+        let second = commit(&root, &files, "second");
         root.write("main.tex", "three\n");
         root.write("draft.tex", "d\n");
         root.write("main.aux", "build output");
@@ -623,29 +637,47 @@ mod tests {
             let mut files = compare_files(&root, &first, to)
                 .unwrap()
                 .into_iter()
-                .map(|file| format!("{} {}", file.kind, file.path))
+                .map(|file| match file.old_path {
+                    Some(old) => format!("{} {old} -> {}", file.kind, file.path),
+                    None => format!("{} {}", file.kind, file.path),
+                })
                 .collect::<Vec<_>>();
             files.sort();
             files
         };
+        let renamed = "renamed intro.tex -> sections/intro.tex";
         assert_eq!(
             listed(Some(&second)),
-            ["added sec/intro.tex", "deleted old.tex", "modified main.tex"]
+            ["added sec/intro.tex", "deleted old.tex", "modified main.tex", renamed]
         );
         assert_eq!(
             listed(None),
-            ["added draft.tex", "added sec/intro.tex", "deleted old.tex", "modified main.tex"]
+            [
+                "added draft.tex",
+                "added sec/intro.tex",
+                "deleted old.tex",
+                "modified main.tex",
+                renamed
+            ]
         );
 
         let text = |to: Option<&str>| {
-            let diff = compare_file(&root, &first, to, "main.tex").unwrap();
+            let diff = compare_file(&root, &first, to, "main.tex", None).unwrap();
             (diff.before.unwrap(), diff.after.unwrap())
         };
         assert_eq!(text(Some(&second)), ("one\n".to_string(), "two\n".to_string()));
         assert_eq!(text(None), ("one\n".to_string(), "three\n".to_string()));
-        assert_eq!(compare_file(&root, &first, None, "old.tex").unwrap().after, None);
-        assert!(compare_file(&root, "HEAD", None, "main.tex").is_err());
-        assert!(compare_file(&root, &first, None, "../main.tex").is_err());
+        let moved =
+            compare_file(&root, &first, Some(&second), "sections/intro.tex", Some("intro.tex"))
+                .unwrap();
+        assert_eq!(
+            (moved.before.unwrap(), moved.after.unwrap()),
+            (intro.to_string(), "a\nb\nc\nD\n".to_string())
+        );
+        assert_eq!(compare_file(&root, &first, None, "old.tex", None).unwrap().after, None);
+        assert!(compare_file(&root, "HEAD", None, "main.tex", None).is_err());
+        assert!(compare_file(&root, &first, None, "../main.tex", None).is_err());
+        assert!(compare_file(&root, &first, None, "main.tex", Some("../main.tex")).is_err());
 
         let older = scratch("compare-older");
         write_version(&root, Some(&first), &older).unwrap();

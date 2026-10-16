@@ -15,12 +15,9 @@ import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileDown } from "lucide-react";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind } from "../app-types";
 import { Button } from "../components/ui/button";
-import { EmptyState } from "../components/ui/empty-state";
 import { InlineEdits } from "../components/ui/inline-edits";
 import { InlineMessage } from "../components/ui/inline-message";
 import { InfinityLoader } from "../components/ui/activity-icons";
-import { ResearchArt } from "../components/ui/research-art";
-import { DATED_DRAFTS } from "../components/ui/research-art-dated-drafts";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { formatCount } from "../i18n";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
@@ -35,7 +32,7 @@ import "./compare-versions.css";
 /** The newer side when it is the files as they are, not a saved version. */
 const NOW = "now";
 
-type ComparedFile = { path: string; kind: GitLogFileKind };
+type ComparedFile = { path: string; kind: GitLogFileKind; oldPath?: string };
 
 /** What a side is called: a version's own name, or Now. */
 function sideName(side: string, entries: readonly GitLogEntry[], now: string): string {
@@ -88,18 +85,20 @@ export function CompareVersions(props: {
 
   // The document the project builds opens first; then the first prose file; then whatever changed.
   const changed = files.key === `${from}:${to}` ? files.value : null;
-  const path = changed && (
+  const shown = changed && (
     changed.find((file) => file.path === chosenPath)
     ?? changed.find((file) => file.path === props.rootDocument)
     ?? changed.find((file) => PROSE_FILE.test(file.path))
     ?? changed[0]
-  )?.path;
+  );
+  const path = shown?.path;
+  const fromPath = shown?.oldPath ?? null;
 
   const loadDiff = fileDiff.load;
   useEffect(() => {
     if (!path) return;
-    loadDiff(`${from}:${to}:${path}`, () => invoke<GitFileDiff>("git_compare_file", { from, to: toRev, path }));
-  }, [from, loadDiff, path, to, toRev]);
+    loadDiff(`${from}:${to}:${path}`, () => invoke<GitFileDiff>("git_compare_file", { from, to: toRev, path, fromPath }));
+  }, [from, fromPath, loadDiff, path, to, toRev]);
 
   const diffReady = fileDiff.key === `${from}:${to}:${path}` ? fileDiff.value : null;
   const passages = useMemo(
@@ -113,21 +112,6 @@ export function CompareVersions(props: {
   const fromName = sideName(from, entries, now);
   const toName = sideName(to, entries, now);
   const canExport = Boolean(props.rootDocument && /\.tex$/i.test(props.rootDocument) && props.projectRoot);
-
-  if (!entries.length) {
-    return (
-      <div className="compare-versions">
-        <CompareTop onBack={props.onBack} />
-        <EmptyState
-          className="history-empty"
-          fill
-          icon={<ResearchArt drawing={DATED_DRAFTS} />}
-          title={t`No versions to compare yet`}
-          description={t`Save a version to mark a draft, and it can be compared with any later one, or with now`}
-        />
-      </div>
-    );
-  }
 
   const meta = (entry: GitLogEntry) => {
     const at = new Date(entry.timestamp).getTime();

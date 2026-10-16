@@ -56,13 +56,15 @@ pub async fn git_compare_files(
     .await
 }
 
-/// One file at two versions; `to` absent means the file on disk.
+/// One file at two versions; `to` absent means the file on disk, `from_path`
+/// where `from` had it when it was renamed since.
 #[tauri::command]
 pub async fn git_compare_file(
     state: State<'_, AppState>, window: Window, from: String, to: Option<String>, path: String,
+    from_path: Option<String>,
 ) -> Result<crate::git::GitFileDiff, String> {
     in_project(&state, &window, "Git version comparison", move |root| {
-        git::compare_file(root, &from, to.as_deref(), &path)
+        git::compare_file(root, &from, to.as_deref(), &path, from_path.as_deref())
     })
     .await
 }

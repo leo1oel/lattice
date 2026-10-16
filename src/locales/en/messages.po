@@ -8182,10 +8182,6 @@ msgstr "No venue"
 msgid "No version history"
 msgstr "No version history"
 
-#: src/history/compare-versions.tsx
-msgid "No versions to compare yet"
-msgstr "No versions to compare yet"
-
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
 msgstr "No versions yet"
@@ -10998,10 +10994,6 @@ msgstr "Save a copy…"
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
 msgstr "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
-
-#: src/history/compare-versions.tsx
-msgid "Save a version to mark a draft, and it can be compared with any later one, or with now"
-msgstr "Save a version to mark a draft, and it can be compared with any later one, or with now"
 
 #: src/App.tsx
 msgid "Save and build"
