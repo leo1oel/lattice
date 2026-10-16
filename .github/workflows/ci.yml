@@ -121,11 +121,20 @@ jobs:
       # produced on main. Entries are keyed by content, so a stale one is never
       # used, only left unread; the lockfile in the key drops the lot whenever
       # dependencies move, which is also when Vitest would discard it.
+      #
+      # main saves once per shard per UTC day, not per commit: keyed by commit,
+      # the saves filled the repository's 10 GB Actions cache with entries
+      # (82 of them, 1.35 GB) of which only the newest per shard was ever read,
+      # and evicted the release Rust cache. A later commit's run that day finds
+      # its key taken and saves nothing; the modules it changed re-transform.
+      - if: env.CODE == 'true'
+        id: day
+        run: echo "value=$(date -u +%F)" >> "$GITHUB_OUTPUT"
       - if: env.CODE == 'true'
         uses: actions/cache/restore@v5
         with:
           path: node_modules/.experimental-vitest-cache
-          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ steps.day.outputs.value }}
           restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - if: env.CODE == 'true'
         run: pnpm vitest run --shard=${{ matrix.shard }}/3
@@ -134,7 +143,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: node_modules/.experimental-vitest-cache
-          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ steps.day.outputs.value }}
 
   # One passing run lets a test that fails one run in five through four times
   # in five; the reopen-from-tree test passed its own pull request that way and
