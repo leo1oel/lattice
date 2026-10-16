@@ -128,13 +128,18 @@ export class PaperReviews {
     for (const listener of [...this.listeners]) listener();
   }
 
-  /** Read the project's last review, once per project. */
+  /**
+   * Read the project's last review, once per project. Resolves whether the
+   * project open when it was called has been looked in: false once that
+   * project closed, whose answer is then no one's.
+   */
   load = async () => {
-    if (this.snapshot.loaded) return;
+    if (this.snapshot.loaded) return true;
     const generation = this.generation;
     const stored = await invoke<unknown>("read_paper_review").catch(() => null);
-    if (generation !== this.generation || this.snapshot.loaded) return;
-    this.publish({ loaded: true, report: this.snapshot.report ?? asReview(stored) });
+    if (generation !== this.generation) return false;
+    if (!this.snapshot.loaded) this.publish({ loaded: true, report: this.snapshot.report ?? asReview(stored) });
+    return true;
   };
 
   /** Read the paper and ask the agent for a review; the last one stays until the new one is in. */
@@ -191,9 +196,16 @@ export class PaperReviews {
     }
   };
 
-  /** Review the paper unless a review is running or one was already made. */
+  /**
+   * Review the paper unless a review is running or one was already made.
+   * Only for the project it was asked in: a lookup that outlived it must not
+   * read as "no review yet" for the project opened since and review that.
+   */
   startIfNone = async () => {
-    await this.load();
+    const generation = this.generation;
+    const projectRoot = this.deps?.projectRootRef.current;
+    if (!(await this.load())) return;
+    if (generation !== this.generation || this.deps?.projectRootRef.current !== projectRoot) return;
     if (!this.snapshot.report && !this.snapshot.run) await this.start();
   };
 
