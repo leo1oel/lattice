@@ -12,6 +12,7 @@ import type { ProjectVenue, RenameTarget } from "../app-types";
 import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
+import { mentionsAny } from "../platform/ipc-error-phrases";
 import { LatticeMark } from "../components/ui/lattice-mark";
 import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
@@ -21,9 +22,14 @@ import { WelcomeDesk } from "./welcome-desk";
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
 
+/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
 /** The backend's errors for a folder that is not there any more (project::classify_open_error's not_found). */
+export const NO_SUCH_FILE = "no such file";
+export const NOT_A_FOLDER = "not a folder";
+/* eslint-enable lingui/no-unlocalized-strings */
+
 function isMissingFolder(reason: string) {
-  return /no such file|not a folder/i.test(reason);
+  return mentionsAny(reason, [NO_SUCH_FILE, NOT_A_FOLDER]);
 }
 
 export function Welcome(props: {

@@ -90,8 +90,9 @@
 }
 .cp-hue input { position: absolute; inset: -6px 0; inline-size: 100%; block-size: calc(100% + 12px); margin: 0; opacity: 0; cursor: pointer; }
 .cp-hue-thumb { inset-block-start: 50%; pointer-events: none; }
-/* The range input is invisible, so its thumb carries the ring. */
-.cp-hue:has(input:focus-visible) .cp-hue-thumb { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+/* The range input is invisible, so its thumb carries the ring, and checks the
+   pointer-focus mark itself: the shared override sits on the input. */
+.cp-hue:has(input:focus-visible:not([data-pointer-focus])) .cp-hue-thumb { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 .cp-hex {
   block-size: var(--control-height-compact);
