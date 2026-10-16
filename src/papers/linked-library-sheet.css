@@ -45,7 +45,8 @@
   .linked-library-kind { max-width: 96px; }
   .linked-library-fields { padding-inline-start: var(--space-6); }
   .linked-library-fields > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .linked-library-fields dd { grid-template-columns: auto minmax(0, 1fr); }
+  .linked-library-fields dd { grid-template-columns: auto minmax(0, 1fr); row-gap: 0; }
+  .linked-library-fields > div + div { margin-top: var(--space-2); }
   .linked-library-fields dd > svg { display: none; }
   .linked-library-value[data-side="library"] { grid-column: 1 / -1; }
   .linked-library-value[data-side="library"]::before { content: "→ "; color: var(--text-tertiary); }
