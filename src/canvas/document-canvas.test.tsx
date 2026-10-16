@@ -7,6 +7,7 @@ import { DocumentCanvas } from "./document-canvas";
 import { splitGridTemplate } from "./use-split-layout";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { retainParkedEditors } from "../editor/parked-editors";
+import { startCompletion } from "@codemirror/autocomplete";
 import { undo } from "@codemirror/commands";
 import { language } from "@codemirror/language";
 import { StateEffect } from "@codemirror/state";
@@ -126,12 +127,11 @@ type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 type CanvasOverrides = { [Model in keyof CanvasProps]?: Partial<CanvasProps[Model]> };
 
 /**
- * The Trellis hosts the canvas portals into: the open document's panel and the
- * PDF panel. App hands it the elements Trellis adopted; here they are plain
- * divs in the body, so `screen` sees both and `within` tells them apart.
+ * The Trellis host the canvas portals into: the open document's panel. App
+ * hands it the element Trellis adopted; here it is a plain div in the body.
+ * (The compiled PDF is ProjectPdfPanel's, in a panel of its own.)
  */
 let documentHost: HTMLElement;
-let pdfHost: HTMLElement;
 
 /**
  * Each open deck's own host (TrellisController.decks): a plain div per path,
@@ -179,7 +179,6 @@ function baseProps(): CanvasProps {
       spellingWords: [], onAddSpellingWord: vi.fn(() => true), englishVariant: null, termRules: [], interactivePreviewsEnabled: false,
     },
     bibliography: {
-      canOpenCitation: () => false, onOpenCitation: vi.fn(),
       citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
       onLoadReferenceImage: vi.fn(async () => null), localMacros: [], katexMacros: {}, projectPaths: ["main.tex"], graphicsRoots: [],
     },
@@ -187,13 +186,10 @@ function baseProps(): CanvasProps {
       requests: pending(), onRequestHandled: vi.fn(), onEditorPosition: vi.fn(), onViewState: vi.fn(),
       onGotoDefinition: vi.fn(), onTexlabGoto: vi.fn(), onFindReferences: vi.fn(), onRenameSymbol: vi.fn(),
       onRenameEnvironment: vi.fn(), onWrapEnvironment: vi.fn(), onGotoLineRequest: vi.fn(),
-      outlineOpen: false, onOutlineOpenChange: vi.fn(), outlineNodes: [], activeOutlineId: null, onOutlineNavigate: vi.fn(),
+      outlineNodes: [], onOutlineNavigate: vi.fn(),
       tableGeneratorOpen: false, onTableGeneratorOpenChange: vi.fn(), onCreateMissingFile: vi.fn(),
     },
-    pdf: {
-      pdfUrl: null, pdfSyncTarget: null, canForwardSync: false, locatingPdf: false,
-      onForwardSync: vi.fn(), onPdfSource: vi.fn(), onPdfPageCount: vi.fn(), onPdfPageChange: vi.fn(),
-    },
+    pdf: { pdfUrl: null },
     review: {
       editorComments: [], overleafPresenceCursors: [], overleafChanges: [],
       overleafTrackChangeActions: { authorName: () => "Unknown", canAct: () => false, onAccept: vi.fn(), onReject: vi.fn() },
@@ -208,7 +204,7 @@ function baseProps(): CanvasProps {
     },
     status: { todoCount: 0, onOpenTodos: vi.fn(), projectWordCount: null, buildDiagnostics: [], texlabDiagnostics: [] },
     hosts: {
-      editorHost: documentHost, pdfHost, editorHibernated: false,
+      editorHost: documentHost, editorHibernated: false,
       hibernatedPlaceholder: <div data-testid="hibernated-document" />,
       decks,
       switchState: { subscribe: () => () => {}, switching: () => false },
@@ -276,13 +272,11 @@ async function composeCommentOnBold(bounds: DOMRect, coords: () => { left: numbe
 beforeEach(() => {
   localStorage.clear();
   documentHost = document.body.appendChild(document.createElement("div"));
-  pdfHost = document.body.appendChild(document.createElement("div"));
 });
 
 afterEach(() => {
   cleanup();
   documentHost.remove();
-  pdfHost.remove();
   for (const host of deckHosts.values()) host.remove();
   deckHosts.clear();
   sleepingDecks = [];
@@ -585,9 +579,8 @@ describe("DocumentCanvas / mode", () => {
     renderCanvas({ document: { mode, activeFile }, pdf: { pdfUrl: "blob:project.pdf" } });
 
     await waitFor(() => expect(documentHost.querySelectorAll(".cm-editor")).toHaveLength(editors));
-    // The project PDF always goes to the PDF panel, never into the document's.
-    expect(await within(pdfHost).findByTestId("pdf-preview")).toHaveAttribute("data-url", "blob:project.pdf");
-    expect(within(documentHost).queryByTestId("pdf-preview")).toBeNull();
+    // The project PDF is the PDF panel's (ProjectPdfPanel): never the document's, whatever it previews.
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
     expect(screen.queryAllByRole("separator").map((separator) => separator.getAttribute("aria-label"))).toEqual(separators);
     expect(Boolean(documentHost.querySelector(".split-canvas"))).toBe(separators.length > 0);
   });
@@ -795,6 +788,29 @@ describe("DocumentCanvas / source session", () => {
     act(() => view.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, userEvent: "input.type" }));
     return vi.mocked(props.document.setSource).mock.calls.at(-1)![0];
   }
+
+  // The PDF panel ends the menu through App before leaving the editor: turning
+  // to the PDF need not blur it, and an open menu holds off the save.
+  it("hands App a way to end the source editor's completion while it is mounted", async () => {
+    const onCompletionCloseChange = vi.fn();
+    const source = "\\cite{}";
+    const { props, unmount } = renderCanvas({
+      document: { source, onCompletionCloseChange },
+      bibliography: { citationKeys: ["lee2026"], citations: [{ key: "lee2026", title: "Spatial", authors: "Lee", year: "2026", venue: "" }] },
+    });
+    const view = await primarySourceView();
+    const close = onCompletionCloseChange.mock.calls.at(-1)![0] as () => void;
+    act(() => {
+      view.dispatch({ selection: { anchor: source.length - 1 } });
+      startCompletion(view);
+    });
+    await waitFor(() => expect(props.document.onCompletionActiveChange).toHaveBeenLastCalledWith(true));
+
+    act(close);
+    expect(props.document.onCompletionActiveChange).toHaveBeenLastCalledWith(false);
+    unmount();
+    expect(onCompletionCloseChange).toHaveBeenLastCalledWith(null);
+  });
 
   // A reconfigure tears down the language, linters, spellchecker and review
   // layers and builds them again; typing must never pay for one.
@@ -1167,63 +1183,11 @@ describe("DocumentCanvas / per-file view state", () => {
     expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("480");
   });
 
-  it("reopens the PDF panel on the page it was left at", async () => {
-    const states: Record<string, FileViewState> = { "main.tex": { pdf: pdfViewState(3) } };
-    const getFileViewState = (statePath: string) => states[statePath];
-    const { rerenderWith } = renderCanvas({ document: { mode: "split" }, navigation: { getFileViewState } });
-    expect((await within(pdfHost).findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
-
-    states["main.tex"] = { pdf: pdfViewState(12) };
-    rerenderWith({ hosts: { pdfHost: null } });
-    expect(within(pdfHost).queryByTestId("pdf-preview")).toBeNull();
-    rerenderWith({ hosts: { pdfHost } });
-    expect((await within(pdfHost).findByTestId("pdf-preview")).dataset.restoredPage).toBe("12");
-  });
-
   it("keeps the board on the app theme, including a live switch", async () => {
     const { rerenderWith } = renderCanvas({ document: { mode: "source", activeFile: "diagram.tldr", source: "{}" }, preferences: { theme: "dark" } });
 
     expect((await screen.findByTestId("board-editor")).dataset.theme).toBe("dark");
     rerenderWith({ document: { activeFile: "diagram.tldr", source: "{}" }, preferences: { theme: "light" } });
     expect(screen.getByTestId("board-editor").dataset.theme).toBe("light");
-  });
-
-  it("keeps the compiled PDF mounted when source navigation changes TeX files", async () => {
-    const state = viewStates({
-      "main.tex": { pdf: pdfViewState(3) },
-      "chapters/results.tex": { pdf: pdfViewState(1) },
-    });
-    const { rerenderWith } = renderCanvas({ document: { mode: "split", activeFile: "main.tex" }, navigation: state });
-    const preview = await within(pdfHost).findByTestId("pdf-preview");
-    preview.scrollTop = 2450;
-
-    // SyncTeX can resolve into a different included file. The PDF is still
-    // the same build, even when that file has a different saved PDF position.
-    for (const activeFile of ["chapters/results.tex", "refs.bib", "main.tex"]) {
-      rerenderWith({ document: { activeFile, source: "\\section{Results}\n" } });
-      expect(await within(pdfHost).findByTestId("pdf-preview")).toBe(preview);
-      expect(preview.scrollTop).toBe(2450);
-    }
-
-    // A different project must not inherit this viewer instance.
-    rerenderWith({ preferences: { projectRoot: "/tmp/other-project" } });
-    expect(await within(pdfHost).findByTestId("pdf-preview")).not.toBe(preview);
-  });
-
-  it("restores each document's own place, files updates back under it, and keeps it for files without a preview", async () => {
-    const state = viewStates({ "main.tex": { pdf: pdfViewState(3) }, "refs.bib": { pdf: pdfViewState(9) } });
-    const { rerenderWith } = renderCanvas({ document: { mode: "pdf", activeFile: "main.tex" }, navigation: state });
-    expect((await screen.findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
-    fireEvent.click(screen.getByTestId("pdf-view-state"));
-    expect(state.updates).toEqual([{ path: "main.tex", update: { pdf: pdfViewState(7) } }]);
-
-    // Opening a .bib from a citation, or a .sty from a macro, must not throw
-    // away the reader's page in the compiled PDF: those files have no preview
-    // of their own, so the PDF panel keeps the document it was showing.
-    rerenderWith({ document: { activeFile: "refs.bib", source: "@article{a}\n" } });
-    await waitFor(() => expect(screen.getByTestId("pdf-preview").dataset.restoredPage).toBe("3"));
-    fireEvent.click(screen.getByTestId("pdf-view-state"));
-    expect(state.updates.at(-1)).toEqual({ path: "main.tex", update: { pdf: pdfViewState(7) } });
-    expect(state.updates.every((update) => update.path === "main.tex")).toBe(true);
   });
 });

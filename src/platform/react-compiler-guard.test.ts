@@ -71,6 +71,8 @@ const CEILINGS: Record<string, number> = {
   "src/canvas/use-source-session.ts": 0,
   "src/canvas/source-session.ts": 0,
   "src/canvas/saved-view-state.tsx": 0,
+  // The compiled project PDF, split out of the canvas beside it.
+  "src/canvas/project-pdf-panel.tsx": 0,
   // The clean-room engine's editor keeps its mutable session in effects and
   // editor storage, so it compiles fully; pinned so it stays that way.
   "src/editor/markdown/engine/lattice-visual-editor.tsx": 0,
