@@ -89,6 +89,8 @@ pub struct ArxivOptions {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ArxivCheck {
     /// The root document has no recorder file: it was never built here.
+    /// The enum's `rename_all` renames variants only, not their fields.
+    #[serde(rename_all = "camelCase")]
     Unbuilt {
         root_document: String,
     },

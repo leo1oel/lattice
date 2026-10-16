@@ -161,7 +161,10 @@ fn a_bibliography_without_a_bbl_is_missing_and_an_unbuilt_paper_has_no_pack() {
     assert!(stage(&fixture.root, options(true, false)).unwrap().is_none());
     let checks = ArxivChecks::default();
     let result = check(&fixture.root, options(true, false), &checks, |_| {}).unwrap();
-    assert!(matches!(result, ArxivCheck::Unbuilt { root_document } if root_document == "main.tex"));
+    assert!(matches!(&result, ArxivCheck::Unbuilt { root_document } if root_document == "main.tex"));
+    // The sheet reads `rootDocument` to name the file in "Build the paper first".
+    let json = serde_json::to_value(&result).unwrap();
+    assert_eq!(json, serde_json::json!({ "kind": "unbuilt", "rootDocument": "main.tex" }));
 }
 
 #[test]
