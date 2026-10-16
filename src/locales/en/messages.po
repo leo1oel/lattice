@@ -165,6 +165,12 @@ msgstr "{0} need your eyes"
 msgid "{0} not checked"
 msgstr "{0} not checked"
 
+#. placeholder {0}: chosen.length
+#. placeholder {1}: changes.length
+#: src/papers/linked-library-sheet.tsx
+msgid "{0} of {1} selected"
+msgstr "{0} of {1} selected"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
@@ -559,6 +565,10 @@ msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place} — click to jump there"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "{library} is up to date."
+msgstr "{library} is up to date."
+
 #: src/project/project-replace-dialog.tsx
 msgid "{matchSummary} in {fileSummary}"
 msgstr "{matchSummary} in {fileSummary}"
@@ -591,6 +601,10 @@ msgstr "{more} more replies"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name} (reconnecting…)"
+
+#: src/papers/linked-library.ts
+msgid "{name} can't be read. {reason}"
+msgstr "{name} can't be read. {reason}"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "{name} copy"
@@ -732,6 +746,10 @@ msgstr "{size} of {limit}; leave out large figures"
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "{span} left"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "{target} has not been changed."
+msgstr "{target} has not been changed."
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -1470,6 +1488,7 @@ msgstr "Alignment"
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "All"
@@ -1749,10 +1768,19 @@ msgstr "Applied. The entry now matches the verified record."
 msgid "Apply"
 msgstr "Apply"
 
+#. placeholder {0}: chosen.length
+#: src/papers/linked-library-sheet.tsx
+msgid "Apply {0} changes"
+msgstr "Apply {0} changes"
+
 #. placeholder {0}: updates.length
 #: src/papers/bibliography-audit.tsx
 msgid "Apply {0} fixes"
 msgstr "Apply {0} fixes"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Apply 1 change"
+msgstr "Apply 1 change"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Apply 1 fix"
@@ -2390,6 +2418,11 @@ msgstr "Calls for papers give deadlines in AoE; your own time shows here"
 msgid "Can take up to 15 minutes"
 msgstr "Can take up to 15 minutes"
 
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
+msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -2409,6 +2442,7 @@ msgstr "Can take up to 15 minutes"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
@@ -2565,6 +2599,10 @@ msgstr "Centered multi-line equations"
 msgid "Change"
 msgstr "Change"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Changed here"
+msgstr "Changed here"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed here, untouched there"
 msgstr "Changed here, untouched there"
@@ -2702,6 +2740,10 @@ msgstr "Checks"
 msgid "Chi"
 msgstr "Chi"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose .bib file…"
+msgstr "Choose .bib file…"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "Choose a file from the project, or find it with Quick open"
@@ -2713,6 +2755,10 @@ msgstr "Choose a reference to see what was checked."
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "Choose a reference to see where it is cited and edit its fields"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose another…"
+msgstr "Choose another…"
 
 #: src/app/use-project-tree.ts
 msgid "Choose files and folders to import into {targetDirectory}"
@@ -2749,6 +2795,10 @@ msgstr "Choose where to create the project"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose your library's .bib file"
+msgstr "Choose your library's .bib file"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Choose…"
@@ -2874,6 +2924,10 @@ msgstr "Cited in"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "Cited in the manuscript"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Cited in the paper, so it stays"
+msgstr "Cited in the paper, so it stays"
 
 #: src/project/paper-library.tsx
 msgid "Cited in this paper"
@@ -4158,6 +4212,7 @@ msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Done"
 msgstr "Done"
 
@@ -4581,6 +4636,10 @@ msgstr "Enter manually"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
 msgstr "Entry changed"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "entry type"
+msgstr "entry type"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -5020,6 +5079,10 @@ msgstr "Firecrawl"
 #: src/project/paper-library.tsx
 msgid "First author"
 msgstr "First author"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "First update from this file: where an entry differs here, your version stays unless you tick it."
+msgstr "First update from this file: where an entry differs here, your version stays unless you tick it."
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -6675,12 +6738,17 @@ msgstr "Line under an expression"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Link"
 msgstr "Link"
 
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Link definition"
 msgstr "Link definition"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to {target}. Your citation keys and your own edits stay."
+msgstr "Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to {target}. Your citation keys and your own edits stay."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Link this folder"
@@ -6694,6 +6762,18 @@ msgstr "Link to a page or external URL."
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Link URL"
 msgstr "Link URL"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Linked {library} to {target}."
+msgstr "Linked {library} to {target}."
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Linked library"
+msgstr "Linked library"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Linked library…"
+msgstr "Linked library…"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "List item"
@@ -6844,6 +6924,10 @@ msgstr "Loading…"
 msgctxt "comment source"
 msgid "Local"
 msgstr "Local"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Locate the file…"
+msgstr "Locate the file…"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
@@ -7402,6 +7486,7 @@ msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "New"
 msgstr "New"
 
@@ -7885,6 +7970,10 @@ msgstr "No versions yet"
 msgid "No year"
 msgstr "No year"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "none"
+msgstr "none"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "North-east arrow"
@@ -8010,6 +8099,10 @@ msgstr "Nothing blocks submission"
 msgid "Nothing has changed on Overleaf since this version"
 msgstr "Nothing has changed on Overleaf since this version"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Nothing has changed since you last updated, {updated}."
+msgstr "Nothing has changed since you last updated, {updated}."
+
 #: src/history/history-drawer.tsx
 msgid "Nothing has changed yet"
 msgstr "Nothing has changed yet"
@@ -8047,6 +8140,10 @@ msgstr "Nothing left to review. Every other reference matched a verified record.
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "Nothing matches “{0}”."
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Nothing to change — {target} already matches."
+msgstr "Nothing to change — {target} already matches."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Nothing to fix · {leftOver}"
@@ -9477,6 +9574,11 @@ msgstr "Readiness: {0}"
 msgid "Reading"
 msgstr "Reading"
 
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading {0}…"
+msgstr "Reading {0}…"
+
 #: src/project/paper-library.tsx
 msgid "Reading state"
 msgstr "Reading state"
@@ -9488,6 +9590,10 @@ msgstr "Reading the bibliography…"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "Reading the file…"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading the link…"
+msgstr "Reading the link…"
 
 #: src/project/paper-review-panel.tsx
 msgid "Reading the paper"
@@ -9768,6 +9874,10 @@ msgstr "removed"
 #: src/app/use-overleaf-workspace.ts
 msgid "Removed {0} files from Overleaf"
 msgstr "Removed {0} files from Overleaf"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Removed from library"
+msgstr "Removed from library"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Removed on Overleaf"
@@ -10624,6 +10734,10 @@ msgstr "Save resolved file"
 msgid "Save state"
 msgstr "Save state"
 
+#: src/app/use-reference-import.ts
+msgid "Save the open file first."
+msgstr "Save the open file first."
+
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
@@ -11051,6 +11165,10 @@ msgstr "Show annotations"
 msgid "Show archived"
 msgstr "Show archived"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Show changes"
+msgstr "Show changes"
+
 #: src/history/versions-timeline.tsx
 msgid "Show changes as"
 msgstr "Show changes as"
@@ -11220,6 +11338,10 @@ msgstr "Skills"
 #: src/project/import-conflict-dialog.tsx
 msgid "Skip"
 msgstr "Skip"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Skip these changes"
+msgstr "Skip these changes"
 
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
@@ -12493,6 +12615,7 @@ msgstr "This project has no LaTeX document to build yet. Add a .tex file, or set
 
 #: src/App.tsx
 #: src/app/use-reference-import.ts
+#: src/papers/linked-library-sheet.tsx
 msgid "This project has no primary bibliography."
 msgstr "This project has no primary bibliography."
 
@@ -12548,6 +12671,10 @@ msgstr "This version of the agent runtime cannot review the paper yet. Update La
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Tick to remove it here too"
+msgstr "Tick to remove it here too"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -12720,6 +12847,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Try again"
@@ -12915,6 +13043,14 @@ msgstr "Unknown owner"
 msgid "Unknown source response"
 msgstr "Unknown source response"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Unlink"
+msgstr "Unlink"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Unlinked. {target} stays as it is."
+msgstr "Unlinked. {target} stays as it is."
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."
 msgstr "Unmatched {found}."
@@ -12989,6 +13125,10 @@ msgstr "Up arrow"
 msgid "Up double arrow"
 msgstr "Up double arrow"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Up to date"
+msgstr "Up to date"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down arrow"
 msgstr "Up-down arrow"
@@ -13013,10 +13153,18 @@ msgstr "Update available"
 msgid "Update now"
 msgstr "Update now"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Updated"
+msgstr "Updated"
+
 #. placeholder {0}: relativeTime(project.lastUpdated)
 #: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "updated {0}"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Updated {target} from {library}. Undo it from History."
+msgstr "Updated {target} from {library}. Undo it from History."
 
 #: src/app/whats-new.ts
 msgid "Updated to Lattice {running}"
@@ -13025,6 +13173,10 @@ msgstr "Updated to Lattice {running}"
 #: src/papers/bibliography-audit.tsx
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Updates {target} · last updated {updated}"
+msgstr "Updates {target} · last updated {updated}"
 
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
@@ -13382,6 +13534,10 @@ msgstr "What should the agent change? (optional)"
 msgid "What the agent should do"
 msgstr "What the agent should do"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "What you leave unticked is not offered again."
+msgstr "What you leave unticked is not offered again."
+
 #: src/app/whats-new-dialog.tsx
 msgid "What’s new"
 msgstr "What’s new"
@@ -13433,6 +13589,10 @@ msgstr "Width of the text block"
 #: src/editor/markdown/engine/chrome/references.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki link suggestions"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Will update {target}"
+msgstr "Will update {target}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -13682,6 +13842,7 @@ msgid "Your text is safe in this window; nothing has been lost. Try again, or sa
 msgstr "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
 
 #: src/papers/bibliography-audit.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Yours"
 msgstr "Yours"
 

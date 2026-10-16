@@ -1,7 +1,7 @@
 //! The project's bibliography: citations, BibTeX entries, the citation audit,
 //! and the agent's bibliography mutations.
 
-use super::{current_root, in_project, run_blocking, scoped_root};
+use super::{current_root, in_project, pinned_root, run_blocking, scoped_root};
 use crate::agent_literature::AgentBibliographyMutation;
 use crate::app_state::{AppState, Lease};
 use crate::models::{CitationInfo, ResolvedCitation};
@@ -32,6 +32,41 @@ pub async fn save_bib_entry(
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
     run_blocking("Bibliography save", move || project::save_bib_entry(&root, &key, &bibtex)).await
+}
+
+/// The project's linked library (a reference manager's `.bib`), or none.
+#[tauri::command]
+pub async fn read_linked_bibliography(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Option<project::LinkedBibliography>, String> {
+    in_project(&state, &window, "Linked library read", project::read_linked_bibliography).await
+}
+
+/// A linked library's text now, read from where the writer keeps it.
+#[tauri::command]
+pub async fn read_bibliography_source(source: String) -> Result<String, String> {
+    run_blocking("Linked library read", move || project::read_bibliography_source(&source)).await
+}
+
+/// Link a library to the project's `.bib`, or record that its changes up to `baseline` were taken in.
+#[tauri::command]
+pub async fn save_linked_bibliography(
+    state: State<'_, AppState>, window: Window, project_root: String, source: String,
+    target: String, baseline: String,
+) -> Result<project::LinkedBibliography, String> {
+    let root = pinned_root(&state, &window, &project_root, "linking the library")?;
+    run_blocking("Linked library save", move || {
+        project::save_linked_bibliography(&root, &source, &target, baseline)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn unlink_bibliography(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "unlinking the library")?;
+    run_blocking("Linked library unlink", move || project::unlink_bibliography(&root)).await
 }
 
 #[tauri::command]

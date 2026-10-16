@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { BookMarked, Check, CircleAlert, CircleDot, PenLine, Plus } from "lucide-react";
+import { BookMarked, Check, CircleAlert, CircleDot, Link2, PenLine, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
 import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddItem } from "./add-papers-queue";
 import { Button } from "../components/ui/button";
@@ -66,6 +66,8 @@ export function AddPapersSheet(props: {
   onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label">>) => void;
   onStop: () => void;
   onEnterManually: () => void;
+  /** Open the linked library: a reference manager's .bib, whose changes come in on request. */
+  onLinkLibrary: () => void;
   onClose: () => void;
 }) {
   const { t } = useLingui();
@@ -290,6 +292,10 @@ export function AddPapersSheet(props: {
             <Button variant="ghost" size="compact" onClick={props.onEnterManually}>
               <PenLine size={13} aria-hidden="true" />
               {t`Enter manually`}
+            </Button>
+            <Button variant="ghost" size="compact" onClick={props.onLinkLibrary}>
+              <Link2 size={13} aria-hidden="true" />
+              {t`Linked library…`}
             </Button>
           </div>
         )}

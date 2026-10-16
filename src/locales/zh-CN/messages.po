@@ -165,6 +165,12 @@ msgstr "{0} 条需要你看一下"
 msgid "{0} not checked"
 msgstr "{0} 条尚未检查"
 
+#. placeholder {0}: chosen.length
+#. placeholder {1}: changes.length
+#: src/papers/linked-library-sheet.tsx
+msgid "{0} of {1} selected"
+msgstr "已选 {0} / {1} 项"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
@@ -559,6 +565,10 @@ msgstr "{installedProduct} 已装好，但以下检查未通过：\n"
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place}——点击跳转"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "{library} is up to date."
+msgstr "{library} 已是最新。"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{matchSummary} in {fileSummary}"
 msgstr "{fileSummary}中共 {matchSummary}"
@@ -591,6 +601,10 @@ msgstr "另有 {more} 条回复"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name}（正在重新连接…）"
+
+#: src/papers/linked-library.ts
+msgid "{name} can't be read. {reason}"
+msgstr "无法读取 {name}。{reason}"
 
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "{name} copy"
@@ -732,6 +746,10 @@ msgstr "{size}，上限 {limit}；请移除较大的图片"
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "还剩 {span}"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "{target} has not been changed."
+msgstr "{target} 未作任何改动。"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -1470,6 +1488,7 @@ msgstr "对齐"
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "全部"
@@ -1749,10 +1768,19 @@ msgstr "已应用，条目现在与核实记录一致。"
 msgid "Apply"
 msgstr "应用"
 
+#. placeholder {0}: chosen.length
+#: src/papers/linked-library-sheet.tsx
+msgid "Apply {0} changes"
+msgstr "应用 {0} 项更改"
+
 #. placeholder {0}: updates.length
 #: src/papers/bibliography-audit.tsx
 msgid "Apply {0} fixes"
 msgstr "应用 {0} 处修改"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Apply 1 change"
+msgstr "应用 1 项更改"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Apply 1 fix"
@@ -2390,6 +2418,11 @@ msgstr "会议征稿按 AoE 给出截止时间；这里同时显示你的时间"
 msgid "Can take up to 15 minutes"
 msgstr "最多 15 分钟"
 
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
+msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘未连接。"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -2409,6 +2442,7 @@ msgstr "最多 15 分钟"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
@@ -2565,6 +2599,10 @@ msgstr "居中的多行公式"
 msgid "Change"
 msgstr "更换"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Changed here"
+msgstr "本地已改"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed here, untouched there"
 msgstr "本机改了，Overleaf 没动"
@@ -2702,6 +2740,10 @@ msgstr "检查项"
 msgid "Chi"
 msgstr "希"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose .bib file…"
+msgstr "选择 .bib 文件…"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "从项目中选择文件，或用快速打开查找"
@@ -2713,6 +2755,10 @@ msgstr "选一条文献，看看查了什么"
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "选择一条文献，查看它在哪里被引用并编辑字段"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose another…"
+msgstr "换一个文件…"
 
 #: src/app/use-project-tree.ts
 msgid "Choose files and folders to import into {targetDirectory}"
@@ -2749,6 +2795,10 @@ msgstr "选择项目位置"
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "选择解压位置"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Choose your library's .bib file"
+msgstr "选择文献库的 .bib 文件"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Choose…"
@@ -2874,6 +2924,10 @@ msgstr "引用位置"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in the manuscript"
 msgstr "在稿件中被引用"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Cited in the paper, so it stays"
+msgstr "论文中有引用，因此保留"
 
 #: src/project/paper-library.tsx
 msgid "Cited in this paper"
@@ -4158,6 +4212,7 @@ msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Done"
 msgstr "完成"
 
@@ -4581,6 +4636,10 @@ msgstr "手动填写"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
 msgstr "条目已变"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "entry type"
+msgstr "条目类型"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -5020,6 +5079,10 @@ msgstr "Firecrawl"
 #: src/project/paper-library.tsx
 msgid "First author"
 msgstr "第一作者"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "First update from this file: where an entry differs here, your version stays unless you tick it."
+msgstr "首次从此文件更新：条目与这里不同时，除非勾选，否则保留你的版本。"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
@@ -6675,12 +6738,17 @@ msgstr "表达式下方加横线"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-visual-editor.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Link"
 msgstr "链接"
 
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Link definition"
 msgstr "链接定义"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to {target}. Your citation keys and your own edits stay."
+msgstr "关联由文献管理器持续更新的 .bib 文件，例如 Zotero 或 Paperpile 的导出。每次由你决定何时更新：Lattice 先列出那边的变化，只把你勾选的内容写入 {target}。引用名和你自己的修改都会保留。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Link this folder"
@@ -6694,6 +6762,18 @@ msgstr "链接到页面或网址"
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Link URL"
 msgstr "链接网址"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Linked {library} to {target}."
+msgstr "已将 {library} 关联到 {target}。"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Linked library"
+msgstr "关联的文献库"
+
+#: src/papers/add-papers-sheet.tsx
+msgid "Linked library…"
+msgstr "关联的文献库…"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "List item"
@@ -6844,6 +6924,10 @@ msgstr "正在加载…"
 msgctxt "comment source"
 msgid "Local"
 msgstr "本地"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Locate the file…"
+msgstr "重新定位文件…"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Log"
@@ -7402,6 +7486,7 @@ msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS、CVPR、Nature 等"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "New"
 msgstr "新增"
 
@@ -7885,6 +7970,10 @@ msgstr "还没有版本"
 msgid "No year"
 msgstr "未注明年份"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "none"
+msgstr "无"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "右上箭头"
@@ -8010,6 +8099,10 @@ msgstr "没有阻碍投稿的问题"
 msgid "Nothing has changed on Overleaf since this version"
 msgstr "此版本之后 Overleaf 上没有改动"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Nothing has changed since you last updated, {updated}."
+msgstr "自上次更新（{updated}）以来没有变化。"
+
 #: src/history/history-drawer.tsx
 msgid "Nothing has changed yet"
 msgstr "还没有任何改动"
@@ -8047,6 +8140,10 @@ msgstr "没有待审的了。其余文献都对上了核实过的记录。"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "没有“{0}”相关结果"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Nothing to change — {target} already matches."
+msgstr "无需更改，{target} 已经一致。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Nothing to fix · {leftOver}"
@@ -9477,6 +9574,11 @@ msgstr "就绪程度：{0}"
 msgid "Reading"
 msgstr "阅读"
 
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading {0}…"
+msgstr "正在读取 {0}…"
+
 #: src/project/paper-library.tsx
 msgid "Reading state"
 msgstr "阅读状态"
@@ -9488,6 +9590,10 @@ msgstr "正在读取文献…"
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "正在读取…"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading the link…"
+msgstr "正在读取关联…"
 
 #: src/project/paper-review-panel.tsx
 msgid "Reading the paper"
@@ -9768,6 +9874,10 @@ msgstr "删除"
 #: src/app/use-overleaf-workspace.ts
 msgid "Removed {0} files from Overleaf"
 msgstr "已从 Overleaf 删除 {0} 个文件"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Removed from library"
+msgstr "文献库已删除"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Removed on Overleaf"
@@ -10624,6 +10734,10 @@ msgstr "保存文件"
 msgid "Save state"
 msgstr "保存状态"
 
+#: src/app/use-reference-import.ts
+msgid "Save the open file first."
+msgstr "请先保存当前打开的文件。"
+
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "请先保存再修复"
@@ -11051,6 +11165,10 @@ msgstr "显示批注"
 msgid "Show archived"
 msgstr "显示已归档"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Show changes"
+msgstr "显示更改"
+
 #: src/history/versions-timeline.tsx
 msgid "Show changes as"
 msgstr "改动显示方式"
@@ -11220,6 +11338,10 @@ msgstr "技能"
 #: src/project/import-conflict-dialog.tsx
 msgid "Skip"
 msgstr "跳过"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Skip these changes"
+msgstr "跳过这些更改"
 
 #: src/papers/reference-check-keys.ts
 msgid "Skip to the next finding"
@@ -12493,6 +12615,7 @@ msgstr "项目里还没有可编译的 .tex 文件。请添加一个，或在设
 
 #: src/App.tsx
 #: src/app/use-reference-import.ts
+#: src/papers/linked-library-sheet.tsx
 msgid "This project has no primary bibliography."
 msgstr "项目里没有文献文件"
 
@@ -12548,6 +12671,10 @@ msgstr "当前版本的 Agent 运行时还不能审阅论文。请更新 Lattice
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Tick to remove it here too"
+msgstr "勾选后也从这里删除"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -12720,6 +12847,7 @@ msgstr "换个更短或不同的词试试"
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/papers/linked-library-sheet.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Try again"
@@ -12915,6 +13043,14 @@ msgstr "作者未知"
 msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Unlink"
+msgstr "取消关联"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Unlinked. {target} stays as it is."
+msgstr "已取消关联，{target} 保持不变。"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."
 msgstr "多了一个 {found}"
@@ -12989,6 +13125,10 @@ msgstr "上箭头"
 msgid "Up double arrow"
 msgstr "上双线箭头"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Up to date"
+msgstr "已是最新"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down arrow"
 msgstr "上下箭头"
@@ -13013,10 +13153,18 @@ msgstr "有更新"
 msgid "Update now"
 msgstr "立即更新"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Updated"
+msgstr "已更新"
+
 #. placeholder {0}: relativeTime(project.lastUpdated)
 #: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "更新于 {0}"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Updated {target} from {library}. Undo it from History."
+msgstr "已用 {library} 更新 {target}。可在历史中撤销。"
 
 #: src/app/whats-new.ts
 msgid "Updated to Lattice {running}"
@@ -13025,6 +13173,10 @@ msgstr "已更新到 Lattice {running}"
 #: src/papers/bibliography-audit.tsx
 msgid "Updates {fields}"
 msgstr "更新{fields}"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Updates {target} · last updated {updated}"
+msgstr "更新 {target} · 上次更新于 {updated}"
 
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
@@ -13382,6 +13534,10 @@ msgstr "要 AI 助手怎么改？（可选）"
 msgid "What the agent should do"
 msgstr "要 AI 助手做什么"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "What you leave unticked is not offered again."
+msgstr "未勾选的更改以后不会再次提示。"
+
 #: src/app/whats-new-dialog.tsx
 msgid "What’s new"
 msgstr "新功能"
@@ -13433,6 +13589,10 @@ msgstr "版心宽度"
 #: src/editor/markdown/engine/chrome/references.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki 链接建议"
+
+#: src/papers/linked-library-sheet.tsx
+msgid "Will update {target}"
+msgstr "将更新 {target}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -13682,6 +13842,7 @@ msgid "Your text is safe in this window; nothing has been lost. Try again, or sa
 msgstr "文字仍完好地留在这个窗口里，没有丢失任何内容。可以重试，或把副本保存到别处。"
 
 #: src/papers/bibliography-audit.tsx
+#: src/papers/linked-library-sheet.tsx
 msgid "Yours"
 msgstr "你的"
 

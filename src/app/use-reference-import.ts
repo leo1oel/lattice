@@ -91,6 +91,8 @@ export function useReferenceImport({
     literature: { query: string; key: number };
   }>({ label: null, justAdded: null, sheet: { open: false, key: 0, seed: "" }, literature: { query: "", key: 0 } });
   const [literatureOpen, setLiteratureOpen] = useState(false);
+  // The linked library's sheet (papers/linked-library-sheet.tsx), remounted per opening.
+  const [linkedLibrary, setLinkedLibrary] = useState({ open: false, key: 0 });
   const [bibEntry, setBibEntryState] = useState<BibEntryDialog>({
     open: false, busy: false, error: null, key: 0, mode: "add", initial: undefined,
     resolveSeed: "", importRoot: null,
@@ -229,6 +231,8 @@ export function useReferenceImport({
       ...current, open: true, error: null, key: current.key + 1, mode: "add", resolveSeed: "", importRoot: null,
       initial: { key: "", title: "", author: "", year: "", journal: "", booktitle: "", publisher: "", url: "", doi: "", entryType: "article" },
     })),
+    openLinkedLibrary: () => setLinkedLibrary((current) => ({ open: true, key: current.key + 1 })),
+    closeLinkedLibrary: () => setLinkedLibrary((current) => ({ ...current, open: false })),
     startBatch: () => {
       const root = projectRootRef.current;
       setAdding((current) => ({ ...current, justAdded: root ? { projectRoot: root, keys: new Set() } : null }));
@@ -336,6 +340,27 @@ export function useReferenceImport({
     refreshProject, save, setBibEntry, source, onExternalEdits, t,
   ]);
 
+  /**
+   * Rewrite a bibliography from what is on disk now (`change` maps the text
+   * read to the text to write), as one undoable edit, after saving the open
+   * file. Reading at the last moment, rather than when a preview was shown,
+   * keeps a sync that landed in between.
+   */
+  const rewriteBibliography = useCallback(async (path: string, change: (current: string) => string) => {
+    if (!project) return false;
+    const root = project.root;
+    if (dirty && !(await save())) throw new Error(t`Save the open file first.`);
+    const current = await invoke<string>("read_project_file", { path, projectRoot: root });
+    const content = change(current);
+    if (content === current || projectRootRef.current !== root) return false;
+    await invoke("write_project_file", { path, content, projectRoot: root, baseContent: current });
+    onExternalEdits.current([path]);
+    if (path === activeFile) accept(path, await invoke<string>("read_project_file", { path }));
+    await refreshProject();
+    await refreshHistory();
+    return true;
+  }, [accept, activeFile, dirty, onExternalEdits, project, projectRootRef, refreshHistory, refreshProject, save, t]);
+
   const clearStage = useCallback(() => setStage(null), []);
 
   return {
@@ -343,6 +368,8 @@ export function useReferenceImport({
     importReference, importFromInput, cancelImport,
     addSheet: adding.sheet, addPapers, ...requestActions,
     literatureOpen, setLiteratureOpen, literatureSeed: adding.literature,
+    linkedLibrary, rewriteBibliography,
+    projectRoot: project?.root ?? null, bibliography: project?.manifest.primaryBibliography ?? "",
     bibEntry, setBibEntry, openBibEntry, editBibEntry, resolveBibQuery, saveBibEntry,
   };
 }
