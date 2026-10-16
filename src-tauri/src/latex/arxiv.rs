@@ -27,8 +27,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, LazyLock, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{mpsc, LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
@@ -40,18 +40,26 @@ const SIZE_LIMIT_BYTES: u64 = 50_000_000;
 /// How long the test build may take before it counts as stuck.
 const COMPILE_TIME_LIMIT: Duration = Duration::from_secs(120);
 
+/// How often the test build's watchdog looks for a newer check.
+const CANCEL_POLL: Duration = Duration::from_millis(100);
+
 /// Comment lines listed for review; the count covers them all.
 const LISTED_COMMENTS: usize = 200;
 
 /// Folders that never ship, whatever the build read: app state and VCS.
 const PRIVATE_DIRS: &[&str] = &[".research", ".git"];
 
+/// File endings of hand-written TeX sources, whose comments are the writer's
+/// notes. Not `.sty`/`.cls` (venue templates), the `.bbl`, or EPS/PS figures,
+/// whose `%` lines mean something.
+const TEX_SOURCE_EXTENSIONS: &[&str] = &["tex", "tikz", "pgf", "ltx", "inc"];
+
 /// File endings of the figures a paper includes.
 const FIGURE_EXTENSIONS: &[&str] =
     &["pdf", "png", "jpg", "jpeg", "eps", "ps", "svg", "gif", "tif", "tiff", "mps"];
 
 /// Endings left out of the "not in the package" list: build output nobody
-/// would expect to ship.
+/// would expect to ship, for files the recorder does not name as written.
 const BUILD_OUTPUT_SUFFIXES: &[&str] = &[
     ".aux",
     ".log",
@@ -197,8 +205,14 @@ pub struct ArxivChecks {
 impl ArxivChecks {
     /// Stop the check under way, if any.
     pub fn cancel(&self) {
-        self.latest.fetch_add(1, Ordering::SeqCst);
+        self.begin();
+    }
+
+    /// Stop the check under way, and number a new one.
+    fn begin(&self) -> u64 {
+        let check = self.latest.fetch_add(1, Ordering::SeqCst) + 1;
         let _ = abort(&self.build);
+        check
     }
 
     fn current(&self, check: u64) -> bool {
@@ -247,8 +261,7 @@ impl Staged {
 pub fn check(
     root: &Path, options: ArxivOptions, checks: &ArxivChecks, staged: impl Fn(&ArxivCheck),
 ) -> Result<ArxivCheck, String> {
-    checks.cancel();
-    let check = checks.latest.load(Ordering::SeqCst);
+    let check = checks.begin();
     let _turn = checks.turn.lock().unwrap_or_else(PoisonError::into_inner);
     let Some(pack) = stage(root, options)? else {
         let manifest = project::read_manifest(root)?;
@@ -290,7 +303,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
     let Ok(recorder) = fs::read_to_string(root_path.with_extension("fls")) else {
         return Ok(None);
     };
-    let (read, missing) = recorded_inputs(&root, &recorder);
+    let Recorded { read, missing, written } = recorded_inputs(&root, &recorder);
     let mut files = BTreeMap::new();
     for path in &read {
         let bytes =
@@ -303,7 +316,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
     let mut comments = Vec::new();
     let mut cites = false;
     for (path, bytes) in &files {
-        if !path.to_ascii_lowercase().ends_with(".tex") {
+        if !has_extension(path, TEX_SOURCE_EXTENSIONS) {
             continue;
         }
         let Ok(text) = std::str::from_utf8(bytes) else { continue };
@@ -338,7 +351,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
         None => Bibliography::None,
     };
     let figures = files.keys().filter(|path| has_extension(path, FIGURE_EXTENSIONS)).cloned();
-    let left_out = left_out(&root, &files, &merged, &root_path);
+    let left_out = left_out(&root, &files, &merged, &written, &root_path);
     Ok(Some(Staged {
         root_document: document.path.clone(),
         figures: figures.collect(),
@@ -353,12 +366,22 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
     }))
 }
 
-/// The project files TeX read, project-relative, and those of them now gone.
+/// What the recorder names inside the project, by project-relative path.
+struct Recorded {
+    /// Files TeX read and did not write, still there.
+    read: Vec<String>,
+    /// Files TeX read that are gone now.
+    missing: Vec<String>,
+    /// Files TeX wrote.
+    written: BTreeSet<String>,
+}
+
+/// The project files TeX read, those of them now gone, and those it wrote.
 ///
 /// The recorder names each file TeX opened, as `INPUT` or `OUTPUT`, relative
 /// to its `PWD` line unless absolute. A file TeX wrote is build output even
 /// when it was read back; a file outside the project is the TeX distribution's.
-fn recorded_inputs(root: &Path, recorder: &str) -> (Vec<String>, Vec<String>) {
+fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
     let mut cwd = root.to_path_buf();
     let mut inputs = BTreeSet::new();
     let mut outputs = BTreeSet::new();
@@ -375,7 +398,7 @@ fn recorded_inputs(root: &Path, recorder: &str) -> (Vec<String>, Vec<String>) {
         .into_iter()
         .filter(|path| !outputs.contains(path) && !private(path))
         .partition(|path| root.join(path).is_file());
-    (read, missing)
+    Recorded { read, missing, written: outputs }
 }
 
 /// `path` from the recorder as a `/`-separated path inside `root`, if it is one.
@@ -425,7 +448,8 @@ fn has_extension(path: &str, extensions: &[&str]) -> bool {
 /// when none of it ships, else file by file. Hidden entries, build output and
 /// files merged into the root document are not listed.
 fn left_out(
-    root: &Path, files: &BTreeMap<String, Vec<u8>>, merged: &BTreeSet<String>, root_path: &Path,
+    root: &Path, files: &BTreeMap<String, Vec<u8>>, merged: &BTreeSet<String>,
+    written: &BTreeSet<String>, root_path: &Path,
 ) -> Vec<String> {
     let shipped_dirs: BTreeSet<&str> =
         files.keys().filter_map(|path| path.split_once('/')).map(|(dir, _)| dir).collect();
@@ -442,6 +466,7 @@ fn left_out(
         };
         if files.contains_key(path)
             || merged.contains(path)
+            || written.contains(path)
             || BUILD_OUTPUT_SUFFIXES.iter().any(|suffix| path.ends_with(suffix))
         {
             continue;
@@ -517,29 +542,37 @@ fn test_build(pack: &Staged, checks: &ArxivChecks, check: u64) -> Result<Compile
         &pack.root_document,
     ]);
     let started = Instant::now();
-    // A watchdog stops a build past the limit; dropping `done` releases it.
+    // A watchdog stops a build past the limit, or once a newer check (or the
+    // sheet closing) has made this one stale. It keeps looking until the build
+    // ends, so a cancel that landed before latexmk started still stops it, as
+    // `abort` only reaches a registered build. Dropping `done` releases it.
     let (done, finished) = mpsc::channel::<()>();
-    let timed_out = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let watchdog = {
-        let build = checks.build.clone();
-        let timed_out = timed_out.clone();
-        std::thread::spawn(move || {
-            if finished.recv_timeout(COMPILE_TIME_LIMIT) == Err(mpsc::RecvTimeoutError::Timeout) {
-                timed_out.store(true, Ordering::SeqCst);
-                let _ = abort(&build);
-            }
-        })
-    };
+    let timed_out = AtomicBool::new(false);
     let steps = BuildSteps::new(|_, _| {});
-    let ran = run_tracked(
-        command,
-        &checks.build,
-        &steps,
-        "Could not start latexmk. Install MacTeX or TeX Live. ",
-        "latexmk exited unexpectedly: ",
-    );
-    drop(done);
-    let _ = watchdog.join();
+    let ran = std::thread::scope(|scope| {
+        let timed_out = &timed_out;
+        scope.spawn(move || {
+            while finished.recv_timeout(CANCEL_POLL) == Err(mpsc::RecvTimeoutError::Timeout) {
+                if started.elapsed() >= COMPILE_TIME_LIMIT {
+                    timed_out.store(true, Ordering::SeqCst);
+                    let _ = abort(&checks.build);
+                    return;
+                }
+                if !checks.current(check) {
+                    let _ = abort(&checks.build);
+                }
+            }
+        });
+        let ran = run_tracked(
+            command,
+            &checks.build,
+            &steps,
+            "Could not start latexmk. Install MacTeX or TeX Live. ",
+            "latexmk exited unexpectedly: ",
+        );
+        drop(done);
+        ran
+    });
     let (output, stopped) = ran?;
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     if stopped {

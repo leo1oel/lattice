@@ -1,4 +1,4 @@
-//! A paper's `.tex` sources as arXiv receives them: `%` comments taken out,
+//! A paper's TeX sources as arXiv receives them: `%` comments taken out,
 //! and `\input` / `\include` merged into the file that names them.
 //!
 //! arXiv publishes the source it is sent, so a comment is a note to
@@ -281,21 +281,31 @@ fn expand(
             stack.push(path.clone());
             let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
             stack.pop();
+            merged.insert(path);
             // TeX ends a file's last line like any other, then goes on with
             // the rest of this one. With nothing left on it, the line's own
             // ending stands in for the file's: two would make a blank line,
-            // which is a paragraph break the source never had.
+            // which is a paragraph break the source never had. An empty file
+            // has no line to end, so on a line of its own the line goes too.
+            let ends_line = body[whole.end()..].trim().is_empty();
+            if inner.is_empty()
+                && command == "input"
+                && ends_line
+                && body[..whole.start()].trim().is_empty()
+            {
+                copied = line.len();
+                break;
+            }
             let mut replacement = match command {
                 "include" => format!("\\clearpage\n{}\\clearpage\n", with_line_end(inner)),
                 _ => with_line_end(inner),
             };
-            if body[whole.end()..].trim().is_empty() {
+            if ends_line {
                 replacement.pop();
             }
             out.push_str(&line[copied..whole.start()]);
             out.push_str(&replacement);
             copied = whole.end();
-            merged.insert(path);
         }
         out.push_str(&line[copied..]);
     }
@@ -303,7 +313,7 @@ fn expand(
 }
 
 fn with_line_end(mut text: String) -> String {
-    if !text.ends_with('\n') {
+    if !text.is_empty() && !text.ends_with('\n') {
         text.push('\n');
     }
     text
@@ -314,7 +324,7 @@ fn resolve_input(name: &str, sources: &BTreeMap<String, String>) -> Option<Strin
     let name = name.trim_start_matches("./");
     [format!("{name}.tex"), name.to_string()]
         .into_iter()
-        .find(|candidate| candidate.ends_with(".tex") && sources.contains_key(candidate))
+        .find(|candidate| sources.contains_key(candidate))
 }
 
 #[cfg(test)]
@@ -394,6 +404,21 @@ mod tests {
             merged.into_iter().collect::<Vec<_>>(),
             ["appendix.tex", "sections/detail.tex", "sections/intro.tex"]
         );
+    }
+
+    #[test]
+    fn an_empty_file_merges_without_a_paragraph_break() {
+        let sources = BTreeMap::from([
+            (
+                "main.tex".to_string(),
+                "para text\n  \\input{todo}\nmore text \\input{todo}\n\\include{empty}\n"
+                    .to_string(),
+            ),
+            ("todo.tex".to_string(), String::new()),
+            ("empty.tex".to_string(), String::new()),
+        ]);
+        let (text, _) = merge_inputs("main.tex", &sources);
+        assert_eq!(text, "para text\nmore text \n\\clearpage\n\\clearpage\n");
     }
 
     #[test]

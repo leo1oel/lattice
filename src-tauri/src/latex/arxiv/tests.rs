@@ -91,6 +91,48 @@ fn comments_come_out_and_inputs_merge_into_the_root_document() {
 }
 
 #[test]
+fn hand_written_tex_inputs_lose_their_comments_but_postscript_figures_do_not() {
+    let fixture = built_project("arxiv-tikz");
+    fixture.write(
+        "main.tex",
+        MAIN.replace("\\includegraphics", "\\input{figures/diagram.tikz}\n\\includegraphics"),
+    );
+    fixture.write("figures/diagram.tikz", "% note to Ana\n\\draw (0,0);\n");
+    let eps = "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\n";
+    fixture.write("figures/plot.eps", eps);
+    let recorder =
+        fixture.read("main.fls") + "INPUT figures/diagram.tikz\nINPUT figures/plot.eps\n";
+    fixture.write("main.fls", recorder);
+
+    let pack = staged(&fixture, options(true, false));
+    assert_eq!(pack.files["figures/diagram.tikz"], b"\\draw (0,0);\n");
+    assert_eq!(pack.files["figures/plot.eps"], eps.as_bytes());
+    assert!(pack
+        .comments
+        .lines
+        .iter()
+        .any(|line| line.file == "figures/diagram.tikz" && line.text == "note to Ana"));
+    assert_eq!(pack.comments.count, 3);
+
+    let pack = staged(&fixture, options(true, true));
+    assert!(pack.merged.contains(&"figures/diagram.tikz".to_string()));
+    assert!(std::str::from_utf8(&pack.files["main.tex"]).unwrap().contains("\\draw (0,0);"));
+}
+
+#[test]
+fn everything_the_build_wrote_stays_off_the_left_out_list() {
+    let fixture = built_project("arxiv-written");
+    for path in ["main.lof", "main.nav", "main-blx.bib"] {
+        fixture.write(path, "written by TeX\n");
+    }
+    let recorder =
+        fixture.read("main.fls") + "OUTPUT main.lof\nOUTPUT main.nav\nOUTPUT main-blx.bib\n";
+    fixture.write("main.fls", recorder);
+    let pack = staged(&fixture, options(false, false));
+    assert_eq!(pack.left_out, ["figures/unused.png", "notes.md", "refs.bib", "slides/"]);
+}
+
+#[test]
 fn a_bibliography_without_a_bbl_is_missing_and_an_unbuilt_paper_has_no_pack() {
     let fixture = built_project("arxiv-bbl");
     let recorder = fixture.read("main.fls").replace("INPUT main.bbl\n", "");
