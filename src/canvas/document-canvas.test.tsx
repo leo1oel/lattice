@@ -6,6 +6,10 @@ import { AnnotationRounds } from "../app/annotation-rounds";
 import { DocumentCanvas } from "./document-canvas";
 import { splitGridTemplate } from "./use-split-layout";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
+import { retainParkedEditors } from "../editor/parked-editors";
+import { undo } from "@codemirror/commands";
+import { language } from "@codemirror/language";
+import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-workspace";
 import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
@@ -20,8 +24,12 @@ import type { PdfPreview as RealPdfPreview } from "../pdf/pdf-viewer";
  * per-file view state, the document each editor was handed) as DOM attributes,
  * so an assertion reads like the thing a user would notice.
  */
+/** Whether the stubbed visual editors hold an edit an IME is still composing. */
+const visualIme = vi.hoisted(() => ({ composing: false }));
+
 vi.mock("./canvas-lazy-modules", async () => {
   const { chunk } = await import("../lib/lazy-chunk");
+  const { useEffect } = await import("react");
   const PdfPreview = (props: ComponentProps<typeof RealPdfPreview>) => (
     <div
       data-testid="pdf-preview"
@@ -40,8 +48,16 @@ vi.mock("./canvas-lazy-modules", async () => {
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
     onCreateComment?: (from: number, to: number, body: string) => void; theme?: string;
     revealRequest?: { id: string; target: unknown } | null; onRevealHandled?: (id: string) => void;
-    synchronizeSourceScroll?: boolean;
-  }) => (
+    synchronizeSourceScroll?: boolean; onFlushPendingChange?: (flush: (() => boolean) | null) => void;
+  }) => {
+    // A visual editor's flush declines while an IME composes the edit it holds.
+    const { onFlushPendingChange } = props;
+    useEffect(() => {
+      if (!onFlushPendingChange) return;
+      onFlushPendingChange(() => !visualIme.composing);
+      return () => onFlushPendingChange(null);
+    }, [onFlushPendingChange]);
+    return (
     <div
       data-testid={testId}
       data-path={props.path ?? ""}
@@ -64,7 +80,8 @@ vi.mock("./canvas-lazy-modules", async () => {
         <button data-testid={`${testId}-report-lossy`} onClick={() => props.onEligibilityChange?.("Visual editing is unavailable here.")} />
       )}
     </div>
-  );
+    );
+  };
   const OpenSlideWorkspace = (props: OpenSlideWorkspaceProps) => (
     <div
       data-testid="open-slide-workspace"
@@ -762,6 +779,147 @@ describe("DocumentCanvas / editor for the open document", () => {
   });
 });
 
+describe("DocumentCanvas / source session", () => {
+  afterEach(() => {
+    retainParkedEditors(null, []);
+    visualIme.composing = false;
+    vi.restoreAllMocks();
+  });
+
+  /** The comments the source editor marks, by id. */
+  const marks = () => [...sourceEditor()?.querySelectorAll(".cm-editor-comment") ?? []].map((mark) => mark.getAttribute("data-comment-id"));
+
+  /** Type `text` at the end of the source as the writer would, and the string the editor hands App for it. */
+  function typeAtEnd(view: EditorView, props: CanvasProps, text: string) {
+    const end = view.state.doc.length;
+    act(() => view.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, userEvent: "input.type" }));
+    return vi.mocked(props.document.setSource).mock.calls.at(-1)![0];
+  }
+
+  // A reconfigure tears down the language, linters, spellchecker and review
+  // layers and builds them again; typing must never pay for one.
+  it("keeps the editor configured as it was through typing, caret moves and live data", async () => {
+    const source = "\\section{Intro}\nText.\n";
+    const { props, rerenderWith } = renderCanvas({ document: { source } });
+    const view = await primarySourceView();
+    const reconfigure = vi.spyOn(StateEffect.reconfigure, "of");
+
+    // App hands back the very string the editor emitted, as it does on every keystroke.
+    const typed = typeAtEnd(view, props, "More");
+    expect(typed).toBe(`${source}More`);
+    rerenderWith({ document: { source: typed, settledSource: typed } });
+    act(() => view.dispatch({ selection: { anchor: 3 }, userEvent: "select" }));
+    const comment = createEditorComment({ path: "main.tex", source: typed, from: 9, to: 14, body: "Name it", authorId: "ada", authorName: "Ada" })!;
+    const onEditorPosition = vi.fn();
+    rerenderWith({
+      document: { source: typed, settledSource: typed },
+      bibliography: { citationKeys: ["knuth84"], indexPending: true },
+      review: { editorComments: [comment], commentAuthorName: "Ada L." },
+      status: { buildDiagnostics: [], texlabDiagnostics: [] },
+      preferences: { spellingWords: ["Lattice"] },
+      navigation: { onEditorPosition, onGotoDefinition: vi.fn() },
+    });
+    await waitFor(() => expect(marks()).toEqual([comment.id]));
+    // The handlers it reports through are the newest App gave, without a reconfigure.
+    act(() => view.dispatch({ selection: { anchor: 5 }, userEvent: "select" }));
+    expect(onEditorPosition).toHaveBeenLastCalledWith({ path: "main.tex", line: 1, column: 5 });
+
+    expect(reconfigure).not.toHaveBeenCalled();
+    expect(EditorView.findFromDOM(sourceEditor() as HTMLElement)).toBe(view);
+  });
+
+  it.each([
+    ["spellchecking", { preferences: { editorSpellcheck: true } }],
+    ["keymap", { preferences: { editorKeymap: "emacs" } }],
+  ] as const)("reconfigures the editor for a new %s, once, keeping its document and caret", async (_, change) => {
+    const { rerenderWith } = renderCanvas();
+    const view = await primarySourceView();
+    act(() => view.dispatch({ selection: { anchor: 4 } }));
+    const reconfigure = vi.spyOn(StateEffect.reconfigure, "of");
+
+    rerenderWith(change);
+    await waitFor(() => expect(reconfigure).toHaveBeenCalledTimes(1));
+    rerenderWith(change);
+    expect(reconfigure).toHaveBeenCalledTimes(1);
+    expect(EditorView.findFromDOM(sourceEditor() as HTMLElement)).toBe(view);
+    expect(view.state.selection.main.head).toBe(4);
+  });
+
+  it("reconfigures for another document's language, including one that loads later", async () => {
+    const { rerenderWith } = renderCanvas();
+    const view = await primarySourceView();
+    const reconfigure = vi.spyOn(StateEffect.reconfigure, "of");
+
+    rerenderWith({ document: { activeFile: "notes.md", source: "# Notes\n" } });
+    expect(reconfigure).toHaveBeenCalled();
+    await waitFor(() => expect(view.state.facet(language)?.name).toBe("markdown"));
+    expect(EditorView.findFromDOM(sourceEditor() as HTMLElement)).toBe(view);
+  });
+
+  it("resumes a parked editor with its undo history, its selection and the annotations made since", async () => {
+    const text = "First paragraph here.\nSecond paragraph.\n";
+    const old = createEditorComment({ path: "main.tex", source: text, from: 0, to: 5, body: "Old", authorId: "ada", authorName: "Ada" })!;
+    const { props, rerenderWith } = renderCanvas({
+      document: { activeFile: "main.tex", source: text, editorKey: "main.tex" },
+      review: { editorComments: [old] },
+    });
+    const first = await primarySourceView();
+    await waitFor(() => expect(marks()).toEqual([old.id]));
+    const typed = typeAtEnd(first, props, "Typed.");
+    act(() => first.dispatch({ selection: { anchor: 6, head: 15 } }));
+    rerenderWith({ document: { source: typed } });
+
+    // Away to another file, where the old note is resolved and a new one made on this one.
+    rerenderWith({ document: { activeFile: "other.tex", source: "\\section{Other}\n", editorKey: "other.tex" } });
+    expect(EditorView.findFromDOM(sourceEditor() as HTMLElement)).not.toBe(first);
+    const fresh = createEditorComment({ path: "main.tex", source: typed, from: 22, to: 28, body: "New", authorId: "ada", authorName: "Ada" })!;
+    rerenderWith({ document: { activeFile: "main.tex", source: typed, editorKey: "main.tex" }, review: { editorComments: [fresh] } });
+
+    const resumed = await primarySourceView();
+    expect(resumed).not.toBe(first);
+    expect(resumed.state.selection.main).toMatchObject({ anchor: 6, head: 15 });
+    expect(marks()).toEqual([fresh.id]);
+    act(() => { undo(resumed); });
+    expect(resumed.state.doc.toString()).toBe(text);
+  });
+
+  it("holds an outside change while an IME composes, then takes it without echoing it or reconfiguring", async () => {
+    const source = "Hello world\n";
+    const { props, rerenderWith } = renderCanvas({ document: { source } });
+    const view = await primarySourceView();
+    let composing = true;
+    Object.defineProperty(view, "composing", { configurable: true, get: () => composing });
+    const reconfigure = vi.spyOn(StateEffect.reconfigure, "of");
+
+    rerenderWith({ document: { source: "Hello there world\n" } });
+    expect(view.state.doc.toString()).toBe(source);
+    composing = false;
+    await waitFor(() => expect(view.state.doc.toString()).toBe("Hello there world\n"));
+    expect(props.document.setSource).not.toHaveBeenCalled();
+    expect(reconfigure).not.toHaveBeenCalled();
+  });
+
+  it("answers App's flush for the visual editor, declining while it composes, through a handoff to the source", async () => {
+    const onVisualMarkdownFlushChange = vi.fn();
+    const document = { activeFile: "notes.md", source: "# Notes\n", onVisualMarkdownFlushChange };
+    const { rerenderWith } = renderCanvas({ document: { ...document, mode: "pdf" } });
+    await screen.findByTestId("visual-markdown-editor");
+    const flush = onVisualMarkdownFlushChange.mock.lastCall![0] as () => boolean;
+    visualIme.composing = true;
+    expect(flush()).toBe(false);
+    visualIme.composing = false;
+    expect(flush()).toBe(true);
+
+    rerenderWith({ document: { ...document, mode: "source", source: "# Notes\nMore.\n" } });
+    const view = await primarySourceView();
+    expect(view.state.doc.toString()).toBe("# Notes\nMore.\n");
+    // Nothing visual holds an edit any more: a composition elsewhere does not block App.
+    visualIme.composing = true;
+    expect(flush()).toBe(true);
+    expect(onVisualMarkdownFlushChange).not.toHaveBeenLastCalledWith(null);
+  });
+});
+
 describe("DocumentCanvas / split ratio", () => {
   const separator = () => screen.getByRole("separator", { name: "Resize editor and Markdown preview" });
   /** A Markdown document in Split, the one kind of document whose panel splits against a preview. */
@@ -989,6 +1147,37 @@ describe("DocumentCanvas / per-file view state", () => {
 
     expect((await screen.findByTestId("open-slide-workspace")).dataset.restoredPage).toBe("3");
     expect(onFileViewState).toHaveBeenCalledWith(path, { openSlide: { page: 3 } });
+  });
+
+  // The canvas compiles, and its saved views live in a store read through a
+  // getter: a board that mounts again reads where it was left since, not
+  // what the store held when the canvas last built it.
+  it("brings a board back from hibernation where it was left, not where it first opened", async () => {
+    const path = "diagram.tldr";
+    const states: Record<string, FileViewState> = { [path]: { board: { pageId: "page:1", camera: { x: 120, y: 0, z: 1 } } } };
+    const getFileViewState = (statePath: string) => states[statePath];
+    const hosts = baseProps().hosts;
+    const { rerenderWith } = renderCanvas({ document: { activeFile: path, source: "{}" }, navigation: { getFileViewState }, hosts });
+    expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("120");
+
+    states[path] = { board: { pageId: "page:1", camera: { x: 480, y: 0, z: 1 } } };
+    rerenderWith({ hosts: { ...hosts, editorHibernated: true } });
+    expect(screen.queryByTestId("board-editor")).toBeNull();
+    rerenderWith({ hosts: { ...hosts, editorHibernated: false } });
+    expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("480");
+  });
+
+  it("reopens the PDF panel on the page it was left at", async () => {
+    const states: Record<string, FileViewState> = { "main.tex": { pdf: pdfViewState(3) } };
+    const getFileViewState = (statePath: string) => states[statePath];
+    const { rerenderWith } = renderCanvas({ document: { mode: "split" }, navigation: { getFileViewState } });
+    expect((await within(pdfHost).findByTestId("pdf-preview")).dataset.restoredPage).toBe("3");
+
+    states["main.tex"] = { pdf: pdfViewState(12) };
+    rerenderWith({ hosts: { pdfHost: null } });
+    expect(within(pdfHost).queryByTestId("pdf-preview")).toBeNull();
+    rerenderWith({ hosts: { pdfHost } });
+    expect((await within(pdfHost).findByTestId("pdf-preview")).dataset.restoredPage).toBe("12");
   });
 
   it("keeps the board on the app theme, including a live switch", async () => {

@@ -213,7 +213,7 @@ several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
 were cleared from `pdf-viewer.tsx`, the since-removed `visual-markdown-editor.tsx`,
 and `document-canvas.tsx`'s hooks. Its replacement,
 `editor/markdown/engine/lattice-visual-editor.tsx`, is pinned at 0 bailouts.
-Since October 2026 `App.tsx` compiles whole too. Its last reports were
+Since October 2026 `App.tsx` and `DocumentCanvas` compile whole too. Its last reports were
 preserved-memo failures; the callbacks whose identity effects and children
 depend on (the build-tracking reset whose cleanup cancels a queued build,
 builds, Settings, the canvas's request settle) became one `useStableHandlers`
@@ -241,16 +241,25 @@ in order of value:
    is down from 5 bailouts to 1: `pdf-viewer.tsx` and `use-pdf-document.ts`
    compile with 0, and one preserved memo remains in `use-pdf-view.ts`. It is
    not a ref write.
-3. `DocumentCanvas` is skipped wholesale because its extension memos carry
-   intentional `react-hooks/exhaustive-deps` disables (identity stability the
-   compiler cannot express yet). Resolving this needs a design, not an edit.
+3. `DocumentCanvas` was skipped wholesale for the `exhaustive-deps` disable
+   on its source-editor extensions memo, which kept CodeMirror from
+   reconfiguring on every keystroke. The extensions now come from the source
+   session (`canvas/use-source-session.ts`, `canvas/source-session.ts`): one
+   extension set per configuration (document, language, keymap,
+   spellchecking), held in state and replaced only when that changes, with
+   everything else read through committed getters. That identity is a
+   contract rather than a cache, and `document-canvas.test.tsx` holds typing
+   to zero reconfigures.
 
 Note that these items do not gate each other, and none is load-bearing for
 correctness: a render-phase ref access makes the compiler skip the *enclosing
 function*, so these are lost optimisations, not latent bugs. The patterns that
 do cause stale-render bugs are the ones the compiler cannot see — module-level
 mutable state read during render, and objects mutated in place whose identity
-never changes. Two such bugs shipped and were fixed in August 2026; see the
+never changes. A store read through a stable getter is the same pattern: the
+canvas's per-file view states are read as each surface mounts
+(`canvas/saved-view-state.tsx`), because a compiled parent can mount an
+element it built earlier again. Two such bugs shipped and were fixed in August 2026; see the
 comment in `vitest.config.ts` for how the test suite now catches them.
 
 ### Future directions (not yet scheduled)

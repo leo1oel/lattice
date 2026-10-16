@@ -16,12 +16,10 @@ import { describe, expect, it } from "vitest";
  * cleared bailout lowers the pin in the same change; never raise one without
  * a comment explaining why.
  *
- * Current ceilings (2026-10): App.tsx now compiles whole; the rest are a
- * staged cleanup — DocumentCanvas is skipped wholesale because its
- * intentional-stability memos carry react-hooks/exhaustive-deps disables
- * (that pattern conflicts with compiler memoization and needs its own
- * design), and the remaining files have render-phase ref writes pending a
- * case-by-case audit. See docs/performance.md.
+ * Current ceilings (2026-10): App.tsx and DocumentCanvas now compile whole;
+ * the rest are a staged cleanup — the remaining files have render-phase ref
+ * writes and other blockers pending a case-by-case audit. See
+ * docs/performance.md.
  */
 const CEILINGS: Record<string, number> = {
   // 22 after the build pipeline, reference import, editor comments and TeX
@@ -65,7 +63,14 @@ const CEILINGS: Record<string, number> = {
   "src/app/app-search-dialogs.tsx": 0,
   "src/app/app-titlebar.tsx": 0,
   "src/trellis/trellis-panel-actions.tsx": 0,
-  "src/canvas/document-canvas.tsx": 1,
+  // Skipped wholesale until its source editor's extensions moved into a
+  // session with a configuration identity of its own (use-source-session.ts),
+  // which took the intentional-stability memo's exhaustive-deps disable with
+  // it; the render-phase ref writes became committed refs.
+  "src/canvas/document-canvas.tsx": 0,
+  "src/canvas/use-source-session.ts": 0,
+  "src/canvas/source-session.ts": 0,
+  "src/canvas/saved-view-state.tsx": 0,
   // The clean-room engine's editor keeps its mutable session in effects and
   // editor storage, so it compiles fully; pinned so it stays that way.
   "src/editor/markdown/engine/lattice-visual-editor.tsx": 0,
