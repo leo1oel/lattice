@@ -275,6 +275,10 @@ msgstr "{author} 建议插入文字"
 msgid "{begin} is closed by {end}"
 msgstr "{begin} 被 {end} 关闭"
 
+#: src/project/arxiv-export.ts
+msgid "{built}; arXiv builds with pdfLaTeX"
+msgstr "{built}；arXiv 使用 pdfLaTeX 编译"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -327,9 +331,21 @@ msgstr "{count} 字符"
 msgid "{count} characters"
 msgstr "{count} 字符"
 
+#: src/project/arxiv-export.ts
+msgid "{count} comment lines"
+msgstr "{count} 行注释"
+
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "{count} figures"
 msgstr "{count} 张图片"
+
+#: src/project/arxiv-export.ts
+msgid "{count} figures, as the last build used them"
+msgstr "{count} 张图，与上次编译所用一致"
+
+#: src/project/arxiv-export.ts
+msgid "{count} files"
+msgstr "{count} 个文件"
 
 #: src/project/project-find-dialog.tsx
 msgid "{count} hits"
@@ -354,6 +370,10 @@ msgstr "{count} 条"
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} markers"
 msgstr "{count} 条"
+
+#: src/project/arxiv-export.ts
+msgid "{count} pages"
+msgstr "{count} 页"
 
 #: src/trellis/trellis-labels.ts
 msgid "{count} panels. Double-click to zoom in."
@@ -396,6 +416,14 @@ msgstr "{count} 词"
 msgid "{count}+ results for “{shownQuery}”"
 msgstr "“{shownQuery}”共 {count}+ 条结果"
 
+#: src/project/arxiv-export.ts
+msgid "{counted}, {todos} of them TODOs"
+msgstr "{counted}，其中 {todos} 条 TODO"
+
+#: src/project/arxiv-export.ts
+msgid "{counted}, 1 of them a TODO"
+msgstr "{counted}，其中 1 条 TODO"
+
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
 msgstr "{current}/{count}"
@@ -432,6 +460,10 @@ msgstr "{description}：无法运行 {path}：{error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}：在 PATH 中未找到"
 
+#: src/project/arxiv-export.ts
+msgid "{engine} in a clean folder…"
+msgstr "正在空白文件夹中用 {engine} 编译…"
+
 #: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} 个错误"
@@ -447,6 +479,10 @@ msgstr "{failed} 篇没找到"
 #: src/project/manuscript-checklist.tsx
 msgid "{failing} checks need attention"
 msgstr "{failing} 项需要处理"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "{failures} to fix"
+msgstr "{failures} 项需修复"
 
 #: src/canvas/status-save-state.tsx
 msgid "{file} · saves a second after you stop typing"
@@ -468,6 +504,10 @@ msgstr "{fileName}，含命令 · {characters}"
 msgid "{filtered} of {total} papers"
 msgstr "{filtered}/{total} 篇"
 
+#: src/project/arxiv-export.ts
+msgid "{first} and {more} more; build again"
+msgstr "{first} 等 {more} 个文件；请重新编译"
+
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} 和 {second}"
@@ -475,6 +515,10 @@ msgstr "{first} 和 {second}"
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} 等"
+
+#: src/project/arxiv-export.ts
+msgid "{first}; build again"
+msgstr "{first}；请重新编译"
 
 #: src/project/manuscript-checklist.tsx
 msgid "{gap} pages over"
@@ -673,6 +717,18 @@ msgstr "{replacementCount} 处"
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} 条批注"
 
+#: src/project/arxiv-export.ts
+msgid "{seconds} s"
+msgstr "{seconds} 秒"
+
+#: src/project/arxiv-export.ts
+msgid "{size} of {limit}"
+msgstr "{size}，上限 {limit}"
+
+#: src/project/arxiv-export.ts
+msgid "{size} of {limit}; leave out large figures"
+msgstr "{size}，上限 {limit}；请移除较大的图片"
+
 #: src/project/deadline-card.tsx
 msgid "{span} left"
 msgstr "还剩 {span}"
@@ -796,6 +852,10 @@ msgstr "被引 1 次"
 msgid "1 comment"
 msgstr "1 条评论"
 
+#: src/project/arxiv-export.ts
+msgid "1 comment line"
+msgstr "1 行注释"
+
 #: src/project/deadline-card.tsx
 msgid "1 day"
 msgstr "1 天"
@@ -816,7 +876,12 @@ msgstr "1 条"
 msgid "1 figure"
 msgstr "1 幅图"
 
+#: src/project/arxiv-export.ts
+msgid "1 figure, as the last build used it"
+msgstr "1 张图，与上次编译所用一致"
+
 #: src/history/versions-timeline.tsx
+#: src/project/arxiv-export.ts
 msgid "1 file"
 msgstr "1 个文件"
 
@@ -858,6 +923,7 @@ msgstr "1/{total} 篇"
 msgid "1 open"
 msgstr "1 条待处理"
 
+#: src/project/arxiv-export.ts
 #: src/trellis/trellis-build-sequence.tsx
 msgid "1 page"
 msgstr "1 页"
@@ -911,6 +977,10 @@ msgstr "1 张表"
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
 msgstr "文献库里有 1 处要整理"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "1 to fix"
+msgstr "1 项需修复"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 vote"
@@ -1732,6 +1802,10 @@ msgstr "期刊论文"
 msgid "Article entry uses booktitle instead of journal."
 msgstr "article 应写 journal，而不是 booktitle"
 
+#: src/project/arxiv-export.ts
+msgid "arXiv doesn’t run BibTeX; from your last build"
+msgstr "arXiv 不运行 BibTeX；取自上次编译"
+
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
@@ -1967,6 +2041,14 @@ msgstr "参考文献"
 msgid "Bibliography cleanup is available. Only the proposed changes will be applied; rejected source metadata is not used."
 msgstr "可以整理文献，只会改建议的部分"
 
+#: src/project/arxiv-export.ts
+msgid "Bibliography travels as {file}"
+msgstr "参考文献以 {file} 随包提交"
+
+#: src/project/arxiv-export.ts
+msgid "Bibliography travels as a .bbl"
+msgstr "参考文献以 .bbl 随包提交"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "BibTeX bibliography files"
 msgstr "BibTeX 参考文献文件"
@@ -2148,6 +2230,7 @@ msgstr "日志列表存不下了，新日志仍会写入文件，但重启后列
 
 #: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
+#: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
@@ -2179,6 +2262,10 @@ msgstr "已清理临时文件"
 msgid "Build log"
 msgstr "编译日志"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Build log copied"
+msgstr "已复制编译日志"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build notes"
 msgstr "提示"
@@ -2205,6 +2292,14 @@ msgstr "编译成功，用时 {seconds} 秒"
 msgid "Build superseded"
 msgstr "已被新的编译取代"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Build the paper first. The package is made from the files the last build of {rootDocument} used."
+msgstr "请先编译论文。提交包由上次编译 {rootDocument} 时用到的文件组成。"
+
+#: src/project/arxiv-export.ts
+msgid "Build the paper so it has one; arXiv doesn’t run BibTeX"
+msgstr "请编译论文以生成 .bbl；arXiv 不运行 BibTeX"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build this project with pdfLaTeX from now on"
 msgstr "今后用 pdfLaTeX 编译此项目"
@@ -2227,6 +2322,7 @@ msgid "Build your LaTeX project to see the typeset paper"
 msgstr "编译 LaTeX 项目，查看排版后的论文"
 
 #: src/pdf/pdf-viewer.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/trellis/trellis-build-sequence.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Building…"
@@ -2241,6 +2337,10 @@ msgstr "编译"
 #: src/settings/settings-search-index.ts
 msgid "Builds 1.2 s after you stop typing"
 msgstr "停止输入 1.2 秒后自动编译"
+
+#: src/project/arxiv-export.ts
+msgid "Builds from the package alone"
+msgstr "仅凭提交包即可编译"
 
 #: src/build/build-result-text.ts
 #: src/trellis/trellis-build-sequence.tsx
@@ -2309,6 +2409,7 @@ msgstr "最多 15 分钟"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/paper-library.tsx
@@ -2503,6 +2604,7 @@ msgid "Check accent example"
 msgstr "抑扬符示例"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
 msgstr "重新检查"
 
@@ -2548,6 +2650,10 @@ msgstr "请检查网络后重试"
 msgid "checked"
 msgstr "检查于"
 
+#: src/App.tsx
+msgid "Checked, comments removed, builds alone"
+msgstr "已检查、移除注释、可独立编译"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "正在检查 {completed} / {progressTotal}…"
@@ -2575,6 +2681,7 @@ msgstr "正在检查 Overleaf…"
 
 #: src/build/tex-install-dialog.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "正在检查…"
@@ -2586,6 +2693,10 @@ msgstr "投稿清单"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "带勾选框的清单"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Checks"
+msgstr "检查项"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
@@ -3078,6 +3189,18 @@ msgstr "评论署名：{0}（取自 Git 或 Overleaf）"
 msgid "Comments from Overleaf sit here beside the words they are about"
 msgstr "Overleaf 上的评论会和它们所指的文字一起列在这里"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Comments in the source"
+msgstr "源文件中的注释"
+
+#: src/project/arxiv-export.ts
+msgid "Comments removed"
+msgstr "已移除注释"
+
+#: src/project/arxiv-export.ts
+msgid "Comments will be published"
+msgstr "注释将被公开"
+
 #: src/app/annotation-rounds.ts
 msgid "Compare"
 msgstr "对比"
@@ -3322,6 +3445,7 @@ msgid "Copy key"
 msgstr "复制引用名"
 
 #: src/build/compile-diagnostics-panel.tsx
+#: src/project/arxiv-export-dialog.tsx
 msgid "Copy log"
 msgstr "复制日志"
 
@@ -3380,6 +3504,10 @@ msgstr "图片转换失败"
 #: src/editor/insert/clipboard-image.ts
 msgid "Could not encode the clipboard image."
 msgstr "剪贴板图片转换失败"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Could not export for arXiv"
+msgstr "无法导出 arXiv 提交包"
 
 #: src/App.tsx
 msgid "Could not find figure “{path}”."
@@ -4529,6 +4657,10 @@ msgstr "Overleaf 上每个人的每次编辑都保存在这里，随时可以恢
 msgid "Every edit you, the agent or the citation tool make shows here, and each can be undone"
 msgstr "你、AI 助手和引用工具做的每次修改都会出现在这里，每一次都能撤回"
 
+#: src/project/arxiv-export.ts
+msgid "Every figure is included"
+msgstr "所有图片均已包含"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgstr "论文的所有文件都在这：LaTeX、笔记、图片、幻灯片"
@@ -4609,6 +4741,15 @@ msgstr "导出 Excel"
 msgid "Export Excel workbook"
 msgstr "导出 Excel"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Export for arXiv"
+msgstr "导出 arXiv 提交包"
+
+#: src/App.tsx
+#: src/project/project-dialogs.tsx
+msgid "Export for arXiv…"
+msgstr "导出 arXiv 提交包…"
+
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
 msgstr "导出预览"
@@ -4618,6 +4759,7 @@ msgstr "导出预览"
 msgid "Export project ZIP"
 msgstr "导出 ZIP"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
 msgid "Export ZIP"
 msgstr "导出 ZIP"
@@ -4626,9 +4768,17 @@ msgstr "导出 ZIP"
 msgid "Export…"
 msgstr "导出…"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Exported {fileName}"
+msgstr "已导出 {fileName}"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
 msgstr "正在导出 ZIP…"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Exporting…"
+msgstr "正在导出…"
 
 #: src/project/citation-health.ts
 msgid "Expression of concern"
@@ -4713,9 +4863,14 @@ msgid "file upload"
 msgstr "上传文件"
 
 #: src/app/command-palette.tsx
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "文件"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Files in the package"
+msgstr "提交包中的文件"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -4725,6 +4880,10 @@ msgstr "改动文件"
 #: src/overleaf/overleaf-history.tsx
 msgid "Files in this version"
 msgstr "此版本的文件"
+
+#: src/project/arxiv-export.ts
+msgid "Files the last build used are missing"
+msgstr "上次编译用到的文件已缺失"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
@@ -5078,6 +5237,10 @@ msgstr "正文保持全宽，按需打开卡片"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "伽马"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Gathering the files the paper uses…"
+msgstr "正在收集论文用到的文件…"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -6368,6 +6531,14 @@ msgstr "左正规子群"
 msgid "Left normal subgroup eq"
 msgstr "左正规子群（含等号）"
 
+#: src/project/arxiv-export.ts
+msgid "Left out: {names} and {hidden} more, which the paper doesn’t use."
+msgstr "未包含：{names} 等另外 {hidden} 项，论文未用到。"
+
+#: src/project/arxiv-export.ts
+msgid "Left out: {names}, which the paper doesn’t use."
+msgstr "未包含：{names}，论文未用到。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Left vertical bar"
 msgstr "左竖线"
@@ -6913,6 +7084,10 @@ msgstr "图片和媒体"
 msgid "Medium section heading."
 msgstr "中标题"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Merge \\input files into {rootDocument}"
+msgstr "将 \\input 文件合并到 {rootDocument}"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Merge cells"
 msgstr "合并单元格"
@@ -7398,6 +7573,10 @@ msgstr "参考文献里还没有键为 {key} 的条目。编译在错误处停�
 msgid "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
 msgstr "参考文献里没有键为 {key} 的条目。检查这个键，或把条目加到 .bib 文件里。"
 
+#: src/project/arxiv-export.ts
+msgid "No bibliography to include"
+msgstr "无需包含参考文献"
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "没有符合的改动"
@@ -7417,6 +7596,10 @@ msgstr "没有命令或设置与“{query}”匹配"
 #: src/app/command-palette.tsx
 msgid "No commands, files or papers match “{query}”"
 msgstr "没有命令、文件或论文与“{query}”匹配"
+
+#: src/project/arxiv-export.ts
+msgid "No comments in the source"
+msgstr "源文件中没有注释"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
@@ -7815,6 +7998,10 @@ msgstr "已舍弃批注"
 msgid "Notes"
 msgstr "批注"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Notes to co-authors stay on this Mac"
+msgstr "写给合作者的备注只留在这台 Mac 上"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "没有阻碍投稿的问题"
@@ -7872,6 +8059,10 @@ msgstr "无需重新编译"
 #: src/overleaf/overleaf-review.tsx
 msgid "Nothing to show"
 msgstr "没有内容"
+
+#: src/project/arxiv-export.ts
+msgid "Nothing to take out"
+msgstr "没有需要移除的内容"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -7982,6 +8173,10 @@ msgstr "1 条记录匹配"
 #: src/papers/bib-entry-dialog.tsx
 msgid "One record matches. Check it is the one you mean."
 msgstr "1 条记录匹配，请确认是你要的那一条。"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "One source file, as arXiv prefers"
+msgstr "合为一个源文件，arXiv 更推荐这样"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -8333,6 +8528,10 @@ msgstr "其他项目"
 msgid "Outline"
 msgstr "大纲"
 
+#: src/project/arxiv-export.ts
+msgid "Over arXiv’s size limit"
+msgstr "超出 arXiv 的大小限制"
+
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
@@ -8341,10 +8540,6 @@ msgstr "大纲"
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
-
-#: src/App.tsx
-msgid "Overleaf / arXiv source pack"
-msgstr "Overleaf / arXiv 源文件"
 
 #: src/overleaf/ot.ts
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
@@ -8456,6 +8651,10 @@ msgstr "Overleaf 传来的版本是空的或小很多，无法确认，所以保
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf 发送了版本 {version}，但此文档当前为版本 {current}。"
+
+#: src/App.tsx
+msgid "Overleaf source pack"
+msgstr "Overleaf 源文件包"
 
 #: src/history/version-messages.ts
 msgid "Overleaf sync"
@@ -9314,9 +9513,18 @@ msgstr "正在读取第三方声明…"
 msgid "Reads as text at {ratio}:1, used as picked"
 msgstr "作为文字的对比度为 {ratio}:1，按所选颜色使用"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Ready"
 msgstr "就绪"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready · {warnings} to look at"
+msgstr "就绪 · {warnings} 项待查看"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Ready · 1 to look at"
+msgstr "就绪 · 1 项待查看"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -9513,6 +9721,10 @@ msgstr "移除 {title}"
 #: src/settings/settings-dialog.tsx
 msgid "Remove {word} from project dictionary"
 msgstr "从词库删除 {word}"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Remove % comments"
+msgstr "移除 % 注释"
 
 #: src/App.tsx
 msgid "Remove citations too"
@@ -10111,6 +10323,11 @@ msgstr "还原布局"
 msgid "Review"
 msgstr "审阅"
 
+#: src/project/arxiv-export-dialog.tsx
+msgctxt "arXiv export comments"
+msgid "Review"
+msgstr "查看"
+
 #. placeholder {0}: rounds.proposals.length
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Review {0} proposals"
@@ -10429,6 +10646,10 @@ msgstr "保存可视化内容"
 msgid "Save visual as HTML"
 msgstr "将可视化内容另存为 HTML"
 
+#: src/project/arxiv-export-dialog.tsx
+msgid "Save your edits before exporting."
+msgstr "请先保存修改再导出。"
+
 #: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
@@ -10628,6 +10849,10 @@ msgstr "节标记"
 #: src/project/quick-open-dialog.tsx
 msgid "Sections and labels"
 msgstr "章节与标签"
+
+#: src/project/arxiv-export.ts
+msgid "See the log for why"
+msgstr "原因见日志"
 
 #: src/app/whats-new.ts
 msgid "See what’s new"
@@ -10838,6 +11063,7 @@ msgstr "显示大纲"
 msgid "Show hidden files"
 msgstr "显示隐藏文件"
 
+#: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
@@ -11298,6 +11524,10 @@ msgstr "停止编译"
 msgid "Stop the build"
 msgstr "停止编译"
 
+#: src/project/arxiv-export.ts
+msgid "Stopped after 2 minutes"
+msgstr "2 分钟后已停止"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
@@ -11757,6 +11987,10 @@ msgstr "扫描后这条又改了"
 msgid "The bibliography entry no longer exists."
 msgstr "这条已不存在"
 
+#: src/project/arxiv-export.ts
+msgid "The bibliography has no .bbl"
+msgstr "参考文献缺少 .bbl"
+
 #: src/settings/acknowledged-software.ts
 msgid "The board editor"
 msgstr "白板编辑器"
@@ -11903,9 +12137,25 @@ msgstr "与 Overleaf 项目的连接已失效"
 msgid "The Overleaf project connection is no longer active."
 msgstr "与 Overleaf 的连接已断开"
 
+#: src/project/arxiv-export.ts
+msgid "The package did not finish building"
+msgstr "提交包未能完成编译"
+
+#: src/project/arxiv-export.ts
+msgid "The package does not build alone"
+msgstr "提交包无法独立编译"
+
 #: src/build/tex-setup.ts
 msgid "The package repository does not have this package."
 msgstr "组件仓库中没有此组件。"
+
+#: src/project/arxiv-export.ts
+msgid "The paper has no \\bibliography"
+msgstr "论文中没有 \\bibliography"
+
+#: src/project/arxiv-export.ts
+msgid "The paper has no figures"
+msgstr "论文中没有图片"
 
 #: src/project/paper-review-panel.tsx
 msgid "The paper is longer than one review reads, so its end was left out"
@@ -12571,6 +12821,10 @@ msgstr "独立公式 {open} 没有结束"
 msgid "Unclosed inline math {open}."
 msgstr "句中公式 {open} 没有结束"
 
+#: src/project/arxiv-export.ts
+msgid "Under arXiv’s size limit"
+msgstr "未超出 arXiv 的大小限制"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/engine-shortcuts.ts
@@ -12795,6 +13049,10 @@ msgstr "把“{name}”上传到 Overleaf 并关联？\n"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload and connect"
 msgstr "上传关联"
+
+#: src/project/arxiv-export-dialog.tsx
+msgid "Upload it at arXiv’s Add Files step."
+msgstr "请在 arXiv 的“Add Files”步骤上传。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload this project to Overleaf"
@@ -13432,6 +13690,7 @@ msgid "Zeta"
 msgstr "泽塔"
 
 #: src/app/use-project-lifecycle.ts
+#: src/project/arxiv-export-dialog.tsx
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
 

@@ -1,9 +1,9 @@
 //! Creating, opening and configuring projects.
 
-use super::{current_root, run_blocking, run_quietly};
+use super::{current_root, pinned_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
 use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot};
-use crate::{fs_watch, project, wide_event};
+use crate::{fs_watch, latex, project, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
 use tauri::{AppHandle, Manager, State, Window};
@@ -118,6 +118,47 @@ pub async fn export_project_zip(
     let root = current_root(&state, &window)?;
     run_blocking("Project export", move || project::export_project_zip(&root, Path::new(&zip_path)))
         .await
+}
+
+/// Stage the arXiv source pack and check it: the staged pack (every check
+/// but the test build) goes to `on_staged` at once, and the result, test
+/// build and all, is the reply.
+#[tauri::command]
+pub async fn check_arxiv_package(
+    state: State<'_, AppState>, window: Window, project_root: String, options: latex::ArxivOptions,
+    on_staged: tauri::ipc::Channel<latex::ArxivCheck>,
+) -> Result<latex::ArxivCheck, String> {
+    let root = pinned_root(&state, &window, &project_root, "its arXiv checks could start")?;
+    let resources = state.project(&root);
+    run_blocking("arXiv checks", move || {
+        latex::check_arxiv(&root, options, &resources.arxiv_checks, |staged| {
+            let _ = on_staged.send(staged.clone());
+        })
+    })
+    .await
+}
+
+/// Stop the arXiv check under way: the sheet closed, or its options changed.
+#[tauri::command]
+pub fn cancel_arxiv_check(
+    state: State<'_, AppState>, window: Window, project_root: String,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "its arXiv checks could stop")?;
+    state.project(&root).arxiv_checks.cancel();
+    Ok(())
+}
+
+/// Write the arXiv source pack whose checks had `digest` to `zip_path`.
+#[tauri::command]
+pub async fn export_arxiv_package(
+    state: State<'_, AppState>, window: Window, project_root: String, options: latex::ArxivOptions,
+    digest: String, zip_path: String,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "its arXiv export could start")?;
+    run_blocking("arXiv export", move || {
+        latex::export_arxiv(&root, options, &digest, Path::new(&zip_path))
+    })
+    .await
 }
 
 #[tauri::command]

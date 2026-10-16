@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, Folder, FolderOpen, Plus, Settings, Sparkles, Wrench } from "lucide-react";
+import { Cloud, FileArchive, Folder, FolderOpen, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -259,6 +259,7 @@ export function ProjectMenu(props: {
   onNew: () => void;
   onOpenTutorial: () => void;
   onExportZip: () => void;
+  onExportArxiv: () => void;
   onOpenOverleaf?: () => void;
   onSettings: () => void;
 }) {
@@ -305,6 +306,7 @@ export function ProjectMenu(props: {
         </DropdownMenuItem>
       )}
       <DropdownMenuItem onSelect={props.onExportZip}><FileArchive /> {t`Export ZIP`}</DropdownMenuItem>
+      <DropdownMenuItem onSelect={props.onExportArxiv}><PackageCheck /> {t`Export for arXiv…`}</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
         <Sparkles /> {t`Guided tutorial`}

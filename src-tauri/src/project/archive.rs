@@ -129,7 +129,7 @@ fn excluded_file(name: &str) -> bool {
 
 /// `time` as a ZIP (DOS, local-time) timestamp; the format's epoch when it is
 /// unknown or out of the format's 1980-2107 range.
-fn zip_time(time: Option<SystemTime>) -> zip::DateTime {
+pub(crate) fn zip_time(time: Option<SystemTime>) -> zip::DateTime {
     time.map(chrono::DateTime::<Local>::from)
         .and_then(|local| {
             zip::DateTime::from_date_and_time(

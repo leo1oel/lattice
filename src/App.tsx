@@ -180,6 +180,7 @@ const OverleafReviewDialog = lazy(() =>
 const ConflictResolverDialog = lazy(() =>
   import("./history/conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
 );
+const ArxivExportDialog = lazy(() => import("./project/arxiv-export-dialog"));
 // Lazy: the file tree pulls @pierre/trees (~270 KB), and neither sidebar
 // panel renders on the Welcome screen, so they must not weigh down first paint.
 // Memoized: their callbacks come through stable forwarders (useStableHandlers
@@ -406,6 +407,7 @@ function App() {
   }, [reveal, updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
+  const [arxivExportOpen, setArxivExportOpen] = useState(false);
   // The command palette or the shortcut sheet: one at a time, and one state
   // (each hook is paid on every App render). The palette carries what it
   // leads with, read at each opening: another window may have run commands since.
@@ -1559,7 +1561,8 @@ function App() {
       },
     })),
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
-    { id: "export-zip", when: inProject, label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: "project", run: () => void exportProjectZip() },
+    { id: "export-zip", when: inProject, label: t`Export project ZIP`, detail: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
+    { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, detail: t`Checked, comments removed, builds alone`, group: "project", run: () => setArxivExportOpen(true) },
     { id: "new-project", label: t`New project`, group: "project", run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
     ...otherRecentProjects.map(({ name, path }, index): AppCommand => ({
@@ -2027,6 +2030,7 @@ function App() {
           onOpenOverleaf: () => setOverleafPickerOpen(true),
           onOpenTutorial: () => void openTutorialProject(),
           onExportZip: () => void exportProjectZip(),
+          onExportArxiv: () => setArxivExportOpen(true),
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
         panelControls={<TrellisTitlebar controller={trellis} onSearch={openPaletteFromTitlebar} searchShortcut={paletteShortcut} />}
@@ -2348,6 +2352,16 @@ function App() {
       {settingsDialog}
       {overleafPicker}
       {overleafReview}
+      <LazyMount when={arxivExportOpen}>
+        <ArxivExportDialog
+          key={project.root}
+          projectRoot={project.root}
+          projectName={project.manifest.name}
+          save={save}
+          build={() => compile()}
+          onClose={() => setArxivExportOpen(false)}
+        />
+      </LazyMount>
 
     </div>
     </TrellisControllerContext.Provider>
