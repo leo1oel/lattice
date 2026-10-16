@@ -104,3 +104,9 @@ The Agent header's usage chip shows what is left of the active provider's tighte
 For a draft the chip follows the composer's model. It stays hidden while the provider reports nothing, and the usage read never holds up the panel or a turn.
 A wrapper `claude` that sets `CLAUDE_CONFIG_DIR` only for its own child (an account switcher, for example) keeps the login in a config-dir-scoped Keychain item Synara cannot name, so usage used to read "not signed in" and the chip never appeared.
 The fork now asks the configured `claude` for `/usage` through the Agent SDK whenever no stored credential works: no settings sources run, the read holds the auth-status lock, and a CLI that cannot answer is not asked again for ten minutes.
+
+Changes lists, stages and commits from Git's own file list rather than from the staged and unstaged patches.
+`git.readWorkingTreeDiff` now returns each of those scopes' files (`--name-status -z`, `--numstat -z` and the untracked files: raw paths, status, line counts) beside the patch, and reads a single listed file when given `filePath`.
+A working tree whose unstaged patch passed the 1 MB response cap used to parse to no files and read "Everything is committed" with no list or commit form; it now lists every file, says the preview was cut, and loads a cut-off file's change when it is opened.
+Git C-quotes non-ASCII, quote, tab and backslash names in patch headers, so a file such as `…-中文.tex` showed as `…-\344\270\255\346\226\207.tex` and Stage sent that string to `git add`, which matched nothing; rows now show and act on the raw name, a rename stages, unstages and commits both of its paths, and the pull request redline decodes those headers too.
+The clean state also waits for `git.status` to report a clean tree.
