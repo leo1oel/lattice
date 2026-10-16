@@ -137,15 +137,14 @@
       }
     },
     {
-      "files": ["scripts/**/*.mjs", "tools/open-slide-runtime/**/*.mjs"],
-      "globals": {
-        "Buffer": "readonly",
-        "URL": "readonly",
-        "clearTimeout": "readonly",
-        "console": "readonly",
-        "process": "readonly",
-        "setTimeout": "readonly"
-      }
+      "files": ["scripts/**/*.{js,mjs}", "tools/open-slide-runtime/**/*.mjs"],
+      "env": { "node": true }
+    },
+    {
+      // In-page code: the probe is injected as a string, and the timing
+      // scripts hand their functions to the page through CDP/Playwright.
+      "files": ["scripts/perf-bench/probe.js", "scripts/perf-bench/*-timing.mjs"],
+      "env": { "browser": true }
     },
     {
       "files": ["**/*.{ts,tsx}"],
@@ -322,14 +321,77 @@
       }
     },
     {
+      // The App integration suites; app-titlebar.test.tsx shares the prefix
+      // but is a unit test of one component.
+      "files": ["src/app/app-*.test.tsx"],
+      "excludeFiles": ["src/app/app-titlebar.test.tsx"],
+      "rules": {
+        "lattice/app-test-utils-first": "error"
+      }
+    },
+    {
       // Headless primitives are styled once, in src/components/ui; feature code
       // uses those wrappers so menus, popovers and dialogs keep one look. The
-      // rule restates the Open Knowledge guard because a later override replaces
-      // the options of an earlier one for the same files.
+      // same rule keeps tldraw out of eagerly-loaded modules and raw Tauri
+      // `listen` out of effects. Each override below restates the whole option
+      // set, because a later override replaces the options of an earlier one
+      // for the same files; the two after this one each lift one restriction
+      // for the modules that own it.
       "files": ["src/**/*.{ts,tsx}"],
       "excludeFiles": ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
       "rules": {
         "eslint/no-restricted-imports": ["error", {
+          "paths": [{
+            "name": "tldraw",
+            "allowTypeImports": true,
+            "message": "Value-import tldraw only in src/editor/board/ or agent-canvas-tldraw-adapter.ts: its barrel has no sideEffects flag and drags ~1.5 MB into whichever chunk imports it (docs/architecture.md §4.2)."
+          }, {
+            "name": "@tauri-apps/api/event",
+            "importNames": ["listen"],
+            "message": "Subscribe through subscribeTauriEvent/disposeWhenSettled (src/app/effect-helpers.ts) or listenInThisWindow (src/app/window-events.ts), which own the disposed-flag + unlisten race."
+          }],
+          "patterns": [{
+            "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+            "message": "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md)."
+          }, {
+            "group": ["radix-ui", "@radix-ui/*"],
+            "message": "Use (or add) the wrapper in src/components/ui instead of a Radix primitive."
+          }]
+        }]
+      }
+    },
+    {
+      // The board editor and its agent adapter load only behind the lazy
+      // board-editor import (src/canvas/canvas-lazy-modules.ts).
+      "files": ["src/editor/board/**/*.{ts,tsx}", "src/agent/agent-canvas-tldraw-adapter.ts"],
+      "excludeFiles": ["src/**/*.test.{ts,tsx}"],
+      "rules": {
+        "eslint/no-restricted-imports": ["error", {
+          "paths": [{
+            "name": "@tauri-apps/api/event",
+            "importNames": ["listen"],
+            "message": "Subscribe through subscribeTauriEvent/disposeWhenSettled (src/app/effect-helpers.ts) or listenInThisWindow (src/app/window-events.ts), which own the disposed-flag + unlisten race."
+          }],
+          "patterns": [{
+            "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+            "message": "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md)."
+          }, {
+            "group": ["radix-ui", "@radix-ui/*"],
+            "message": "Use (or add) the wrapper in src/components/ui instead of a Radix primitive."
+          }]
+        }]
+      }
+    },
+    {
+      // The subscription helpers every effect goes through.
+      "files": ["src/app/effect-helpers.ts", "src/app/window-events.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": ["error", {
+          "paths": [{
+            "name": "tldraw",
+            "allowTypeImports": true,
+            "message": "Value-import tldraw only in src/editor/board/ or agent-canvas-tldraw-adapter.ts: its barrel has no sideEffects flag and drags ~1.5 MB into whichever chunk imports it (docs/architecture.md §4.2)."
+          }],
           "patterns": [{
             "group": ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
             "message": "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md)."

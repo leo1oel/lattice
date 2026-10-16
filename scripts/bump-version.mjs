@@ -55,7 +55,7 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 // CSP source lists, burying a one-line release bump in an unrelated diff.
 const conf = readFileSync(confPath, "utf8");
 let confVersionReplaced = false;
-const nextConf = conf.replace(/^(  "version": )"[^"]*",$/m, (_, prefix) => {
+const nextConf = conf.replace(/^( {2}"version": )"[^"]*",$/m, (_, prefix) => {
   confVersionReplaced = true;
   return `${prefix}"${next}",`;
 });

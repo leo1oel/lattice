@@ -33,7 +33,8 @@
   "exclude": [
     // Runs the compiler-report script through node:child_process; needs node
     // types the browser-targeted app tsconfig does not load. Vitest still
-    // runs and typechecks it through its own transform.
+    // runs it, but its transform strips types without checking them, so
+    // nothing typechecks this file.
     "src/platform/react-compiler-guard.test.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]

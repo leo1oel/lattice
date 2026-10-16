@@ -18,7 +18,7 @@
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "prepare:build": "node scripts/prepare-build.mjs",
     "check": "mise run check",
-    "lint": "oxlint src tools --max-warnings 30",
+    "lint": "node scripts/lint.mjs --max-warnings 30 src tools scripts",
     "knip": "knip",
     "test": "vitest run",
     "test:invariants": "node scripts/test-invariants.mjs",

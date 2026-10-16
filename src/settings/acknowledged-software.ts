@@ -12,7 +12,7 @@ import type { ThirdPartyClosure } from "./third-party-notices";
  * lockfiles; `license` is written here only for work the generated notices do
  * not list as a package (adapted code, fonts and icons drawn into the app,
  * hand-staged runtimes), and each such entry matches the hand-written half of
- * that file. `acknowledged-software.test.ts` fails if a `pkg` stops appearing
+ * that file. `third-party-notices.test.ts` fails if a `pkg` stops appearing
  * in the notices.
  */
 export type Credit = {
