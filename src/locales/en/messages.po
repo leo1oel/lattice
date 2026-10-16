@@ -7047,6 +7047,10 @@ msgstr "Load a package"
 msgid "Load more"
 msgstr "Load more"
 
+#: src/history/compare-versions.tsx
+msgid "Load older versions"
+msgstr "Load older versions"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
 msgstr "Loading annotations…"

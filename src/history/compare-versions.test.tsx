@@ -90,6 +90,24 @@ describe("CompareVersions", () => {
     expect(within(picker).getByText("Auto-saved version")).toBeInTheDocument();
   });
 
+  it("reaches a named version older than the first page of the log", async () => {
+    const submitted = entry("d".repeat(40), "Submitted to NeurIPS", 1);
+    const history = [
+      entry("a".repeat(40), "Rebuttal draft", 20),
+      ...Array.from({ length: 150 }, (_, index) => entry(String(index).padStart(40, "0"), "Auto-saved version", 10)),
+      submitted,
+    ];
+    mockRepository({ git_log: ({ limit }: Record<string, unknown>) => history.slice(0, limit as number) });
+    renderCompare();
+    await openCompare();
+    expect(screen.queryByRole("radio", { name: "From Submitted to NeurIPS" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load older versions" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "From Submitted to NeurIPS" }));
+    await waitFor(() => expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null }));
+    expect(screen.queryByRole("button", { name: "Load older versions" })).not.toBeInTheDocument();
+  });
+
   it("reads the root document's changes as prose with counts, sections and a stepper, or as source", async () => {
     mockRepository();
     const onOpenFile = vi.fn();
@@ -125,7 +143,7 @@ describe("CompareVersions", () => {
     const sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
     expect(within(sheet).getByText("Saved as main-changes.pdf beside main.pdf.", { exact: false })).toBeInTheDocument();
     // The preview draws the comparison's own first change.
-    expect(sheet.querySelector(".export-changes-page ins")?.textContent).toBe("retrieve different");
+    await waitFor(() => expect(sheet.querySelector(".export-changes-page ins")?.textContent).toBe("retrieve different"));
     fireEvent.click(within(sheet).getByRole("tab", { name: "Underline only" }));
     fireEvent.click(within(sheet).getByRole("switch", { name: "Only pages with changes" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Export PDF" }));

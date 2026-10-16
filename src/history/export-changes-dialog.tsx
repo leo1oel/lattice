@@ -8,7 +8,7 @@
  * The preview is the comparison's own first changes, drawn the way latexdiff
  * draws them, not the typeset page: building one takes as long as the export.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -22,7 +22,9 @@ import { SwitchField } from "../components/ui/switch-field";
 import { inlineEditSpans } from "../components/ui/inline-edit-spans";
 import { projectItemPath, toMessage } from "../app-utils";
 import { logAction } from "../telemetry/app-notify";
-import type { ProsePassage } from "./version-prose";
+import type { GitFileDiff } from "../app-types";
+import { joinedPassage, prosePassages, type ProsePassage } from "./version-prose";
+import { useLatestLoad } from "./use-latest-load";
 
 export type ChangesPdfOptions = {
   colour: boolean;
@@ -54,8 +56,8 @@ export function ExportChangesDialog(props: {
   to: string | null;
   fromName: string;
   toName: string;
-  /** The root document's changed passages, for the preview; null when it did not change or is still loading. */
-  preview: ProsePassage[] | null;
+  /** The files the comparison changed; the preview reads its .tex files, the root document first. */
+  changed: ReadonlyArray<{ path: string; oldPath?: string }> | null;
   onOpenFile?: (path: string) => void;
   onClose: () => void;
 }) {
@@ -70,7 +72,27 @@ export function ExportChangesDialog(props: {
   };
   const saved = changesPdfName(props.rootDocument);
   const pdf = props.rootDocument.replace(/\.tex$/i, ".pdf");
-  const shown = props.preview?.filter((passage) => passage.edits.length).slice(0, PREVIEW_PASSAGES) ?? [];
+  const preview = useLatestLoad<ProsePassage[]>();
+  const loadPreview = preview.load;
+  const { changed, from, rootDocument, to } = props;
+  useEffect(() => {
+    if (!changed) return;
+    const sources = changed
+      .filter((file) => /\.tex$/i.test(file.path))
+      .sort((a, b) => Number(b.path === rootDocument) - Number(a.path === rootDocument));
+    loadPreview(`${from}:${to}`, async () => {
+      const passages: ProsePassage[] = [];
+      for (const file of sources) {
+        if (passages.length >= PREVIEW_PASSAGES) break;
+        const diff = await invoke<GitFileDiff>("git_compare_file", { from, to, path: file.path, fromPath: file.oldPath ?? null });
+        if (diff.binary) continue;
+        const found = prosePassages(diff.before ?? "", diff.after ?? "") ?? [];
+        passages.push(...found.map(joinedPassage).filter((passage) => passage.edits.length));
+      }
+      return passages.slice(0, PREVIEW_PASSAGES);
+    });
+  }, [changed, from, loadPreview, rootDocument, to]);
+  const shown = preview.value ?? [];
 
   // Worded outside the try: the compiler cannot compile a conditional inside one.
   const savedNotice = (result: ChangesPdf) => ({

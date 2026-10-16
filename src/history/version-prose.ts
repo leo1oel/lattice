@@ -112,15 +112,37 @@ const WORD = new RegExp(String.raw`${CJK}|${LETTERS}(?:['’-]${LETTERS})*`, "gu
 
 const words = (text: string) => text.match(WORD)?.length ?? 0;
 
-/** How many words the passages' edits add and remove. */
+/**
+ * What is not prose: comments, control sequences, and the arguments of the
+ * commands that name rather than say (citations, references, labels,
+ * environments, files).
+ */
+const MARKUP = /(?<!\\)%.*|\\(?:[A-Za-z]*cite[A-Za-z]*|[A-Za-z]*ref|label|begin|end|input|include|usepackage|documentclass|bibliography|bibliographystyle)\*?(?:\s*\[[^\]]*\])*\s*\{[^{}]*\}|\\(?:[A-Za-z@]+\*?|.)/g;
+
+/** `text` with its markup blanked out, keeping every offset where it was. */
+const proseOnly = (text: string) => text.replace(MARKUP, (markup) => " ".repeat(markup.length));
+
+/**
+ * How many prose words the passages' edits add and remove. Each side is read
+ * whole, so an edit inside a citation or a comment counts nothing.
+ */
 export function changedWords(passages: readonly ProsePassage[]): { added: number; removed: number } {
   let added = 0;
   let removed = 0;
   for (const passage of passages) {
+    const before = proseOnly(passage.text);
+    let after = "";
+    let cursor = 0;
+    const inserted: Array<[number, number]> = [];
     for (const edit of passage.edits) {
-      added += words(edit.insert);
-      removed += words(passage.text.slice(edit.from, edit.to));
+      removed += words(before.slice(edit.from, edit.to));
+      after += passage.text.slice(cursor, edit.from);
+      inserted.push([after.length, after.length + edit.insert.length]);
+      after += edit.insert;
+      cursor = edit.to;
     }
+    const prose = proseOnly(after + passage.text.slice(cursor));
+    for (const [from, to] of inserted) added += words(prose.slice(from, to));
   }
   return { added, removed };
 }

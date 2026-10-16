@@ -7047,6 +7047,10 @@ msgstr "加载宏包"
 msgid "Load more"
 msgstr "加载更多"
 
+#: src/history/compare-versions.tsx
+msgid "Load older versions"
+msgstr "加载更早的版本"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
 msgstr "正在加载批注…"

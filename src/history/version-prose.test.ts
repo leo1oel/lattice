@@ -3,7 +3,7 @@ import { changedWords, joinedPassage, prosePassages, sectionAt } from "./version
 
 describe("changedWords", () => {
   // The diff takes a run of CJK characters as one token, so a changed run counts whole.
-  it("counts the words edits add and remove, each CJK character as one and other letters by the run", () => {
+  it("counts the prose words edits add and remove, each CJK character as one and other letters by the run", () => {
     const passages = prosePassages(
       "Attention maps explain predictions. 注意力图解释预测。\n",
       "Attention maps describe routing weights. 注意力图描述权重。\n",
@@ -11,6 +11,14 @@ describe("changedWords", () => {
     expect(changedWords(passages)).toEqual({ added: 3 + 8, removed: 2 + 8 });
     const added = prosePassages("Intro.\n", "Intro.\n\nnaïve Gödel’s Ελληνικά слово かな 한글\n")!;
     expect(changedWords(added)).toEqual({ added: 4 + 2 + 2, removed: 0 });
+    // Prose only: not commands, citation and reference keys, or comments.
+    const cited = prosePassages(
+      "Attention helps.\n",
+      "Attention helps~\\cite{vaswani2017attention} (see \\eqref{eq:attn}), \\emph{a lot}. % TODO cut\n",
+    )!;
+    expect(changedWords(cited)).toEqual({ added: 3, removed: 0 });
+    const rekeyed = prosePassages("As shown~\\cite{bahdanau2015neural}.\n", "As shown~\\cite{luong2015effective}.\n")!;
+    expect(changedWords(rekeyed)).toEqual({ added: 0, removed: 0 });
   });
 });
 

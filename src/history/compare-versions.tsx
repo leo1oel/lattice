@@ -162,6 +162,11 @@ export function CompareVersions(props: {
             {showAutomatic ? t`Hide automatic versions` : t`Show ${formatCount(hidden)} automatic versions`}
           </button>
         )}
+        {props.versions.hasOlder && (
+          <button type="button" className="compare-picker-more" disabled={props.versions.refreshing} onClick={() => void props.versions.loadOlder()}>
+            {t`Load older versions`}
+          </button>
+        )}
       </div>
 
       <div className="compare-bar">
@@ -220,7 +225,7 @@ export function CompareVersions(props: {
           to={toRev}
           fromName={fromName}
           toName={toName}
-          preview={path === props.rootDocument ? readable : null}
+          changed={changed}
           onOpenFile={props.onOpenFile}
           onClose={() => setExporting(false)}
         />
