@@ -196,10 +196,8 @@ export function ExportChangesDialog(props: {
         {shown.length > 0 && (
           <div className="export-changes-preview" aria-hidden="true" data-colour={options.colour || undefined} data-bars={options.marginBars || undefined}>
             <div className="export-changes-page">
-              {shown.map((passage, index) => (
-                <p key={`${passage.line}:${index}`}>
-                  <MarkedPassage passage={passage} keepDeleted={options.keepDeleted} />
-                </p>
+              {markedPassages(shown, options.keepDeleted).map((parts, index) => (
+                <p key={`${shown[index]!.line}:${index}`}>{parts}</p>
               ))}
             </div>
             <span className="export-changes-caption">{t`The first changes, marked this way`}</span>
@@ -211,29 +209,32 @@ export function ExportChangesDialog(props: {
 }
 
 /** A citation as the page would number it, rather than its source. */
-const CITATION = /~?\\(?:cite[a-zA-Z]*|parencite|textcite|autocite)\*?(?:\[[^\]]*\])*\{[^}]*\}/g;
+const CITATION = /~?\\(?:cite[a-zA-Z]*|parencite|textcite|autocite)\*?(?:\[[^\]]*\])*\{([^}]*)\}/g;
 
-/** A passage as latexdiff marks it: deleted words struck (or gone), new ones underlined with a wave. */
-function MarkedPassage(props: { passage: ProsePassage; keepDeleted: boolean }) {
-  return <>{markedParts(props.passage, props.keepDeleted)}</>;
-}
-
-/** Its marks as nodes: outside the component, as the compiler cannot compile `++cited` in a lambda. */
-function markedParts({ text, edits }: ProsePassage, keepDeleted: boolean): ReactNode[] {
-  let cited = 0;
-  const flat = (part: string) => part.replace(CITATION, () => ` [${++cited}]`).replace(/\s+/g, " ");
-  const parts: ReactNode[] = [];
-  let cursor = 0;
-  for (const { edit, from, to, deleted, inserted } of inlineEditSpans(text, edits)) {
-    parts.push(flat(text.slice(cursor, from)));
-    const struck = Boolean(deleted.trim() && keepDeleted);
-    if (struck) parts.push(<del key={`d${edit.id}`}>{flat(deleted).trim()}</del>);
-    if (struck && inserted.trim()) parts.push(" ");
-    if (inserted.trim()) parts.push(<ins key={`i${edit.id}`}>{flat(inserted).trim()}</ins>);
-    // The spaces at the change's edges stay outside the marks.
-    if (/\s$/.test(inserted || deleted)) parts.push(" ");
-    cursor = to;
-  }
-  parts.push(flat(text.slice(cursor)));
-  return parts;
+/**
+ * The passages as latexdiff marks them: deleted words struck (or gone), new
+ * ones underlined with a wave, each citation numbered in the order the page
+ * first cites it. Outside the component, so the numbering runs through every
+ * passage.
+ */
+function markedPassages(passages: readonly ProsePassage[], keepDeleted: boolean): ReactNode[][] {
+  const numbers = new Map<string, number>();
+  const number = (keys: string) => numbers.get(keys) ?? numbers.set(keys, numbers.size + 1).get(keys)!;
+  const flat = (part: string) => part.replace(CITATION, (_citation, keys: string) => ` [${number(keys.trim())}]`).replace(/\s+/g, " ");
+  return passages.map(({ text, edits }) => {
+    const parts: ReactNode[] = [];
+    let cursor = 0;
+    for (const { edit, from, to, deleted, inserted } of inlineEditSpans(text, edits)) {
+      parts.push(flat(text.slice(cursor, from)));
+      const struck = Boolean(deleted.trim() && keepDeleted);
+      if (struck) parts.push(<del key={`d${edit.id}`}>{flat(deleted).trim()}</del>);
+      if (struck && inserted.trim()) parts.push(" ");
+      if (inserted.trim()) parts.push(<ins key={`i${edit.id}`}>{flat(inserted).trim()}</ins>);
+      // The spaces at the change's edges stay outside the marks.
+      if (/\s$/.test(inserted || deleted)) parts.push(" ");
+      cursor = to;
+    }
+    parts.push(flat(text.slice(cursor)));
+    return parts;
+  });
 }

@@ -117,10 +117,28 @@ const words = (text: string) => text.match(WORD)?.length ?? 0;
  * commands that name rather than say (citations, references, labels,
  * environments, files).
  */
-const MARKUP = /(?<!\\)%.*|\\(?:[A-Za-z]*cite[A-Za-z]*|[A-Za-z]*ref|label|begin|end|input|include|usepackage|documentclass|bibliography|bibliographystyle)\*?(?:\s*\[[^\]]*\])*\s*\{[^{}]*\}|\\(?:[A-Za-z@]+\*?|.)/g;
+const MARKUP = /(?<!\\)%.*|\\(?:[A-Za-z]*cite[A-Za-z]*|[A-Za-z]*ref|label|begin|end|input[A-Za-z]*|include[A-Za-z]*|graphicspath|usepackage|documentclass|bibliography|bibliographystyle)\*?(?:[ \t]*(?:\[[^\]]*\]|\{(?:[^{}]|\{[^{}]*\})*\}))+|\\(?:[A-Za-z@]+\*?|.)/g;
 
 /** `text` with its markup blanked out, keeping every offset where it was. */
 const proseOnly = (text: string) => text.replace(MARKUP, (markup) => " ".repeat(markup.length));
+
+const CJK_CHARACTER = new RegExp(CJK, "u");
+
+/**
+ * `removed` and `inserted` without the CJK characters they share at either
+ * end: the diff takes an unspaced CJK run as one token, so one changed
+ * character replaces the whole run.
+ */
+function differing(removed: string, inserted: string): [string, string] {
+  const a = Array.from(removed);
+  const b = Array.from(inserted);
+  const shared = (x: string | undefined, y: string | undefined) => x !== undefined && x === y && CJK_CHARACTER.test(x);
+  let start = 0;
+  while (shared(a[start], b[start])) start += 1;
+  let end = 0;
+  while (end < Math.min(a.length, b.length) - start && shared(a[a.length - 1 - end], b[b.length - 1 - end])) end += 1;
+  return [a.slice(start, a.length - end).join(""), b.slice(start, b.length - end).join("")];
+}
 
 /**
  * How many prose words the passages' edits add and remove. Each side is read
@@ -135,14 +153,18 @@ export function changedWords(passages: readonly ProsePassage[]): { added: number
     let cursor = 0;
     const inserted: Array<[number, number]> = [];
     for (const edit of passage.edits) {
-      removed += words(before.slice(edit.from, edit.to));
       after += passage.text.slice(cursor, edit.from);
       inserted.push([after.length, after.length + edit.insert.length]);
       after += edit.insert;
       cursor = edit.to;
     }
     const prose = proseOnly(after + passage.text.slice(cursor));
-    for (const [from, to] of inserted) added += words(prose.slice(from, to));
+    passage.edits.forEach((edit, index) => {
+      const [from, to] = inserted[index]!;
+      const [gone, made] = differing(before.slice(edit.from, edit.to), prose.slice(from, to));
+      removed += words(gone);
+      added += words(made);
+    });
   }
   return { added, removed };
 }

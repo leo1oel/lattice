@@ -22,6 +22,7 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { formatCount } from "../i18n";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
+import { onProjectFilesChanged } from "../project/project-files-changed";
 import type { GitVersions } from "./use-git-versions";
 import { isAutomaticVersion, versionMessageLabel } from "./version-messages";
 import { PROSE_FILE, changedWords, joinedPassage, prosePassages, sectionAt, type ProsePassage } from "./version-prose";
@@ -69,6 +70,14 @@ export function CompareVersions(props: {
     ?? (older.find((entry) => !isAutomaticVersion(entry.message)) ?? older[0])?.hash
     ?? "";
   const toRev = to === NOW ? null : to;
+  // Now moves as the files do: each change the watcher reports reads both sides again.
+  const [nowRead, setNowRead] = useState(0);
+  const { projectRoot } = props;
+  useEffect(() => {
+    if (to !== NOW || !projectRoot) return;
+    return onProjectFilesChanged(projectRoot, () => setNowRead((read) => read + 1));
+  }, [projectRoot, to]);
+  const pair = to === NOW ? `${from}:${NOW}@${nowRead}` : `${from}:${to}`;
 
   // A version a side has chosen stays listed while the automatic ones are folded away.
   const automatic = entries.filter((entry) => isAutomaticVersion(entry.message));
@@ -80,11 +89,11 @@ export function CompareVersions(props: {
   const loadFiles = files.load;
   useEffect(() => {
     if (!from) return;
-    loadFiles(`${from}:${to}`, () => invoke<ComparedFile[]>("git_compare_files", { from, to: toRev }));
-  }, [from, loadFiles, to, toRev]);
+    loadFiles(pair, () => invoke<ComparedFile[]>("git_compare_files", { from, to: toRev }));
+  }, [from, loadFiles, pair, toRev]);
 
   // The document the project builds opens first; then the first prose file; then whatever changed.
-  const changed = files.key === `${from}:${to}` ? files.value : null;
+  const changed = files.key === pair ? files.value : null;
   const shown = changed && (
     changed.find((file) => file.path === chosenPath)
     ?? changed.find((file) => file.path === props.rootDocument)
@@ -97,10 +106,10 @@ export function CompareVersions(props: {
   const loadDiff = fileDiff.load;
   useEffect(() => {
     if (!path) return;
-    loadDiff(`${from}:${to}:${path}`, () => invoke<GitFileDiff>("git_compare_file", { from, to: toRev, path, fromPath }));
-  }, [from, fromPath, loadDiff, path, to, toRev]);
+    loadDiff(`${pair}:${path}`, () => invoke<GitFileDiff>("git_compare_file", { from, to: toRev, path, fromPath }));
+  }, [from, fromPath, loadDiff, pair, path, toRev]);
 
-  const diffReady = fileDiff.key === `${from}:${to}:${path}` ? fileDiff.value : null;
+  const diffReady = fileDiff.key === `${pair}:${path}` ? fileDiff.value : null;
   const passages = path && diffReady && !diffReady.binary && PROSE_FILE.test(path) ? prosePassages(diffReady.before ?? "", diffReady.after ?? "") : null;
   // Counted as the diff found them; read with the short words between edits joined in.
   const counts = passages ? changedWords(passages) : null;

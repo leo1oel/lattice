@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { changedWords, joinedPassage, prosePassages, sectionAt } from "./version-prose";
 
 describe("changedWords", () => {
-  // The diff takes a run of CJK characters as one token, so a changed run counts whole.
   it("counts the prose words edits add and remove, each CJK character as one and other letters by the run", () => {
     const passages = prosePassages(
       "Attention maps explain predictions. 注意力图解释预测。\n",
       "Attention maps describe routing weights. 注意力图描述权重。\n",
     )!;
-    expect(changedWords(passages)).toEqual({ added: 3 + 8, removed: 2 + 8 });
+    expect(changedWords(passages)).toEqual({ added: 3 + 4, removed: 2 + 4 });
+    // Only the CJK characters that differ count, though the diff replaces the whole run.
+    expect(changedWords(prosePassages("我们提出了一种新的方法。\n", "我们提出了一种更好的方法。\n")!)).toEqual({ added: 2, removed: 1 });
     const added = prosePassages("Intro.\n", "Intro.\n\nnaïve Gödel’s Ελληνικά слово かな 한글\n")!;
     expect(changedWords(added)).toEqual({ added: 4 + 2 + 2, removed: 0 });
     // Prose only: not commands, citation and reference keys, or comments.
@@ -19,6 +20,11 @@ describe("changedWords", () => {
     expect(changedWords(cited)).toEqual({ added: 3, removed: 0 });
     const rekeyed = prosePassages("As shown~\\cite{bahdanau2015neural}.\n", "As shown~\\cite{luong2015effective}.\n")!;
     expect(changedWords(rekeyed)).toEqual({ added: 0, removed: 0 });
+    const figure = prosePassages(
+      "Results.\n",
+      "Results.\n\\begin{figure}[t]\n\\includegraphics[width=0.5\\linewidth]{figures/attn.pdf}\n\\caption{Attention maps.}\n\\end{figure}\n\\begin{tabular}{lcc} x \\end{tabular}\n\\input{sections/intro}\n",
+    )!;
+    expect(changedWords(figure)).toEqual({ added: 3, removed: 0 });
   });
 });
 

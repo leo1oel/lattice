@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryDrawer } from "./history-drawer";
 import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
 import type { GitLogEntry } from "../app-types";
-import { invokeCalls, mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
+import { invokeCalls, mockInvoke, mockListen, type CommandTable } from "../platform/tauri-test-mocks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => vi.fn()) }));
@@ -132,6 +132,20 @@ describe("CompareVersions", () => {
     await waitFor(() => expect(invokeCalls("git_compare_file").at(-1)).toMatchObject({ path: "refs.bib", to: null }));
   });
 
+  it("reads Now again when the project's files change", async () => {
+    let current = after;
+    mockRepository({ git_compare_file: () => ({ before, after: current, binary: false }) });
+    const emit = mockListen();
+    renderCompare();
+    await openCompare();
+    expect(await screen.findByText("2 changed paragraphs")).toBeInTheDocument();
+
+    current = before.replace("explain predictions", "describe routing weights");
+    emit({ root: "/papers/attention", paths: ["main.tex"] });
+    expect(await screen.findByText("1 changed paragraph")).toBeInTheDocument();
+    expect(invokeCalls("git_compare_files")).toHaveLength(2);
+  });
+
   it("exports the PDF with the chosen marks and says where it went", async () => {
     let finish: (value: unknown) => void = () => undefined;
     mockRepository({ export_changes_pdf: () => new Promise((resolve) => { finish = resolve; }) });
@@ -158,6 +172,25 @@ describe("CompareVersions", () => {
     finish({ path: "main-changes.pdf", simplified: false });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(formatAppLogs()).toContain("Saved main-changes.pdf");
+  });
+
+  it("numbers the preview's citations on through every passage", async () => {
+    const cited = before
+      .replace("look at", "look at~\\cite{bahdanau2015}")
+      .replace("explain predictions", "explain predictions~\\cite{jain2019}");
+    const edited = after
+      .replace("retrieve different", "retrieve different~\\cite{bahdanau2015}")
+      .replace("describe routing weights", "describe routing weights~\\cite{jain2019}");
+    mockRepository({ git_compare_file: () => ({ before: cited, after: edited, binary: false }) });
+    renderCompare();
+    await openCompare();
+    await screen.findByText("2 changed paragraphs");
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF with changes…" }));
+    const sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
+    await waitFor(() => expect(sheet.querySelectorAll(".export-changes-page p")).toHaveLength(2));
+    const pages = [...sheet.querySelectorAll(".export-changes-page p")].map((page) => page.textContent);
+    expect(pages[0]).toContain("[1]");
+    expect(pages[1]).toContain("[2]");
   });
 
   it("keeps the sheet open with the reason when the export fails", async () => {
