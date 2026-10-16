@@ -34,6 +34,11 @@ describe("checkTerms", () => {
     expect(report.hits.every((hit) => hit.replacement === "ResNet")).toBe(true);
   });
 
+  it("keeps a term that starts lower but has capitals exact", () => {
+    const [report] = checkTerms([{ path: "a.tex", text: "fMRI scans, FMRI scans and Fmri scans.\n" }], [{ term: "fMRI", variants: [] }]);
+    expect(report.hits.map((hit) => [hit.text, hit.replacement])).toEqual([["FMRI", "fMRI"], ["Fmri", "fMRI"]]);
+  });
+
   it("matches a form across a line wrap but not a paragraph break", () => {
     const text = "the zero\nshot case.\n\nzero\n\nshot apart.\n";
     const [report] = checkTerms([{ path: "a.tex", text }], [zeroShot]);

@@ -56,7 +56,7 @@ const escapeForm = (form: string) => form
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 const titleCase = (text: string) => text.replace(/(^|[\s-])(\p{Ll})/gu, (_, gap: string, letter: string) => gap + letter.toLocaleUpperCase());
-const startsLower = (text: string) => /^\p{Ll}/u.test(text);
+const startsLower = (text: string) => /^\p{Ll}/u.test(text) && text === text.toLocaleLowerCase();
 const startsUpper = (text: string) => /^\p{Lu}/u.test(text);
 
 /** The forms of `term` that already follow it. */
