@@ -15,11 +15,19 @@ name: Flake hunt
 #   passes catch the rest.
 # - `cargo test` three times with 16 threads, more than the runner has cores,
 #   which widens races between tests such as two binding the same free port.
+# - The perf-bench layout checks once in Chromium: they flake too, and CI is
+#   the only other place they run.
+# - Weekly, the `#[ignore]`d LaTeX build and SyncTeX tests under a real TeX
+#   (the `tex` job below); nothing else runs them.
+#
+# A manual dispatch runs every job.
 on:
   schedule:
     # 07:17 UTC: away from the hour, when scheduled runs queue, and from the
-    # working day's macOS runner demand.
+    # working day's macOS runner demand. The second line is Monday's `tex`
+    # job alone; `github.event.schedule` tells the two apart.
     - cron: "17 7 * * *"
+    - cron: "47 7 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -30,6 +38,7 @@ permissions:
 jobs:
   vitest:
     name: vitest (${{ matrix.pass }}, ${{ matrix.shard }}/3)
+    if: github.event.schedule != '47 7 * * 1'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -66,6 +75,7 @@ jobs:
   # Named `rust` like ci.yml's job: rust-cache keys its cache by job id, so
   # this restores what main's CI last compiled instead of building cold.
   rust:
+    if: github.event.schedule != '47 7 * * 1'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,8 +98,61 @@ jobs:
           done
           exit "$failed"
 
+  # The layout checks in scripts/perf-bench/layout-checks.mjs, in the
+  # runner's preinstalled Google Chrome as ci.yml's perf-bench shards run
+  # them, with no benchmark beside them. A failure's screenshot is kept.
+  layout:
+    if: github.event.schedule != '47 7 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      - run: |
+          mkdir -p "$TMPDIR"
+          pnpm perf:bench --layout
+        env:
+          TMPDIR: ${{ runner.temp }}/perf-bench
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layout-screenshots
+          path: ${{ runner.temp }}/perf-bench/lattice-perf-bench-*.png
+          if-no-files-found: ignore
+
+  # The core compile and SyncTeX paths (src-tauri/src/latex/build.rs and
+  # synctex.rs) are `#[ignore]`d because they need latexmk and a TeX tree,
+  # which CI's runners lack. BasicTeX installs into /Library/TeX/texbin, where
+  # the app looks for TeX on a Mac; tlmgr adds what it leaves out: latexmk,
+  # mwe (example-image), caption (subcaption), and the packages the NeurIPS
+  # template a new project starts from loads. rust-cache keys a cache by job
+  # id, so `shared-key: rust` puts this job's id in place of `tex` and it
+  # restores what ci.yml's `rust` job last compiled on main.
+  tex:
+    if: github.event.schedule != '17 7 * * *'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: rust
+          save-if: false
+      - name: Stub bundled runtime resources for compilation
+        run: |
+          mkdir -p src-tauri/synara-runtime
+          echo stub > src-tauri/synara-runtime/placeholder.txt
+      - name: Install BasicTeX
+        run: |
+          brew install --cask basictex
+          echo /Library/TeX/texbin >> "$GITHUB_PATH"
+          sudo /Library/TeX/texbin/tlmgr update --self
+          sudo /Library/TeX/texbin/tlmgr install latexmk mwe caption \
+            lineno environ trimspaces units booktabs psnfss times symbol microtype
+      - run: cargo test --manifest-path src-tauri/Cargo.toml "latex::" -- --ignored
+
   record:
-    needs: [vitest, rust]
+    needs: [vitest, rust, layout, tex]
     if: failure()
     runs-on: ubuntu-latest
     env:
