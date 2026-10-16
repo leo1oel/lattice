@@ -154,7 +154,7 @@ fn adopt_folder(root: &Path) -> Result<ProjectManifest, String> {
     Ok(manifest)
 }
 
-pub(super) fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
+pub(crate) fn ensure_ignore_line(path: &Path, line: &str) -> Result<(), String> {
     let current = fs::read_to_string(path).unwrap_or_default();
     if current.lines().any(|existing| existing.trim() == line) {
         return Ok(());

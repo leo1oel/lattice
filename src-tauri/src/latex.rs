@@ -3,6 +3,7 @@
 //! - `build` runs latexmk for a project's default root document, one build at
 //!   a time and abortable from the UI; `prewarm` shortens a cold first build;
 //!   `build_steps` times the passes it runs.
+//! - `changes` builds the PDF with the changes between two versions marked.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab.
 //! - `synctex` maps positions between the compiled PDF and its sources.
@@ -21,6 +22,7 @@ mod arxiv;
 mod build;
 mod build_log;
 mod build_steps;
+mod changes;
 mod engine_mismatch;
 mod prewarm;
 mod synctex;
@@ -37,6 +39,7 @@ pub(crate) use build::begin_active as begin_for_test;
 pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
+pub use changes::{export_changes_pdf, ChangesPdf, ChangesPdfOptions};
 pub use synctex::{
     body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
 };

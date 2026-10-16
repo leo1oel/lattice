@@ -140,9 +140,57 @@ fn parse_name_status_line(line: &str) -> Option<GitLogFile> {
     Some(GitLogFile { path: path.replace('\\', "/"), kind: kind.to_string() })
 }
 
+/// Parse `git diff --name-status -z -M`: a status token, then the path, NUL
+/// separated; a rename or copy lists its old path before the new one. Lattice's
+/// own state is left out, as in the log.
+pub(super) fn parse_name_status_z(raw: &str) -> Vec<GitLogFile> {
+    let mut files = Vec::new();
+    let mut tokens = raw.split('\0').filter(|token| !token.is_empty());
+    while let Some(status) = tokens.next() {
+        let Some(code) = status.chars().next() else { continue };
+        if matches!(code, 'R' | 'C') {
+            tokens.next();
+        }
+        let Some(path) = tokens.next() else { break };
+        let path = path.replace('\\', "/");
+        if is_internal_path(&path) {
+            continue;
+        }
+        let kind = match code {
+            'A' | 'C' => "added",
+            'D' => "deleted",
+            'R' => "renamed",
+            _ => "modified",
+        };
+        files.push(GitLogFile { path, kind: kind.to_string() });
+    }
+    files
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_name_status_between_two_versions() {
+        let raw = ["M", "main.tex", "R087", "old.tex", "new.tex", "A", "fig.pdf", "D", "gone.tex"]
+            .into_iter()
+            .chain(["M", ".research/overleaf.json", ""])
+            .collect::<Vec<_>>()
+            .join("\0");
+        let files = parse_name_status_z(&raw)
+            .into_iter()
+            .map(|file| (file.path, file.kind))
+            .collect::<Vec<_>>();
+        let expected = [
+            ("main.tex", "modified"),
+            ("new.tex", "renamed"),
+            ("fig.pdf", "added"),
+            ("gone.tex", "deleted"),
+        ]
+        .map(|(path, kind)| (path.to_string(), kind.to_string()));
+        assert_eq!(files, expected);
+    }
 
     #[test]
     fn parses_porcelain_v2_status() {

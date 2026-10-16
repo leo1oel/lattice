@@ -177,6 +177,11 @@ msgstr "{0} 条尚未检查"
 msgid "{0} of {1} selected"
 msgstr "已选 {0} / {1} 项"
 
+#. placeholder {0}: formatCount(current + 1)
+#: src/history/compare-versions.tsx
+msgid "{0} of {paragraphs}"
+msgstr "第 {0} / {paragraphs} 处"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
@@ -720,6 +725,10 @@ msgstr "{operation} 请求成功"
 msgid "{operation}: {pathname}"
 msgstr "{operation}：{pathname}"
 
+#: src/history/compare-versions.tsx
+msgid "{paragraphs} changed paragraphs"
+msgstr "{paragraphs} 个段落有改动"
+
 #. placeholder {0}: checks.length
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
@@ -888,6 +897,10 @@ msgstr "1 条批注"
 #: src/history/versions-timeline.tsx
 msgid "1 change"
 msgstr "1 处改动"
+
+#: src/history/compare-versions.tsx
+msgid "1 changed paragraph"
+msgstr "1 个段落有改动"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
@@ -1086,6 +1099,10 @@ msgstr "可编辑数据保存在表格旁的 LaTeX 注释中，不会显示在 P
 #: src/build/compile-explain.ts
 msgid "A length without a unit"
 msgstr "长度缺少单位"
+
+#: src/history/export-changes-dialog.tsx
+msgid "A line beside every change"
+msgstr "每处改动旁加一条竖线"
 
 #: src/build/compile-explain.ts
 msgid "A line runs {points} pt into the margin"
@@ -2051,6 +2068,10 @@ msgstr "返回原文"
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Bars in the margin"
+msgstr "页边竖线"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Basic blocks"
 msgstr "基础"
@@ -2488,6 +2509,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -2656,6 +2678,10 @@ msgstr "居中的多行公式"
 msgid "Change"
 msgstr "更换"
 
+#: src/history/compare-versions.tsx
+msgid "Changed files"
+msgstr "有改动的文件"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Changed here"
 msgstr "本地已改"
@@ -2672,12 +2698,17 @@ msgstr "上次检查后有改动"
 msgid "Changed there, untouched here"
 msgstr "Overleaf 改了，本机没动"
 
+#: src/history/compare-versions.tsx
+msgid "Changes"
+msgstr "改动"
+
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
 msgctxt "git panel"
 msgid "Changes"
 msgstr "更改"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Changes in {path}"
 msgstr "{path} 的改动"
@@ -3334,6 +3365,7 @@ msgid "Compare"
 msgstr "对比"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 msgid "Compare versions"
 msgstr "对比版本"
 
@@ -3346,9 +3378,17 @@ msgstr "对比的版本"
 msgid "Compare with now"
 msgstr "与现在对比"
 
+#: src/history/history-drawer.tsx
+msgid "Compare…"
+msgstr "对比…"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "正在和 Overleaf 对比…"
+
+#: src/history/compare-versions.tsx
+msgid "Comparing…"
+msgstr "正在对比…"
 
 #: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
@@ -4907,6 +4947,18 @@ msgstr "导出 arXiv 提交包"
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Export PDF"
+msgstr "导出 PDF"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Export PDF with changes marked"
+msgstr "导出标出修改的 PDF"
+
+#: src/history/compare-versions.tsx
+msgid "Export PDF with changes…"
+msgstr "导出修改对照 PDF…"
+
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
 msgstr "导出预览"
@@ -4933,6 +4985,7 @@ msgstr "已导出 {fileName}"
 msgid "Exporting ZIP…"
 msgstr "正在导出 ZIP…"
 
+#: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exporting…"
 msgstr "正在导出…"
@@ -5342,6 +5395,14 @@ msgstr "前进"
 msgid "Fourth-level heading."
 msgstr "四级标题"
 
+#: src/history/compare-versions.tsx
+msgid "From"
+msgstr "起"
+
+#: src/history/compare-versions.tsx
+msgid "From {name}"
+msgstr "从“{name}”起"
+
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "取自会议官方作者模板包，原样内置，保留作者署名"
@@ -5677,6 +5738,10 @@ msgstr "隐藏 {name}"
 msgid "Hide {name} panel"
 msgstr "隐藏{name}"
 
+#: src/history/compare-versions.tsx
+msgid "Hide automatic versions"
+msgstr "收起自动版本"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "隐藏预览"
@@ -5729,6 +5794,8 @@ msgstr "荧光笔"
 msgid "Highlights"
 msgstr "高亮"
 
+#: src/history/compare-versions.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "History"
 msgstr "历史"
@@ -5924,6 +5991,10 @@ msgstr "正在导入文件…"
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
 
+#: src/history/export-changes-dialog.tsx
+msgid "In colour"
+msgstr "彩色标出"
+
 #: src/papers/literature-discovery-panel.tsx
 #: src/papers/support-panel.tsx
 msgid "In Papers"
@@ -5974,6 +6045,10 @@ msgstr "包含应用和 AI 日志"
 #: src/telemetry/app-log.tsx
 msgid "Include raw diagnostic text"
 msgstr "包含完整诊断内容"
+
+#: src/history/compare-versions.tsx
+msgid "Including changes not saved as a version"
+msgstr "含未存为版本的修改"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -6341,6 +6416,10 @@ msgstr "两边都留，你的在前"
 msgid "Keep citations"
 msgstr "保留引用"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Keep deleted text, struck through"
+msgstr "保留删除的文字，并加删除线"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Overleaf 上保留"
@@ -6552,6 +6631,10 @@ msgstr "LaTeX 组件已安装"
 #: src/app/use-tex-setup.ts
 msgid "LaTeX setup"
 msgstr "LaTeX 设置"
+
+#: src/history/export-changes-dialog.tsx
+msgid "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
+msgstr "没有安装 latexdiff。MacTeX 自带它；用 BasicTeX 的话，请在“终端”里运行“sudo tlmgr install latexdiff”，然后再导出。"
 
 #: src/App.tsx
 msgid "latexmk -c then -g"
@@ -6812,6 +6895,8 @@ msgid "Line"
 msgstr "行"
 
 #. placeholder {0}: hunk.line
+#. placeholder {0}: passage.line
+#: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
 msgid "Line {0}"
 msgstr "第 {0} 行"
@@ -6974,6 +7059,7 @@ msgstr "正在加载改动…"
 msgid "Loading comments…"
 msgstr "正在加载评论…"
 
+#: src/history/compare-versions.tsx
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7119,6 +7205,10 @@ msgstr "小写"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Made with latexdiff from your TeX installation, then built like the paper. Saved as {saved} beside {pdf}."
+msgstr "用你本机 TeX 里的 latexdiff 生成，再按论文的方式编译。保存为 {pdf} 旁边的 {saved}。"
+
 #: src/components/ui/color-picker.tsx
 msgid "Magenta"
 msgstr "品红色"
@@ -7173,6 +7263,10 @@ msgstr "页边审阅：仅标记"
 #: src/App.tsx
 msgid "Margin review: Off"
 msgstr "页边审阅：关闭"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Mark changes"
+msgstr "标记方式"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
@@ -7241,6 +7335,10 @@ msgstr "公式预览"
 #: src/settings/acknowledged-software.ts
 msgid "Math previews"
 msgstr "数学公式预览"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Maths, figures and citations are left unmarked: the fully marked document did not build."
+msgstr "公式、图和引用未标记：全部标记的文档没能编译通过。"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
@@ -7716,6 +7814,7 @@ msgid "Next build problem"
 msgstr "下个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "下一处改动"
@@ -8057,6 +8156,7 @@ msgstr "没有“{0}”相关的快捷键"
 msgid "No suggestions in this file"
 msgstr "这个文件没有修订建议"
 
+#: src/history/compare-versions.tsx
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "No textual changes"
@@ -8081,6 +8181,10 @@ msgstr "未注明出处"
 #: src/history/versions-timeline.tsx
 msgid "No version history"
 msgstr "没有版本记录"
+
+#: src/history/compare-versions.tsx
+msgid "No versions to compare yet"
+msgstr "还没有可对比的版本"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
@@ -8315,6 +8419,7 @@ msgid "Notify me (manual)"
 msgstr "提醒我（手动装）"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 msgid "Now"
 msgstr "现在"
 
@@ -8431,11 +8536,16 @@ msgstr "仅限 Mac 上的 Lattice 窗口"
 msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
 msgstr "只含操作记录和计数。复制或下载前不会离开这台 Mac"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Only pages with changes"
+msgstr "只含有改动的页"
+
 #: src/App.tsx
 msgid "only the editor"
 msgstr "只留编辑器"
 
 #: src/app/command-palette.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Open"
@@ -8449,6 +8559,11 @@ msgstr "待处理"
 #: src/App.tsx
 msgid "Open {name}"
 msgstr "打开 {name}"
+
+#. placeholder {0}: passage.line
+#: src/history/compare-versions.tsx
+msgid "Open {path} at line {0}"
+msgstr "在第 {0} 行打开 {path}"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open {title}"
@@ -8958,6 +9073,10 @@ msgstr "带标签项所在页码"
 msgid "Pages"
 msgstr "页码"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Pages nothing changed on are left out"
+msgstr "没有改动的页面不会导出"
+
 #: src/components/ui/color-picker.tsx
 msgid "Pale {name}"
 msgstr "淡{name}"
@@ -9224,6 +9343,10 @@ msgstr "PDF 已暂停"
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF 加载超时。请再点“编译”，或用“预览”打开"
 
+#: src/history/export-changes-dialog.tsx
+msgid "PDF with changes marked"
+msgstr "标出修改的 PDF"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
@@ -9259,6 +9382,10 @@ msgstr "选个表情插入"
 #: src/components/ui/color-picker.tsx
 msgid "Pick color from screen"
 msgstr "屏幕取色"
+
+#: src/history/compare-versions.tsx
+msgid "Pick where to start and where to end. The newer version is always on the right."
+msgstr "选好起点和终点。较新的版本总在右边。"
 
 #: src/settings/theme-settings.tsx
 msgid "Picked"
@@ -9434,6 +9561,7 @@ msgid "Previous build problem"
 msgstr "上个错误"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "上一处改动"
@@ -9591,6 +9719,10 @@ msgstr "已提议"
 #: src/papers/bibliography-audit.tsx
 msgid "Proposed BibTeX"
 msgstr "建议条目"
+
+#: src/history/compare-versions.tsx
+msgid "Prose"
+msgstr "正文"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
@@ -10660,6 +10792,10 @@ msgstr "审阅论文"
 msgid "Review the proposal"
 msgstr "审阅这条建议"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Reviewers see what was removed"
+msgstr "审稿人能看到删掉了什么"
+
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Revise from {0} annotations"
@@ -10863,6 +10999,10 @@ msgstr "另存一份…"
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
 msgstr "保存一个版本，标记一份随时能回来的草稿。关联 Overleaf 的项目每次同步和编译成功后也会自动保存一个"
 
+#: src/history/compare-versions.tsx
+msgid "Save a version to mark a draft, and it can be compared with any later one, or with now"
+msgstr "存一个版本标记当前草稿，之后就能拿它和任何更新的版本或当前内容对比"
+
 #: src/App.tsx
 msgid "Save and build"
 msgstr "保存编译"
@@ -10969,6 +11109,11 @@ msgstr "已保存 · 已同步"
 #: src/canvas/status-save-state.tsx
 msgid "Saved · Syncing…"
 msgstr "已保存 · 正在同步…"
+
+#. placeholder {0}: result.path
+#: src/history/export-changes-dialog.tsx
+msgid "Saved {0}"
+msgstr "已保存 {0}"
 
 #: src/canvas/status-save-state.tsx
 msgid "Saved {age}"
@@ -11360,6 +11505,11 @@ msgstr "缩短"
 msgid "Show"
 msgstr "显示"
 
+#. placeholder {0}: formatCount(hidden)
+#: src/history/compare-versions.tsx
+msgid "Show {0} automatic versions"
+msgstr "显示 {0} 个自动版本"
+
 #: src/App.tsx
 msgid "Show {name} panel"
 msgstr "显示{name}"
@@ -11394,6 +11544,7 @@ msgstr "显示已归档"
 msgid "Show changes"
 msgstr "显示更改"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Show changes as"
 msgstr "改动显示方式"
@@ -11406,6 +11557,7 @@ msgstr "显示大纲"
 msgid "Show hidden files"
 msgstr "显示隐藏文件"
 
+#: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
@@ -11675,6 +11827,7 @@ msgid "sound"
 msgstr "声音 提示音"
 
 #: src/editor/markdown/engine/views/image-view.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Source"
 msgstr "源码"
@@ -12468,6 +12621,10 @@ msgstr "保存时文件变了，请看最新内容再保存"
 msgid "The files already read as {name}."
 msgstr "文件已与{name}一致。"
 
+#: src/history/export-changes-dialog.tsx
+msgid "The first changes, marked this way"
+msgstr "前几处改动按此方式标记的样子"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处：{path}:{line}"
@@ -12756,6 +12913,10 @@ msgstr "这些评论只存在 Lattice，不发到 Overleaf"
 msgid "These files as this version left them, compared with now"
 msgstr "这些文件在此版本时的样子，与现在对比"
 
+#: src/history/compare-versions.tsx
+msgid "These two versions have the same files."
+msgstr "这两个版本的文件完全相同。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
@@ -13042,9 +13203,17 @@ msgstr "仅标题/摘要"
 msgid "to"
 msgstr "至"
 
+#: src/history/compare-versions.tsx
+msgid "To"
+msgstr "止"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
+
+#: src/history/compare-versions.tsx
+msgid "To {name}"
+msgstr "到“{name}”止"
 
 #: src/editor/latex/highlighters.ts
 msgid "To check"
@@ -13261,6 +13430,10 @@ msgstr "未超出 arXiv 的大小限制"
 msgid "Underline"
 msgstr "下划线"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Underline only"
+msgstr "仅下划线"
+
 #: src/app/claim-support.ts
 #: src/app/paper-review.ts
 #: src/app/use-editor-comments.ts
@@ -13307,6 +13480,7 @@ msgstr "未处理的 Promise 拒绝"
 msgid "Union"
 msgstr "并集"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
@@ -13642,6 +13816,7 @@ msgstr "核实记录（BibTeX）"
 msgid "Verifying installation…"
 msgstr "正在检查…"
 
+#: src/history/compare-versions.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -13697,6 +13872,10 @@ msgstr "这个项目没有开启版本记录"
 #: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "版本"
+
+#: src/history/compare-versions.tsx
+msgid "Versions to compare"
+msgstr "要对比的版本"
 
 #: src/history/history-drawer.tsx
 msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
@@ -13929,6 +14108,11 @@ msgstr "字数"
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count: {scope}, {count}"
 msgstr "字数：{scope}，{count}"
+
+#: src/history/compare-versions.tsx
+msgctxt "changed words count"
+msgid "words"
+msgstr "词"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

@@ -78,6 +78,7 @@ pub use linked_bibliography::{
     read_bibliography_source, read_linked_bibliography, save_linked_bibliography,
     unlink_bibliography, LinkedBibliography,
 };
+pub(crate) use manifest::ensure_ignore_line;
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
     resolve_compile_root, set_compile_root, set_deadline, set_spelling_words, tex_program_engine,

@@ -3,7 +3,7 @@ import type { CodeViewItem } from "@pierre/diffs";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode, type RefObject } from "react";
 import { historyFocus, subscribeHistoryFocus } from "./history-focus";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDownUp, BookMarked, History, PenLine, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowDownUp, BookMarked, GitCompareArrows, History, PenLine, RotateCcw, Sparkles } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { EmptyState } from "../components/ui/empty-state";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
@@ -19,6 +19,7 @@ import type { GitLogEntry } from "../app-types";
 import { OverleafHistoryRow, OverleafHistoryState, type OverleafHistory } from "../overleaf/overleaf-history";
 import { useOverleafHistory, type OverleafUpdate } from "../overleaf/use-overleaf-history";
 import { AutomaticVersionsRow, VersionRow, VersionsNotice, VersionsState, VersionsToolbar } from "./versions-timeline";
+import { CompareVersions } from "./compare-versions";
 import { isAutomaticVersion } from "./version-messages";
 import { useGitVersions, type GitVersions } from "./use-git-versions";
 import { HistoryDay, HistoryRow, HistoryStat } from "./history-row";
@@ -112,6 +113,8 @@ export function HistoryDrawer(props: {
   overleafProjectRoot?: string;
   /** After a restore on Overleaf's side, which leaves the local files untouched. */
   onOverleafRestored?: () => void;
+  /** The document the project builds: what a comparison opens first and its PDF marks. */
+  rootDocument?: string;
 }) {
   const { i18n, t } = useLingui();
   // A project that was linked last time may not be now, and the remembered view
@@ -120,6 +123,8 @@ export function HistoryDrawer(props: {
     lastUsedView === "overleaf" && !props.overleafLinked ? "everything" : lastUsedView,
   );
   const userPickedView = useRef(false);
+  /** Comparing two versions, in place of the timeline. */
+  const [comparing, setComparing] = useState(false);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   /** The open row, when it was opened to compare with now rather than to read its own changes. */
   const [compareKey, setCompareKey] = useState<string | null>(null);
@@ -568,6 +573,7 @@ export function HistoryDrawer(props: {
     ...(props.overleafLinked ? [["overleaf", "Overleaf"] as [HistoryView, string]] : []),
   ];
 
+  const canCompare = versions.phase === "ready" && versions.entries.length > 0;
   return (
     <ResizableDrawer className="project-history-drawer" onClose={props.onClose}>
         <PanelHeader
@@ -583,6 +589,18 @@ export function HistoryDrawer(props: {
           viewportClassName="project-history-scroll-viewport"
           viewportProps={{ "aria-label": t`Project history content` }}
         >
+        {comparing && canCompare ? (
+          <CompareVersions
+            versions={versions}
+            rootDocument={props.rootDocument}
+            projectRoot={props.overleafProjectRoot}
+            onBack={() => setComparing(false)}
+            onOpenFile={props.onOpenFile && ((path, line) => {
+              props.onOpenFile?.(path, line);
+              props.onClose();
+            })}
+          />
+        ) : (<>
         <VersionsToolbar versions={versions}>
           <div className="history-views" role="group" aria-label={t`Show in history`}>
             {views.map(([value, label]) => (
@@ -596,11 +614,18 @@ export function HistoryDrawer(props: {
                 {label}
               </button>
             ))}
+            {canCompare && (
+              <button type="button" className="history-view history-compare" onClick={() => setComparing(true)}>
+                <GitCompareArrows size={12} aria-hidden="true" />
+                {t`Compare…`}
+              </button>
+            )}
           </div>
         </VersionsToolbar>
         {props.overleafLinked ? (
           <OverleafHistorySource projectRoot={props.overleafProjectRoot ?? ""}>{renderBody}</OverleafHistorySource>
         ) : renderBody(null)}
+        </>)}
         </ScrollArea>
     </ResizableDrawer>
   );

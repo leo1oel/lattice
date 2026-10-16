@@ -104,3 +104,82 @@ export function prosePassages(before: string, after: string): ProsePassage[] | n
   }
   return passages;
 }
+
+/** A run of Latin letters or digits is one word; each CJK character is one too, as a Chinese count reads. */
+const WORD = /[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*|[\u3400-\u9fff\uf900-\ufaff]/g;
+
+const words = (text: string) => text.match(WORD)?.length ?? 0;
+
+/** How many words the passages' edits add and remove. */
+export function changedWords(passages: readonly ProsePassage[]): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const passage of passages) {
+    for (const edit of passage.edits) {
+      added += words(edit.insert);
+      removed += words(passage.text.slice(edit.from, edit.to));
+    }
+  }
+  return { added, removed };
+}
+
+const SECTIONING = /\\(section|subsection|subsubsection)(\*?)\s*(?:\[[^\]]*\])?\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+const LEVELS = ["section", "subsection", "subsubsection"];
+
+/** A heading's text without its markup: `\emph{Fast} attention` reads "Fast attention". */
+const plainTitle = (title: string) => title
+  .replace(/\\[A-Za-z]+\*?\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}/g, "$1")
+  .replace(/\\[A-Za-z]+\*?|[{}~]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+/**
+ * The section line `line` (1-based) of `source` sits in, numbered as LaTeX
+ * numbers it ("§3.2 Training"); an unnumbered one by its title alone. Null
+ * before the first heading.
+ */
+export function sectionAt(source: string, line: number): string | null {
+  const counters = [0, 0, 0];
+  let found: string | null = null;
+  let lineAt = 1;
+  let scanned = 0;
+  for (const match of source.matchAll(SECTIONING)) {
+    for (let index = scanned; index < match.index; index += 1) if (source.charCodeAt(index) === 10) lineAt += 1;
+    scanned = match.index;
+    if (lineAt > line) break;
+    // A commented-out heading is not one.
+    const lineStart = source.lastIndexOf("\n", match.index - 1) + 1;
+    if (/(^|[^\\])%/.test(source.slice(lineStart, match.index))) continue;
+    const level = LEVELS.indexOf(match[1]!);
+    const title = plainTitle(match[3]!);
+    if (match[2]) {
+      found = title;
+      continue;
+    }
+    counters[level] += 1;
+    counters.fill(0, level + 1);
+    found = `§${counters.slice(0, level + 1).join(".")} ${title}`;
+  }
+  return found;
+}
+
+/** The words between two edits that join them into one: spaces, or one short word ("a", "the", "of"). */
+const JOINING_GAP = /^\s*(?:[\p{L}\p{N}]{1,3}\s*)?$/u;
+
+/**
+ * `passage` as a person would mark it: edits that only a space or a short
+ * shared word keep apart join into one, so a rewritten phrase reads as one
+ * struck run followed by one new run rather than alternating fragments.
+ * Counts are taken before this, so a joined word is not counted as changed.
+ */
+export function joinedPassage(passage: ProsePassage): ProsePassage {
+  const edits: InlineEdit[] = [];
+  for (const edit of passage.edits) {
+    const last = edits.at(-1);
+    const gap = last ? passage.text.slice(last.to, edit.from) : "";
+    if (last && JOINING_GAP.test(gap)) {
+      edits[edits.length - 1] = { ...last, to: edit.to, insert: last.insert + gap + edit.insert };
+    } else edits.push({ ...edit, id: edits.length });
+  }
+  return { ...passage, edits };
+}

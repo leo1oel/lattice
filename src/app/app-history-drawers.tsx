@@ -129,6 +129,7 @@ export function AppHistoryDrawers({ tools, synara: {
           onOpenFile={(path, line) => { void props.openProjectFile(path, { line }); }}
           overleafLinked={props.overleafLink !== null}
           overleafProjectRoot={project.root}
+          rootDocument={(project.manifest.rootDocuments.find((document) => document.isDefault) ?? project.manifest.rootDocuments[0])?.path}
           onOverleafRestored={async () => {
             // The restore happened on Overleaf's server and left the local
             // files alone, so pull it down the same way a manual sync does
