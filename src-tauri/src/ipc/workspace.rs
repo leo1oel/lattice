@@ -2,7 +2,7 @@
 
 use super::{current_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
-use crate::models::{ProjectManifest, ProjectSnapshot};
+use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot};
 use crate::{fs_watch, project, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
@@ -142,6 +142,14 @@ pub async fn update_project_manifest(
         project::update_manifest_settings(&root, engine, keep_engine, trusted, words, pages)
     })
     .await
+}
+
+#[tauri::command]
+pub async fn set_project_deadline(
+    state: State<'_, AppState>, window: Window, deadline: Option<ProjectDeadline>,
+) -> Result<ProjectManifest, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Project deadline update", move || project::set_deadline(&root, deadline)).await
 }
 
 #[tauri::command]

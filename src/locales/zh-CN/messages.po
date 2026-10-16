@@ -387,6 +387,10 @@ msgstr "“{shownQuery}”共 {count}+ 条结果"
 msgid "{current} of {count}"
 msgstr "{current}/{count}"
 
+#: src/project/deadline-card.tsx
+msgid "{days} days"
+msgstr "{days} 天"
+
 #: src/history/conflict-resolver.tsx
 msgid "{decided} of {total} decided"
 msgstr "已选 {decided}/{total} 处"
@@ -467,6 +471,10 @@ msgstr "还剩 {gap} 页"
 msgid "{hidden} more files"
 msgstr "还有 {hidden} 个文件"
 
+#: src/project/deadline-card.tsx
+msgid "{hours} hours"
+msgstr "{hours} 小时"
+
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours} 小时前"
@@ -505,6 +513,10 @@ msgstr "{meaning}，{color}"
 #: src/editor/latex/highlight-palette.tsx
 msgid "{meaning}, {color}, the pen's colour"
 msgstr "{meaning}，{color}，当前画笔颜色"
+
+#: src/project/deadline-card.tsx
+msgid "{minutes} minutes"
+msgstr "{minutes} 分钟"
 
 #: src/app-utils.ts
 msgid "{minutes}m ago"
@@ -640,6 +652,10 @@ msgstr "{replacementCount} 处"
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} 条批注"
 
+#: src/project/deadline-card.tsx
+msgid "{span} left"
+msgstr "还剩 {span}"
+
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
 msgstr "{title} — 全文"
@@ -700,6 +716,10 @@ msgstr "{warnings} 个警告"
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
 
+#: src/project/deadline-card.tsx
+msgid "{when} your time · {zone}"
+msgstr "你的时间 {when} · {zone}"
+
 #: src/app/use-overleaf-workspace.ts
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
@@ -751,6 +771,10 @@ msgstr "被引 1 次"
 msgid "1 comment"
 msgstr "1 条评论"
 
+#: src/project/deadline-card.tsx
+msgid "1 day"
+msgstr "1 天"
+
 #: src/canvas/proofread-card.tsx
 msgid "1 edit · clarity and flow"
 msgstr "1 处修改 · 清晰流畅"
@@ -778,6 +802,14 @@ msgstr "1 处修改待审"
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 处"
+
+#: src/project/deadline-card.tsx
+msgid "1 hour"
+msgstr "1 小时"
+
+#: src/project/deadline-card.tsx
+msgid "1 minute"
+msgstr "1 分钟"
 
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -951,7 +983,12 @@ msgstr "关于 {name}"
 msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 msgstr "约 {TEX_INSTALL_SIZE_HINT} · 最多 15 分钟"
 
+#: src/project/deadline-card.tsx
+msgid "abstract"
+msgstr "摘要"
+
 #: src/overleaf/overleaf-changes.tsx
+#: src/project/deadline-card.tsx
 #: src/project/paper-inspector.tsx
 msgid "Abstract"
 msgstr "摘要"
@@ -1128,6 +1165,10 @@ msgstr "添加文献"
 #: src/project/paper-review-panel.tsx
 msgid "Add the points you agree with; nothing changes until you do"
 msgstr "把你认同的意见加为批注；在你这样做之前，论文不会有任何改动"
+
+#: src/project/deadline-card.tsx
+msgid "Add the submission deadline"
+msgstr "添加投稿截止时间"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
@@ -1524,6 +1565,10 @@ msgstr "回答并修改"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Answer the agent"
 msgstr "回答 AI 助手"
+
+#: src/project/deadline-card.tsx
+msgid "AoE (UTC−12)"
+msgstr "AoE 时间（UTC−12）"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -2154,6 +2199,10 @@ msgstr "缓存"
 msgid "Callout"
 msgstr "提示框"
 
+#: src/project/deadline-card.tsx
+msgid "Calls for papers give deadlines in AoE; your own time shows here"
+msgstr "会议征稿按 AoE 给出截止时间；这里同时显示你的时间"
+
 #: src/build/tex-install-dialog.tsx
 msgid "Can take up to 15 minutes"
 msgstr "最多 15 分钟"
@@ -2177,6 +2226,7 @@ msgstr "最多 15 分钟"
 #: src/overleaf/overleaf-review.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
@@ -2773,6 +2823,14 @@ msgstr "关闭可视化内容"
 msgctxt "macOS menu bar"
 msgid "Close Window"
 msgstr "关闭窗口"
+
+#: src/project/deadline-card.tsx
+msgid "Closed {span} ago"
+msgstr "已于 {span}前截止"
+
+#: src/project/deadline-card.tsx
+msgid "Closed just now"
+msgstr "刚刚截止"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Closed-path integral"
@@ -3421,6 +3479,10 @@ msgstr "无法重新打开“{unopenedName}”，它的文件夹可能已被移�
 msgid "Couldn’t start the paper tools"
 msgstr "无法启动论文工具"
 
+#: src/project/deadline-card.tsx
+msgid "Counted down in AoE (UTC−12), with your own time beside it"
+msgstr "按 AoE（UTC−12）倒计时，并附上你的时间"
+
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "新建论文"
@@ -3539,9 +3601,21 @@ msgstr "深灰色"
 msgid "Dark only"
 msgstr "仅深色"
 
+#: src/project/deadline-card.tsx
+msgid "Date"
+msgstr "日期"
+
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
+
+#: src/project/deadline-card.tsx
+msgid "Deadline"
+msgstr "截止时间"
+
+#: src/project/deadline-card.tsx
+msgid "Deadline for"
+msgstr "名称"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -4010,6 +4084,10 @@ msgstr "暮色"
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
+#: src/project/deadline-card.tsx
+msgid "e.g. NeurIPS 2027"
+msgstr "例如 NeurIPS 2027"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
 msgstr "每行一张卡片。Lattice 会逐条查找，已有的先放一边；一个标题对上多篇论文时会请你选择。点击添加之前不会写入任何内容。"
@@ -4046,6 +4124,10 @@ msgstr "先编辑"
 #: src/project/paper-library.tsx
 msgid "Edit bibliography entry"
 msgstr "编辑文献"
+
+#: src/project/deadline-card.tsx
+msgid "Edit deadline"
+msgstr "编辑截止时间"
 
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Edit document"
@@ -4839,6 +4921,10 @@ msgstr "下弧关系"
 #: src/agent/synara-permission-picker.tsx
 msgid "Full access"
 msgstr "完全访问"
+
+#: src/project/deadline-card.tsx
+msgid "full paper"
+msgstr "全文"
 
 #: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
@@ -6129,6 +6215,10 @@ msgstr "左右双线箭头 / 当且仅当"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Lemma"
 msgstr "引理"
+
+#: src/project/deadline-card.tsx
+msgid "Less than a minute left"
+msgstr "还剩不到 1 分钟"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
@@ -8229,6 +8319,7 @@ msgstr "面板标签"
 
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
+#: src/project/deadline-card.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
@@ -9010,6 +9101,14 @@ msgstr "可以投稿"
 msgid "Real part"
 msgstr "实部"
 
+#: src/project/deadline-card.tsx
+msgid "rebuttal"
+msgstr "作者回复"
+
+#: src/project/deadline-card.tsx
+msgid "Rebuttal"
+msgstr "作者回复"
+
 #: src/App.tsx
 msgid "Recent"
 msgstr "最近"
@@ -9156,6 +9255,7 @@ msgstr "松开放大{title} · Esc 取消"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
+#: src/project/deadline-card.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -9987,6 +10087,10 @@ msgstr "保存更改"
 #: src/pdf/pdf-viewer.tsx
 msgid "Save compiled PDF"
 msgstr "保存 PDF"
+
+#: src/project/deadline-card.tsx
+msgid "Save deadline"
+msgstr "保存截止时间"
 
 #: src/history/conflict-resolver.tsx
 msgid "Save decided spots"
@@ -11830,6 +11934,10 @@ msgstr "波浪符示例"
 msgid "Time derivative mark"
 msgstr "时间导数记号"
 
+#: src/project/deadline-card.tsx
+msgid "Time, AoE (UTC−12)"
+msgstr "时间（AoE，UTC−12）"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
@@ -12585,6 +12693,10 @@ msgstr "欢迎使用 Lattice"
 #: src/overleaf/overleaf-history.tsx
 msgid "What has changed on Overleaf since this version"
 msgstr "此版本之后 Overleaf 上的改动"
+
+#: src/project/deadline-card.tsx
+msgid "What is due"
+msgstr "截止内容"
 
 #: src/canvas/annotation-composer.tsx
 msgid "What should change here?"

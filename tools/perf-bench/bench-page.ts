@@ -14,7 +14,7 @@
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
-import type { FileNode, ProjectSnapshot } from "../../src/app-types";
+import type { FileNode, ProjectDeadline, ProjectSnapshot } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
@@ -251,6 +251,19 @@ function fileTree(): FileNode[] {
   return root.children;
 }
 
+/**
+ * `?deadline=<hours>` stages a submission deadline that many hours from now
+ * (negative once passed), stored as its AoE wall clock the way the manifest
+ * keeps it; `?deadlineVenue=` names it. The checklist's deadline card edits it
+ * through `set_project_deadline`.
+ */
+let benchDeadline: ProjectDeadline | null = (() => {
+  const hours = params.get("deadline");
+  if (hours == null || !Number.isFinite(Number(hours))) return null;
+  const wall = new Date(Date.now() + (Number(hours) - 12) * 3_600_000);
+  return { venue: params.get("deadlineVenue") ?? "NeurIPS 2027", kind: "paper", due: wall.toISOString().slice(0, 16) };
+})();
+
 function snapshot(): ProjectSnapshot {
   return {
     root: current.root,
@@ -261,6 +274,8 @@ function snapshot(): ProjectSnapshot {
       rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
       primaryBibliography: "references.bib",
       trusted: true,
+      venue: "neurips",
+      deadline: benchDeadline,
     },
     files: fileTree(),
   };
@@ -941,6 +956,9 @@ function answer(command: string, args: Args): unknown {
       return importEntries(args);
     case "rename_project_entry":
       return renameEntry(args);
+    case "set_project_deadline":
+      benchDeadline = (args?.deadline as ProjectDeadline | null | undefined) ?? null;
+      return snapshot().manifest;
     case "run_doctor":
       // The TeX toolchain check is outside the bench unless `?doctor=` asks
       // for a report; the app treats a failure as an environment that does

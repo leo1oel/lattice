@@ -73,7 +73,7 @@ pub use imports::{
 };
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
-    resolve_compile_root, set_compile_root, set_spelling_words, tex_program_engine,
+    resolve_compile_root, set_compile_root, set_deadline, set_spelling_words, tex_program_engine,
     update_manifest_settings,
 };
 pub use paths::safe_path;

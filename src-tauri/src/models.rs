@@ -43,8 +43,24 @@ pub struct ProjectManifest {
     pub word_budget: Option<u32>,
     #[serde(default)]
     pub page_budget: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<ProjectDeadline>,
     #[serde(default)]
     pub spelling_words: Vec<String>,
+}
+
+/// The submission deadline the checklist counts down to. Calls for papers
+/// publish it as a wall-clock time Anywhere on Earth (UTC−12), so it is kept
+/// in that form and never converted through a host time zone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectDeadline {
+    /// What the writer calls it, such as "NeurIPS 2027".
+    pub venue: String,
+    /// "abstract", "paper" or "rebuttal".
+    pub kind: String,
+    /// "YYYY-MM-DDTHH:MM", Anywhere on Earth.
+    pub due: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

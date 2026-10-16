@@ -27,7 +27,15 @@ export type ProjectManifest = {
   venue?: ProjectVenue | string;
   wordBudget?: number | null;
   pageBudget?: number | null;
+  deadline?: ProjectDeadline | null;
   spellingWords?: string[];
+};
+
+/** The submission deadline, as a wall-clock time Anywhere on Earth ("2027-05-15T23:59"). */
+export type ProjectDeadline = {
+  venue: string;
+  kind: "abstract" | "paper" | "rebuttal";
+  due: string;
 };
 
 export type WordCount = {
