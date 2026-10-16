@@ -77,7 +77,8 @@ pub fn annotate(bytes: Vec<u8>, review: &ReviewPdf) -> Result<Vec<u8>, String> {
     for note in &review.notes {
         let page_id =
             *pages.get(&note.page).ok_or_else(|| format!("The PDF has no page {}.", note.page))?;
-        let annotation = add_note(&mut document, page_id, note);
+        let page_box = media_box(document.get_prev_documents(), page_id);
+        let annotation = add_note(&mut document, page_id, page_box, note);
         append_annotation(&mut document, page_id, annotation).map_err(unreadable)?;
     }
     let mut output = Vec::with_capacity(review.notes.len() * 1024);
@@ -88,7 +89,10 @@ pub fn annotate(bytes: Vec<u8>, review: &ReviewPdf) -> Result<Vec<u8>, String> {
 }
 
 /// Add `note`'s annotation and its popup; returns the annotation.
-fn add_note(document: &mut IncrementalDocument, page_id: ObjectId, note: &ReviewNote) -> ObjectId {
+fn add_note(
+    document: &mut IncrementalDocument, page_id: ObjectId, page_box: Option<[f64; 4]>,
+    note: &ReviewNote,
+) -> ObjectId {
     let new = &mut document.new_document;
     let [r, g, b] = HIGHLIGHT_COLOUR;
     let mut annotation = dictionary! {
@@ -131,7 +135,7 @@ fn add_note(document: &mut IncrementalDocument, page_id: ObjectId, note: &Review
         "Subtype" => "Popup",
         "Parent" => annotation_id,
         "Open" => false,
-        "Rect" => rect_object([rect[2], rect[3] - POPUP_HEIGHT, rect[2] + POPUP_WIDTH, rect[3]]),
+        "Rect" => rect_object(popup_rect(rect, page_box)),
     });
     if let Ok(Object::Dictionary(annotation)) = new.get_object_mut(annotation_id) {
         annotation.set("Popup", popup);
@@ -187,6 +191,40 @@ fn append_annotation(
         _ => page.set("Annots", vec![annotation.into()]),
     }
     Ok(())
+}
+
+/// The popup beside `mark`: to its right, or to its left when that would
+/// run off the page, and kept within the page's top and bottom.
+fn popup_rect(mark: [f64; 4], page_box: Option<[f64; 4]>) -> [f64; 4] {
+    let (mut left, mut top) = (mark[2], mark[3]);
+    if let Some([x0, y0, x1, y1]) = page_box {
+        if left + POPUP_WIDTH > x1 {
+            left = mark[0] - POPUP_WIDTH;
+        }
+        left = left.min(x1 - POPUP_WIDTH).max(x0);
+        top = top.min(y1).max(y0 + POPUP_HEIGHT);
+    }
+    [left, top - POPUP_HEIGHT, left + POPUP_WIDTH, top]
+}
+
+/// The page's `/MediaBox`, inherited from the page tree when the page has
+/// none, normalised to lower-left and upper-right corners.
+fn media_box(document: &lopdf::Document, page_id: ObjectId) -> Option<[f64; 4]> {
+    let mut node = document.get_dictionary(page_id).ok()?;
+    for _ in 0..64 {
+        if let Ok(value) = node.get(b"MediaBox") {
+            let values = document.dereference(value).ok()?.1.as_array().ok()?;
+            let values: Vec<f64> = values
+                .iter()
+                .map(|value| value.as_float().map(f64::from))
+                .collect::<lopdf::Result<_>>()
+                .ok()?;
+            let [a, b, c, d] = <[f64; 4]>::try_from(values).ok()?;
+            return Some([a.min(c), b.min(d), a.max(c), b.max(d)]);
+        }
+        node = document.get_dictionary(node.get(b"Parent").ok()?.as_reference().ok()?).ok()?;
+    }
+    None
 }
 
 fn bounds(quads: &[[f64; 8]]) -> [f64; 4] {
@@ -366,6 +404,55 @@ mod tests {
             .map(|value| value.as_float().unwrap())
             .collect();
         assert_eq!(rect, vec![580.0, 682.0, 598.0, 700.0]);
+    }
+
+    fn popup_rect_of(annotation: &Dictionary, document: &Document) -> Vec<f32> {
+        let popup = annotation.get(b"Popup").unwrap().as_reference().unwrap();
+        let popup = document.get_dictionary(popup).unwrap();
+        popup
+            .get(b"Rect")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_float().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn keeps_popups_on_the_page_inherited_media_box() {
+        let original = sample_pdf();
+        let review = ReviewPdf {
+            digest: digest(&original),
+            notes: vec![
+                note(1, ReviewMark::Note { x: 586.0, y: 785.0 }, "At the right margin"),
+                note(
+                    2,
+                    ReviewMark::Highlight {
+                        quads: vec![[72.0, 100.0, 140.0, 100.0, 72.0, 88.0, 140.0, 88.0]],
+                    },
+                    "Near the bottom",
+                ),
+            ],
+        };
+        let document = Document::load_mem(&annotate(original, &review).unwrap()).unwrap();
+
+        let margin = annotations(&document, 1)
+            .into_iter()
+            .find(|annotation| annotation.get(b"Subtype").unwrap().as_name().unwrap() == b"Text")
+            .unwrap();
+        assert_eq!(
+            popup_rect_of(&margin, &document),
+            vec![366.0, 665.0, 586.0, 785.0],
+            "a note at the right margin opens its popup to its left"
+        );
+
+        let low = &annotations(&document, 2)[0];
+        assert_eq!(
+            popup_rect_of(low, &document),
+            vec![140.0, 0.0, 360.0, 120.0],
+            "a popup below the page is lifted onto it"
+        );
     }
 
     #[test]
