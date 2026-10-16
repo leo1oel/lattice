@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
  * `pnpm test:invariants`: the tests that read a stylesheet, fixture or config
- * off disk (src/platform/invariant-tests.json). No import leads from what they
- * read to them, so `vitest related` never selects them for a change to it; a
- * CSS edit that breaks one used to surface only in CI. Each takes well under
- * a second, so they run together every time. Extra arguments go to Vitest.
+ * off disk, or run a script that does (src/platform/invariant-tests.json). No
+ * import leads from what they read to them, so `vitest related` never selects
+ * them for a change to it; a CSS edit that breaks one used to surface only in
+ * CI. All but the React Compiler guard (about 10 s) take well under a second,
+ * so they run together every time. Extra arguments go to Vitest.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";

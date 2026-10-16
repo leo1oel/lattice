@@ -72,6 +72,16 @@ sources = [
   # Compatibility tests execute the shipping script and check its HTML order.
   "public/polyfills.js",
   "index.html",
+  # Invariant tests read the Rust sources and embedded skills, the Tauri
+  # config and capabilities, the tutorial templates and fixtures, and the
+  # shipped notices (tauri-security-config, window-layout, native-locale,
+  # open-slide-skill, board-store, third-party-notices, ...).
+  "src-tauri/src/**",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/capabilities/**",
+  "src-tauri/templates/**",
+  "src-tauri/tests/fixtures/**",
+  "THIRD_PARTY_NOTICES.md",
   "vitest.config.ts",
   "tsconfig.json",
   "package.json",
@@ -150,6 +160,14 @@ sources = [
   "src-tauri/Cargo.lock",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/**",
+  # Compiled in through include_str!/include_bytes!: the templates, the test
+  # fixtures, and the frontend files macos_window.rs pins the title bar to.
+  "src-tauri/templates/**",
+  "src-tauri/tests/fixtures/**",
+  "src/app/use-native-window.ts",
+  "src/App.css",
+  "src/styles/app-shell.css",
+  "src/styles/foundations.css",
 ]
 
 [tasks.clippy]
@@ -164,6 +182,14 @@ sources = [
   "src-tauri/Cargo.lock",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/**",
+  # Compiled in through include_str!/include_bytes!: the templates, the test
+  # fixtures, and the frontend files macos_window.rs pins the title bar to.
+  "src-tauri/templates/**",
+  "src-tauri/tests/fixtures/**",
+  "src/app/use-native-window.ts",
+  "src/App.css",
+  "src/styles/app-shell.css",
+  "src/styles/foundations.css",
 ]
 
 # Aggregated third-party notices. ~2 s, which is why it belongs here rather than
@@ -180,9 +206,10 @@ sources = [
 # the gaps, which it still prints in full.
 #
 # The sidecar closure is skipped unless `src-tauri/synara-runtime/` happens to be
-# staged, since `pnpm check` normally runs against the placeholder stub. When it
-# is absent the previously generated section is carried over untouched and only
-# the npm and crates closures are verified — the generator says so on stderr.
+# staged from the current pin, since `pnpm check` normally runs against the
+# placeholder stub. When it is absent or stale the previously generated section
+# is carried over untouched and only the npm and crates closures are verified —
+# the generator says so on stderr.
 #
 # CI runs the same check in its `lint-and-build` job.
 [tasks.notices]
