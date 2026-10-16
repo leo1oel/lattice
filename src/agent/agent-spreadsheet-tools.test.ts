@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import {
   executeAgentSpreadsheetToolRequest,
+  loadAgentSpreadsheetModel,
   parseAgentSpreadsheetToolRequest,
   registerAgentSpreadsheetDocument,
   registerAgentSpreadsheetDocumentResolver,
@@ -10,7 +11,7 @@ import {
   waitForAgentSpreadsheetDocument,
 } from "./agent-spreadsheet-tools";
 import { applySpreadsheetBatch, readSpreadsheet } from "../editor/spreadsheet/spreadsheet-operations";
-import { seedSpreadsheetDoc } from "../editor/spreadsheet/spreadsheet-yjs";
+import { seedSpreadsheetDoc, spreadsheetDocContent } from "../editor/spreadsheet/spreadsheet-yjs";
 import type { SpreadsheetCellValue } from "../editor/spreadsheet/spreadsheet-types";
 
 const cleanups: Array<() => void> = [];
@@ -101,6 +102,25 @@ describe("agent spreadsheet host protocol", () => {
     )));
     await expect(readA1("unopened.lattice-sheet")).resolves.toMatchObject({ ok: true });
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it("updates a closed sheet's file text through the lazily loaded model, as App's resolver does", async () => {
+    const written: string[] = [];
+    const file = spreadsheetDocContent(seededDoc([["before"]]));
+    cleanups.push(registerAgentSpreadsheetDocumentResolver(async (path) => {
+      const { openSpreadsheetDoc, spreadsheetDocContent: content } = await loadAgentSpreadsheetModel();
+      const doc = openSpreadsheetDoc(file);
+      return { doc, canWrite: true, path, commit: async () => { written.push(content(doc)); }, dispose: () => doc.destroy() };
+    }));
+    await expect(readA1("closed.lattice-sheet")).resolves.toMatchObject({ ok: true, result: { values: [["before"]] } });
+    await expect(execute("batch_update", {
+      path: "closed.lattice-sheet", operations: [{ type: "set_values", range: "A1", values: [["after"]] }],
+    })).resolves.toMatchObject({ ok: true, result: { persistenceConfirmed: true } });
+    const saved = new Y.Doc();
+    saved.getText("content").insert(0, written[0] ?? "");
+    seedSpreadsheetDoc(saved);
+    cleanups.push(() => saved.destroy());
+    expect(values(saved, "A1")).toEqual([["after"]]);
   });
 
   it("keeps unfocused open sheets registered and prefers the focused pane", async () => {
