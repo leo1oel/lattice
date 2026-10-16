@@ -2,14 +2,7 @@
 
 import type * as Y from "yjs";
 import { isRecord } from "../app-utils";
-import {
-  applySpreadsheetBatch,
-  parseSpreadsheetBatchUpdateArgs,
-  parseSpreadsheetReadArgs,
-  readSpreadsheet,
-} from "../editor/spreadsheet/spreadsheet-operations";
-import type { SpreadsheetBatchUpdateRequest } from "../editor/spreadsheet/spreadsheet-types";
-import { SPREADSHEET_AGENT_ORIGIN } from "../editor/spreadsheet/spreadsheet-yjs";
+import { chunk } from "../lib/lazy-chunk";
 import {
   createOpenWaiters,
   isWorkspaceRelativePath,
@@ -35,6 +28,12 @@ export type AgentSpreadsheetToolRequest = {
   expiresAt: number;
 };
 
+/**
+ * Yjs and the spreadsheet operations, kept out of the startup chunk: only a
+ * spreadsheet request needs them, and it loads them here (App's resolver too).
+ */
+export const loadAgentSpreadsheetModel = chunk(() => import("./agent-spreadsheet-model"));
+
 export type AgentSpreadsheetToolResult = AgentToolResult<typeof LATTICE_SPREADSHEET_TOOL_RESULT>;
 
 export type AgentSpreadsheetDocument = {
@@ -52,13 +51,9 @@ type OpenAgentSpreadsheetDocument = {
   active: boolean;
 };
 
-type BatchResult = { appliedOperations: number; affectedCells: number; workbookRevision: number };
-
 const openDocuments = new Map<string, Set<OpenAgentSpreadsheetDocument>>();
 const documentWaiters = createOpenWaiters();
 let documentResolver: AgentSpreadsheetDocumentResolver | null = null;
-const SPREADSHEET_AGENT_REQUESTS_KEY = "spreadsheetAgentRequests";
-const MAX_RECORDED_AGENT_REQUESTS = 256;
 
 function requestPath(args: Record<string, unknown>): string {
   const path = args.path;
@@ -71,35 +66,6 @@ function requestPath(args: Record<string, unknown>): string {
 function withoutRoutingFields(args: Record<string, unknown>): Record<string, unknown> {
   const { path: _path, version: _version, ...operationArgs } = args;
   return operationArgs;
-}
-
-function recordedBatchResult(
-  document: AgentSpreadsheetDocument,
-  request: AgentSpreadsheetToolRequest,
-  batch: SpreadsheetBatchUpdateRequest,
-): BatchResult {
-  const requests = document.doc.getMap<unknown>(SPREADSHEET_AGENT_REQUESTS_KEY);
-  const fingerprint = JSON.stringify({ action: request.action, args: request.args });
-  const prior = requests.get(request.id);
-  if (isRecord(prior)) {
-    if (prior.fingerprint !== fingerprint || !isRecord(prior.result)) {
-      throw toolError("This spreadsheet request ID was already used for a different payload.", "spreadsheet_request_id_conflict");
-    }
-    return prior.result as BatchResult;
-  }
-
-  let result!: BatchResult;
-  document.doc.transact(() => {
-    result = applySpreadsheetBatch(document.doc, batch);
-    requests.set(request.id, { fingerprint, result, appliedAt: Date.now() });
-    if (requests.size > MAX_RECORDED_AGENT_REQUESTS) {
-      const oldest = [...requests.entries()]
-        .filter(([id, value]) => id !== request.id && isRecord(value) && typeof value.appliedAt === "number")
-        .sort(([, left], [, right]) => Number((left as Record<string, unknown>).appliedAt) - Number((right as Record<string, unknown>).appliedAt))[0];
-      if (oldest) requests.delete(oldest[0]);
-    }
-  }, SPREADSHEET_AGENT_ORIGIN);
-  return result;
 }
 
 export function registerAgentSpreadsheetDocument(
@@ -155,6 +121,7 @@ export async function executeAgentSpreadsheetToolRequest(
         throw toolError("The spreadsheet request expired before execution.", "spreadsheet_tool_expired");
       }
       const path = requestPath(request.args);
+      const model = await loadAgentSpreadsheetModel();
       const registrations = [...(openDocuments.get(path) ?? [])];
       const document = held.document = registrations.find((registration) => registration.active)?.document
         ?? registrations.at(-1)?.document
@@ -164,13 +131,10 @@ export async function executeAgentSpreadsheetToolRequest(
       const args = withoutRoutingFields(request.args);
       let result: unknown;
       if (request.action === "read") {
-        const readArgs = parseSpreadsheetReadArgs(args);
-        if (!readArgs.range) throw new Error("range is required.");
-        result = readSpreadsheet(document.doc, readArgs);
+        result = model.readSpreadsheetRange(document.doc, args);
       } else {
         if (!document.canWrite) throw toolError("This spreadsheet is read-only.", "spreadsheet_read_only");
-        const batch = parseSpreadsheetBatchUpdateArgs(args);
-        const applied = recordedBatchResult(document, request, batch);
+        const applied = model.recordedBatchResult(document.doc, request, args);
         try {
           await document.commit?.();
           result = { ...applied, persistenceConfirmed: true };

@@ -416,7 +416,7 @@ regression is not visible in a dev build.
 
 | Budget | Value | Constant |
 | --- | --- | --- |
-| Eager JavaScript (all `<script>` in `index.html`) | `1.4 * 1024 * 1024` = 1,468,006 bytes | `EAGER_JS_BUDGET_BYTES` |
+| Eager JavaScript (all `<script>` in `index.html`) | `1.33 * 1024 * 1024` = 1,394,606 bytes | `EAGER_JS_BUDGET_BYTES` |
 | Eager `rolldown-runtime` chunk | 4 KiB | `ROLLDOWN_RUNTIME_BUDGET_BYTES` |
 | Bundled Claude executable (must stay a PATH launcher) | 4 KiB | `CLAUDE_PATH_LAUNCHER_BUDGET_BYTES` |
 | Staged Open Slide runtime (file bytes) | 66 MiB | `PRESENTATION_RUNTIME_BUDGET_BYTES` |
@@ -433,7 +433,11 @@ third eager chunk means the module grouping changed and the allowlist should be
 re-derived rather than widened.
 
 Heavy libraries must stay behind dynamic imports: pdfjs, mermaid, katex,
-the CodeMirror language packs, TipTap, Univer, tldraw.
+the CodeMirror language packs, TipTap, Univer, tldraw, Yjs. Yjs and the
+spreadsheet operations reach the Agent's spreadsheet tools through
+`loadAgentSpreadsheetModel` (`src/agent/agent-spreadsheet-tools.ts`), whose
+registry stays eager; a value import of `yjs` or `spreadsheet-yjs.ts` from an
+eager module puts ~85 KB back on startup.
 
 `src/canvas/canvas-lazy-modules.ts` is the canonical example of how to do this, and
 its header explains a subtlety worth repeating: **each loader is the identity of
