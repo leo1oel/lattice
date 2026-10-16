@@ -1,5 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Export-level analysis is on: a first-party symbol that is exported but used
+  // only inside its own file fails `pnpm knip`. Drop the `export` rather than
+  // ignoring it; tsc's `noUnusedLocals` then polices the symbol.
+
   // `src/main.tsx` is not listed: knip's vite plugin already derives it from the
   // `<script type="module">` in index.html.
   // The interaction benchmark reads probe.js as text and injects it over CDP,
@@ -7,7 +11,8 @@
   // perf-fixture.d.mts types perf-fixture.mjs for the bench page's import, and
   // perf-bench/selectors.d.mts types selectors.mjs for a component test's.
   // perf-bench/pdf-window-timing.mjs and divider-drag-timing.mjs are run by hand
-  // (docs/performance.md).
+  // (docs/performance.md). check-perf-evidence.mjs imports the
+  // `readFigure` of the *-figures.mjs file a manifest entry names, by path.
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
   // launched by Rust or the nested package's test script, not frontend imports.
   "workspaces": {
@@ -20,6 +25,7 @@
         "scripts/perf-bench/selectors.d.mts",
         "scripts/perf-bench/pdf-window-timing.mjs",
         "scripts/perf-bench/divider-drag-timing.mjs",
+        "scripts/perf-bench/*-figures.mjs",
         "tools/perf-bench/bench-page.ts"
       ],
       "project": ["src/**", "scripts/**", "tools/**"]
@@ -43,15 +49,5 @@
   // the package manager (see CONTRIBUTING.md), not a missing dependency. `typecheck`
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
   // binary; it is a package script in that workspace.
-  "ignoreBinaries": ["mise", "typecheck"],
-  // Scoped to the findings that are actionable and currently near zero, so a
-  // red `pnpm knip` means something. Export-level analysis is excluded on
-  // purpose: it reports first-party symbols that are exported but used only
-  // inside their own file. Those are worth cleaning up — dropping the `export`
-  // hands them to tsc's `noUnusedLocals`, which polices them forever — but they
-  // are not defects. Audit them deliberately with:
-  //   pnpm knip --include exports,types,duplicates
-  // Account for deliberate shadcn barrel re-exports in src/components/ui/
-  // before treating export-level findings as dead code.
-  "exclude": ["exports", "types", "nsExports", "nsTypes"]
+  "ignoreBinaries": ["mise", "typecheck"]
 }

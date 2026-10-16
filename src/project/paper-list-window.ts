@@ -19,7 +19,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 /** A list of fewer papers is drawn whole. */
-export const PAPER_WINDOW_MIN = 120;
+const PAPER_WINDOW_MIN = 120;
 /** Rows drawn before the view has been measured. */
 const FIRST_ROWS = 40;
 /** A row is assumed this tall until rows of the list have been measured. */

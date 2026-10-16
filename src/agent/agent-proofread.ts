@@ -53,7 +53,7 @@ export type ProofreadMode = "proofread" | "polish";
  * tag in the interface language. The model writes these English words.
  */
 /* eslint-disable lingui/no-unlocalized-strings -- the vocabulary the model writes */
-export const PROOFREAD_CATEGORIES = [
+const PROOFREAD_CATEGORIES = [
   "spelling", "grammar", "punctuation", "word choice", "clarity", "concision", "flow", "consistency",
 ] as const;
 /* eslint-enable lingui/no-unlocalized-strings */
@@ -163,7 +163,7 @@ const isCategory = (word: string): word is ProofreadCategory => (PROOFREAD_CATEG
  * skipped; one whose category is not in the vocabulary keeps only its note.
  * A reply without the block (an older prompt, a terse model) has none.
  */
-export function parseProofreadReasons(reply: string): ProofreadReasonLine[] {
+function parseProofreadReasons(reply: string): ProofreadReasonLine[] {
   const close = reply.lastIndexOf(REASONS_CLOSE);
   const open = close < 0 ? -1 : reply.lastIndexOf(REASONS_OPEN, close);
   if (open < 0) return [];

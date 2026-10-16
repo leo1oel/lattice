@@ -52,7 +52,7 @@ export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status:
  * (`build-progress`), and when it started on `performance.now()`'s clock, so
  * the pass still running can count its own time.
  */
-export type BuildProgress = { steps: BuildStep[]; startedAt: number };
+type BuildProgress = { steps: BuildStep[]; startedAt: number };
 
 /**
  * The running build's progress, held outside React state: only the Build

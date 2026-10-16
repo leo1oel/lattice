@@ -55,7 +55,7 @@ export function codesign(path, { identity, entitlements }) {
   ]);
 }
 
-export function verifySignature(path, ...flags) {
+function verifySignature(path, ...flags) {
   run("/usr/bin/codesign", ["--verify", ...flags, path]);
 }
 

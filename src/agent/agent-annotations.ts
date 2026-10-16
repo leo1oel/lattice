@@ -71,7 +71,7 @@ export function annotationContext(source: string, from: number, to: number): { b
   };
 }
 
-export function annotationRevisionPrompt(request: AnnotationRevisionRequest): string {
+function annotationRevisionPrompt(request: AnnotationRevisionRequest): string {
   const { language } = request;
   const lines = [
     `Revise a passage of the LaTeX paper ${JSON.stringify(request.path)} (around line ${request.line}) as its author asks in an annotation.`,
@@ -148,7 +148,7 @@ function lastBlock(reply: string, tag: string): string | null {
  * passage's own surrounding whitespace, so accepting it never joins or splits
  * lines at the passage's edges. Null when the reply has neither.
  */
-export function parseAnnotationAnswer(reply: string, passage: string): AnnotationAnswer | null {
+function parseAnnotationAnswer(reply: string, passage: string): AnnotationAnswer | null {
   const revision = lastBlock(reply, "revision");
   if (revision !== null && (revision.trim() || !passage.trim())) {
     const leading = passage.match(/^\s*/)?.[0] ?? "";
@@ -177,14 +177,14 @@ export async function reviseAnnotationWithAgent(request: AnnotationRevisionReque
 
 // --- The conversation's tools ---------------------------------------------
 
-export const SYNARA_ANNOTATIONS_TOOL_REQUEST = "synara:annotations-tool-request";
-export const LATTICE_ANNOTATIONS_TOOL_RESULT = "lattice:annotations-tool-result";
+const SYNARA_ANNOTATIONS_TOOL_REQUEST = "synara:annotations-tool-request";
+const LATTICE_ANNOTATIONS_TOOL_RESULT = "lattice:annotations-tool-result";
 
 const MAX_EDITS = 50;
 const MAX_TEXT = 4_000;
 
 /** One replacement inside the annotated passage: `find` must occur in it exactly once. */
-export type AnnotationToolEdit = { find: string; replace: string };
+type AnnotationToolEdit = { find: string; replace: string };
 
 export type AgentAnnotationsToolRequest = {
   type: typeof SYNARA_ANNOTATIONS_TOOL_REQUEST;
@@ -229,7 +229,7 @@ export function parseAgentAnnotationsToolRequest(value: unknown): AgentAnnotatio
 }
 
 /** `passage` with each edit's one occurrence of `find` replaced, or why it cannot be. */
-export function applyAnnotationToolEdits(passage: string, edits: readonly AnnotationToolEdit[]): { text: string } | { error: string } {
+function applyAnnotationToolEdits(passage: string, edits: readonly AnnotationToolEdit[]): { text: string } | { error: string } {
   const spans: Array<{ from: number; to: number; insert: string }> = [];
   for (const edit of edits) {
     const at = passage.indexOf(edit.find);

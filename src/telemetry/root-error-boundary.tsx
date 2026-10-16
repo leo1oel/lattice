@@ -1,6 +1,7 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Button } from "../components/ui/button";
 import { addAppLog } from "./app-log-store";
 import { translateOr } from "./early-i18n";
@@ -56,7 +57,6 @@ async function restartApplication() {
 
 async function copyErrorDetails(details: string) {
   try {
-    const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
     await writeText(details);
   } catch {
     await navigator.clipboard.writeText(details);
