@@ -12,7 +12,7 @@ fn built_project(label: &str) -> Fixture {
     fixture.write("main.tex", MAIN);
     project::open(&fixture.root).unwrap();
     for (path, contents) in [
-        ("sections/intro.tex", "Intro text. % ask Ana about this\nMore text.\n"),
+        ("sections/intro.tex", "Intro text. % ask Ana about this\n"),
         ("figures/plot.pdf", "%PDF-1.5 figure\n"),
         ("figures/unused.png", "png"),
         ("main.bbl", "\\begin{thebibliography}{1}\\end{thebibliography}\n"),

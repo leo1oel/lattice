@@ -37,6 +37,7 @@ static TODO: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i:\btodo\b|\bfixme\b)|\bXXX\b").unwrap());
 static INPUT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\(input|include)\s*\{([^{}]+)\}").unwrap());
+static CONTROL_WORD_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\[A-Za-z@]+$").unwrap());
 static INCLUDEONLY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\includeonly\b").unwrap());
 
 /// One comment the source carries, by its line in the file (from 1).
@@ -281,26 +282,39 @@ fn expand(
             stack.push(path.clone());
             let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
             stack.pop();
+            // TeX skips the spaces that start the file's first line.
+            let inner = inner.trim_start_matches([' ', '\t']);
             // Nothing written in its place reads as TeX reads an empty file:
-            // a group starts a table row, a missing line loses a space. Nor
-            // does a file whose last `%` swallows its own line end, as it
-            // would swallow this line's too. The command stays, and its file
-            // ships.
-            if inner.is_empty() || ends_in_comment(&inner) {
+            // a group starts a table row, a missing line loses a space. The
+            // command stays, and its empty file ships.
+            if inner.is_empty() {
                 continue;
             }
-            merged.insert(path);
-            // TeX ends a file's last line like any other, then goes on with
-            // the rest of this one. With nothing left on it, the line's own
-            // ending stands in for the file's: two would make a blank line,
-            // which is a paragraph break the source never had.
-            let mut replacement = match command {
-                "include" => format!("\\clearpage\n{}\\clearpage\n", with_line_end(inner)),
-                _ => with_line_end(inner),
+            let (before, rest_blank) =
+                (&body[..whole.start()], body[whole.end()..].trim().is_empty());
+            // TeX ends the file's last line like any other, then this line
+            // after the command: a space more, which `\space` keeps on a line
+            // of its own, whatever the file's last line swallowed. Text after
+            // the command, a control word the file's first letters would
+            // lengthen, or a blank first line that ends a paragraph only at a
+            // line's start, would each typeset differently merged; those
+            // stay commands.
+            let replacement = match command {
+                "include" => format!(
+                    "\\clearpage\n{}\\clearpage{}",
+                    with_line_end(inner),
+                    if rest_blank { "" } else { "\n" }
+                ),
+                _ if !rest_blank
+                    || CONTROL_WORD_END.is_match(before)
+                    || (!before.trim().is_empty()
+                        && inner.lines().next().is_some_and(|first| first.trim().is_empty())) =>
+                {
+                    continue
+                }
+                _ => format!("{}\\space", with_line_end(inner)),
             };
-            if body[whole.end()..].trim().is_empty() && replacement.ends_with('\n') {
-                replacement.pop();
-            }
+            merged.insert(path);
             out.push_str(&line[copied..whole.start()]);
             out.push_str(&replacement);
             copied = whole.end();
@@ -310,23 +324,12 @@ fn expand(
     out
 }
 
-/// Whether the last line of `source` TeX reads commands from has a comment.
-fn ends_in_comment(source: &str) -> bool {
-    let mut scanner = Scanner::default();
-    let mut last = false;
-    for line in source.split_inclusive('\n') {
-        if let LineKind::Code { comment, .. } = scanner.classify(split_ending(line).0) {
-            last = comment.is_some();
-        }
+fn with_line_end(text: &str) -> String {
+    if text.ends_with('\n') {
+        text.to_string()
+    } else {
+        format!("{text}\n")
     }
-    last
-}
-
-fn with_line_end(mut text: String) -> String {
-    if !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text
 }
 
 /// The source `\input{name}` reads, by TeX's order: `name.tex`, then `name`.
@@ -408,7 +411,7 @@ mod tests {
         let (text, merged) = merge_inputs("main.tex", &sources);
         assert_eq!(
             text,
-            "\\begin{document}\nIntro detail\n\\clearpage\nAppendix\n\\clearpage\n\\end{document}\n"
+            "\\begin{document}\nIntro detail\n\\space\n\\space\n\\clearpage\nAppendix\n\\clearpage\n\\end{document}\n"
         );
         assert_eq!(
             merged.into_iter().collect::<Vec<_>>(),
@@ -436,25 +439,85 @@ mod tests {
         }
     }
 
+    /// What a file's last line swallows, the line end after `\input` still makes.
+    const ENDINGS: [&str; 4] = ["FooBar\n", "FooBar%\n", "FooBar % name\n", "the \\LaTeX\n"];
+
     #[test]
-    fn a_file_ending_in_a_comment_stays_an_input_as_written() {
-        let main = "We use \\input{tool}\nto do X\n";
-        for tool in ["FooBar%\n", "FooBar % name\n"] {
+    fn a_merged_input_keeps_the_space_its_line_ends_in() {
+        for tool in ENDINGS {
+            let tool = stripped(tool);
             let sources = BTreeMap::from([
-                ("main.tex".to_string(), main.to_string()),
-                ("tool.tex".to_string(), stripped(tool)),
+                ("main.tex".to_string(), "We use \\input{tool}\nto do X\n".to_string()),
+                ("tool.tex".to_string(), format!("  {tool}")),
             ]);
             let (text, merged) = merge_inputs("main.tex", &sources);
-            assert_eq!(text, main);
-            assert!(merged.is_empty(), "{tool}");
+            assert_eq!(text, format!("We use {tool}\\space\nto do X\n"));
+            assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["tool.tex"]);
         }
-        let sources = BTreeMap::from([
-            ("main.tex".to_string(), main.to_string()),
-            ("tool.tex".to_string(), "50\\%\n".to_string()),
+    }
+
+    #[test]
+    fn an_input_that_would_typeset_differently_merged_stays_as_written() {
+        let mut sources = BTreeMap::from([
+            ("tool.tex".to_string(), "FooBar\n".to_string()),
+            ("gap.tex".to_string(), "\nNext paragraph\n".to_string()),
         ]);
-        let (text, merged) = merge_inputs("main.tex", &sources);
-        assert_eq!(text, "We use 50\\%\nto do X\n");
-        assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["tool.tex"]);
+        for main in [
+            "We use \\input{tool} daily\n",
+            "We use \\input{tool}% joined\n",
+            "\\foo\\input{tool}\n",
+            "We use \\input{gap}\n",
+        ] {
+            sources.insert("main.tex".to_string(), main.to_string());
+            let (text, merged) = merge_inputs("main.tex", &sources);
+            assert_eq!(text, main);
+            assert!(merged.is_empty(), "{main}");
+        }
+    }
+
+    /// The width TeX typesets `body` at, with `files` beside it.
+    fn typeset_width(label: &str, body: &str, files: &BTreeMap<String, String>) -> String {
+        let fixture = crate::project::test_support::Fixture::empty(label);
+        for (path, text) in files {
+            fixture.write(path, text);
+        }
+        fixture.write(
+            "main.tex",
+            format!("\\documentclass{{article}}\n\\begin{{document}}\n\\setbox0\\hbox{{{body}}}\\typeout{{WIDTH=\\the\\wd0}}\n\\end{{document}}\n"),
+        );
+        let output = crate::commands::command("pdflatex")
+            .args(["-interaction=nonstopmode", "-no-shell-escape", "main.tex"])
+            .current_dir(&fixture.root)
+            .output()
+            .unwrap();
+        let log = String::from_utf8_lossy(&output.stdout);
+        let width = log.lines().find_map(|line| line.strip_prefix("WIDTH="));
+        width.unwrap_or_else(|| panic!("{log}")).to_string()
+    }
+
+    /// Where TeX is installed: merged and unmerged typeset alike.
+    #[test]
+    fn merged_inputs_typeset_as_the_unmerged_ones_do() {
+        if !crate::commands::available("pdflatex") {
+            return;
+        }
+        let body = "We use \\input{tool}\nto do X";
+        for (index, tool) in ENDINGS.into_iter().enumerate() {
+            let files = BTreeMap::from([("tool.tex".to_string(), stripped(tool))]);
+            let mut sources = files.clone();
+            sources.insert("body.tex".to_string(), body.to_string());
+            let (merged, inlined) = merge_inputs("body.tex", &sources);
+            assert!(!inlined.is_empty(), "{tool}");
+            assert_eq!(
+                typeset_width(&format!("arxiv-merge-width-{index}"), body, &files),
+                typeset_width(
+                    &format!("arxiv-merge-width-{index}-merged"),
+                    &merged,
+                    &BTreeMap::new()
+                ),
+                "{tool}"
+            );
+        }
     }
 
     #[test]
@@ -469,7 +532,10 @@ mod tests {
             ("a.tex".to_string(), "A\n".to_string()),
         ]);
         let (text, merged) = merge_inputs("main.tex", &sources);
-        assert_eq!(text, sources["main.tex"]);
+        assert_eq!(
+            text,
+            "\\includeonly{a}\n% \\input{a}\n\\input{missing}\n\\input{loop}\n\\space\n\\include{a}\n"
+        );
         assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["loop.tex"]);
     }
 }
