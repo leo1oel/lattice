@@ -1,7 +1,7 @@
 //! ZIP source packs: exporting for Overleaf/arXiv and importing an Overleaf
 //! download as a new project.
 
-use super::manifest::open;
+use super::manifest::{default_root_document, open, read_manifest};
 use super::paths::available_path;
 use crate::models::ProjectSnapshot;
 use crate::util::err;
@@ -16,23 +16,18 @@ use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
 /// Folders (relative to the project root) left out of an export whole: VCS
-/// and app state.
-const EXPORT_EXCLUDED_DIRS: &[&str] = &[
-    ".git",
-    ".research/history",
-    ".research/sessions",
-    ".research/omp-sessions",
-    ".research/omp-session-map",
-    ".research/omp-runtime",
-    ".research/checkpoints",
-    ".research/cache",
-];
+/// and app state. All of `.research/` stays private: annotations, notes, the
+/// brief, the Overleaf link and full-text copies of other authors' papers
+/// would otherwise be published with an arXiv submission.
+const EXPORT_EXCLUDED_DIRS: &[&str] = &[".git", ".research"];
 
-/// File-name endings left out of an export at any depth: build output.
+/// File-name endings left out of an export at any depth: build output. Not
+/// `.bbl` (arXiv does not run BibTeX, so the last build's bibliography must
+/// ship) and not `.pdf` (figures); the root document's own PDF is left out
+/// by path in [`write_project_zip`].
 const EXPORT_EXCLUDED_SUFFIXES: &[&str] = &[
     ".aux",
     ".log",
-    ".bbl",
     ".blg",
     ".fdb_latexmk",
     ".fls",
@@ -41,7 +36,6 @@ const EXPORT_EXCLUDED_SUFFIXES: &[&str] = &[
     ".run.xml",
     "-SAVE-ERROR",
     ".synctex.gz",
-    ".pdf",
 ];
 
 /// Export the project as a ZIP suitable for Overleaf / arXiv source packs.
@@ -66,14 +60,20 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
     written
 }
 
-/// Add everything under `root` except the export exclusions, following
-/// symbolic links, with each entry's permissions and modification time.
-/// Like `zip -r`, a dangling symbolic link or a link loop is skipped with a
-/// warning rather than failing the export.
+/// Add everything under `root` except the export exclusions and the build's
+/// PDF, following symbolic links, with each entry's permissions and
+/// modification time. Like `zip -r`, a dangling symbolic link or a link loop
+/// is skipped with a warning rather than failing the export.
 fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
     // The archive may be written inside the project (possibly through a
     // symlinked folder); it must not contain itself.
     let archive = file.metadata().map_err(err)?;
+    // Where builds put the PDF (see `latex::compiled_pdf_path`). A folder
+    // without a manifest has no build to leave out.
+    let build_pdf = read_manifest(root).ok().and_then(|manifest| {
+        default_root_document(&manifest)
+            .map(|document| root.join(&document.path).with_extension("pdf"))
+    });
     let mut writer = ZipWriter::new(file);
     let walk = WalkDir::new(root).follow_links(true).sort_by_file_name().into_iter();
     for entry in walk.filter_entry(|entry| !excluded_dir(root, entry.path())) {
@@ -99,6 +99,7 @@ fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
         if metadata.is_dir() {
             writer.add_directory(format!("{name}/"), options).map_err(err)?;
         } else if !excluded_file(name)
+            && build_pdf.as_deref() != Some(entry.path())
             && (metadata.dev(), metadata.ino()) != (archive.dev(), archive.ino())
         {
             writer.start_file(name, options).map_err(err)?;
@@ -266,10 +267,13 @@ mod tests {
     }
 
     #[test]
-    fn export_keeps_sources_and_leaves_out_app_state_vcs_and_build_output() {
+    fn export_keeps_sources_figures_and_bbl_and_leaves_out_app_state_vcs_and_build_output() {
         let fixture = Fixture::empty("export-zip");
+        fixture.write("main.tex", "\\documentclass{article}\n");
+        open(&fixture.root).unwrap();
         for path in [
-            "main.tex",
+            "main.pdf",
+            "main.bbl",
             "main.log",
             "main.synctex.gz",
             "figures/plot.pdf",
@@ -280,6 +284,9 @@ mod tests {
             ".git/HEAD",
             ".research/history/1.json",
             ".research/notes.md",
+            ".research/annotations.json",
+            ".research/overleaf.json",
+            ".research/papers/smith2024/paper.md",
             "vendor/.git/HEAD",
             "draft.tex-SAVE-ERROR",
         ] {
@@ -292,21 +299,57 @@ mod tests {
         assert_eq!(
             names(&zip_path),
             [
+                ".gitignore",
                 ".latexmkrc",
-                ".research/",
-                ".research/notes.md",
                 "chapters/",
                 "chapters/intro.tex",
                 "empty/",
                 "exports/",
                 "figures/",
+                "figures/plot.pdf",
                 "figures/plot.tikz",
+                "main.bbl",
                 "main.tex",
                 "vendor/",
                 "vendor/.git/",
                 "vendor/.git/HEAD",
             ]
         );
+    }
+
+    #[test]
+    fn export_keeps_nested_figure_pdfs_and_leaves_out_a_nested_root_documents_pdf() {
+        let fixture = Fixture::empty("export-zip-nested");
+        fixture.write("paper/main.tex", "\\documentclass{article}\n");
+        open(&fixture.root).unwrap();
+        assert_eq!(
+            default_root_document(&read_manifest(&fixture.root).unwrap()).unwrap().path,
+            "paper/main.tex"
+        );
+        for path in
+            ["paper/main.pdf", "paper/figures/a/b/plot.pdf", "paper/figures/main.pdf", "main.pdf"]
+        {
+            fixture.write(path, "%PDF-1.5\n");
+        }
+        let exports = Fixture::empty("export-zip-nested-out");
+        let zip_path = exports.path("paper.zip");
+        export_project_zip(&fixture.root, &zip_path).unwrap();
+        let names = names(&zip_path);
+        let pdfs = names.iter().filter(|name| name.ends_with(".pdf")).collect::<Vec<_>>();
+        // Only the build's own PDF is output; a same-named PDF elsewhere is a figure.
+        assert_eq!(pdfs, ["main.pdf", "paper/figures/a/b/plot.pdf", "paper/figures/main.pdf"]);
+    }
+
+    #[test]
+    fn export_without_a_bbl_from_a_build_still_succeeds() {
+        let fixture = Fixture::empty("export-zip-no-bbl");
+        fixture.write("main.tex", "\\documentclass{article}\n");
+        fixture.write("references.bib", "@misc{a, title={A}}\n");
+        open(&fixture.root).unwrap();
+        let exports = Fixture::empty("export-zip-no-bbl-out");
+        let zip_path = exports.path("paper.zip");
+        export_project_zip(&fixture.root, &zip_path).unwrap();
+        assert_eq!(names(&zip_path), [".gitignore", "main.tex", "references.bib"]);
     }
 
     #[test]
