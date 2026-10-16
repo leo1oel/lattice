@@ -213,18 +213,21 @@ several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
 were cleared from `pdf-viewer.tsx`, the since-removed `visual-markdown-editor.tsx`,
 and `document-canvas.tsx`'s hooks. Its replacement,
 `editor/markdown/engine/lattice-visual-editor.tsx`, is pinned at 0 bailouts.
+Since October 2026 `App.tsx` compiles whole too. Its last reports were
+preserved-memo failures; the callbacks whose identity effects and children
+depend on (the build-tracking reset whose cleanup cancels a queued build,
+builds, Settings, the canvas's request settle) became one `useStableHandlers`
+map, and the remaining `try/catch` bodies moved to `src/app/*-action.ts`.
+Simply deleting those wrappers also reaches 0, but the compiler leaves such a
+callback uncached, so an effect depending on it reruns its cleanup on every
+keystroke; `app-builds.test.tsx` holds a queued build through typing to catch
+that.
 
 Run the report before planning any of this — a bailout's *cause* decides the
 recipe, and guessing from the file name has been wrong before. Remaining,
 in order of value:
 
-1. `App.tsx` — its `try/finally` bodies and inline `import()`s left with the
-   hooks extracted into `src/app/`; what remains is one preserve-manual-memo
-   report per `useCallback`/`useMemo` whose dependency list the compiler
-   cannot preserve. Recipe: let the compiler own the memoization (drop the
-   manual wrapper or narrow its dependencies); per-file commits so
-   regressions bisect. This is the single biggest render-cost win left.
-2. Render-phase ref access, the *sole* bailout of its function:
+1. Render-phase ref access, the *sole* bailout of its function:
    `telemetry/app-updater.tsx`. Where a ref is passed as an argument during
    render, the fix is to wrap it in a closure (`() => ref.current`) rather
    than to move a write. `project/project-find-dialog.tsx` had the same
@@ -234,15 +237,15 @@ in order of value:
    Note a wrong fix cannot land silently: moving the write to an effect while
    leaving a `useMemo` that reads `.current` is still rejected, so the bailout
    guard catches it.
-3. The PDF viewer — split into `pdf-viewer.tsx` and the `use-pdf-*` hooks, it
+2. The PDF viewer — split into `pdf-viewer.tsx` and the `use-pdf-*` hooks, it
    is down from 5 bailouts to 1: `pdf-viewer.tsx` and `use-pdf-document.ts`
    compile with 0, and one preserved memo remains in `use-pdf-view.ts`. It is
    not a ref write.
-4. `DocumentCanvas` is skipped wholesale because its extension memos carry
+3. `DocumentCanvas` is skipped wholesale because its extension memos carry
    intentional `react-hooks/exhaustive-deps` disables (identity stability the
    compiler cannot express yet). Resolving this needs a design, not an edit.
 
-Note that items 1 and 2 do not gate each other, and neither is load-bearing for
+Note that these items do not gate each other, and none is load-bearing for
 correctness: a render-phase ref access makes the compiler skip the *enclosing
 function*, so these are lost optimisations, not latent bugs. The patterns that
 do cause stale-render bugs are the ones the compiler cannot see — module-level

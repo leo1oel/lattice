@@ -1,4 +1,4 @@
-import { interfaceSounds, pdfSlickTestApi, tauriCoreApi, tauriEventApi, emitTauriEvent, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, ROOT, projectSnapshot, rootDocument, MAIN_DOCUMENT, markdownSnapshot, buildResult, failedBuild, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, buildButton, waitForBuildIdle, selectDocumentView, findProjectTreeItem, renderApp, openWithAutomaticBuilds, expectNotification, findFrame, editorViewAt, findEditorView, appendToEditor, expectEditorText, expectInvoked, invokeCalls, pause, persistLayout, waitForSelectedTab, openTreeFile, visibleToasts, pdfDocumentStub, mockPdfDocument, stubObjectUrls } from "./app-test-utils";
+import { interfaceSounds, pdfSlickTestApi, tauriCoreApi, tauriEventApi, emitTauriEvent, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, ROOT, projectSnapshot, rootDocument, MAIN_DOCUMENT, markdownSnapshot, buildResult, failedBuild, readFiles, deferred, type Deferred, setAutoBuildMode, setInterfaceLanguage, buildButton, waitForBuildIdle, selectDocumentView, findProjectTreeItem, renderApp, openWithAutomaticBuilds, expectNotification, findFrame, editorViewAt, findEditorView, appendToEditor, expectEditorText, expectInvoked, invokeCalls, pause, persistLayout, waitForSelectedTab, openTreeFile, visibleToasts, pdfDocumentStub, mockPdfDocument, stubObjectUrls } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -521,6 +521,57 @@ describe("builds and the PDF reader", () => {
 
     fireEvent.click(buildButton());
     await waitFor(() => expect(view.state.selection.main.head).toBe(view.state.doc.line(4).from));
+  });
+
+  // App resets build tracking from effects whose cleanup cancels the queued
+  // pass; they must follow the project and App's lifetime, not its renders.
+  describe("a build queued behind a running one", () => {
+    const renderWithHeldBuild = async () => {
+      setAutoBuildMode("manual");
+      let held: Deferred | undefined;
+      const app = renderApp({
+        ...projectCommands(),
+        build_project: async () => {
+          const hold = held;
+          held = undefined;
+          if (hold) await hold.promise;
+          return buildResult()();
+        },
+      });
+      const view = await findEditorView();
+      await waitForBuildIdle();
+      const baseline = invokeCalls("build_project").length;
+      const running = (held = deferred());
+      fireEvent.click(buildButton());
+      await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(baseline + 1));
+      // The header's Build button queues another pass while one runs.
+      fireEvent.click(buildButton());
+      return { app, view, running, baseline };
+    };
+
+    it("still runs after the writer types while it waits", async () => {
+      const { view, running, baseline } = await renderWithHeldBuild();
+      for (const character of "Typing re-renders App.") {
+        act(() => view.dispatch({
+          changes: { from: view.state.doc.length, insert: character },
+          annotations: Transaction.userEvent.of("input.type"),
+        }));
+      }
+      await act(async () => {
+        running.resolve();
+        await pause(0);
+      });
+      await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(baseline + 2));
+      await waitForBuildIdle();
+    });
+
+    it("is dropped when App unmounts", async () => {
+      const { app, running, baseline } = await renderWithHeldBuild();
+      app.unmount();
+      running.resolve();
+      await pause(300);
+      expect(invokeCalls("build_project")).toHaveLength(baseline + 1);
+    });
   });
 
   it("shows failed build guidance once and acknowledges a manual retry", async () => {
