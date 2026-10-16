@@ -121,11 +121,20 @@ jobs:
       # produced on main. Entries are keyed by content, so a stale one is never
       # used, only left unread; the lockfile in the key drops the lot whenever
       # dependencies move, which is also when Vitest would discard it.
+      #
+      # main saves once per shard per UTC day, not per commit: keyed by commit,
+      # the saves filled the repository's 10 GB Actions cache with entries
+      # (82 of them, 1.35 GB) of which only the newest per shard was ever read,
+      # and evicted the release Rust cache. A later commit's run that day finds
+      # its key taken and saves nothing; the modules it changed re-transform.
+      - if: env.CODE == 'true'
+        id: day
+        run: echo "value=$(date -u +%F)" >> "$GITHUB_OUTPUT"
       - if: env.CODE == 'true'
         uses: actions/cache/restore@v5
         with:
           path: node_modules/.experimental-vitest-cache
-          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ steps.day.outputs.value }}
           restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - if: env.CODE == 'true'
         run: pnpm vitest run --shard=${{ matrix.shard }}/3
@@ -134,7 +143,45 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: node_modules/.experimental-vitest-cache
-          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ steps.day.outputs.value }}
+
+  # One passing run lets a test that fails one run in five through four times
+  # in five; the reopen-from-tree test passed its own pull request that way and
+  # then failed a fifth of main's runs. So a pull request's added and modified
+  # test files run five times here, beside a busy-looping process
+  # (scripts/burn-in.mjs). The job runs beside the others and nothing waits for
+  # it, so it costs runner minutes, not wall clock; a file whose first run
+  # shows five would outlast the WebKit shards (about 5 min) runs once, as the
+  # shards already run it.
+  new-tests:
+    needs: changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      # The merge commit's first parent is the base, as in `changes`.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: files
+        run: |
+          node scripts/burn-in.mjs --list --base HEAD^1 | tee "$RUNNER_TEMP/new-tests.txt"
+          if [ -s "$RUNNER_TEMP/new-tests.txt" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No added or modified test files."
+          fi
+      - if: steps.files.outputs.any == 'true'
+        uses: ./.github/actions/setup-pnpm
+      # Every shard runs some App suites (the shard sequencer spreads them),
+      # so one shard's transforms cover most of what any test file imports.
+      - if: steps.files.outputs.any == 'true'
+        uses: actions/cache/restore@v5
+        with:
+          path: node_modules/.experimental-vitest-cache
+          key: vitest-fs-1-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: vitest-fs-1-${{ hashFiles('pnpm-lock.yaml') }}-
+      - if: steps.files.outputs.any == 'true'
+        run: node scripts/burn-in.mjs --base HEAD^1 --runs 5 --budget 300
 
   # The literature Worker is its own pnpm project with its own lockfile and is
   # not part of the root install, so nothing above sees it. Its tests run on
