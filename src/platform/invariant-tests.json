@@ -5,6 +5,7 @@
   "src/platform/polyfills.test.ts": "public/polyfills.js loads from index.html before any module",
   "src/platform/clean-room-guard.test.ts": "every package.json's dependencies and license",
   "src/platform/source-text-test-guard.test.ts": "this guard",
+  "src/platform/ipc-error-phrases.test.ts": "every backend error phrase the UI matches is still written by its Rust source",
   "src/pdf/pdf-viewer.test.ts": "viewer stylesheet applied in jsdom (Vitest empties CSS imports)",
   "src/pdf/pdf-text-layer-selection.test.ts": "text-layer selection stylesheet, likewise",
   "src/styles/tokens.test.ts": "the design-token contract (CLAUDE.md)",
