@@ -610,6 +610,19 @@ mod tests {
     }
 
     #[test]
+    fn a_garbled_answer_reads_as_reqwests_decode_error() {
+        // The UI retries a sync on this wording (RESPONSE_BODY_UNDECODABLE in
+        // use-overleaf-workspace.ts), and it is reqwest's text, not ours: a
+        // reqwest upgrade that rewords it must fail here.
+        let base = crate::overleaf_rt::tests::serve_http(|request| {
+            let _ = request.respond(tiny_http::Response::from_string("<html>"));
+        });
+        let response = send(http_client(10).unwrap().get(format!("{base}/project"))).unwrap();
+        let error = response.json::<Value>().map_err(err).unwrap_err();
+        assert!(error.contains("error decoding response body"), "{error}");
+    }
+
+    #[test]
     fn concurrent_upload_failures_record_only_the_reported_one() {
         // `a.tex` is the failure reported, in path order; `b.tex` fails too.
         // Each answers in turn, so whichever finishes last would win the

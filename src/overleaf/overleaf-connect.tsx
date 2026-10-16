@@ -28,6 +28,8 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { MotionButton } from "../components/ui/motion";
 import { ModalDialog } from "../components/ui/modal-dialog";
+import { mentionsAny } from "../platform/ipc-error-phrases";
+import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
 import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -547,7 +549,7 @@ function OverleafPicker(props: PickerProps) {
 
   /** A failed Overleaf request: an expired session becomes the reconnect state, anything else is reported. */
   const handleFailure = useCallback(async (reason: unknown, report: (message: string) => void) => {
-    if (!/overleaf session expired/i.test(toMessage(reason))) return report(toMessage(reason));
+    if (!mentionsAny(toMessage(reason), [OVERLEAF_SESSION_EXPIRED])) return report(toMessage(reason));
     // The backend has already recorded the expiry (Settings and background
     // sync read the same record), so re-reading the status shows reconnect.
     setProjects(null);

@@ -1,5 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { mentionsAny } from "../platform/ipc-error-phrases";
 
 type DoctorCheckLike = { name: string; detail: string; ok: boolean };
 export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorCheckLike[] };
@@ -60,16 +61,22 @@ export function isRequiredSetupMissing(report: DoctorReportLike | null | undefin
   return isCompileSetupMissing(report) || missingPaperToolNames(report).length > 0;
 }
 
-/** A paper feature failed because the managed uv/uvx are missing (`PAPER_TOOLS_MISSING` in src-tauri/src/commands/python_tools.rs). */
+/* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
+/** `PAPER_TOOLS_MISSING` in src-tauri/src/commands/python_tools.rs. */
+export const PAPER_TOOLS_MISSING = "Lattice's paper tools are not installed.";
+/** latex/build.rs's spawn failure and build_log.rs's missing-tool diagnostic. */
+export const LATEXMK_NOT_STARTED = "could not start latexmk";
+export const INSTALL_TEX = "mactex or tex live";
+export const LATEX_TOOL_MISSING = "the latex tool";
+/* eslint-enable lingui/no-unlocalized-strings */
+
+/** A paper feature failed because the managed uv/uvx are missing. */
 export function isMissingPaperToolsError(message: string): boolean {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- marker matched in backend error text
-  return message.includes("Lattice's paper tools are not installed.");
+  return message.includes(PAPER_TOOLS_MISSING);
 }
 
 export function isMissingTexBuildError(message: string): boolean {
-  const lower = message.toLowerCase();
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- markers matched in backend error text
-  return ["could not start latexmk", "mactex or tex live", "the latex tool"].some((marker) => lower.includes(marker));
+  return mentionsAny(message, [LATEXMK_NOT_STARTED, INSTALL_TEX, LATEX_TOOL_MISSING]);
 }
 
 /*
