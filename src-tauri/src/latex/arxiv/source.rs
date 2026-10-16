@@ -281,16 +281,19 @@ fn expand(
             stack.push(path.clone());
             let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
             stack.pop();
+            // Nothing written in its place reads as TeX reads an empty file:
+            // a group starts a table row, a missing line loses a space. The
+            // command stays, and its empty file ships.
+            if inner.is_empty() {
+                continue;
+            }
             merged.insert(path);
             // TeX ends a file's last line like any other, then goes on with
             // the rest of this one. With nothing left on it, the line's own
             // ending stands in for the file's: two would make a blank line,
-            // which is a paragraph break the source never had. An empty file
-            // has no line to end; an empty group stands in for it, so the
-            // line is never left blank and still ends in its one space.
+            // which is a paragraph break the source never had.
             let mut replacement = match command {
                 "include" => format!("\\clearpage\n{}\\clearpage\n", with_line_end(inner)),
-                _ if inner.is_empty() => "{}".to_string(),
                 _ => with_line_end(inner),
             };
             if body[whole.end()..].trim().is_empty() && replacement.ends_with('\n') {
@@ -306,7 +309,7 @@ fn expand(
 }
 
 fn with_line_end(mut text: String) -> String {
-    if !text.is_empty() && !text.ends_with('\n') {
+    if !text.ends_with('\n') {
         text.push('\n');
     }
     text
@@ -400,24 +403,23 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_file_merges_without_a_paragraph_break() {
-        let sources = BTreeMap::from([
-            (
-                "main.tex".to_string(),
-                "para text\n  \\input{todo}\nmore text \\input{todo}\n\\include{empty}\n"
-                    .to_string(),
-            ),
+    fn an_empty_file_stays_an_input_as_written() {
+        let mut sources = BTreeMap::from([
+            ("rows.tex".to_string(), String::new()),
             ("todo.tex".to_string(), String::new()),
-            ("empty.tex".to_string(), String::new()),
         ]);
-        let (text, _) = merge_inputs("main.tex", &sources);
-        assert_eq!(text, "para text\n  {}\nmore text {}\n\\clearpage\n\\clearpage\n");
-
-        let mut sources = sources;
-        sources.insert("main.tex".to_string(), "foo%\n\\input{todo}\nbar\n".to_string());
-        assert_eq!(merge_inputs("main.tex", &sources).0, "foo%\n{}\nbar\n");
-        sources.insert("main.tex".to_string(), "a\n\\input{todo}\\input{empty}\nb\n".to_string());
-        assert_eq!(merge_inputs("main.tex", &sources).0, "a\n{}{}\nb\n");
+        for main in [
+            "\\begin{tabular}{l}\n\\hline\n\\input{rows}\n\\hline\n\\end{tabular}\n",
+            "\\begin{tabular}{l}\na \\\\\n\\input{rows}\n\\end{tabular}\n",
+            "para text\n\\input{todo}\nmore text\n",
+            "foo%\n\\input{todo}\nbar\n",
+            "\\include{todo}\n",
+        ] {
+            sources.insert("main.tex".to_string(), main.to_string());
+            let (text, merged) = merge_inputs("main.tex", &sources);
+            assert_eq!(text, main);
+            assert!(merged.is_empty(), "{main}");
+        }
     }
 
     #[test]

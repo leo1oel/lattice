@@ -91,6 +91,24 @@ fn comments_come_out_and_inputs_merge_into_the_root_document() {
 }
 
 #[test]
+fn an_input_left_empty_by_its_comments_ships_unmerged() {
+    let fixture = built_project("arxiv-empty-input");
+    fixture.write(
+        "main.tex",
+        MAIN.replace("\\includegraphics", "\\input{sections/todo}\n\\includegraphics"),
+    );
+    fixture.write("sections/todo.tex", "% TODO write this\n");
+    fixture.write("main.fls", fixture.read("main.fls") + "INPUT sections/todo.tex\n");
+
+    let pack = staged(&fixture, options(true, true));
+    assert_eq!(pack.files["sections/todo.tex"], b"");
+    assert_eq!(pack.merged, ["sections/intro.tex"]);
+    assert!(std::str::from_utf8(&pack.files["main.tex"])
+        .unwrap()
+        .contains("\\input{sections/todo}\n"));
+}
+
+#[test]
 fn hand_written_tex_inputs_lose_their_comments_but_postscript_figures_do_not() {
     let fixture = built_project("arxiv-tikz");
     fixture.write(
