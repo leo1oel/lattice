@@ -141,6 +141,8 @@ export class ClaimSupport {
   private controller: AbortController | null = null;
   /** Bumped by `reset` and by each new search, so work for an earlier one drops its results. */
   private generation = 0;
+  /** The Cite placing its citation now: the canvas holds one anchored cite at a time. */
+  private placing: Promise<void> = Promise.resolve();
 
   attach(deps: ClaimSupportDeps) {
     this.deps = deps;
@@ -278,12 +280,20 @@ export class ClaimSupport {
 
   /** Add the paper to the bibliography when it is not there, and cite it after the claim. */
   cite = (id: string) => this.act(id, "cite", async (paper, live) => {
-    const deps = this.deps!;
-    const claim = this.snapshot.claim;
-    if (!claim) return;
-    const key = paper.key ?? await deps.addCitation(lookup(paper));
+    if (!this.snapshot.claim) return;
+    const key = paper.key ?? await this.deps!.addCitation(lookup(paper));
     if (!key || !live()) return;
     this.update(id, { key });
+    const turn = this.placing.then(() => this.place(id, key, live));
+    this.placing = turn.catch(() => {});
+    await turn;
+  });
+
+  /** Put `\citep{key}` after the claim as it stands once the Cites before it have landed. */
+  private async place(id: string, key: string, live: () => boolean) {
+    const deps = this.deps!;
+    const claim = this.snapshot.claim;
+    if (!live() || !claim) return;
     const placing = new AbortController();
     const outcome = await Promise.race([deps.citeAfter(claim, key, placing.signal), timeout(CITE_WAIT_MS)])
       .finally(() => placing.abort());
@@ -306,7 +316,7 @@ export class ClaimSupport {
       : i18n._(msg`The claim has changed since the search, so the citation has nowhere to go. The paper is in the bibliography as ${command}.`), {
       dedupeKey: `claim-support-cite:${id}`,
     });
-  });
+  }
 
   /** Import the paper into Papers, with its full text when it can be had. */
   add = (id: string) => this.act(id, "add", async (paper, live) => {

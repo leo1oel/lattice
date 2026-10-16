@@ -138,6 +138,22 @@ describe("acting on a paper", () => {
     expect(notifyMock).toHaveBeenCalledWith("Find support", expect.stringContaining("\\citep{jain2019attention}"), expect.anything());
   });
 
+  it("places a second Cite after the first, on the claim the first re-pinned", async () => {
+    let land: (outcome: "cited") => void = () => {};
+    vi.mocked(deps.citeAfter).mockImplementationOnce(() => new Promise((resolve) => { land = resolve; }));
+    await settled(support.find(CLAIM));
+    const first = support.cite("p1");
+    const second = support.cite("p2");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(deps.citeAfter).toHaveBeenCalledTimes(1);
+    land("cited");
+    await Promise.all([first, second]);
+    expect(deps.citeAfter).toHaveBeenLastCalledWith(
+      expect.objectContaining({ quote: expect.stringContaining("\\citep{serrano2019}") }), "jain2019attention", expect.anything(),
+    );
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
   it("withdraws a citation that found nowhere to go in time", async () => {
     let signal: AbortSignal | undefined;
     vi.mocked(deps.citeAfter).mockImplementation((_claim, _key, abort) => {

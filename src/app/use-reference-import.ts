@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, RefreshProject } from "../app-types";
 import { toMessage } from "../app-utils";
 import { isMissingPaperToolsError } from "../build/tex-setup";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
 import { bibEntryKeys } from "../papers/bib-format";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
@@ -288,6 +289,7 @@ export function useReferenceImport({
   }, [onMissingPaperTools, setBibEntry]);
 
   const { activeFile, source, dirty, save, accept } = editor;
+  const editorRef = useLatestRef(editor);
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     const { importRoot, mode } = bibEntry;
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
@@ -394,9 +396,11 @@ export function useReferenceImport({
       showBibEntry("add", resolved, query);
       return null;
     }
-    if (dirty && !(await save())) return null;
-    const existing = bibliography === activeFile
-      ? source
+    const pending = editorRef.current;
+    if (pending.dirty && !(await pending.save())) return null;
+    const latest = editorRef.current;
+    const existing = bibliography === latest.activeFile
+      ? latest.source
       : await invoke<string>("read_project_file", { path: bibliography });
     if (projectRootRef.current !== root) return null;
     if (bibEntryKeys(existing).some((item) => item.toLowerCase() === key.toLowerCase())) {
@@ -408,10 +412,10 @@ export function useReferenceImport({
     }
     await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, bibtex), projectRoot: root });
     onExternalEdits.current([bibliography]);
-    if (bibliography === activeFile) accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
+    if (bibliography === latest.activeFile) latest.accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
     await refreshProject();
     return key;
-  }, [accept, activeFile, dirty, onExternalEdits, onMissingPaperTools, project, projectRootRef, refreshProject, save, showBibEntry, source, t]);
+  }, [editorRef, onExternalEdits, onMissingPaperTools, project, projectRootRef, refreshProject, showBibEntry, t]);
 
   const clearStage = useCallback(() => setStage(null), []);
 
