@@ -14231,7 +14231,7 @@ msgstr "Try again…"
 msgid "Try another filter"
 msgstr "Try another filter"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-pdf-panel.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
 

@@ -450,4 +450,30 @@ describe("durable text and disk", () => {
     await act(() => vi.advanceTimersByTimeAsync(1_300));
     expect(docs.files.get("main.tex")).toBe("\\cite{");
   });
+
+  // The PDF panel sits beside the editor without blurring it: turning to it
+  // ends the completion the canvas registered, so leaving still saves.
+  it("ends the completion before leaving for the PDF, where a plain leave keeps it and waits", async () => {
+    const docs = renderDocuments({ "main.tex": "Main" });
+    await docs.enter();
+    const close = vi.fn(() => docs.current().canvas.onCompletionActiveChange(false));
+    act(() => docs.current().canvas.registerCompletionClose(close));
+    act(() => docs.current().canvas.onCompletionActiveChange(true));
+    docs.type("\\cite{");
+
+    await act(async () => { docs.current().canvas.onLeave(); });
+    expect(close).not.toHaveBeenCalled();
+    expect(docs.files.get("main.tex")).toBe("Main");
+
+    await act(async () => { docs.current().canvas.onLeaveForPdf(); });
+    expect(close).toHaveBeenCalledOnce();
+    await waitFor(() => expect(docs.files.get("main.tex")).toBe("\\cite{"));
+
+    act(() => docs.current().canvas.registerCompletionClose(null));
+    act(() => docs.current().canvas.onCompletionActiveChange(true));
+    docs.type("\\cite{a");
+    // With no editor registered there is no menu to end: the guard holds.
+    await act(async () => { docs.current().canvas.onLeaveForPdf(); });
+    expect(docs.files.get("main.tex")).toBe("\\cite{");
+  });
 });

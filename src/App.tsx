@@ -98,7 +98,7 @@ import { InfinityLoader } from "./components/ui/activity-icons";
 import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
-import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./app/workspace-chunks";
+import { loadPaperLibrary, loadProjectFileTree, loadProjectPdfPanel, loadTrellisWorkspace } from "./app/workspace-chunks";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import { persistSynaraThread } from "./app/app-synara-embed";
@@ -187,11 +187,12 @@ const BibliographyAudit = lazy(() =>
 const CompileDiagnosticsPanel = lazy(() =>
   import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
 );
-// The workspace and the canvas (and the PDF preview inside it) render behind a
+// The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
 // with no Suspense reveal to wait out. The file tree and paper library above
 // keep their boundaries: their reveal waits, after the editor's.
 const DocumentCanvas = lazyChunk(loadDocumentCanvas, (module) => module.DocumentCanvas);
+const ProjectPdfPanel = lazyChunk(loadProjectPdfPanel, (module) => module.ProjectPdfPanel);
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
@@ -1707,6 +1708,12 @@ function App() {
     await buildPipeline.runBuild(false, { requested: true, sound: true });
   });
 
+  // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
+  const navigateOutline = (path: string, line: number) => {
+    setOutlineOpen(false);
+    void syncTex.navigateOutline(path, line);
+  };
+
   const workspaceLoading = <div className="document-canvas-loading" aria-label={t`Preparing workspace`} />;
   const documentCanvas = (
     <DocumentCanvas
@@ -1721,6 +1728,7 @@ function App() {
         onSave: save,
         onVisualMarkdownFlushChange: documents.canvas.registerFlush,
         onMarkdownModeViewportCaptureChange: documents.canvas.registerViewportCapture,
+        onCompletionCloseChange: documents.canvas.registerCompletionClose,
         onViewMarkdownSource: () => chooseMode("split"),
         activePaper,
         activeAsset,
@@ -1754,13 +1762,6 @@ function App() {
         onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
         onResolveCitation: referenceImport.resolveBibQuery,
         citationUsageRevision: unusedSymbols,
-        canOpenCitation: (key) => Boolean(readablePaperCited(key) || citationUrl(key)),
-        onOpenCitation: (key) => {
-          const paper = readablePaperCited(key);
-          const url = citationUrl(key);
-          if (paper) void openPaper(paper);
-          else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
-        },
         citationKeys,
         citations,
         references: liveReferences,
@@ -1788,66 +1789,16 @@ function App() {
         onRenameEnvironment: (name) => beginRename({ kind: "environment", name }),
         onWrapEnvironment: () => beginRename({ kind: "wrap-environment" }),
         onGotoLineRequest: () => setSearchDialog("goto-line"),
-        outlineOpen,
-        onOutlineOpenChange: setOutlineOpen,
         outlineNodes,
-        activeOutlineId: latex.activeOutlineId,
         outlineRootPath: rootDocumentPath,
-        onOutlineNavigate: (path, line) => {
-          setOutlineOpen(false);
-          void syncTex.navigateOutline(path, line);
-        },
+        onOutlineNavigate: navigateOutline,
         tableGeneratorOpen,
         onTableGeneratorOpenChange: setTableGeneratorOpen,
         onCreateMissingFile: (path) => {
           void tree.createEntry(path, "file");
         },
       }}
-      pdf={{
-        pdfUrl,
-        pdfBytes: buildPipeline.displayedPdfBytesRef.current,
-        onBuildProject: () => void compileAndShowPdf(false, true),
-        building,
-        buildShortcut: commandShortcutText(commands, "build") ?? undefined,
-        pdfTop: (!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
-          <Suspense fallback={null}>
-            <CompileDiagnosticsPanel
-              diagnostics={build.diagnostics}
-              log={build.log}
-              success={build.success}
-              expanded={buildPipeline.diagnosticsExpanded}
-              onExpandedChange={buildPipeline.setDiagnosticsExpanded}
-              onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-              onInstallDependency={texSetup.installDependency}
-              onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
-              onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
-              onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
-              fixDisabled={!repairWritable || building || compileRepair.busy}
-              repair={compileRepair.state}
-              onCancelRepair={() => void compileRepair.cancel()}
-              onOpenRepair={() => {
-                const threadId = compileRepair.state?.threadId;
-                if (!threadId) return;
-                persistSynaraThread(project.root, threadId);
-                synara.mountFrame();
-                trellis.showPanel("agent");
-                synara.showThread(threadId);
-              }}
-              onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
-              sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
-              onReplaceToken={replaceDiagnosticToken}
-              onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
-            />
-          </Suspense>
-        ) : null,
-        pdfSyncTarget: syncTex.pdfSyncTarget,
-        canForwardSync: syncTex.canForwardSync,
-        locatingPdf: syncTex.locatingPdf,
-        onForwardSync: () => void revealSourceInPdf(),
-        onPdfSource: syncTex.revealPdfSource,
-        onPdfPageCount: setPdfPageCount,
-        onPdfPageChange: setPdfPageNumber,
-      }}
+      pdf={{ pdfUrl }}
       review={{
         editorComments: editorComments.all,
         overleafPresenceCursors: overleafActiveCursors,
@@ -1902,12 +1853,90 @@ function App() {
       }}
       hosts={{
         editorHost: trellis.hosts.editor,
-        pdfHost: pdfLive ? trellis.hosts.pdf : null,
         editorHibernated,
         hibernatedPlaceholder: null,
         decks: trellis.decks,
         switchState: trellis.switchState,
       }}
+    />
+  );
+
+  // The compiled PDF in its own panel, beside the canvas: it takes the open
+  // document's path, not its text, so only what it shows changing renders it.
+  const projectPdfPanel = (
+    <ProjectPdfPanel
+      host={pdfLive ? trellis.hosts.pdf : null}
+      projectRoot={project.root}
+      activeFile={documents.canvas.path}
+      pdf={{
+        pdfUrl,
+        pdfBytes: buildPipeline.displayedPdfBytesRef.current,
+        onBuildProject: () => void compileAndShowPdf(false, true),
+        building,
+        buildShortcut: commandShortcutText(commands, "build") ?? undefined,
+        pdfTop: (!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
+          <Suspense fallback={null}>
+            <CompileDiagnosticsPanel
+              diagnostics={build.diagnostics}
+              log={build.log}
+              success={build.success}
+              expanded={buildPipeline.diagnosticsExpanded}
+              onExpandedChange={buildPipeline.setDiagnosticsExpanded}
+              onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+              onInstallDependency={texSetup.installDependency}
+              onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
+              onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
+              onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
+              fixDisabled={!repairWritable || building || compileRepair.busy}
+              repair={compileRepair.state}
+              onCancelRepair={() => void compileRepair.cancel()}
+              onOpenRepair={() => {
+                const threadId = compileRepair.state?.threadId;
+                if (!threadId) return;
+                persistSynaraThread(project.root, threadId);
+                synara.mountFrame();
+                trellis.showPanel("agent");
+                synara.showThread(threadId);
+              }}
+              onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
+              sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
+              onReplaceToken={replaceDiagnosticToken}
+              onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
+            />
+          </Suspense>
+        ) : null,
+        pdfSyncTarget: syncTex.pdfSyncTarget,
+        canForwardSync: syncTex.canForwardSync,
+        locatingPdf: syncTex.locatingPdf,
+        onForwardSync: () => void revealSourceInPdf(),
+        onPdfSource: syncTex.revealPdfSource,
+        onPdfPageCount: setPdfPageCount,
+        onPdfPageChange: setPdfPageNumber,
+      }}
+      citations={{
+        citations,
+        canOpenCitation: (key) => Boolean(readablePaperCited(key) || citationUrl(key)),
+        onOpenCitation: (key) => {
+          const paper = readablePaperCited(key);
+          const url = citationUrl(key);
+          if (paper) void openPaper(paper);
+          else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+        },
+      }}
+      outline={{
+        nodes: outlineNodes,
+        activeId: latex.activeOutlineId,
+        open: outlineOpen,
+        onOpenChange: setOutlineOpen,
+        onNavigate: navigateOutline,
+      }}
+      review={{ annotations: editorComments.all, annotationRounds }}
+      selection={{
+        onPdfTextSelect: (value, place) => agentContext.reportSelection("pdf", value, place),
+        onContextSurfaceActivate: agentContext.activateSurface,
+      }}
+      viewState={{ getFileViewState, onFileViewState: rememberFileViewState }}
+      onLeaveEditor={documents.canvas.onLeaveForPdf}
     />
   );
 
@@ -2098,6 +2127,11 @@ function App() {
         <ChunkGate chunk={loadDocumentCanvas}>
           <Suspense fallback={null}>
             {documentCanvas}
+          </Suspense>
+        </ChunkGate>
+        <ChunkGate chunk={loadProjectPdfPanel}>
+          <Suspense fallback={null}>
+            {projectPdfPanel}
           </Suspense>
         </ChunkGate>
         {guidedTour && (

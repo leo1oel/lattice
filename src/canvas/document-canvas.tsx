@@ -30,7 +30,6 @@ import {
 } from "../editor/comments/editor-comment-data";
 import { clamp } from "../settings/app-settings";
 import { replaceTokenOnLine } from "../build/compile-diagnostics";
-import { DocumentOutline } from "./document-outline";
 import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
@@ -40,7 +39,7 @@ import {
 } from "../app/window-layout";
 import type { FileViewState, AssetPreview } from "../app-types";
 import {
-  isBibFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath,
+  isBibFilePath, isHtmlFilePath, isOpenSlideDeckPath,
   markdownFrontmatterEnd, PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
@@ -48,11 +47,8 @@ import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useCommittedRef, useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
-  BibVisualEditor, BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, PdfPreview,
-  PdfPreviewLoading, SpreadsheetEditor,
+  BibVisualEditor, BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, SpreadsheetEditor,
 } from "./canvas-lazy-editors";
-import { loadPdfPreviewModule } from "./canvas-lazy-modules";
-import { ChunkGate } from "../components/chunk-gate";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer } from "./annotation-composer";
 import { EditorCommentCards } from "./editor-comment-cards";
@@ -170,8 +166,8 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   const { editorKeymap } = props.preferences;
   const { katexMacros } = props.bibliography;
   const {
-    onGotoLineRequest, onOutlineNavigate, onOutlineOpenChange, onTableGeneratorOpenChange,
-    activeOutlineId, outlineNodes, outlineOpen, tableGeneratorOpen, getFileViewState, onFileViewState, onRequestHandled,
+    onGotoLineRequest, onOutlineNavigate, onTableGeneratorOpenChange,
+    outlineNodes, tableGeneratorOpen, getFileViewState, onFileViewState, onRequestHandled,
   } = props.navigation;
   const { onPrepareFigure } = props.assets;
   const {
@@ -267,6 +263,10 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   const flushPrimaryVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.(), []);
   const flushVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.() !== false, []);
   useRegistration(props.document.onVisualMarkdownFlushChange, flushVisualMarkdown);
+  const closeSourceCompletion = useCallback(() => {
+    if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
+  }, [primaryViewRef]);
+  useRegistration(props.document.onCompletionCloseChange, closeSourceCompletion);
   const primarySurface: AgentHostSurface = props.document.activePaper ? "paper" : "editor";
   const primaryKind = props.document.activePaper ? null : structuredDocumentKind(activeFile);
   // Every open deck renders in OpenSlideDeckPool; these change only with what they hold, so the pool re-derives only then.
@@ -365,17 +365,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   const splitMinimums = SPLIT_MINIMUMS;
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number } | null>(null);
-  // Saved-view ownership for the preview column. Files without a preview of
-  // their own (.bib, .sty) keep using the last previewable file's saved state.
-  // This is separate from the mounted viewer's identity: all TeX source files
-  // share the project's compiled PDF, including across SyncTeX jumps. The
-  // canvas outlives a project switch, so the identity is tied to its root: the
-  // outgoing project's file must not own the incoming project's saved PDF view.
-  const [previewIdentity, setPreviewIdentity] = useState({ root: props.preferences.projectRoot, path: activeFile });
-  const previewOwner = isPreviewableSourceFilePath(activeFile) ? activeFile : undefined;
-  if (previewIdentity.root !== props.preferences.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
-    setPreviewIdentity({ root: props.preferences.projectRoot, path: previewOwner ?? activeFile });
-  }
 
   const { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView } = useMarkdownModeHandoff({
     activeFile,
@@ -1344,76 +1333,15 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       )}
     </div>
   );
-  const projectPdfPreview = (requestedPath: string) => {
-    const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity.path;
-    const leaveEditorForPdf = () => {
-      // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
-      // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
-      if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
-      props.document.onEditorLeave();
-    };
-    const activatePdf = () => {
-      props.selection.onContextSurfaceActivate("pdf");
-      leaveEditorForPdf();
-    };
-    return (
-      <div
-        className="pdf-column"
-        data-tour="document-preview"
-        onPointerDownCapture={activatePdf}
-        onFocusCapture={activatePdf}
-        onWheelCapture={leaveEditorForPdf}
-      >
-        {props.pdf.pdfTop}
-        <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
-          {/* One viewer per project, across its TeX files: it restores the place it mounts with. */}
-          {withViewState(previewPath, "pdf", `project-pdf:${props.preferences.projectRoot}`, (binding) => (
-            <PdfPreview
-              url={props.pdf.pdfUrl}
-              pdfBytes={props.pdf.pdfBytes}
-              citations={props.bibliography.citations}
-              canOpenCitation={props.bibliography.canOpenCitation}
-              onOpenCitation={props.bibliography.onOpenCitation}
-              syncTarget={props.pdf.pdfSyncTarget}
-              canForwardSync={props.pdf.canForwardSync}
-              locatingPdf={props.pdf.locatingPdf}
-              onForwardSync={props.pdf.onForwardSync}
-              loadErrorHint={t`Try building the project again`}
-              onBuild={props.pdf.onBuildProject}
-              building={props.pdf.building}
-              buildShortcut={props.pdf.buildShortcut}
-              // Under Trellis a reverse jump always has a file panel to land in.
-              onSource={props.pdf.onPdfSource}
-              onTextSelect={props.selection.onPdfTextSelect}
-              annotations={editorComments}
-              annotationRounds={props.review.annotationRounds}
-              onNumPages={props.pdf.onPdfPageCount}
-              onPageChange={props.pdf.onPdfPageChange}
-              {...binding}
-              outline={(
-                <DocumentOutline
-                  nodes={outlineNodes}
-                  activeId={activeOutlineId}
-                  available={previewPath.toLocaleLowerCase().endsWith(".tex")}
-                  open={outlineOpen}
-                  onSelect={onOutlineNavigate}
-                  onOpenChange={onOutlineOpenChange}
-                />
-              )}
-            />
-          ))}
-        </Suspense></ChunkGate>
-      </div>
-    );
-  };
   const preview = props.document.activeAsset ? assetPreview(props.document.activeAsset)
     : bibDocument ? bibPreview
     : markdownDocument ? paperPreview
       : htmlDocument ? htmlPreview(activeFile, props.document.source, props.document.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
-        : projectPdfPreview(activeFile);
+        : null;
   // The file panel shows the document the way its kind is edited; LaTeX
-  // and other source files never split here, the PDF is its own panel.
-  const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.hosts;
+  // and other source files never split here, the PDF is its own panel
+  // (ProjectPdfPanel), so only a readable document or an asset previews.
+  const { editorHost, editorHibernated, hibernatedPlaceholder } = props.hosts;
   const readable = Boolean(props.document.activePaper) || markdownDocument || htmlDocument || bibDocument;
   const fileContent = props.document.activeAsset ? assetPreview(props.document.activeAsset)
     : primaryKind === "presentation" ? null
@@ -1466,7 +1394,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   return (
     <>
       {createPortal(fileContent, editorHost)}
-      {pdfHost && createPortal(projectPdfPreview(activeFile), pdfHost)}
       <OpenSlideDeckPool
         shared={deckSettings}
         active={activeDeck}

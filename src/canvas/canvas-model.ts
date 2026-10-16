@@ -15,7 +15,6 @@ import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-
 import type { PresenceCursor, TrackedChangeTooltipActions } from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
-import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { SwitchState } from "./after-switch";
 import type { DeckHosts } from "./open-slide-deck-pool";
@@ -53,6 +52,12 @@ type CanvasDocument = Readonly<{
   onSave: () => Promise<boolean>;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
+  /**
+   * Hands App a way to end the source editor's completion, for the PDF panel:
+   * turning to the PDF need not blur the editor, and an open completion holds
+   * off the save that leaving it makes.
+   */
+  onCompletionCloseChange?: (close: (() => void) | null) => void;
   onEditorLeave: () => void;
   onCompletionActiveChange: (active: boolean) => void;
   /** Remounts the source editor when it changes: the open file, or the Paper. */
@@ -101,8 +106,6 @@ type CanvasBibliography = Readonly<{
   onResolveCitation?: (query: string) => Promise<ResolvedCitationDraft>;
   /** Changes after the manuscript was saved, so the reference list scans its citations again. */
   citationUsageRevision?: unknown;
-  canOpenCitation: (key: string) => boolean;
-  onOpenCitation: (key: string) => void;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -134,10 +137,7 @@ type CanvasNavigation = Readonly<{
   onRenameEnvironment: (name: string) => void;
   onWrapEnvironment: () => void;
   onGotoLineRequest: () => void;
-  outlineOpen: boolean;
-  onOutlineOpenChange: (open: boolean) => void;
   outlineNodes: OutlineNode[];
-  activeOutlineId: string | null;
   /** The manuscript's root document, which `outlineNodes` is the outline of. */
   outlineRootPath?: string;
   onOutlineNavigate: (path: string, line: number) => void;
@@ -146,22 +146,12 @@ type CanvasNavigation = Readonly<{
   onCreateMissingFile: (path: string) => void;
 }>;
 
-/** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
+/**
+ * The compiled project PDF as the document sees it: the outline rail reads
+ * its headings' pages from it. The PDF itself is ProjectPdfPanel's.
+ */
 type CanvasPdf = Readonly<{
   pdfUrl: string | null;
-  pdfBytes?: ArrayBuffer | null;
-  /** Builds the project from the PDF panel while it has no PDF yet. */
-  onBuildProject?: () => void;
-  building?: boolean;
-  buildShortcut?: string;
-  pdfTop?: ReactNode;
-  pdfSyncTarget: PdfSyncTarget | null;
-  canForwardSync: boolean;
-  locatingPdf: boolean;
-  onForwardSync: () => void;
-  onPdfSource: (page: number, x: number, y: number) => void;
-  onPdfPageCount: (pages: number | null) => void;
-  onPdfPageChange: (page: number) => void;
 }>;
 
 /** Annotations, comments and a linked Overleaf project's live review. */
@@ -225,14 +215,9 @@ type CanvasStatus = Readonly<{
   texlabDiagnostics: CompileDiagnostic[];
 }>;
 
-/**
- * Where the active document renders (its file panel's host) and where the
- * project PDF renders (the PDF panel's host; null while that panel is
- * closed or hibernated).
- */
+/** Where the active document renders: its file panel's host. */
 type CanvasHosts = Readonly<{
   editorHost: HTMLElement;
-  pdfHost: HTMLElement | null;
   /** The active board or sheet, its panel off screen long enough to unmount. */
   editorHibernated: boolean;
   hibernatedPlaceholder: ReactNode;

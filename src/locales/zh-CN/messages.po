@@ -14231,7 +14231,7 @@ msgstr "重试…"
 msgid "Try another filter"
 msgstr "换个筛选条件试试"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/project-pdf-panel.tsx
 msgid "Try building the project again"
 msgstr "请尝试重新构建项目"
 

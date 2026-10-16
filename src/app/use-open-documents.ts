@@ -1098,6 +1098,16 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       void save();
     }
   }, [depsRef, renderedRef, save, saveAndBuild, savedRef, textRef]);
+  const closeCompletionRef = useRef<(() => void) | null>(null);
+  /**
+   * Leaving the editor for the PDF beside it. Scrolling or clicking the PDF
+   * need not blur CodeMirror, so its completion ends here first, or the guard
+   * above would hold off the save. A pointer merely leaving keeps the menu.
+   */
+  const onLeaveForPdf = useCallback(() => {
+    closeCompletionRef.current?.();
+    onEditorLeave();
+  }, [onEditorLeave]);
   const onCompletionActiveChange = useCallback((active: boolean) => {
     completionActiveRef.current = active;
     setCompletionActive(active);
@@ -1308,6 +1318,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
 
   const registerFlush = useCallback((next: (() => boolean) | null) => { flushRef.current = next; }, []);
   const registerViewportCapture = useCallback((next: (() => void) | null) => { captureViewportRef.current = next; }, []);
+  const registerCompletionClose = useCallback((next: (() => void) | null) => { closeCompletionRef.current = next; }, []);
 
   const tabsReady = Boolean(projectRoot) && (tabsSettledRoot === projectRoot || persistenceReadyRoot === projectRoot);
   const paperText = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
@@ -1333,10 +1344,12 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       previewText: paper ? (paperView === "blog" ? paperBlog ?? "" : stripFrontmatter(paperMarkdown)) : undefined,
       setText: paper ? setPaperText : setTextLive,
       onLeave: onEditorLeave,
+      onLeaveForPdf,
       onCompletionActiveChange,
       onAssetChanged,
       registerFlush,
       registerViewportCapture,
+      registerCompletionClose,
     },
     /** Ref twins for async work that must compare against the latest buffers. */
     live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef, documentMode: documentModeRef },
