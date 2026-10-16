@@ -1,0 +1,222 @@
+/* The reviewer's pass over the paper (paper-review-panel.tsx). Docked, the
+   panel can be as narrow as a tool panel's 200px floor, so nothing here holds
+   a width of its own: titles wrap to two lines, the readiness stops wrap
+   under their segments, and the actions wrap onto a second row. */
+.paper-review-drawer {
+  --review-mark: 10px;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+.review-panel { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; container: review-panel / inline-size; }
+.review-panel > .ui-empty-state[data-fill] { flex: 1 0 auto; }
+.review-error { margin-bottom: var(--space-6); }
+
+.review-body { flex: 1 0 auto; display: grid; align-content: start; gap: var(--space-8); min-width: 0; padding-top: var(--space-2); }
+.review-head { display: grid; gap: var(--space-5); min-width: 0; }
+.review-meta { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+/* Four stops rather than a score: the segments up to the verdict's are lit,
+   and the verdict's own label is the one in ink. */
+.review-track { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); }
+.review-track > span {
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 3px solid var(--border-strong);
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  overflow-wrap: anywhere;
+}
+.review-track > span[data-past] { border-top-color: color-mix(in srgb, var(--status-warning) 45%, var(--border-strong)); }
+.review-track > span[data-on] { border-top-color: var(--status-warning); color: var(--text-primary); font-weight: var(--weight-semibold); }
+.review-verdict {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
+  text-wrap: pretty;
+}
+.review-note { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+.review-strengths summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: fit-content;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.review-strengths summary::-webkit-details-marker { display: none; }
+.review-strengths summary svg { transition: rotate var(--motion-fast); }
+.review-strengths[open] summary svg { rotate: 90deg; }
+.review-strengths ul {
+  margin: var(--space-4) 0 0;
+  padding-inline-start: var(--space-12);
+  display: grid;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.review-strengths summary span,
+.review-group h3 span { margin-inline-start: var(--space-2); color: var(--text-tertiary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+
+.review-group h3 { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.review-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.review-finding { min-width: 0; border-radius: calc(var(--radius-surface) * var(--corner-smoothing)); corner-shape: squircle; }
+.review-finding[data-open] { background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
+.review-finding-row {
+  width: 100%;
+  min-height: var(--control-height-default);
+  border: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: var(--review-mark) minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: start;
+  font: inherit;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  cursor: pointer;
+  transition: background-color var(--motion-fast);
+}
+.review-finding-row:hover { background: var(--control-hover-surface); }
+.review-finding[data-open] .review-finding-row:hover { background: transparent; }
+.review-finding-row > svg { color: var(--text-tertiary); grid-column: 4; }
+/* A filled dot is a point that would weigh in the decision; a ring, polish.
+   Added to the annotations, either becomes a tick. */
+.review-finding-mark { width: var(--review-mark); height: var(--review-mark); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--text-tertiary); display: grid; place-items: center; }
+.review-finding[data-severity="major"] .review-finding-mark { box-shadow: none; background: var(--status-warning); }
+.review-finding[data-added] .review-finding-mark { box-shadow: none; background: var(--status-success); color: var(--surface-elevated); }
+.review-finding-title {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.review-finding[data-open] .review-finding-title { display: block; font-weight: var(--weight-medium); }
+.review-finding-anchor {
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.review-finding-body {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: 0 var(--space-4) var(--space-6) calc(var(--space-4) * 2 + var(--review-mark));
+}
+.review-quote {
+  min-width: 0;
+  border: 0;
+  border-inline-start: 2px solid color-mix(in srgb, var(--status-warning) 60%, transparent);
+  padding: var(--space-1) 0 var(--space-1) var(--space-6);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  display: grid;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+.review-quote q {
+  color: var(--text-primary);
+  font-family: var(--type-title-font);
+  font-style: italic;
+  font-size: var(--type-typeset-size);
+  line-height: var(--type-typeset-line-height);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  quotes: "\201C" "\201D";
+}
+.review-quote span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.review-quote:hover q { text-decoration: underline; text-decoration-color: var(--border-strong); }
+.review-finding-body > p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.review-actions .review-dismiss { margin-inline-start: auto; }
+.review-added { color: var(--status-success); font-size: var(--type-caption-size); font-weight: var(--weight-medium); display: inline-flex; align-items: center; gap: var(--space-3); }
+.review-none { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* The footer stays on screen while the report scrolls, edge to edge of the drawer. */
+.review-foot {
+  position: sticky;
+  bottom: calc(var(--drawer-content-inset) * -1);
+  margin: var(--space-8) calc(var(--drawer-content-inset) * -1) calc(var(--drawer-content-inset) * -1);
+  padding: var(--space-6) var(--drawer-content-inset);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-input);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-6);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.review-foot > span { flex: 1 1 12em; min-width: 0; }
+.review-foot > button { flex: 0 1 auto; min-width: 0; max-width: 100%; margin-inline-start: auto; }
+.review-foot-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-foot kbd { margin-inline-start: var(--space-3); font: inherit; opacity: .7; }
+
+.review-running { display: grid; gap: var(--space-8); align-content: start; min-width: 0; padding-top: var(--space-2); }
+.review-running h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
+}
+.review-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.review-steps li { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: center; gap: var(--space-5); }
+.review-steps li[data-state="done"] svg { color: var(--status-success); }
+.review-steps li[data-state="running"] { color: var(--text-primary); }
+.review-steps li[data-state="pending"] { color: var(--text-tertiary); }
+.review-running-time { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.review-skeleton { position: relative; overflow: hidden; list-style: none; margin: 0; padding: 0 0 0 calc(var(--space-4) * 2 + var(--review-mark)); display: grid; gap: var(--space-6); }
+.review-skeleton > li { height: var(--space-5); border-radius: var(--radius-pill); background: var(--border-subtle); }
+.review-skeleton > li:nth-child(2) { width: 72%; }
+.review-skeleton > li:nth-child(3) { width: 48%; }
+.review-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-input) 70%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: git-workspace-skeleton-sheen 1.6s ease-in-out infinite;
+}
+.review-running-note { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* A docked panel near its 200px floor: the verdict steps down from the title
+   size, a finding's place moves under its title, and the footer's button
+   takes the row without its shortcut. */
+@container review-panel (max-width: 280px) {
+  .review-verdict { font-size: var(--type-typeset-size); line-height: var(--type-typeset-line-height); }
+  .review-finding-row { grid-template-columns: var(--review-mark) minmax(0, 1fr) 14px; row-gap: 0; }
+  .review-finding-mark { align-self: start; margin-top: var(--space-3); }
+  .review-finding-row > svg { grid-column: 3; grid-row: 1; align-self: start; margin-top: var(--space-2); }
+  .review-finding-anchor { grid-column: 2; grid-row: 2; max-width: 100%; }
+  .review-finding-body { padding-inline-start: var(--space-4); }
+  .review-foot > button { flex: 1 1 100%; }
+  .review-foot kbd { display: none; }
+}

@@ -24,6 +24,7 @@ import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { annotationRounds, revisable } from "./app/annotation-rounds";
+import { paperReview } from "./app/paper-review";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -197,7 +198,7 @@ const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.defa
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
+const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
@@ -718,6 +719,7 @@ function App() {
       resetAgentSelection();
       resetEditorComments();
       annotationRounds.reset();
+      paperReview.reset();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -772,6 +774,24 @@ function App() {
         await refreshProject();
         if (activeFileRef.current) await loadFile(activeFileRef.current);
         await refreshHistory();
+      },
+    });
+    paperReview.attach({
+      store: editorComments, projectRootRef, openProjectFile: openFile,
+      author: { id: editorCommentAuthorId, name: authorName },
+      manuscript: () => {
+        const current = projectRef.current;
+        const roots = current?.manifest.rootDocuments ?? [];
+        const venue = current?.manifest.venue;
+        return {
+          root: (roots.find((document) => document.isDefault) ?? roots[0])?.path ?? null,
+          paths: flattenProjectPaths(current?.files ?? []),
+          venue: typeof venue === "string" && venue ? venue : null,
+        };
+      },
+      searchLiterature: (query) => {
+        referenceImport.searchLiterature(query);
+        tools.open("literature");
       },
     });
   });
@@ -1452,6 +1472,14 @@ function App() {
     {
       id: "checklist", when: inProject, label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: "edit",
       run: () => tools.open("checklist"),
+    },
+    {
+      // Opens on the last review; with none yet, the command is the ask for one.
+      id: "review-paper", when: inProject, label: t`Review the paper`, detail: t`As a reviewer would, each point anchored`, group: "research",
+      run: () => {
+        tools.open("review");
+        void paperReview.startIfNone();
+      },
     },
     { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
     {

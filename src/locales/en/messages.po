@@ -17,6 +17,10 @@ msgstr ""
 msgid " et al."
 msgstr " et al."
 
+#: src/project/paper-review-panel.tsx
+msgid ", "
+msgstr ", "
+
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
@@ -126,6 +130,11 @@ msgstr "{0} differ from a source's record"
 msgid "{0} entries"
 msgstr "{0} entries"
 
+#. placeholder {0}: stats.figures
+#: src/project/paper-review-panel.tsx
+msgid "{0} figures"
+msgstr "{0} figures"
+
 #. placeholder {0}: formatCount(count)
 #: src/history/versions-timeline.tsx
 msgid "{0} files"
@@ -166,6 +175,11 @@ msgstr "{0} pages"
 msgid "{0} people on Overleaf now"
 msgstr "{0} people on Overleaf now"
 
+#. placeholder {0}: report.dropped
+#: src/project/paper-review-panel.tsx
+msgid "{0} points were left out: their quotes are not in the paper"
+msgstr "{0} points were left out: their quotes are not in the paper"
+
 #. placeholder {0}: candidates.length
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} records match"
@@ -176,6 +190,11 @@ msgstr "{0} records match"
 msgid "{0} records match. Choose the one you mean."
 msgstr "{0} records match. Choose the one you mean."
 
+#. placeholder {0}: stats.sections
+#: src/project/paper-review-panel.tsx
+msgid "{0} sections"
+msgstr "{0} sections"
+
 #. placeholder {0}: selected.size
 #: src/papers/bibliography-audit.tsx
 msgid "{0} selected"
@@ -185,6 +204,11 @@ msgstr "{0} selected"
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "{0} suggestions"
 msgstr "{0} suggestions"
+
+#. placeholder {0}: stats.tables
+#: src/project/paper-review-panel.tsx
+msgid "{0} tables"
+msgstr "{0} tables"
 
 #. placeholder {0}: scan.issues.length
 #: src/papers/bibliography-audit.tsx
@@ -222,6 +246,10 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
+#: src/project/paper-review-panel.tsx
+msgid "{added} points added as annotations"
+msgstr "{added} points added as annotations"
+
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words over"
 msgstr "{amount} words over"
@@ -241,6 +269,10 @@ msgstr "{author} suggests inserting text"
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
+
+#: src/project/paper-review-panel.tsx
+msgid "{clock} elapsed"
+msgstr "{clock} elapsed"
 
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
@@ -731,6 +763,10 @@ msgstr "1 edit · errors only"
 msgid "1 entry"
 msgstr "1 entry"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 figure"
+msgstr "1 figure"
+
 #: src/history/versions-timeline.tsx
 msgid "1 file"
 msgstr "1 file"
@@ -786,6 +822,14 @@ msgstr "1 paper"
 msgid "1 person on Overleaf now"
 msgstr "1 person on Overleaf now"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 point added as an annotation"
+msgstr "1 point added as an annotation"
+
+#: src/project/paper-review-panel.tsx
+msgid "1 point was left out: its quote is not in the paper"
+msgstr "1 point was left out: its quote is not in the paper"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 reference, not checked yet"
 msgstr "1 reference, not checked yet"
@@ -794,10 +838,18 @@ msgstr "1 reference, not checked yet"
 msgid "1 result for “{shownQuery}”"
 msgstr "1 result for “{shownQuery}”"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 section"
+msgstr "1 section"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "1 suggestion"
 msgstr "1 suggestion"
+
+#: src/project/paper-review-panel.tsx
+msgid "1 table"
+msgstr "1 table"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
@@ -876,6 +928,14 @@ msgstr "A spreadsheet must contain between 1 and 200 sheets"
 #: src/settings/settings-search-index.ts
 msgid "A sync asks first"
 msgstr "A sync asks first"
+
+#: src/project/paper-review-panel.tsx
+msgid "A verdict, then what a {name} reviewer would raise, each point pinned to the passage it is about"
+msgstr "A verdict, then what a {name} reviewer would raise, each point pinned to the passage it is about"
+
+#: src/project/paper-review-panel.tsx
+msgid "A verdict, then what a reviewer would raise, each point pinned to the passage it is about"
+msgstr "A verdict, then what a reviewer would raise, each point pinned to the passage it is about"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1002,6 +1062,10 @@ msgstr "Add a cursor above or below"
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 
+#: src/project/paper-review-panel.tsx
+msgid "Add as annotation"
+msgstr "Add as annotation"
+
 #: src/trellis/trellis-labels.ts
 msgid "Add as tab"
 msgstr "Add as tab"
@@ -1061,6 +1125,10 @@ msgstr "Add project term"
 msgid "Add reference"
 msgstr "Add reference"
 
+#: src/project/paper-review-panel.tsx
+msgid "Add the points you agree with; nothing changes until you do"
+msgstr "Add the points you agree with; nothing changes until you do"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add to Papers"
 msgstr "Add to Papers"
@@ -1111,6 +1179,15 @@ msgstr "Added {done} papers"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "Added 1 paper"
+
+#: src/project/paper-review-panel.tsx
+msgid "Added as a comment"
+msgstr "Added as a comment"
+
+#. placeholder {0}: finding.annotation
+#: src/project/paper-review-panel.tsx
+msgid "Added as annotation {0}"
+msgstr "Added as annotation {0}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -1276,6 +1353,10 @@ msgstr "All your projects are archived or trashed"
 #: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "Allow external commands"
+
+#: src/project/paper-review-panel.tsx
+msgid "Almost"
+msgstr "Almost"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
@@ -1539,6 +1620,18 @@ msgstr "Article entry uses booktitle instead of journal."
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
+
+#: src/project/paper-review-panel.tsx
+msgid "as a {name} reviewer"
+msgstr "as a {name} reviewer"
+
+#: src/project/paper-review-panel.tsx
+msgid "as a peer reviewer"
+msgstr "as a peer reviewer"
+
+#: src/App.tsx
+msgid "As a reviewer would, each point anchored"
+msgstr "As a reviewer would, each point anchored"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "As the last round left it"
@@ -2326,6 +2419,19 @@ msgstr "checked"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "Checking {completed} of {progressTotal}…"
 
+#. placeholder {0}: stats.references
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims against {0} references"
+msgstr "Checking claims against {0} references"
+
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims against 1 reference"
+msgstr "Checking claims against 1 reference"
+
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims and citations"
+msgstr "Checking claims and citations"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "Checking the connection to {linkedHost}…"
@@ -2536,6 +2642,10 @@ msgstr "Clarify"
 #: src/canvas/proofread-card.tsx
 msgid "clarity"
 msgstr "clarity"
+
+#: src/project/paper-review-panel.tsx
+msgid "Clarity"
+msgstr "Clarity"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3656,6 +3766,11 @@ msgstr "Discover literature"
 msgid "Dismiss"
 msgstr "Dismiss"
 
+#: src/project/paper-review-panel.tsx
+msgctxt "review point"
+msgid "Dismiss"
+msgstr "Dismiss"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Dismiss diagnostics"
 msgstr "Dismiss diagnostics"
@@ -4232,6 +4347,10 @@ msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgid "Every panel is closed"
 msgstr "Every panel is closed"
 
+#: src/project/paper-review-panel.tsx
+msgid "Every point has been dismissed"
+msgstr "Every point has been dismissed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Every reference matched a verified record. Check again after you edit the bibliography."
 msgstr "Every reference matched a verified record. Check again after you edit the bibliography."
@@ -4504,6 +4623,10 @@ msgstr "Find in project"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Find references"
 msgstr "Find references"
+
+#: src/project/paper-review-panel.tsx
+msgid "Find support"
+msgstr "Find support"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -5734,6 +5857,10 @@ msgstr "Kept your copy of {files}. Overleaf sent these files empty or much small
 msgid "Key"
 msgstr "Key"
 
+#: src/project/paper-review-panel.tsx
+msgid "Key issues"
+msgstr "Key issues"
+
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
 msgstr "Key removed"
@@ -5874,6 +6001,10 @@ msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to t
 #: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice could not read {0}."
+
+#: src/app/paper-review.ts
+msgid "Lattice could not read {root}."
+msgstr "Lattice could not read {root}."
 
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
@@ -6608,6 +6739,10 @@ msgstr "Missing {files} — NeurIPS Build will Emergency stop. In Terminal: sudo
 msgid "Missing {files} — PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build."
 msgstr "Missing {files} — PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build."
 
+#: src/project/paper-review-panel.tsx
+msgid "Missing citations"
+msgstr "Missing citations"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Missing figure “{figure}”."
 msgstr "Missing figure “{figure}”."
@@ -6786,6 +6921,10 @@ msgstr "Needs a root document to count from"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
 msgstr "Needs approval"
+
+#: src/project/paper-review-panel.tsx
+msgid "Needs work"
+msgstr "Needs work"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Needs your answer"
@@ -7163,6 +7302,10 @@ msgstr "No papers match “{trimmedQuery}”"
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
+#: src/project/paper-review-panel.tsx
+msgid "No points to raise"
+msgstr "No points to raise"
+
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
 msgstr "No project terms added"
@@ -7341,6 +7484,10 @@ msgstr "Not in a file"
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "Not now"
+
+#: src/project/paper-review-panel.tsx
+msgid "Not ready"
+msgstr "Not ready"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -8362,6 +8509,10 @@ msgstr "Please confirm that you want to continue."
 msgid "Plus-minus"
 msgstr "Plus-minus"
 
+#: src/app/paper-review.ts
+msgid "Point dismissed"
+msgstr "Point dismissed"
+
 #: src/canvas/proofread-card.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Polish"
@@ -8725,6 +8876,10 @@ msgstr "Python tooling used for literature and bibliography tools"
 msgid "Question"
 msgstr "Question"
 
+#: src/project/paper-review-panel.tsx
+msgid "Questions"
+msgstr "Questions"
+
 #: src/app/use-build-pipeline.ts
 msgid "queued"
 msgstr "queued"
@@ -8774,9 +8929,26 @@ msgstr "Rate-limited. Try again later"
 msgid "Raw build log"
 msgstr "Raw build log"
 
+#: src/project/paper-review-panel.tsx
+msgid "Read {read}"
+msgstr "Read {read}"
+
+#: src/project/paper-review-panel.tsx
+msgid "read in {minutes} min"
+msgstr "read in {minutes} min"
+
+#: src/project/paper-review-panel.tsx
+msgid "Read the paper as a reviewer would"
+msgstr "Read the paper as a reviewer would"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Read-only preview · click to edit"
 msgstr "Read-only preview · click to edit"
+
+#. placeholder {0}: stops[stop]
+#: src/project/paper-review-panel.tsx
+msgid "Readiness: {0}"
+msgstr "Readiness: {0}"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -8794,6 +8966,18 @@ msgstr "Reading the bibliography…"
 msgid "Reading the file…"
 msgstr "Reading the file…"
 
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper"
+msgstr "Reading the paper"
+
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper as a {name} reviewer"
+msgstr "Reading the paper as a {name} reviewer"
+
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper as a reviewer"
+msgstr "Reading the paper as a reviewer"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Reading the rounds…"
 msgstr "Reading the rounds…"
@@ -8805,6 +8989,10 @@ msgstr "Reading the third-party notices…"
 #: src/settings/theme-settings.tsx
 msgid "Reads as text at {ratio}:1, used as picked"
 msgstr "Reads as text at {ratio}:1, used as picked"
+
+#: src/project/paper-review-panel.tsx
+msgid "Ready"
+msgstr "Ready"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -9559,6 +9747,12 @@ msgstr "Reverse turnstile"
 msgid "Revert to saved"
 msgstr "Revert to saved"
 
+#: src/app/paper-review.ts
+#: src/project/paper-review-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Review"
+msgstr "Review"
+
 #. placeholder {0}: rounds.proposals.length
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Review {0} proposals"
@@ -9569,6 +9763,7 @@ msgid "Review 1 proposal"
 msgstr "Review 1 proposal"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Review again"
 msgstr "Review again"
 
@@ -9588,6 +9783,11 @@ msgstr "Review Overleaf changes"
 msgid "Review the final file before saving"
 msgstr "Review the final file before saving"
 
+#: src/App.tsx
+#: src/project/paper-review-panel.tsx
+msgid "Review the paper"
+msgstr "Review the paper"
+
 #: src/pdf/pdf-annotations.tsx
 msgid "Review the proposal"
 msgstr "Review the proposal"
@@ -9603,6 +9803,7 @@ msgstr "Revise from 1 annotation"
 
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Revise from annotations"
 msgstr "Revise from annotations"
 
@@ -10132,6 +10333,10 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "Services"
 
+#: src/app/paper-review.ts
+msgid "Set a root document to review the paper."
+msgstr "Set a root document to review the paper."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
 msgstr "Set minus"
@@ -10225,6 +10430,7 @@ msgid "Show in source"
 msgstr "Show in source"
 
 #: src/pdf/pdf-annotations.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Show in the source"
 msgstr "Show in the source"
 
@@ -10648,6 +10854,7 @@ msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try co
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Stop"
 msgstr "Stop"
 
@@ -10662,6 +10869,10 @@ msgstr "Stop the build"
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
+
+#: src/project/paper-review-panel.tsx
+msgid "Strengths"
+msgstr "Strengths"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -11008,6 +11219,15 @@ msgstr "The agent could not proofread the selection: {detail}"
 msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
 
+#. placeholder {0}: reason.detail
+#: src/app/paper-review.ts
+msgid "The agent could not review the paper: {0}"
+msgstr "The agent could not review the paper: {0}"
+
+#: src/app/paper-review.ts
+msgid "The agent could not review the paper."
+msgstr "The agent could not review the paper."
+
 #: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage: {detail}"
 msgstr "The agent could not revise this passage: {detail}"
@@ -11047,6 +11267,10 @@ msgstr "The agent's reply did not contain a proofread version of the selection."
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "The agent's reply held neither a revision nor a question."
+
+#: src/app/paper-review.ts
+msgid "The agent's report could not be read. Try the review again."
+msgstr "The agent's report could not be read. Try the review again."
 
 #: src/canvas/annotation-review.tsx
 msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
@@ -11214,6 +11438,14 @@ msgstr "The Overleaf project connection is no longer active."
 msgid "The package repository does not have this package."
 msgstr "The package repository does not have this package."
 
+#: src/project/paper-review-panel.tsx
+msgid "The paper is longer than one review reads, so its end was left out"
+msgstr "The paper is longer than one review reads, so its end was left out"
+
+#: src/project/paper-review-panel.tsx
+msgid "The paper stays editable; findings point at the text as it was when the review started"
+msgstr "The paper stays editable; findings point at the text as it was when the review started"
+
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "The passage changed after the agent read it. Try again to have it read the passage as it is now."
@@ -11266,6 +11498,10 @@ msgstr "The published version could not be confirmed."
 msgid "The publisher has issued a notice about this paper. Read it before you keep citing it."
 msgstr "The publisher has issued a notice about this paper. Read it before you keep citing it."
 
+#: src/app/paper-review.ts
+msgid "The quoted passage has changed since the review, so this point has nowhere to go."
+msgstr "The quoted passage has changed since the review, so this point has nowhere to go."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The realtime connection closed."
 msgstr "The realtime connection closed."
@@ -11293,6 +11529,11 @@ msgstr "The required tools"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "The results did not identify a unique matching publication."
+
+#. placeholder {0}: toMessage(reason)
+#: src/app/paper-review.ts
+msgid "The review could not be saved: {0}"
+msgstr "The review could not be saved: {0}"
 
 #: src/settings/acknowledged-software.ts
 msgid "The rich-text editor"
@@ -11569,6 +11810,10 @@ msgstr "This value joins strings with #; keep it valid BibTeX."
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 
+#: src/app/paper-review.ts
+msgid "This version of the agent runtime cannot review the paper yet. Update Lattice to use reviews."
+msgstr "This version of the agent runtime cannot review the paper yet. Update Lattice to use reviews."
+
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
@@ -11736,6 +11981,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Try again"
 msgstr "Try again"
 
@@ -11825,6 +12071,7 @@ msgstr "Unclosed inline math {open}."
 msgid "Underline"
 msgstr "Underline"
 
+#: src/app/paper-review.ts
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
 #: src/canvas/document-canvas.tsx
@@ -12502,6 +12749,10 @@ msgstr "Writing"
 #: src/build/tex-setup-wizard.tsx
 msgid "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
 msgstr "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
+
+#: src/project/paper-review-panel.tsx
+msgid "Writing the report"
+msgstr "Writing the report"
 
 #: src/build/build-log-messages.ts
 msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."

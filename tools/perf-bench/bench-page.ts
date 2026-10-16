@@ -488,6 +488,71 @@ const UNSAFE_FIXES: Fix[] = [
 ];
 const proofreadTasks = new Map<string, { text: string; ready: number }>();
 
+// --- Reviewer's pass ------------------------------------------------------
+// The agent's review of the tutorial: real passages of its main.tex, with a
+// point whose quote the paper does not hold (Lattice leaves it out). The
+// report comes back 2.5 s after the ask; `?review=running` holds it until the
+// page reloads, for the running state, `?review=failed` fails the task, and
+// `?review=long` gives every point a long title and place, for narrow panels.
+// `.research/reviews/` is kept in memory.
+
+const REVIEW_REPORT = (zh: boolean) => ({
+  readiness: "needs-work",
+  verdict: zh
+    ? "一篇清楚、严谨的教程。有两处会让审稿人停下来：§3 关于“解释”的论断没有出处，数值例子也无法核对。其余都是润色层面的问题。"
+    : "A clear, careful tutorial. Two things would stop a reviewer: the explanation claim in §3 has no source, and the numerical example can’t be checked. The rest is polish.",
+  strengths: zh
+    ? ["清楚区分了注意力“计算了什么”和“解释了什么”。", "每个公式后面都有一句话说明它的作用。", "表 1 比较的是角色，而不是不可比的分数。"]
+    : ["A careful line between what attention computes and what it explains.", "Every equation is followed by one sentence that says what it does.", "Table 1 compares roles, not incompatible scores."],
+  findings: [
+    {
+      kind: "key", severity: "major", section: "§3", file: "main.tex", search: "attention as explanation faithfulness",
+      title: zh ? "关于“注意力即解释”的论断缺少出处" : "A claim about attention as explanation has no source",
+      quote: "Attention visualizations describe routing weights inside a model, not a causal explanation of the model's final prediction.",
+      reason: zh
+        ? "这是全文最强的论断，审稿人一定会要证据。Jain & Wallace (2019) 与 Wiegreffe & Pinter (2019) 分别给出了正反两方面的论证，引用它们并说明你依据的是哪一个结论。"
+        : "This is the paper's strongest claim and a reviewer will ask for evidence. Jain & Wallace (2019) and Wiegreffe & Pinter (2019) argue both sides; cite them and say which result you rely on.",
+    },
+    {
+      kind: "key", severity: "major", section: "§2.1", file: "main.tex",
+      title: zh ? "数值例子无法复现" : "The numerical example can’t be reproduced",
+      quote: "For the query at \\emph{connects}, suppose the scaled scores are",
+      reason: zh
+        ? "这个例子跳过了它要说明的那一步：请给出原始点积和 d_k，让读者能在 softmax 之前核对缩放。"
+        : "The example skips the step it illustrates: give the raw dot products and d_k, so a reader can check the scaling before the softmax.",
+    },
+    {
+      kind: "citation", severity: "minor", section: "§3", file: "main.tex", search: "relative position representations transformer",
+      title: zh ? "“可学习或相对位置表示”没有引用" : "“Learned or relative position representations” is uncited",
+      quote: "many later architectures use learned or relative position representations",
+      reason: zh ? "至少各举一例，例如相对位置的 Shaw et al. (2018) 与 RoFormer (2021)。" : "Name at least one of each, e.g. Shaw et al. (2018) for relative positions and RoFormer (2021).",
+    },
+    {
+      kind: "citation", severity: "minor", section: "§5", file: "main.tex", search: "FlashAttention exact attention IO-aware",
+      title: zh ? "“精确注意力”需要限定" : "“Exact attention” needs its qualifier",
+      quote: "FlashAttention computes exact attention while tiling operations to reduce expensive transfers",
+      reason: zh ? "它在浮点运算重排的意义下是精确的；照 FlashAttention 原文那样说明这一点。" : "Exact up to floating-point reordering; say so, as the FlashAttention paper does.",
+    },
+    {
+      kind: "clarity", severity: "minor", section: "§7", file: "main.tex",
+      title: zh ? "“可复现的学习流程”一节读起来像产品说明" : "“Reproducible learning workflow” reads as product notes",
+      quote: "This repository is also a worked example of a research workspace.",
+      reason: zh ? "它打断了第 6 节与结论之间的论证，建议移到附录。" : "It interrupts the argument between §6 and the conclusion; move it to an appendix.",
+    },
+    {
+      kind: "question", severity: "minor", section: "Table 1", file: "main.tex",
+      title: zh ? "ViT 一行是否默认使用了 class token？" : "Does the ViT row assume a class token?",
+      quote: "ViT & Image patch & Bidirectional & Image classification",
+      reason: zh ? "说明分类读取的是 [CLS] token 还是对图块做池化；这会改变“双向”所指的范围。" : "Say whether classification reads a [CLS] token or pools patches; it changes what “bidirectional” covers.",
+    },
+    {
+      kind: "clarity", severity: "minor", section: "§4", file: "main.tex",
+      title: "Invented", quote: "A sentence the tutorial never wrote.", reason: "",
+    },
+  ],
+});
+let paperReviewState: unknown = null;
+
 // --- Annotations ----------------------------------------------------------
 // `.research/annotations.json` kept in memory. On the tutorial, `?annotations=1`
 // seeds five open notes (one made on the PDF), `?annotations=review` a round
@@ -607,6 +672,19 @@ function textTask(args: Args): unknown {
   if (action === "start") {
     if (mode === "unavailable") throw "agent_route_unavailable";
     const prompt = String(args?.prompt ?? "");
+    if (prompt.startsWith("Review the LaTeX paper")) {
+      const taskId = `text-task:${proofreadTasks.size + 1}`;
+      const report = REVIEW_REPORT(prompt.includes("in Simplified Chinese"));
+      if (params.get("review") === "long") {
+        for (const finding of report.findings) {
+          finding.title = `${finding.title} ${finding.title}`;
+          finding.section = `${finding.section}, Appendix B.3 (Ablations)`;
+        }
+      }
+      const ready = params.get("review") === "running" ? Infinity : performance.now() + 2_500;
+      proofreadTasks.set(taskId, { text: `<review>\n${JSON.stringify(report, null, 2)}\n</review>`, ready });
+      return { taskId };
+    }
     if (prompt.startsWith("Revise a passage")) {
       const taskId = `text-task:${proofreadTasks.size + 1}`;
       proofreadTasks.set(taskId, { text: annotationReply(prompt), ready: performance.now() + 1_200 + Math.random() * 1_600 });
@@ -634,7 +712,7 @@ function textTask(args: Args): unknown {
   if (!task) throw "Agent task not found.";
   if (action === "cancel") return { status: "running" };
   if (performance.now() < task.ready) return { status: "running" };
-  if (mode === "failed") return { status: "failed", message: "Codex is not signed in." };
+  if (mode === "failed" || params.get("review") === "failed") return { status: "failed", message: "Codex is not signed in." };
   const model = params.get("proofreadModel");
   return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
@@ -830,6 +908,11 @@ function answer(command: string, args: Args): unknown {
       return textTask(args);
     case "list_annotations":
       return benchAnnotations();
+    case "read_paper_review":
+      return paperReviewState;
+    case "save_paper_review":
+      paperReviewState = args?.review ?? null;
+      return null;
     case "save_annotations":
       annotationsState = { annotations: (args?.annotations as BenchAnnotation[]) ?? [], rounds: (args?.rounds as Array<Record<string, unknown>>) ?? [] };
       return null;

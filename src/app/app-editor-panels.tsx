@@ -1,11 +1,12 @@
 /**
  * The panels that hang off the editor rather than the project: the
- * Annotations panel and its Revision rounds sheet, the TODO scavenger, and
- * the submission checklist.
+ * Annotations panel and its Revision rounds sheet, the TODO scavenger, the
+ * submission checklist, and the reviewer's pass over the paper.
  *
- * Only the annotations are lazy, so they carry their own `Suspense` rather
- * than sharing one with the other drawers — a `null` fallback that covered
- * all of them would unmount an open TODO panel while an unrelated chunk loads.
+ * The annotations and the review are lazy, so each carries its own
+ * `Suspense` rather than sharing one with the other drawers — a `null`
+ * fallback that covered all of them would unmount an open TODO panel while
+ * an unrelated chunk loads.
  */
 import { lazy, memo, Suspense, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -34,6 +35,9 @@ import type {
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
+);
+const PaperReviewPanel = lazy(() =>
+  import("../project/paper-review-panel").then((module) => ({ default: module.PaperReviewPanel })),
 );
 const AnnotationRoundsDialog = lazy(() =>
   import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
@@ -164,6 +168,15 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             tools.close("todos");
           }}
         />
+      )}
+      {tools.isOpen.review && (
+        <Suspense fallback={null}>
+          <PaperReviewPanel
+            venue={typeof project.manifest.venue === "string" && project.manifest.venue ? project.manifest.venue : null}
+            annotations={comments.comments}
+            onClose={() => tools.close("review")}
+          />
+        </Suspense>
       )}
       {tools.isOpen.checklist && project && (
         <ManuscriptChecklistPanel
