@@ -204,6 +204,21 @@ msgstr "{0} 页"
 msgid "{0} people on Overleaf now"
 msgstr "{0} 人正在 Overleaf 上"
 
+#. placeholder {0}: kept.length
+#: src/project/terms-panel.tsx
+msgid "{0} places kept as written"
+msgstr "{0} 处保留原文"
+
+#. placeholder {0}: pending.length
+#: src/project/terms-panel.tsx
+msgid "{0} places to review in {pendingFiles} files"
+msgstr "{pendingFiles} 个文件中有 {0} 处待确认"
+
+#. placeholder {0}: pending.length
+#: src/project/terms-panel.tsx
+msgid "{0} places to review in 1 file"
+msgstr "1 个文件中有 {0} 处待确认"
+
 #. placeholder {0}: report.dropped
 #: src/project/paper-review-panel.tsx
 msgid "{0} points were left out: their quotes are not in the paper"
@@ -612,6 +627,10 @@ msgstr "{installedProduct} 已装好，但以下检查未通过：\n"
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place}——点击跳转"
 
+#: src/project/terms-panel.tsx
+msgid "{leftAsWritten} more are in math, comments, keys or paths, and stay as written."
+msgstr "另有 {leftAsWritten} 处在公式、注释、引用键或路径中，保持原样。"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "{library} is up to date."
 msgstr "{library} 已是最新。"
@@ -974,6 +993,10 @@ msgstr "1 小时"
 msgid "1 minute"
 msgstr "1 分钟"
 
+#: src/project/terms-panel.tsx
+msgid "1 more is in math, a comment, a key or a path, and stays as written."
+msgstr "另有 1 处在公式、注释、引用键或路径中，保持原样。"
+
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "1 more reply"
@@ -1025,6 +1048,14 @@ msgstr "1 篇论文与此相关。"
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 人正在 Overleaf 上"
+
+#: src/project/terms-panel.tsx
+msgid "1 place kept as written"
+msgstr "1 处保留原文"
+
+#: src/project/terms-panel.tsx
+msgid "1 place to review in 1 file"
+msgstr "1 个文件中有 1 处待确认"
 
 #: src/project/paper-review-panel.tsx
 msgid "1 point added as an annotation"
@@ -1316,6 +1347,10 @@ msgstr "补引用"
 msgid "Add a cursor above or below"
 msgstr "多加光标"
 
+#: src/project/terms-panel.tsx
+msgid "Add a name the paper should always write one way, such as zero-shot or ResNet, and the forms to look for."
+msgstr "添加论文中应统一写法的名称，例如 zero-shot 或 ResNet，以及需要查找的其他写法。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
@@ -1394,6 +1429,10 @@ msgstr "添加词语"
 #: src/papers/bib-visual-editor.tsx
 msgid "Add reference"
 msgstr "添加文献"
+
+#: src/project/terms-panel.tsx
+msgid "Add rule"
+msgstr "添加规则"
 
 #: src/project/paper-review-panel.tsx
 msgid "Add the points you agree with; nothing changes until you do"
@@ -1676,6 +1715,10 @@ msgstr "图片说明"
 msgid "Amalgamation"
 msgstr "合并运算"
 
+#: src/project/terms-panel.tsx
+msgid "American"
+msgstr "美式"
+
 #: src/build/compile-explain.ts
 msgid "An & outside a table"
 msgstr "表格外出现了 &"
@@ -1951,6 +1994,10 @@ msgstr "像审稿人一样通读，每条意见都指向原文"
 msgid "As the last round left it"
 msgstr "与最近一轮结束时相同"
 
+#: src/project/terms-panel.tsx
+msgid "As the text has it"
+msgstr "沿用正文"
+
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
 msgstr "重新请求"
@@ -2002,6 +2049,10 @@ msgstr "刚好到上限"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need、扩散模型…"
+
+#: src/project/terms-panel.tsx
+msgid "Australian"
+msgstr "澳式"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -2125,6 +2176,7 @@ msgid "Beamer slide"
 msgstr "Beamer 幻灯片"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/terms-panel.tsx
 msgid "becomes"
 msgstr "改为"
 
@@ -2358,6 +2410,10 @@ msgstr "短音符示例"
 msgid "Bring back {0}"
 msgstr "找回 {0}"
 
+#: src/project/terms-panel.tsx
+msgid "British"
+msgstr "英式"
+
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "日志列表存不下了，新日志仍会写入文件，但重启后列表可能清空"
@@ -2537,6 +2593,10 @@ msgstr "最多 15 分钟"
 msgid "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
 msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘未连接。"
 
+#: src/project/terms-panel.tsx
+msgid "Canadian"
+msgstr "加拿大式"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -2566,6 +2626,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
+#: src/project/terms-panel.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
 msgstr "取消"
@@ -2720,6 +2781,20 @@ msgstr "居中的多行公式"
 msgid "Change"
 msgstr "更换"
 
+#: src/project/terms-panel.tsx
+msgctxt "term"
+msgid "Change"
+msgstr "修改"
+
+#: src/project/terms-panel.tsx
+msgid "Change 1"
+msgstr "修改 1 处"
+
+#. placeholder {0}: hits.length
+#: src/project/terms-panel.tsx
+msgid "Change all {0}"
+msgstr "全部修改（{0} 处）"
+
 #: src/history/compare-versions.tsx
 msgid "Changed files"
 msgstr "有改动的文件"
@@ -2739,6 +2814,14 @@ msgstr "确认后已更改"
 #: src/papers/bibliography-audit.tsx
 msgid "Changed since the last check"
 msgstr "上次检查后有改动"
+
+#: src/app/app-editor-panels.tsx
+msgid "Changed the term in 1 file."
+msgstr "已在 1 个文件中修改术语。"
+
+#: src/app/app-editor-panels.tsx
+msgid "Changed the terms in {count} files."
+msgstr "已在 {count} 个文件中修改术语。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed there, untouched here"
@@ -2777,6 +2860,7 @@ msgstr "抑扬符示例"
 
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/terms-panel.tsx
 msgid "Check again"
 msgstr "重新检查"
 
@@ -4658,6 +4742,15 @@ msgstr "编辑消息"
 msgid "Edit message text"
 msgstr "编辑消息内容"
 
+#: src/project/terms-panel.tsx
+msgid "Edit rule"
+msgstr "编辑规则"
+
+#. placeholder {0}: rule.term
+#: src/project/terms-panel.tsx
+msgid "Edit rule for {0}"
+msgstr "编辑“{0}”的规则"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Edit table"
 msgstr "编辑表格"
@@ -4804,6 +4897,7 @@ msgstr "结束环境"
 msgid "End tour"
 msgstr "结束教程"
 
+#: src/project/terms-panel.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -4852,6 +4946,10 @@ msgstr "进入全屏幕"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Enter manually"
 msgstr "手动填写"
+
+#: src/project/terms-panel.tsx
+msgid "Enter the term the paper should use."
+msgstr "请输入论文应使用的术语。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
@@ -4959,6 +5057,15 @@ msgstr "所有意见都已忽略"
 #: src/papers/bibliography-audit.tsx
 msgid "Every reference matched a verified record. Check again after you edit the bibliography."
 msgstr "每条文献都对上了核实过的记录。改动文献后，再检查一次。"
+
+#. placeholder {0}: loaded.length
+#: src/project/terms-panel.tsx
+msgid "Every rule is followed across {0} .tex files"
+msgstr "{0} 个 .tex 文件均符合全部规则"
+
+#: src/project/terms-panel.tsx
+msgid "Every rule is followed in the 1 .tex file"
+msgstr "该 .tex 文件符合全部规则"
 
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
@@ -5979,6 +6086,10 @@ msgstr "色相"
 msgid "Hyperlink with text"
 msgstr "带文字的超链接"
 
+#: src/project/terms-panel.tsx
+msgid "Hyphenated when it modifies a noun"
+msgstr "修饰名词时加连字符"
+
 #: src/papers/audit-messages.ts
 msgid "ICLR Proceedings"
 msgstr "ICLR 会议论文集"
@@ -6133,6 +6244,10 @@ msgstr "会议论文"
 #: src/telemetry/app-log.tsx
 msgid "In progress"
 msgstr "进行中"
+
+#: src/project/terms-panel.tsx
+msgid "In the paper"
+msgstr "论文中"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "In the project now · {here}"
@@ -6401,6 +6516,10 @@ msgstr "正在安装…"
 msgid "Installs the TeX Live package that provides {0}"
 msgstr "安装 {0} 所需的组件"
 
+#: src/project/terms-panel.tsx
+msgid "Instead of"
+msgstr "替换以下写法"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
 msgstr "信息太少，无法核对"
@@ -6539,6 +6658,7 @@ msgid "Kappa"
 msgstr "卡帕"
 
 #: src/editor/latex/highlighters.ts
+#: src/project/terms-panel.tsx
 msgid "Keep"
 msgstr "保留"
 
@@ -7929,6 +8049,10 @@ msgstr "新建幻灯片"
 msgid "New project"
 msgstr "新建项目"
 
+#: src/project/terms-panel.tsx
+msgid "New rule"
+msgstr "新规则"
+
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
 msgstr "向下分屏"
@@ -8307,6 +8431,10 @@ msgstr "没有结果"
 msgid "No results for “{trimmedQuery}”"
 msgstr "没找到“{trimmedQuery}”"
 
+#: src/project/terms-panel.tsx
+msgid "No rules yet"
+msgstr "还没有规则"
+
 #: src/canvas/proofread-card.tsx
 msgid "No safe edits"
 msgstr "没有可用的修改"
@@ -8680,6 +8808,10 @@ msgstr "这一屏"
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "这台 Mac"
+
+#: src/App.tsx
+msgid "One name and spelling across the paper"
+msgstr "全文统一名称与拼写"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -10087,6 +10219,10 @@ msgstr "正在以 {name} 审稿人视角读论文"
 msgid "Reading the paper as a reviewer"
 msgstr "正在以审稿人视角读论文"
 
+#: src/project/terms-panel.tsx
+msgid "Reading the paper’s .tex files…"
+msgstr "正在读取论文的 .tex 文件…"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Reading the rounds…"
 msgstr "正在读取各轮修改…"
@@ -10332,6 +10468,11 @@ msgstr "删除密钥"
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "从 Overleaf 删除 1 个文件？"
+
+#. placeholder {0}: rule.term
+#: src/project/terms-panel.tsx
+msgid "Remove rule for {0}"
+msgstr "删除“{0}”的规则"
 
 #: src/project/submission-items.tsx
 msgid "Remove template"
@@ -11117,6 +11258,10 @@ msgstr "行选项"
 msgid "Rows"
 msgstr "行数"
 
+#: src/project/terms-panel.tsx
+msgid "Rules"
+msgstr "规则"
+
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
 msgstr "第 {run} 次"
@@ -11260,6 +11405,10 @@ msgstr "请先保存，再更新引用"
 msgid "Save resolved file"
 msgstr "保存文件"
 
+#: src/project/terms-panel.tsx
+msgid "Save rule"
+msgstr "保存规则"
+
 #: src/canvas/status-save-state.tsx
 msgid "Save state"
 msgstr "保存状态"
@@ -11271,6 +11420,10 @@ msgstr "保存模板"
 #: src/app/use-reference-import.ts
 msgid "Save the open file first."
 msgstr "请先保存当前打开的文件。"
+
+#: src/app/app-editor-panels.tsx
+msgid "Save the open file to check its terms."
+msgstr "请先保存当前文件，再检查术语。"
 
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
@@ -11665,6 +11818,10 @@ msgstr "发送回复"
 msgid "Sent to Crossref for faster lookups. No key needed"
 msgstr "用于加快查询，无需密钥"
 
+#: src/project/terms-panel.tsx
+msgid "Separate forms with commas. Other capitalizations are found without listing them."
+msgstr "多个写法用逗号分隔。大小写不同的写法无需列出，也会被找到。"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
 msgstr "分隔线"
@@ -11719,6 +11876,11 @@ msgstr "显示"
 #: src/history/compare-versions.tsx
 msgid "Show {0} automatic versions"
 msgstr "显示 {0} 个自动版本"
+
+#. placeholder {0}: hits.length - SHOWN_PLACES
+#: src/project/terms-panel.tsx
+msgid "Show {0} more"
+msgstr "再显示 {0} 处"
 
 #: src/App.tsx
 msgid "Show {name} panel"
@@ -12116,6 +12278,14 @@ msgstr "左下箭头"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "黑桃"
+
+#: src/project/terms-panel.tsx
+msgid "Spell checking marks the other variants’ spellings. Nothing in the text is changed for you."
+msgstr "拼写检查会标出其他变体的拼写，不会自动改动正文。"
+
+#: src/project/terms-panel.tsx
+msgid "Spell checking uses American spelling, and Proofread keeps the spelling the text already uses."
+msgstr "拼写检查按美式拼写；校对沿用正文已有的拼写。"
 
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
@@ -12553,6 +12723,12 @@ msgstr "详细信息"
 msgid "Template name"
 msgstr "模板名称"
 
+#: src/App.tsx
+#: src/project/terms-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Terms"
+msgstr "术语"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
@@ -12899,6 +13075,10 @@ msgstr "Overleaf 项目变了，请重新评论"
 msgid "The local Git service hasn’t answered. Try loading it again."
 msgstr "本地 Git 没响应，请重试"
 
+#: src/project/terms-panel.tsx
+msgid "The names and spellings this paper settles on. Proofread and Polish follow them as well."
+msgstr "这篇论文确定使用的名称和拼写。校对与润色也会遵循。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "网络已恢复"
@@ -13044,6 +13224,12 @@ msgstr "无法保存审阅：{0}"
 #: src/settings/acknowledged-software.ts
 msgid "The rich-text editor"
 msgstr "富文本编辑器"
+
+#. placeholder {0}: clash.term
+#. placeholder {1}: clash.form
+#: src/project/terms-panel.tsx
+msgid "The rule for “{0}” already covers “{1}”."
+msgstr "“{0}”的规则已包含“{1}”。"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."
@@ -14304,6 +14490,10 @@ msgstr "负责人"
 msgid "Whole word"
 msgstr "整个词"
 
+#: src/project/terms-panel.tsx
+msgid "Why <0>(optional)</0>"
+msgstr "原因<0>（可选）</0>"
+
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Width"
 msgstr "宽度"
@@ -14433,6 +14623,10 @@ msgstr "用 \\begin…\\end 包住所选"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "圈积"
+
+#: src/project/terms-panel.tsx
+msgid "Write as"
+msgstr "统一写作"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Write, then build"

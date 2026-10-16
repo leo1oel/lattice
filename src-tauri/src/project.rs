@@ -40,6 +40,7 @@ mod references;
 mod reviews;
 mod search;
 mod symbols;
+mod terms;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod tree;
@@ -97,6 +98,7 @@ pub use search::{ReplacePreview, ReplaceResult, TodoHit};
 pub(crate) use symbols::remove_citation_usages;
 pub use symbols::{citation_usages, find_citation_usages, unused_symbols, Symbol};
 pub use symbols::{RenameSymbolResult, UnusedSymbols};
+pub use terms::{apply_term_edits, set_terms, TermFileEdit};
 pub(crate) use tree::{project_tree_path_visible, scan_tree, tree_files, TreeView};
 pub use tree::{read_file, stat_file, ProjectFileStat};
 // Fixtures for other modules' tests.

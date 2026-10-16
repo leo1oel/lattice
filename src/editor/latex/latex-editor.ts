@@ -89,6 +89,8 @@ export type LatexEditorLiveData = {
   citationUsageRevision?: unknown;
   spellingWords: string[];
   onAddSpellingWord?: (word: string) => boolean | Promise<boolean>;
+  /** The project's English; unset is American. */
+  englishVariant?: string | null;
 };
 
 export type LatexEditorOptions = {
