@@ -1252,6 +1252,10 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 .paper-pending-cancel:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .paper-pending-track { position: absolute; inset: auto 0 0; height: 2px; }
 .paper-pending-track > span { display: block; height: 100%; background: var(--text-secondary); }
+.paper-text-search { min-height: 28px; margin-bottom: var(--space-3); padding: 0 var(--space-4); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--space-3); align-items: center; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* Wraps rather than truncates: in a narrow panel the reason is the point of the row. */
+.paper-text-search-text { min-width: 0; padding-block: var(--space-2); overflow-wrap: anywhere; }
+.paper-text-search[data-state="failed"] .paper-add-icon { color: var(--status-warning); }
 @container paper-add (width < 240px) {
   .paper-add-row:not([data-duplicate]) .paper-add-detail, .paper-add-enter { display: none; }
   .paper-add-row:not([data-duplicate]) { grid-template-columns: 16px minmax(0, 1fr) auto; }

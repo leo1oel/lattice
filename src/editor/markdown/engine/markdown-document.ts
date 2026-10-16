@@ -177,8 +177,63 @@ function emptyDocument(schema: Schema): PmNode {
   return schema.topNodeType.create(null, schema.nodes.paragraph!.create());
 }
 
+/**
+ * The last documents opened, newest first, so opening one again (switching
+ * back to a file) does not read it again: reading 2 MB of Markdown takes the
+ * best part of a second, and moving the blocks read onto another editor's
+ * schema a few milliseconds. Keyed by the exact text and options, so an edit
+ * or a changed file is another entry; what is kept is immutable. A short
+ * document reads quickly enough not to take a place.
+ */
+const OPENED_CACHE_ENTRIES = 4;
+const OPENED_CACHE_CHARS = ENGINE_TEXT_LIMIT;
+const OPENED_CACHE_MIN_CHARS = 20_000;
+// `paperSpans` is the whole of OpenOptions; a new option belongs in the key.
+const openedCache: { text: string; paperSpans: boolean; opened: OpenedMarkdown }[] = [];
+
+/** `node` built again from `schema`'s types, which ProseMirror needs: a document holds only its own schema's nodes. */
+function rebuildNode(node: PmNode, schema: Schema): PmNode {
+  const marks = node.marks.map((mark) => schema.marks[mark.type.name]!.create(mark.attrs));
+  if (node.isText) return schema.text(node.text!, marks);
+  const children: PmNode[] = [];
+  node.forEach((child) => children.push(rebuildNode(child, schema)));
+  return schema.nodes[node.type.name]!.create(node.attrs, children, marks);
+}
+
+/** An opened document moved onto `schema`, or null where that schema cannot hold it as read (then it is read again). */
+function rebuildOpened(opened: OpenedMarkdown, schema: Schema): OpenedMarkdown | null {
+  try {
+    const entries = opened.baseline.entries.map((entry) => ({ ...entry, node: rebuildNode(entry.node, schema) }));
+    const nodes = entries.map((entry) => entry.node);
+    const doc = nodes.length ? schema.topNodeType.create(null, nodes) : emptyDocument(schema);
+    doc.check();
+    return { doc, baseline: { ...opened.baseline, entries } };
+  } catch {
+    return null;
+  }
+}
+
 /** Open Markdown for visual editing, or say why the engine declines it. */
 export function openMarkdown(text: string, schema: Schema, options: OpenOptions = {}): OpenedMarkdown | { unavailable: UnavailableReason } {
+  const paperSpans = Boolean(options.paperSpans);
+  const index = openedCache.findIndex((entry) => entry.text === text && entry.paperSpans === paperSpans);
+  if (index >= 0) {
+    const entry = openedCache.splice(index, 1)[0]!;
+    openedCache.unshift(entry);
+    const opened = entry.opened.doc.type.schema === schema ? entry.opened : rebuildOpened(entry.opened, schema);
+    if (opened) return opened;
+  }
+  const opened = readMarkdown(text, schema, options);
+  if (!("unavailable" in opened) && text.length >= OPENED_CACHE_MIN_CHARS && index < 0) {
+    openedCache.unshift({ text, paperSpans, opened });
+    let chars = 0;
+    const kept = openedCache.findIndex((entry, position) => (chars += entry.text.length) > OPENED_CACHE_CHARS || position >= OPENED_CACHE_ENTRIES);
+    if (kept > 0) openedCache.length = kept;
+  }
+  return opened;
+}
+
+function readMarkdown(text: string, schema: Schema, options: OpenOptions): OpenedMarkdown | { unavailable: UnavailableReason } {
   if (text.length > ENGINE_TEXT_LIMIT) return { unavailable: "too-large" };
   const opened = openEnvelope(text);
   if (!opened) return { unavailable: "mixed-line-endings" };

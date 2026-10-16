@@ -18,78 +18,163 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, X } from "lucide-react";
 import { IconButton } from "../../../../components/ui/icon-button";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
-import { revealPosition } from "../block-window";
+import { drawnRanges, revealPosition } from "../block-window";
+import { changedBlockRanges } from "../changed-ranges";
 import type { ChromeHost } from "./chrome-host";
 
 type Match = { from: number; to: number };
-type FindState = { query: string; matches: Match[]; current: number; decorations: DecorationSet };
+/**
+ * The match index: every match in document order, apart from what is drawn.
+ * A one-letter query in a long document has a match for every few characters
+ * (170,000 in 2 MB), which is cheap to find and to count, but far too many
+ * to build decorations for on every keystroke and every step to the next one.
+ */
+type FindState = { query: string; matches: readonly Match[]; current: number };
 
 const findKey = new PluginKey<FindState>("latticeFind");
-const EMPTY: FindState = { query: "", matches: [], current: 0, decorations: DecorationSet.empty };
+const EMPTY: FindState = { query: "", matches: [], current: 0 };
+/** An edit of more steps than this (Replace All) searches the document again rather than mapping every match through each step. */
+const MAX_MAPPED_STEPS = 8;
 
-/** Every case-insensitive occurrence of `query` in the text of the document's blocks. */
-function findMatches(doc: PmNode, query: string): Match[] {
-  if (!query) return [];
-  const needle = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
-  const matches: Match[] = [];
-  doc.descendants((node, position) => {
+const needleFor = (query: string) => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+
+/** Every match of `needle` in one textblock at `position`, appended to `matches`. */
+function matchTextblock(node: PmNode, position: number, needle: RegExp, matches: Match[]) {
+  // One string per text run, so a match never spans an atom or a line break node.
+  let run = "";
+  let runStart = -1;
+  const flush = () => {
+    if (!run) return;
+    for (const match of run.matchAll(needle)) {
+      matches.push({ from: runStart + match.index, to: runStart + match.index + match[0].length });
+    }
+    run = "";
+  };
+  node.forEach((child, offset) => {
+    if (child.isText) {
+      if (!run) runStart = position + 1 + offset;
+      run += child.text;
+    } else {
+      flush();
+    }
+  });
+  flush();
+}
+
+/** Every case-insensitive occurrence of `query` in the text of the document's blocks, or of those in `from`…`to`. */
+function findMatches(doc: PmNode, query: string, from = 0, to = doc.content.size, matches: Match[] = []): Match[] {
+  if (!query) return matches;
+  const needle = needleFor(query);
+  doc.nodesBetween(from, to, (node, position) => {
     if (!node.isTextblock) return true;
-    // One string per text run, so a match never spans an atom or a line break node.
-    let run = "";
-    let runStart = -1;
-    const flush = () => {
-      if (!run) return;
-      for (const match of run.matchAll(needle)) {
-        matches.push({ from: runStart + match.index, to: runStart + match.index + match[0].length });
-      }
-      run = "";
-    };
-    node.forEach((child, offset) => {
-      if (child.isText) {
-        if (!run) runStart = position + 1 + offset;
-        run += child.text;
-      } else {
-        flush();
-      }
-    });
-    flush();
+    matchTextblock(node, position, needle, matches);
     return false;
   });
   return matches;
 }
 
-function decorate(doc: PmNode, matches: Match[], current: number): DecorationSet {
-  return DecorationSet.create(doc, matches.map((match, index) => Decoration.inline(match.from, match.to, {
-    class: index === current ? "lx-md-find-match is-current" : "lx-md-find-match",
-  })));
+/** The index of the first match ending after `pos`. */
+function firstAfter(matches: readonly Match[], pos: number): number {
+  let low = 0;
+  let high = matches.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (matches[middle]!.to <= pos) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+/**
+ * The matches after an edit: those in blocks it did not touch, moved with
+ * the edit, and the touched blocks searched again. A keystroke in a long
+ * document with Find open searches one block, not the whole document.
+ */
+function remapMatches(transaction: Transaction, state: FindState): Match[] {
+  const { doc, mapping } = transaction;
+  if (transaction.steps.length > MAX_MAPPED_STEPS) return findMatches(doc, state.query);
+  const changed = changedBlockRanges(transaction).sort((a, b) => a.from - b.from);
+  const matches: Match[] = [];
+  let index = 0;
+  const moved = state.matches.flatMap((match) => {
+    const from = mapping.map(match.from, 1);
+    const to = mapping.map(match.to, -1);
+    // A match whose text was deleted collapses to a point.
+    if (to <= from) return [];
+    return from === match.from && to === match.to ? [match] : [{ from, to }];
+  });
+  let searched = 0;
+  for (const range of changed) {
+    const from = Math.max(range.from, searched);
+    if (range.to <= from) continue;
+    while (index < moved.length && moved[index]!.to <= from) matches.push(moved[index++]!);
+    // Every match inside a touched block is found again.
+    while (index < moved.length && moved[index]!.from < range.to) index += 1;
+    findMatches(doc, state.query, from, range.to, matches);
+    searched = range.to;
+  }
+  while (index < moved.length) matches.push(moved[index++]!);
+  return matches;
+}
+
+/** The highlights for the matches in `ranges` (the drawn blocks), or for all of them while every block is drawn. */
+function decorate(doc: PmNode, matches: readonly Match[], current: number, ranges: readonly { from: number; to: number }[] | null): DecorationSet {
+  const decorations: Decoration[] = [];
+  const add = (from: number, to: number) => {
+    for (let index = firstAfter(matches, from); index < matches.length && matches[index]!.from < to; index += 1) {
+      const match = matches[index]!;
+      decorations.push(Decoration.inline(match.from, match.to, {
+        class: index === current ? "lx-md-find-match is-current" : "lx-md-find-match",
+      }));
+    }
+  };
+  if (ranges) for (const range of ranges) add(range.from, range.to);
+  else add(0, doc.content.size);
+  return DecorationSet.create(doc, decorations);
 }
 
 function withQuery(doc: PmNode, query: string, near: number): FindState {
   const matches = findMatches(doc, query);
-  const current = Math.max(0, matches.findIndex((match) => match.from >= near));
-  return { query, matches, current, decorations: decorate(doc, matches, current) };
+  return { query, matches, current: Math.max(0, matches.findIndex((match) => match.from >= near)) };
 }
 
 export const FindReplace = Extension.create({
   name: "latticeFindReplace",
-  addProseMirrorPlugins: () => [new Plugin<FindState>({
-    key: findKey,
-    state: {
-      init: () => EMPTY,
-      apply(transaction, state) {
-        const meta = transaction.getMeta(findKey) as { query?: string; current?: number } | undefined;
-        if (meta?.query !== undefined) return withQuery(transaction.doc, meta.query, transaction.selection.from);
-        if (meta?.current !== undefined) return { ...state, current: meta.current, decorations: decorate(transaction.doc, state.matches, meta.current) };
-        if (transaction.docChanged && state.query) {
-          const matches = findMatches(transaction.doc, state.query);
-          const current = Math.min(state.current, Math.max(matches.length - 1, 0));
-          return { ...state, matches, current, decorations: decorate(transaction.doc, matches, current) };
-        }
-        return state;
+  addProseMirrorPlugins: () => {
+    // The highlights last drawn, rebuilt only when the matches, the current
+    // one or the drawn blocks change.
+    let drawn: { find: FindState; ranges: ReturnType<typeof drawnRanges>; decorations: DecorationSet } | null = null;
+    return [new Plugin<FindState>({
+      key: findKey,
+      state: {
+        init: () => EMPTY,
+        apply(transaction, state) {
+          const meta = transaction.getMeta(findKey) as { query?: string; current?: number } | undefined;
+          if (meta?.query !== undefined) return withQuery(transaction.doc, meta.query, transaction.selection.from);
+          if (meta?.current !== undefined) return { ...state, current: meta.current };
+          if (transaction.docChanged && state.query) {
+            const matches = remapMatches(transaction, state);
+            // The current match stays the one it was, or the next after where it was.
+            const was = state.matches[state.current];
+            const near = was ? firstAfter(matches, transaction.mapping.map(was.from, -1)) : state.current;
+            return { ...state, matches, current: Math.min(near, Math.max(matches.length - 1, 0)) };
+          }
+          return state;
+        },
       },
-    },
-    props: { decorations: (state) => findKey.getState(state)?.decorations },
-  })],
+      props: {
+        decorations(editorState) {
+          const find = findKey.getState(editorState) ?? EMPTY;
+          if (!find.matches.length) return DecorationSet.empty;
+          const ranges = drawnRanges(editorState);
+          if (drawn?.find !== find || drawn.ranges !== ranges) {
+            drawn = { find, ranges, decorations: decorate(editorState.doc, find.matches, find.current, ranges) };
+          }
+          return drawn.decorations;
+        },
+      },
+    })];
+  },
 });
 
 const findState = (state: EditorState) => findKey.getState(state) ?? EMPTY;
@@ -224,7 +309,9 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
             }
           }}
         />
-        <span className="lx-md-find-status" role="status">{query ? (total ? t`${current} of ${count}` : t`No matches`) : ""}</span>
+        {/* The bar draws a new query once before its effect searches for it;
+            that frame says nothing rather than "No matches". */}
+        <span className="lx-md-find-status" role="status">{query && state.query === query ? (total ? t`${current} of ${count}` : t`No matches`) : ""}</span>
         <IconButton size="compact" tooltip={false} label={t`Previous match`} disabled={!total} onClick={() => step(-1)}>
           <ChevronUp aria-hidden="true" />
         </IconButton>

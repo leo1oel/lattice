@@ -182,7 +182,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
-  const { hits: textHits, searchNow } = usePaperTextSearch(query);
+  const textSearch = usePaperTextSearch(query);
+  const { hits: textHits, searchNow } = textSearch;
   // An empty list is the empty library only once it has been read, and no
   // Overleaf sync that may be bringing the bibliography is still under way.
   const syncing = useFirstSyncWhileEmpty(props.projectKey, Boolean(props.syncing));
@@ -349,7 +350,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </div>
           )}
         </div>
-        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} addRows={addRows} hasKind={Boolean(kind)} /> : (
+        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} textSearch={textSearch} addRows={addRows} hasKind={Boolean(kind)} /> : (
           <ScrollArea
             ref={observeListSteps}
             className="paper-list"
@@ -427,6 +428,33 @@ function PaperLoadStatus({ load, syncing, onRetry }: {
 }
 
 /**
+ * Where the full-text half of a search has got, above what it found: the
+ * list shows metadata matches at once, and a slow or failed pass over the
+ * saved text says so, so a short list (or none) is not read as the library
+ * lacking the paper. A quick pass, the usual case, never shows this.
+ */
+function PaperTextSearchStatus({ search }: { search: ReturnType<typeof usePaperTextSearch> }) {
+  const { t } = useLingui();
+  if (search.status === "failed") {
+    const label = t`Saved-text search unavailable`;
+    return (
+      <div className="paper-text-search" data-state="failed" role="status">
+        <CircleAlert size={13} className="paper-add-icon" aria-hidden="true" />
+        <span className="paper-text-search-text" title={search.error ? `${label}\n${search.error}` : label}>{label}</span>
+        <Button size="compact" onClick={search.retry}>{t`Try again`}</Button>
+      </div>
+    );
+  }
+  if (search.status !== "searching") return null;
+  return (
+    <div className="paper-text-search" role="status">
+      <span className="paper-add-icon"><InfinityLoader size={12} /></span>
+      <span className="paper-text-search-text">{t`Searching saved text…`}</span>
+    </div>
+  );
+}
+
+/**
  * The library once it holds a paper: how many, how they are filtered, sorted
  * and grouped, and the list itself. Its own component, so an empty library
  * (every startup without papers) runs none of it.
@@ -434,6 +462,7 @@ function PaperLoadStatus({ load, syncing, onRetry }: {
 function PaperShelf(props: PaperLibraryProps & {
   query: string;
   textHits: ReturnType<typeof usePaperTextSearch>["hits"];
+  textSearch: ReturnType<typeof usePaperTextSearch>;
   /** The add and pending rows above the list, given how many papers match. */
   addRows: (matches: number) => ReactNode;
   /** The box holds something to add, which the add rows answer in place of the empty state. */
@@ -736,7 +765,9 @@ function PaperShelf(props: PaperLibraryProps & {
           viewportProps={{ "data-windowed": rowWindow.active ? "" : undefined }}
           orientation="both"
           contentClassName="paper-list-content"
+          aria-busy={props.textSearch.status === "searching" || undefined}
         >
+          <PaperTextSearchStatus search={props.textSearch} />
           {props.addRows(filteredPapers.length)}
           {!!filteredPapers.length && (
             <div className="paper-table-head" role="group" aria-label={t`Sort papers`}>

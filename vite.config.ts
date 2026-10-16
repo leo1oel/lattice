@@ -117,6 +117,61 @@ function shikiTrimPlugin(): {
   return { plugin, isStubbed };
 }
 
+/**
+ * Univer's render engine (the spreadsheet editor, src/editor/spreadsheet/)
+ * maps 77 hyphenation dictionaries to dynamic imports, ~4.6 MB of chunks, but
+ * only asks for a closed set of them: its language detector maps what franc
+ * recognises onto 33 dictionaries (LANG_MAP_TO_HYPHEN_LANG), and the
+ * hyphenator itself loads en-gb and bundles en-us. The other 45 (~2.7 MB:
+ * Norwegian, the 1996 and Swiss German spellings, …) can never be loaded,
+ * so their loaders are dropped and their chunks are not emitted.
+ *
+ * The build fails instead when an upgrade changes how dictionaries are asked
+ * for (a new loadPattern caller, a detector that no longer goes through the
+ * map), so a dictionary a new path needs is never silently missing.
+ */
+function univerHyphenTrimPlugin(): Plugin {
+  const engine = /\/@univerjs\/engine-render\/lib\/es\/index\.js$/;
+  return {
+    name: "univer-hyphen-trim",
+    apply: "build",
+    transform(code, id) {
+      if (!engine.test(id)) return null;
+      const fail = (why: string): never => this.error(
+        `univer-hyphen-trim: ${why}. Check which hyphenation dictionaries @univerjs/engine-render can load now, and update univerHyphenTrimPlugin in vite.config.ts.`,
+      );
+      const loaders = /^const PATTERN_LOADERS = \{\n([\s\S]*?)\n\};$/m.exec(code) ?? fail("PATTERN_LOADERS is gone");
+      const detector = /^const LANG_MAP_TO_HYPHEN_LANG = \{\n([\s\S]*?)\n\};$/m.exec(code) ?? fail("LANG_MAP_TO_HYPHEN_LANG is gone");
+      // Every way a dictionary is asked for, as of 0.25.1: the loader map is
+      // read in one place, the detector's map in one, and loadPattern is
+      // called with a literal or with the detector's answer, nothing else.
+      const count = (pattern: RegExp) => code.match(pattern)?.length ?? 0;
+      if (count(/PATTERN_LOADERS/g) !== 2) fail("PATTERN_LOADERS is read in a new place");
+      if (count(/LANG_MAP_TO_HYPHEN_LANG/g) !== 2) fail("LANG_MAP_TO_HYPHEN_LANG is read in a new place");
+      if (!/LANG_MAP_TO_HYPHEN_LANG\[franc\(text\)\]/.test(code)) fail("the language detector no longer maps franc's answer");
+      const calls = [...code.matchAll(/\.loadPattern\(([^)]*)\)/g)].map((match) => match[1]);
+      const literal = calls.flatMap((argument) => /^"([\w-]+)"$/.exec(argument)?.[1] ?? []);
+      if (calls.length !== literal.length + 1 || !/const lang = languageDetector\.detect\(content\);[^]{0,400}hyphen\.loadPattern\(lang\)/.test(code)) {
+        fail(`loadPattern is called in a new way (${calls.join(", ")})`);
+      }
+      const keep = new Set([
+        ...[...detector[1].matchAll(/:\s*"([\w-]+)"/g)].map((match) => match[1]),
+        ...literal,
+      ]);
+      const entries = loaders[1].split("\n");
+      const kept = entries.filter((entry) => {
+        const key = /^\t\["([\w-]+)"\]: \(\) => /.exec(entry)?.[1] ?? fail(`unexpected loader entry ${entry.trim()}`);
+        return keep.has(key);
+      });
+      if (kept.length === entries.length) return null;
+      return {
+        code: code.replace(loaders[0], `const PATTERN_LOADERS = {\n${kept.join("\n")}\n};`),
+        map: null,
+      };
+    },
+  };
+}
+
 /** Ship pdf.js CMaps + standard fonts next to the web assets (needed offline in Tauri). */
 function pdfjsAssetsPlugin(): Plugin {
   const copy = () => {
@@ -178,6 +233,7 @@ export default defineConfig(() => ({
     pdfjsAssetsPlugin(),
     privateFontsPlugin(),
     shikiTrim.plugin,
+    univerHyphenTrimPlugin(),
   ],
 
   resolve: {

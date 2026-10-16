@@ -417,3 +417,41 @@ describe("syntax next to an edit (spec R-RT-12)", () => {
     expect(serializeMarkdown(doc.copy(doc.content.replaceChild(0, edited)), baseline).text).toBe(`Updated ${text}`);
   });
 });
+
+describe("opening a document again", () => {
+  // Long enough to be kept; every kind of block the editor reads, marks and components included.
+  const long = Array.from({ length: 120 }, (_, index) => [
+    `## Section ${index}`,
+    `Some **bold** and _italic_ text with \`code\`, a [link](https://example.org/${index}) and $x^${index}$.`,
+    `- item ${index}\n- [ ] task`,
+    `<Note>\n\nBody ${index}\n\n</Note>`,
+    "| a | b |\n| - | - |\n| 1 | 2 |",
+  ].join("\n\n")).join("\n\n");
+
+  it("reads what it read before onto another editor's schema, unchanged and round-tripping", () => {
+    expect(long.length).toBeGreaterThan(20_000);
+    const first = open(long);
+    const other = engineSchema();
+    const again = openMarkdown(long, other);
+    if ("unavailable" in again) throw new Error(again.unavailable);
+    expect(again.doc.type.schema).toBe(other);
+    expect(again.doc.toJSON()).toEqual(first.doc.toJSON());
+    // The baseline names the new nodes, so an untouched document writes its exact bytes.
+    again.baseline.entries.forEach((entry, index) => expect(entry.node).toBe(again.doc.child(index)));
+    expect(serializeMarkdown(again.doc, again.baseline).text).toBe(long);
+    const heading = again.doc.child(0);
+    const edited = heading.copy(heading.content.addToEnd(other.text(" (edited)")));
+    expect(serializeMarkdown(again.doc.copy(again.doc.content.replaceChild(0, edited)), again.baseline).text)
+      .toBe(long.replace("## Section 0", "## Section 0 (edited)"));
+  });
+
+  it("reads a changed text, or one opened another way, afresh", () => {
+    const first = open(long);
+    const changed = open(`${long}\n\nOne more paragraph.`);
+    expect(changed.doc.childCount).toBe(first.doc.childCount + 1);
+    const paper = openMarkdown(long, schema, { paperSpans: true });
+    if ("unavailable" in paper) throw new Error(paper.unavailable);
+    expect(paper.baseline.options).toEqual({ paperSpans: true });
+    expect(paper.doc).not.toBe(first.doc);
+  });
+});
