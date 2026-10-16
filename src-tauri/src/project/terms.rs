@@ -64,7 +64,10 @@ pub fn set_terms(
         }
         let mut variants: Vec<String> = Vec::new();
         for variant in rule.variants.iter().map(|variant| variant.trim()) {
-            if variant.is_empty() || variant.to_lowercase() == term.to_lowercase() || settled(variant) {
+            if variant.is_empty()
+                || variant.to_lowercase() == term.to_lowercase()
+                || settled(variant)
+            {
                 continue;
             }
             if variant.chars().count() > MAX_TERM_CHARS {
