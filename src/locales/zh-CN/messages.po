@@ -190,7 +190,7 @@ msgstr "{0} 条批注"
 #. placeholder {1}: formatCount(comments.length)
 #: src/project/reviewer-responses-panel.tsx
 msgid "{0} of {1} answered"
-msgstr ""
+msgstr "已回复 {0} / {1} 条"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
