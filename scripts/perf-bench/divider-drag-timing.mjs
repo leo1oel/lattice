@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Before/after frame timings of dragging the workspace's boundaries on the
- * bench page: the driver behind docs/performance.md's "Divider drags" table.
+ * bench page: the driver behind docs/performance-history.md's "Divider drags" table.
  *
  * Builds two bench pages: "after" from this checkout as it is, and "before"
  * from --before-ref's tree, exported to a temporary directory (`git archive`)

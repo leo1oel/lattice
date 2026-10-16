@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Before/after timings of a long PDF on the bench page: the driver behind
- * docs/performance.md's "A page window for long PDFs" tables.
+ * docs/performance-history.md's "A page window for long PDFs" tables.
  *
  * Builds two bench pages from this checkout, without a second one: "after",
  * as the checkout is, and "before", with every file under src/ and every file

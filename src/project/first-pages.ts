@@ -1,4 +1,5 @@
 import { pdfBytesFingerprint } from "../pdf/pdf-bytes";
+import { PDF_CMAP_URL, PDF_STANDARD_FONT_DATA_URL } from "../pdf/pdf-viewer-utils";
 import { loadRecentProjects, type RecentProject } from "../settings/app-settings";
 
 /**
@@ -120,10 +121,7 @@ export async function rememberFirstPage(root: string, pdf: ArrayBuffer, venue: s
 
 async function renderFirstPage(pdf: ArrayBuffer): Promise<Blob | null> {
   // PDF.js stays out of startup: a build has already loaded it for the preview.
-  const [{ getDocument }, { PDF_CMAP_URL, PDF_STANDARD_FONT_DATA_URL }] = await Promise.all([
-    import("../pdf/pdfjs-runtime"),
-    import("../pdf/pdf-viewer-utils"),
-  ]);
+  const { getDocument } = await import("../pdf/pdfjs-runtime");
   const loadingTask = getDocument({
     data: new Uint8Array(pdf),
     cMapUrl: PDF_CMAP_URL,

@@ -32,7 +32,7 @@ const CONCURRENT_REVISIONS = 3;
 type Ref<T> = { readonly current: T };
 
 /** A file's text as a round found it, and as it left it once settled. */
-export type RoundFile = { path: string; before: string | null; after: string | null };
+type RoundFile = { path: string; before: string | null; after: string | null };
 
 /** Where an annotation was accepted, as the editor applied it. */
 export type AcceptedRevision = Pick<EditorComment, "from" | "to" | "quote" | "prefix" | "suffix">;
@@ -41,7 +41,7 @@ export type AcceptedRevision = Pick<EditorComment, "from" | "to" | "quote" | "pr
 export type MappedPdfSelection = { path: string; line: number; from: number; to: number; source: string };
 
 /** The open round: the last one that has not settled. */
-export const openRound = (rounds: readonly AnnotationRound[]) => {
+const openRound = (rounds: readonly AnnotationRound[]) => {
   const last = rounds.at(-1);
   return last && !last.settledAt ? last : null;
 };

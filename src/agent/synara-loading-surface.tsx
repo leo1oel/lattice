@@ -11,7 +11,7 @@ import { redactLogText } from "../telemetry/app-log-store";
 import { LoadingAnnouncement } from "../app/tool-loading-shell";
 
 /** How long the agent panel waits on the Agent before saying so and offering Retry. */
-export const SYNARA_SLOW_MS = 20_000;
+const SYNARA_SLOW_MS = 20_000;
 
 export function SynaraLoadingSurface(props: {
   runtime: SynaraRuntimeInfo;

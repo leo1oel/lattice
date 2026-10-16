@@ -6,7 +6,7 @@
  */
 
 /** The local day `ms` falls on, as a key two times on that day share. */
-export function dayKey(ms: number): string {
+function dayKey(ms: number): string {
   return new Date(ms).toDateString();
 }
 

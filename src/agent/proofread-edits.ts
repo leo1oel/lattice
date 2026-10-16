@@ -7,7 +7,7 @@ import {
 } from "../editor/latex/latex-protected";
 
 /** Why the agent made an edit: its category, and a short note when it gave one. */
-export type ProofreadReason = { category: ProofreadCategory | null; note: string };
+type ProofreadReason = { category: ProofreadCategory | null; note: string };
 
 /**
  * One logical change a proofread suggests: replace `[from, to)` of the

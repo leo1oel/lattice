@@ -26,7 +26,7 @@ function focusedElement(): Element {
 }
 
 /** Offer the focused element ⌘Z (⇧⌘Z to redo); whether an editor took it. */
-export function stepFocusedEditor(direction: EditHistoryDirection, target: Element = focusedElement()): boolean {
+function stepFocusedEditor(direction: EditHistoryDirection, target: Element = focusedElement()): boolean {
   const redo = direction === "redo";
   // As the keyboard reports it: ⇧ makes the key "Z", and CodeMirror finds
   // ⇧⌘Z through the key code then.

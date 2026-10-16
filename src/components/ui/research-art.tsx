@@ -15,7 +15,7 @@ import "./research-art.css";
  * drawing is its own module, so the PDF's and the library's stay in their
  * lazy chunks.
  */
-export type ResearchArtTone = "paper" | "shade" | "shade-mid" | "shade-deep" | "faint" | "line" | "dot";
+type ResearchArtTone = "paper" | "shade" | "shade-mid" | "shade-deep" | "faint" | "line" | "dot";
 
 export type ResearchDrawing = {
   kind: string;

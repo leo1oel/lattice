@@ -34,6 +34,7 @@
 
 import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { isAgentEntryTarget } from "../agent/agent-entry";
 import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 
@@ -310,7 +311,6 @@ export function pdfSelectedPlainTextWithin(root: Node, selection: Selection | nu
 
 async function writeClipboardText(text: string) {
   try {
-    const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
     await writeText(text);
   } catch {
     await navigator.clipboard?.writeText(text);

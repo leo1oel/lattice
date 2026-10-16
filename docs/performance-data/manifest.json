@@ -1,7 +1,8 @@
 {
   "$comment": "Accounts for every table in the listed documents; scripts/check-perf-evidence.mjs (`pnpm perf:evidence`) explains the kinds and recomputes each measured table from its raw runs.",
   "documents": [
-    "docs/performance.md"
+    "docs/performance.md",
+    "docs/performance-history.md"
   ],
   "tables": [
     {
@@ -27,21 +28,21 @@
     },
     {
       "kind": "reference",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "What was actually slow here (August 2026)",
       "header": "Cause | Where",
       "why": "Causes and the code they lived in."
     },
     {
       "kind": "reference",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "What was actually slow here (August 2026)",
       "header": "Cause | Where",
       "why": "Causes and the code they lived in."
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Long-session degradation (September 2026)",
       "header": "Cause | Evidence | Fix",
       "recorded": "2026-09-27",
@@ -49,7 +50,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Long-session degradation (September 2026)",
       "header": " | Before | After",
       "recorded": "2026-09-27",
@@ -57,7 +58,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Interaction benchmark findings (September 2026)",
       "header": "Interaction | commits | renders | hooks | recalcs | layouts | mutations | long tasks | task ms",
       "recorded": "2026-09-28",
@@ -65,7 +66,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Interaction benchmark findings (September 2026)",
       "header": "Cause | Evidence | Fix",
       "recorded": "2026-09-28",
@@ -73,7 +74,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Typing in a long LaTeX file (October 2026)",
       "header": "Cause | Per keystroke (Chromium) | Fix",
       "recorded": "2026-10-01",
@@ -81,7 +82,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Typing in a long LaTeX file (October 2026)",
       "header": "Document | Chromium before | Chromium after | WebKit before | WebKit after",
       "recorded": "2026-10-01",
@@ -89,7 +90,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "WebKit frame rate and dialogs (October 2026)",
       "header": "Cause | Evidence | Fix",
       "recorded": "2026-10-01",
@@ -97,7 +98,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Viewport rendering for long documents (October 2026)",
       "header": "2 MB `large.md`, visual editor | Chromium before | after | WebKit before | after",
       "recorded": "2026-10-02",
@@ -105,7 +106,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "WebKit parity: panel drags, long PDFs, opening long sources (October 2026)",
       "header": "Cause | Evidence | Fix",
       "recorded": "2026-10-02",
@@ -113,7 +114,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "WebKit parity: panel drags, long PDFs, opening long sources (October 2026)",
       "header": "Row | Before | After",
       "recorded": "2026-10-02",
@@ -121,7 +122,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "First opens and TexLab traffic (October 2026)",
       "header": "ms, p95 / p99 | Session | Cold, main | Cold, branch | Warm, main | Warm, branch",
       "recorded": "2026-10-04",
@@ -129,7 +130,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "First opens and TexLab traffic (October 2026)",
       "header": "Chunk held (ms) | Tool in the page (ms) | Shell on screen (ms)",
       "recorded": "2026-10-04",
@@ -137,7 +138,7 @@
     },
     {
       "kind": "legacy",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "First opens and TexLab traffic (October 2026)",
       "header": "`long.tex`, ms | Session | Main | Branch",
       "recorded": "2026-10-04",
@@ -145,7 +146,7 @@
     },
     {
       "kind": "measured",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "A page window for long PDFs (October 2026)",
       "header": "WebKit, 1,930 pages | Before | After",
       "before": "31921114200881ee7bede229bea1cfaf418b684c",
@@ -257,7 +258,7 @@
     },
     {
       "kind": "measured",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "A page window for long PDFs (October 2026)",
       "header": "WebKit, 386 pages | Before | After",
       "before": "31921114200881ee7bede229bea1cfaf418b684c",
@@ -346,7 +347,7 @@
     },
     {
       "kind": "measured",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "A page window for long PDFs (October 2026)",
       "header": "Chromium, style; layout (ms) | 1,930 pages, before | after | 386 pages, before | after",
       "before": "31921114200881ee7bede229bea1cfaf418b684c",
@@ -436,21 +437,21 @@
     },
     {
       "kind": "reference",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Startup and project open (October 2026)",
       "header": "Cause | Where | Fix",
       "why": "Causes, the code they lived in and their fixes; the measurements are the prose below the table."
     },
     {
       "kind": "reference",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
       "header": "Cause | Fix",
       "why": "Causes and their fixes; the measurements are the two tables below it."
     },
     {
       "kind": "measured",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
       "before": "394babf31223fef1f9cc5bff3b6a083050515524",
       "after": "0102ff0bca0581ab65aeab9ea9f4329125ead866",
@@ -543,7 +544,7 @@
     },
     {
       "kind": "measured",
-      "doc": "docs/performance.md",
+      "doc": "docs/performance-history.md",
       "section": "Divider drags: the Papers list, the split ratio, press and release (October 2026)",
       "before": "394babf31223fef1f9cc5bff3b6a083050515524",
       "after": "0102ff0bca0581ab65aeab9ea9f4329125ead866",

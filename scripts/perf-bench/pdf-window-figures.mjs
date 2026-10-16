@@ -1,6 +1,6 @@
 /**
  * The figures pdf-window-timing.mjs reports for each run, shared with
- * scripts/check-perf-evidence.mjs, which recomputes docs/performance.md's
+ * scripts/check-perf-evidence.mjs, which recomputes docs/performance-history.md's
  * page-window tables from the retained runs with these same definitions.
  */
 

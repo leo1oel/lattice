@@ -1,6 +1,6 @@
 /**
  * The figures divider-drag-timing.mjs reports for each drag, shared with
- * scripts/check-perf-evidence.mjs, which recomputes docs/performance.md's
+ * scripts/check-perf-evidence.mjs, which recomputes docs/performance-history.md's
  * divider-drag table from the retained runs with these same definitions.
  */
 

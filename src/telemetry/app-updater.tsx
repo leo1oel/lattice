@@ -19,6 +19,7 @@ import { useLatestRef } from "../hooks/use-latest-ref";
 import { toMessage } from "../app-utils";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { loadChoice, persistSetting } from "../settings/app-settings";
 import {
@@ -65,7 +66,6 @@ async function loadUpdateCheck() {
 }
 
 async function restartAfterUpdate() {
-  const { invoke } = await import("@tauri-apps/api/core");
   try {
     await invoke("restart_after_update");
   } catch (reason) {

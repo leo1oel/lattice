@@ -3,7 +3,7 @@
  * round's "Open in History"), as a small store: the drawer reads it while it
  * is open, and nothing else renders for it.
  */
-export type HistoryFocus = { id: string; nonce: string };
+type HistoryFocus = { id: string; nonce: string };
 
 let focus: HistoryFocus | null = null;
 const listeners = new Set<() => void>();

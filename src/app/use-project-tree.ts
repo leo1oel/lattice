@@ -26,9 +26,9 @@ import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLibrary } from "./use-project-library";
 import type { ProjectState, useProjectTreeWatch } from "./use-project-state";
 import { listenInThisWindow } from "./window-events";
+import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 
 const loadWebview = () => import("@tauri-apps/api/webview");
-const loadClipboard = () => import("@tauri-apps/plugin-clipboard-manager");
 
 /** A text document whose figure paths are relative to its own folder, so a move rewrites them. */
 const isMovableDocument = (path: string) => /\.(?:tex|md)$/i.test(path);
@@ -135,7 +135,6 @@ async function withImportProgress<T>(source: string, title: string, run: () => P
 
 /** Read the image on the system clipboard as PNG bytes. */
 async function readClipboardPng() {
-  const { readImage } = await loadClipboard();
   const image = await readImage();
   const size = await image.size();
   return { base64: await rgbaImageToPngBase64(await image.rgba(), size.width, size.height), type: "image/png" };

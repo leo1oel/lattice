@@ -16,7 +16,7 @@ import { disposeWhenSettled } from "../app/effect-helpers";
 
 export type MarginReviewMode = "auto" | "markers" | "off";
 
-export const MARGIN_REVIEW_MODES: readonly MarginReviewMode[] = ["auto", "markers", "off"];
+const MARGIN_REVIEW_MODES: readonly MarginReviewMode[] = ["auto", "markers", "off"];
 
 const STORAGE_KEY = "lattice.margin-review.v1";
 /** What the native View menu sends to the window it was chosen in (src-tauri/src/native_locale.rs). */
