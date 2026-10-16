@@ -11,7 +11,7 @@
   // perf-fixture.d.mts types perf-fixture.mjs for the bench page's import, and
   // perf-bench/selectors.d.mts types selectors.mjs for a component test's.
   // perf-bench/pdf-window-timing.mjs and divider-drag-timing.mjs are run by hand
-  // (docs/performance.md). check-perf-evidence.mjs imports the
+  // (docs/performance-history.md). check-perf-evidence.mjs imports the
   // `readFigure` of the *-figures.mjs file a manifest entry names, by path.
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
   // launched by Rust or the nested package's test script, not frontend imports.

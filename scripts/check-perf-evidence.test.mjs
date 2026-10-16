@@ -19,7 +19,7 @@ afterEach(() => {
 /** A copy of what the check reads, for one test to break. */
 function copy() {
   root = mkdtempSync(path.join(os.tmpdir(), "perf-evidence-"));
-  for (const item of ["docs/performance.md", "docs/performance-data", "scripts/perf-bench/pdf-window-figures.mjs"]) {
+  for (const item of ["docs/performance.md", "docs/performance-history.md", "docs/performance-data", "scripts/perf-bench/pdf-window-figures.mjs"]) {
     cpSync(path.join(repo, item), path.join(root, item), { recursive: true });
   }
   return root;
@@ -45,7 +45,7 @@ describe("check-perf-evidence", () => {
 
   it("fails when a published median changes without the data", async () => {
     copy();
-    edit("docs/performance.md", (text) => text.replace("| Open → first page drawn (ms) | 670 | 306 |", "| Open → first page drawn (ms) | 670 | 296 |"));
+    edit("docs/performance-history.md", (text) => text.replace("| Open → first page drawn (ms) | 670 | 306 |", "| Open → first page drawn (ms) | 670 | 296 |"));
     expect((await checkPerfEvidence(root)).join("\n")).toContain("the document says 296, the raw runs give 306");
   });
 
@@ -85,7 +85,7 @@ describe("check-perf-evidence", () => {
 
   it("fails on a manifest entry whose table is gone", async () => {
     copy();
-    edit("docs/performance.md", (text) => text.replace("| WebKit, 386 pages | Before | After |", "| WebKit, 386-page PDF | Before | After |"));
+    edit("docs/performance-history.md", (text) => text.replace("| WebKit, 386 pages | Before | After |", "| WebKit, 386-page PDF | Before | After |"));
     const errors = (await checkPerfEvidence(root)).join("\n");
     expect(errors).toContain(`has no table "WebKit, 386 pages | Before | After"`);
   });

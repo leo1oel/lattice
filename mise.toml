@@ -38,8 +38,8 @@ sources = [
 ]
 
 # knip rides along: it reads the same trees plus scripts/, and keeps unused
-# files, dependencies and duplicate exports from creeping back in. So does
-# perf:evidence, which recomputes docs/performance.md's benchmark tables from
+# files, dependencies and exports from creeping back in. So does
+# perf:evidence, which recomputes the benchmark tables in docs/performance*.md from
 # their retained runs (scripts/check-perf-evidence.mjs).
 [tasks.lint]
 description = "Oxlint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), knip, and the benchmark-table evidence check"
@@ -47,6 +47,7 @@ run = ["pnpm lint", "pnpm knip", "pnpm perf:evidence"]
 sources = [
   "src/**",
   "docs/performance.md",
+  "docs/performance-history.md",
   "docs/performance-data/**",
   "!src/locales/**/*.js",
   "tools/**",

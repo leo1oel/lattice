@@ -101,9 +101,10 @@ touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 With those files in place, `pnpm check`, `cargo test`, and `cargo clippy` all pass.
-Two of the three workflows do exactly this — see the "Stub bundled runtime resources for compilation" step in `.github/workflows/ci.yml` and `.github/workflows/release-cache.yml`, neither of which ships a binary.
+Three of the four workflows that compile the Rust crate do exactly this — see the "Stub bundled runtime resources for compilation" step in `.github/workflows/ci.yml`, `.github/workflows/flake-hunt.yml` and `.github/workflows/release-cache.yml`, none of which ships a binary.
 `.github/workflows/release.yml` is the only one that stages the real pinned runtimes, because it is the only one that packages the app.
-Both runtime directories are gitignored, so the stubs stay out of your commits.
+`src-tauri/synara-runtime/` is gitignored, so the stub stays out of your commits.
+`src-tauri/presentation-runtime/` needs no stub: its `placeholder.txt` is tracked, and everything else in it is gitignored.
 
 Unless you are changing the agent surface itself, stop here — you can run the
 whole gate, the frontend dev server (`pnpm dev`), and every test without the
@@ -153,24 +154,29 @@ the frontend. If you add a new one, add it there in the same commit.
 
 ## Verify your change
 
-Run a focused test while iterating, then run the complete gate before opening a
-pull request:
+Run a focused test while iterating, then `pnpm gate:changed` before pushing:
 
 ```bash
 pnpm vitest run src/path/to/file.test.ts
-pnpm check
+pnpm gate:changed
 ```
+
+`pnpm gate:changed` (`scripts/gate-changed.mjs`) runs lint, typecheck, the i18n
+catalogs, and the tests that `vitest related` finds from what your branch
+changed against `origin/main`, plus the invariant tests no import leads to. It
+builds no Rust; CI's `rust` job covers a `src-tauri/` change.
+[`docs/agent-validation.md`](docs/agent-validation.md) has the details.
 
 Vitest caches transformed modules in `node_modules/.experimental-vitest-cache`, so a repeat focused run skips most of its startup; `pnpm vitest --clearCache` empties it.
 
-`pnpm check` is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
+The full local gate, `pnpm check`, is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
 ten stages in parallel, skipping any whose declared `sources` have not
 changed since the last successful run:
 
 | Stage | What it runs |
 | --- | --- |
 | `i18n-check` | catalog extraction, drift check, compile, coverage guard |
-| `lint` | Oxlint over `src/` and `tools/`, then knip (unused files, dependencies and duplicate exports) |
+| `lint` | Oxlint over `src/` and `tools/`, then knip (unused files, dependencies and exports) and the benchmark-table evidence check (`pnpm perf:evidence`) |
 | `test` | the Vitest suite |
 | `build` | typecheck plus the production web bundle and its size budget |
 | `literature-worker` | `typecheck` and `test` inside `literature-worker/` |

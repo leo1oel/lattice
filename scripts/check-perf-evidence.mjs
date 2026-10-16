@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Keeps docs/performance.md's benchmark tables reproducible from what the
+ * Keeps the benchmark tables in docs/performance.md and
+ * docs/performance-history.md reproducible from what the
  * repository retains. Twice a published table outlived the driver and the raw
  * runs behind it, and review could neither re-derive nor challenge it; this
  * check makes a table carry its evidence when it lands, not after a reviewer

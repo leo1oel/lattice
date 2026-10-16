@@ -62,7 +62,7 @@ restating it.
 
 The frontend calls the same API in a window and in a browser tab: in a tab,
 `browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
-the bridge. The webview calls Rust with `invoke("command_name", args)` against **159
+the bridge. The webview calls Rust with `invoke("command_name", args)` against **172
 registered commands** (see §2). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
@@ -107,10 +107,10 @@ resolve after the effect has already been torn down.
 The Synara agent UI is **not** a React component. It is the sidecar's own web
 application, loaded into a cross-origin `<iframe>`:
 
-- URL construction: `synaraFrameUrl()` at `src/agent/synara-runtime.ts:244`. It
+- URL construction: `synaraFrameUrl()` in `src/agent/synara-runtime.ts`. It
   encodes `embed=1`, `workspaceRoot`, `theme`, `locale`, `surface` and
   `hostOrigin` as query params, and puts the auth token in the
-  URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:262`) so it never
+  URL **fragment** (`#lattice-auth=…`, set at the end of `synaraFrameUrl()`) so it never
   reaches a server log.
 - Mount points: the Agent panel (`src/trellis/trellis-agent-surface.tsx`),
   the source-control / review drawer (`src/app/git-workspace-frames.tsx`, one
@@ -140,32 +140,31 @@ The protocol is a set of string-tagged message types, all prefixed `lattice:`.
 The constants live next to the code that owns each concern rather than in one
 file:
 
-| Constant file | Messages |
+| File | Messages |
 | --- | --- |
-| `src/agent/agent-host-context.ts:6-9` | `lattice:host-context`, `lattice:request-host-context`, `lattice:clear-host-context-selection` |
-| `src/agent/synara-runtime.ts:25-27` | `lattice:project-history`, `lattice:restore-agent-checkpoint`, `lattice:agent-compile-result` |
-| `src/agent/synara-confirmations.ts:6-7` | `lattice:confirmation-ack`, `lattice:confirmation-response` |
-| `src/agent/agent-paper-library.ts:3-4` | `lattice:paper-library`, `lattice:request-paper-library` |
-| `src/agent/agent-canvas-tools.ts:9` | `lattice:canvas-tool-result` |
-| `src/agent/agent-spreadsheet-tools.ts:23` | `lattice:spreadsheet-tool-result` |
-| `src/agent/agent-presentation-tools.ts:16-18` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
-| `src/agent/agent-composer-files.ts:1` | `lattice:composer-files` |
-| `src/app/use-synara-host.ts:22-25` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
-| `src/settings/synara-settings-pane.tsx:135` | `lattice:set-settings-section` |
+| `src/agent/agent-host-context.ts` | `lattice:host-context`, `lattice:request-host-context`, `lattice:clear-host-context-selection` |
+| `src/agent/synara-runtime.ts` | `lattice:project-history`, `lattice:restore-agent-checkpoint`, `lattice:agent-compile-result` |
+| `src/agent/synara-confirmations.ts` | `lattice:confirmation-ack`, `lattice:confirmation-response` |
+| `src/agent/agent-paper-library.ts` | `lattice:paper-library`, `lattice:request-paper-library` |
+| `src/agent/agent-canvas-tools.ts` | `lattice:canvas-tool-result` |
+| `src/agent/agent-spreadsheet-tools.ts` | `lattice:spreadsheet-tool-result` |
+| `src/agent/agent-presentation-tools.ts` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
+| `src/agent/agent-composer-files.ts` | `lattice:composer-files` |
+| `src/app/use-synara-host.ts` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
+| `src/settings/synara-settings-pane.tsx` | `lattice:set-settings-section`, `lattice:settings-layout` |
 
 `rg '"lattice:' src` enumerates the whole protocol in one pass.
 
 Two properties of this boundary are worth internalising before you touch it:
 
 1. **Inbound payloads are parsed, not trusted.** `parseAgentCompileResultMessage`
-   (`src/agent/synara-runtime.ts:44`) and `parseAgentProjectHistorySnapshot`
-   (`src/agent/synara-runtime.ts:149`) reject unknown keys, enforce bounded
+   and `parseAgentProjectHistorySnapshot` (both in `src/agent/synara-runtime.ts`) reject unknown keys, enforce bounded
    correlation-id shapes, and refuse absolute/`..`/scheme-prefixed paths.
-   `synaraProjectRelativeFilePath` (`src/agent/synara-runtime.ts:202`) is the single
+   `synaraProjectRelativeFilePath` (same file) is the single
    funnel that turns an agent-supplied file reference into a project-relative
    path Lattice's file commands will accept.
 2. **The host pushes context; the agent does not read the editor.**
-   `buildAgentHostContext` (`src/agent/agent-host-context.ts:108`) snapshots the active
+   `buildAgentHostContext` (`src/agent/agent-host-context.ts`) snapshots the active
    surface (editor / pdf / paper), cursor position, and up to 12,000 characters
    of selection, and posts it as `lattice:host-context`.
 
@@ -243,7 +242,7 @@ which tools reach the model, and under what names.
 
 ## 2. The Rust backend
 
-`src-tauri/src/` is 121 Rust files and ~40k lines (tests included). `main.rs` is
+`src-tauri/src/` is about 130 Rust files and ~50k lines (tests included). `main.rs` is
 a 6-line shim; all the work starts in `lib.rs::run()`. Large areas follow the
 2018 module layout: a short `x.rs` that maps the area (module docs, the `mod`
 list, the few re-exports other code uses) beside an `x/` directory holding the
@@ -253,9 +252,10 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
-`lib.rs` (~500 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **159** commands in
-`tauri::generate_handler!`. Every `#[tauri::command]` in the tree is
+`lib.rs` (~580 lines) declares the modules, sets up plugins, the window
+lifecycle and the child runtimes, and registers **172** commands in
+`tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
+`perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
 
 The command handlers live in `src-tauri/src/ipc/`, one module per area of the
@@ -282,13 +282,13 @@ Practical consequence: to find what a button does, grep the command name in
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
 | `overleaf` + `overleaf_realtime` | 42 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
-| `files` | 22 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
-| `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
-| `search` | 9 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
-| `windows` | 10 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_background` |
+| `files` | 27 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
+| `build` | 20 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
+| `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 12 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 10 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
-| `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
+| `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 8 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
 | service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
@@ -454,7 +454,7 @@ placeholder until its chunk is in, never a Suspense fallback.
 
 `tldraw`'s barrel has no `sideEffects` flag, so a single value import drags
 ~1.5 MB plus prosemirror into the startup chunk. The whiteboard lives behind
-`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts:32`), and the
+`loadBoardEditorModule()` (`src/canvas/canvas-lazy-modules.ts`), and the
 agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` so that
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
@@ -470,38 +470,28 @@ hand.
 
 ### 4.3 The shiki grammar allowlist
 
-`vite.config.ts:21` defines `shikiTrimPlugin`, which stubs every
+`vite.config.ts` defines `shikiTrimPlugin`, which stubs every
 `@shikijs/langs` and `@shikijs/themes` module outside an allowlist.
+`@pierre/diffs` imports the full `shiki` bundle, whose maps would otherwise
+emit ~450 grammar and theme chunks.
 
-- Kept languages (`vite.config.ts:25-40`): `tex`, `bibtex`, `markdown` (for the
-  Pierre diff views in `src/history/file-diff-view.tsx`), plus `vue`, `tsx`, `svelte`,
-  `typescript`, `javascript`, `bash`, `json`, `yaml`, `astro`.
-- Kept themes (`:41-48`): `github-light`, `github-dark`,
-  `material-theme-lighter`, `material-theme-palenight`.
-- The plugin then walks the *transitive* closure of static grammar imports
-  (`:56-71`) — `vue` pulls `html`, `css`, and so on — so embedded regions keep
-  their rules.
-- Stubbed modules are ~100 bytes each; they are folded into one `shiki-stubs`
-  chunk (`:124-126`) to avoid emitting ~450 near-empty asset files.
-
-**The allowlist is currently over-broad.** The nine non-TeX languages and the
-two `material-theme-*` themes were kept for `comark`, which has since been
-removed — it is no longer in `package.json` and survives only in the stale
-comments at `vite.config.ts:13,17,30,45`. The single runtime consumer of shiki
-today is `src/history/file-diff-view.tsx`, which statically imports exactly
-`@shikijs/langs/{tex,bibtex,markdown}` and `@shikijs/themes/{github-light,github-dark}`
-and clamps every diff to one of those three languages
-(`pierreLanguageForPath`, `src/history/file-diff-view.tsx:42-45`). Trimming `vue`,
-`tsx`, `svelte`, `typescript`, `javascript`, `bash`, `json`, `yaml`, `astro`,
-their transitive closure, and the two material themes is available bundle
-savings that nobody has taken. It is safe as-is — over-keeping only costs size.
+- Kept languages (`keepLangs`): `tex`, `bibtex`, `markdown`.
+- Kept themes (`keepThemes`): `github-light`, `github-dark`.
+- The single runtime consumer of shiki is `src/history/pierre-diff.ts`: the only
+  caller of `registerCustomLanguage` / `registerCustomTheme`, which statically
+  imports exactly those grammars and themes, and whose `pierreLanguageForPath`
+  clamps every other filetype to `"text"`, which needs no grammar.
+- The plugin then walks the *transitive* closure of static grammar imports,
+  so a kept grammar that embeds another keeps its embedded regions' rules.
+- Stubbed modules are ~100 bytes each; `manualChunkName` folds them into one
+  `shiki-stubs` chunk to avoid emitting ~450 near-empty asset files.
 
 **If new code can highlight a language at runtime, add it to `keepLangs`.**
 Otherwise it silently renders unhighlighted.
 
 ### 4.4 `panic = "abort"` is deliberately off
 
-`src-tauri/Cargo.toml:31-35`:
+`src-tauri/Cargo.toml` `[profile.release]`:
 
 ```toml
 [profile.release]
@@ -512,7 +502,7 @@ strip = "symbols"
 ```
 
 `panic = "abort"` is **not** present as a key, commented out or otherwise. It
-appears only in the prose comment at `Cargo.toml:24`:
+appears only in the prose comment above that section:
 
 > `panic="abort"` would save ~3 MB more but turns any panic into a hard crash
 > with unsaved editor state on screen, so it stays off.
@@ -523,12 +513,12 @@ unwind.
 
 Two notes on the rest of the profile:
 
-- The comment at `Cargo.toml:28` says "thin LTO across 16 units", but the actual
+- The same comment says "thin LTO across 16 units", but the actual
   setting is `lto = false`, which in Cargo means thin-*local* LTO within each
   codegen unit — **not** `lto = "thin"` cross-crate ThinLTO. The comment is
   misleading; the effective setting is no cross-crate LTO.
 - The measured effect of the profile as a whole: 26.6 MB → 12.9 MB on
-  aarch64-darwin (`Cargo.toml:23`).
+  aarch64-darwin (that comment's first line).
 
 There are no other `[profile.*]` sections and no per-package overrides.
 
@@ -538,33 +528,31 @@ There are no other `[profile.*]` sections and no per-package overrides.
 
 Palette and spacing decisions are enforced by tests, not by review.
 
-Layout: `src/App.css` is a 10-line import manifest for `src/styles/`:
-`foundations.css` (496 lines — the token scale), `surfaces.css`, `theme.css`
-(142 — the palette), `app-shell.css`, `editor-workspace.css` (2,036),
+Layout: `src/App.css` is an import manifest for `src/styles/`:
+`foundations.css` (the token scale), `surfaces.css`, `theme.css`
+(the palette), `app-shell.css`, `editor-workspace.css`,
 `workspace-panels.css`, `dialogs.css`, `adaptive-feedback.css`.
 `src/index.css` layers Tailwind v4 **without** preflight and maps shadcn's
 colour names onto the app's own theme variables.
 
-`src/styles/tokens.test.ts` (325 lines, 14 cases) fails the build when:
+`src/styles/tokens.test.ts` (the `design token contract` suite) fails the build when:
 
-- a palette token (`--bg`, `--text`, …) is referenced outside theme/foundations
-  (`:98`);
-- a semantic role is mapped onto the palette in more than one place (`:108`);
-- a referenced custom property resolves nowhere (`:116`);
-- spacing uses a raw px value that is on the scale instead of `var(--space-*)`
-  (`:226`);
-- motion durations, interface type sizes, or nested radii bypass their shared
-  scales (`:247`, `:267`, `:281`);
-- `!important` is used outside surfaces the app does not own (`:307`);
-- host CSS leaks into the embedded Synara document (`:330`).
+- a palette token (`--bg`, `--text`, …) is referenced outside theme/foundations,
+  or a semantic role is mapped onto the palette in more than one place;
+- a referenced custom property resolves nowhere;
+- spacing uses a raw px value that is on the scale instead of `var(--space-*)`;
+- motion durations, spring tiers, interface type sizes, nested radii or
+  squircles bypass their shared scales;
+- `!important` is used outside surfaces the app does not own;
+- host CSS leaks into the embedded Synara document.
 
 There are also cross-component consistency cases: one height across the
-navigation controls (`:140`), one action width across sidebar modes (`:146`),
-28px compact / 32px default single-line controls (`:153`), one typography
-contract for Settings controls (`:161`), one focus ring drawn exactly once
-(`:200`).
+navigation controls, 28px compact / 32px default single-line controls with one
+typography contract for Settings controls, one soft selected state across the
+compact sidebar selectors, and one focus ring drawn exactly once. Each case's
+`it(...)` title names its rule; grep for it.
 
-`src/styles/surfaces.test.ts` (216 lines) covers the surface layer.
+`src/styles/surfaces.test.ts` covers the surface layer.
 
 Run them without the full gate:
 
@@ -608,9 +596,9 @@ both in WebKit (`--engine webkit`); each reports the result of its engine's
 in `package.json`. That cap is a debt ratchet:
 lower it when you remove warnings, never raise it.
 
-Testing environment: Vitest + jsdom, 20 s test timeout
-(`vitest.config.ts:71`), `literature-worker/**` and `.tmp/**` excluded
-(`vitest.config.ts:62`). The App integration suites (`src/app/app-*.test.tsx`,
+Testing environment: Vitest + jsdom, 20 s test timeout (`testTimeout` in
+`vitest.config.ts`), `literature-worker/**`, `.tmp/**` and `.synara-src/**`
+excluded (its `exclude` list). The App integration suites (`src/app/app-*.test.tsx`,
 sharing the mocks and helpers in `src/app/app-test-utils.tsx`) render the real
 `App` with a mocked `invoke`, and startup ordering matters: the
 backend's `initial_project` (`ipc/workspace.rs`; see `initialProjectProbe` in

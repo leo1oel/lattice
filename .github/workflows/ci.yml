@@ -185,7 +185,7 @@ jobs:
           - run: pnpm lint
           - run: pnpm knip
           # Locally part of the `lint` mise stage: every table in
-          # docs/performance.md is accounted for in
+          # docs/performance.md and docs/performance-history.md is accounted for in
           # docs/performance-data/manifest.json, and each benchmark table is
           # recomputed from the raw runs it names.
           - run: pnpm perf:evidence
