@@ -13,17 +13,44 @@ const IDLE = { key: null, value: null, error: "", loading: false };
 export function useLatestLoad<T>() {
   const [state, setState] = useState<LatestLoad<T>>(IDLE);
   const generation = useRef(0);
+  const shownKey = useRef<string | null>(null);
   const load = useCallback((key: string, request: () => Promise<T>) => {
     const current = ++generation.current;
+    shownKey.current = key;
     setState({ key, value: null, error: "", loading: true });
     void request().then(
       (value) => { if (generation.current === current) setState({ key, value, error: "", loading: false }); },
       (reason) => { if (generation.current === current) setState({ key, value: null, error: toMessage(reason), loading: false }); },
     );
   }, []);
+  /**
+   * Read `key` again behind what is shown: the last answer stays until the new
+   * one arrives, and is replaced only when it differs (or by the first answer
+   * when `key` is not the one shown); a failed read is said beside it.
+   */
+  const revalidate = useCallback((key: string, request: () => Promise<T>) => {
+    if (shownKey.current !== key) {
+      load(key, request);
+      return;
+    }
+    const current = ++generation.current;
+    void request().then(
+      (value) => {
+        if (generation.current !== current) return;
+        setState((shown) => (!shown.loading && !shown.error && JSON.stringify(shown.value) === JSON.stringify(value)
+          ? shown
+          : { key, value, error: "", loading: false }));
+      },
+      (reason) => {
+        if (generation.current !== current) return;
+        setState((shown) => ({ ...shown, key, error: toMessage(reason), loading: false }));
+      },
+    );
+  }, [load]);
   const clear = useCallback(() => {
     generation.current += 1;
+    shownKey.current = null;
     setState(IDLE);
   }, []);
-  return { ...state, load, clear };
+  return { ...state, load, revalidate, clear };
 }

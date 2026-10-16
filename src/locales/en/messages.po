@@ -177,6 +177,11 @@ msgstr "{0} not checked"
 msgid "{0} of {1} selected"
 msgstr "{0} of {1} selected"
 
+#. placeholder {0}: formatCount(current + 1)
+#: src/history/compare-versions.tsx
+msgid "{0} of {paragraphs}"
+msgstr "{0} of {paragraphs}"
+
 #. placeholder {0}: rows.length
 #: src/settings/acknowledgements-settings.tsx
 msgid "{0} packages"
@@ -720,6 +725,10 @@ msgstr "{operation} request success"
 msgid "{operation}: {pathname}"
 msgstr "{operation}: {pathname}"
 
+#: src/history/compare-versions.tsx
+msgid "{paragraphs} changed paragraphs"
+msgstr "{paragraphs} changed paragraphs"
+
 #. placeholder {0}: checks.length
 #: src/project/manuscript-checklist.tsx
 msgid "{passing} of {0} checks pass"
@@ -888,6 +897,10 @@ msgstr "1 annotation"
 #: src/history/versions-timeline.tsx
 msgid "1 change"
 msgstr "1 change"
+
+#: src/history/compare-versions.tsx
+msgid "1 changed paragraph"
+msgstr "1 changed paragraph"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 check needs attention"
@@ -1086,6 +1099,10 @@ msgstr "A hidden LaTeX comment stores the editable data with this table."
 #: src/build/compile-explain.ts
 msgid "A length without a unit"
 msgstr "A length without a unit"
+
+#: src/history/export-changes-dialog.tsx
+msgid "A line beside every change"
+msgstr "A line beside every change"
 
 #: src/build/compile-explain.ts
 msgid "A line runs {points} pt into the margin"
@@ -2051,6 +2068,10 @@ msgstr "Back to reference"
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Bars in the margin"
+msgstr "Bars in the margin"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Basic blocks"
 msgstr "Basic blocks"
@@ -2488,6 +2509,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -2656,6 +2678,10 @@ msgstr "Centered multi-line equations"
 msgid "Change"
 msgstr "Change"
 
+#: src/history/compare-versions.tsx
+msgid "Changed files"
+msgstr "Changed files"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Changed here"
 msgstr "Changed here"
@@ -2672,12 +2698,17 @@ msgstr "Changed since the last check"
 msgid "Changed there, untouched here"
 msgstr "Changed there, untouched here"
 
+#: src/history/compare-versions.tsx
+msgid "Changes"
+msgstr "Changes"
+
 #: src/app/app-history-drawers.tsx
 #: src/app/git-workspace-frames.tsx
 msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Changes in {path}"
 msgstr "Changes in {path}"
@@ -3334,6 +3365,7 @@ msgid "Compare"
 msgstr "Compare"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 msgid "Compare versions"
 msgstr "Compare versions"
 
@@ -3346,9 +3378,17 @@ msgstr "Compare with"
 msgid "Compare with now"
 msgstr "Compare with now"
 
+#: src/history/history-drawer.tsx
+msgid "Compare…"
+msgstr "Compare…"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
 msgstr "Comparing this project with Overleaf…"
+
+#: src/history/compare-versions.tsx
+msgid "Comparing…"
+msgstr "Comparing…"
 
 #: src/papers/citation-candidates.tsx
 msgid "Compatible author names"
@@ -4907,6 +4947,18 @@ msgstr "Export for arXiv"
 msgid "Export for arXiv…"
 msgstr "Export for arXiv…"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Export PDF"
+msgstr "Export PDF"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Export PDF with changes marked"
+msgstr "Export PDF with changes marked"
+
+#: src/history/compare-versions.tsx
+msgid "Export PDF with changes…"
+msgstr "Export PDF with changes…"
+
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
 msgstr "Export preview"
@@ -4933,6 +4985,7 @@ msgstr "Exported {fileName}"
 msgid "Exporting ZIP…"
 msgstr "Exporting ZIP…"
 
+#: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Exporting…"
 msgstr "Exporting…"
@@ -5342,6 +5395,14 @@ msgstr "Forward"
 msgid "Fourth-level heading."
 msgstr "Fourth-level heading."
 
+#: src/history/compare-versions.tsx
+msgid "From"
+msgstr "From"
+
+#: src/history/compare-versions.tsx
+msgid "From {name}"
+msgstr "From {name}"
+
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "From the official conference author kits, bundled unmodified with their authors' credits"
@@ -5677,6 +5738,10 @@ msgstr "Hide {name}"
 msgid "Hide {name} panel"
 msgstr "Hide {name} panel"
 
+#: src/history/compare-versions.tsx
+msgid "Hide automatic versions"
+msgstr "Hide automatic versions"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "Hide Mermaid preview"
@@ -5729,6 +5794,8 @@ msgstr "Highlighters"
 msgid "Highlights"
 msgstr "Highlights"
 
+#: src/history/compare-versions.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "History"
 msgstr "History"
@@ -5924,6 +5991,10 @@ msgstr "Importing files…"
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
+#: src/history/export-changes-dialog.tsx
+msgid "In colour"
+msgstr "In colour"
+
 #: src/papers/literature-discovery-panel.tsx
 #: src/papers/support-panel.tsx
 msgid "In Papers"
@@ -5974,6 +6045,10 @@ msgstr "Include app and Agent runtime logs"
 #: src/telemetry/app-log.tsx
 msgid "Include raw diagnostic text"
 msgstr "Include raw diagnostic text"
+
+#: src/history/compare-versions.tsx
+msgid "Including changes not saved as a version"
+msgstr "Including changes not saved as a version"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -6341,6 +6416,10 @@ msgstr "Keep both, yours first"
 msgid "Keep citations"
 msgstr "Keep citations"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Keep deleted text, struck through"
+msgstr "Keep deleted text, struck through"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
@@ -6552,6 +6631,10 @@ msgstr "LaTeX package installed"
 #: src/app/use-tex-setup.ts
 msgid "LaTeX setup"
 msgstr "LaTeX setup"
+
+#: src/history/export-changes-dialog.tsx
+msgid "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
+msgstr "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
 
 #: src/App.tsx
 msgid "latexmk -c then -g"
@@ -6812,6 +6895,8 @@ msgid "Line"
 msgstr "Line"
 
 #. placeholder {0}: hunk.line
+#. placeholder {0}: passage.line
+#: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
 msgid "Line {0}"
 msgstr "Line {0}"
@@ -6962,6 +7047,10 @@ msgstr "Load a package"
 msgid "Load more"
 msgstr "Load more"
 
+#: src/history/compare-versions.tsx
+msgid "Load older versions"
+msgstr "Load older versions"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading annotations…"
 msgstr "Loading annotations…"
@@ -6974,6 +7063,7 @@ msgstr "Loading changes…"
 msgid "Loading comments…"
 msgstr "Loading comments…"
 
+#: src/history/compare-versions.tsx
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7119,6 +7209,10 @@ msgstr "lower case"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Made with latexdiff from your TeX installation, then built like the paper. Saved as {saved} beside {pdf}."
+msgstr "Made with latexdiff from your TeX installation, then built like the paper. Saved as {saved} beside {pdf}."
+
 #: src/components/ui/color-picker.tsx
 msgid "Magenta"
 msgstr "Magenta"
@@ -7173,6 +7267,10 @@ msgstr "Margin review: Markers only"
 #: src/App.tsx
 msgid "Margin review: Off"
 msgstr "Margin review: Off"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Mark changes"
+msgstr "Mark changes"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
@@ -7241,6 +7339,10 @@ msgstr "Math preview"
 #: src/settings/acknowledged-software.ts
 msgid "Math previews"
 msgstr "Math previews"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Maths, figures and citations are left unmarked: the fully marked document did not build."
+msgstr "Maths, figures and citations are left unmarked: the fully marked document did not build."
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
@@ -7716,6 +7818,7 @@ msgid "Next build problem"
 msgstr "Next build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Next change"
 msgstr "Next change"
@@ -8057,6 +8160,7 @@ msgstr "No shortcut matches “{0}”"
 msgid "No suggestions in this file"
 msgstr "No suggestions in this file"
 
+#: src/history/compare-versions.tsx
 #: src/history/file-diff-view.tsx
 #: src/history/versions-timeline.tsx
 msgid "No textual changes"
@@ -8315,6 +8419,7 @@ msgid "Notify me (manual)"
 msgstr "Notify me (manual)"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 msgid "Now"
 msgstr "Now"
 
@@ -8431,11 +8536,16 @@ msgstr "Only in the Lattice window on macOS"
 msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
 msgstr "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Only pages with changes"
+msgstr "Only pages with changes"
+
 #: src/App.tsx
 msgid "only the editor"
 msgstr "only the editor"
 
 #: src/app/command-palette.tsx
+#: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Open"
@@ -8449,6 +8559,11 @@ msgstr "Open"
 #: src/App.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
+
+#. placeholder {0}: passage.line
+#: src/history/compare-versions.tsx
+msgid "Open {path} at line {0}"
+msgstr "Open {path} at line {0}"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open {title}"
@@ -8958,6 +9073,10 @@ msgstr "Page of a labeled item"
 msgid "Pages"
 msgstr "Pages"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Pages nothing changed on are left out"
+msgstr "Pages nothing changed on are left out"
+
 #: src/components/ui/color-picker.tsx
 msgid "Pale {name}"
 msgstr "Pale {name}"
@@ -9224,6 +9343,10 @@ msgstr "PDF preview paused"
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
 
+#: src/history/export-changes-dialog.tsx
+msgid "PDF with changes marked"
+msgstr "PDF with changes marked"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
@@ -9259,6 +9382,10 @@ msgstr "Pick an emoji to insert at the cursor."
 #: src/components/ui/color-picker.tsx
 msgid "Pick color from screen"
 msgstr "Pick color from screen"
+
+#: src/history/compare-versions.tsx
+msgid "Pick where to start and where to end. The newer version is always on the right."
+msgstr "Pick where to start and where to end. The newer version is always on the right."
 
 #: src/settings/theme-settings.tsx
 msgid "Picked"
@@ -9434,6 +9561,7 @@ msgid "Previous build problem"
 msgstr "Previous build problem"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Previous change"
 msgstr "Previous change"
@@ -9591,6 +9719,10 @@ msgstr "Proposed"
 #: src/papers/bibliography-audit.tsx
 msgid "Proposed BibTeX"
 msgstr "Proposed BibTeX"
+
+#: src/history/compare-versions.tsx
+msgid "Prose"
+msgstr "Prose"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
@@ -10660,6 +10792,10 @@ msgstr "Review the paper"
 msgid "Review the proposal"
 msgstr "Review the proposal"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Reviewers see what was removed"
+msgstr "Reviewers see what was removed"
+
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Revise from {0} annotations"
@@ -10969,6 +11105,11 @@ msgstr "Saved · Synced"
 #: src/canvas/status-save-state.tsx
 msgid "Saved · Syncing…"
 msgstr "Saved · Syncing…"
+
+#. placeholder {0}: result.path
+#: src/history/export-changes-dialog.tsx
+msgid "Saved {0}"
+msgstr "Saved {0}"
 
 #: src/canvas/status-save-state.tsx
 msgid "Saved {age}"
@@ -11360,6 +11501,11 @@ msgstr "Shorten"
 msgid "Show"
 msgstr "Show"
 
+#. placeholder {0}: formatCount(hidden)
+#: src/history/compare-versions.tsx
+msgid "Show {0} automatic versions"
+msgstr "Show {0} automatic versions"
+
 #: src/App.tsx
 msgid "Show {name} panel"
 msgstr "Show {name} panel"
@@ -11394,6 +11540,7 @@ msgstr "Show archived"
 msgid "Show changes"
 msgstr "Show changes"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Show changes as"
 msgstr "Show changes as"
@@ -11406,6 +11553,7 @@ msgstr "Show document outline"
 msgid "Show hidden files"
 msgstr "Show hidden files"
 
+#: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
@@ -11675,6 +11823,7 @@ msgid "sound"
 msgstr "sound"
 
 #: src/editor/markdown/engine/views/image-view.tsx
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Source"
 msgstr "Source"
@@ -12468,6 +12617,10 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 msgid "The files already read as {name}."
 msgstr "The files already read as {name}."
 
+#: src/history/export-changes-dialog.tsx
+msgid "The first changes, marked this way"
+msgstr "The first changes, marked this way"
+
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
@@ -12756,6 +12909,10 @@ msgstr "These comments stay in Lattice and are not sent to Overleaf."
 msgid "These files as this version left them, compared with now"
 msgstr "These files as this version left them, compared with now"
 
+#: src/history/compare-versions.tsx
+msgid "These two versions have the same files."
+msgstr "These two versions have the same files."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
@@ -13042,9 +13199,17 @@ msgstr "Title/abstract only"
 msgid "to"
 msgstr "to"
 
+#: src/history/compare-versions.tsx
+msgid "To"
+msgstr "To"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
+
+#: src/history/compare-versions.tsx
+msgid "To {name}"
+msgstr "To {name}"
 
 #: src/editor/latex/highlighters.ts
 msgid "To check"
@@ -13261,6 +13426,10 @@ msgstr "Under arXiv’s size limit"
 msgid "Underline"
 msgstr "Underline"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Underline only"
+msgstr "Underline only"
+
 #: src/app/claim-support.ts
 #: src/app/paper-review.ts
 #: src/app/use-editor-comments.ts
@@ -13307,6 +13476,7 @@ msgstr "Unhandled promise rejection"
 msgid "Union"
 msgstr "Union"
 
+#: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
@@ -13642,6 +13812,7 @@ msgstr "Verified record (BibTeX)"
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
+#: src/history/compare-versions.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -13697,6 +13868,10 @@ msgstr "Version tracking is off for this project"
 #: src/history/use-git-versions.ts
 msgid "Versions"
 msgstr "Versions"
+
+#: src/history/compare-versions.tsx
+msgid "Versions to compare"
+msgstr "Versions to compare"
 
 #: src/history/history-drawer.tsx
 msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
@@ -13929,6 +14104,11 @@ msgstr "Word count"
 #: src/canvas/editor-status-bar.tsx
 msgid "Word count: {scope}, {count}"
 msgstr "Word count: {scope}, {count}"
+
+#: src/history/compare-versions.tsx
+msgctxt "changed words count"
+msgid "words"
+msgstr "words"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

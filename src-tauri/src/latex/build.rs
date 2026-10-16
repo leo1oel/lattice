@@ -8,7 +8,7 @@ use super::build_steps::BuildSteps;
 use super::{default_root_document, engine_mismatch, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
-use crate::models::Diagnostic;
+use crate::models::{Diagnostic, ProjectManifest};
 use crate::wide_event::{self, Failure};
 use crate::{pdf_fonts, project};
 use std::fs;
@@ -254,6 +254,23 @@ fn latexmk_pdf_default(engine: &str) -> &'static str {
     }
 }
 
+/// How latexmk typesets the project's documents: its engine, and whether
+/// they may run shell commands.
+pub(super) fn engine_args(root: &Path, manifest: &ProjectManifest) -> Vec<&'static str> {
+    let mut args = if project::has_latexmkrc(root) {
+        // An rc file may only define asset rules, leaving latexmk's default
+        // DVI target active. -e runs after rc loading: supply a PDF default
+        // without overriding an explicitly configured PDF pipeline.
+        vec!["-e", latexmk_pdf_default(&manifest.engine)]
+    } else {
+        vec![project::latexmk_engine_arg(&manifest.engine)]
+    };
+    if !manifest.trusted {
+        args.push("-no-shell-escape");
+    }
+    args
+}
+
 fn run_latexmk(
     root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
@@ -271,19 +288,9 @@ fn run_latexmk(
         "-file-line-error",
         "-halt-on-error",
     ]);
-    if project::has_latexmkrc(root) {
-        // An rc file may only define asset rules, leaving latexmk's default
-        // DVI target active. -e runs after rc loading: supply a PDF default
-        // without overriding an explicitly configured PDF pipeline.
-        command.arg("-e").arg(latexmk_pdf_default(&manifest.engine));
-    } else {
-        command.arg(project::latexmk_engine_arg(&manifest.engine));
-    }
+    command.args(engine_args(root, &manifest));
     if force {
         command.arg("-g");
-    }
-    if !manifest.trusted {
-        command.arg("-no-shell-escape");
     }
     command.arg(&document.path);
     wide_event::record("engine", manifest.engine.as_str());

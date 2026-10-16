@@ -74,7 +74,7 @@ Edit them, comment on them, let the agent revise them, and present from Lattice.
 <img src="docs/images/history.webp" alt="Project history: a timeline of agent edits, citations, co-author versions and your own edits, with one entry expanded to its diff" width="900" />
 
 One timeline for saved versions, every edit from you or the agent, and Overleaf's history.
-Open any entry to see its diff and restore a file; the Git panel shows changes and pull requests when the project is a repository.
+Open any entry to see its diff and restore a file, or **Compare…** any two versions and export the PDF with the changes marked (via `latexdiff` from your TeX Live); the Git panel shows changes and pull requests when the project is a repository.
 
 ## Install
 

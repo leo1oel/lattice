@@ -2,7 +2,9 @@
 //! formatting, spelling and proofreading, the environment doctor and the TeX
 //! installer.
 
-use super::{binary_save, current_root, in_project, pinned_root, run_blocking, run_quietly};
+use super::{
+    binary_save, current_root, in_project, lease_if_pinned, pinned_root, run_blocking, run_quietly,
+};
 use crate::app_state::AppState;
 use crate::command_diagnostics;
 use crate::doctor::DoctorReport;
@@ -109,6 +111,21 @@ pub async fn agent_text_task(
             task_id.as_deref(),
             serde_json::json!({ "workspaceRoot": project_root, "prompt": prompt }),
         )
+    })
+    .await
+}
+
+/// Save the root document's PDF with the changes from `from` to `to` (the
+/// files now, when absent) marked, beside the paper's own PDF.
+#[tauri::command]
+pub async fn export_changes_pdf(
+    state: State<'_, AppState>, window: Window, project_root: String, from: String,
+    to: Option<String>, options: latex::ChangesPdfOptions,
+) -> Result<latex::ChangesPdf, String> {
+    let _lease = lease_if_pinned(&state, Some(&project_root)).await;
+    let root = pinned_root(&state, &window, &project_root, "the PDF could be exported")?;
+    run_blocking("PDF with changes marked", move || {
+        latex::export_changes_pdf(&root, &from, to.as_deref(), options)
     })
     .await
 }

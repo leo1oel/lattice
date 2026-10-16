@@ -45,6 +45,30 @@ pub async fn git_show_diff(
         .await
 }
 
+/// The files that differ between two versions; `to` absent means the files now.
+#[tauri::command]
+pub async fn git_compare_files(
+    state: State<'_, AppState>, window: Window, from: String, to: Option<String>,
+) -> Result<Vec<crate::git::GitLogFile>, String> {
+    in_project(&state, &window, "Git version comparison", move |root| {
+        git::compare_files(root, &from, to.as_deref())
+    })
+    .await
+}
+
+/// One file at two versions; `to` absent means the file on disk, `from_path`
+/// where `from` had it when it was renamed since.
+#[tauri::command]
+pub async fn git_compare_file(
+    state: State<'_, AppState>, window: Window, from: String, to: Option<String>, path: String,
+    from_path: Option<String>,
+) -> Result<crate::git::GitFileDiff, String> {
+    in_project(&state, &window, "Git version comparison", move |root| {
+        git::compare_file(root, &from, to.as_deref(), &path, from_path.as_deref())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn git_restore_file(
     state: State<'_, AppState>, window: Window, rev: String, path: String,

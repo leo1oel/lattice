@@ -14,8 +14,10 @@ use std::process::{Command, Output};
 use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+mod compare;
 mod parse;
 
+pub use compare::{compare_file, compare_files, write_version};
 use parse::{parse_log, parse_porcelain_v2};
 
 /// File extensions the version timeline always treats as binary, so we never
@@ -162,20 +164,14 @@ pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, Stri
     let rev = validate_rev(rev)?;
     let relative = normalize_relative(path)?;
     project::safe_path(root, &relative)?;
-    let binary = GitFileDiff { before: None, after: None, binary: true };
     if is_binary_path(&relative) {
-        return Ok(binary);
+        return Ok(GitFileDiff { before: None, after: None, binary: true });
     }
     // `rev^:path` fails both when rev has no parent and when the file was
     // added in rev; either way there is no "before" side.
     let before = show_blob_bytes(root, &format!("{rev}^:{relative}"));
     let after = show_blob_bytes(root, &format!("{rev}:{relative}"));
-    if [&before, &after].iter().any(|blob| blob.as_ref().is_some_and(|bytes| bytes.contains(&0))) {
-        return Ok(binary);
-    }
-    let text =
-        |blob: Option<Vec<u8>>| blob.map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-    Ok(GitFileDiff { before: text(before), after: text(after), binary: false })
+    Ok(GitFileDiff::from_blobs(before, after))
 }
 
 pub fn restore_file(root: &Path, rev: &str, path: &str) -> Result<(), String> {
@@ -425,6 +421,9 @@ pub struct GitLogFile {
     pub path: String,
     /// "added" | "modified" | "deleted" | "renamed"
     pub kind: String,
+    /// Where a renamed or copied file was before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -445,6 +444,21 @@ pub struct GitFileDiff {
     pub before: Option<String>,
     pub after: Option<String>,
     pub binary: bool,
+}
+
+impl GitFileDiff {
+    /// Two sides read as bytes: text, unless either holds a NUL.
+    fn from_blobs(before: Option<Vec<u8>>, after: Option<Vec<u8>>) -> Self {
+        if [&before, &after]
+            .iter()
+            .any(|blob| blob.as_ref().is_some_and(|bytes| bytes.contains(&0)))
+        {
+            return GitFileDiff { before: None, after: None, binary: true };
+        }
+        let text =
+            |blob: Option<Vec<u8>>| blob.map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+        GitFileDiff { before: text(before), after: text(after), binary: false }
+    }
 }
 
 #[cfg(test)]
@@ -590,6 +604,91 @@ mod tests {
         assert!(pdf.binary);
         assert_eq!((pdf.before, pdf.after), (None, None));
         assert!(show_diff(&root, &second, "blob.bin").unwrap().binary);
+    }
+
+    /// Two versions compare with each other, or with the files as they are
+    /// now, untracked ones included; either side writes out whole, without
+    /// Lattice's state or what the project ignores.
+    #[test]
+    fn compares_any_two_versions_and_writes_either_out() {
+        let Some(root) = repo("compare") else { return };
+        let intro = "a\nb\nc\nd\n";
+        let files = [
+            (".gitignore", ".research/\n*.aux\n"),
+            ("main.tex", "one\n"),
+            ("old.tex", "o\n"),
+            ("intro.tex", intro),
+        ];
+        let first = commit(&root, &files, "first");
+        fs::remove_file(root.join("old.tex")).unwrap();
+        fs::remove_file(root.join("intro.tex")).unwrap();
+        let files = [
+            ("main.tex", "two\n"),
+            ("sec/intro.tex", "i\n"),
+            ("sections/intro.tex", "a\nb\nc\nD\n"),
+        ];
+        let second = commit(&root, &files, "second");
+        root.write("main.tex", "three\n");
+        root.write("draft.tex", "d\n");
+        root.write("main.aux", "build output");
+        root.write(".research/notes.md", "private");
+
+        let listed = |to: Option<&str>| {
+            let mut files = compare_files(&root, &first, to)
+                .unwrap()
+                .into_iter()
+                .map(|file| match file.old_path {
+                    Some(old) => format!("{} {old} -> {}", file.kind, file.path),
+                    None => format!("{} {}", file.kind, file.path),
+                })
+                .collect::<Vec<_>>();
+            files.sort();
+            files
+        };
+        let renamed = "renamed intro.tex -> sections/intro.tex";
+        assert_eq!(
+            listed(Some(&second)),
+            ["added sec/intro.tex", "deleted old.tex", "modified main.tex", renamed]
+        );
+        assert_eq!(
+            listed(None),
+            [
+                "added draft.tex",
+                "added sec/intro.tex",
+                "deleted old.tex",
+                "modified main.tex",
+                renamed
+            ]
+        );
+
+        let text = |to: Option<&str>| {
+            let diff = compare_file(&root, &first, to, "main.tex", None).unwrap();
+            (diff.before.unwrap(), diff.after.unwrap())
+        };
+        assert_eq!(text(Some(&second)), ("one\n".to_string(), "two\n".to_string()));
+        assert_eq!(text(None), ("one\n".to_string(), "three\n".to_string()));
+        let moved =
+            compare_file(&root, &first, Some(&second), "sections/intro.tex", Some("intro.tex"))
+                .unwrap();
+        assert_eq!(
+            (moved.before.unwrap(), moved.after.unwrap()),
+            (intro.to_string(), "a\nb\nc\nD\n".to_string())
+        );
+        assert_eq!(compare_file(&root, &first, None, "old.tex", None).unwrap().after, None);
+        assert!(compare_file(&root, "HEAD", None, "main.tex", None).is_err());
+        assert!(compare_file(&root, &first, None, "../main.tex", None).is_err());
+        assert!(compare_file(&root, &first, None, "main.tex", Some("../main.tex")).is_err());
+
+        let older = scratch("compare-older");
+        write_version(&root, Some(&first), &older).unwrap();
+        assert_eq!(fs::read_to_string(older.join("main.tex")).unwrap(), "one\n");
+        assert!(older.join("old.tex").exists() && !older.join("sec").exists());
+        let now = scratch("compare-now");
+        write_version(&root, None, &now).unwrap();
+        assert_eq!(fs::read_to_string(now.join("main.tex")).unwrap(), "three\n");
+        assert!(now.join("draft.tex").exists() && now.join("sec/intro.tex").exists());
+        assert!(!now.join("old.tex").exists() && !now.join("main.aux").exists());
+        assert!(!now.join(".research").exists());
     }
 
     #[test]

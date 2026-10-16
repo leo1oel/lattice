@@ -23,6 +23,9 @@ export type GitVersionsPhase = "loading" | "unavailable" | "no-repo" | "ready" |
  */
 const lastLog = new Map<string, GitLogEntry[]>();
 
+/** How many versions the log reads at first, and how many more each "older" asks for. */
+const LOG_PAGE = 100;
+
 export function useGitVersions(props: {
   projectRoot?: string;
   /** Called after any restore or manual save so the app can reload files. */
@@ -36,6 +39,9 @@ export function useGitVersions(props: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // A full read may have left older versions out; reloads keep reading as far back as was asked.
+  const [hasOlder, setHasOlder] = useState(() => entries.length >= LOG_PAGE);
+  const logLimit = useRef(LOG_PAGE);
 
   const callbacksRef = useRef(props);
   useEffect(() => {
@@ -50,7 +56,8 @@ export function useGitVersions(props: {
     setError("");
     try {
       // Asked together: the log of a folder that is not a repository is empty.
-      const log = invoke<GitLogEntry[]>("git_log", { limit: 100 }).then(
+      const limit = logLimit.current;
+      const log = invoke<GitLogEntry[]>("git_log", { limit }).then(
         (entries) => ({ entries }),
         (reason: unknown) => ({ reason }),
       );
@@ -66,6 +73,7 @@ export function useGitVersions(props: {
       if ("entries" in read) {
         if (root) lastLog.set(root, read.entries);
         setEntries(read.entries);
+        setHasOlder(read.entries.length >= limit);
       } else {
         setError(toMessage(read.reason));
       }
@@ -87,6 +95,7 @@ export function useGitVersions(props: {
   const loadRef = useRef(load);
   useEffect(() => {
     const cancelLoad = () => { ++loadSeq.current; };
+    logLimit.current = LOG_PAGE;
     void loadRef.current();
     const refresh = () => { void load(); };
     const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
@@ -129,6 +138,12 @@ export function useGitVersions(props: {
     busy,
     refreshing,
     reload: load,
+    hasOlder,
+    /** Read the next page of older versions as well. */
+    loadOlder: () => {
+      logLimit.current += LOG_PAGE;
+      return load();
+    },
     enableTracking: () => runAction(t`Start tracking versions`, undefined, async () => {
       await invoke<GitStatus>("git_init");
       return t`Now tracking versions of this project.`;
