@@ -27,7 +27,6 @@ const loadLocalTemplates = chunk(() => import("./local-templates"));
 const LocalTemplates = lazyChunk(loadLocalTemplates, (module) => module.LocalTemplates);
 
 /** A recent project launch could not reopen, with the backend's reason. */
-
 export type UnopenedProject = RecentProject & { reason: string };
 
 /* eslint-disable lingui/no-unlocalized-strings -- phrases matched in backend error text */
