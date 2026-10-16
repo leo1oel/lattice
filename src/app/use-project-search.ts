@@ -21,6 +21,12 @@ const CLOSED_REPLACE: ReplaceState = { open: false, busy: false, error: null, pr
  * and the project it started in is still open, so a slow search never lands
  * over a newer query or in another project. A replace writes the open
  * editor's unsaved edits first, then brings the project back up to date.
+ *
+ * A replace is bound the same way to the project and the dialog operation it
+ * started in: the save before it can take long enough for the writer to close
+ * the dialog or switch projects, and a replacement approved for A must then
+ * never run, so it is dropped before it reaches the backend, which also
+ * refuses a request for a project that is no longer the window's.
  */
 export function useProjectSearch(deps: {
   projectRef: RefObject<ProjectSnapshot | null>;
@@ -72,28 +78,52 @@ export function useProjectSearch(deps: {
     if (generation === searchGenerationRef.current) setFind({ busy: false });
   }, [depsRef, setFind]);
 
+  /** Bumped per preview or replace (and on close) so a stale one neither runs nor lands. */
+  const replaceGenerationRef = useRef(0);
   const openReplace = useCallback(() => setReplace({ open: true, error: null, preview: null }), [setReplace]);
-  const closeReplace = useCallback(() => setReplace({ open: false, preview: null }), [setReplace]);
-  /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
-  const runReplaceStep = useCallback(async (step: () => Promise<void>, onError?: () => void) => {
+  const closeReplace = useCallback(() => {
+    replaceGenerationRef.current += 1;
+    setReplaceState(CLOSED_REPLACE);
+  }, []);
+  /**
+   * Save a dirty buffer, then run one replace step with the dialog's busy/error
+   * state. `step` runs only while the project it was asked for is open and
+   * its operation is the dialog's newest; it gets checks for both, as it may
+   * outlive them.
+   */
+  const runReplaceStep = useCallback(async (
+    step: (scope: { projectRoot: string; ownsProject: () => boolean; isCurrent: () => boolean }) => Promise<void>,
+    onError?: () => void,
+  ) => {
+    const { unsavedEdits, save, projectRef, captureProjectScope } = depsRef.current;
+    const projectRoot = projectRef.current?.root;
+    if (!projectRoot) return;
+    const generation = ++replaceGenerationRef.current;
+    const ownsProject = captureProjectScope();
+    const isCurrent = () => generation === replaceGenerationRef.current && ownsProject();
     setReplace({ busy: true, error: null });
-    const { unsavedEdits, save } = depsRef.current;
     await (async () => {
       if (unsavedEdits() && !(await save())) return;
-      await step();
+      if (isCurrent()) await step({ projectRoot, ownsProject, isCurrent });
     })().catch((reason: unknown) => {
+      if (!isCurrent()) return;
       onError?.();
       setReplace({ error: toMessage(reason) });
     });
-    setReplace({ busy: false });
+    if (generation === replaceGenerationRef.current) setReplace({ busy: false });
   }, [depsRef, setReplace]);
-  const previewReplace = useCallback((query: string, options: ReplaceOptions) => runReplaceStep(async () => {
-    setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options }) });
+  const previewReplace = useCallback((query: string, options: ReplaceOptions) => runReplaceStep(async ({ isCurrent }) => {
+    const preview = await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options });
+    if (isCurrent()) setReplace({ preview });
   }, () => setReplace({ preview: null })), [runReplaceStep, setReplace]);
-  const applyReplace = useCallback((query: string, replacement: string, options: ReplaceOptions) => runReplaceStep(async () => {
-    const result = await invoke<ReplaceResult>("replace_in_project", { query, replacement, paths: null, ...options });
+  const applyReplace = useCallback((query: string, replacement: string, options: ReplaceOptions) => runReplaceStep(async ({ projectRoot, ownsProject, isCurrent }) => {
+    const result = await invoke<ReplaceResult>("replace_in_project", { projectRoot, query, replacement, paths: null, ...options });
+    // The files changed on disk: reload them and say so even if the dialog
+    // closed meanwhile, but not into a project opened since.
+    if (!ownsProject()) return;
     await depsRef.current.afterReplace();
-    setReplace({ open: false, preview: null });
+    if (!ownsProject()) return;
+    if (isCurrent()) setReplace({ open: false, preview: null });
     const replacements = result.replacements;
     const files = result.filesChanged.length;
     showNotice(!replacements

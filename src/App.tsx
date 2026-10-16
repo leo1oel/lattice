@@ -31,6 +31,7 @@ import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { isMissingPaperToolsError } from "./build/tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
+import { useBuildErrorFix } from "./app/use-build-error-fix";
 import { useOpenDocuments } from "./app/use-open-documents";
 import { useProjectLifecycle } from "./app/use-project-lifecycle";
 import { useProjectTree } from "./app/use-project-tree";
@@ -687,31 +688,22 @@ function App() {
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
-  // A failed build's suggested fix (compile-explain.ts): the replacement lands
-  // in the editor as a transaction, so ⌘Z takes it back like typing, and once
-  // the canvas has applied it the file is saved and built again. A token that
-  // is no longer on its line changes nothing, and the build reports what is.
-  const pendingReplaceRef = useRef<string | null>(null);
-  const replaceDiagnosticToken = async (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
+  const buildErrorFix = useBuildErrorFix({
+    captureProjectScope, openFile, fileRef: activeFileRef, assetRef: activeAssetRef, updateCanvasRequest,
+    flush, save, compile: () => compileRef.current(),
+  });
+  const { settled: settleBuildErrorFix, reset: resetBuildErrorFix } = buildErrorFix;
+  const replaceDiagnosticToken = (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
     const line = diagnostic.line;
     if (!project || !line) return;
     const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
-    await showingErrors(async () => {
-      await openFile(path, { line });
-      const id = crypto.randomUUID();
-      pendingReplaceRef.current = id;
-      updateCanvasRequest("replace", { path, line, token, replacement, id });
-    });
+    void buildErrorFix.replaceToken(path, line, token, replacement);
   };
   // Stable, as the canvas's request effects depend on it.
   const { settleCanvasRequest } = useStableHandlers({
     settleCanvasRequest: (id: string) => {
       settleRequest(id);
-      if (id !== pendingReplaceRef.current) return;
-      pendingReplaceRef.current = null;
-      void (async () => {
-        if (flush() && await save()) await compileRef.current();
-      })();
+      settleBuildErrorFix(id);
     },
   });
 
@@ -760,6 +752,7 @@ function App() {
       resetAgentSelection();
       resetEditorComments();
       annotationRounds.reset();
+      resetBuildErrorFix();
       paperReview.reset();
       tools.resetForProject();
       setDiskTodos([]);
@@ -1877,7 +1870,7 @@ function App() {
             }}
             onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
             sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
-            onReplaceToken={(diagnostic, token, replacement) => void replaceDiagnosticToken(diagnostic, token, replacement)}
+            onReplaceToken={replaceDiagnosticToken}
             onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
           />
         </Suspense>
@@ -2257,6 +2250,7 @@ function App() {
         bodyBoundary={bodyBoundary}
         openProjectFile={openFile}
         pdfPageCount={pdfPageCount}
+        captureProjectScope={captureProjectScope}
         project={project}
         projectWordCount={projectWordCount}
         setProject={setProject}

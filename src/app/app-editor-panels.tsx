@@ -8,7 +8,7 @@
  * fallback that covered all of them would unmount an open TODO panel while
  * an unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
@@ -84,6 +84,8 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   openProjectFile: OpenProjectFile;
   pdfPageCount: number | null;
   project: ProjectSnapshot;
+  /** A check that turns false once the project open now is no longer the one open. */
+  captureProjectScope: () => () => boolean;
   projectWordCount: WordCount | null;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
   todoHits: TodoHit[];
@@ -94,6 +96,23 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
+  // The budgets and the deadline each answer with the whole manifest, so only
+  // the newest write, still in the project it was made for, may install its
+  // answer: an older or another project's would replace the name, root
+  // documents and every other setting along with the value it changed.
+  const manifestWriteRef = useRef(0);
+  const writeManifest = (write: () => Promise<ProjectManifest>) => {
+    const request = ++manifestWriteRef.current;
+    const ownsProject = props.captureProjectScope();
+    void write().then(
+      (manifest) => {
+        if (request === manifestWriteRef.current && ownsProject()) {
+          props.setProject((current) => current ? { ...current, manifest } : current);
+        }
+      },
+      (reason) => { if (ownsProject()) showError(toMessage(reason)); },
+    );
+  };
   // Where the writer was writing: the active file, still active while a Paper
   // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
   // Closing the last tab keeps the file's buffer (and so `activeFile`) but
@@ -200,23 +219,13 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           // TODOs open beside the checklist, as a tab in its panel (the
           // panel under the pointer), which stays one tab away.
           onOpenTodos={() => tools.open("todos")}
-          onSaveBudgets={(wordBudget, pageBudget) => {
-            void invoke<ProjectManifest>("update_project_manifest", {
-              wordBudget: wordBudget ?? undefined,
-              pageBudget: pageBudget ?? undefined,
-              clearWordBudget: wordBudget == null,
-              clearPageBudget: pageBudget == null,
-            }).then(
-              (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
-              (reason) => showError(toMessage(reason)),
-            );
-          }}
-          onSaveDeadline={(deadline) => {
-            void invoke<ProjectManifest>("set_project_deadline", { deadline }).then(
-              (manifest) => props.setProject((current) => current ? { ...current, manifest } : current),
-              (reason) => showError(toMessage(reason)),
-            );
-          }}
+          onSaveBudgets={(wordBudget, pageBudget) => writeManifest(() => invoke<ProjectManifest>("update_project_manifest", {
+            wordBudget: wordBudget ?? undefined,
+            pageBudget: pageBudget ?? undefined,
+            clearWordBudget: wordBudget == null,
+            clearPageBudget: pageBudget == null,
+          }))}
+          onSaveDeadline={(deadline) => writeManifest(() => invoke<ProjectManifest>("set_project_deadline", { deadline }))}
         />
       )}
     </>

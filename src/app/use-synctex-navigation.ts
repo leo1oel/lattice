@@ -5,6 +5,7 @@ import type { EditorPosition, PdfSyncResponse, SyncTexTarget } from "../app-type
 import { toMessage } from "../app-utils";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import type { TrellisController } from "../trellis/trellis-controller";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { showError, showWarning, showingErrors } from "./notify";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
@@ -36,6 +37,8 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const { pdfUrl, ensureCompiled } = deps.build;
   const forwardSyncGenerationRef = useRef(0);
   const outlineSyncGenerationRef = useRef(0);
+  const inverseSyncGenerationRef = useRef(0);
+  const pdfUrlRef = useLatestRef(pdfUrl);
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
 
@@ -136,15 +139,35 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     reveal("pdf");
   }, [activeFileRef, captureProjectScope, editorPositionRef, ensureCompiled, openFile, reveal, save]);
 
-  /** From a double-click in the PDF to its source line. */
-  const revealPdfSource = useCallback((page: number, x: number, y: number) => showingErrors(async () => {
-    const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
+  /**
+   * From a double-click in the PDF to its source line. The answer is a
+   * project-relative path, which a project opened meanwhile may have too, so
+   * it lands only while the click is the newest, its PDF is still the one on
+   * screen and nothing else was opened or chosen since.
+   */
+  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
+    const requestGeneration = inverseSyncGenerationRef.current + 1;
+    inverseSyncGenerationRef.current = requestGeneration;
+    const ownsDocuments = scope();
+    const ownsProject = captureProjectScope();
+    const pdf = pdfUrlRef.current;
+    const isCurrentRequest = () => (
+      inverseSyncGenerationRef.current === requestGeneration && ownsDocuments() && pdfUrlRef.current === pdf
+    );
+    const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y }).catch((reason: unknown) => {
+      if (isCurrentRequest()) showError(toMessage(reason));
+      return null;
+    });
+    if (!target || !isCurrentRequest()) return;
     // A citation resolves into the bibliography, a macro into a .sty. Those
     // files own the whole editor area when opened deliberately, but a jump
     // out of the PDF must keep the preview it was made from on screen.
-    await openFile(target.path, { line: target.line, revealSource: false });
+    await showingErrors(() => openFile(target.path, { line: target.line, revealSource: false }));
+    // Opening is itself a newer choice, so only the project, the click and
+    // the file it opened decide whether the editor comes forward.
+    if (inverseSyncGenerationRef.current !== requestGeneration || !ownsProject() || activeFileRef.current !== target.path) return;
     reveal("editor");
-  }), [openFile, reveal]);
+  }, [activeFileRef, captureProjectScope, openFile, pdfUrlRef, reveal, scope]);
 
   // A forward search needs the PDF panel on screen: reopen or reveal it.
   useEffect(() => {

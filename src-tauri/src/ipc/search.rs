@@ -1,7 +1,7 @@
 //! Finding things in the project: text search, replace, labels, references,
 //! TODOs and word counts.
 
-use super::{current_root, in_project, run_blocking};
+use super::{current_root, in_project, pinned_root, run_blocking};
 use crate::app_state::AppState;
 use crate::models::{ProjectSearchResult, SymbolOccurrence};
 use crate::project::{
@@ -36,13 +36,15 @@ pub async fn preview_replace_in_project(
     .await
 }
 
+/// Rewrites every match on disk, so it names the project it was approved in:
+/// one held behind a save can arrive after the window switched projects.
 #[tauri::command]
 pub async fn replace_in_project(
-    state: State<'_, AppState>, window: Window, query: String, replacement: String,
-    match_case: Option<bool>, use_regex: Option<bool>,
+    state: State<'_, AppState>, window: Window, project_root: String, query: String,
+    replacement: String, match_case: Option<bool>, use_regex: Option<bool>,
 ) -> Result<ReplaceResult, String> {
     let (match_case, use_regex) = (match_case.unwrap_or(true), use_regex.unwrap_or(false));
-    let root = current_root(&state, &window)?;
+    let root = pinned_root(&state, &window, &project_root, "the replace could start")?;
     run_blocking("Project replace", move || {
         project::replace_in_project(&root, &query, &replacement, match_case, use_regex)
     })
