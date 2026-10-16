@@ -9,11 +9,12 @@
  * fallback that covered all of them would unmount an open TODO panel while
  * an unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
+import { useProjectFigureUndo } from "../project/figure-undo";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { useLinkedFileStats } from "../project/submission-item-state";
 import { collectFilePaths } from "./workspace-restore";
@@ -43,6 +44,7 @@ import type {
 } from "../app-types";
 
 const EMPTY_ITEMS: SubmissionItem[] = [];
+const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dialog").then((module) => ({ default: module.FigureInventoryDialog })));
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -95,6 +97,9 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   annotationRounds: AnnotationRounds;
   /** Wraps the comment list in the Overleaf drawer when the project is linked. */
   renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
+  openFigureFile: OpenProjectFile;
+  beforeFigureWrite: () => Promise<boolean>;
+  afterFigureWrite: () => Promise<void>;
   activeFile: string;
   /** The active file's text, for the panel's line numbers and sections. */
   activeSource: string;
@@ -119,7 +124,9 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   unusedSymbols: UnusedSymbols;
 }) {
   const { t } = useLingui();
+  const [figuresOpen, setFiguresOpen] = useState(false);
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
+  const [figureUndo, setFigureUndo] = useProjectFigureUndo(project.root);
   const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
   // The budgets, the deadline and the items each read the manifest, change it
@@ -304,6 +311,11 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           <ReviewerResponsesPanel annotations={comments.comments} onClose={() => tools.close("responses")} />
         </Suspense>
       )}
+      {figuresOpen && <Suspense fallback={null}><FigureInventoryDialog
+        key={project.root} project={project} activeFile={activeFile} activeSource={activeSource} onOpen={props.openFigureFile}
+        onClose={() => setFiguresOpen(false)} beforeWrite={props.beforeFigureWrite} afterWrite={props.afterFigureWrite}
+        captureProjectScope={props.captureProjectScope} undo={figureUndo} setUndo={setFigureUndo}
+      /></Suspense>}
       {tools.isOpen.checklist && project && (
         <ManuscriptChecklistPanel
           data={{
@@ -331,6 +343,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           // TODOs open beside the checklist, as a tab in its panel (the
           // panel under the pointer), which stays one tab away.
           onOpenTodos={() => tools.open("todos")}
+          onOpenFigures={() => setFiguresOpen(true)}
           onSaveBudgets={(wordBudget, pageBudget) => void writeManifest(() => invoke<ProjectManifest>("update_project_manifest", {
             wordBudget: wordBudget ?? undefined,
             pageBudget: pageBudget ?? undefined,

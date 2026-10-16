@@ -432,6 +432,10 @@ msgstr "{count} line"
 msgid "{count} lines"
 msgstr "{count} lines"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "{count} literal graphics commands found"
+msgstr "{count} literal graphics commands found"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} marker"
 msgstr "{count} marker"
@@ -553,6 +557,10 @@ msgstr "{documentName} — Markdown source"
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — source"
 msgstr "{documentName} — source"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "{dpi} DPI at the specified width"
+msgstr "{dpi} DPI at the specified width"
 
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
@@ -915,6 +923,10 @@ msgstr "{when} your time · {zone}"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "{width} × {height} pixels"
+msgstr "{width} × {height} pixels"
+
 #: src/build/compile-explain.ts
 msgid "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
 msgstr "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
@@ -1232,6 +1244,10 @@ msgstr "A published version is available."
 #: src/papers/audit-messages.ts
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "A published version of this preprint exists. Inline references are edited by hand."
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "A source file changed. Refresh and preview the replacement again."
+msgstr "A source file changed. Refresh and preview the replacement again."
 
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
@@ -1724,6 +1740,10 @@ msgstr "All levels"
 msgid "All papers"
 msgstr "All papers"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images."
+msgstr "All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images."
+
 #: src/papers/bib-visual-editor.tsx
 msgid "All references"
 msgstr "All references"
@@ -2014,6 +2034,10 @@ msgstr "Apply link"
 #: src/papers/reference-check-keys.ts
 msgid "Apply the fix"
 msgstr "Apply the fix"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Applying figure changes…"
+msgstr "Applying figure changes…"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Applying…"
@@ -2937,6 +2961,10 @@ msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Changes are recorded per file in project history. Undo remains available if a later file fails."
+msgstr "Changes are recorded per file in project history. Undo remains available if a later file fails."
+
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Changes in {path}"
@@ -3089,6 +3117,10 @@ msgstr "Choose a built-in template"
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "Choose a file from the project, or find it with Quick open"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Choose a project image"
+msgstr "Choose a project image"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Choose a reference to see what was checked."
@@ -4016,6 +4048,10 @@ msgstr "Could not reach the TeX Live package repository. Check the network conne
 msgid "Could not read {path}: {error}"
 msgstr "Could not read {path}: {error}"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Could not read:"
+msgstr "Could not read:"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
@@ -4522,6 +4558,10 @@ msgstr "Differs from the verified record"
 msgid "Diffs of changes and history"
 msgstr "Diffs of changes and history"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Dimensions unknown"
+msgstr "Dimensions unknown"
+
 #: src/canvas/proofread-card.tsx
 msgid "Discard"
 msgstr "Discard"
@@ -4771,6 +4811,10 @@ msgstr "Duplicate label “{key}” also defined in {path}."
 msgid "Duplicate label “{key}”."
 msgstr "Duplicate label “{key}”."
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Duplicate labels:"
+msgstr "Duplicate labels:"
+
 #: src/editor/editor-keymap.ts
 msgid "Duplicate the line"
 msgstr "Duplicate the line"
@@ -4974,6 +5018,10 @@ msgstr "Edits on both sides merge when you resume"
 msgid "Edits sync live with Overleaf"
 msgstr "Edits sync live with Overleaf"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Effective DPI unknown — physical width is not established"
+msgstr "Effective DPI unknown — physical width is not established"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Element of"
 msgstr "Element of"
@@ -5017,6 +5065,10 @@ msgstr "Empty file added"
 #: src/history/file-diff-view.tsx
 msgid "Empty file deleted"
 msgstr "Empty file deleted"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Empty or unresolved caption"
+msgstr "Empty or unresolved caption"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set"
@@ -5410,6 +5462,11 @@ msgstr "fig:name (optional)"
 #: src/editor/latex/latex-text.ts
 msgid "figure"
 msgstr "figure"
+
+#: src/project/figure-inventory-dialog.tsx
+#: src/project/manuscript-checklist.tsx
+msgid "Figure inventory"
+msgstr "Figure inventory"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Figure preview could not be loaded."
@@ -6136,6 +6193,10 @@ msgstr "Hide {name} panel"
 msgid "Hide automatic versions"
 msgstr "Hide automatic versions"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Hide details"
+msgstr "Hide details"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "Hide Mermaid preview"
@@ -6613,6 +6674,10 @@ msgstr "Insert row below"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "Insert table"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Inspect and replace"
+msgstr "Inspect and replace"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Install"
@@ -7968,6 +8033,10 @@ msgstr "Missing figure “{figure}”."
 msgid "Missing file “{path}”."
 msgstr "Missing file “{path}”."
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Missing image"
+msgstr "Missing image"
+
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
@@ -8463,6 +8532,18 @@ msgstr "No license declared"
 #: src/project/manuscript-checklist.tsx
 msgid "No limit"
 msgstr "No limit"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present."
+msgstr "No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present."
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal label"
+msgstr "No literal label"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal references found"
+msgstr "No literal references found"
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
@@ -9064,6 +9145,10 @@ msgstr "Only pages with changes"
 msgid "only the editor"
 msgstr "only the editor"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Only the listed graphics arguments will change. Image files stay in place."
+msgstr "Only the listed graphics arguments will change. Image files stay in place."
+
 #: src/app/command-palette.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -9224,6 +9309,10 @@ msgstr "Open notes.md"
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "Open notice"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Open original"
+msgstr "Open original"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open page"
@@ -9806,6 +9895,10 @@ msgstr "Path copied"
 msgid "Path suggestions"
 msgstr "Path suggestions"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Path unresolved — macro or ambiguous filename"
+msgstr "Path unresolved — macro or ambiguous filename"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "paths"
 msgstr "paths"
@@ -9823,6 +9916,10 @@ msgstr "Paused while hidden · click to resume"
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "PDF / vector format — raster DPI does not apply"
+msgstr "PDF / vector format — raster DPI does not apply"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF could not be loaded"
@@ -10103,9 +10200,17 @@ msgstr "Preview Markdown"
 msgid "Preview of {path}"
 msgstr "Preview of {path}"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Preview replacement"
+msgstr "Preview replacement"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Preview unavailable for this figure format."
 msgstr "Preview unavailable for this figure format."
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Preview unavailable. Open the original file to inspect it."
+msgstr "Preview unavailable. Open the original file to inspect it."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "previous"
@@ -10440,6 +10545,10 @@ msgstr "Reading {0}…"
 msgid "Reading 1 abstract for this claim…"
 msgstr "Reading 1 abstract for this claim…"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Reading figure usages…"
+msgstr "Reading figure usages…"
+
 #: src/project/paper-library.tsx
 msgid "Reading state"
 msgstr "Reading state"
@@ -10617,11 +10726,16 @@ msgstr "Reference list"
 msgid "Reference with its type name"
 msgstr "Reference with its type name"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Reference:"
+msgstr "Reference:"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "References"
 msgstr "References"
 
 #: src/overleaf/overleaf-review.tsx
+#: src/project/figure-inventory-dialog.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -10925,9 +11039,17 @@ msgstr "Replace grid from data"
 msgid "Replace in project"
 msgstr "Replace in project"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Replace listed usages"
+msgstr "Replace listed usages"
+
 #: src/project/submission-items.tsx
 msgid "Replace template"
 msgstr "Replace template"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Replace these usages with"
+msgstr "Replace these usages with"
 
 #: src/editor/latex/search-panel.ts
 msgid "Replace this match"
@@ -12722,6 +12844,10 @@ msgstr "Starting Open Slide"
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Static coverage is limited in:"
+msgstr "Static coverage is limited in:"
+
 #: src/project/submission-items.tsx
 msgid "Status"
 msgstr "Status"
@@ -13339,6 +13465,10 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/project/figure-inventory.ts
+msgid "The figure source changed. Refresh and preview again."
+msgstr "The figure source changed. Refresh and preview again."
+
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
@@ -13756,6 +13886,10 @@ msgstr "This entry is cited in {count} places."
 #: src/app/remove-reference-action.ts
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
+
+#: src/project/figure-inventory.ts
+msgid "This figure path cannot be inserted safely."
+msgstr "This figure path cannot be inserted safely."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "This file"
@@ -14221,6 +14355,10 @@ msgstr "Undo"
 msgctxt "macOS menu bar"
 msgid "Undo"
 msgstr "Undo"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Undo replacement"
+msgstr "Undo replacement"
 
 #: src/history/history-drawer.tsx
 msgid "Undo this Agent turn's file changes"
