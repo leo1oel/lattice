@@ -98,6 +98,17 @@ describe("compareLibrary", () => {
     expect(next).toContain("@inproceedings{foo_conf,");
   });
 
+  it("lets a later entry's DOI win over an earlier one's title and year", () => {
+    const local = "@article{smith2020,\n  title = {Deep Nets},\n  year = {2020},\n  doi = {10.1/x},\n}\n";
+    const preprint = "@misc{smithDeepNets2020,\n  title = {Deep Nets},\n  year = {2020},\n  eprint = {2001.00001},\n  archivePrefix = {arXiv},\n}\n";
+    const published = "@article{smithDeepNets2020a,\n  title = {Deep Nets},\n  year = {2020},\n  doi = {10.1/x},\n  pages = {1--9},\n}\n";
+    const changes = compare(null, `${preprint}\n${published}`, local);
+    expect(changes).toEqual([
+      expect.objectContaining({ kind: "new", key: "smithDeepNets2020" }),
+      expect.objectContaining({ key: "smith2020", libraryKey: "smithDeepNets2020a", fields: [{ name: "pages", local: null, library: "1--9", conflict: false }] }),
+    ]);
+  });
+
   it("says when the library dropped a paper whose title another one shares", () => {
     const preprint = "@misc{foo_arxiv,\n  title = {Foo Bar},\n  year = {2023},\n}\n";
     const conference = "@inproceedings{foo_conf,\n  title = {Foo Bar},\n  year = {2023},\n}\n";

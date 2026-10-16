@@ -100,7 +100,7 @@ function index(source: string, name: string): Indexed {
   return { document: parse.document, source, byKey, byIdentity };
 }
 
-/** Ways to tell the paper apart from its key, most certain first. */
+/** Ways to tell the paper apart from its key, most certain first, each with its tier's prefix. */
 function identities(source: string, entry: BibEntry, document: BibDocument): string[] {
   const { doi, arxivId, title, year } = summarizeEntry(source, entry, document.macros);
   // A book or a paper without either id, whose key a reference manager regenerated.
@@ -118,30 +118,27 @@ const firsts = (text: Indexed) => text.document.entries.filter((entry) => text.b
 
 /**
  * Each of `from`'s entries paired with the same paper in `other`, one to
- * one: by key first, every key before any identity, so a preprint and its
- * published version sharing a title never take the paper the other's key
- * holds; then by DOI or arXiv id, then by title and year, among entries no
- * other has taken.
+ * one, the surest match first across all of them: every key, then every DOI,
+ * then every arXiv id, then every title and year, each among entries nothing
+ * surer has taken. So a preprint and its published version sharing a title
+ * never take the paper the other's key or DOI holds.
  */
 function pair(from: Indexed, other: Indexed): Map<BibEntry, BibEntry> {
   const pairs = new Map<BibEntry, BibEntry>();
   const taken = new Set<BibEntry>();
   const entries = firsts(from);
-  for (const entry of entries) {
-    const match = other.byKey.get(entry.key.toLowerCase());
-    if (match) {
-      pairs.set(entry, match);
-      taken.add(match);
-    }
-  }
-  for (const entry of entries) {
-    if (pairs.has(entry)) continue;
-    for (const identity of identities(from.source, entry, from.document)) {
-      const match = other.byIdentity.get(identity)?.find((candidate) => !taken.has(candidate));
-      if (!match) continue;
-      pairs.set(entry, match);
-      taken.add(match);
-      break;
+  const claim = (entry: BibEntry, match: BibEntry | undefined) => {
+    if (!match || pairs.has(entry) || taken.has(match)) return;
+    pairs.set(entry, match);
+    taken.add(match);
+  };
+  for (const entry of entries) claim(entry, other.byKey.get(entry.key.toLowerCase()));
+  const known = new Map(entries.map((entry) => [entry, identities(from.source, entry, from.document)]));
+  for (const tier of ["doi:", "arxiv:", "title:"]) {
+    for (const entry of entries) {
+      if (pairs.has(entry)) continue;
+      const identity = known.get(entry)!.find((candidate) => candidate.startsWith(tier));
+      if (identity) claim(entry, other.byIdentity.get(identity)?.find((candidate) => !taken.has(candidate)));
     }
   }
   return pairs;
