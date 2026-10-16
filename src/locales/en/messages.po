@@ -11039,12 +11039,13 @@ msgstr "Replace grid from data"
 msgid "Replace in project"
 msgstr "Replace in project"
 
-#: src/project/submission-items.tsx
-msgid "Replace template"
-msgstr "Replace template"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace listed usages"
 msgstr "Replace listed usages"
+
+#: src/project/submission-items.tsx
+msgid "Replace template"
+msgstr "Replace template"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace these usages with"
@@ -12843,12 +12844,13 @@ msgstr "Starting Open Slide"
 msgid "Starting Open Slide…"
 msgstr "Starting Open Slide…"
 
-#: src/project/submission-items.tsx
-msgid "Status"
-msgstr "Status"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Static coverage is limited in:"
 msgstr "Static coverage is limited in:"
+
+#: src/project/submission-items.tsx
+msgid "Status"
+msgstr "Status"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx

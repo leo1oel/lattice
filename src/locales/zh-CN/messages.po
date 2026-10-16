@@ -11039,12 +11039,13 @@ msgstr "用数据替换网格"
 msgid "Replace in project"
 msgstr "全局替换"
 
-#: src/project/submission-items.tsx
-msgid "Replace template"
-msgstr "替换模板"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace listed usages"
 msgstr "替换列出的使用位置"
+
+#: src/project/submission-items.tsx
+msgid "Replace template"
+msgstr "替换模板"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Replace these usages with"
@@ -12843,12 +12844,13 @@ msgstr "正在打开幻灯片"
 msgid "Starting Open Slide…"
 msgstr "正在打开幻灯片…"
 
-#: src/project/submission-items.tsx
-msgid "Status"
-msgstr "状态"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Static coverage is limited in:"
 msgstr "以下文件的静态解析范围有限："
+
+#: src/project/submission-items.tsx
+msgid "Status"
+msgstr "状态"
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
