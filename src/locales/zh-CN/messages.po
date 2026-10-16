@@ -17,6 +17,10 @@ msgstr ""
 msgid " et al."
 msgstr " 等"
 
+#: src/project/paper-review-panel.tsx
+msgid ", "
+msgstr "、"
+
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
@@ -126,6 +130,11 @@ msgstr "{0}与来源记录不一致"
 msgid "{0} entries"
 msgstr "{0} 条"
 
+#. placeholder {0}: stats.figures
+#: src/project/paper-review-panel.tsx
+msgid "{0} figures"
+msgstr "{0} 幅图"
+
 #. placeholder {0}: formatCount(count)
 #: src/history/versions-timeline.tsx
 msgid "{0} files"
@@ -166,6 +175,11 @@ msgstr "{0} 页"
 msgid "{0} people on Overleaf now"
 msgstr "{0} 人正在 Overleaf 上"
 
+#. placeholder {0}: report.dropped
+#: src/project/paper-review-panel.tsx
+msgid "{0} points were left out: their quotes are not in the paper"
+msgstr "有 {0} 条意见未列出：引用的原文不在论文中"
+
 #. placeholder {0}: candidates.length
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} records match"
@@ -176,6 +190,11 @@ msgstr "{0} 条记录匹配"
 msgid "{0} records match. Choose the one you mean."
 msgstr "{0} 条记录匹配，请选出你要的那一条。"
 
+#. placeholder {0}: stats.sections
+#: src/project/paper-review-panel.tsx
+msgid "{0} sections"
+msgstr "{0} 节"
+
 #. placeholder {0}: selected.size
 #: src/papers/bibliography-audit.tsx
 msgid "{0} selected"
@@ -185,6 +204,11 @@ msgstr "已选 {0} 条"
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "{0} suggestions"
 msgstr "{0} 条修订建议"
+
+#. placeholder {0}: stats.tables
+#: src/project/paper-review-panel.tsx
+msgid "{0} tables"
+msgstr "{0} 张表"
 
 #. placeholder {0}: scan.issues.length
 #: src/papers/bibliography-audit.tsx
@@ -222,6 +246,10 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
+#: src/project/paper-review-panel.tsx
+msgid "{added} points added as annotations"
+msgstr "已将 {added} 条意见加为批注"
+
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words over"
 msgstr "超出 {amount} 词"
@@ -241,6 +269,10 @@ msgstr "{author} 建议插入文字"
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
+
+#: src/project/paper-review-panel.tsx
+msgid "{clock} elapsed"
+msgstr "已用时 {clock}"
 
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
@@ -755,6 +787,10 @@ msgstr "1 处修改 · 只改错误"
 msgid "1 entry"
 msgstr "1 条"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 figure"
+msgstr "1 幅图"
+
 #: src/history/versions-timeline.tsx
 msgid "1 file"
 msgstr "1 个文件"
@@ -818,6 +854,14 @@ msgstr "1 篇论文"
 msgid "1 person on Overleaf now"
 msgstr "1 人正在 Overleaf 上"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 point added as an annotation"
+msgstr "已将 1 条意见加为批注"
+
+#: src/project/paper-review-panel.tsx
+msgid "1 point was left out: its quote is not in the paper"
+msgstr "有 1 条意见未列出：引用的原文不在论文中"
+
 #: src/papers/bibliography-audit.tsx
 msgid "1 reference, not checked yet"
 msgstr "共 1 条文献，尚未检查"
@@ -826,10 +870,18 @@ msgstr "共 1 条文献，尚未检查"
 msgid "1 result for “{shownQuery}”"
 msgstr "“{shownQuery}”共 1 条结果"
 
+#: src/project/paper-review-panel.tsx
+msgid "1 section"
+msgstr "1 节"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "1 suggestion"
 msgstr "1 条修订建议"
+
+#: src/project/paper-review-panel.tsx
+msgid "1 table"
+msgstr "1 张表"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 thing to tidy in the bibliography"
@@ -908,6 +960,14 @@ msgstr "工作表数量须在 1–200 之间"
 #: src/settings/settings-search-index.ts
 msgid "A sync asks first"
 msgstr "同步先问"
+
+#: src/project/paper-review-panel.tsx
+msgid "A verdict, then what a {name} reviewer would raise, each point pinned to the passage it is about"
+msgstr "先给结论，再列出 {name} 审稿人会提的意见，每条都指向原文"
+
+#: src/project/paper-review-panel.tsx
+msgid "A verdict, then what a reviewer would raise, each point pinned to the passage it is about"
+msgstr "先给结论，再列出审稿人会提的意见，每条都指向原文"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1039,6 +1099,10 @@ msgstr "多加光标"
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
 
+#: src/project/paper-review-panel.tsx
+msgid "Add as annotation"
+msgstr "加为批注"
+
 #: src/trellis/trellis-labels.ts
 msgid "Add as tab"
 msgstr "放进标签"
@@ -1098,6 +1162,10 @@ msgstr "添加词语"
 msgid "Add reference"
 msgstr "添加文献"
 
+#: src/project/paper-review-panel.tsx
+msgid "Add the points you agree with; nothing changes until you do"
+msgstr "把你认同的意见加为批注；在你这样做之前，论文不会有任何改动"
+
 #: src/project/deadline-card.tsx
 msgid "Add the submission deadline"
 msgstr "添加投稿截止时间"
@@ -1152,6 +1220,15 @@ msgstr "已添加 {done} 篇论文"
 #: src/papers/add-papers-sheet.tsx
 msgid "Added 1 paper"
 msgstr "已添加 1 篇论文"
+
+#: src/project/paper-review-panel.tsx
+msgid "Added as a comment"
+msgstr "已加为评论"
+
+#. placeholder {0}: finding.annotation
+#: src/project/paper-review-panel.tsx
+msgid "Added as annotation {0}"
+msgstr "已加为批注 {0}"
 
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
@@ -1317,6 +1394,10 @@ msgstr "项目都已归档或删除"
 #: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "外部程序"
+
+#: src/project/paper-review-panel.tsx
+msgid "Almost"
+msgstr "接近"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
@@ -1584,6 +1665,18 @@ msgstr "article 应写 journal，而不是 booktitle"
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv 编号"
+
+#: src/project/paper-review-panel.tsx
+msgid "as a {name} reviewer"
+msgstr "以 {name} 审稿人视角"
+
+#: src/project/paper-review-panel.tsx
+msgid "as a peer reviewer"
+msgstr "以审稿人视角"
+
+#: src/App.tsx
+msgid "As a reviewer would, each point anchored"
+msgstr "像审稿人一样通读，每条意见都指向原文"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "As the last round left it"
@@ -2376,6 +2469,19 @@ msgstr "检查于"
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "正在检查 {completed} / {progressTotal}…"
 
+#. placeholder {0}: stats.references
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims against {0} references"
+msgstr "对照 {0} 篇参考文献核查论断"
+
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims against 1 reference"
+msgstr "对照 1 篇参考文献核查论断"
+
+#: src/project/paper-review-panel.tsx
+msgid "Checking claims and citations"
+msgstr "核查论断与引用"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Checking the connection to {linkedHost}…"
 msgstr "正在检查 {linkedHost}…"
@@ -2586,6 +2692,10 @@ msgstr "解释清楚"
 #: src/canvas/proofread-card.tsx
 msgid "clarity"
 msgstr "清晰"
+
+#: src/project/paper-review-panel.tsx
+msgid "Clarity"
+msgstr "表达清晰度"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -3730,6 +3840,11 @@ msgstr "找文献"
 msgid "Dismiss"
 msgstr "关闭"
 
+#: src/project/paper-review-panel.tsx
+msgctxt "review point"
+msgid "Dismiss"
+msgstr "忽略"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Dismiss diagnostics"
 msgstr "关闭"
@@ -4314,6 +4429,10 @@ msgstr "论文的所有文件都在这：LaTeX、笔记、图片、幻灯片"
 msgid "Every panel is closed"
 msgstr "面板都已关闭"
 
+#: src/project/paper-review-panel.tsx
+msgid "Every point has been dismissed"
+msgstr "所有意见都已忽略"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Every reference matched a verified record. Check again after you edit the bibliography."
 msgstr "每条文献都对上了核实过的记录。改动文献后，再检查一次。"
@@ -4586,6 +4705,10 @@ msgstr "全局搜索"
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Find references"
 msgstr "引用位置"
+
+#: src/project/paper-review-panel.tsx
+msgid "Find support"
+msgstr "查找支持文献"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -5820,6 +5943,10 @@ msgstr "已保留你本机的 {files}：Overleaf 传来的版本是空的或小�
 msgid "Key"
 msgstr "引用名"
 
+#: src/project/paper-review-panel.tsx
+msgid "Key issues"
+msgstr "关键问题"
+
 #: src/settings/literature-settings.tsx
 msgid "Key removed"
 msgstr "密钥已移除"
@@ -5960,6 +6087,10 @@ msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}
 #: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice 无法读取 {0}。"
+
+#: src/app/paper-review.ts
+msgid "Lattice could not read {root}."
+msgstr "Lattice 无法读取 {root}。"
 
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
@@ -6698,6 +6829,10 @@ msgstr "缺少 {files}——NeurIPS 编译将以 Emergency stop 中止。请在�
 msgid "Missing {files} — PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build."
 msgstr "缺少 {files}——即使存在 .tfm，PDF 中的文字也会显示异常。请在 Lattice 中点击“安装 BasicTeX”（留意终端中出现 FONTS OK），然后按住 Shift 点击“编译”。"
 
+#: src/project/paper-review-panel.tsx
+msgid "Missing citations"
+msgstr "缺少引用"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Missing figure “{figure}”."
 msgstr "找不到图片“{figure}”"
@@ -6876,6 +7011,10 @@ msgstr "需先设主文件才能统计"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
 msgstr "等你同意"
+
+#: src/project/paper-review-panel.tsx
+msgid "Needs work"
+msgstr "需要修改"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Needs your answer"
@@ -7253,6 +7392,10 @@ msgstr "没有论文包含“{trimmedQuery}”"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
+#: src/project/paper-review-panel.tsx
+msgid "No points to raise"
+msgstr "没有需要提出的意见"
+
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
 msgstr "还没有添加词语"
@@ -7431,6 +7574,10 @@ msgstr "不在任何文件中"
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "以后再说"
+
+#: src/project/paper-review-panel.tsx
+msgid "Not ready"
+msgstr "尚未就绪"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -8453,6 +8600,10 @@ msgstr "请确认要继续"
 msgid "Plus-minus"
 msgstr "正负号"
 
+#: src/app/paper-review.ts
+msgid "Point dismissed"
+msgstr "已忽略意见"
+
 #: src/canvas/proofread-card.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Polish"
@@ -8816,6 +8967,10 @@ msgstr "文献与参考文献工具所用的 Python 工具链"
 msgid "Question"
 msgstr "疑问"
 
+#: src/project/paper-review-panel.tsx
+msgid "Questions"
+msgstr "疑问"
+
 #: src/app/use-build-pipeline.ts
 msgid "queued"
 msgstr "排队中"
@@ -8865,9 +9020,26 @@ msgstr "请求太频繁，请稍后再试"
 msgid "Raw build log"
 msgstr "完整日志"
 
+#: src/project/paper-review-panel.tsx
+msgid "Read {read}"
+msgstr "已读 {read}"
+
+#: src/project/paper-review-panel.tsx
+msgid "read in {minutes} min"
+msgstr "用时 {minutes} 分钟"
+
+#: src/project/paper-review-panel.tsx
+msgid "Read the paper as a reviewer would"
+msgstr "像审稿人一样通读论文"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Read-only preview · click to edit"
 msgstr "只读 · 点击编辑"
+
+#. placeholder {0}: stops[stop]
+#: src/project/paper-review-panel.tsx
+msgid "Readiness: {0}"
+msgstr "就绪程度：{0}"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
@@ -8885,6 +9057,18 @@ msgstr "正在读取文献…"
 msgid "Reading the file…"
 msgstr "正在读取…"
 
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper"
+msgstr "正在读论文"
+
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper as a {name} reviewer"
+msgstr "正在以 {name} 审稿人视角读论文"
+
+#: src/project/paper-review-panel.tsx
+msgid "Reading the paper as a reviewer"
+msgstr "正在以审稿人视角读论文"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Reading the rounds…"
 msgstr "正在读取各轮修改…"
@@ -8896,6 +9080,10 @@ msgstr "正在读取第三方声明…"
 #: src/settings/theme-settings.tsx
 msgid "Reads as text at {ratio}:1, used as picked"
 msgstr "作为文字的对比度为 {ratio}:1，按所选颜色使用"
+
+#: src/project/paper-review-panel.tsx
+msgid "Ready"
+msgstr "就绪"
 
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
@@ -9659,6 +9847,12 @@ msgstr "反向断言符"
 msgid "Revert to saved"
 msgstr "还原布局"
 
+#: src/app/paper-review.ts
+#: src/project/paper-review-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Review"
+msgstr "审阅"
+
 #. placeholder {0}: rounds.proposals.length
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Review {0} proposals"
@@ -9669,6 +9863,7 @@ msgid "Review 1 proposal"
 msgstr "审阅 1 条建议"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Review again"
 msgstr "重新审阅"
 
@@ -9688,6 +9883,11 @@ msgstr "查看 Overleaf 改动"
 msgid "Review the final file before saving"
 msgstr "保存前再看一遍"
 
+#: src/App.tsx
+#: src/project/paper-review-panel.tsx
+msgid "Review the paper"
+msgstr "审阅论文"
+
 #: src/pdf/pdf-annotations.tsx
 msgid "Review the proposal"
 msgstr "审阅这条建议"
@@ -9703,6 +9903,7 @@ msgstr "根据 1 条批注修改"
 
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Revise from annotations"
 msgstr "根据批注修改"
 
@@ -10236,6 +10437,10 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "服务"
 
+#: src/app/paper-review.ts
+msgid "Set a root document to review the paper."
+msgstr "先设置主文档，再审阅论文。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
 msgstr "集合差"
@@ -10329,6 +10534,7 @@ msgid "Show in source"
 msgstr "在源码中显示"
 
 #: src/pdf/pdf-annotations.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Show in the source"
 msgstr "在源码中定位"
 
@@ -10752,6 +10958,7 @@ msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try co
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Stop"
 msgstr "停止"
 
@@ -10766,6 +10973,10 @@ msgstr "停止编译"
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
+
+#: src/project/paper-review-panel.tsx
+msgid "Strengths"
+msgstr "优点"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -11112,6 +11323,15 @@ msgstr "AI 校对失败：{detail}"
 msgid "The agent could not proofread the selection."
 msgstr "AI 校对失败"
 
+#. placeholder {0}: reason.detail
+#: src/app/paper-review.ts
+msgid "The agent could not review the paper: {0}"
+msgstr "Agent 无法审阅论文：{0}"
+
+#: src/app/paper-review.ts
+msgid "The agent could not review the paper."
+msgstr "Agent 无法审阅论文。"
+
 #: src/app/annotation-rounds.ts
 msgid "The agent could not revise this passage: {detail}"
 msgstr "AI 助手没能修改这一段：{detail}"
@@ -11151,6 +11371,10 @@ msgstr "AI 没返回校对结果"
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "AI 助手的回复里既没有修改，也没有问题。"
+
+#: src/app/paper-review.ts
+msgid "The agent's report could not be read. Try the review again."
+msgstr "无法读取 Agent 的报告。请重新审阅。"
 
 #: src/canvas/annotation-review.tsx
 msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
@@ -11318,6 +11542,14 @@ msgstr "与 Overleaf 的连接已断开"
 msgid "The package repository does not have this package."
 msgstr "组件仓库中没有此组件。"
 
+#: src/project/paper-review-panel.tsx
+msgid "The paper is longer than one review reads, so its end was left out"
+msgstr "论文超出一次审阅能读的长度，末尾部分未读"
+
+#: src/project/paper-review-panel.tsx
+msgid "The paper stays editable; findings point at the text as it was when the review started"
+msgstr "论文仍可编辑；意见指向审阅开始时的原文"
+
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "AI 助手读过之后这一段又改了。请重试，让它按现在的内容修改。"
@@ -11370,6 +11602,10 @@ msgstr "无法确认发表版"
 msgid "The publisher has issued a notice about this paper. Read it before you keep citing it."
 msgstr "出版方对这篇论文发布了公告。继续引用前，请先读一读。"
 
+#: src/app/paper-review.ts
+msgid "The quoted passage has changed since the review, so this point has nowhere to go."
+msgstr "审阅之后引用的原文已改动，这条意见找不到对应位置。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The realtime connection closed."
 msgstr "实时连接已断开"
@@ -11397,6 +11633,11 @@ msgstr "所需工具"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "找到多篇相似的，无法确定是哪篇"
+
+#. placeholder {0}: toMessage(reason)
+#: src/app/paper-review.ts
+msgid "The review could not be saved: {0}"
+msgstr "无法保存审阅：{0}"
 
 #: src/settings/acknowledged-software.ts
 msgid "The rich-text editor"
@@ -11673,6 +11914,10 @@ msgstr "此值用 # 拼接字符串，请保持为有效的 BibTeX。"
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "请更新 Lattice 后使用校对"
 
+#: src/app/paper-review.ts
+msgid "This version of the agent runtime cannot review the paper yet. Update Lattice to use reviews."
+msgstr "当前版本的 Agent 运行时还不能审阅论文。请更新 Lattice 后使用审阅。"
+
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更新 Lattice 后使用。"
@@ -11844,6 +12089,7 @@ msgstr "换个更短或不同的词试试"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-review-panel.tsx
 msgid "Try again"
 msgstr "重试"
 
@@ -11933,6 +12179,7 @@ msgstr "句中公式 {open} 没有结束"
 msgid "Underline"
 msgstr "下划线"
 
+#: src/app/paper-review.ts
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
 #: src/canvas/document-canvas.tsx
@@ -12614,6 +12861,10 @@ msgstr "写作"
 #: src/build/tex-setup-wizard.tsx
 msgid "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
 msgstr "不装也能写作和编译。用到论文功能时，Lattice 会再提示。"
+
+#: src/project/paper-review-panel.tsx
+msgid "Writing the report"
+msgstr "撰写报告"
 
 #: src/build/build-log-messages.ts
 msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."

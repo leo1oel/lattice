@@ -300,6 +300,24 @@ pub async fn save_annotations(
     .await
 }
 
+/// The newest of the agent's reviews of the paper, or none before the first.
+#[tauri::command]
+pub async fn read_paper_review(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Option<serde_json::Value>, String> {
+    in_project(&state, &window, "Paper review read", project::read_latest_review).await
+}
+
+/// Keep a review of the paper, or the writer's decisions on its points.
+#[tauri::command]
+pub async fn save_paper_review(
+    state: State<'_, AppState>, window: Window, project_root: String, review: serde_json::Value,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "saving the review")?;
+    let id = review.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    run_blocking("Paper review save", move || project::write_review(&root, &id, &review)).await
+}
+
 /// Keep a revision round's files; a settled round also becomes one history
 /// entry, whose id this returns.
 #[tauri::command]

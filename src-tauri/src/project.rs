@@ -5,6 +5,7 @@
 //!   and compile roots.
 //! - [`annotations`] — local annotations, their revision rounds and the
 //!   rounds' snapshots.
+//! - [`reviews`] — the agent's reviews of the paper.
 //! - [`paths`] — the path guards every file operation goes through, and the
 //!   table of text source kinds.
 //! - [`tree`] — file-tree views, content classification, and reading text
@@ -33,6 +34,7 @@ mod imports;
 mod manifest;
 mod paths;
 mod references;
+mod reviews;
 mod search;
 mod symbols;
 #[cfg(test)]
@@ -78,6 +80,7 @@ pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};
 pub use references::references;
 pub use references::ReferenceInfo;
+pub use reviews::{read_latest_review, write_review};
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,
 };

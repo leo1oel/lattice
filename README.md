@@ -59,6 +59,7 @@ The library sorts, filters and groups by what you cite; **Check references** aud
 The Agent panel runs [Claude Code](https://github.com/anthropics/claude-code) or [Codex](https://github.com/openai/codex) with your own CLI sign-in.
 It reads your project and papers, fixes build errors and edits files; every change shows as a diff you can review or undo, and suggested follow-ups appear as chips.
 Select text to **Proofread** or **Polish** it in place, with a reason for each edit.
+**Review the paper** reads the whole draft as a reviewer would and anchors each point to the passage it quotes, so you can add it as an annotation and revise from it.
 
 ## Present
 

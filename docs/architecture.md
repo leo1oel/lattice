@@ -372,6 +372,7 @@ creates it.
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
+| `.research/reviews/<id>.json` | `project/reviews.rs` (`REVIEWS_DIRECTORY`) | the agent's reviews of the paper, one per run named by its UTC start, with the writer's decision on each point; the newest is reopened |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
 | `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
 | `.research/tutorial.json` | `project/create.rs` | tutorial-project state |
