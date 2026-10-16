@@ -47,6 +47,27 @@ function changesPdfName(rootDocument: string): string {
   return `${rootDocument.replace(/\.tex$/i, "")}-changes.pdf`;
 }
 
+/**
+ * The first changed passages across the comparison's .tex files, in order.
+ * A module helper: the compiler cannot compile `??` inside the loop of a
+ * closure, which would skip the whole dialog.
+ */
+async function previewPassages(
+  from: string,
+  to: string | null,
+  sources: ReadonlyArray<{ path: string; oldPath?: string }>,
+): Promise<ProsePassage[]> {
+  const passages: ProsePassage[] = [];
+  for (const file of sources) {
+    if (passages.length >= PREVIEW_PASSAGES) break;
+    const diff = await invoke<GitFileDiff>("git_compare_file", { from, to, path: file.path, fromPath: file.oldPath ?? null });
+    if (diff.binary) continue;
+    const found = prosePassages(diff.before ?? "", diff.after ?? "") ?? [];
+    passages.push(...found.map(joinedPassage).filter((passage) => passage.edits.length));
+  }
+  return passages.slice(0, PREVIEW_PASSAGES);
+}
+
 export function ExportChangesDialog(props: {
   projectRoot: string;
   rootDocument: string;
@@ -80,17 +101,7 @@ export function ExportChangesDialog(props: {
     const sources = changed
       .filter((file) => /\.tex$/i.test(file.path))
       .sort((a, b) => Number(b.path === rootDocument) - Number(a.path === rootDocument));
-    loadPreview(`${from}:${to}`, async () => {
-      const passages: ProsePassage[] = [];
-      for (const file of sources) {
-        if (passages.length >= PREVIEW_PASSAGES) break;
-        const diff = await invoke<GitFileDiff>("git_compare_file", { from, to, path: file.path, fromPath: file.oldPath ?? null });
-        if (diff.binary) continue;
-        const found = prosePassages(diff.before ?? "", diff.after ?? "") ?? [];
-        passages.push(...found.map(joinedPassage).filter((passage) => passage.edits.length));
-      }
-      return passages.slice(0, PREVIEW_PASSAGES);
-    });
+    loadPreview(`${from}:${to}`, () => previewPassages(from, to, sources));
   }, [changed, from, loadPreview, rootDocument, to]);
   const shown = preview.value ?? [];
 
