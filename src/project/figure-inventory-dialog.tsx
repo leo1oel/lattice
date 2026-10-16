@@ -171,7 +171,7 @@ export function FigureInventoryDialog(props: {
         <p>{use.caption || t`Empty or unresolved caption`}</p>
         <p>{use.labels.join(", ") || t`No literal label`}</p>
         {!!use.duplicateLabels.length && <InlineMessage level="warning">{t`Duplicate labels:`} {use.duplicateLabels.join(", ")}</InlineMessage>}
-        <div className="figure-actions">{use.references.length ? use.references.map((ref, index) => <Button key={index} variant="ghost" size="compact" disabled={busy} onClick={() => navigate(ref.source, ref.line)}>{t`Reference:`} {ref.source}:{ref.line}</Button>) : <span>{t`No literal references found`}</span>}</div>
+        <div className="figure-actions">{use.references.length ? use.references.map((ref, index) => <Button key={index} variant="ghost" size="compact" disabled={busy} onClick={() => navigate(ref.source, ref.line)}>{t`Reference:`} {ref.source}:{ref.line}</Button>) : <p>{t`No literal references found`}</p>}</div>
       </div>)}
       {selected === key && <>
         {uses[0].asset && <FigurePreview key={`${props.project.root}:${uses[0].asset}`} root={props.project.root} path={uses[0].asset} uses={uses} />}
