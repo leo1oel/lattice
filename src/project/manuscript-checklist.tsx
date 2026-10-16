@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, ChevronRight, ClipboardCheck, Minus } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
+import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
@@ -124,6 +125,7 @@ export function ManuscriptChecklistPanel(props: {
   data: ManuscriptChecklistData;
   onClose: () => void;
   onOpenTodos: () => void;
+  onOpenFigures?: () => void;
   onSaveBudgets: (wordBudget: number | null, pageBudget: number | null) => void;
   onSaveDeadline: (deadline: ProjectDeadline | null) => void;
   /** Answers whether the list was saved. */
@@ -276,6 +278,7 @@ export function ManuscriptChecklistPanel(props: {
           onOpenFile={props.onOpenFile}
           onOpenSource={props.onOpenSource}
         />
+        {props.onOpenFigures && <Button onClick={props.onOpenFigures}>{t`Figure inventory`}</Button>}
         <div className="checklist-budgets">
           {([
             ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],

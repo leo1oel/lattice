@@ -2137,6 +2137,13 @@ function App() {
       />
 
       <AppEditorPanels
+        openFigureFile={documents.open}
+        beforeFigureWrite={save}
+        afterFigureWrite={async () => {
+          if (activeFileRef.current) await loadFile(activeFileRef.current);
+          await refreshProject();
+          await refreshHistory();
+        }}
         comments={editorComments}
         annotationRounds={annotationRounds}
         renderCommentsSurface={overleafLink ? (localComments) => (

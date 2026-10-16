@@ -432,6 +432,10 @@ msgstr "{count} 行"
 msgid "{count} lines"
 msgstr "{count} 行"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "{count} literal graphics commands found"
+msgstr "找到 {count} 处可直接解析的插图命令"
+
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} marker"
 msgstr "{count} 条"
@@ -553,6 +557,10 @@ msgstr "{documentName} — Markdown 源码"
 #: src/canvas/document-canvas.tsx
 msgid "{documentName} — source"
 msgstr "{documentName} — 源码"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "{dpi} DPI at the specified width"
+msgstr "按指定宽度计算为 {dpi} DPI"
 
 #: src/project/arxiv-export.ts
 msgid "{engine} in a clean folder…"
@@ -915,6 +923,10 @@ msgstr "你的时间 {when} · {zone}"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的在旁边“(local conflict …)”文件里"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "{width} × {height} pixels"
+msgstr "{width} × {height} 像素"
+
 #: src/build/compile-explain.ts
 msgid "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
 msgstr "& 用来分隔表格或对齐公式的单元格。要输出 & 符号，请写 \\&。"
@@ -1232,6 +1244,10 @@ msgstr "有正式发表版"
 #: src/papers/audit-messages.ts
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "这篇预印本已有正式发表版本。正文内文献需要手动修改。"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "A source file changed. Refresh and preview the replacement again."
+msgstr "源文件已更改，请刷新后重新预览替换。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
@@ -1724,6 +1740,10 @@ msgstr "全部级别"
 msgid "All papers"
 msgstr "全部论文"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images."
+msgstr "范围包括项目中的全部 TeX 文件及当前编辑内容。仅解析直接写出的插图命令；宏、条件分支、子图和编译顺序需人工核对。PDF/SVG 不使用位图 DPI 判据。"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "All references"
 msgstr "全部文献"
@@ -2014,6 +2034,10 @@ msgstr "应用链接"
 #: src/papers/reference-check-keys.ts
 msgid "Apply the fix"
 msgstr "应用修改"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Applying figure changes…"
+msgstr "正在应用插图更改…"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Applying…"
@@ -2937,6 +2961,10 @@ msgctxt "git panel"
 msgid "Changes"
 msgstr "更改"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Changes are recorded per file in project history. Undo remains available if a later file fails."
+msgstr "更改按文件记录在项目历史中。即使后续文件写入失败，已完成的更改仍可撤销。"
+
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
 msgid "Changes in {path}"
@@ -3089,6 +3117,10 @@ msgstr "选择内置模板"
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "从项目中选择文件，或用快速打开查找"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Choose a project image"
+msgstr "选择项目中的图片"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Choose a reference to see what was checked."
@@ -4016,6 +4048,10 @@ msgstr "无法连接 TeX Live 组件仓库。请检查网络连接后重试。"
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Could not read:"
+msgstr "无法读取："
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "无法保存 Overleaf 的 {scopedPermission} 权限（{detail}）"
@@ -4522,6 +4558,10 @@ msgstr "与核实记录不一致"
 msgid "Diffs of changes and history"
 msgstr "更改与历史的差异对比"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Dimensions unknown"
+msgstr "尺寸未知"
+
 #: src/canvas/proofread-card.tsx
 msgid "Discard"
 msgstr "放弃"
@@ -4771,6 +4811,10 @@ msgstr "标签“{key}”重复，{path} 里也有"
 msgid "Duplicate label “{key}”."
 msgstr "标签“{key}”重复"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Duplicate labels:"
+msgstr "重复标签："
+
 #: src/editor/editor-keymap.ts
 msgid "Duplicate the line"
 msgstr "复制本行"
@@ -4974,6 +5018,10 @@ msgstr "继续后两边的修改会合并"
 msgid "Edits sync live with Overleaf"
 msgstr "修改实时同步到 Overleaf"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Effective DPI unknown — physical width is not established"
+msgstr "有效 DPI 未知：未确定实际输出宽度"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Element of"
 msgstr "属于"
@@ -5017,6 +5065,10 @@ msgstr "新增空文件"
 #: src/history/file-diff-view.tsx
 msgid "Empty file deleted"
 msgstr "删除空文件"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Empty or unresolved caption"
+msgstr "图注为空或无法解析"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set"
@@ -5410,6 +5462,11 @@ msgstr "fig:名称（可选）"
 #: src/editor/latex/latex-text.ts
 msgid "figure"
 msgstr "图片"
+
+#: src/project/figure-inventory-dialog.tsx
+#: src/project/manuscript-checklist.tsx
+msgid "Figure inventory"
+msgstr "插图使用检查"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Figure preview could not be loaded."
@@ -6136,6 +6193,10 @@ msgstr "隐藏{name}"
 msgid "Hide automatic versions"
 msgstr "收起自动版本"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Hide details"
+msgstr "收起详情"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "隐藏预览"
@@ -6613,6 +6674,10 @@ msgstr "下插一行"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "插入表格"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Inspect and replace"
+msgstr "检查与替换"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Install"
@@ -7968,6 +8033,10 @@ msgstr "找不到图片“{figure}”"
 msgid "Missing file “{path}”."
 msgstr "找不到文件“{path}”"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Missing image"
+msgstr "图片缺失"
+
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "缺少 LaTeX 依赖 `{file}`。BasicTeX 并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装对应的 TeX Live 软件包。"
@@ -8463,6 +8532,18 @@ msgstr "未声明许可证"
 #: src/project/manuscript-checklist.tsx
 msgid "No limit"
 msgstr "不限"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present."
+msgstr "可读取的 TeX 源文件中未找到直接写出的插图命令，仍可能存在由宏生成的插图。"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal label"
+msgstr "未找到直接写出的标签"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No literal references found"
+msgstr "未找到直接写出的引用"
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
@@ -9064,6 +9145,10 @@ msgstr "只含有改动的页"
 msgid "only the editor"
 msgstr "只留编辑器"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Only the listed graphics arguments will change. Image files stay in place."
+msgstr "仅更改列出的插图路径参数，图片文件保持原位。"
+
 #: src/app/command-palette.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -9224,6 +9309,10 @@ msgstr "打开 notes.md"
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
 msgstr "查看公告"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Open original"
+msgstr "打开原文件"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Open page"
@@ -9806,6 +9895,10 @@ msgstr "已复制路径"
 msgid "Path suggestions"
 msgstr "路径建议"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Path unresolved — macro or ambiguous filename"
+msgstr "无法确定路径：包含宏或存在同名文件"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "paths"
 msgstr "路径"
@@ -9823,6 +9916,10 @@ msgstr "隐藏时暂停 · 点击继续"
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "PDF / vector format — raster DPI does not apply"
+msgstr "PDF / 矢量格式：不使用位图 DPI 判据"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF could not be loaded"
@@ -10103,9 +10200,17 @@ msgstr "预览 Markdown"
 msgid "Preview of {path}"
 msgstr "{path} 的预览"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Preview replacement"
+msgstr "预览替换"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Preview unavailable for this figure format."
 msgstr "这种图片格式无法预览"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Preview unavailable. Open the original file to inspect it."
+msgstr "无法预览，请打开原文件检查。"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "previous"
@@ -10440,6 +10545,10 @@ msgstr "正在读取 {0}…"
 msgid "Reading 1 abstract for this claim…"
 msgstr "正在针对这个论断阅读 1 篇摘要…"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Reading figure usages…"
+msgstr "正在读取插图使用位置…"
+
 #: src/project/paper-library.tsx
 msgid "Reading state"
 msgstr "阅读状态"
@@ -10617,11 +10726,16 @@ msgstr "文献列表"
 msgid "Reference with its type name"
 msgstr "带类型名称的引用"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Reference:"
+msgstr "引用："
+
 #: src/papers/bib-visual-editor.tsx
 msgid "References"
 msgstr "文献"
 
 #: src/overleaf/overleaf-review.tsx
+#: src/project/figure-inventory-dialog.tsx
 msgid "Refresh"
 msgstr "刷新"
 
@@ -10928,6 +11042,13 @@ msgstr "全局替换"
 #: src/project/submission-items.tsx
 msgid "Replace template"
 msgstr "替换模板"
+#: src/project/figure-inventory-dialog.tsx
+msgid "Replace listed usages"
+msgstr "替换列出的使用位置"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Replace these usages with"
+msgstr "将这些使用位置替换为"
 
 #: src/editor/latex/search-panel.ts
 msgid "Replace this match"
@@ -12725,6 +12846,9 @@ msgstr "正在打开幻灯片…"
 #: src/project/submission-items.tsx
 msgid "Status"
 msgstr "状态"
+#: src/project/figure-inventory-dialog.tsx
+msgid "Static coverage is limited in:"
+msgstr "以下文件的静态解析范围有限："
 
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
@@ -13339,6 +13463,10 @@ msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“�
 msgid "the documents area"
 msgstr "文档区"
 
+#: src/project/figure-inventory.ts
+msgid "The figure source changed. Refresh and preview again."
+msgstr "插图源文已更改，请刷新后重新预览。"
+
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "保存时文件变了，请看最新内容再保存"
@@ -13756,6 +13884,10 @@ msgstr "这条文献被引用了 {count} 次"
 #: src/app/remove-reference-action.ts
 msgid "This entry is cited in 1 place."
 msgstr "这条文献被引用了 1 次"
+
+#: src/project/figure-inventory.ts
+msgid "This figure path cannot be inserted safely."
+msgstr "无法安全插入此图片路径。"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "This file"
@@ -14221,6 +14353,10 @@ msgstr "撤销"
 msgctxt "macOS menu bar"
 msgid "Undo"
 msgstr "撤销"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "Undo replacement"
+msgstr "撤销替换"
 
 #: src/history/history-drawer.tsx
 msgid "Undo this Agent turn's file changes"

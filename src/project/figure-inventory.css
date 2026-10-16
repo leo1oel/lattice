@@ -1,0 +1,12 @@
+.figure-inventory { width: min(760px, calc(100vw - 32px)); min-width: 0; }
+.figure-inventory p, .figure-inventory h3, .figure-inventory label { overflow-wrap: anywhere; }
+.figure-inventory h3 { font-size: var(--type-body-size); font-weight: var(--weight-medium); margin: 0; }
+.figure-inventory p { font-size: var(--type-caption-size); color: var(--text-secondary); }
+.figure-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.figure-actions button { max-width: 100%; height: auto; min-height: var(--control-height-compact); white-space: normal; overflow-wrap: anywhere; }
+.figure-card { border-top: 1px solid var(--border-subtle); padding-block: var(--space-4); display: grid; gap: var(--space-3); min-width: 0; }
+.figure-use { padding-left: var(--space-3); border-left: 1px solid var(--border-subtle); min-width: 0; }
+.figure-preview { display: grid; gap: var(--space-2); min-width: 0; }
+.figure-preview img { max-width: 100%; max-height: 180px; object-fit: contain; justify-self: start; }
+.figure-inventory select { display: block; width: 100%; min-width: 0; margin-top: var(--space-2); background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-2); }
+.figure-replacement { padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
