@@ -23,6 +23,7 @@ import { formatCount } from "../i18n";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
 import { onProjectFilesChanged } from "../project/project-files-changed";
+import { isBuildOutput } from "../build/build-inputs";
 import type { GitVersions } from "./use-git-versions";
 import { isAutomaticVersion, versionMessageLabel } from "./version-messages";
 import { PROSE_FILE, changedWords, joinedPassage, prosePassages, sectionAt, type ProsePassage } from "./version-prose";
@@ -32,9 +33,6 @@ import "./compare-versions.css";
 
 /** The newer side when it is the files as they are, not a saved version. */
 const NOW = "now";
-
-/** Writes that cannot change a comparison: git's own, and what a build leaves behind. */
-const NOT_SOURCE = /(^|\/)\.git(\/|$)|\.(aux|log|fls|fdb_latexmk|synctex(\.gz)?|out|toc|bbl|blg|bcf|run\.xml|xdv|pdf)$/i;
 
 /** How long a burst of saves settles before Now is read again. */
 const NOW_SETTLE_MS = 300;
@@ -111,15 +109,16 @@ export function CompareVersions(props: {
 
   // Now moves as the files do: a burst the watcher reports reads both sides
   // again behind what is shown, so the place in the changes stays put.
-  const { projectRoot } = props;
+  const { projectRoot, rootDocument } = props;
   const [nowRead, setNowRead] = useState(0);
   const revalidateFiles = files.revalidate;
   const revalidateDiff = fileDiff.revalidate;
   useEffect(() => {
     if (to !== NOW || !projectRoot || !from) return;
+    const rootDocuments = rootDocument ? [rootDocument] : [];
     let timer: number | undefined;
     const stop = onProjectFilesChanged(projectRoot, (paths) => {
-      if (paths?.every((changedPath) => NOT_SOURCE.test(changedPath))) return;
+      if (paths?.every((changedPath) => changedPath.startsWith(".research/") || isBuildOutput(changedPath, rootDocuments))) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         revalidateFiles(pair, () => invoke<ComparedFile[]>("git_compare_files", { from, to: null }));
@@ -131,7 +130,7 @@ export function CompareVersions(props: {
       window.clearTimeout(timer);
       stop();
     };
-  }, [from, fromPath, pair, path, projectRoot, revalidateDiff, revalidateFiles, to]);
+  }, [from, fromPath, pair, path, projectRoot, revalidateDiff, revalidateFiles, rootDocument, to]);
   const passages = path && diffReady && !diffReady.binary && PROSE_FILE.test(path) ? prosePassages(diffReady.before ?? "", diffReady.after ?? "") : null;
   // Counted as the diff found them; read with the short words between edits joined in.
   const counts = passages ? changedWords(passages) : null;

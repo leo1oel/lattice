@@ -143,12 +143,12 @@ describe("CompareVersions", () => {
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
 
     // A version commit or a build touches nothing the comparison reads.
-    emit({ root: "/papers/attention", paths: [".git/index", "main.aux", "main.pdf"] });
+    emit({ root: "/papers/attention", paths: [".git/index", "main.aux", "main.pdf", "main.synctex.gz"] });
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(invokeCalls("git_compare_files")).toHaveLength(1);
 
-    // An unchanged save reads again without dropping the place in the changes.
-    emit({ root: "/papers/attention", paths: ["main.tex"] });
+    // A figure PDF is a source; reading again keeps the place in the changes.
+    emit({ root: "/papers/attention", paths: ["figures/attn.pdf"] });
     await waitFor(() => expect(invokeCalls("git_compare_files")).toHaveLength(2));
     expect(screen.queryByText("Comparing…")).not.toBeInTheDocument();
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
