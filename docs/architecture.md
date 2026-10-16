@@ -62,7 +62,7 @@ restating it.
 
 The frontend calls the same API in a window and in a browser tab: in a tab,
 `browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
-the bridge. The webview calls Rust with `invoke("command_name", args)` against **180
+the bridge. The webview calls Rust with `invoke("command_name", args)` against **187
 registered commands** (see §2). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
@@ -253,7 +253,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~580 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **180** commands in
+lifecycle and the child runtimes, and registers **187** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -283,13 +283,13 @@ Practical consequence: to find what a button does, grep the command name in
 | --- | --- | --- |
 | `overleaf` + `overleaf_realtime` | 42 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
 | `files` | 30 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
-| `build` | 20 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `build` | 21 | `build_project`, `abort_build`, `export_changes_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
-| `bibliography` | 12 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
+| `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 14 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 13 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
-| `git` | 8 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
+| `git` | 10 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
 | service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
@@ -389,7 +389,7 @@ Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
 missing (an existing one is left as is), and `ensure_ignore_line` adds
 `.research/checkpoints/`, `.research/cache/` and the build-artifact list to the
 root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
-`.log` and `.fls` in the directory.
+`.log` and `.fls` in the directory. Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
 
 Export (`export_project_zip`) excludes `.git/`, all of `.research/`, the
 root document's PDF and the usual TeX artifacts (`EXPORT_EXCLUDED_DIRS` and
