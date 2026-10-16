@@ -204,6 +204,21 @@ msgstr "{0} pages"
 msgid "{0} people on Overleaf now"
 msgstr "{0} people on Overleaf now"
 
+#. placeholder {0}: kept.length
+#: src/project/terms-panel.tsx
+msgid "{0} places kept as written"
+msgstr "{0} places kept as written"
+
+#. placeholder {0}: pending.length
+#: src/project/terms-panel.tsx
+msgid "{0} places to review in {pendingFiles} files"
+msgstr "{0} places to review in {pendingFiles} files"
+
+#. placeholder {0}: pending.length
+#: src/project/terms-panel.tsx
+msgid "{0} places to review in 1 file"
+msgstr "{0} places to review in 1 file"
+
 #. placeholder {0}: report.dropped
 #: src/project/paper-review-panel.tsx
 msgid "{0} points were left out: their quotes are not in the paper"
@@ -612,6 +627,10 @@ msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place} — click to jump there"
 
+#: src/project/terms-panel.tsx
+msgid "{leftAsWritten} more are in math, comments, keys or paths, and stay as written."
+msgstr "{leftAsWritten} more are in math, comments, keys or paths, and stay as written."
+
 #: src/papers/linked-library-sheet.tsx
 msgid "{library} is up to date."
 msgstr "{library} is up to date."
@@ -974,6 +993,10 @@ msgstr "1 hour"
 msgid "1 minute"
 msgstr "1 minute"
 
+#: src/project/terms-panel.tsx
+msgid "1 more is in math, a comment, a key or a path, and stays as written."
+msgstr "1 more is in math, a comment, a key or a path, and stays as written."
+
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "1 more reply"
@@ -1025,6 +1048,14 @@ msgstr "1 paper speaks to this."
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 person on Overleaf now"
+
+#: src/project/terms-panel.tsx
+msgid "1 place kept as written"
+msgstr "1 place kept as written"
+
+#: src/project/terms-panel.tsx
+msgid "1 place to review in 1 file"
+msgstr "1 place to review in 1 file"
 
 #: src/project/paper-review-panel.tsx
 msgid "1 point added as an annotation"
@@ -1316,6 +1347,10 @@ msgstr "Add a citation"
 msgid "Add a cursor above or below"
 msgstr "Add a cursor above or below"
 
+#: src/project/terms-panel.tsx
+msgid "Add a name the paper should always write one way, such as zero-shot or ResNet, and the forms to look for."
+msgstr "Add a name the paper should always write one way, such as zero-shot or ResNet, and the forms to look for."
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
@@ -1394,6 +1429,10 @@ msgstr "Add project term"
 #: src/papers/bib-visual-editor.tsx
 msgid "Add reference"
 msgstr "Add reference"
+
+#: src/project/terms-panel.tsx
+msgid "Add rule"
+msgstr "Add rule"
 
 #: src/project/paper-review-panel.tsx
 msgid "Add the points you agree with; nothing changes until you do"
@@ -1676,6 +1715,10 @@ msgstr "Alt text"
 msgid "Amalgamation"
 msgstr "Amalgamation"
 
+#: src/project/terms-panel.tsx
+msgid "American"
+msgstr "American"
+
 #: src/build/compile-explain.ts
 msgid "An & outside a table"
 msgstr "An & outside a table"
@@ -1951,6 +1994,10 @@ msgstr "As a reviewer would, each point anchored"
 msgid "As the last round left it"
 msgstr "As the last round left it"
 
+#: src/project/terms-panel.tsx
+msgid "As the text has it"
+msgstr "As the text has it"
+
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
 msgstr "Ask again"
@@ -2002,6 +2049,10 @@ msgstr "At the limit"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
+
+#: src/project/terms-panel.tsx
+msgid "Australian"
+msgstr "Australian"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -2125,6 +2176,7 @@ msgid "Beamer slide"
 msgstr "Beamer slide"
 
 #: src/papers/bibliography-audit.tsx
+#: src/project/terms-panel.tsx
 msgid "becomes"
 msgstr "becomes"
 
@@ -2358,6 +2410,10 @@ msgstr "Breve accent example"
 msgid "Bring back {0}"
 msgstr "Bring back {0}"
 
+#: src/project/terms-panel.tsx
+msgid "British"
+msgstr "British"
+
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -2537,6 +2593,10 @@ msgstr "Can take up to 15 minutes"
 msgid "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
 msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not connected."
 
+#: src/project/terms-panel.tsx
+msgid "Canadian"
+msgstr "Canadian"
+
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -2566,6 +2626,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
 #: src/project/submission-items.tsx
+#: src/project/terms-panel.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
 msgstr "Cancel"
@@ -2720,6 +2781,20 @@ msgstr "Centered multi-line equations"
 msgid "Change"
 msgstr "Change"
 
+#: src/project/terms-panel.tsx
+msgctxt "term"
+msgid "Change"
+msgstr "Change"
+
+#: src/project/terms-panel.tsx
+msgid "Change 1"
+msgstr "Change 1"
+
+#. placeholder {0}: hits.length
+#: src/project/terms-panel.tsx
+msgid "Change all {0}"
+msgstr "Change all {0}"
+
 #: src/history/compare-versions.tsx
 msgid "Changed files"
 msgstr "Changed files"
@@ -2739,6 +2814,14 @@ msgstr "Changed since confirmed"
 #: src/papers/bibliography-audit.tsx
 msgid "Changed since the last check"
 msgstr "Changed since the last check"
+
+#: src/app/app-editor-panels.tsx
+msgid "Changed the term in 1 file."
+msgstr "Changed the term in 1 file."
+
+#: src/app/app-editor-panels.tsx
+msgid "Changed the terms in {count} files."
+msgstr "Changed the terms in {count} files."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed there, untouched here"
@@ -2777,6 +2860,7 @@ msgstr "Check accent example"
 
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/terms-panel.tsx
 msgid "Check again"
 msgstr "Check again"
 
@@ -4658,6 +4742,15 @@ msgstr "Edit message"
 msgid "Edit message text"
 msgstr "Edit message text"
 
+#: src/project/terms-panel.tsx
+msgid "Edit rule"
+msgstr "Edit rule"
+
+#. placeholder {0}: rule.term
+#: src/project/terms-panel.tsx
+msgid "Edit rule for {0}"
+msgstr "Edit rule for {0}"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Edit table"
 msgstr "Edit table"
@@ -4804,6 +4897,7 @@ msgstr "End an environment"
 msgid "End tour"
 msgstr "End tour"
 
+#: src/project/terms-panel.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -4852,6 +4946,10 @@ msgstr "Enter Full Screen"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Enter manually"
 msgstr "Enter manually"
+
+#: src/project/terms-panel.tsx
+msgid "Enter the term the paper should use."
+msgstr "Enter the term the paper should use."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
@@ -4959,6 +5057,15 @@ msgstr "Every point has been dismissed"
 #: src/papers/bibliography-audit.tsx
 msgid "Every reference matched a verified record. Check again after you edit the bibliography."
 msgstr "Every reference matched a verified record. Check again after you edit the bibliography."
+
+#. placeholder {0}: loaded.length
+#: src/project/terms-panel.tsx
+msgid "Every rule is followed across {0} .tex files"
+msgstr "Every rule is followed across {0} .tex files"
+
+#: src/project/terms-panel.tsx
+msgid "Every rule is followed in the 1 .tex file"
+msgstr "Every rule is followed in the 1 .tex file"
 
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
@@ -5979,6 +6086,10 @@ msgstr "Hue"
 msgid "Hyperlink with text"
 msgstr "Hyperlink with text"
 
+#: src/project/terms-panel.tsx
+msgid "Hyphenated when it modifies a noun"
+msgstr "Hyphenated when it modifies a noun"
+
 #: src/papers/audit-messages.ts
 msgid "ICLR Proceedings"
 msgstr "ICLR Proceedings"
@@ -6133,6 +6244,10 @@ msgstr "In proceedings"
 #: src/telemetry/app-log.tsx
 msgid "In progress"
 msgstr "In progress"
+
+#: src/project/terms-panel.tsx
+msgid "In the paper"
+msgstr "In the paper"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "In the project now · {here}"
@@ -6401,6 +6516,10 @@ msgstr "Installing…"
 msgid "Installs the TeX Live package that provides {0}"
 msgstr "Installs the TeX Live package that provides {0}"
 
+#: src/project/terms-panel.tsx
+msgid "Instead of"
+msgstr "Instead of"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
 msgstr "Insufficient identifying metadata"
@@ -6539,6 +6658,7 @@ msgid "Kappa"
 msgstr "Kappa"
 
 #: src/editor/latex/highlighters.ts
+#: src/project/terms-panel.tsx
 msgid "Keep"
 msgstr "Keep"
 
@@ -7929,6 +8049,10 @@ msgstr "New presentation"
 msgid "New project"
 msgstr "New project"
 
+#: src/project/terms-panel.tsx
+msgid "New rule"
+msgstr "New rule"
+
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
 msgstr "New split below"
@@ -8307,6 +8431,10 @@ msgstr "No results"
 msgid "No results for “{trimmedQuery}”"
 msgstr "No results for “{trimmedQuery}”"
 
+#: src/project/terms-panel.tsx
+msgid "No rules yet"
+msgstr "No rules yet"
+
 #: src/canvas/proofread-card.tsx
 msgid "No safe edits"
 msgstr "No safe edits"
@@ -8680,6 +8808,10 @@ msgstr "On screen"
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
 msgstr "On this Mac"
+
+#: src/App.tsx
+msgid "One name and spelling across the paper"
+msgstr "One name and spelling across the paper"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
@@ -10087,6 +10219,10 @@ msgstr "Reading the paper as a {name} reviewer"
 msgid "Reading the paper as a reviewer"
 msgstr "Reading the paper as a reviewer"
 
+#: src/project/terms-panel.tsx
+msgid "Reading the paper’s .tex files…"
+msgstr "Reading the paper’s .tex files…"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Reading the rounds…"
 msgstr "Reading the rounds…"
@@ -10332,6 +10468,11 @@ msgstr "Remove key"
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "Remove one file from the Overleaf project?"
+
+#. placeholder {0}: rule.term
+#: src/project/terms-panel.tsx
+msgid "Remove rule for {0}"
+msgstr "Remove rule for {0}"
 
 #: src/project/submission-items.tsx
 msgid "Remove template"
@@ -11117,6 +11258,10 @@ msgstr "Row options"
 msgid "Rows"
 msgstr "Rows"
 
+#: src/project/terms-panel.tsx
+msgid "Rules"
+msgstr "Rules"
+
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
 msgstr "run {run}"
@@ -11260,6 +11405,10 @@ msgstr "Save pending edits before updating references."
 msgid "Save resolved file"
 msgstr "Save resolved file"
 
+#: src/project/terms-panel.tsx
+msgid "Save rule"
+msgstr "Save rule"
+
 #: src/canvas/status-save-state.tsx
 msgid "Save state"
 msgstr "Save state"
@@ -11271,6 +11420,10 @@ msgstr "Save template"
 #: src/app/use-reference-import.ts
 msgid "Save the open file first."
 msgstr "Save the open file first."
+
+#: src/app/app-editor-panels.tsx
+msgid "Save the open file to check its terms."
+msgstr "Save the open file to check its terms."
 
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
@@ -11665,6 +11818,10 @@ msgstr "Send reply"
 msgid "Sent to Crossref for faster lookups. No key needed"
 msgstr "Sent to Crossref for faster lookups. No key needed"
 
+#: src/project/terms-panel.tsx
+msgid "Separate forms with commas. Other capitalizations are found without listing them."
+msgstr "Separate forms with commas. Other capitalizations are found without listing them."
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
 msgstr "Separator"
@@ -11719,6 +11876,11 @@ msgstr "Show"
 #: src/history/compare-versions.tsx
 msgid "Show {0} automatic versions"
 msgstr "Show {0} automatic versions"
+
+#. placeholder {0}: hits.length - SHOWN_PLACES
+#: src/project/terms-panel.tsx
+msgid "Show {0} more"
+msgstr "Show {0} more"
 
 #: src/App.tsx
 msgid "Show {name} panel"
@@ -12116,6 +12278,14 @@ msgstr "South-west arrow"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "Spade suit"
+
+#: src/project/terms-panel.tsx
+msgid "Spell checking marks the other variants’ spellings. Nothing in the text is changed for you."
+msgstr "Spell checking marks the other variants’ spellings. Nothing in the text is changed for you."
+
+#: src/project/terms-panel.tsx
+msgid "Spell checking uses American spelling, and Proofread keeps the spelling the text already uses."
+msgstr "Spell checking uses American spelling, and Proofread keeps the spelling the text already uses."
 
 #: src/canvas/proofread-card.tsx
 msgid "spelling"
@@ -12553,6 +12723,12 @@ msgstr "Technical details"
 msgid "Template name"
 msgstr "Template name"
 
+#: src/App.tsx
+#: src/project/terms-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Terms"
+msgstr "Terms"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
@@ -12899,6 +13075,10 @@ msgstr "The linked Overleaf project changed. Try commenting again."
 msgid "The local Git service hasn’t answered. Try loading it again."
 msgstr "The local Git service hasn’t answered. Try loading it again."
 
+#: src/project/terms-panel.tsx
+msgid "The names and spellings this paper settles on. Proofread and Polish follow them as well."
+msgstr "The names and spellings this paper settles on. Proofread and Polish follow them as well."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "the network became available"
@@ -13044,6 +13224,12 @@ msgstr "The review could not be saved: {0}"
 #: src/settings/acknowledged-software.ts
 msgid "The rich-text editor"
 msgstr "The rich-text editor"
+
+#. placeholder {0}: clash.term
+#. placeholder {1}: clash.form
+#: src/project/terms-panel.tsx
+msgid "The rule for “{0}” already covers “{1}”."
+msgstr "The rule for “{0}” already covers “{1}”."
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."
@@ -14304,6 +14490,10 @@ msgstr "Who"
 msgid "Whole word"
 msgstr "Whole word"
 
+#: src/project/terms-panel.tsx
+msgid "Why <0>(optional)</0>"
+msgstr "Why <0>(optional)</0>"
+
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Width"
 msgstr "Width"
@@ -14433,6 +14623,10 @@ msgstr "Wraps the selection in \\begin…\\end"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "Wreath product"
+
+#: src/project/terms-panel.tsx
+msgid "Write as"
+msgstr "Write as"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Write, then build"

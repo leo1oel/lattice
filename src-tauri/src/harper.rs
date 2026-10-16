@@ -41,6 +41,7 @@ pub struct HarperLintOut {
 
 struct HarperSession {
     words_key: String,
+    dialect: Dialect,
     dictionary: Arc<MergedDictionary>,
     linter: LintGroup,
 }
@@ -62,13 +63,27 @@ fn session_dictionary(project_words: &[String]) -> Arc<MergedDictionary> {
     Arc::new(merged)
 }
 
-pub fn lint(text: &str, project_words: &[String]) -> Vec<HarperLintOut> {
+/// The project's English variant (`project/terms.rs`); unset or unknown is American.
+fn dialect(variant: Option<&str>) -> Dialect {
+    match variant {
+        Some("british") => Dialect::British,
+        Some("canadian") => Dialect::Canadian,
+        Some("australian") => Dialect::Australian,
+        _ => Dialect::American,
+    }
+}
+
+pub fn lint(text: &str, project_words: &[String], variant: Option<&str>) -> Vec<HarperLintOut> {
     let mut guard = SESSION.lock().unwrap();
     let words_key = project_words.join("\n");
-    if guard.as_ref().is_none_or(|session| session.words_key != words_key) {
+    let dialect = dialect(variant);
+    if guard
+        .as_ref()
+        .is_none_or(|session| session.words_key != words_key || session.dialect != dialect)
+    {
         let dictionary = session_dictionary(project_words);
-        let linter = LintGroup::new_curated(dictionary.clone(), Dialect::American);
-        *guard = Some(HarperSession { words_key, dictionary, linter });
+        let linter = LintGroup::new_curated(dictionary.clone(), dialect);
+        *guard = Some(HarperSession { words_key, dialect, dictionary, linter });
     }
     let session = guard.as_mut().unwrap();
     let document = Document::new_plain_english(text, session.dictionary.as_ref());
@@ -118,7 +133,7 @@ mod tests {
         // "𝒜" is a surrogate pair (2 UTF-16 units, 1 char); the misspelling
         // after it must land on JS-string offsets.
         for text in ["This is a mispelling of a word.", "𝒜 mispelling here."] {
-            let spelling = lint(text, &[])
+            let spelling = lint(text, &[], None)
                 .into_iter()
                 .find(|entry| entry.kind == "Spelling" || entry.kind == "Typo")
                 .expect("expected a spelling lint");
@@ -138,11 +153,25 @@ mod tests {
                 .iter()
                 .any(|entry| &text[entry.start as usize..entry.end as usize] == "frobnicator")
         };
-        let before = lint(text, &[]);
+        let before = lint(text, &[], None);
         assert!(flags_frobnicator(&before));
-        assert!(!flags_frobnicator(&lint(text, &["frobnicator".to_string()])));
+        assert!(!flags_frobnicator(&lint(text, &["frobnicator".to_string()], None)));
         // Back to the empty dictionary: the session must rebuild again.
-        let reverted = lint(text, &[]);
+        let reverted = lint(text, &[], None);
         assert_eq!(before.len(), reverted.len());
+    }
+
+    #[test]
+    fn the_english_variant_decides_which_spelling_is_flagged() {
+        let text = "The colour of the organisation.";
+        let flagged = |variant| {
+            lint(text, &[], variant)
+                .into_iter()
+                .filter(|entry| entry.kind == "Spelling" || entry.kind == "Typo")
+                .map(|entry| text[entry.start as usize..entry.end as usize].to_string())
+                .collect::<Vec<_>>()
+        };
+        assert!(flagged(None).contains(&"colour".to_string()), "{:?}", flagged(None));
+        assert!(flagged(Some("british")).is_empty(), "{:?}", flagged(Some("british")));
     }
 }

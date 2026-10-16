@@ -16,7 +16,7 @@ import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scri
 import { arxivAnswer } from "./bench-arxiv";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
-import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
+import type { EnglishVariant, FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem, TermRule } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
@@ -354,6 +354,39 @@ let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
   ]
   : [];
 
+/**
+ * `?terms=1` stages the Terms panel: three rules, British English, and a
+ * section whose prose writes the terms other ways, beside the same forms in
+ * math, a comment, keys and a path, which stay as written. `?terms=long`
+ * adds a rule and a folder with long names, for the panel's narrow widths.
+ */
+const stagedTerms = params.get("terms");
+let benchTermRules: TermRule[] = stagedTerms ? [
+  { term: "zero-shot", variants: ["zero shot", "zeroshot"], note: "Hyphenated when it modifies a noun." },
+  { term: "ResNet", variants: [] },
+  { term: "fine-tuning", variants: ["finetuning", "fine tuning"] },
+  ...(stagedTerms === "long" ? [{
+    term: "retrieval-augmented generation",
+    variants: ["retrieval augmented generation", "retrieval-augmented-generation", "Retrieval Augmented Generation (RAG)"],
+    note: "Spelled out in full on first use in every section, then RAG; the hyphen joins the compound modifier.",
+  }] : []),
+] : [];
+let benchEnglishVariant: EnglishVariant | null = stagedTerms ? "british" : null;
+if (stagedTerms) {
+  const folder = stagedTerms === "long" ? "sections/experiments-on-zero-shot-transfer-across-benchmarks" : "sections";
+  current.files.set(`${folder}/method.tex`, [
+    "\\section{Zero Shot Transfer}",
+    "We evaluate zero shot transfer with a Resnet backbone. Zero shot results follow the zeroshot protocol,",
+    "and finetuning uses the same ResNet weights; fine tuning took two hours.",
+    "我们的 zero shot 设置沿用 Resnet-50。",
+    stagedTerms === "long" ? "Retrieval augmented generation helps; retrieval augmented generation costs more." : "",
+    "\\begin{figure}\\caption{A zero shot example.}\\label{fig:zero shot}\\end{figure}",
+    "% zero shot: kept, a comment",
+    "Math $zero shot$ and \\cite{resnet} and \\includegraphics{figs/zero shot.pdf} stay as written.",
+    "",
+  ].join("\n"));
+}
+
 function snapshot(): ProjectSnapshot {
   return {
     root: current.root,
@@ -367,6 +400,8 @@ function snapshot(): ProjectSnapshot {
       venue: "neurips",
       deadline: benchDeadline,
       submissionItems: benchItems,
+      termRules: benchTermRules,
+      englishVariant: benchEnglishVariant,
     },
     files: fileTree(),
   };
@@ -1221,6 +1256,18 @@ function answer(command: string, args: Args): unknown {
           : undefined,
       }));
       return snapshot().manifest;
+    case "set_project_terms":
+      benchTermRules = (args?.rules as TermRule[] | undefined) ?? [];
+      benchEnglishVariant = (args?.englishVariant as EnglishVariant | null | undefined) ?? null;
+      return snapshot().manifest;
+    case "apply_term_edits": {
+      // As the backend does: a file changed since the check refuses them all.
+      const files = (args?.files as Array<{ path: string; before: string; after: string }> | undefined) ?? [];
+      const stale = files.find((file) => current.files.get(file.path) !== file.before);
+      if (stale) throw new Error(`${stale.path} changed since the check. Check again.`);
+      for (const file of files) current.files.set(file.path, file.after);
+      return files.map((file) => file.path);
+    }
     case "set_project_deadline":
       benchDeadline = (args?.deadline as ProjectDeadline | null | undefined) ?? null;
       return snapshot().manifest;

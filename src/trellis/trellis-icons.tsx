@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from "react";
 import {
-  ArrowRightLeft, BookOpen, BookPlus, BookSearch, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2,
+  ArrowRightLeft, BookA, BookOpen, BookPlus, BookSearch, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2,
   FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
   Minimize2, PenLine, PictureInPicture2, Presentation, RefreshCw, Rows2, ScanSearch, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
@@ -52,6 +52,7 @@ export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   checklist: <ClipboardCheck size={14} />,
   review: <ScanSearch size={14} />,
   support: <BookSearch size={14} />,
+  terms: <BookA size={14} />,
 };
 
 /**

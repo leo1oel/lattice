@@ -228,11 +228,12 @@ pub async fn run_doctor(
 
 #[tauri::command]
 pub async fn harper_lint(
-    text: String, project_words: Vec<String>,
+    text: String, project_words: Vec<String>, dialect: Option<String>,
 ) -> Result<Vec<harper::HarperLintOut>, String> {
     // Pure text in/out — no project state. The blocking pool keeps the multi-
     // hundred-millisecond lint pass off the async reactor and the UI thread.
-    run_blocking("harper_lint", move || Ok(harper::lint(&text, &project_words))).await
+    run_blocking("harper_lint", move || Ok(harper::lint(&text, &project_words, dialect.as_deref())))
+        .await
 }
 
 #[tauri::command]
