@@ -4977,6 +4977,10 @@ msgstr "导出 arXiv 提交包"
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export notes…"
+msgstr "导出批注…"
+
 #: src/history/export-changes-dialog.tsx
 msgid "Export PDF"
 msgstr "导出 PDF"
@@ -4988,10 +4992,6 @@ msgstr "导出标出修改的 PDF"
 #: src/history/compare-versions.tsx
 msgid "Export PDF with changes…"
 msgstr "导出修改对照 PDF…"
-
-#: src/pdf/review-pdf-sheet.tsx
-msgid "Export notes…"
-msgstr "导出批注…"
 
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
@@ -6103,13 +6103,13 @@ msgstr "包含应用和 AI 日志"
 msgid "Include raw diagnostic text"
 msgstr "包含完整诊断内容"
 
-#: src/history/compare-versions.tsx
-msgid "Including changes not saved as a version"
-msgstr "含未存为版本的修改"
-
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "包含回复"
+
+#: src/history/compare-versions.tsx
+msgid "Including changes not saved as a version"
+msgstr "含未存为版本的修改"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"

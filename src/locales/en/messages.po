@@ -4977,6 +4977,10 @@ msgstr "Export for arXiv"
 msgid "Export for arXiv…"
 msgstr "Export for arXiv…"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export notes…"
+msgstr "Export notes…"
+
 #: src/history/export-changes-dialog.tsx
 msgid "Export PDF"
 msgstr "Export PDF"
@@ -4988,10 +4992,6 @@ msgstr "Export PDF with changes marked"
 #: src/history/compare-versions.tsx
 msgid "Export PDF with changes…"
 msgstr "Export PDF with changes…"
-
-#: src/pdf/review-pdf-sheet.tsx
-msgid "Export notes…"
-msgstr "Export notes…"
 
 #: src/telemetry/app-log.tsx
 msgid "Export preview"
@@ -6103,13 +6103,13 @@ msgstr "Include app and Agent runtime logs"
 msgid "Include raw diagnostic text"
 msgstr "Include raw diagnostic text"
 
-#: src/history/compare-versions.tsx
-msgid "Including changes not saved as a version"
-msgstr "Including changes not saved as a version"
-
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Include replies"
 msgstr "Include replies"
+
+#: src/history/compare-versions.tsx
+msgid "Including changes not saved as a version"
+msgstr "Including changes not saved as a version"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
