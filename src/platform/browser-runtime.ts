@@ -1,4 +1,5 @@
 import { APPEARANCE_KEY, loadThemePreference, systemTheme } from "../settings/app-settings";
+import { BROWSER_ENTRY_PORT } from "./flavor";
 
 /* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
@@ -728,7 +729,7 @@ async function initializeBrowserRuntime(): Promise<void> {
   const stored = readStoredBrowserConfig();
   // A perf-lab build serves its pages from the lab's own port so it never
   // meets a real Lattice on 18452.
-  const entryPort = import.meta.env.VITE_PERF_LAB === "1" ? window.location.port : "18452";
+  const entryPort = import.meta.env.VITE_PERF_LAB === "1" ? window.location.port : BROWSER_ENTRY_PORT;
   const fixedEntry = window.location.hostname === "127.0.0.1"
     && window.location.port === entryPort;
   const search = new URLSearchParams(window.location.search);

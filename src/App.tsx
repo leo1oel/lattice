@@ -16,6 +16,7 @@ import {
 } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted } from "./platform/browser-runtime";
+import { BROWSER_ENTRY_PORT } from "./platform/flavor";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { configureToastPosition } from "./telemetry/toast-position";
 import { useProjectSearch } from "./app/use-project-search";
@@ -1507,7 +1508,7 @@ function App() {
       id: "browser", group: "project", run: () => void moveWorkspace(),
       ...(browserHosted
         ? { label: t`Open in Lattice app` }
-        : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
+        : { label: t`Open in browser`, detail: `http://127.0.0.1:${BROWSER_ENTRY_PORT}` }),
     },
     // Light, dark or the system's: the two not in use.
     ...(["light", "dark", "system"] as const).filter((preference) => preference !== themePreference).map((preference): AppCommand => ({

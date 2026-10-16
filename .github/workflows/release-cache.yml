@@ -102,9 +102,8 @@ jobs:
           echo "value=$(node -p "require('./src-tauri/tauri.conf.json').bundle.macOS.minimumSystemVersion")" \
             >> "$GITHUB_OUTPUT"
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
+      # Installs the Rust release rust-toolchain.toml pins, with its components and target.
+      - run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -156,7 +155,7 @@ jobs:
 
       # The staging script reads the host triple from rustc to select the
       # matching bundled Node runtime.
-      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup toolchain install
 
       - name: Fetch pinned Synara source
         run: |

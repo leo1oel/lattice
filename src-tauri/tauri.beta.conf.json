@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Lattice Beta",
+  "mainBinaryName": "Lattice Beta",
+  "identifier": "app.leo1oel.researchwriter.beta",
+  "plugins": {
+    "updater": {
+      "endpoints": []
+    }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false
+  }
+}

@@ -117,9 +117,8 @@ jobs:
         with:
           bun-version: 1.4.2
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
+      # Installs the Rust release rust-toolchain.toml pins, with its components and target.
+      - run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@v2
         with:

@@ -1,12 +1,12 @@
 //! Loopback browser host: serves the app to a browser on a fixed local port.
 //!
-//! `http://127.0.0.1:18452` is the fixed, bookmarkable entry point. Every
-//! workspace opened there is backed by a hidden native *host* WebView that owns
-//! the project and relays IPC to the browser tab over a WebSocket bridge
-//! (`session`). "Open in browser" hands a native window's workspace to the
-//! default browser, and the workspace opens in a native window again when the
-//! tab returns it or closes. The listener lives exactly as long as Lattice
-//! runs.
+//! `http://127.0.0.1:18452` (18472 in Lattice Beta) is the fixed, bookmarkable
+//! entry point. Every workspace opened there is backed by a hidden native
+//! *host* WebView that owns the project and relays IPC to the browser tab over
+//! a WebSocket bridge (`session`). "Open in browser" hands a native window's
+//! workspace to the default browser, and the workspace opens in a native window
+//! again when the tab returns it or closes. The listener lives exactly as long
+//! as Lattice runs.
 //!
 //! - `/__lattice_session` mints or resumes a session token for the fixed entry,
 //!   or hands out the one a single-use `?entry=` nonce was issued for.
@@ -16,7 +16,6 @@
 pub(crate) mod dialogs;
 mod server;
 mod session;
-mod takeover;
 
 use super::AppState;
 use serde::Serialize;
@@ -35,7 +34,10 @@ use std::{
 use tauri::{Manager, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 
-const PREFERRED_PORT: u16 = 18452;
+/// Lattice Beta never takes the release app's port (nor the Trellis
+/// prototype's 18462), so they run side by side without one tab attaching to
+/// another's host. src/platform/flavor.ts mirrors it.
+const PREFERRED_PORT: u16 = if cfg!(lattice_beta) { 18472 } else { 18452 };
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 
 #[derive(Default)]
@@ -62,17 +64,10 @@ struct HostBridgeConfig<'a> {
 fn bind_browser_listener() -> io::Result<TcpListener> {
     #[cfg(feature = "perf-lab")]
     if let Some(port) = crate::perf_lab::port() {
-        // A lab run has its own port and never takes over anyone's listener.
+        // A lab run has its own port, never the shipped app's.
         return TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
     }
-    let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT);
-    match TcpListener::bind(address) {
-        Ok(listener) => Ok(listener),
-        Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
-            takeover::replace_stale_browser_host(address).ok_or(error)
-        }
-        Err(error) => Err(error),
-    }
+    TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT))
 }
 
 fn new_host_label() -> String {

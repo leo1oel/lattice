@@ -176,6 +176,36 @@ What a fork can do instead:
 - Set your own `LATTICE_FIRECRAWL_KEY`, or ship without one — webpage import
   then asks the user for a key.
 
+## Build Lattice Beta
+
+Lattice Beta is the same source built as a second app that installs and runs
+beside the release one. It is never published; `release.yml` builds only the
+release flavor, which `tauri-security-config.test.ts` checks.
+
+```bash
+pnpm build:beta                  # extra tauri build flags go after it, e.g. --bundles app
+```
+
+That is `LATTICE_FLAVOR=beta tauri build --config src-tauri/tauri.beta.conf.json`,
+and it needs both halves:
+
+- `src-tauri/tauri.beta.conf.json`, merged over `tauri.conf.json`, gives the
+  identity: identifier `app.leo1oel.researchwriter.beta`, product and binary
+  name `Lattice Beta`, and no updater endpoint or artifacts. App data, caches,
+  logs, WebKit data, managed tools and the literature keychain item all derive
+  from the identifier (`src-tauri/src/app_identity.rs`), so Beta never touches
+  the release app's.
+- `LATTICE_FLAVOR=beta`, read at build time by `src-tauri/build.rs` and
+  `vite.config.ts`, moves the browser host to `http://127.0.0.1:18472`
+  (`PREFERRED_PORT`, `src/platform/flavor.ts`), off the release app's 18452 and
+  the Trellis prototype's 18462.
+
+A build with one half and not the other exits at launch, since it would share
+the release app's data or contend for its port. Any other `LATTICE_FLAVOR`
+value fails the build. The app lands in
+`src-tauri/target/release/bundle/macos/Lattice Beta.app`, ad-hoc signed like a
+fork's build (above).
+
 ## Rotating the updater signing key
 
 **Read this before the first public release.**
