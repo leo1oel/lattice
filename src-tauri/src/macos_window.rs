@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::Duration;
 
 static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
@@ -79,7 +79,7 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
             return true;
         }
         // Read like the copy monitor: window focus events keep the label.
-        let Some(label) = FOCUSED_WINDOW_LABEL.lock().unwrap().clone() else {
+        let Some(label) = focused_window_label() else {
             return true;
         };
         let Some(window) = app.get_webview_window(&label) else {
@@ -110,7 +110,7 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
 /// selection loses ownership. Other platforms copy in the webview directly.
 #[tauri::command]
 pub fn set_pdf_copy_text(window: tauri::WebviewWindow, text: Option<String>) {
-    let mut selections = PDF_COPY_TEXT.lock().unwrap();
+    let mut selections = PDF_COPY_TEXT.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(text) = text.filter(|text| !text.is_empty()) {
         selections.insert(window.label().to_string(), text);
     } else {
@@ -119,17 +119,17 @@ pub fn set_pdf_copy_text(window: tauri::WebviewWindow, text: Option<String>) {
 }
 
 pub fn clear_pdf_copy_text(window_label: &str) {
-    PDF_COPY_TEXT.lock().unwrap().remove(window_label);
+    PDF_COPY_TEXT.lock().unwrap_or_else(PoisonError::into_inner).remove(window_label);
     set_window_focused(window_label, false);
 }
 
 /// The window that last gained focus and has not lost it since.
 pub fn focused_window_label() -> Option<String> {
-    FOCUSED_WINDOW_LABEL.lock().unwrap().clone()
+    FOCUSED_WINDOW_LABEL.lock().unwrap_or_else(PoisonError::into_inner).clone()
 }
 
 pub fn set_window_focused(window_label: &str, is_focused: bool) {
-    let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap();
+    let mut focused = FOCUSED_WINDOW_LABEL.lock().unwrap_or_else(PoisonError::into_inner);
     if is_focused {
         *focused = Some(window_label.to_string());
     } else if focused.as_deref() == Some(window_label) {
@@ -162,10 +162,15 @@ pub fn install_copy_shortcut_monitor(app: tauri::AppHandle) {
         // Physical key events are not guaranteed to carry `NSEvent.window`.
         // Window events maintain this label outside AppKit's key callback, so
         // reading it here cannot synchronously call back into Tauri's event loop.
-        let Some(window_label) = FOCUSED_WINDOW_LABEL.lock().unwrap().clone() else {
+        let Some(window_label) = focused_window_label() else {
             return true;
         };
-        let Some(text) = PDF_COPY_TEXT.lock().unwrap().get(&window_label).cloned() else {
+        let Some(text) = PDF_COPY_TEXT
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&window_label)
+            .cloned()
+        else {
             return true;
         };
         match app.clipboard().write_text(text) {

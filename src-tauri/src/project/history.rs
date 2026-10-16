@@ -11,11 +11,11 @@ use crate::project_fs::ProjectDir;
 use crate::util::err;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, PoisonError};
 use uuid::Uuid;
 
 const HISTORY_SCHEMA_VERSION: u32 = 2;
@@ -407,16 +407,31 @@ fn coalesce_edit_transaction(
 static LATEST_HISTORY: LazyLock<Mutex<HashMap<PathBuf, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Drop the history memos of projects no window has open.
+pub(crate) fn retain_open_history(open: &HashSet<PathBuf>) {
+    LATEST_HISTORY
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .retain(|root, _| open.contains(root));
+    HISTORY_INDEXES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .retain(|root, _| open.contains(root));
+}
+
 fn remember_latest_history(root: &Path, record: &TransactionRecord) {
-    LATEST_HISTORY.lock().unwrap().insert(root.to_path_buf(), record.id.clone());
+    LATEST_HISTORY
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(root.to_path_buf(), record.id.clone());
 }
 
 fn forget_latest_history(root: &Path) {
-    LATEST_HISTORY.lock().unwrap().remove(root);
+    LATEST_HISTORY.lock().unwrap_or_else(PoisonError::into_inner).remove(root);
 }
 
 fn latest_history_record(root: &Path) -> Result<Option<TransactionRecord>, String> {
-    let memoized = LATEST_HISTORY.lock().unwrap().get(root).cloned();
+    let memoized = LATEST_HISTORY.lock().unwrap_or_else(PoisonError::into_inner).get(root).cloned();
     if let Some(id) = memoized {
         let record = transaction_path(root, &id)
             .ok()
@@ -521,12 +536,17 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
         return Ok(Vec::new());
     }
     // Not held while reading records: a first read can take seconds.
-    let known = HISTORY_INDEXES.lock().unwrap().get(root).cloned().unwrap_or_else(|| {
-        fs::read(root.join(HISTORY_INDEX))
-            .ok()
-            .and_then(|raw| serde_json::from_slice(&raw).ok())
-            .unwrap_or_default()
-    });
+    let known = HISTORY_INDEXES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(root)
+        .cloned()
+        .unwrap_or_else(|| {
+            fs::read(root.join(HISTORY_INDEX))
+                .ok()
+                .and_then(|raw| serde_json::from_slice(&raw).ok())
+                .unwrap_or_default()
+        });
     let mut index = HistoryIndex::default();
     for entry in fs::read_dir(&directory).map_err(err)? {
         let entry = entry.map_err(err)?;
@@ -565,7 +585,10 @@ pub fn history(root: &Path) -> Result<Vec<HistoryItem>, String> {
                 .and_then(|project| project.atomic_write(HISTORY_INDEX, &raw));
         }
     }
-    HISTORY_INDEXES.lock().unwrap().insert(root.to_path_buf(), index);
+    HISTORY_INDEXES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(root.to_path_buf(), index);
     // On equal timestamps the record with the smaller id first, whatever the directory's order.
     items.sort_by(|a, b| b.timestamp.cmp(&a.timestamp).then_with(|| a.id.cmp(&b.id)));
     Ok(items)
@@ -634,7 +657,7 @@ pub fn revert(
 pub fn delete_history(root: &Path, transaction_id: &str) -> Result<(), String> {
     fs::remove_file(transaction_path(root, transaction_id)?).map_err(err)?;
     // Only the newest record is memoized; deleting any other leaves it valid.
-    let mut memo = LATEST_HISTORY.lock().unwrap();
+    let mut memo = LATEST_HISTORY.lock().unwrap_or_else(PoisonError::into_inner);
     if memo.get(root).is_some_and(|id| id == transaction_id) {
         memo.remove(root);
     }

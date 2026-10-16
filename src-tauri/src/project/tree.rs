@@ -8,7 +8,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::SystemTime;
 
 /// Content classification reads at most this many bytes. Larger files are
@@ -169,13 +169,15 @@ fn classify_tree_file(path: &Path, metadata: &fs::Metadata) -> Result<ContentKin
         return classify_with_limit(path, metadata, local_text_limit(path));
     };
     let len = metadata.len();
-    if let Some((cached_mtime, cached_len, kind)) = CLASSIFY_CACHE.lock().unwrap().get(path) {
+    if let Some((cached_mtime, cached_len, kind)) =
+        CLASSIFY_CACHE.lock().unwrap_or_else(PoisonError::into_inner).get(path)
+    {
         if *cached_mtime == modified && *cached_len == len {
             return Ok(*kind);
         }
     }
     let kind = classify_with_limit(path, metadata, local_text_limit(path))?;
-    let mut cache = CLASSIFY_CACHE.lock().unwrap();
+    let mut cache = CLASSIFY_CACHE.lock().unwrap_or_else(PoisonError::into_inner);
     if cache.len() >= CLASSIFY_CACHE_MAX_ENTRIES {
         cache.clear();
     }

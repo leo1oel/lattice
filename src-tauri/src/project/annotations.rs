@@ -17,10 +17,10 @@ use super::paths::validate_transaction_path;
 use crate::models::FileChange;
 use crate::util::err;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, PoisonError};
 
 const ANNOTATIONS_PATH: &str = ".research/annotations.json";
 const LEGACY_COMMENTS_PATH: &str = ".research/editor-comments.json";
@@ -174,13 +174,21 @@ pub fn read_annotations(root: &Path) -> Result<Annotations, String> {
 /// makes changes and run on the blocking pool, so two can finish out of order.
 static WRITTEN_SAVES: LazyLock<Mutex<HashMap<PathBuf, u64>>> = LazyLock::new(Default::default);
 
+/// Forget the newest saves of projects no window has open.
+pub(crate) fn retain_open_annotation_saves(open: &HashSet<PathBuf>) {
+    WRITTEN_SAVES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .retain(|root, _| open.contains(root));
+}
+
 /// Write the annotations and rounds as save `save` (counting up within this
 /// session); a save older than the last one written is dropped, since the
 /// state it carries is already superseded.
 pub fn write_annotations(
     root: &Path, annotations: Vec<EditorComment>, rounds: Vec<AnnotationRound>, save: u64,
 ) -> Result<(), String> {
-    let mut written = WRITTEN_SAVES.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut written = WRITTEN_SAVES.lock().unwrap_or_else(PoisonError::into_inner);
     if written.get(root).is_some_and(|newest| *newest >= save) {
         return Ok(());
     }
