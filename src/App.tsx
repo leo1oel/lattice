@@ -129,6 +129,7 @@ import { NEW_ENTRIES, type NewEntryRequest, type NewEntryType } from "./project/
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
+  TermRule,
   EditorPosition,
   PaperSummary,
   RenameTarget,
@@ -211,12 +212,13 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "git", "overleaf"] as const;
+const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "terms", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
+const EMPTY_TERM_RULES: TermRule[] = [];
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
 
@@ -350,14 +352,16 @@ function App() {
     updateCanvasRequest("restore", update);
   }, [updateCanvasRequest]);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
+  /** After a change across the project's files (a replace, confirmed terms): reload the open file, the tree, history. */
+  const afterProjectEdits = async () => {
+    if (activeFileRef.current) await loadFile(activeFileRef.current);
+    await refreshProject();
+    await refreshHistory();
+  };
   const projectSearch = useProjectSearch({
     projectRef, captureProjectScope, save,
     unsavedEdits: () => sourceRef.current !== savedSourceRef.current,
-    afterReplace: async () => {
-      if (activeFileRef.current) await loadFile(activeFileRef.current);
-      await refreshProject();
-      await refreshHistory();
-    },
+    afterReplace: afterProjectEdits,
   });
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
@@ -1560,6 +1564,10 @@ function App() {
       run: () => tools.open("checklist"),
     },
     {
+      id: "terms", when: inProject, label: t`Terms`, detail: t`One name and spelling across the paper`, group: "edit",
+      run: () => tools.open("terms"),
+    },
+    {
       // Opens on the last review; with none yet, the command is the ask for one.
       id: "review-paper", when: inProject, label: t`Review the paper`, detail: t`As a reviewer would, each point anchored`, group: "research",
       run: () => {
@@ -1965,6 +1973,8 @@ function App() {
       editorSpellcheck={appearance.editorSpellcheck}
       spellingWords={project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS}
       onAddSpellingWord={addProjectSpellingWord}
+      englishVariant={project.manifest.englishVariant ?? null}
+      termRules={project.manifest.termRules ?? EMPTY_TERM_RULES}
       projectPaths={projectPaths}
       graphicsRoots={latex.graphicsRoots}
       buildDiagnostics={
@@ -2289,6 +2299,8 @@ function App() {
         project={project}
         projectWordCount={projectWordCount}
         setProject={setProject}
+        saveEdits={async () => sourceRef.current === savedSourceRef.current || await save()}
+        afterProjectEdits={afterProjectEdits}
         tools={tools}
         todoHits={todoHits}
         unusedSymbols={unusedSymbols}

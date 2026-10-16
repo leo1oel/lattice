@@ -49,6 +49,39 @@ pub struct ProjectManifest {
     pub spelling_words: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub submission_items: Vec<SubmissionItem>,
+    /// The English the paper is written in ("american", "british",
+    /// "canadian", "australian"); unset, spell checking stays American and
+    /// Proofread follows whichever spelling the text already uses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub english_variant: Option<String>,
+    /// The names and spellings the paper settles on (project/terms.rs).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub term_rules: Vec<TermRule>,
+}
+
+/// One settled term: the form the paper writes, the other forms the check
+/// finds, and why. A rule without other forms still holds its capitalisation
+/// ("ResNet", never "Resnet") and tells Proofread to leave it alone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TermRule {
+    pub term: String,
+    #[serde(default)]
+    pub variants: Vec<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub note: String,
+    /// Places the writer chose to keep as written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped: Vec<TermSkip>,
+}
+
+/// A place kept as written: its file and the words around the form there,
+/// so the place is still recognised after edits elsewhere move it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TermSkip {
+    pub path: String,
+    pub context: String,
 }
 
 /// A requirement or material the writer tracks by hand on the submission

@@ -172,7 +172,7 @@ function baseProps(): CanvasProps {
     canOpenCitation: () => false,
     pdfUrl: null, activePaper: null, activeAsset: null,
     citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
-    localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
+    localMacros: [], katexMacros: {}, spellingWords: [], englishVariant: null, termRules: [], projectPaths: ["main.tex"], graphicsRoots: [],
     buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
     overleafPresenceCursors: [], overleafChanges: [],
     requests: pending(), commentFocusRequest: null, fileDropTargetActive: false,

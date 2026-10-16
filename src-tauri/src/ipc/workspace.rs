@@ -2,7 +2,7 @@
 
 use super::{current_root, pinned_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
-use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot, SubmissionItem};
+use crate::models::{ProjectDeadline, ProjectManifest, ProjectSnapshot, SubmissionItem, TermRule};
 use crate::{fs_watch, latex, project, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
@@ -208,6 +208,16 @@ pub async fn set_project_spelling_words(
 ) -> Result<ProjectManifest, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Project dictionary update", move || project::set_spelling_words(&root, words))
+        .await
+}
+
+#[tauri::command]
+pub async fn set_project_terms(
+    state: State<'_, AppState>, window: Window, rules: Vec<TermRule>,
+    english_variant: Option<String>,
+) -> Result<ProjectManifest, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Project terms update", move || project::set_terms(&root, rules, english_variant))
         .await
 }
 

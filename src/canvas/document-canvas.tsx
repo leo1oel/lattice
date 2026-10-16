@@ -57,7 +57,7 @@ import {
 } from "../app/window-layout";
 import type {
   WordCount, EditorViewState, FileViewState, AssetPreview, CanvasRequests, EditorPosition, PaperSummary, CanvasMode,
-  EditorKeymap,
+  EditorKeymap, EnglishVariant, TermRule,
 } from "../app-types";
 import {
   isBibFilePath, isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath,
@@ -288,6 +288,10 @@ export function DocumentCanvas(props: {
   editorSpellcheck: boolean;
   spellingWords: string[];
   onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
+  /** The project's English, which spell checking and Proofread follow. */
+  englishVariant: EnglishVariant | null;
+  /** The project's term rules, which Proofread and Polish follow. */
+  termRules: readonly TermRule[];
   projectPaths: string[];
   graphicsRoots: string[];
   buildDiagnostics: CompileDiagnostic[];
@@ -580,7 +584,7 @@ export function DocumentCanvas(props: {
     if (!view) return;
     view.dispatch({ effects: harperDictionaryChanged.of(null) });
     refreshLint(view);
-  }, [props.spellingWords]);
+  }, [props.spellingWords, props.englishVariant]);
 
   const completionActiveRef = useRef(false);
   const selectionToolbarOwnerRef = useRef<{ path: string; from: number; to: number } | null>(null);
@@ -1596,6 +1600,8 @@ export function DocumentCanvas(props: {
             editorKey={editorKey}
             editable={props.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
+            englishVariant={props.englishVariant}
+            termRules={props.termRules}
           />
           <AnnotationReviewLayer
             bridge={props.annotationRounds.reviewBridge}
