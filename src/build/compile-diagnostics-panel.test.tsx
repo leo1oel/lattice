@@ -209,6 +209,15 @@ describe("explained build errors", () => {
     expect(screen.getByRole("button", { name: /Unknown command/ }).querySelector("svg")?.getAttribute("class")).toContain("circle-x");
   });
 
+  it("explains two errors on one line each by its own command", () => {
+    const both = "./main.tex:3: Undefined control sequence.\nl.3 Neural systems \\cietp\n               {a} and \\reff{b}.\n"
+      + "./main.tex:3: Undefined control sequence.\nl.3 Neural systems \\cietp{a} and \\reff\n                         {b}.";
+    render(<CompileDiagnosticsPanel {...props} expanded log={both} diagnostics={[typo, { ...typo }]}
+      sourceOf={() => source.replace("\\cietp{luong2015effective}", "\\cietp{a} and \\reff{b}")} onReplaceToken={vi.fn()} />);
+    screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" });
+    screen.getByRole("button", { name: "main.tex:3 Unknown command \\reff" });
+  });
+
   it("keeps TeX's words where the log does not say which command it stopped at", () => {
     render(<CompileDiagnosticsPanel {...props} expanded log="Build output" diagnostics={[typo]} sourceOf={() => source} onReplaceToken={vi.fn()} />);
     screen.getByRole("button", { name: "main.tex:3 Undefined control sequence." });

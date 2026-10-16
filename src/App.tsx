@@ -74,7 +74,7 @@ import { InterfaceZoomHud } from "./app/interface-zoom-hud";
 import { useInterfaceZoom } from "./app/use-interface-zoom";
 import { useWhatsNew } from "./app/use-whats-new";
 import { RUNNING_VERSION } from "./app/whats-new";
-import type { OverleafSaveLayer } from "./canvas/status-save-state";
+import { overleafSaveState, type OverleafSaveLayer } from "./canvas/status-save-state";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
@@ -1381,16 +1381,12 @@ function App() {
     else void runOverleafSync();
   };
   // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
-  // The live channel reconnecting after a drop (it says why in `detail`) or
-  // given up on is offline; its first connection reads as an ordinary link.
   const overleafSaveLayer: OverleafSaveLayer | null = !overleafLink ? null : {
     lastSync: overleafLink.lastSync,
-    state: overleafLink.paused ? "paused"
-      : overleafSyncing ? "syncing"
-        : overleafSyncMode !== "live" ? "manual"
-          : overleafRealtime.status === "live" ? "live"
-            : overleafRealtime.status === "error" || (overleafRealtime.status === "connecting" && overleafRealtime.detail) ? "offline"
-              : "manual",
+    state: overleafSaveState({
+      paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
+      channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile, detail: overleafRealtime.detail,
+    }),
   };
   const editorSelected = agentContext.selectionSource === "editor" && agentContext.selection.trim() !== "";
   /** ⌘K (or ⌘⇧P) opens the palette, and closes it again. */

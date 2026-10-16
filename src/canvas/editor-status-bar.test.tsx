@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { EditorStatusBar } from "./editor-status-bar";
-import type { SaveSlot } from "./status-save-state";
+import { overleafSaveState, type SaveSlot } from "./status-save-state";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { activateAppLocale } from "../i18n";
 
@@ -123,6 +123,13 @@ describe("the save slot", () => {
   ] as const)("words the Overleaf layer apart from the disk (%o)", (overleaf, name, mode) => {
     renderStatus({ saveSlot: slot({ overleaf }) });
     expect(screen.getByRole("button", { name })).toHaveAttribute("data-mode", mode);
+  });
+
+  it("calls the Overleaf layer live only for a file the live channel carries", () => {
+    const link = { paused: false, syncing: false, mode: "live", channel: "live", liveFile: true, detail: null } as const;
+    expect(overleafSaveState(link)).toBe("live");
+    expect(overleafSaveState({ ...link, liveFile: false })).toBe("manual");
+    expect(overleafSaveState({ ...link, channel: "connecting", detail: "Reconnecting" })).toBe("offline");
   });
 
   it("turns red only for a failed write, saying why and how to get the text out", () => {

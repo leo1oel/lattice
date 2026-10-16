@@ -28,8 +28,10 @@ export type ExplainedDiagnostic = {
 
 /** What an entry reads besides the message. */
 type ExplainContext = {
-  /** The log line `l.<n> …` TeX printed under the error: the text it had read up to where it stopped. */
-  context: string | undefined;
+  /** The control sequence TeX stopped at, read from the context it printed under this error. */
+  stoppedAt: string | undefined;
+  /** Whether `stoppedAt` is written on the failing source line: a macro can reach it from elsewhere. */
+  onLine: boolean;
   source: string;
   /** Whether the build also failed with an error: a warning after one is often its echo. */
   afterError: boolean;
@@ -37,8 +39,8 @@ type ExplainContext = {
 
 type Explanation = Omit<ExplainedDiagnostic, "excerpt">;
 
-/** The last control sequence TeX read before it stopped: the end of the `l.<n>` context. */
-const lastCommand = (context: string | undefined) => (context ? /(\\[A-Za-z@]+)\s*$/.exec(context)?.[1] : undefined);
+/** The control sequence a context line ends with: the last one TeX read on it. */
+const lastCommand = (context: string) => /(\\[A-Za-z@]+)\s*$/.exec(context)?.[1];
 
 /** Edits between two command names, a swap of neighbours counting as one: the typo \cietp is one edit from \citep. */
 function editDistance(left: string, right: string): number {
@@ -98,10 +100,9 @@ type Entry = { pattern: RegExp; explain: (match: RegExpExecArray, context: Expla
 const ENTRIES: Entry[] = [
   {
     pattern: /^Undefined control sequence/,
-    explain: (_, { context, source }) => {
-      const token = lastCommand(context);
+    explain: (_, { stoppedAt: token, onLine, source }) => {
       if (!token) return null;
-      const close = closestCommand(token, source);
+      const close = onLine ? closestCommand(token, source) : null;
       if (!close) {
         return {
           headline: i18n._(msg`Unknown command ${token}`),
@@ -205,11 +206,12 @@ const ENTRIES: Entry[] = [
   },
   {
     pattern: /File [`']([^`']+)' not found/,
-    explain: ([, file = ""]) => ({
+    // A missing package or class is TeX Live's to install, and Lattice's own advice already says so.
+    explain: ([, file = ""]) => /\.(?:sty|cls|bst|bbx|cbx)$/.test(file) ? null : {
       headline: i18n._(msg`File not found: ${file}`),
       explanation: i18n._(msg`Nothing in the project is called ${file}. Check the path and its letter case; paths are relative to the root document.`),
       token: file,
-    }),
+    },
   },
   {
     pattern: /Missing \\begin\{document\}/,
@@ -220,14 +222,11 @@ const ENTRIES: Entry[] = [
   },
   {
     pattern: /Can be used only in preamble/,
-    explain: (_, { context }) => {
-      const token = lastCommand(context);
-      return {
-        headline: i18n._(msg`A preamble command inside the document`),
-        explanation: i18n._(msg`Commands such as \\usepackage only work before ${BEGIN_DOCUMENT}. Move this line into the preamble.`),
-        ...(token ? { token } : {}),
-      };
-    },
+    explain: (_, { stoppedAt }) => ({
+      headline: i18n._(msg`A preamble command inside the document`),
+      explanation: i18n._(msg`Commands such as \\usepackage only work before ${BEGIN_DOCUMENT}. Move this line into the preamble.`),
+      ...(stoppedAt ? { token: stoppedAt } : {}),
+    }),
   },
   {
     pattern: /Option clash for package (\S+?)\.?$/,
@@ -291,10 +290,32 @@ const ENTRIES: Entry[] = [
   },
 ];
 
-/** The text TeX had read on `line` when it stopped: the log's `l.<line> …` line. */
-function failingContext(log: string, line: number | undefined): string | undefined {
-  if (!line) return undefined;
-  return new RegExp(`^l\\.${line} (.*)$`, "m").exec(log)?.[1];
+/**
+ * The control sequence TeX stopped at for this diagnostic, read from the
+ * context printed under its own `file:line: message` line (`sameAfter` counts
+ * identical diagnostics after it, so the match is taken from the log's end,
+ * past any earlier pass). The top context line ends at it: `l.<n> … \cietp`
+ * when the source itself used it, `\eg ->e.g.\xspace` when a macro did. Above
+ * the `l.<n>` line, LaTeX's help text ends with no control sequence.
+ */
+function stoppedAt(log: string, diagnostic: CompileDiagnostic, sameAfter: number): string | undefined {
+  const { file, line, message } = diagnostic;
+  if (!file || !line) return undefined;
+  const lines = log.split("\n");
+  const errors = lines.flatMap((text, index) => {
+    const located = /^([^:]+):(\d+):\s*(.*)$/.exec(text);
+    if (!located || Number(located[2]) !== line || located[3]!.trim() !== message.trim()) return [];
+    const path = located[1]!.replace(/\\/g, "/").replace(/^"|"$/g, "");
+    return path === file || path.endsWith(`/${file}`) ? [index] : [];
+  });
+  const at = errors[errors.length - 1 - sameAfter];
+  if (at === undefined) return undefined;
+  for (const text of lines.slice(at + 1)) {
+    if (/^l\.\d+ /.test(text)) return lastCommand(text);
+    const command = lastCommand(text);
+    if (command) return command;
+  }
+  return undefined;
 }
 
 /** The failing line and one either side, with `token` located on the failing one. */
@@ -318,18 +339,23 @@ function excerptAround(source: string, line: number | undefined, token?: string)
  */
 export function explainDiagnostic(
   diagnostic: CompileDiagnostic,
-  { log, source, afterError }: { log: string; source: string | null; afterError: boolean },
+  { log, source, afterError, sameAfter = 0 }: { log: string; source: string | null; afterError: boolean; sameAfter?: number },
 ): ExplainedDiagnostic | null {
   if (diagnostic.code) return null;
   const message = diagnostic.message.trim().replace(/^(?:LaTeX|Package \S+) (?:Error|Warning):\s*/, "");
+  // Only an error stops TeX on the line it names; a warning's line is where it noticed.
+  const errorLine = diagnosticSeverity(diagnostic.level) === "error" ? diagnostic.line : undefined;
   for (const entry of ENTRIES) {
     const match = entry.pattern.exec(message);
     if (!match) continue;
-    const explained = entry.explain(match, { context: failingContext(log, diagnostic.line), source: source ?? "", afterError });
+    const token = stoppedAt(log, diagnostic, sameAfter);
+    const failingLine = source && errorLine ? source.split("\n")[errorLine - 1] : undefined;
+    const onLine = token !== undefined && failingLine !== undefined && tokenOffset(failingLine, token) >= 0;
+    const explained = entry.explain(match, { stoppedAt: token, onLine, source: source ?? "", afterError });
     if (!explained) return null;
-    // Only an error stops TeX on the line it names; a warning's line is where it noticed.
-    const errorLine = diagnosticSeverity(diagnostic.level) === "error" ? diagnostic.line : undefined;
-    return { ...explained, excerpt: source ? excerptAround(source, errorLine, explained.token) : [] };
+    // A token TeX reached through a macro is not on the line: quoting the line would point at the wrong text.
+    const misplaced = explained.token !== undefined && explained.token === token && !onLine;
+    return { ...explained, excerpt: source && !misplaced ? excerptAround(source, errorLine, explained.token) : [] };
   }
   return null;
 }

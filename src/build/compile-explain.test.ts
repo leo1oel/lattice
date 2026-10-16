@@ -36,7 +36,9 @@ describe("explainDiagnostic", () => {
     });
     expect(tied?.suggestion).toBeUndefined();
     // LaTeX's own vocabulary answers when the paper has nothing close.
-    const known = explainDiagnostic(undefinedCommand, { log: log.replace("\\cietp", "\\sectoin"), source: "", afterError: true });
+    const known = explainDiagnostic(undefinedCommand, {
+      log: log.replace("\\cietp", "\\sectoin"), source: "a\nb\nc\n\\sectoin{Intro}", afterError: true,
+    });
     expect(known?.suggestion).toBe("\\section");
     expect(known?.explanation).toBe("LaTeX doesn’t know \\sectoin. It looks like a typo for \\section.");
   });
@@ -48,6 +50,35 @@ describe("explainDiagnostic", () => {
 
   it("falls back to TeX's words when the log has no context line to read the token from", () => {
     expect(explainDiagnostic(undefinedCommand, { log: "Build output", source, afterError: true })).toBeNull();
+  });
+
+  it("reads each error's own context, not the first one on the same line number", () => {
+    const twice = [
+      "./main.tex:4: Undefined control sequence.", "l.4 Neural \\cietp", "               {a} and \\reff{b}.",
+      "./main.tex:4: Undefined control sequence.", "l.4 Neural \\cietp{a} and \\reff", "                         {b}.",
+    ].join("\n");
+    const line = source.replace("\\cietp{luong2015effective}", "\\cietp{a} and \\reff{b}");
+    expect(explainDiagnostic(undefinedCommand, { log: twice, source: line, afterError: true, sameAfter: 1 })?.headline).toBe("Unknown command \\cietp");
+    const second = explainDiagnostic(undefinedCommand, { log: twice, source: line, afterError: true });
+    expect(second?.headline).toBe("Unknown command \\reff");
+    const failing = second!.excerpt[1]!;
+    expect(failing.text.slice(failing.token!.start, failing.token!.end)).toBe("\\reff");
+  });
+
+  it("names the command a macro reached, and neither quotes nor rewrites the line that used the macro", () => {
+    const macro = "./main.tex:4: Undefined control sequence.\n\\vect ->\\vec{v}\\xspce \n                    \nl.4 Neural machine translation systems \\vect\n";
+    const explained = explainDiagnostic(undefinedCommand, {
+      log: macro, source: source.replace("\\cietp{luong2015effective}", "\\vect"), afterError: true,
+    });
+    expect(explained?.headline).toBe("Unknown command \\xspce");
+    expect(explained?.suggestion).toBeUndefined();
+    expect(explained?.excerpt).toEqual([]);
+  });
+
+  it("leaves a missing package or class to the install advice", () => {
+    for (const file of ["neurips_2024.sty", "acmart.cls", "plainnat.bst", "authoryear.bbx", "authoryear.cbx"]) {
+      expect(explainDiagnostic({ level: "error", message: `LaTeX Error: File \`${file}' not found.`, file: "main.tex", line: 3 }, { log: "", source, afterError: true })).toBeNull();
+    }
   });
 
   it("leaves Lattice's own advice and unknown messages alone", () => {

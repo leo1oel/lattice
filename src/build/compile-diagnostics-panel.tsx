@@ -264,6 +264,8 @@ export function CompileDiagnosticsPanel(props: {
                       const switchedFrom = diagnostic.params?.from ?? "";
                       const explained = explainDiagnostic(diagnostic, {
                         log: props.log, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
+                        sameAfter: diagnostics.slice(diagnostics.indexOf(diagnostic) + 1)
+                          .filter((other) => other.file === diagnostic.file && other.line === diagnostic.line && other.message === diagnostic.message).length,
                       });
                       const copy = (
                         <CopyButton
