@@ -145,6 +145,60 @@ describe("PaperReviews", () => {
     expect(review.revisableIds(annotations, new Set([annotations[0].id]))).toEqual([]);
   });
 
+  it("makes one annotation for a double click, and none for a review replaced meanwhile", async () => {
+    await finishedReview();
+    await Promise.all([review.annotate("f1"), review.annotate("f1")]);
+    expect(deps.store.create).toHaveBeenCalledTimes(1);
+
+    const first = review.getSnapshot().report!;
+    const base = invokeMock.getMockImplementation()!;
+    let release = () => {};
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "read_paper_review") return { ...first, id: "next" };
+      if (command === "read_project_file") await new Promise<void>((resolve) => { release = resolve; });
+      return base(command, args);
+    });
+    const pending = review.annotate("f2");
+    review.reset();
+    await review.load();
+    release();
+    await pending;
+    expect(review.getSnapshot().report?.id).toBe("next");
+    expect(deps.store.create).toHaveBeenCalledTimes(1);
+    expect(review.getSnapshot().report?.findings[1].state).toBeUndefined();
+  });
+
+  it("leaves a point to retry when its Overleaf thread is refused or fails", async () => {
+    await finishedReview();
+    vi.mocked(deps.store.create).mockReturnValueOnce(null).mockReturnValueOnce(Promise.resolve(false));
+    await review.annotate("f1");
+    await review.annotate("f1");
+    expect(review.getSnapshot().report?.findings[0].state).toBeUndefined();
+    vi.mocked(deps.store.create).mockReturnValueOnce(Promise.resolve(true));
+    await review.annotate("f1");
+    expect(review.getSnapshot().report?.findings[0]).toMatchObject({ state: "added" });
+    expect(review.getSnapshot().report?.findings[0]).not.toHaveProperty("annotation");
+  });
+
+  it("saves one decision at a time, in the order they were made", async () => {
+    await finishedReview();
+    let release = () => {};
+    const saved: string[] = [];
+    const base = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command !== "save_paper_review") return base(command, args);
+      const { findings } = (args as { review: { findings: Array<{ state?: string }> } }).review;
+      saved.push(findings[1].state ?? "open");
+      if (saved.length === 1) await new Promise<void>((resolve) => { release = resolve; });
+      return null;
+    });
+    review.dismiss("f2");
+    notifyMock.mock.calls.at(-1)?.[2]?.primaryAction?.onClick();
+    await vi.waitFor(() => expect(saved).toEqual(["dismissed"]));
+    release();
+    await vi.waitFor(() => expect(saved).toEqual(["dismissed", "open"]));
+  });
+
   it("says so, and makes nothing, when the quoted passage has gone", async () => {
     await finishedReview();
     files["main.tex"] = "\\section{Intro}\nWe now claim something else.\n";

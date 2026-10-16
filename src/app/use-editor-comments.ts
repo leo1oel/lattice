@@ -179,11 +179,11 @@ export function useEditorComments({
 
   /**
    * Add a note the editor or the PDF composed; see the module note for which
-   * kind it becomes. A local annotation takes the next pin number. Resolves
-   * to the annotation as saved, or null when it became an Overleaf thread or
-   * could not be made.
+   * kind it becomes. A local annotation takes the next pin number. Answers
+   * the annotation as saved, a promise of whether the Overleaf thread was
+   * made, or null when it could not be made.
    */
-  const create = useCallback((comment: EditorComment): EditorComment | null => {
+  const create = useCallback((comment: EditorComment): EditorComment | Promise<boolean> | null => {
     const docId = [...overleafDocPaths.entries()].find(([, path]) => path === comment.path)?.[0] ?? null;
     if (!overleafLink || !docId || !project) {
       const annotation = { ...comment, number: nextAnnotationNumber(stateRef.current.annotations) };
@@ -195,10 +195,12 @@ export function useEditorComments({
       showError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
       return null;
     }
-    void overleafComments
+    return overleafComments
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
-      .catch((reason) => showError(toMessage(reason)));
-    return null;
+      .then(() => true, (reason: unknown) => {
+        showError(toMessage(reason));
+        return false;
+      });
   }, [overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, project, commit, t]);
 
   const openPanel = useCallback(() => {

@@ -120,9 +120,16 @@ export async function readManuscript(
   return sources;
 }
 
+const COMMENT = /(^|[^\\])((?:\\\\)*)(%.*)$/gm;
+
 /** `%` comments blanked to the end of their line (an escaped `\%` is text), keeping every line. */
 export function stripComments(text: string): string {
-  return text.replace(/(^|[^\\])((?:\\\\)*)%.*$/gm, "$1$2");
+  return text.replace(COMMENT, "$1$2");
+}
+
+/** `text` with each `%` comment overwritten by spaces, so every offset still indexes `text`. */
+function blankComments(text: string): string {
+  return text.replace(COMMENT, (_match, before: string, escapes: string, comment: string) => before + escapes + " ".repeat(comment.length));
 }
 
 /** What the running review can already say it read. */
@@ -325,9 +332,10 @@ export function findQuote(source: string, quote: string): { from: number; to: nu
 const lineAt = (source: string, offset: number) => source.slice(0, offset).split("\n").length;
 
 /**
- * The report with each finding pinned to the source it quotes: in the file
- * the agent named first, then anywhere in the paper. A finding whose quote is
- * nowhere is dropped and counted.
+ * The report with each finding pinned to the source it quotes, outside its
+ * comments (the agent never saw them): in the file the agent named first,
+ * then anywhere in the paper. A finding whose quote is nowhere is dropped
+ * and counted.
  */
 export function anchorReview(raw: RawReview, sources: readonly ManuscriptSource[]): {
   readiness: ReviewReadiness;
@@ -338,12 +346,13 @@ export function anchorReview(raw: RawReview, sources: readonly ManuscriptSource[
 } {
   const findings: ReviewFinding[] = [];
   let dropped = 0;
+  const searchable = sources.map((source) => ({ source, text: blankComments(source.text) }));
   for (const finding of raw.findings) {
-    const named = sources.filter((source) => source.path === finding.file);
-    const order = [...named, ...sources.filter((source) => source.path !== finding.file)];
+    const named = searchable.filter(({ source }) => source.path === finding.file);
+    const order = [...named, ...searchable.filter(({ source }) => source.path !== finding.file)];
     let placed: ReviewFinding | null = null;
-    for (const source of order) {
-      const range = findQuote(source.text, finding.quote);
+    for (const { source, text } of order) {
+      const range = findQuote(text, finding.quote);
       if (!range) continue;
       placed = {
         id: `f${findings.length + 1}`,

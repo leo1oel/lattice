@@ -107,6 +107,10 @@ export class PaperReviews {
   private controller: AbortController | null = null;
   /** Bumped by `reset`, so work for an earlier project drops its results. */
   private generation = 0;
+  /** The last save in line: each waits for the one before, so the newest decisions land last. */
+  private saving: Promise<void> = Promise.resolve();
+  /** Findings being made annotations, so a second click makes no second one. */
+  private readonly annotating = new Set<string>();
 
   attach(deps: PaperReviewDeps) {
     this.deps = deps;
@@ -212,9 +216,11 @@ export class PaperReviews {
   private save(report: PaperReview) {
     const projectRoot = this.deps?.projectRootRef.current;
     if (!projectRoot) return;
-    void invoke("save_paper_review", { projectRoot, review: report }).catch((reason: unknown) => {
-      notifyInfo(i18n._(msg`Review`), i18n._(msg`The review could not be saved: ${toMessage(reason)}`), { dedupeKey: "paper-review-save" });
-    });
+    this.saving = this.saving
+      .then(() => invoke("save_paper_review", { projectRoot, review: report }))
+      .then(() => {}, (reason: unknown) => {
+        notifyInfo(i18n._(msg`Review`), i18n._(msg`The review could not be saved: ${toMessage(reason)}`), { dedupeKey: "paper-review-save" });
+      });
   }
 
   /** Change one finding of the report on screen, and keep it. */
@@ -255,10 +261,22 @@ export class PaperReviews {
   annotate = async (id: string) => {
     const finding = this.find(id);
     const deps = this.deps;
-    if (!finding || !deps || finding.state === "added") return;
+    const reportId = this.snapshot.report?.id;
+    if (!finding || !deps || finding.state === "added" || this.annotating.has(id)) return;
+    this.annotating.add(id);
+    try {
+      await this.annotateFinding(finding, deps, reportId);
+    } finally {
+      this.annotating.delete(id);
+    }
+  };
+
+  private async annotateFinding(finding: ReviewFinding, deps: PaperReviewDeps, reportId: string | undefined) {
+    const { id } = finding;
     const root = deps.projectRootRef.current;
+    const live = () => deps.projectRootRef.current === root && this.snapshot.report?.id === reportId;
     const placed = await this.place(finding);
-    if (deps.projectRootRef.current !== root) return;
+    if (!live()) return;
     if (!placed) {
       notifyInfo(i18n._(msg`Review`), i18n._(msg`The quoted passage has changed since the review, so this point has nowhere to go.`), {
         dedupeKey: `paper-review-unplaced:${id}`,
@@ -277,12 +295,15 @@ export class PaperReviews {
     });
     if (!comment) return;
     const created = deps.store.create(comment);
+    if (!created) return;
+    if (created instanceof Promise && (!await created || !live())) return;
+    const annotation = created instanceof Promise ? undefined : created.number;
     this.updateFinding(id, (current) => ({
       ...current,
       state: "added",
-      ...created?.number ? { annotation: created.number } : {},
+      ...annotation ? { annotation } : {},
     }));
-  };
+  }
 
   /** Set a finding aside, with the toast's Undo to bring it back. */
   dismiss = (id: string) => {

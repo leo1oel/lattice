@@ -305,7 +305,7 @@ export function DocumentCanvas(props: {
   commentAuthorName: string;
   commentAuthorId: string;
   /** Saves a new note; resolves to the local annotation it became, or null (an Overleaf thread, or none). */
-  onCreateEditorComment: (comment: EditorComment) => EditorComment | null;
+  onCreateEditorComment: (comment: EditorComment) => EditorComment | Promise<boolean> | null;
   onOpenEditorComments: () => void;
   /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
   annotationRounds: AnnotationRounds;
@@ -784,7 +784,7 @@ export function DocumentCanvas(props: {
     });
     if (!comment) return false;
     const created = onCreateEditorComment(comment);
-    if (created && extra.revise) props.annotationRounds.revise();
+    if (created && !(created instanceof Promise) && extra.revise) props.annotationRounds.revise();
     return true;
   };
   const closeCommentComposer = () => {

@@ -189,6 +189,13 @@ describe("anchorReview", () => {
     expect(anchored.findings[0]).not.toHaveProperty("search");
     expect(anchored.dropped).toBe(1);
   });
+
+  it("pins a quote to the text, not to a commented-out draft of it", () => {
+    const text = "% We claim a causal link.\nIntro.\nWe claim a causal link.\n";
+    const anchored = anchorReview(raw([{ quote: "We claim a causal link.", file: "main.tex" }]), [{ path: "main.tex", text }]);
+    expect(anchored.findings[0]).toMatchObject({ line: 3, from: text.lastIndexOf("We claim"), quote: "We claim a causal link." });
+    expect(anchorReview(raw([{ quote: "Only in a comment here." }]), [{ path: "main.tex", text: "% Only in a comment here.\n" }]).dropped).toBe(1);
+  });
 });
 
 describe("reviewWithAgent", () => {

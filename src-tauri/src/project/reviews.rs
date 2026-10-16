@@ -7,7 +7,7 @@
 //! which checks it on the way back in; this side only keeps the file a JSON
 //! object of bounded size under a name it chose.
 
-use super::manifest::write_pretty_json;
+use crate::project_fs::ProjectDir;
 use crate::util::err;
 use std::fs;
 use std::path::Path;
@@ -39,9 +39,11 @@ pub fn read_latest_review(root: &Path) -> Result<Option<serde_json::Value>, Stri
         })
         .collect::<Vec<_>>();
     ids.sort();
-    // A file a crash cut short (or an edit by hand broke) gives way to the one before it.
+    // A file a crash cut short, an edit by hand broke or that cannot be read gives way to the one before it.
     for id in ids.iter().rev() {
-        let raw = fs::read_to_string(directory.join(format!("{id}.json"))).map_err(err)?;
+        let Ok(raw) = fs::read_to_string(directory.join(format!("{id}.json"))) else {
+            continue;
+        };
         if let Ok(value @ serde_json::Value::Object(_)) = serde_json::from_str(&raw) {
             return Ok(Some(value));
         }
@@ -60,7 +62,8 @@ pub fn write_review(root: &Path, id: &str, review: &serde_json::Value) -> Result
     if serde_json::to_vec(review).map_err(err)?.len() > MAX_REVIEW_BYTES {
         return Err("The review is too large to save.".into());
     }
-    write_pretty_json(&root.join(REVIEWS_DIRECTORY).join(format!("{id}.json")), review)
+    let raw = serde_json::to_string_pretty(review).map_err(err)?;
+    ProjectDir::open(root)?.atomic_write(&format!("{REVIEWS_DIRECTORY}/{id}.json"), format!("{raw}\n").as_bytes())
 }
 
 #[cfg(test)]
@@ -91,6 +94,7 @@ mod tests {
         write_review(&fixture.root, "2026-10-16T02-42-05Z", &json!({ "id": "a" })).unwrap();
         fixture.write(".research/reviews/2026-10-18T00-00-00Z.json", "{ \"id\": ");
         fixture.write(".research/reviews/notes.txt", "not a review");
+        fs::write(fixture.path(".research/reviews/2026-10-19T00-00-00Z.json"), [0xff, 0xfe]).unwrap();
         assert_eq!(read_latest_review(&fixture.root).unwrap(), Some(json!({ "id": "a" })));
     }
 
