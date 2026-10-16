@@ -13,6 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
 import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
 import { overleafDocHash } from "./overleaf-realtime-model";
+import { overleafSaveState } from "../canvas/save-slot";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -764,6 +765,73 @@ describe("settled guards around REST mutations", () => {
 
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await waitFor(() => expect(result.current.settledVersion()).toBe(11));
+  });
+});
+
+describe("what the save slot may call synced", () => {
+  /** The save slot's Overleaf layer for the hook's current values, as App derives it. */
+  const slotState = (result: Hook) => overleafSaveState({
+    paused: false, syncing: false, mode: "live", channel: result.current.status,
+    liveFile: result.current.liveFile, unacknowledged: result.current.unacknowledged, detail: result.current.detail,
+  });
+
+  it("says syncing, not synced, while an edit is debounced, in flight or queued, until Overleaf acknowledges it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = await mountLive();
+    expect(slotState(result)).toBe("live");
+
+    // Inside the send debounce.
+    act(() => result.current.pushLocal("alpha one"));
+    expect(slotState(result)).toBe("sending");
+    // On the wire, with no acknowledgement: connected, but not synced.
+    await advance(300);
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(slotState(result)).toBe("sending");
+    // Typed while that one is unanswered: queued behind it.
+    await typeAndSend(result, "alpha one two", { sent: false });
+    expect(sends()).toHaveLength(1);
+    expect(slotState(result)).toBe("sending");
+
+    // The first answer sends the queued work, which is still owed an answer.
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    expect(slotState(result)).toBe("sending");
+    emit({ type: "docAck", docId: DOC_A, version: 11 });
+    await waitFor(() => expect(slotState(result)).toBe("live"));
+  });
+
+  it("speaks for the file on screen while another one drains, and for that one again on return", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result, rerender } = await mountLive();
+    await typeAndSend(result, "alpha local");
+    expect(slotState(result)).toBe("sending");
+
+    // b.tex has nothing of ours outstanding, while a.tex still drains.
+    rerender({ activeFile: "b.tex" });
+    await waitFor(() => expect(result.current).toMatchObject({ docId: DOC_B, liveFile: true }));
+    expect(result.current.livePaths).toContain("a.tex");
+    expect(slotState(result)).toBe("live");
+    await typeAndSend(result, "beta local");
+    expect(slotState(result)).toBe("sending");
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(leaves()).toContain(DOC_A));
+    // a.tex settling says nothing about b.tex's own unanswered edit.
+    expect(slotState(result)).toBe("sending");
+    emit({ type: "docAck", docId: DOC_B, version: 10 });
+    await waitFor(() => expect(slotState(result)).toBe("live"));
+  });
+
+  it("does not call an edit of unknown outcome synced", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = await mountLive();
+    // The send's answer is lost, and so is the replay that would settle it.
+    backend.loseSendAck = true;
+    backend.joinsFail = true;
+    await typeAndSend(result, "alpha edited");
+    await waitFor(() => expect(result.current.detail).toMatch(/could not confirm/i));
+    expect(result.current.unacknowledged).toBe(true);
+    expect(slotState(result)).not.toBe("live");
   });
 });
 

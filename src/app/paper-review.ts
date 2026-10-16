@@ -154,13 +154,14 @@ export class PaperReviews {
     const live = () => generation === this.generation && this.controller === controller;
     this.publish({ error: null, run: { startedAt, stage: "reading", files: 0, stats: null } });
     try {
-      const sources = await readManuscript(root, paths, annotationRounds.readSource);
+      const { sources, unread } = await readManuscript(root, paths, annotationRounds.readSource);
       if (!live()) return;
       if (!sources.length) throw new Error(i18n._(msg`Lattice could not read ${root}.`));
       this.publish({ run: { startedAt, stage: "reviewing", files: sources.length, stats: manuscriptStats(sources) } });
       const result = await reviewWithAgent({
         projectRoot,
         sources,
+        unread,
         venue,
         // eslint-disable-next-line lingui/no-unlocalized-strings -- model input: the language the report is written in
         language: i18n.locale.startsWith("zh") ? "Simplified Chinese" : "English",
@@ -179,6 +180,8 @@ export class PaperReviews {
         findings: result.findings,
         dropped: result.dropped,
         ...result.truncated ? { truncated: true } : {},
+        // Not the whole paper: the report says which included files it did not read.
+        ...unread.length ? { unread } : {},
         ...result.model ? { model: result.model } : {},
       };
       this.controller = null;

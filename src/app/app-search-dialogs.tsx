@@ -27,6 +27,8 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
   open: SearchDialog | null;
   setOpen: (dialog: SearchDialog | null) => void;
   activeFile: string;
+  /** The document a `:line` jump lands in (the one on screen), or null when what is shown has no lines. */
+  lineTarget: string | null;
   files: FileNode[];
   citations: CitationInfo[];
   citationKeys: string[];
@@ -106,6 +108,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         paths={open === "quick-open" ? collectFilePaths(props.files, (node) => Boolean(node.path)) : []}
         recent={open === "quick-open" ? props.recentPaths() : []}
         current={activeFile}
+        lineTarget={props.lineTarget}
         symbols={symbolItems}
         onClose={close}
         onIntent={props.prewarmLikelyProjectFile}

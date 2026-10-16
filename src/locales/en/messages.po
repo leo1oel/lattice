@@ -3603,8 +3603,8 @@ msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
 
 #: src/app/use-open-documents.ts
-msgid "Could not save {activeFile}"
-msgstr "Could not save {activeFile}"
+msgid "Could not save {failedPath}"
+msgstr "Could not save {failedPath}"
 
 #: src/app/use-open-documents.ts
 msgid "Could not save the project"
@@ -7972,6 +7972,14 @@ msgstr "Not ready"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
+
+#: src/project/paper-review-panel.tsx
+msgid "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover it."
+msgstr "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover it."
+
+#: src/project/paper-review-panel.tsx
+msgid "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover them."
+msgstr "Not the whole paper: Lattice couldn’t read {unreadFiles}, so this review didn’t cover them."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"

@@ -70,11 +70,20 @@ export type PaperReview = {
   dropped: number;
   /** The paper was longer than one review reads, and its end was left out. */
   truncated?: boolean;
+  /** Files the paper includes that the review could not read, so did not cover. */
+  unread?: string[];
   model?: string;
 };
 
 /** The files the review read, in reading order, with the text it read. */
 export type ManuscriptSource = { path: string; text: string };
+/**
+ * What a whole-paper review has to read: the `sources` it could, and the
+ * included files it could not (`unread`: a read that failed, or an include
+ * nested past MAX_INCLUDE_DEPTH), which the review has to disclose rather
+ * than pass off as the whole paper.
+ */
+export type Manuscript = { sources: ManuscriptSource[]; unread: string[] };
 
 /**
  * Past this the paper is sent as far as it fits, and the review says so: a
@@ -98,26 +107,39 @@ export function venueName(venue: string | null | undefined): string | null {
 
 /**
  * The root document and every file it reaches through `\input`/`\include`,
- * in reading order, each read once. A file that cannot be read is left out;
- * the root's own failure leaves nothing to review.
+ * in reading order, each read once. A file that cannot be read is left out
+ * and listed as unread; the root's own failure leaves nothing to review. An
+ * include that names no project file is not counted: it is as likely a file
+ * TeX finds in its own tree (`\input{glyphtounicode}`) as a missing one, and
+ * the build reports a missing one.
  */
 export async function readManuscript(
   rootPath: string,
   projectPaths: readonly string[],
   read: (path: string) => Promise<string | null>,
-): Promise<ManuscriptSource[]> {
+): Promise<Manuscript> {
   const sources: ManuscriptSource[] = [];
+  const failed: string[] = [];
+  // Too deep where it was met; a shallower include may still reach it.
+  const tooDeep = new Set<string>();
   const seen = new Set<string>();
   const visit = async (path: string, depth: number) => {
-    if (depth > MAX_INCLUDE_DEPTH || seen.has(path)) return;
+    if (seen.has(path)) return;
+    if (depth > MAX_INCLUDE_DEPTH) {
+      tooDeep.add(path);
+      return;
+    }
     seen.add(path);
     const text = await read(path);
-    if (text == null) return;
+    if (text == null) {
+      failed.push(path);
+      return;
+    }
     sources.push({ path, text });
     for (const included of includedPathsIn(stripComments(text), [...projectPaths])) await visit(included, depth + 1);
   };
   await visit(rootPath, 0);
-  return sources;
+  return { sources, unread: [...failed, ...[...tooDeep].filter((path) => !seen.has(path))] };
 }
 
 const COMMENT = /(^|[^\\])((?:\\\\)*)(%.*)$/gm;
@@ -158,6 +180,8 @@ export function manuscriptStats(sources: readonly ManuscriptSource[]): Manuscrip
  */
 export function reviewPrompt(request: {
   sources: readonly ManuscriptSource[];
+  /** Included files that could not be read; the reviewer is told what it was not given. */
+  unread?: readonly string[];
   venue: string | null;
   language: string;
 }): { prompt: string; truncated: boolean } {
@@ -183,6 +207,9 @@ export function reviewPrompt(request: {
     `Review the LaTeX paper below as ${reviewer} would, before it is submitted.`,
     "Read all of it, then judge it as a whole: is it ready, and what would a reviewer raise?",
     truncated ? "The paper was cut short to fit; do not report what is missing from its end." : null,
+    request.unread?.length
+      ? `These files the paper includes could not be read and are not below: ${request.unread.map((path) => JSON.stringify(path)).join(", ")}. Judge only what is here, say in the verdict that those parts were not reviewed, and do not report their content as missing.`
+      : null,
     "",
     `Answer with one JSON object between ${OPEN} and ${CLOSE}, and nothing else:`,
     "{",
@@ -387,6 +414,7 @@ export function anchorReview(raw: RawReview, sources: readonly ManuscriptSource[
 export async function reviewWithAgent(request: {
   projectRoot: string;
   sources: readonly ManuscriptSource[];
+  unread?: readonly string[];
   venue: string | null;
   language: string;
   signal: AbortSignal;

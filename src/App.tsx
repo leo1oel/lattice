@@ -1365,6 +1365,10 @@ function App() {
       .catch((reason) => trace.fail(reason));
   };
   const todoCount = todoHits.length;
+  // A line jump lands in the text on screen: a Paper's reading file in front
+  // of the retained source, never that source underneath it. An asset preview
+  // has no lines to go to.
+  const lineTarget = activeAsset ? null : documents.canvas.path || null;
   const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
   // The welcome screen keeps the shortcuts listening, so a command that needs
   // a project, a text editor or LaTeX source says so and is neither listed
@@ -1387,12 +1391,19 @@ function App() {
   // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
   const overleafSaveLayerState = overleafLink ? overleafSaveState({
     paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
-    channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile, detail: overleafRealtime.detail,
+    channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile,
+    unacknowledged: overleafRealtime.unacknowledged, detail: overleafRealtime.detail,
   }) : null;
   const overleafLastSync = overleafLink?.lastSync ?? null;
   const saveSlotHandlers = useStableHandlers({
     onRetry: () => void documents.save(),
-    onSaveCopy: () => void saveSourceCopy(activeFile, sourceRef.current),
+    // The copy is of the document whose write failed, as the slot names it:
+    // with a Paper in front that is its reading file, not the retained source.
+    onSaveCopy: () => {
+      const path = documents.saveStatus.path ?? documents.canvas.path;
+      const text = documents.bufferText(path);
+      if (text !== null) void saveSourceCopy(path, text);
+    },
     onSync: syncOverleaf,
   });
   // Memoized, as App re-renders on every keystroke and the slot is a popover.
@@ -2282,8 +2293,9 @@ function App() {
         prewarmLikelyProjectFile={prewarmLikelyProjectFile}
         recentPaths={documents.recentPaths}
         insertReference={insertCitation}
+        lineTarget={lineTarget}
         goToLine={(line) => {
-          if (activeFile) requestEditorLine(activeFile, line);
+          if (lineTarget) requestEditorLine(lineTarget, line);
         }}
       />
 

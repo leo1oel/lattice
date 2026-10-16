@@ -125,6 +125,26 @@ describe("PaperReviews", () => {
     expect(invokeMock).toHaveBeenCalledWith("save_paper_review", { projectRoot: "/p", review: report });
   });
 
+  it("names an included file it could not read instead of passing the rest off as the whole paper", async () => {
+    const answer = invokeMock.getMockImplementation()!;
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "read_project_file" && (args as { path?: string }).path === "method.tex") throw new Error("Input/output error");
+      return answer(command, args);
+    });
+    const partial = await finishedReview();
+    expect(partial.unread).toEqual(["method.tex"]);
+    const start = invokeMock.mock.calls.find(([command]) => command === "agent_text_task");
+    const prompt = String((start?.[1] as { prompt?: string } | undefined)?.prompt);
+    expect(prompt).toContain("could not be read and are not below: \"method.tex\"");
+    expect(prompt).not.toContain("<file path=\"method.tex\">");
+    expect(invokeMock).toHaveBeenCalledWith("save_paper_review", { projectRoot: "/p", review: expect.objectContaining({ unread: ["method.tex"] }) });
+
+    // Readable again: the next review covers the whole paper and says nothing of the gap.
+    invokeMock.mockImplementation(answer);
+    const whole = await finishedReview();
+    expect(whole.unread).toBeUndefined();
+  });
+
   it("names the review by its UTC start, to the second, safe as a file name", () => {
     expect(reviewId(Date.parse("2026-01-02T03:04:05.678Z"))).toBe("2026-01-02T03-04-05Z");
   });

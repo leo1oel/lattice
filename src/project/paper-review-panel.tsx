@@ -166,6 +166,12 @@ function Report({ report, revisable, annotating }: { report: PaperReview; revisa
     t`read in ${minutes} min`,
   ].join(" · ");
   const added = report.findings.filter((finding) => finding.state === "added").length;
+  // A gap in what was read is not a footnote: the verdict is about less than the whole paper.
+  const unread = report.unread ?? [];
+  const unreadFiles = new Intl.ListFormat(i18n.locale, { type: "conjunction" }).format(unread);
+  const unreadNote = unread.length === 1 ? spaceMixedScript(t`Not the whole paper: Lattice couldn’t read ${unreadFiles}, so this review didn’t cover it.`)
+    : unread.length > 1 ? spaceMixedScript(t`Not the whole paper: Lattice couldn’t read ${unreadFiles}, so this review didn’t cover them.`)
+      : null;
   const notes = [
     report.truncated ? t`The paper is longer than one review reads, so its end was left out` : null,
     report.dropped === 1 ? t`1 point was left out: its quote is not in the paper`
@@ -182,6 +188,7 @@ function Report({ report, revisable, annotating }: { report: PaperReview; revisa
             ))}
           </div>
           <p className="review-verdict">{report.verdict}</p>
+          {unreadNote ? <InlineMessage level="warning">{unreadNote}</InlineMessage> : null}
           {notes.map((note) => <p key={note} className="review-note">{note}</p>)}
         </header>
         {report.strengths.length ? (

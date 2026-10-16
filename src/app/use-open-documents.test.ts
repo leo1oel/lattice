@@ -409,6 +409,35 @@ describe("durable text and disk", () => {
     expect(docs.current().saveStatus.phase).toBe("saved");
   });
 
+  it("names the Paper reading file a failed save was for, and gives its on-screen text for a copy", async () => {
+    const docs = renderDocuments({ "main.tex": "\\documentclass{book}" }, { papers: [PAPER] });
+    await docs.enter();
+    for (const view of ["blog", "fulltext"] as const) {
+      await act(() => docs.current().openPaper(PAPER, { view }));
+      const path = paperDocumentPath(PAPER.arxivId, view);
+      docs.type(`${view}: READER-RECOVERY-SENTINEL`);
+      const failing = docs.hold("write_project_file", path);
+      let saving!: Promise<boolean>;
+      act(() => { saving = docs.current().save(); });
+      await act(async () => { failing.reject(new Error("Permission denied")); await saving; });
+      // The slot names the reading file, not the source retained underneath.
+      expect(docs.current().saveStatus).toMatchObject({ phase: "failed", path, error: "Permission denied" });
+      // A visual edit the canvas has not published yet goes into the copy too.
+      act(() => docs.current().canvas.registerFlush(() => {
+        docs.current().canvas.setText(`${view}: READER-RECOVERY-SENTINEL, deferred`);
+        return true;
+      }));
+      let copied: string | null = null;
+      act(() => { copied = docs.current().bufferText(path); });
+      expect(copied).toBe(`${view}: READER-RECOVERY-SENTINEL, deferred`);
+      act(() => docs.current().canvas.registerFlush(null));
+      expect(docs.current().bufferText("main.tex")).toBe("\\documentclass{book}");
+      expect(docs.current().bufferText("elsewhere.tex")).toBeNull();
+      await act(async () => { await docs.current().save(); });
+      expect(docs.current().saveStatus).toMatchObject({ phase: "saved", path });
+    }
+  });
+
   it("holds an automatic save while the completion menu is open", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
     const docs = renderDocuments({ "main.tex": "Main" }, { autoBuild: true });

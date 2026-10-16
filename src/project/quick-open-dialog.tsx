@@ -92,6 +92,8 @@ type QuickOpenProps = {
   recent: string[];
   /** The file on screen, tagged in the list and the target of `:42`. */
   current: string;
+  /** Where `:42` goes: the document on screen, or null when it has no lines (nothing is offered). */
+  lineTarget: string | null;
   /** Go to symbol's sections and labels, read the first time `@` is typed. */
   symbols: () => SearchPickerItem[];
   onClose: () => void;
@@ -106,7 +108,7 @@ export function QuickOpenDialog({ open, ...props }: QuickOpenProps & { open: boo
   return open ? <QuickOpenDialogForm {...props} /> : null;
 }
 
-function QuickOpenDialogForm({ paths, recent, current, symbols, onOpen, onSymbol, onLine, onIntent, ...props }: QuickOpenProps) {
+function QuickOpenDialogForm({ paths, recent, current, lineTarget, symbols, onOpen, onSymbol, onLine, onIntent, ...props }: QuickOpenProps) {
   const { t } = useLingui();
   const symbolsRef = useRef<SearchPickerItem[] | null>(null);
   const rank = useMemo(() => {
@@ -122,7 +124,7 @@ function QuickOpenDialogForm({ paths, recent, current, symbols, onOpen, onSymbol
           .map((item): Row => ({ kind: "symbol", id: item.id, item, group: item.group }));
       }
       const lineOnly = LINE_ONLY.exec(query);
-      if (lineOnly) return [{ kind: "line", id: "line", line: Number(lineOnly[1]) }];
+      if (lineOnly) return lineTarget ? [{ kind: "line", id: "line", line: Number(lineOnly[1]) }] : [];
       if (!query) {
         const rest = paths.filter((path) => !recency.has(path)).sort((left, right) => left.localeCompare(right)).slice(0, RESULT_LIMIT);
         return [
@@ -143,7 +145,7 @@ function QuickOpenDialogForm({ paths, recent, current, symbols, onOpen, onSymbol
         RESULT_LIMIT,
       ).map((path): Row => ({ kind: "file", id: path, path, line, current: path === current }));
     };
-  }, [current, paths, recent, symbols, t]);
+  }, [current, lineTarget, paths, recent, symbols, t]);
   return (
     <PickerDialog<Row>
       {...props}
@@ -162,7 +164,7 @@ function QuickOpenDialogForm({ paths, recent, current, symbols, onOpen, onSymbol
             <span className="picker-file">
               <span className="picker-file-icon"><TextCursorInput size={14} aria-hidden="true" /></span>
               <span className="picker-file-name">{t`Go to line ${row.line}`}</span>
-              <span className="picker-file-folder">{current}</span>
+              <span className="picker-file-folder">{lineTarget}</span>
             </span>
           );
         }

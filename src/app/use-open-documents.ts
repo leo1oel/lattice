@@ -374,6 +374,20 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
 
   /** Publish deferred visual edits; false while a text composition is still open. */
   const flush = useCallback(() => flushRef.current?.() !== false, []);
+  /**
+   * The text on screen for `path`, deferred visual edits published first:
+   * what "Save a copy" writes out once a save of `path` failed. The retained
+   * file and each of the open Paper's reading files has its own buffer; null
+   * when none of them is `path`.
+   */
+  const bufferText = useCallback((path: string): string | null => {
+    publishDeferredEdits(flushRef.current);
+    if (path === fileRef.current) return textRef.current;
+    const openPaper = renderedRef.current.paper;
+    if (openPaper && path === paperDocumentPath(openPaper.arxivId, "blog")) return paperBlogRef.current;
+    if (openPaper && path === paperDocumentPath(openPaper.arxivId, "fulltext")) return paperMarkdownRef.current;
+    return null;
+  }, [fileRef, paperBlogRef, paperMarkdownRef, renderedRef, textRef]);
   const ownerOf = (state: { paper: PaperSummary | null; asset: AssetPreview | null }): SurfaceOwner => (
     state.paper ? "paper" : state.asset ? "asset" : "file"
   );
@@ -456,6 +470,10 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const saveContents = useCallback(async (): Promise<boolean> => {
     const { project: current, paper: openPaper, asset: openAsset, file: activeFile } = renderedRef.current;
     if (!current) return true;
+    // The file the write under way is for: a failed save names the document
+    // that could not be written, which is not the retained file when a Paper
+    // is in front (its two reading files have buffers of their own).
+    let writing: string | null = null;
     const write = async () => {
       const primaryPath = fileRef.current;
       const primarySource = textRef.current;
@@ -471,6 +489,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
         // edit, not be replaced by the formatted snapshot when the write returns.
         if (content !== primarySource) setTextLive(content);
+        writing = primaryPath;
         const writeResult = await invoke<EditorWriteResult>("write_project_file", {
           path: primaryPath, content, baseContent: primarySavedSource, projectRoot: current.root,
         });
@@ -500,6 +519,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       for (const [view, content, savedContent] of openPaper ? paperBuffers : []) {
         if (content === null || content === savedContent) continue;
         const path = paperDocumentPath(openPaper!.arxivId, view);
+        writing = path;
         await invoke("write_project_file", { path, content, projectRoot: current.root });
         if (view === "blog") setSavedPaperBlog(content);
         else setSavedPaperMarkdown(content);
@@ -517,8 +537,9 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       // Autosave runs constantly, so this path gets a plain notification rather
       // than a `logAction` trace — a start line per keystroke pause would bury
       // everything else in the log.
-      notifyError(t`Save`, activeFile ? t`Could not save ${activeFile}` : t`Could not save the project`, { detail: toMessage(reason) });
-      setSaveStatus({ phase: "failed", at: Date.now(), path: activeFile || null, error: toMessage(reason), root: current.root });
+      const failedPath = writing ?? (activeFile || null);
+      notifyError(t`Save`, failedPath ? t`Could not save ${failedPath}` : t`Could not save the project`, { detail: toMessage(reason) });
+      setSaveStatus({ phase: "failed", at: Date.now(), path: failedPath, error: toMessage(reason), root: current.root });
       return false;
     });
   }, [
@@ -1326,7 +1347,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     // Buffers.
     /** The last write to disk, for the status bar's save slot. */
     saveStatus,
-    flush, save, hasUnsavedEdits, edit: setTextLive, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
+    flush, save, bufferText, hasUnsavedEdits, edit: setTextLive, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
     enter, remove, move,
   };

@@ -66,6 +66,8 @@ export function useOverleafRealtime(options: {
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
   const [liveFile, setLiveFile] = useState(false);
+  // See `publishUnacknowledged`.
+  const [unacknowledged, setUnacknowledged] = useState(false);
   const [openDoc, setOpenDoc] = useState<OpenDoc | null>(null);
   // Bumped to re-join the open document, which is how the suggestion list is
   // re-read: accepting one is an endpoint, not an operation, so nothing on the
@@ -183,6 +185,20 @@ export function useOverleafRealtime(options: {
     if (sendTimer.current) clearTimeout(sendTimer.current);
     sendTimer.current = null;
   };
+  /**
+   * Say whether the open document holds local work Overleaf has not
+   * acknowledged: typing still inside the send debounce, an operation on the
+   * wire or queued behind one, or a send whose outcome is unknown. Being
+   * connected is not the same as being synchronized, and the save slot only
+   * says "Synced" once this is false. Called wherever one of those changes,
+   * as they all live in refs and OtDocument, which React does not watch.
+   */
+  const publishUnacknowledged = useCallback(() => {
+    const id = docId.current;
+    const doc = id ? documents.current.get(id) : undefined;
+    const typing = sendTimer.current !== null || unsentText.current !== null;
+    setUnacknowledged(Boolean(id && doc && (typing || !doc.settled || uncertain.current.has(id))));
+  }, []);
   const cancelDrain = (id: string) => {
     clearTimeout(draining.current.get(id));
     draining.current.delete(id);
@@ -261,6 +277,7 @@ export function useOverleafRealtime(options: {
     const first = !uncertain.current.has(id);
     uncertain.current.add(id);
     publishLivePaths();
+    publishUnacknowledged();
     const path = pathsByDocId.current.get(id);
     const detail = String(reason);
     const message = path
@@ -269,7 +286,7 @@ export function useOverleafRealtime(options: {
     if (docId.current === id) setDetail(message);
     if (first) callbacks.current.onNotice(message);
     reconcileUnknownRef.current(id);
-  }, [publishLivePaths]);
+  }, [publishLivePaths, publishUnacknowledged]);
 
   /**
    * Stop editing the open document, without necessarily letting go of it.
@@ -293,6 +310,7 @@ export function useOverleafRealtime(options: {
     docId.current = null;
     setLiveFile(false);
     setOpenDoc(null);
+    publishUnacknowledged();
     const doc = previous ? documents.current.get(previous) : undefined;
     if (!previous || !doc) return;
 
@@ -316,7 +334,7 @@ export function useOverleafRealtime(options: {
       if (!held || held.settled) release(previous);
       else markOutcomeUnknown(previous, i18n._(msg`the acknowledgement did not arrive in time`));
     }, DRAIN_TIMEOUT_MS));
-  }, [markOutcomeUnknown, release]);
+  }, [markOutcomeUnknown, publishUnacknowledged, release]);
 
   /** Every document goes, on the way to shutting the connection down. */
   const stopEverything = useCallback(() => {
@@ -386,9 +404,10 @@ export function useOverleafRealtime(options: {
       setLiveFile(false);
       setOpenDoc(null);
       setDetail(message);
+      publishUnacknowledged();
     }
     release(id);
-  }, [release]);
+  }, [publishUnacknowledged, release]);
 
   // OT advances synchronously, but checking/writing the disk crosses IPC. Keep
   // deliveries ordered and never send an intermediate editor snapshot back
@@ -494,6 +513,7 @@ export function useOverleafRealtime(options: {
         publishLivePaths();
         if (docId.current === id) setDetail(null);
       }
+      publishUnacknowledged();
       releaseIfDone(id, doc);
     } catch {
       // Still unknown. Keeping the path in livePaths is the safety mechanism;
@@ -501,7 +521,7 @@ export function useOverleafRealtime(options: {
     } finally {
       if (connectionRoot.current === projectRoot) reconciling.current.delete(id);
     }
-  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, releaseIfDone, shiftAnchors]);
+  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors]);
   useEffect(() => {
     reconcileUnknownRef.current = (id) => void reconcileUnknown(id);
   }, [reconcileUnknown]);
@@ -598,6 +618,7 @@ export function useOverleafRealtime(options: {
           void flush(payload.docId, doc.acknowledge(payload.version).send);
           if (doc.version !== versionBefore) promoteShared(doc, proofs.current.get(doc));
           if (wasUncertain && docId.current === payload.docId) setDetail(null);
+          publishUnacknowledged();
           releaseIfDone(payload.docId, doc);
         } catch (reason) {
           dropDocument(payload.docId, toMessage(reason));
@@ -645,7 +666,7 @@ export function useOverleafRealtime(options: {
         }
       }
     }
-  }), [deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, patchOpenDoc, publishLivePaths, releaseIfDone, shiftAnchors, stopAfterDisconnect]);
+  }), [deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors, stopAfterDisconnect]);
 
   // ---- connection ---------------------------------------------------------
 
@@ -910,6 +931,7 @@ export function useOverleafRealtime(options: {
       }
       publishLivePaths();
       docId.current = id;
+      publishUnacknowledged();
       setOpenDoc({ id, comments: joined.comments ?? [], changes: joined.changes ?? [] });
       for (const applied of bufferedApplied) shiftAnchors(id, applied);
       setDetail(null);
@@ -926,7 +948,7 @@ export function useOverleafRealtime(options: {
     };
   }, [
     options.activeFile, options.documents, options.projectRoot, activeDocId, status, reloadNonce,
-    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, shiftAnchors,
+    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, publishUnacknowledged, shiftAnchors,
   ]);
 
   // ---- local edits and out-of-band operations -------------------------------
@@ -952,6 +974,8 @@ export function useOverleafRealtime(options: {
       const proof = proofs.current.get(current);
       if (proof) proof.locallyAppliedText = text;
       if (send) shiftAnchors(id, send.ops);
+      // Typing that changed nothing settles here; anything else waits on its ack.
+      publishUnacknowledged();
       void flush(id, send);
       if (replaced) {
         // Overleaf stores these characters as U+FFFD, and so does the
@@ -961,7 +985,8 @@ export function useOverleafRealtime(options: {
         deliverRemoteText(id, current.text, text);
       }
     }, SEND_DEBOUNCE_MS);
-  }, [deliverRemoteText, flush, shiftAnchors]);
+    publishUnacknowledged();
+  }, [deliverRemoteText, flush, publishUnacknowledged, shiftAnchors]);
 
   /**
    * Anchor a new comment thread to a span of the open document. Resolves once
@@ -984,6 +1009,7 @@ export function useOverleafRealtime(options: {
     // server has not confirmed.
     const reserved = doc.anchor();
     if (!reserved) throw new Error(t`An edit is still on its way to Overleaf. Try again in a moment.`);
+    publishUnacknowledged();
     try {
       await invoke("overleaf_rt_send_comment", {
         projectRoot: target.projectRoot, docId: target.docId, version: reserved.version, position, quote, threadId,
@@ -994,7 +1020,7 @@ export function useOverleafRealtime(options: {
     }
     // Show it straight away rather than waiting for the round trip.
     patchOpenDoc(target.docId, (current) => ({ comments: [...current.comments, { threadId, position, quote }] }));
-  }, [fail, patchOpenDoc, t]);
+  }, [fail, patchOpenDoc, publishUnacknowledged, t]);
 
   const openDocument = () => (docId.current ? documents.current.get(docId.current) : undefined);
   /** Text inside the send debounce has not entered OtDocument yet, but it is still local work. */
@@ -1007,6 +1033,11 @@ export function useOverleafRealtime(options: {
       : detail,
     /** True when the open file is being edited through the live channel. */
     liveFile,
+    /**
+     * True while the open file holds local work Overleaf has not acknowledged
+     * (typed, sent, queued, or of unknown outcome): live, but not yet synced.
+     */
+    unacknowledged,
     /**
      * Every path still owned by the live channel, including a file that is no
      * longer open but is waiting for an acknowledgement. Ordinary syncing must
@@ -1043,6 +1074,7 @@ export function useOverleafRealtime(options: {
       // this model is current again until a full reset and guarded delivery.
       const proof = proofs.current.get(doc);
       if (proof) proof.textModelValid = false;
+      publishUnacknowledged();
       return { docId: id, version: anchor.version };
     },
     /** A reserved operation failed without proving whether the server committed it: reconcile by replay. */

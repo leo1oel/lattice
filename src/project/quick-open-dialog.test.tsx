@@ -13,6 +13,7 @@ function renderQuickOpen(props: Partial<ComponentProps<typeof QuickOpenDialog>> 
       paths={["notes/alpha.md", "notes/beta.md"]}
       recent={[]}
       current=""
+      lineTarget={null}
       symbols={() => []}
       {...handlers}
       {...props}
@@ -87,12 +88,29 @@ describe("QuickOpenDialog scopes", () => {
   });
 
   it("goes to a line of the file on screen", () => {
-    const { search, onLine } = renderQuickOpen({ current: "main.tex" });
+    const { search, onLine } = renderQuickOpen({ current: "main.tex", lineTarget: "main.tex" });
     fireEvent.change(search, { target: { value: ":17" } });
     expect(screen.getAllByRole("option")).toHaveLength(1);
     expect(screen.getByRole("option").textContent).toContain("Go to line 17");
     fireEvent.keyDown(search, { key: "Enter" });
     expect(onLine).toHaveBeenCalledWith(17);
+  });
+
+  it("names the document on screen as the line's target, not the source retained behind a Paper", () => {
+    const blog = ".research/papers/1706.03762v7/blog.md";
+    const { search } = renderQuickOpen({ current: "main.tex", lineTarget: blog });
+    fireEvent.change(search, { target: { value: ":2" } });
+    const row = screen.getByRole("option").textContent;
+    expect(row).toContain(blog);
+    expect(row).not.toContain("main.tex");
+  });
+
+  it("offers no line to go to when what is on screen has none", () => {
+    const { search, onLine } = renderQuickOpen({ current: "figures/plot.pdf", lineTarget: null });
+    fireEvent.change(search, { target: { value: ":17" } });
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(onLine).not.toHaveBeenCalled();
   });
 
   it("lists sections and labels after @, reading them once", () => {
