@@ -1343,9 +1343,9 @@ export function DocumentCanvas(props: {
       fadeEdges={false}
       contentClassName="markdown-preview-content"
       viewportClassName="editor-doc-scroll"
-      // Upstream contract: the editor scroll container carries both the
-      // `.editor-doc-scroll` class (bubble-menu-clip.ts) and this testid
-      // (frozen-table-headers.ts resolves it via closest()).
+      // The visual editor finds its scroller through `.editor-doc-scroll`
+      // (block-window.ts, use-near-viewport.ts, document-heading-rail.tsx); the
+      // App integration suites find it through this testid.
       viewportProps={{
         "data-testid": "editor-scroll-container",
         onClickCapture: (event) => {

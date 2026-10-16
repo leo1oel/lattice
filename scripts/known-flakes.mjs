@@ -37,6 +37,7 @@ const MAX_PER_JOB = 5;
 export function failuresInLog(log) {
   const found = new Set();
   for (const raw of log.split("\n")) {
+    // eslint-disable-next-line no-control-regex -- matches ANSI colour codes (ESC [ … m)
     const line = raw.replace(/\x1b\[[0-9;]*m/g, "").replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, "").trimEnd();
     const match =
       // Vitest's summary: ` FAIL  src/a.test.tsx > suite > test`

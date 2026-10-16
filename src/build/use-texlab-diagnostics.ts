@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+// eslint-disable-next-line no-restricted-imports -- the texlab_diagnostics request must wait for the listener to exist, so the effect awaits listen() and guards the race itself.
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EMPTY_DIAGNOSTICS, type CompileDiagnostic } from "./compile-diagnostics";

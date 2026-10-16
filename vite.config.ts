@@ -15,22 +15,25 @@ const host = process.env.TAURI_DEV_HOST;
  * `@pierre/diffs` imports the full `shiki` bundle, whose bundledLanguages and
  * bundledThemes maps dynamically import every grammar and theme shiki ships —
  * ~450 chunks, ~13 MB of the built app. At runtime only a closed set is ever
- * loadable: src/history/file-diff-view.tsx is the only module that calls
+ * loadable: src/history/pierre-diff.ts is the only module that calls
  * registerCustomLanguage/registerCustomTheme, and its pierreLanguageForPath
  * clamps every filetype outside tex/bibtex/markdown to "text". Everything
  * outside that set is replaced with an inert stub grammar/theme so the chunks
  * shrink to ~100 bytes.
  *
- * If new code can highlight more languages at runtime, extend keepLangs below —
- * a missing grammar degrades silently to unhighlighted text rather than
- * throwing, so this will not fail a test.
+ * If new code can highlight more languages at runtime, extend keepLangs below.
+ * A missing grammar degrades silently to unhighlighted text rather than
+ * throwing, so no test notices; the build fails instead when a module under
+ * src/ imports a grammar or theme that is stubbed. Code that reaches one only
+ * through shiki's own bundled maps is not caught, which is why the allowlist
+ * comments name the one caller.
  */
 function shikiTrimPlugin(): {
   plugin: Plugin;
   isStubbed: (id: string) => boolean;
 } {
   const keepLangs = new Set([
-    // The only grammars any runtime path can reach. src/history/file-diff-view.tsx is
+    // The only grammars any runtime path can reach. src/history/pierre-diff.ts is
     // the sole caller of registerCustomLanguage, and pierreLanguageForPath
     // clamps every other filetype to "text", which needs no grammar.
     "tex",
@@ -38,7 +41,7 @@ function shikiTrimPlugin(): {
     "markdown",
   ]);
   const keepThemes = new Set([
-    // Pierre themes (src/history/file-diff-view.tsx), the sole caller of
+    // Pierre themes (src/history/pierre-diff.ts), the sole caller of
     // registerCustomTheme.
     "github-light",
     "github-dark",
@@ -90,6 +93,20 @@ function shikiTrimPlugin(): {
         return `export default { name: ${JSON.stringify(theme)}, type: "dark", colors: {}, tokenColors: [] };`;
       }
       return null;
+    },
+    buildEnd(error) {
+      if (error) return;
+      const srcRoot = path.resolve("src") + path.sep;
+      const offenders = [...this.getModuleIds()].flatMap((id) => {
+        if (!isStubbed(id)) return [];
+        const importers = this.getModuleInfo(id)?.importers.filter((importer) => importer.startsWith(srcRoot)) ?? [];
+        return importers.map((importer) => `${path.relative(".", importer)} imports ${path.basename(id, ".mjs")}`);
+      });
+      if (offenders.length > 0) {
+        this.error(
+          `shiki-trim: these imports get an empty stub, so their code would render unhighlighted. Add the name to keepLangs or keepThemes in vite.config.ts:\n  ${offenders.join("\n  ")}`,
+        );
+      }
     },
   };
   return { plugin, isStubbed };

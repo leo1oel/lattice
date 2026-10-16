@@ -498,7 +498,7 @@ async function assertAnswers(url) {
   try {
     response = await fetch(url);
   } catch (error) {
-    throw new Error(`nothing answered at ${url}: ${error.cause?.message ?? error.message}`);
+    throw new Error(`nothing answered at ${url}: ${error.cause?.message ?? error.message}`, { cause: error });
   }
   if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
 }

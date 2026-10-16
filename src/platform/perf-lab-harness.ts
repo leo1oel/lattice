@@ -8,6 +8,7 @@
 // through `perf_write`. Scenario logic matches the webkit-vs-chromium report's harness,
 // so keep changes to a scenario deliberate: they move every number it reports.
 import { invoke } from "@tauri-apps/api/core";
+// eslint-disable-next-line no-restricted-imports -- the harness awaits each subscription and releases it in sequence; no effect cleanup is involved.
 import { listen } from "@tauri-apps/api/event";
 import { EditorView } from "@codemirror/view";
 import { CompletionContext } from "@codemirror/autocomplete";
