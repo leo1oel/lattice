@@ -306,20 +306,16 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           />
         </Suspense>
       )}
-<<<<<<< HEAD
       {tools.isOpen.responses && (
         <Suspense fallback={null}>
           <ReviewerResponsesPanel annotations={comments.comments} onClose={() => tools.close("responses")} />
         </Suspense>
       )}
-||||||| parent of b9b74c3f (feat: inspect figure usages and preview reversible replacements)
-=======
       {figuresOpen && <Suspense fallback={null}><FigureInventoryDialog
         key={project.root} project={project} activeFile={activeFile} activeSource={activeSource} onOpen={props.openFigureFile}
         onClose={() => setFiguresOpen(false)} beforeWrite={props.beforeFigureWrite} afterWrite={props.afterFigureWrite}
         captureProjectScope={props.captureProjectScope} undo={figureUndo} setUndo={setFigureUndo}
       /></Suspense>}
->>>>>>> b9b74c3f (feat: inspect figure usages and preview reversible replacements)
       {tools.isOpen.checklist && project && (
         <ManuscriptChecklistPanel
           data={{
