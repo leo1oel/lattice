@@ -6334,6 +6334,7 @@ dependencies = [
  "keyring",
  "libc",
  "log",
+ "lopdf",
  "md5 0.7.0",
  "notify",
  "objc2",

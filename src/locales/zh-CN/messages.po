@@ -172,8 +172,15 @@ msgid "{0} not checked"
 msgstr "{0} 条尚未检查"
 
 #. placeholder {0}: chosen.length
+#: src/pdf/review-pdf-sheet.tsx
+msgid "{0} notes"
+msgstr "{0} 条批注"
+
+#. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
+#. placeholder {1}: placeable.length
 #: src/papers/linked-library-sheet.tsx
+#: src/pdf/review-pdf-sheet.tsx
 msgid "{0} of {1} selected"
 msgstr "已选 {0} / {1} 项"
 
@@ -980,6 +987,10 @@ msgstr "1 条需要你看一下"
 msgid "1 not found"
 msgstr "1 篇没找到"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "1 note"
+msgstr "1 条批注"
+
 #: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
@@ -1774,6 +1785,7 @@ msgstr "批注与高亮"
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/overleaf/overleaf-presence.tsx
+#: src/pdf/review-pdf-sheet.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Anonymous"
 msgstr "匿名"
@@ -2422,6 +2434,10 @@ msgstr "请先编译论文。提交包由上次编译 {rootDocument} 时用到�
 msgid "Build the paper so it has one; arXiv doesn’t run BibTeX"
 msgstr "请编译论文以生成 .bbl；arXiv 不运行 BibTeX"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Build the PDF to export a review copy"
+msgstr "先编译出 PDF，才能导出评阅副本"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build this project with pdfLaTeX from now on"
 msgstr "今后用 pdfLaTeX 编译此项目"
@@ -2542,6 +2558,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/pdf/review-pdf-sheet.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
@@ -4570,6 +4587,10 @@ msgstr "例如 NeurIPS 2027"
 msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
 msgstr "每行一张卡片。Lattice 会逐条查找，已有的先放一边；一个标题对上多篇论文时会请你选择。点击添加之前不会写入任何内容。"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
+msgstr "每条批注都是对应段落上的评论；请在 PDF 阅读器中回复，再把文件发回。"
+
 #: src/app/focus-mode-bar.tsx
 #: src/app/palette-sections.ts
 #: src/editor/comments/editor-comments-panel.tsx
@@ -4991,6 +5012,15 @@ msgstr "应为 NimbusRomNo9L-*。"
 msgid "Exponential"
 msgstr "指数函数"
 
+#. placeholder {0}: chosen.length
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export {0} notes…"
+msgstr "导出 {0} 条批注…"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export 1 note…"
+msgstr "导出 1 条批注…"
+
 #: src/telemetry/app-log.tsx
 msgid "Export diagnostic log"
 msgstr "导出日志"
@@ -5012,6 +5042,10 @@ msgstr "导出 arXiv 提交包"
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export notes…"
+msgstr "导出批注…"
+
 #: src/history/export-changes-dialog.tsx
 msgid "Export PDF"
 msgstr "导出 PDF"
@@ -5032,6 +5066,15 @@ msgstr "导出预览"
 #: src/app/use-project-lifecycle.ts
 msgid "Export project ZIP"
 msgstr "导出 ZIP"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Export review PDF"
+msgstr "导出评阅 PDF"
+
+#: src/editor/comments/editor-comments-panel.tsx
+#: src/pdf/pdf-viewer.tsx
+msgid "Export review PDF…"
+msgstr "导出评阅 PDF…"
 
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
@@ -5274,6 +5317,10 @@ msgstr "要替换的文字"
 msgid "Find your next source"
 msgstr "找到下一篇参考文献"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Finding each note on the PDF…"
+msgstr "正在 PDF 中定位每条批注…"
+
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Finding it in the source…"
 msgstr "正在源码中查找…"
@@ -5471,6 +5518,11 @@ msgstr "起"
 #: src/history/compare-versions.tsx
 msgid "From {name}"
 msgstr "从“{name}”起"
+
+#. placeholder {0}: formatDate(built)
+#: src/pdf/review-pdf-sheet.tsx
+msgid "From the build of {0}"
+msgstr "来自 {0} 的编译"
 
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
@@ -5830,6 +5882,11 @@ msgstr "隐藏 PDF"
 msgid "Highlight"
 msgstr "高亮"
 
+#. placeholder {0}: placement.page
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Highlight · p. {0}"
+msgstr "高亮 · 第 {0} 页"
+
 #: src/editor/latex/highlight-palette.tsx
 msgid "Highlight {hex}"
 msgstr "用 {hex} 高亮"
@@ -6114,6 +6171,10 @@ msgstr "包含应用和 AI 日志"
 #: src/telemetry/app-log.tsx
 msgid "Include raw diagnostic text"
 msgstr "包含完整诊断内容"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Include replies"
+msgstr "包含回复"
 
 #: src/history/compare-versions.tsx
 msgid "Including changes not saved as a version"
@@ -6442,6 +6503,10 @@ msgstr "原文已删除，找不到对应文件"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
 msgstr "原文已删除，找不到原来的位置"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Its words were not found on the page, so the note goes in the margin beside them."
+msgstr "页面上找不到这段文字，批注会放在旁边的页边。"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
@@ -7320,6 +7385,11 @@ msgstr "已用 SyncTeX 对应到源码"
 msgid "Maps to"
 msgstr "映射到"
 
+#. placeholder {0}: placement.page
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Margin note · p. {0}"
+msgstr "页边批注 · 第 {0} 页"
+
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "Margin review"
 msgstr "页边审阅"
@@ -7954,6 +8024,7 @@ msgid "No annotations yet. Open a file, select text and click Annotate"
 msgstr "还没有批注。打开文件，选中文字点“批注”"
 
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/pdf/review-pdf-sheet.tsx
 msgid "No annotations yet. Select text in the editor or the PDF and click Annotate"
 msgstr "还没有批注。在编辑器或 PDF 中选中文字点“批注”"
 
@@ -8137,6 +8208,10 @@ msgstr "没有匹配的设置"
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet"
 msgstr "还没有消息"
+
+#: src/pdf/review-pdf-sheet.tsx
+msgid "No note"
+msgstr "无备注"
 
 #: src/app/whats-new-dialog.tsx
 msgid "No notes came with this version."
@@ -8374,6 +8449,10 @@ msgstr "不在任何文件中"
 msgid "Not now"
 msgstr "以后再说"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Not on this PDF"
+msgstr "不在此 PDF 中"
+
 #: src/project/paper-review-panel.tsx
 msgid "Not ready"
 msgstr "尚未就绪"
@@ -8579,6 +8658,11 @@ msgstr "较早的版本"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
 msgstr "欧米伽"
+
+#. placeholder {0}: shortQuote(annotation.quote)
+#: src/pdf/review-pdf-sheet.tsx
+msgid "On “{0}”"
+msgstr "针对“{0}”"
 
 #: src/editor/latex/search-panel.ts
 msgid "on line"
@@ -9368,6 +9452,7 @@ msgid "PDF could not be loaded"
 msgstr "PDF 打不开"
 
 #: src/pdf/pdf-viewer.tsx
+#: src/pdf/review-pdf-sheet.tsx
 msgid "PDF document"
 msgstr "PDF 文档"
 
@@ -10635,6 +10720,7 @@ msgstr "按 DOI / arXiv / 标题查找"
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
+#: src/pdf/review-pdf-sheet.tsx
 msgid "Resolved"
 msgstr "已解决"
 
@@ -10868,6 +10954,11 @@ msgstr "重新审阅"
 #: src/overleaf/overleaf-review.tsx
 msgid "Review changes"
 msgstr "查看改动"
+
+#. placeholder {0}: formatDate(exported)
+#: src/pdf/review-pdf-sheet.tsx
+msgid "Review copy exported from Lattice on {0}, with {count}."
+msgstr "评阅副本由 Lattice 于 {0} 导出，含 {count}。"
 
 #: src/App.tsx
 msgid "Review here"
@@ -11251,6 +11342,7 @@ msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名�
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
+#: src/pdf/review-pdf-sheet.tsx
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 
@@ -12385,6 +12477,10 @@ msgstr "正在同步…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "SyncTeX does not place this passage on the PDF. Build the project again, then export."
+msgstr "SyncTeX 无法在 PDF 中定位这段文字。请重新编译项目后再导出。"
+
 #. placeholder {0}: target.path
 #: src/app/annotation-rounds.ts
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
@@ -12807,6 +12903,10 @@ msgstr "本地 Git 没响应，请重试"
 msgid "the network became available"
 msgstr "网络已恢复"
 
+#: src/pdf/review-pdf-sheet.tsx
+msgid "The notes you tick become comments in a copy of the PDF that Preview, Acrobat and Zotero show: a highlight on the words a note is about, or a note in the margin where those words are not on the page. Unticked notes stay in Lattice, and the plain PDF is not changed."
+msgstr "勾选的批注会写入 PDF 副本，成为“预览”、Acrobat 和 Zotero 都能显示的评论：批注所指的文字会被高亮；页面上找不到这段文字时，批注放在页边。未勾选的批注只留在 Lattice 中，原 PDF 不会改变。"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the Overleaf project connection is no longer active"
 msgstr "与 Overleaf 项目的连接已失效"
@@ -12866,6 +12966,11 @@ msgstr "PDF 查看器"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "the PDF was already up to date"
 msgstr "PDF 已是最新"
+
+#. placeholder {0}: formatDate(built)
+#: src/pdf/review-pdf-sheet.tsx
+msgid "The PDF was built on {0}."
+msgstr "PDF 编译于 {0}。"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."

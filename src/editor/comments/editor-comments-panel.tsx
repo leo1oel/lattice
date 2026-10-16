@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, ChevronDown, CornerDownLeft, FileSearch, History, Pencil, Reply, RotateCcw, Search, X } from "lucide-react";
+import { Check, ChevronDown, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { comboText, parseKeyName } from "../../app/key-combos";
 import { InfinityLoader } from "../../components/ui/activity-icons";
@@ -62,12 +62,16 @@ export type AnnotationRoundsView = {
   onRetry: (id: string) => void;
   onAnswer: (id: string, answer: string) => void;
   onOpenRounds: () => void;
+  /** A compiled PDF is on screen to export a review copy of. */
+  reviewPdfReady: boolean;
+  onExportReviewPdf: () => void;
 };
 
 const NO_RUNNING: ReadonlySet<string> = new Set();
 const NO_ROUNDS: readonly AnnotationRound[] = [];
 const noSubscription = () => () => {};
 const noRunning = () => NO_RUNNING;
+const notReady = () => false;
 
 /** The rounds as the panel shows them, read from the rounds while the panel is on screen. */
 function useRoundsView(
@@ -78,6 +82,10 @@ function useRoundsView(
   const running = useSyncExternalStore(
     annotationRounds?.subscribe ?? noSubscription,
     annotationRounds ? () => annotationRounds.getSnapshot().running : noRunning,
+  );
+  const reviewPdfReady = useSyncExternalStore(
+    annotationRounds?.subscribe ?? noSubscription,
+    annotationRounds ? () => annotationRounds.getSnapshot().reviewPdfReady : notReady,
   );
   return useMemo(() => annotationRounds && {
     running,
@@ -90,7 +98,9 @@ function useRoundsView(
     onRetry: (id: string) => annotationRounds.retry(id),
     onAnswer: annotationRounds.answer,
     onOpenRounds: annotationRounds.openRounds,
-  }, [annotationRounds, comments, roundsList, running]);
+    reviewPdfReady,
+    onExportReviewPdf: annotationRounds.openReviewPdf,
+  }, [annotationRounds, comments, roundsList, running, reviewPdfReady]);
 }
 
 /** A heading of the source, as the panel groups annotations under it. */
@@ -283,6 +293,7 @@ export function EditorCommentsPanel(props: {
   }, [activePath, activeSource, highlightKind, highlights, mode, t]);
 
   const hasComments = props.comments.length > 0;
+  const hasLocalNotes = props.comments.some((comment) => comment.number);
   const writingName = props.writingFile ? props.writingFile.split("/").at(-1) || props.writingFile : null;
   const closeReply = () => {
     setReplyingId(null);
@@ -409,6 +420,16 @@ export function EditorCommentsPanel(props: {
         {rounds?.hasRounds && (
           <IconButton size="compact" label={t`Revision rounds`} onClick={rounds.onOpenRounds}>
             <History size={13} />
+          </IconButton>
+        )}
+        {rounds && hasLocalNotes && (
+          <IconButton
+            size="compact"
+            label={rounds.reviewPdfReady ? t`Export review PDF…` : t`Build the PDF to export a review copy`}
+            disabled={!rounds.reviewPdfReady}
+            onClick={rounds.onExportReviewPdf}
+          >
+            <MessageSquareShare size={13} />
           </IconButton>
         )}
       </span>

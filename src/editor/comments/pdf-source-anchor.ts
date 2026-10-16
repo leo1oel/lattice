@@ -29,7 +29,7 @@ function pdfLetters(text: string): string {
  * The source's prose letters from `start`, lower case, with the offset of
  * each: command names (`\section`) and `%` comments are not prose.
  */
-function sourceLetters(source: string, start: number, end: number): { letters: string; offsets: number[] } {
+export function sourceLetters(source: string, start: number, end: number): { letters: string; offsets: number[] } {
   let letters = "";
   const offsets: number[] = [];
   for (let index = start; index < end; index += 1) {
