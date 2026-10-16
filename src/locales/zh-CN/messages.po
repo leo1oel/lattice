@@ -10694,7 +10694,7 @@ msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 
 #: src/project/paper-library.tsx
 msgid "Saved-text search unavailable"
-msgstr "暂时无法搜索论文全文"
+msgstr "无法搜索论文全文"
 
 #: src/project/paper-inspector.tsx
 msgid "Saved, with its overview"
