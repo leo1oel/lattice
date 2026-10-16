@@ -286,21 +286,14 @@ fn expand(
             // the rest of this one. With nothing left on it, the line's own
             // ending stands in for the file's: two would make a blank line,
             // which is a paragraph break the source never had. An empty file
-            // has no line to end, so on a line of its own the line goes too.
-            let ends_line = body[whole.end()..].trim().is_empty();
-            if inner.is_empty()
-                && command == "input"
-                && ends_line
-                && body[..whole.start()].trim().is_empty()
-            {
-                copied = line.len();
-                break;
-            }
+            // has no line to end; an empty group stands in for it, so the
+            // line is never left blank and still ends in its one space.
             let mut replacement = match command {
                 "include" => format!("\\clearpage\n{}\\clearpage\n", with_line_end(inner)),
+                _ if inner.is_empty() => "{}".to_string(),
                 _ => with_line_end(inner),
             };
-            if ends_line {
+            if body[whole.end()..].trim().is_empty() && replacement.ends_with('\n') {
                 replacement.pop();
             }
             out.push_str(&line[copied..whole.start()]);
@@ -418,7 +411,13 @@ mod tests {
             ("empty.tex".to_string(), String::new()),
         ]);
         let (text, _) = merge_inputs("main.tex", &sources);
-        assert_eq!(text, "para text\nmore text \n\\clearpage\n\\clearpage\n");
+        assert_eq!(text, "para text\n  {}\nmore text {}\n\\clearpage\n\\clearpage\n");
+
+        let mut sources = sources;
+        sources.insert("main.tex".to_string(), "foo%\n\\input{todo}\nbar\n".to_string());
+        assert_eq!(merge_inputs("main.tex", &sources).0, "foo%\n{}\nbar\n");
+        sources.insert("main.tex".to_string(), "a\n\\input{todo}\\input{empty}\nb\n".to_string());
+        assert_eq!(merge_inputs("main.tex", &sources).0, "a\n{}{}\nb\n");
     }
 
     #[test]
