@@ -72,6 +72,21 @@ export function ExportChangesDialog(props: {
   const pdf = props.rootDocument.replace(/\.tex$/i, ".pdf");
   const shown = props.preview?.filter((passage) => passage.edits.length).slice(0, PREVIEW_PASSAGES) ?? [];
 
+  // Worded outside the try: the compiler cannot compile a conditional inside one.
+  const savedNotice = (result: ChangesPdf) => ({
+    detail: result.simplified
+      ? t`Maths, figures and citations are left unmarked: the fully marked document did not build.`
+      : undefined,
+    primaryAction: props.onOpenFile ? { label: t`Open`, onClick: () => props.onOpenFile?.(result.path) } : undefined,
+    secondaryAction: {
+      label: t`Show in Finder`,
+      onClick: () => revealItemInDir(projectItemPath(props.projectRoot, result.path)).catch(() => undefined),
+    },
+  });
+  const failure = (message: string) => message.startsWith("latexdiff is not installed")
+    ? t`latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again.`
+    : message;
+
   const exportPdf = async () => {
     setRunning(true);
     setError("");
@@ -83,24 +98,12 @@ export function ExportChangesDialog(props: {
         to: props.to,
         options,
       });
-      trace.ok(t`Saved ${result.path}`, {
-        detail: result.simplified
-          ? t`Maths, figures and citations are left unmarked: the fully marked document did not build.`
-          : undefined,
-        primaryAction: props.onOpenFile ? { label: t`Open`, onClick: () => props.onOpenFile?.(result.path) } : undefined,
-        secondaryAction: {
-          label: t`Show in Finder`,
-          onClick: () => revealItemInDir(projectItemPath(props.projectRoot, result.path)).catch(() => undefined),
-        },
-      });
+      trace.ok(t`Saved ${result.path}`, savedNotice(result));
       props.onClose();
     } catch (reason) {
       // Said in the sheet, where the choices that may fix it are.
       trace.fail(reason, { toast: false });
-      const message = toMessage(reason);
-      setError(message.startsWith("latexdiff is not installed")
-        ? t`latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again.`
-        : message);
+      setError(failure(toMessage(reason)));
       setRunning(false);
     }
   };
@@ -179,14 +182,18 @@ const CITATION = /~?\\(?:cite[a-zA-Z]*|parencite|textcite|autocite)\*?(?:\[[^\]]
 
 /** A passage as latexdiff marks it: deleted words struck (or gone), new ones underlined with a wave. */
 function MarkedPassage(props: { passage: ProsePassage; keepDeleted: boolean }) {
-  const { text, edits } = props.passage;
+  return <>{markedParts(props.passage, props.keepDeleted)}</>;
+}
+
+/** Its marks as nodes: outside the component, as the compiler cannot compile `++cited` in a lambda. */
+function markedParts({ text, edits }: ProsePassage, keepDeleted: boolean): ReactNode[] {
   let cited = 0;
   const flat = (part: string) => part.replace(CITATION, () => ` [${++cited}]`).replace(/\s+/g, " ");
   const parts: ReactNode[] = [];
   let cursor = 0;
   for (const { edit, from, to, deleted, inserted } of inlineEditSpans(text, edits)) {
     parts.push(flat(text.slice(cursor, from)));
-    const struck = Boolean(deleted.trim() && props.keepDeleted);
+    const struck = Boolean(deleted.trim() && keepDeleted);
     if (struck) parts.push(<del key={`d${edit.id}`}>{flat(deleted).trim()}</del>);
     if (struck && inserted.trim()) parts.push(" ");
     if (inserted.trim()) parts.push(<ins key={`i${edit.id}`}>{flat(inserted).trim()}</ins>);
@@ -195,5 +202,5 @@ function MarkedPassage(props: { passage: ProsePassage; keepDeleted: boolean }) {
     cursor = to;
   }
   parts.push(flat(text.slice(cursor)));
-  return <>{parts}</>;
+  return parts;
 }

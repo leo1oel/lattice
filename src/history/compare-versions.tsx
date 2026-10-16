@@ -9,7 +9,7 @@
  * "Export PDF with changes…" makes the latexdiff PDF a rebuttal or a
  * camera-ready asks for, without a terminal.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileDown } from "lucide-react";
@@ -101,13 +101,10 @@ export function CompareVersions(props: {
   }, [from, fromPath, loadDiff, path, to, toRev]);
 
   const diffReady = fileDiff.key === `${from}:${to}:${path}` ? fileDiff.value : null;
-  const passages = useMemo(
-    () => (path && diffReady && !diffReady.binary && PROSE_FILE.test(path) ? prosePassages(diffReady.before ?? "", diffReady.after ?? "") : null),
-    [diffReady, path],
-  );
+  const passages = path && diffReady && !diffReady.binary && PROSE_FILE.test(path) ? prosePassages(diffReady.before ?? "", diffReady.after ?? "") : null;
   // Counted as the diff found them; read with the short words between edits joined in.
-  const counts = useMemo(() => (passages ? changedWords(passages) : null), [passages]);
-  const readable = useMemo(() => passages?.map(joinedPassage) ?? null, [passages]);
+  const counts = passages ? changedWords(passages) : null;
+  const readable = passages?.map(joinedPassage) ?? null;
   const now = t`Now`;
   const fromName = sideName(from, entries, now);
   const toName = sideName(to, entries, now);
