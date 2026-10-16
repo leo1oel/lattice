@@ -73,11 +73,14 @@ export function useGitVersions(props: {
       let read = await log;
       if (seq !== loadSeq.current) return;
       // Versions saved since the last read push the oldest out of a full
-      // page; read that many more, so a version once listed (and picked) stays.
+      // page; read that many more (a page more while the last read's newest
+      // is not yet in sight), so a version once listed (and picked) stays.
       const newest = loaded.current[0]?.hash;
-      const saved = "entries" in read && newest ? read.entries.findIndex((entry) => entry.hash === newest) : -1;
-      if ("entries" in read && saved > 0 && read.entries.length >= limit) {
-        limit += saved;
+      const reach = limit;
+      while (newest && "entries" in read && read.entries.length >= limit) {
+        const saved = read.entries.findIndex((entry) => entry.hash === newest);
+        if (saved !== -1 && saved + reach <= limit) break;
+        limit = saved === -1 ? limit + LOG_PAGE : saved + reach;
         logLimit.current = limit;
         read = await readLog();
         if (seq !== loadSeq.current) return;

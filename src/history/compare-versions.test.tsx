@@ -125,7 +125,15 @@ describe("CompareVersions", () => {
 
     history.unshift(entry("e".repeat(40), "Auto-saved version", 21));
     emit({ root: "/papers/attention", paths: ["main.tex"] });
-    await waitFor(() => expect(invokeCalls("git_log").at(-1)).toEqual({ limit: 101 }));
+    expect(await screen.findByRole("button", { name: "Show 99 automatic versions" })).toBeInTheDocument();
+    expect(invokeCalls("git_log").at(-1)).toEqual({ limit: 101 });
+    expect(screen.getByRole("radio", { name: "From Submitted to NeurIPS" })).toBeChecked();
+    expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null });
+
+    // More than a page saved at once (a pull) still keeps it.
+    history.unshift(...Array.from({ length: 150 }, (_, index) => entry(`b${String(index).padStart(39, "0")}`, "Auto-saved version", 22)));
+    emit({ root: "/papers/attention", paths: ["main.tex"] });
+    expect(await screen.findByRole("button", { name: "Show 249 automatic versions" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "From Submitted to NeurIPS" })).toBeChecked();
     expect(invokeCalls("git_compare_files").at(-1)).toEqual({ from: submitted.hash, to: null });
   });
