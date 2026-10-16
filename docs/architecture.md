@@ -253,7 +253,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~580 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **187** commands in
+lifecycle and the child runtimes, and registers **188** commands in
 `tauri::generate_handler!`, plus 14 `perf_lab` commands that exist only in a
 `perf-lab` feature build. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
@@ -283,7 +283,7 @@ Practical consequence: to find what a button does, grep the command name in
 | --- | --- | --- |
 | `overleaf` + `overleaf_realtime` | 42 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
 | `files` | 30 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
-| `build` | 21 | `build_project`, `abort_build`, `export_changes_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
+| `build` | 22 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
