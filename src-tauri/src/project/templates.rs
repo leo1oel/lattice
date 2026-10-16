@@ -167,7 +167,7 @@ pub fn list(store: &Path) -> Result<Vec<LocalTemplate>, String> {
 }
 
 fn validate(item: &LocalTemplate) -> Result<(), String> {
-    if item.name.trim().is_empty() || item.name.len() > 300 || item.version.len() > 300 {
+    if item.name.trim().is_empty() || item.name.chars().count() > 300 || item.version.chars().count() > 300 {
         return Err("Enter a template name and a short version.".into());
     }
     if !item.source_url.is_empty() {
@@ -351,6 +351,22 @@ mod tests {
         let updated = save(&store, &source, template()).unwrap();
         let c = instantiate(&store, &updated.id, &fixture.root, "稿件三").unwrap();
         assert_eq!(fs::read_to_string(c.join("主稿.tex")).unwrap(), "future version");
+    }
+
+    #[test]
+    fn name_limit_counts_characters_not_bytes() {
+        let fixture = Fixture::empty("local-template-name-limit");
+        let source = fixture.path("source");
+        fixture.write("source/main.tex", "\\documentclass{article}");
+        let store = fixture.path("templates");
+        let mut item = template();
+        item.files = vec!["main.tex".into()];
+        item.root = "main.tex".into();
+        item.preview = None;
+        item.name = "稿".repeat(300);
+        assert!(save(&store, &source, item.clone()).is_ok());
+        item.name = "稿".repeat(301);
+        assert!(save(&store, &source, item).is_err());
     }
 
     #[test]
