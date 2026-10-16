@@ -46,7 +46,9 @@ export function requestBibliographyIndex() {
  * citations, labels, unused symbols, history, TODO markers, and word counts.
  */
 export function useProjectLibrary(state: ProjectState) {
-  const { project, setProject, projectRef, projectOperationGenerationRef, projectRefreshGenerationRef } = state;
+  const {
+    project, setProject, projectRef, projectOperationGenerationRef, projectRefreshGenerationRef, captureProjectScope,
+  } = state;
   const [papers, setPapers] = useState<PaperSummary[]>([]);
   const [paperLoad, setPaperLoad] = useState<PaperLoad>({ root: null, status: "loading" });
   const citationHealthGenerationRef = useRef(0);
@@ -61,13 +63,45 @@ export function useProjectLibrary(state: ProjectState) {
   const postSaveRefreshGenerationRef = useRef(0);
   const bibliographyRefreshGenerationRef = useRef(0);
 
-  const loadHistory = useCallback(async () => setHistory(await invoke<HistoryItem[]>("list_history")), []);
-  const loadTodos = useCallback(async () => setDiskTodos(await invoke<TodoHit[]>("list_todos").catch(() => [])), []);
-  const loadWordCount = useCallback(async () => setProjectWordCount(await invoke<WordCount>("count_project_words").catch(() => null)), []);
-  const refreshUnusedSymbols = useCallback(
-    async () => setUnusedSymbols(await invoke<UnusedSymbols>("list_unused_symbols").catch(() => NO_UNUSED_SYMBOLS)),
-    [],
-  );
+  const historyScanRef = useRef(0);
+  const todoScanRef = useRef(0);
+  const wordCountScanRef = useRef(0);
+  const unusedSymbolsScanRef = useRef(0);
+
+  /**
+   * Claim one kind of scan. The predicate holds while the project that started
+   * it still owns the window (same root and operation generation, so leaving
+   * and reopening the same root also discards it) and no later scan of that
+   * kind has started: a project switch starts the incoming project's scans
+   * while the outgoing ones are still in flight, and the late reply must not
+   * replace the incoming project's rows.
+   */
+  const claimScan = useCallback((scanRef: { current: number }) => {
+    const scan = ++scanRef.current;
+    const ownsProject = captureProjectScope();
+    return () => scan === scanRef.current && ownsProject();
+  }, [captureProjectScope]);
+
+  const loadHistory = useCallback(async () => {
+    const current = claimScan(historyScanRef);
+    const rows = await invoke<HistoryItem[]>("list_history");
+    if (current()) setHistory(rows);
+  }, [claimScan]);
+  const loadTodos = useCallback(async () => {
+    const current = claimScan(todoScanRef);
+    const hits = await invoke<TodoHit[]>("list_todos").catch(() => []);
+    if (current()) setDiskTodos(hits);
+  }, [claimScan]);
+  const loadWordCount = useCallback(async () => {
+    const current = claimScan(wordCountScanRef);
+    const count = await invoke<WordCount>("count_project_words").catch(() => null);
+    if (current()) setProjectWordCount(count);
+  }, [claimScan]);
+  const refreshUnusedSymbols = useCallback(async () => {
+    const current = claimScan(unusedSymbolsScanRef);
+    const symbols = await invoke<UnusedSymbols>("list_unused_symbols").catch(() => NO_UNUSED_SYMBOLS);
+    if (current()) setUnusedSymbols(symbols);
+  }, [claimScan]);
   const refreshHistory = useCallback(async () => {
     if (project) await loadHistory();
   }, [loadHistory, project]);
@@ -155,6 +189,13 @@ export function useProjectLibrary(state: ProjectState) {
         if (nextPapers.status === "fulfilled") publishPapers(projectRoot, nextPapers.value);
       });
     }
+    // These replies share the scans' slots: a later scan of a kind supersedes
+    // this refresh's result for it, and this refresh supersedes earlier ones.
+    const ownsProject = captureProjectScope();
+    const currentUnused = claimScan(unusedSymbolsScanRef);
+    const currentHistory = claimScan(historyScanRef);
+    const currentTodos = claimScan(todoScanRef);
+    const currentWordCount = claimScan(wordCountScanRef);
     void Promise.allSettled([
       wroteTex ? invoke<ReferenceInfo[]>("list_references") : Promise.resolve(null),
       invoke<UnusedSymbols>("list_unused_symbols"),
@@ -162,14 +203,14 @@ export function useProjectLibrary(state: ProjectState) {
       invoke<TodoHit[]>("list_todos"),
       invoke<WordCount>("count_project_words"),
     ] as const).then(([referenceResult, unusedResult, historyResult, todoResult, wordCountResult]) => {
-      if (projectRef.current?.root !== projectRoot || generation !== postSaveRefreshGenerationRef.current) return;
+      if (projectRef.current?.root !== projectRoot || !ownsProject() || generation !== postSaveRefreshGenerationRef.current) return;
       if (referenceResult.status === "fulfilled" && referenceResult.value) setReferences(referenceResult.value);
-      if (unusedResult.status === "fulfilled") setUnusedSymbols(unusedResult.value);
-      if (historyResult.status === "fulfilled") setHistory(historyResult.value);
-      if (todoResult.status === "fulfilled") setDiskTodos(todoResult.value);
-      if (wordCountResult.status === "fulfilled") setProjectWordCount(wordCountResult.value);
+      if (unusedResult.status === "fulfilled" && currentUnused()) setUnusedSymbols(unusedResult.value);
+      if (historyResult.status === "fulfilled" && currentHistory()) setHistory(historyResult.value);
+      if (todoResult.status === "fulfilled" && currentTodos()) setDiskTodos(todoResult.value);
+      if (wordCountResult.status === "fulfilled" && currentWordCount()) setProjectWordCount(wordCountResult.value);
     });
-  }, [claimBibliographyRefresh, projectRef, publishPapers]);
+  }, [captureProjectScope, claimBibliographyRefresh, claimScan, projectRef, publishPapers]);
 
   /** Read the paper list again after a failed read, from the Papers panel's retry. */
   const retryPapers = useCallback(() => {
