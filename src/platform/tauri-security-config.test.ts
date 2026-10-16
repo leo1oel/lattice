@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 type Csp = Record<string, string[]>;
 
 type TauriConfig = {
+  productName: string;
+  identifier: string;
   build: { beforeBuildCommand: string };
   app: {
     windows: Array<{ visible?: boolean }>;
@@ -147,6 +149,26 @@ describe("Tauri security boundary", () => {
     expect(config.bundle.resources).toEqual([
       "presentation-runtime/", "synara-runtime/**/*", "src/embedded_skills/",
     ]);
+  });
+
+  it("keeps Lattice Beta's identity in its own config, out of release builds", () => {
+    // Merged over tauri.conf.json by `pnpm build:beta`; the identifier is what
+    // separates Beta's data, caches, managed tools and keychain item.
+    const beta = readJson<Record<string, unknown>>("src-tauri/tauri.beta.conf.json");
+    expect(beta).toEqual({
+      $schema: "https://schema.tauri.app/config/2",
+      productName: "Lattice Beta",
+      mainBinaryName: "Lattice Beta",
+      identifier: `${config.identifier}.beta`,
+      plugins: { updater: { endpoints: [] } },
+      bundle: { createUpdaterArtifacts: false },
+    });
+    expect(config.productName).toBe("Lattice");
+    for (const workflow of ["release.yml", "release-cache.yml"]) {
+      const source = readFileSync(`.github/workflows/${workflow}`, "utf8");
+      expect(source).not.toContain("LATTICE_FLAVOR");
+      expect(source).not.toContain("tauri.beta.conf.json");
+    }
   });
 
   it("gives loopback browser tabs the product icon", () => {

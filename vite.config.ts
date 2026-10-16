@@ -10,6 +10,11 @@ import { privateFontsPlugin } from "./scripts/private-fonts.ts";
 import { reactCompilerSuppressionRules } from "./scripts/react-compiler-suppressions.ts";
 
 const host = process.env.TAURI_DEV_HOST;
+// `LATTICE_FLAVOR=beta` builds Lattice Beta (docs/release-process.md), read by
+// src-tauri/build.rs too. Any other value is a typo that would silently build
+// the release flavor.
+const flavor = process.env.LATTICE_FLAVOR ?? "";
+if (flavor !== "" && flavor !== "beta") throw new Error(`LATTICE_FLAVOR=${flavor}: the only flavor is "beta"`);
 
 /**
  * `@pierre/diffs` imports the full `shiki` bundle, whose bundledLanguages and
@@ -152,6 +157,9 @@ const manualChunkName = (id: string) => {
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
+  define: {
+    "import.meta.env.LATTICE_FLAVOR": JSON.stringify(flavor),
+  },
   plugins: [
     // React Compiler auto-memoizes components it can prove safe, and silently
     // skips the rest (e.g. anything the react-hooks lint still flags), so it is
