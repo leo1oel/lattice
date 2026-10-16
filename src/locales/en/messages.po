@@ -1104,6 +1104,11 @@ msgctxt "history tab"
 msgid "Activity"
 msgstr "Activity"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Actual Size"
+msgstr "Actual Size"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
@@ -1988,6 +1993,11 @@ msgstr "Big triangle down"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle up"
 msgstr "Big triangle up"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Bigger"
+msgstr "Bigger"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-review.tsx
@@ -5869,6 +5879,11 @@ msgstr "Interface language"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+msgid "Interface size"
+msgstr "Interface size"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
 
@@ -6099,6 +6114,11 @@ msgstr "Language"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Larger fraction"
 msgstr "Larger fraction"
+
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Larger interface"
+msgstr "Larger interface"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
@@ -9768,6 +9788,14 @@ msgstr "Research"
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
 
+#: src/app/interface-zoom-hud.tsx
+msgid "Reset"
+msgstr "Reset"
+
+#: src/App.tsx
+msgid "Reset interface size"
+msgstr "Reset interface size"
+
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Reset layout"
@@ -10419,6 +10447,11 @@ msgstr "Saving…"
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
+msgstr "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "Script l"
@@ -10948,6 +10981,16 @@ msgstr "Small capitals"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Small section heading."
 msgstr "Small section heading."
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Smaller"
+msgstr "Smaller"
+
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Smaller interface"
+msgstr "Smaller interface"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Smile relation"
@@ -13353,3 +13396,8 @@ msgstr "Zoom in"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#. Search words for the Interface size setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "zoom scale bigger smaller"
+msgstr "zoom scale bigger smaller"

@@ -70,6 +70,8 @@ import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { saveSourceCopy } from "./app/save-source-copy";
+import { InterfaceZoomHud } from "./app/interface-zoom-hud";
+import { useInterfaceZoom } from "./app/use-interface-zoom";
 import type { OverleafSaveLayer } from "./canvas/status-save-state";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
@@ -417,6 +419,7 @@ function App() {
   }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
+  const interfaceZoom = useInterfaceZoom(setAppearance);
   // Where Settings returns focus if not to what held it as Settings opened
   // (the project menu's trigger, when Settings is opened from that menu), the
   // row it opens on when the palette found one, and whether a section was
@@ -1583,6 +1586,11 @@ function App() {
       label: { light: t`Use the light theme`, dark: t`Use the dark theme`, system: t`Match the system theme` }[preference],
       run: () => setThemePreference(preference),
     })),
+    // The interface size, as every Mac app binds it; ⌘= is ⌘+ without Shift.
+    { id: "interface-bigger", label: t`Larger interface`, group: "appearance", key: "+", shift: true, run: () => interfaceZoom.zoom("in") },
+    { id: "interface-bigger-unshifted", key: "=", palette: false, run: () => interfaceZoom.zoom("in") },
+    { id: "interface-smaller", label: t`Smaller interface`, group: "appearance", key: "-", run: () => interfaceZoom.zoom("out") },
+    { id: "interface-actual-size", label: t`Reset interface size`, group: "appearance", key: "0", run: () => interfaceZoom.zoom("reset") },
     { id: "settings", label: t`Open settings`, group: "project", key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
@@ -1710,6 +1718,7 @@ function App() {
     },
   });
 
+  const interfaceZoomHud = <InterfaceZoomHud scale={appearance.interfaceScale} revealKey={interfaceZoom.revealKey} onChange={interfaceZoom.zoom} />;
   if (!project) {
     return (
       <>
@@ -1741,6 +1750,7 @@ function App() {
         {overleafPicker}
         {overleafReview}
         <TexSetupDialogs setup={texSetup} />
+        {interfaceZoomHud}
       </>
     );
   }
@@ -2227,6 +2237,7 @@ function App() {
         unusedSymbols={unusedSymbols}
       />
 
+      {interfaceZoomHud}
       <AppSearchDialogs
         open={searchDialog}
         setOpen={setSearchDialog}

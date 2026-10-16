@@ -1104,6 +1104,11 @@ msgctxt "history tab"
 msgid "Activity"
 msgstr "动态"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Actual Size"
+msgstr "实际大小"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
@@ -1988,6 +1993,11 @@ msgstr "大三角形（向下）"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle up"
 msgstr "大三角形（向上）"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Bigger"
+msgstr "放大"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-review.tsx
@@ -5869,6 +5879,11 @@ msgstr "语言"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+msgid "Interface size"
+msgstr "界面大小"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "提示音"
 
@@ -6099,6 +6114,11 @@ msgstr "语言"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Larger fraction"
 msgstr "更大的分式"
+
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Larger interface"
+msgstr "放大界面"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
@@ -9768,6 +9788,14 @@ msgstr "文献"
 msgid "Research, written with evidence"
 msgstr "让论文写作有据可依"
 
+#: src/app/interface-zoom-hud.tsx
+msgid "Reset"
+msgstr "重置"
+
+#: src/App.tsx
+msgid "Reset interface size"
+msgstr "重置界面大小"
+
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Reset layout"
@@ -10419,6 +10447,11 @@ msgstr "正在保存…"
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "把它缩小，例如用 width=\\linewidth 或更小的高度，让它放得进一页。"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
+msgstr "缩放整个窗口：文字、图标和间距一起变化。随处可按 ⌘+ 和 ⌘− 调整，⌘0 恢复。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "手写体 l"
@@ -10948,6 +10981,16 @@ msgstr "小型大写字母"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Small section heading."
 msgstr "小标题"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Smaller"
+msgstr "缩小"
+
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Smaller interface"
+msgstr "缩小界面"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Smile relation"
@@ -13353,3 +13396,8 @@ msgstr "放大"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"
+
+#. Search words for the Interface size setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "zoom scale bigger smaller"
+msgstr "缩放 放大 缩小 界面 字号 zoom scale"

@@ -33,6 +33,11 @@ pub(crate) struct MenuLabels {
     paste: String,
     select_all: String,
     view: String,
+    /// View ▸ Bigger, Smaller and Actual Size: the interface size, which the
+    /// page also binds to ⌘+, ⌘− and ⌘0 (src/settings/interface-scale.ts).
+    zoom_in: String,
+    zoom_out: String,
+    actual_size: String,
     fullscreen: String,
     window: String,
     minimize: String,
@@ -68,6 +73,13 @@ const EDIT_HISTORY_PREFIX: &str = "edit-history:";
 /// The event Undo or Redo sends to the focused window, which hands it to
 /// the focused editor (src/app/edit-history.ts).
 const EDIT_HISTORY_EVENT: &str = "edit-history";
+
+/// Menu ids of View ▸ Bigger, Smaller and Actual Size; the part after the
+/// prefix is the change the web UI names.
+const INTERFACE_ZOOM_PREFIX: &str = "interface-zoom:";
+/// The event a size change sends to the focused window, which steps its
+/// interface size as ⌘+, ⌘− or ⌘0 would.
+const INTERFACE_ZOOM_EVENT: &str = "interface-zoom";
 
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
@@ -144,11 +156,28 @@ pub(crate) fn build_menu<R: Runtime>(
             &PredefinedMenuItem::select_all(app, Some(labels.select_all.as_str()))?,
         ],
     )?;
+    // The page binds the same keys and sees them first, so these run for a
+    // click, or for a key no page listener took (focus in the Agent frame).
+    let zoom_item = |change: &str, title: &str, accelerator: &str| {
+        MenuItem::with_id(
+            app,
+            format!("{INTERFACE_ZOOM_PREFIX}{change}"),
+            title,
+            true,
+            Some(accelerator),
+        )
+    };
     let view_menu = Submenu::with_items(
         app,
         &labels.view,
         true,
-        &[&PredefinedMenuItem::fullscreen(app, Some(labels.fullscreen.as_str()))?],
+        &[
+            &zoom_item("reset", &labels.actual_size, "CmdOrCtrl+0")?,
+            &zoom_item("in", &labels.zoom_in, "CmdOrCtrl+=")?,
+            &zoom_item("out", &labels.zoom_out, "CmdOrCtrl+-")?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::fullscreen(app, Some(labels.fullscreen.as_str()))?,
+        ],
     )?;
     if let Some(margin) = &labels.margin_review {
         let choices = [("auto", &margin.auto), ("markers", &margin.markers), ("off", &margin.off)]
@@ -191,7 +220,8 @@ pub(crate) fn build_menu<R: Runtime>(
 
 /// A margin review choice goes to the window it was made in, which keeps it
 /// as its own and sends the menu back with the new check; Undo and Redo go
-/// to the focused window's focused editor.
+/// to the focused window's focused editor, and an interface size change to
+/// the focused window.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::Emitter;
 
@@ -200,6 +230,8 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         (MARGIN_REVIEW_EVENT, mode)
     } else if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {
         (EDIT_HISTORY_EVENT, direction)
+    } else if let Some(change) = id.strip_prefix(INTERFACE_ZOOM_PREFIX) {
+        (INTERFACE_ZOOM_EVENT, change)
     } else {
         return;
     };
