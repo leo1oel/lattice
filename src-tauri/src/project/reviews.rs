@@ -63,7 +63,8 @@ pub fn write_review(root: &Path, id: &str, review: &serde_json::Value) -> Result
         return Err("The review is too large to save.".into());
     }
     let raw = serde_json::to_string_pretty(review).map_err(err)?;
-    ProjectDir::open(root)?.atomic_write(&format!("{REVIEWS_DIRECTORY}/{id}.json"), format!("{raw}\n").as_bytes())
+    ProjectDir::open(root)?
+        .atomic_write(&format!("{REVIEWS_DIRECTORY}/{id}.json"), format!("{raw}\n").as_bytes())
 }
 
 #[cfg(test)]
@@ -94,7 +95,8 @@ mod tests {
         write_review(&fixture.root, "2026-10-16T02-42-05Z", &json!({ "id": "a" })).unwrap();
         fixture.write(".research/reviews/2026-10-18T00-00-00Z.json", "{ \"id\": ");
         fixture.write(".research/reviews/notes.txt", "not a review");
-        fs::write(fixture.path(".research/reviews/2026-10-19T00-00-00Z.json"), [0xff, 0xfe]).unwrap();
+        fs::write(fixture.path(".research/reviews/2026-10-19T00-00-00Z.json"), [0xff, 0xfe])
+            .unwrap();
         assert_eq!(read_latest_review(&fixture.root).unwrap(), Some(json!({ "id": "a" })));
     }
 
