@@ -109,6 +109,24 @@ fn an_input_left_empty_by_its_comments_ships_unmerged() {
 }
 
 #[test]
+fn a_file_merged_in_one_place_but_read_in_another_ships() {
+    let fixture = built_project("arxiv-mixed-input");
+    fixture.write(
+        "main.tex",
+        MAIN.replace(
+            "\\includegraphics",
+            "\\input{tool}\nWe use \\input{tool} daily\n\\includegraphics",
+        ),
+    );
+    fixture.write("tool.tex", "FooBar\n");
+    fixture.write("main.fls", fixture.read("main.fls") + "INPUT tool.tex\n");
+
+    let pack = staged(&fixture, options(true, true));
+    assert_eq!(pack.files["tool.tex"], b"FooBar\n");
+    assert_eq!(pack.merged, ["sections/intro.tex"]);
+}
+
+#[test]
 fn hand_written_tex_inputs_lose_their_comments_but_postscript_figures_do_not() {
     let fixture = built_project("arxiv-tikz");
     fixture.write(

@@ -244,7 +244,8 @@ pub(super) fn code_matches(source: &str, pattern: &Regex) -> bool {
 /// keeps the page breaks it makes; with `\includeonly` in the root none is
 /// merged, since which of them typeset is that command's choice. A name that
 /// is not in `sources`, a cycle, or nesting past [`MAX_INPUT_DEPTH`] stays a
-/// command, and its file stays in the package.
+/// command, and its file stays in the package. So does a file merged in one
+/// place but still read in another, by the merged text or a file that ships.
 pub(super) fn merge_inputs(
     root: &str, sources: &BTreeMap<String, String>,
 ) -> (String, BTreeSet<String>) {
@@ -255,7 +256,38 @@ pub(super) fn merge_inputs(
     let mut merged = BTreeSet::new();
     let mut stack = vec![root.to_string()];
     let text = expand(text, sources, merge_includes, &mut stack, &mut merged);
-    (text, merged)
+    loop {
+        let shipped = std::iter::once(text.as_str()).chain(
+            sources
+                .iter()
+                .filter(|(path, _)| *path != root && !merged.contains(*path))
+                .map(|(_, source)| source.as_str()),
+        );
+        let read: BTreeSet<String> =
+            shipped.flat_map(|source| inputs_read(source, sources)).collect();
+        let before = merged.len();
+        merged.retain(|path| !read.contains(path));
+        if merged.len() == before {
+            return (text, merged);
+        }
+    }
+}
+
+/// The files in `sources` that `source`'s live `\input` and `\include` read.
+fn inputs_read(source: &str, sources: &BTreeMap<String, String>) -> Vec<String> {
+    let mut scanner = Scanner::default();
+    let mut read = Vec::new();
+    for line in source.split_inclusive('\n') {
+        let body = split_ending(line).0;
+        if let LineKind::Code { live_end, .. } = scanner.classify(body) {
+            read.extend(
+                INPUT
+                    .captures_iter(&body[..live_end])
+                    .filter_map(|found| resolve_input(found[2].trim(), sources)),
+            );
+        }
+    }
+    read
 }
 
 fn expand(
@@ -286,8 +318,7 @@ fn expand(
                 continue;
             }
             stack.push(path.clone());
-            let mut nested = BTreeSet::new();
-            let inner = expand(&sources[&path], sources, merge_includes, stack, &mut nested);
+            let inner = expand(&sources[&path], sources, merge_includes, stack, merged);
             stack.pop();
             // TeX skips the spaces that start the file's first line.
             let inner = inner.trim_start_matches([' ', '\t']);
@@ -322,7 +353,6 @@ fn expand(
                 _ => format!("{}\\space", with_line_end(inner)),
             };
             merged.insert(path);
-            merged.append(&mut nested);
             out.push_str(&line[copied..whole.start()]);
             out.push_str(&replacement);
             copied = whole.end();
@@ -493,6 +523,18 @@ mod tests {
         assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["intro.tex"]);
     }
 
+    #[test]
+    fn a_file_still_read_where_it_stays_an_input_is_not_merged() {
+        let sources = BTreeMap::from([
+            ("main.tex".to_string(), "\\input{tool}\n\\input{intro}\n".to_string()),
+            ("tool.tex".to_string(), "FooBar\n".to_string()),
+            ("intro.tex".to_string(), "Intro \\input{tool}\n\\endinput\n".to_string()),
+        ]);
+        let (text, merged) = merge_inputs("main.tex", &sources);
+        assert_eq!(text, "FooBar\n\\space\n\\input{intro}\n");
+        assert!(merged.is_empty());
+    }
+
     /// The width TeX typesets `body` at, with `files` beside it.
     fn typeset_width(label: &str, body: &str, files: &BTreeMap<String, String>) -> String {
         let fixture = crate::project::test_support::Fixture::empty(label);
@@ -554,6 +596,6 @@ mod tests {
             text,
             "\\includeonly{a}\n% \\input{a}\n\\input{missing}\n\\input{loop}\n\\space\n\\include{a}\n"
         );
-        assert_eq!(merged.into_iter().collect::<Vec<_>>(), ["loop.tex"]);
+        assert!(merged.is_empty());
     }
 }
