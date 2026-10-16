@@ -136,6 +136,44 @@ jobs:
           path: node_modules/.experimental-vitest-cache
           key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
 
+  # One passing run lets a test that fails one run in five through four times
+  # in five; the reopen-from-tree test passed its own pull request that way and
+  # then failed a fifth of main's runs. So a pull request's added and modified
+  # test files run five times here, beside a busy-looping process
+  # (scripts/burn-in.mjs). The job runs beside the others and nothing waits for
+  # it, so it costs runner minutes, not wall clock; a file whose first run
+  # shows five would outlast the WebKit shards (about 5 min) runs once, as the
+  # shards already run it.
+  new-tests:
+    needs: changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      # The merge commit's first parent is the base, as in `changes`.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: files
+        run: |
+          node scripts/burn-in.mjs --list --base HEAD^1 | tee "$RUNNER_TEMP/new-tests.txt"
+          if [ -s "$RUNNER_TEMP/new-tests.txt" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No added or modified test files."
+          fi
+      - if: steps.files.outputs.any == 'true'
+        uses: ./.github/actions/setup-pnpm
+      # Every shard runs some App suites (the shard sequencer spreads them),
+      # so one shard's transforms cover most of what any test file imports.
+      - if: steps.files.outputs.any == 'true'
+        uses: actions/cache/restore@v5
+        with:
+          path: node_modules/.experimental-vitest-cache
+          key: vitest-fs-1-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: vitest-fs-1-${{ hashFiles('pnpm-lock.yaml') }}-
+      - if: steps.files.outputs.any == 'true'
+        run: node scripts/burn-in.mjs --base HEAD^1 --runs 5 --budget 300
+
   # The literature Worker is its own pnpm project with its own lockfile and is
   # not part of the root install, so nothing above sees it. Its tests run on
   # `@cloudflare/vitest-pool-workers`, which starts a local workerd and

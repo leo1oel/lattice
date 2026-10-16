@@ -31,9 +31,13 @@ it is green locally but red in CI, suspect its freshness cache first:
 A red CI check that your change cannot reach is probably a known flake: search
 the pinned [Known flakes](https://github.com/leo1oel/lattice/issues/342) issue
 for the test's name before you investigate it. When CI fails on `main`,
-`flake-rerun.yml` re-runs the failed jobs once and records any that pass there.
-`flake-hunt.yml` records what fails in its nightly stress passes. The issue
-also holds the quarantine policy. Otherwise:
+`flake-rerun.yml` re-runs the failed jobs once; on any branch, a re-run that
+passes records what failed the attempt before. `flake-hunt.yml` records what
+fails in its nightly stress passes. The issue also holds the quarantine policy.
+To see how flaky a test is, run its file many times under load with
+`node scripts/burn-in.mjs --runs 20 --burn 4 <file> -- -t "<test name>"`; CI's
+`new-tests` job runs a pull request's added and modified test files five times
+the same way. Otherwise:
 
 1. Read the failing CI job's log, or your local log file, from the **first**
    fatal error; a tail-only summary hides it. Keep long output in a file under
