@@ -134,6 +134,65 @@
 .checklist-track > span { border-radius: var(--radius-pill); background: var(--border-strong); }
 .checklist-track > [data-state="ok"] { background: var(--status-success); }
 .checklist-track > [data-state="warn"] { background: var(--status-warning); }
+/* The deadline sits above the verdict on the same raised plate. Its urgency
+   tints only the clock (grey, then amber under three days, then red), and the
+   countdown itself turns red once a day is left, so the panel never shouts
+   while there is time. */
+.deadline-card {
+  margin-bottom: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border-radius: var(--radius-panel);
+  background: var(--surface-panel-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  display: grid;
+  gap: var(--space-1);
+}
+.deadline-card-head { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+/* A long venue name gives way with an ellipsis; the edit button keeps its place. */
+.deadline-card-venue { min-width: 0; display: inline-flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.deadline-card-venue > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deadline-card-venue svg { flex: none; color: var(--text-tertiary); }
+.deadline-card[data-urgency="soon"] .deadline-card-venue svg { color: var(--status-warning); }
+.deadline-card[data-urgency="urgent"] .deadline-card-venue svg { color: var(--status-danger); }
+.deadline-card-left { margin: 0; word-break: keep-all; overflow-wrap: anywhere; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); font-variant-numeric: tabular-nums; text-wrap: balance; }
+.deadline-card[data-urgency="urgent"] .deadline-card-left { color: var(--status-danger); }
+.deadline-card-when { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.deadline-card-when b { color: var(--text-primary); font-weight: var(--weight-medium); }
+.deadline-card-local { margin: 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+/* Without a deadline, one quiet line in the card's place offers to add it. */
+.deadline-add {
+  width: 100%;
+  margin-bottom: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--text-secondary);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast);
+}
+.deadline-add:hover { background: var(--control-hover-surface); }
+.deadline-add svg { position: relative; top: 3px; }
+.deadline-add span { display: grid; gap: var(--space-1); }
+.deadline-add b { color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); }
+.deadline-add small { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* One column that never grows past the card: the date input and the segmented
+   control would otherwise hold it at their intrinsic width in a narrow drawer. */
+.deadline-form { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+.deadline-form .ui-segmented { min-width: 0; }
+.deadline-form .ui-segmented-tab { flex: 1 1 auto; padding-inline: var(--space-3); white-space: nowrap; }
+.deadline-form label { min-width: 0; display: grid; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+/* Date and time side by side when there is room, stacked in a narrow panel. */
+.deadline-form-when { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.deadline-form-when label { flex: 1 1 120px; }
+.deadline-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
+.deadline-form-remove { margin-inline-end: auto; }
 /* One grouped list, divided by hairlines, rather than a stack of outlined
    cards. Each row leads with its result as a mark; the values stay in ink, so
    colour is the mark's alone and never the only carrier of a result. */

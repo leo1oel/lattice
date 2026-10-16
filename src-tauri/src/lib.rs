@@ -363,6 +363,7 @@ pub fn run() {
             ipc::workspace::export_project_zip,
             ipc::workspace::refresh_project,
             ipc::workspace::update_project_manifest,
+            ipc::workspace::set_project_deadline,
             ipc::workspace::set_project_spelling_words,
             ipc::workspace::watch_project,
             ipc::windows::open_project_window,

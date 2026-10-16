@@ -7,7 +7,7 @@ use super::history::{
 };
 use super::paths::safe_path;
 use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
-use crate::models::{FileNode, ProjectManifest, ProjectSnapshot, RootDocument};
+use crate::models::{FileNode, ProjectDeadline, ProjectManifest, ProjectSnapshot, RootDocument};
 use crate::util::err;
 use crate::wide_event::{self, Failure};
 use serde::Serialize;
@@ -450,6 +450,35 @@ pub fn update_manifest_settings(
     Ok(manifest)
 }
 
+/// Set or clear the submission deadline. The venue is trimmed and the time
+/// must be a whole minute in the "YYYY-MM-DDTHH:MM" form, Anywhere on Earth.
+pub fn set_deadline(
+    root: &Path, deadline: Option<ProjectDeadline>,
+) -> Result<ProjectManifest, String> {
+    let mut manifest = read_manifest(root)?;
+    manifest.deadline = match deadline {
+        None => None,
+        Some(deadline) => {
+            let venue = deadline.venue.trim().to_string();
+            if venue.is_empty() || venue.chars().count() > 80 {
+                return Err("Name the deadline in at most 80 characters.".to_string());
+            }
+            if !matches!(deadline.kind.as_str(), "abstract" | "paper" | "rebuttal") {
+                return Err("Choose abstract, paper, or rebuttal.".to_string());
+            }
+            let due = chrono::NaiveDateTime::parse_from_str(&deadline.due, "%Y-%m-%dT%H:%M")
+                .map_err(|_| "Give the deadline as a date and a time.".to_string())?;
+            Some(ProjectDeadline {
+                venue,
+                kind: deadline.kind,
+                due: due.format("%Y-%m-%dT%H:%M").to_string(),
+            })
+        }
+    };
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
 /// Replace the project dictionary with single words, unique ignoring ASCII
 /// case (the first spelling wins) and sorted.
 pub fn set_spelling_words(root: &Path, words: Vec<String>) -> Result<ProjectManifest, String> {
@@ -643,5 +672,33 @@ mod tests {
         let words = ["TexLab", "VLM", "texlab"].map(String::from).to_vec();
         assert_eq!(set_spelling_words(root, words).unwrap().spelling_words, vec!["TexLab", "VLM"]);
         assert_eq!(read_manifest(root).unwrap().engine, "xelatex");
+    }
+
+    #[test]
+    fn the_deadline_is_validated_kept_in_aoe_and_cleared() {
+        let fixture = Fixture::project("manifest-deadline");
+        let root = &fixture.root;
+        let deadline = |venue: &str, kind: &str, due: &str| ProjectDeadline {
+            venue: venue.into(),
+            kind: kind.into(),
+            due: due.into(),
+        };
+        let set =
+            set_deadline(root, Some(deadline("  NeurIPS 2027 ", "paper", "2027-05-15T23:59")))
+                .unwrap();
+        assert_eq!(set.deadline, Some(deadline("NeurIPS 2027", "paper", "2027-05-15T23:59")));
+        assert_eq!(read_manifest(root).unwrap().deadline, set.deadline);
+        for bad in [
+            deadline(" ", "paper", "2027-05-15T23:59"),
+            deadline("NeurIPS", "camera-ready", "2027-05-15T23:59"),
+            deadline("NeurIPS", "paper", "2027-05-15"),
+            deadline("NeurIPS", "paper", "2027-02-30T12:00"),
+        ] {
+            assert!(set_deadline(root, Some(bad.clone())).is_err(), "{bad:?}");
+        }
+        assert_eq!(read_manifest(root).unwrap().deadline, set.deadline);
+        assert_eq!(set_deadline(root, None).unwrap().deadline, None);
+        let raw = std::fs::read_to_string(root.join(MANIFEST_PATH)).unwrap();
+        assert!(!raw.contains("deadline"), "a cleared deadline leaves no key behind");
     }
 }

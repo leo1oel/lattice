@@ -5,12 +5,13 @@ import { activateAppLocale } from "../i18n";
 
 const base: ManuscriptChecklistData = {
   words: 5_080, wordSource: "texcount", wordBudget: null, pages: 12, body: { kind: "none" }, pageBudget: null,
+  deadline: null, venue: "NeurIPS",
   todos: 0, unusedLabels: 0, unusedCitations: 0, buildOk: true, buildMessage: "",
 };
 
 function renderChecklist(data: Partial<ManuscriptChecklistData>) {
   const { container } = render(
-    <ManuscriptChecklistPanel data={{ ...base, ...data }} onClose={vi.fn()} onOpenTodos={vi.fn()} onSaveBudgets={vi.fn()} />,
+    <ManuscriptChecklistPanel data={{ ...base, ...data }} onClose={vi.fn()} onOpenTodos={vi.fn()} onSaveBudgets={vi.fn()} onSaveDeadline={vi.fn()} />,
   );
   const row = (label: string) => screen.getByText(label).closest(".checklist-row")!;
   return { container, row };

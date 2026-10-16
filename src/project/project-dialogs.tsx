@@ -18,6 +18,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
 import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
+import { PROJECT_VENUES } from "./project-venues";
 
 /** A recent project launch could not reopen, with the backend's reason. */
 export type UnopenedProject = RecentProject & { reason: string };
@@ -135,12 +136,6 @@ export function Welcome(props: {
     </div>
   );
 }
-
-const PROJECT_VENUES: { id: ProjectVenue; label: string }[] = [
-  { id: "neurips", label: "NeurIPS" },
-  { id: "icml", label: "ICML" },
-  { id: "iclr", label: "ICLR" },
-];
 
 export function CreateProjectDialog(props: {
   projectName: string;
