@@ -368,6 +368,7 @@ pub fn run() {
             ipc::workspace::update_project_manifest,
             ipc::workspace::set_project_deadline,
             ipc::workspace::set_project_spelling_words,
+            ipc::workspace::set_submission_items,
             ipc::workspace::watch_project,
             ipc::windows::open_project_window,
             ipc::windows::open_in_browser,

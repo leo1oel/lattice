@@ -33,6 +33,7 @@ function deferred<T>() {
 
 const snapshot = (name: string) => ({
   root: `/${name}`,
+  files: [],
   manifest: { projectId: name, name, rootDocuments: [{ path: `${name}.tex` }] },
 }) as unknown as ProjectSnapshot;
 const answered = (name: string, change: Partial<ProjectManifest>) => ({ ...snapshot(name).manifest, ...change });
@@ -71,12 +72,14 @@ it("installs no manifest a deadline or budget write answers after its project cl
     ["deadline", ["B"]], ["deadline", ["B", "A"]], ["budgets", ["B"]], ["budgets", ["B", "A"]],
   ] as const) {
     const write = deferred<ProjectManifest>();
-    vi.mocked(invoke).mockReturnValue(write.promise);
+    vi.mocked(invoke).mockReset().mockReturnValue(write.promise);
     const { window, open } = renderPanels();
     act(() => {
       if (save === "deadline") checklist.props!.onSaveDeadline(DEADLINE);
       else checklist.props!.onSaveBudgets(8000, 9);
     });
+    await act(async () => undefined);
+    expect(invoke).toHaveBeenCalledTimes(1);
     switches.forEach(open);
     const landed = window.current;
     await act(async () => {
@@ -88,7 +91,7 @@ it("installs no manifest a deadline or budget write answers after its project cl
   }
 });
 
-it("keeps the newest settings write when an older one answers last, and the project's own failures", async () => {
+it("installs every settings answer in the order written, and the project's own failures", async () => {
   const older = deferred<ProjectManifest>();
   const newer = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
@@ -98,20 +101,95 @@ it("keeps the newest settings write when an older one answers last, and the proj
     checklist.props!.onSaveDeadline(DEADLINE);
   });
   await act(async () => {
-    newer.resolve(answered("A", { wordBudget: 8000, deadline: DEADLINE }));
-    await newer.promise;
     older.resolve(answered("A", { wordBudget: 8000 }));
     await older.promise;
+  });
+  expect(window.current.manifest).toMatchObject({ name: "A", wordBudget: 8000 });
+  await act(async () => {
+    newer.resolve(answered("A", { wordBudget: 8000, deadline: DEADLINE }));
+    await newer.promise;
   });
   expect(window.current.manifest).toMatchObject({ name: "A", wordBudget: 8000, deadline: DEADLINE });
 
   const failing = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(failing.promise);
-  act(() => checklist.props!.onSaveDeadline(null));
+  act(() => { checklist.props!.onSaveDeadline(null); });
+  await act(async () => undefined);
+  expect(invoke).toHaveBeenCalledWith("set_project_deadline", { deadline: null });
   open("B");
   await act(async () => {
     failing.reject(new Error("disk full"));
     await failing.promise.catch(() => undefined);
   });
   expect(showError).not.toHaveBeenCalled();
+});
+
+it("runs every manifest write one after another, the newest answer holding them all", async () => {
+  const items = deferred<ProjectManifest>();
+  const deadline = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(items.promise).mockReturnValueOnce(deadline.promise);
+  const { window } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    checklist.props!.onSaveDeadline(DEADLINE);
+  });
+  await act(async () => undefined);
+  expect(vi.mocked(invoke).mock.calls).toEqual([["set_submission_items", { items: [item] }]]);
+  await act(async () => {
+    items.resolve(answered("A", { submissionItems: [item] }));
+    await items.promise;
+  });
+  expect(vi.mocked(invoke).mock.calls[1]).toEqual(["set_project_deadline", { deadline: DEADLINE }]);
+  await act(async () => {
+    deadline.resolve(answered("A", { submissionItems: [item], deadline: DEADLINE }));
+    await deadline.promise;
+  });
+  expect(window.current.manifest).toMatchObject({ submissionItems: [item], deadline: DEADLINE });
+});
+
+it("never sends a write still queued when its project closed", async () => {
+  const items = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(items.promise);
+  const { open } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
+  let saved: Promise<boolean> | undefined;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    saved = checklist.props!.onSaveItems([{ ...item, status: "todo" }]);
+    checklist.props!.onSaveDeadline(DEADLINE);
+  });
+  await act(async () => undefined);
+  open("B");
+  await act(async () => {
+    items.resolve(answered("A", { submissionItems: [item] }));
+    await saved;
+  });
+  expect(await saved).toBe(false);
+  expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
+  expect(showError).not.toHaveBeenCalled();
+});
+
+it("runs item writes one after another, so an older one never lands over a newer", async () => {
+  const first = deferred<ProjectManifest>();
+  const second = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  const { window } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "todo" } as const;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    checklist.props!.onSaveItems([{ ...item, status: "confirmed" }]);
+  });
+  await act(async () => undefined);
+  expect(vi.mocked(invoke).mock.calls).toEqual([["set_submission_items", { items: [item] }]]);
+  await act(async () => {
+    first.resolve(answered("A", { submissionItems: [item] }));
+    await first.promise;
+  });
+  expect(vi.mocked(invoke).mock.calls[1]).toEqual(["set_submission_items", { items: [{ ...item, status: "confirmed" }] }]);
+  await act(async () => {
+    second.resolve(answered("A", { submissionItems: [{ ...item, status: "confirmed" }] }));
+    await second.promise;
+  });
+  expect(window.current.manifest.submissionItems).toEqual([{ ...item, status: "confirmed" }]);
 });

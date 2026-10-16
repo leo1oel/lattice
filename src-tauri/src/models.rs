@@ -47,6 +47,35 @@ pub struct ProjectManifest {
     pub deadline: Option<ProjectDeadline>,
     #[serde(default)]
     pub spelling_words: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub submission_items: Vec<SubmissionItem>,
+}
+
+/// A requirement or material the writer tracks by hand on the submission
+/// checklist, beside the automatic checks: "supplementary.pdf checked", "all
+/// authors approved". Passing every automatic check never confirms one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmissionItem {
+    pub id: String,
+    pub title: String,
+    /// "todo", "review" (done, waiting to be checked) or "confirmed".
+    pub status: String,
+    /// The project file this item is about, relative to the project root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    /// Where the requirement is written down: a call-for-papers URL or a note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// The day the requirement was last read against its source, "YYYY-MM-DD".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_checked: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    /// The linked file's mtime (ms) when the item was confirmed, so a
+    /// rebuilt PDF or a replaced supplement asks to be looked at again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmed_mtime_ms: Option<u64>,
 }
 
 /// The submission deadline the checklist counts down to. Calls for papers

@@ -4,10 +4,12 @@ import { Check, ChevronRight, ClipboardCheck, Minus } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
-import type { BodyBoundary, ProjectDeadline } from "../app-types";
+import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
 import { formatCount } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
 import { DeadlineCard } from "./deadline-card";
+import { itemCondition, itemPasses, type LinkedFileStat } from "./submission-item-state";
+import { SubmissionItems } from "./submission-items";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -31,6 +33,12 @@ export type ManuscriptChecklistData = {
   unusedCitations: number;
   buildOk: boolean | null;
   buildMessage: string;
+  /** The writer's own items, below the automatic checks. */
+  items: SubmissionItem[];
+  /** The disk state of the files those items link, by path; a path not read yet is absent. */
+  fileStats: Record<string, LinkedFileStat>;
+  /** Project files offered when linking one to an item. */
+  filePaths: string[];
 };
 
 /** A blank or non-numeric budget clears the limit. */
@@ -118,6 +126,10 @@ export function ManuscriptChecklistPanel(props: {
   onOpenTodos: () => void;
   onSaveBudgets: (wordBudget: number | null, pageBudget: number | null) => void;
   onSaveDeadline: (deadline: ProjectDeadline | null) => void;
+  /** Answers whether the list was saved. */
+  onSaveItems: (items: SubmissionItem[]) => Promise<boolean>;
+  onOpenFile: (path: string) => void;
+  onOpenSource: (url: string) => void;
 }) {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
@@ -171,13 +183,16 @@ export function ManuscriptChecklistPanel(props: {
   // The verdict reads the same results the rows show. A result that cannot be
   // settled (no budget, an unmeasured count, no build yet) never counts as a
   // pass, so "Ready" needs every check to pass, and without a failure the
-  // verdict only says that nothing blocks.
+  // verdict only says that nothing blocks. The writer's own items follow the
+  // automatic checks: one still open, or whose file went missing or changed
+  // after it was confirmed, needs attention however well the rest passes.
   const checks = [
     wordsOk,
     pagesOk,
     props.data.todos === 0,
     props.data.unusedLabels + props.data.unusedCitations === 0,
     props.data.buildOk,
+    ...props.data.items.map((item) => itemPasses(itemCondition(item, props.data.fileStats[item.file ?? ""]))),
   ];
   const failing = checks.filter((check) => check === false).length;
   const passing = checks.filter((check) => check === true).length;
@@ -253,6 +268,14 @@ export function ManuscriptChecklistPanel(props: {
             detail={props.data.buildMessage}
           />
         </div>
+        <SubmissionItems
+          items={props.data.items}
+          fileStats={props.data.fileStats}
+          filePaths={props.data.filePaths}
+          onChange={props.onSaveItems}
+          onOpenFile={props.onOpenFile}
+          onOpenSource={props.onOpenSource}
+        />
         <div className="checklist-budgets">
           {([
             ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],

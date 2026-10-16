@@ -308,6 +308,10 @@ msgstr "已用时 {clock}"
 msgid "{command} runs past a blank line"
 msgstr "{command} 的参数跨过了空行"
 
+#: src/project/submission-items.tsx
+msgid "{confirmedCount} of {total} confirmed"
+msgstr "已确认 {confirmedCount}/{total}"
+
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
 msgstr "{conflictPath} 刚被改动，未删除，请重试"
@@ -1088,6 +1092,10 @@ msgstr "另一个窗口里开着别的项目的幻灯片"
 msgid "A figure or table is {points} pt taller than the page"
 msgstr "有一个图或表比页面高 {points} pt"
 
+#: src/project/submission-items.tsx
+msgid "A file in this project"
+msgstr "本项目中的文件"
+
 #: src/build/compile-explain.ts
 msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 msgstr "这之前打开的一个分组还没有关闭。补上缺少的 {BRACE_CLOSE}。"
@@ -1301,6 +1309,14 @@ msgstr "多加光标"
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "请先补全标题、作者、年份，或填 DOI / arXiv 编号"
 
+#: src/project/submission-items.tsx
+msgid "Add an item"
+msgstr "添加一项"
+
+#: src/project/submission-items.tsx
+msgid "Add an item, e.g. supplementary.pdf checked"
+msgstr "添加一项，例如“已核对 supplementary.pdf”"
+
 #: src/project/paper-review-panel.tsx
 msgid "Add as annotation"
 msgstr "加为批注"
@@ -1332,6 +1348,10 @@ msgstr "一次只能加一条"
 #: src/papers/bib-visual-editor.tsx
 msgid "Add field"
 msgstr "添加字段"
+
+#: src/project/submission-items.tsx
+msgid "Add items from"
+msgstr "从模板添加"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Add one by DOI, arXiv ID, title, or by hand"
@@ -2479,6 +2499,10 @@ msgstr "由 Micka Touillaud 和 Sameer Singh 开发；若干界面控件改编�
 msgid "cached"
 msgstr "缓存"
 
+#: src/project/submission-items.tsx
+msgid "Call for papers URL or note"
+msgstr "征稿链接或说明"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Callout"
@@ -2524,6 +2548,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/project/submission-items.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
 msgstr "取消"
@@ -2690,6 +2715,10 @@ msgstr "本地已改"
 msgid "Changed here, untouched there"
 msgstr "本机改了，Overleaf 没动"
 
+#: src/project/submission-items.tsx
+msgid "Changed since confirmed"
+msgstr "确认后已更改"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Changed since the last check"
 msgstr "上次检查后有改动"
@@ -2780,6 +2809,14 @@ msgstr "请检查网络后重试"
 msgid "checked"
 msgstr "检查于"
 
+#: src/project/submission-items.tsx
+msgid "checked {checked}"
+msgstr "核对于 {checked}"
+
+#: src/project/submission-items.tsx
+msgid "Checked against it on"
+msgstr "核对日期"
+
 #: src/App.tsx
 msgid "Checked, comments removed, builds alone"
 msgstr "已检查、移除注释、可独立编译"
@@ -2819,6 +2856,14 @@ msgstr "正在检查…"
 #: src/trellis/trellis-titles.ts
 msgid "Checklist"
 msgstr "投稿清单"
+
+#: src/project/submission-items.tsx
+msgid "Checklist template"
+msgstr "清单模板"
+
+#: src/project/submission-items.tsx
+msgid "Checklist templates"
+msgstr "清单模板"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Checklist with checkboxes."
@@ -3446,6 +3491,14 @@ msgstr "缺少会议字体检查"
 #: src/build/tex-doctor-messages.ts
 msgid "Conference fonts"
 msgstr "会议字体"
+
+#: src/project/submission-items.tsx
+msgid "Confirm “{title}”"
+msgstr "确认“{title}”"
+
+#: src/project/submission-items.tsx
+msgid "Confirmed"
+msgstr "已确认"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Conflicting or insufficient fields"
@@ -4497,6 +4550,14 @@ msgstr "多个文献文件里有重复的标题"
 msgid "Dusk"
 msgstr "暮色"
 
+#: src/project/submission-items.tsx
+msgid "e.g. all authors"
+msgstr "例如：全体作者"
+
+#: src/project/submission-items.tsx
+msgid "e.g. Camera-ready"
+msgstr "例如：终稿"
+
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
@@ -4554,6 +4615,10 @@ msgstr "编辑文档"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
+
+#: src/project/submission-items.tsx
+msgid "Edit item"
+msgstr "编辑此项"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Edit link"
@@ -5051,6 +5116,10 @@ msgstr "图片"
 msgctxt "macOS menu bar"
 msgid "File"
 msgstr "文件"
+
+#: src/project/submission-items.tsx
+msgid "File missing"
+msgstr "文件缺失"
 
 #: src/build/compile-explain.ts
 msgid "File not found: {file}"
@@ -6362,6 +6431,10 @@ msgstr "斜体"
 msgid "Italic text"
 msgstr "斜体文本"
 
+#: src/project/submission-items.tsx
+msgid "Item"
+msgstr "事项"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
 msgstr "原文已删除，找不到对应文件"
@@ -7268,6 +7341,10 @@ msgstr "页边审阅：仅标记"
 msgid "Margin review: Off"
 msgstr "页边审阅：关闭"
 
+#: src/project/submission-items.tsx
+msgid "Mark “{title}” not confirmed"
+msgstr "将“{title}”标为未确认"
+
 #: src/history/export-changes-dialog.tsx
 msgid "Mark changes"
 msgstr "标记方式"
@@ -7313,6 +7390,14 @@ msgstr "跟随系统"
 #: src/settings/settings-search.tsx
 msgid "Matching settings"
 msgstr "匹配的设置"
+
+#: src/project/submission-items.tsx
+msgid "Material file"
+msgstr "材料文件"
+
+#: src/project/submission-items.tsx
+msgid "Materials and sign-offs"
+msgstr "材料与人工确认"
 
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -7736,6 +7821,10 @@ msgstr "新建文件"
 #: src/project/project-new-entries.ts
 msgid "New folder"
 msgstr "新建文件夹"
+
+#: src/project/submission-items.tsx
+msgid "New item"
+msgstr "新事项"
 
 #: src/project/project-new-entries.ts
 msgid "New LaTeX file"
@@ -10114,6 +10203,7 @@ msgstr "松开放大{title} · Esc 取消"
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/project/deadline-card.tsx
+#: src/project/submission-items.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -10157,6 +10247,10 @@ msgstr "删除密钥"
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "从 Overleaf 删除 1 个文件？"
+
+#: src/project/submission-items.tsx
+msgid "Remove template"
+msgstr "删除模板"
 
 #. placeholder {0}: label.comment
 #: src/overleaf/overleaf-history.tsx
@@ -10351,6 +10445,10 @@ msgstr "用数据替换网格"
 msgid "Replace in project"
 msgstr "全局替换"
 
+#: src/project/submission-items.tsx
+msgid "Replace template"
+msgstr "替换模板"
+
 #: src/editor/latex/search-panel.ts
 msgid "Replace this match"
 msgstr "替换此处"
@@ -10446,6 +10544,10 @@ msgstr "论文工具已装好"
 #: src/build/tex-setup-wizard.tsx
 msgid "Required tools installation progress"
 msgstr "所需工具安装进度"
+
+#: src/project/submission-items.tsx
+msgid "Requirement source"
+msgstr "要求来源"
 
 #: src/app/palette-sections.ts
 msgid "Research"
@@ -11035,6 +11137,14 @@ msgstr "保存"
 msgid "Save failed, so the layout was not reset."
 msgstr "保存失败，布局没重置"
 
+#: src/project/submission-items.tsx
+msgid "Save item"
+msgstr "保存此项"
+
+#: src/project/submission-items.tsx
+msgid "Save or remove a template…"
+msgstr "保存或删除模板…"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Save PDF"
 msgstr "保存 PDF"
@@ -11063,6 +11173,10 @@ msgstr "保存文件"
 msgid "Save state"
 msgstr "保存状态"
 
+#: src/project/submission-items.tsx
+msgid "Save template"
+msgstr "保存模板"
+
 #: src/app/use-reference-import.ts
 msgid "Save the open file first."
 msgstr "请先保存当前打开的文件。"
@@ -11070,6 +11184,10 @@ msgstr "请先保存当前打开的文件。"
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "请先保存再修复"
+
+#: src/project/submission-items.tsx
+msgid "Save these items as a template…"
+msgstr "将这些事项存为模板…"
 
 #: src/App.tsx
 #: src/trellis/trellis-workspace-switch.tsx
@@ -11126,6 +11244,10 @@ msgstr "Lattice 自 {since} 起在同步和编译后自动保存"
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
 msgstr "已存在这台 Mac"
+
+#: src/project/submission-items.tsx
+msgid "Saved on this Mac for your other papers: item names, files and sources, not their status."
+msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名称、文件和来源，不存状态。"
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
@@ -12011,6 +12133,10 @@ msgstr "正在打开幻灯片"
 msgid "Starting Open Slide…"
 msgstr "正在打开幻灯片…"
 
+#: src/project/submission-items.tsx
+msgid "Status"
+msgstr "状态"
+
 #. placeholder {0}: result.detail
 #: src/overleaf/overleaf-connect.tsx
 msgid "Still not connected: {0}"
@@ -12326,6 +12452,10 @@ msgstr "青色"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Technical details"
 msgstr "详细信息"
+
+#: src/project/submission-items.tsx
+msgid "Template name"
+msgstr "模板名称"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -13212,8 +13342,13 @@ msgid "To {name}"
 msgstr "到“{name}”止"
 
 #: src/editor/latex/highlighters.ts
+#: src/project/submission-items.tsx
 msgid "To check"
 msgstr "待核实"
+
+#: src/project/submission-items.tsx
+msgid "To do"
+msgstr "未完成"
 
 #. Search words for the Notification position setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -14054,6 +14189,10 @@ msgstr "在这里删除文件时"
 #: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "白色"
+
+#: src/project/submission-items.tsx
+msgid "Who"
+msgstr "负责人"
 
 #: src/editor/latex/search-panel.ts
 #: src/pdf/pdf-viewer.tsx

@@ -46,6 +46,7 @@ const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
 const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
+const SUBMISSION_TEMPLATES_KEY = "lattice.submission-templates.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
@@ -150,6 +151,38 @@ export function rememberRecentCommand(id: string): string[] {
   persistSetting(RECENT_COMMANDS_KEY, JSON.stringify(commands));
   return commands;
 }
+
+/**
+ * A list of submission checklist items the writer saved to start another
+ * paper's list from ("Camera-ready"): what each item is, not how it stands.
+ */
+export type SubmissionTemplate = {
+  name: string;
+  items: { title: string; file?: string; source?: string }[];
+};
+
+const optionalText = (value: unknown) => typeof value === "string" && value ? value : undefined;
+
+export function loadSubmissionTemplates(): SubmissionTemplate[] {
+  return safely(() => {
+    const value = JSON.parse(localStorage.getItem(SUBMISSION_TEMPLATES_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((entry: unknown) => {
+      const template = entry as Partial<Record<keyof SubmissionTemplate, unknown>> | null;
+      if (typeof template?.name !== "string" || !Array.isArray(template.items)) return [];
+      const items = template.items.flatMap((line: unknown) => {
+        const item = line as Record<string, unknown> | null;
+        return typeof item?.title === "string" && item.title
+          ? [{ title: item.title, file: optionalText(item.file), source: optionalText(item.source) }]
+          : [];
+      });
+      return [{ name: template.name, items }];
+    });
+  }, []);
+}
+
+export const saveSubmissionTemplates = (templates: SubmissionTemplate[]) =>
+  persistSetting(SUBMISSION_TEMPLATES_KEY, JSON.stringify(templates));
 
 export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
 

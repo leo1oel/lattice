@@ -29,6 +29,28 @@ export type ProjectManifest = {
   pageBudget?: number | null;
   deadline?: ProjectDeadline | null;
   spellingWords?: string[];
+  submissionItems?: SubmissionItem[];
+};
+
+/**
+ * A requirement or material the writer tracks by hand on the submission
+ * checklist ("supplementary.pdf checked", "all authors approved"); the
+ * automatic checks passing never confirms one.
+ */
+export type SubmissionItem = {
+  id: string;
+  title: string;
+  /** "review": done, waiting for someone to check it. */
+  status: "todo" | "review" | "confirmed";
+  /** The project file it is about, relative to the project root. */
+  file?: string;
+  /** Where the requirement is written down: a call-for-papers URL or a note. */
+  source?: string;
+  /** The day the requirement was last read against its source ("2027-05-01"). */
+  sourceChecked?: string;
+  owner?: string;
+  /** The linked file's mtime when the item was confirmed; the backend stamps one sent without it. */
+  confirmedMtimeMs?: number;
 };
 
 /** The submission deadline, as a wall-clock time Anywhere on Earth ("2027-05-15T23:59"). */
