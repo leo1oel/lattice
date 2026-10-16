@@ -8044,6 +8044,7 @@ msgstr "No year"
 #: src/papers/linked-library-sheet.tsx
 msgid "none"
 msgstr "none"
+
 #: src/papers/support-panel.tsx
 msgid "None is in your library yet."
 msgstr "None is in your library yet."
@@ -9673,15 +9674,15 @@ msgstr "Readiness: {0}"
 msgid "Reading"
 msgstr "Reading"
 
-#. placeholder {0}: fileName(source)
-#: src/papers/linked-library-sheet.tsx
-msgid "Reading {0}…"
-msgstr "Reading {0}…"
-
 #. placeholder {0}: formatCount(count, i18n.locale)
 #: src/papers/support-panel.tsx
 msgid "Reading {0} abstracts for this claim…"
 msgstr "Reading {0} abstracts for this claim…"
+
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading {0}…"
+msgstr "Reading {0}…"
 
 #: src/papers/support-panel.tsx
 msgid "Reading 1 abstract for this claim…"

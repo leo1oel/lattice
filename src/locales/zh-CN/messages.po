@@ -8044,6 +8044,7 @@ msgstr "未注明年份"
 #: src/papers/linked-library-sheet.tsx
 msgid "none"
 msgstr "无"
+
 #: src/papers/support-panel.tsx
 msgid "None is in your library yet."
 msgstr "都还不在你的论文库。"
@@ -9673,15 +9674,15 @@ msgstr "就绪程度：{0}"
 msgid "Reading"
 msgstr "阅读"
 
-#. placeholder {0}: fileName(source)
-#: src/papers/linked-library-sheet.tsx
-msgid "Reading {0}…"
-msgstr "正在读取 {0}…"
-
 #. placeholder {0}: formatCount(count, i18n.locale)
 #: src/papers/support-panel.tsx
 msgid "Reading {0} abstracts for this claim…"
 msgstr "正在针对这个论断阅读 {0} 篇摘要…"
+
+#. placeholder {0}: fileName(source)
+#: src/papers/linked-library-sheet.tsx
+msgid "Reading {0}…"
+msgstr "正在读取 {0}…"
 
 #: src/papers/support-panel.tsx
 msgid "Reading 1 abstract for this claim…"

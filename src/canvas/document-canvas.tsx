@@ -1028,9 +1028,30 @@ export function DocumentCanvas(props: {
     if (view && props.editorEditable) proofread.start(view, request.mode);
     onRequestHandled(request.id);
   }, [onRequestHandled, proofread, proofreadRequest, props.editorEditable]);
-  // Find support's Cite: the citation goes after the claim, found again in
+  // One-shot LaTeX edits at the insertion target's caret, each settled once
+  // applied. Find support's Cite instead goes after the claim, found again in
   // its file once that file is the one on screen (App opens it first).
   useEffect(() => {
+    const view = editorViewRef.current;
+    if (view) {
+      if (citeInsertRequest && !citeInsertRequest.at) {
+        const from = view.state.selection.main.head;
+        const insert = `\\${citeInsertRequest.command}{${citeInsertRequest.key}}`;
+        editAndFocus(view, { changes: { from, insert }, selection: { anchor: from + insert.length } });
+        onRequestHandled(citeInsertRequest.id);
+      }
+      if (envRenameRequest) {
+        const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, envRenameRequest.newName);
+        if (edits) editAndFocus(view, { changes: edits });
+        onRequestHandled(envRenameRequest.id);
+      }
+      if (wrapEnvRequest) {
+        const { from, to } = view.state.selection.main;
+        const edit = wrapEnvironment(view.state.doc.toString(), from, to, wrapEnvRequest.name);
+        editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+        onRequestHandled(wrapEnvRequest.id);
+      }
+    }
     const request = citeInsertRequest;
     const at = request?.at;
     if (!request || !at || at.path !== activeFile || props.mode === "pdf" || props.mode === "asset") return;
@@ -1051,29 +1072,10 @@ export function DocumentCanvas(props: {
       at.settled(!range ? "moved" : !editable ? "read-only" : edit ? "cited" : "already");
       onRequestHandled(request.id);
     });
-  }, [activeFile, citeInsertRequest, editorSource, onRequestHandled, props.editorEditable, props.mode]);
-  // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
-  useEffect(() => {
-    const view = editorViewRef.current;
-    if (!view) return;
-    if (citeInsertRequest && !citeInsertRequest.at) {
-      const from = view.state.selection.main.head;
-      const insert = `\\${citeInsertRequest.command}{${citeInsertRequest.key}}`;
-      editAndFocus(view, { changes: { from, insert }, selection: { anchor: from + insert.length } });
-      onRequestHandled(citeInsertRequest.id);
-    }
-    if (envRenameRequest) {
-      const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, envRenameRequest.newName);
-      if (edits) editAndFocus(view, { changes: edits });
-      onRequestHandled(envRenameRequest.id);
-    }
-    if (wrapEnvRequest) {
-      const { from, to } = view.state.selection.main;
-      const edit = wrapEnvironment(view.state.doc.toString(), from, to, wrapEnvRequest.name);
-      editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
-      onRequestHandled(wrapEnvRequest.id);
-    }
-  }, [citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, primaryScrollbarView, wrapEnvRequest]);
+  }, [
+    activeFile, citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, primaryScrollbarView,
+    props.editorEditable, props.mode, wrapEnvRequest,
+  ]);
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
