@@ -15,6 +15,7 @@
 //! lease records its owning page, and a lease whose page is gone is stale: it
 //! must never keep another project's deck from opening.
 
+use crate::ipc::run_blocking;
 use crate::sidecar::{terminate_process_group, NodeRuntime};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -632,23 +633,14 @@ fn remove_access_lease(origin: String, control_token: String, lease_id: String) 
     });
 }
 
-async fn run_blocking<T: Send + 'static>(
-    runtime: &PresentationRuntime, stage: &str,
-    work: impl FnOnce(PresentationRuntime) -> Result<T, String> + Send + 'static,
-) -> Result<T, String> {
-    let runtime = runtime.clone();
-    tauri::async_runtime::spawn_blocking(move || work(runtime))
-        .await
-        .map_err(|error| format!("Open Slide {stage} stopped unexpectedly: {error}"))?
-}
-
 #[tauri::command]
 pub async fn presentation_ensure_ready(
     app: tauri::AppHandle, window: tauri::Window, runtime: tauri::State<'_, PresentationRuntime>,
     project_root: String, page_id: String,
 ) -> Result<PresentationInfo, String> {
     let owner = LeaseOwner { window: window.label().to_string(), page: page_id };
-    run_blocking(&runtime, "startup", move |runtime| {
+    let runtime = runtime.inner().clone();
+    run_blocking("Open Slide startup", move || {
         let state = app.state::<crate::app_state::AppState>();
         // Bindings and lease roots are both canonical paths in practice;
         // canonicalizing again keeps a spelling difference from making a
@@ -661,18 +653,22 @@ pub async fn presentation_ensure_ready(
     .await
 }
 
+/// Async so it runs off the main thread: releasing waits on the supervisor
+/// lock, which `ensure` holds through a startup of up to `STARTUP_TIMEOUT`.
 #[tauri::command]
-pub fn presentation_release(
+pub async fn presentation_release(
     runtime: tauri::State<'_, PresentationRuntime>, project_root: String, lease_id: String,
 ) -> Result<(), String> {
-    runtime.release(&project_root, &lease_id)
+    let runtime = runtime.inner().clone();
+    run_blocking("Open Slide release", move || runtime.release(&project_root, &lease_id)).await
 }
 
 #[tauri::command]
 pub async fn presentation_refresh_native_workspace(
     runtime: tauri::State<'_, PresentationRuntime>, project_root: String,
 ) -> Result<(), String> {
-    run_blocking(&runtime, "refresh", move |runtime| runtime.refresh(&project_root)).await
+    let runtime = runtime.inner().clone();
+    run_blocking("Open Slide refresh", move || runtime.refresh(&project_root)).await
 }
 
 #[cfg(test)]

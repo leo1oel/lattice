@@ -3,6 +3,7 @@ use futures_util::StreamExt;
 use reqwest::{header, redirect::Policy, Client, StatusCode, Url};
 use serde::Serialize;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::sync::LazyLock;
 use std::time::Duration;
 
 const USER_AGENT: &str = "ResearchWriter-LinkPreview/1.0";
@@ -233,15 +234,19 @@ struct Extracted {
     favicon: Option<String>,
 }
 
+static TAG_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"(?is)<!--.*?-->|<script\b.*?</script\s*>|<style\b.*?</style\s*>|<template\b.*?</template\s*>|<[^>]+>").expect("valid regex")
+});
+static ATTR_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?is)([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#)
+        .expect("valid regex")
+});
+
 fn extract_metadata(html: &str) -> Extracted {
-    let tag_re = regex::Regex::new(r"(?is)<!--.*?-->|<script\b.*?</script\s*>|<style\b.*?</style\s*>|<template\b.*?</template\s*>|<[^>]+>").expect("valid regex");
-    let attr_re =
-        regex::Regex::new(r#"(?is)([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"#)
-            .expect("valid regex");
     let mut out = Extracted::default();
     let mut fallback_title = None;
     let mut fallback_description = None;
-    for found in tag_re.find_iter(html) {
+    for found in TAG_RE.find_iter(html) {
         let tag = found.as_str();
         let lower = tag.to_ascii_lowercase();
         if lower.starts_with("<title") {
@@ -254,7 +259,7 @@ fn extract_metadata(html: &str) -> Extracted {
             }
         } else if lower.starts_with("<meta") || lower.starts_with("<link") {
             let mut attrs = std::collections::HashMap::new();
-            for caps in attr_re.captures_iter(tag) {
+            for caps in ATTR_RE.captures_iter(tag) {
                 let key = caps[1].to_ascii_lowercase();
                 let value = caps
                     .get(2)

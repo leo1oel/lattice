@@ -1,7 +1,7 @@
 //! Which project each window shows, and the resources an open project owns.
 
 use crate::ipc::overleaf_realtime::OverleafRealtimeState;
-use crate::{fs_watch, latex, texlab, MAIN_WINDOW_LABEL};
+use crate::{fs_watch, git, latex, project, texlab, MAIN_WINDOW_LABEL};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -125,12 +125,17 @@ impl AppState {
     /// Forget projects no window has open, shutting down what they still hold.
     ///
     /// A mismatched request creates an entry before its project check fails, so
-    /// without this the map would keep an entry for every path ever named.
+    /// without this the map would keep an entry for every path ever named. The
+    /// per-project memos in the domain modules go too; a project opened again
+    /// rebuilds them.
     pub(crate) fn retire_unused_projects(&self) {
         let live: HashSet<PathBuf> = match self.roots.lock() {
             Ok(roots) => roots.values().cloned().collect(),
             Err(_) => return,
         };
+        project::retain_open_history(&live);
+        project::retain_open_annotation_saves(&live);
+        git::retain_open_remotes(&live);
         let mut projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
         projects.retain(|root, resources| {
             if live.contains(root) {

@@ -1,10 +1,11 @@
 //! The support bundle: bounded, redacted tails of the app and sidecar logs.
 
-use regex::{Captures, Regex};
+use regex::Regex;
 use serde::Serialize;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::LazyLock;
 use tauri::Manager;
 
 const MAX_LOG_BYTES: u64 = 128 * 1024;
@@ -27,8 +28,13 @@ struct DiagnosticLogFile {
     error: Option<String>,
 }
 
+/// Async so the log reads run on the blocking pool, not the main thread.
 #[tauri::command]
-pub fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
+pub async fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
+    crate::ipc::run_blocking("Diagnostic log collection", move || collect(&app)).await
+}
+
+fn collect(app: &tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
     let log_root = app.path().app_log_dir().map_err(|error| error.to_string())?;
     let data_root = app.path().app_data_dir().map_err(|error| error.to_string())?;
     let home = app.path().home_dir().ok();
@@ -97,10 +103,9 @@ fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String>
     Ok((String::from_utf8_lossy(&bytes[skip..]).into_owned(), truncated))
 }
 
-fn redact(input: &str, home: Option<&Path>) -> String {
-    let mut output = input.to_string();
+static SECRETS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     let keys = r"(?:[a-z0-9]+[_-])*(?:auth[_-]?token|access[_-]?token|refresh[_-]?token|shutdown[_-]?token|api[_-]?key|password)";
-    let substitutions = [
+    [
         (
             r#"(?i)(authorization["']?\s*[:=]\s*["']?(?:bearer|basic)\s+)[^\s,;"']+"#.to_string(),
             "$1[REDACTED]",
@@ -109,17 +114,19 @@ fn redact(input: &str, home: Option<&Path>) -> String {
         (format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*')[^']*(')"#), "$1[REDACTED]$2"),
         (format!(r#"(?i)(\b{keys}\s*=\s*)[^\s&;,"']+"#), "$1[REDACTED]"),
         (r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@".to_string(), "$1[REDACTED]@"),
-    ];
-    for (pattern, replacement) in substitutions {
-        output = Regex::new(&pattern).unwrap().replace_all(&output, replacement).into_owned();
+    ]
+    .into_iter()
+    .map(|(pattern, replacement)| (Regex::new(&pattern).expect("valid regex"), replacement))
+    .collect()
+});
+
+fn redact(input: &str, home: Option<&Path>) -> String {
+    let mut output = input.to_string();
+    for (pattern, replacement) in SECRETS.iter() {
+        output = pattern.replace_all(&output, *replacement).into_owned();
     }
     if let Some(home) = home.and_then(Path::to_str).filter(|home| !home.is_empty()) {
-        output = output.replace(home, "~");
-        let encoded = home.replace('/', "%2F");
-        output = Regex::new(&regex::escape(&encoded))
-            .unwrap()
-            .replace_all(&output, |_captures: &Captures<'_>| "~")
-            .into_owned();
+        output = output.replace(home, "~").replace(&home.replace('/', "%2F"), "~");
     }
     output
 }
