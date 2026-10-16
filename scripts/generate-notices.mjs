@@ -33,8 +33,9 @@
  * platform-gated optional npm packages are recorded as *declared specs* rather
  * than resolved installs, and the crates closure spans all target platforms.
  * The staged runtimes are the exception — they can only be scanned where they
- * have been staged — so when one is absent its previously generated section is
- * carried over verbatim rather than clobbered. See STAGED_RUNTIMES.
+ * have been staged — so when one is absent, or staged from inputs other than the
+ * current pin, its previously generated section is carried over verbatim rather
+ * than clobbered. See STAGED_RUNTIMES.
  */
 
 import { execFileSync } from "node:child_process";
@@ -407,6 +408,12 @@ function collectCrates() {
  * rendered per runtime rather than aggregated with npm and crates: aggregating
  * would make every section of the file depend on what happens to be staged,
  * and --check would fail for everyone building without the runtimes.
+ *
+ * A staged directory also outlives the inputs it was staged from: a recycled
+ * worktree can hold a runtime prepared weeks ago, and scanning it would make
+ * --check red on a clean main that CI passes. So each runtime names a
+ * `staleReason` that compares the stamp its prepare script leaves behind with
+ * the current pin, and a stale runtime is treated exactly like an absent one.
  */
 const STAGED_RUNTIMES = [
   {
@@ -435,6 +442,13 @@ const STAGED_RUNTIMES = [
       "> **not attributed here**. Run `pnpm prepare:synara` and then `pnpm notices` to",
       "> fill this in. Do not ship a release built from this state.",
     ],
+    // prepare-synara-sidecar.mjs records the source revision it built from,
+    // suffixed `+dirty` for a development build off an uncommitted tree.
+    staleReason: (runtimeRoot) => {
+      const staged = readJson(join(runtimeRoot, "manifest.json"))?.synaraRevision;
+      const pinned = readJson(join(projectRoot, "scripts/synara-runtime.json"))?.revision;
+      return staged === pinned ? null : `staged from ${staged ?? "an unknown revision"}, pinned ${pinned}`;
+    },
     begin: "<!-- notices:begin:sidecar -->",
     end: "<!-- notices:end:sidecar -->",
   },
@@ -454,6 +468,19 @@ const STAGED_RUNTIMES = [
       "> Run `pnpm prepare:presentation` and then `pnpm notices` to attribute the",
       "> Open Slide and Vite packages bundled with the application.",
     ],
+    // prepare-presentation-runtime.mjs installs from copies of these files, so
+    // the copies are the stamp.
+    staleReason: (runtimeRoot) => {
+      const source = join(projectRoot, "tools/open-slide-runtime");
+      const changed = ["package.json", "pnpm-lock.yaml"].filter((file) => {
+        try {
+          return !readFileSync(join(runtimeRoot, file)).equals(readFileSync(join(source, file)));
+        } catch {
+          return true;
+        }
+      });
+      return changed.length === 0 ? null : `${changed.join(" and ")} differ from tools/open-slide-runtime/`;
+    },
     begin: "<!-- notices:begin:presentation-runtime -->",
     end: "<!-- notices:end:presentation-runtime -->",
   },
@@ -462,6 +489,8 @@ const STAGED_RUNTIMES = [
 function collectStaged(runtime) {
   const packageRoot = join(projectRoot, runtime.root, runtime.packageRoot);
   if (!isFile(join(packageRoot, "package.json"))) return { ...runtime, available: false, entries: [] };
+  const stale = runtime.staleReason(join(projectRoot, runtime.root));
+  if (stale) return { ...runtime, available: false, stale, entries: [] };
 
   const entries = [];
   const seen = new Set();
@@ -1005,7 +1034,10 @@ row("npm (web assets)", npm.entries.length, " packages");
 row("crates (src-tauri)", crates.entries.length, " packages");
 for (const runtime of staged) {
   if (runtime.available) row(runtime.logLabel, runtime.entries.length, " packages");
-  else row(runtime.logLabel, "n/a", `  — ${runtime.root}/ is not staged${runtime.carriedOver ? " (previous section kept)" : ""}`);
+  else {
+    const why = runtime.stale ? ` (stale: ${runtime.stale})` : "";
+    row(runtime.logLabel, "n/a", `  — ${runtime.root}/ is not staged${why}${runtime.carriedOver ? " (previous section kept)" : ""}`);
+  }
 }
 row("total", all.length, ` packages, ${Date.now() - started} ms`);
 
