@@ -20,7 +20,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { Annotation, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
 import {
   EditorView, crosshairCursor, drawSelection, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
@@ -92,8 +92,19 @@ const hostTheme: Extension = [
   EditorView.theme({ "&": { backgroundColor: "#fff" } }, { dark: false }),
 ];
 
+/**
+ * The editor's accessible name, on its content element (the textbox). A
+ * compartment, so a new name never reconfigures the rest of the editor. A
+ * reconfigure keeps a compartment's content, a parked state's included, so
+ * only `documentLabel.reconfigure` ever changes the name a view carries.
+ */
+const documentLabel = new Compartment();
+const labelExtension = (label: string): Extension => EditorView.contentAttributes.of({ "aria-label": label });
+
 type CodeMirrorHostProps = {
   className?: string;
+  /** The textbox's accessible name: which document this is, such as "main.tex — LaTeX source". */
+  label: string;
   value: string;
   editable?: boolean;
   extensions: Extension[];
@@ -127,6 +138,8 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
    * applied its own scroll yet.
    */
   const scrollRef = useRef<StateEffect<unknown> | null>(null);
+  /** The name the live view carries. */
+  const labelRef = useRef(props.label);
 
   const buildExtensions = (extensions: Extension[], editable: boolean): Extension[] => [
     EditorView.updateListener.of((update) => {
@@ -150,6 +163,7 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
     }),
     hostTheme,
     baseSetup,
+    documentLabel.of(labelExtension(propsRef.current.label)),
     hostPhrases(),
     ...(editable ? [] : [EditorView.editable.of(false)]),
     ...extensions,
@@ -170,7 +184,11 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
       scrollTo: resumed?.scrollTo,
       parent,
     });
-    if (resumed) noteResumed(view);
+    if (resumed) {
+      noteResumed(view);
+      // Parked under the name the document had then.
+      view.dispatch({ effects: documentLabel.reconfigure(labelExtension(labelRef.current)) });
+    }
     viewRef.current = view;
     lastEmittedRef.current = value;
     onCreateEditor(view);
@@ -197,6 +215,14 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
     view.dispatch({ effects: StateEffect.reconfigure.of(buildExtensions(props.extensions, editable)) });
     // buildExtensions reads only refs; its identity churn is irrelevant here.
   }, [props.extensions, props.editable]);
+
+  // A label can change without a remount (a rename keeps the editor).
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || labelRef.current === props.label) return;
+    labelRef.current = props.label;
+    view.dispatch({ effects: documentLabel.reconfigure(labelExtension(props.label)) });
+  }, [props.label]);
 
   // Controlled-value reconciliation. Hot path: the value App passes back is
   // the very string onChange emitted — reference equality, no O(n) work.

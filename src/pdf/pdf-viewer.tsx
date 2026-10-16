@@ -70,6 +70,7 @@ import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./projec
 import { pdfSource, usePdfDocument } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { useCompositionGuard } from "../project/use-composition-guard";
 import { usePdfLocationHistory, usePdfViewState, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
 import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
@@ -113,18 +114,33 @@ function ToolbarButton({ label, shortcut, icon, ...props }: ButtonHTMLAttributes
 /**
  * A toolbar value that reads as text until focused, then edits a draft that is
  * committed on blur (Enter) or, with `cancelOnEscape`, dropped on Escape.
+ * Either key hands focus to `readingTarget` (the pages, when there are any),
+ * so the reader goes on with PageDown or Space; the Enter or Escape that ends
+ * an IME composition only ends the composition.
  */
 function useDraftInput(
   value: string,
   commit: (draft: string) => void,
-  { accept, cancelOnEscape = false }: { accept?: RegExp; cancelOnEscape?: boolean } = {},
+  { accept, cancelOnEscape = false, readingTarget }: {
+    accept?: RegExp;
+    cancelOnEscape?: boolean;
+    readingTarget: () => HTMLElement | null;
+  },
 ) {
   const [draft, setDraft] = useState<string | null>(null);
   const cancelledRef = useRef(false);
+  const { compositionProps, isComposing } = useCompositionGuard();
+  // Moving focus is what blurs the field, and so commits or drops the draft.
+  const leave = (input: HTMLInputElement) => {
+    const target = readingTarget();
+    if (target) target.focus({ preventScroll: true });
+    else input.blur();
+  };
   return {
     editing: draft !== null,
     draft: draft ?? "",
     inputProps: {
+      ...compositionProps,
       value: draft ?? value,
       onFocus: (event: FocusEvent<HTMLInputElement>) => {
         const input = event.currentTarget;
@@ -141,10 +157,11 @@ function useDraftInput(
         setDraft(null);
       },
       onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === "Enter") event.currentTarget.blur();
+        if (isComposing(event)) return;
+        if (event.key === "Enter") leave(event.currentTarget);
         if (cancelOnEscape && event.key === "Escape") {
           cancelledRef.current = true;
-          event.currentTarget.blur();
+          leave(event.currentTarget);
         }
       },
     },
@@ -454,19 +471,23 @@ export function PdfPreview({
   const pageInput = useDraftInput(String(pageNumber), (draft) => {
     const requested = Number.parseInt(draft, 10);
     if (Number.isFinite(requested)) goToPage(requested);
-  }, { accept: /^\d*$/, cancelOnEscape: true });
+  }, { accept: /^\d*$/, cancelOnEscape: true, readingTarget: getScrollViewport });
   const [overflowOpen, setOverflowOpen] = useState(false);
   // A narrow toolbar shows its zoom field only while a percentage is typed into it.
   const [zoomEntry, setZoomEntry] = useState(false);
   useEffect(() => {
     if (zoomEntry) zoomLabelRef.current?.querySelector("input")?.focus();
   }, [zoomEntry, zoomLabelRef]);
-  const matchPosition = search.matches.total ? `${search.matches.current} / ${search.matches.total}` : "0 / 0";
+  // While a changed search has no result yet, a quiet ellipsis, not the last
+  // query's count, nor a 0 / 0 that reads as a finished miss.
+  const matchPosition = search.pending ? "…"
+    : search.matches.total ? `${search.matches.current} / ${search.matches.total}` : "0 / 0";
   const searchFold = usePdfSearchFold(previewRef, Boolean(search.query), matchPosition);
   const zoomInput = useDraftInput(String(Math.round(scale * 100)), (draft) => {
     const next = parsePdfZoomPercent(draft);
     if (next !== null) applyManualScale(next);
-  });
+  }, { readingTarget: getScrollViewport });
+  const searchComposition = useCompositionGuard();
 
   const loading = Boolean(loadKey && doc.loadedKey !== loadKey);
   const loadFeedback = doc.loadFeedback?.key === loadKey ? doc.loadFeedback : null;
@@ -621,13 +642,22 @@ export function PdfPreview({
               value={query}
               placeholder={t`Find in PDF`}
               onChange={(event) => search.setQuery(event.target.value)}
+              {...searchComposition.compositionProps}
               onKeyDown={(event) => {
+                // The Enter or Escape that accepts or dismisses an IME candidate is the IME's.
+                if (searchComposition.isComposing(event)) return;
                 if (event.key === "Enter" && query) {
                   event.preventDefault();
                   search.find(query, event.shiftKey, true);
                 } else if (event.key === "Escape" && query) {
                   event.preventDefault();
                   search.setQuery("");
+                } else if (event.key === "Escape") {
+                  // A second Escape, on the emptied field, goes back to reading.
+                  const pages = getScrollViewport();
+                  if (!pages) return;
+                  event.preventDefault();
+                  pages.focus({ preventScroll: true });
                 }
               }}
               // A stand-in is mounted (and hidden) before the first character, so the
@@ -640,8 +670,9 @@ export function PdfPreview({
                   <ToolbarButton label={t`Whole word`} icon={<WholeWord size={12} />}
                     className="pdf-search-option" aria-pressed={search.wholeWord} onMouseDown={keepFocus}
                     onClick={() => search.setWholeWord((enabled) => !enabled)} />
+                  {/* The ellipsis is not announced: the polite region speaks again with the result. */}
                   <small className="pdf-search-position" aria-live="polite">
-                    {matchPosition}
+                    {search.pending ? <span aria-hidden="true">{matchPosition}</span> : matchPosition}
                   </small>
                   <ToolbarButton label={t`Previous search result`} icon={<ChevronUp size={12} />}
                     disabled={!matches.total} onClick={() => search.find(query, true, true)} />

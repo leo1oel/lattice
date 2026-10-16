@@ -4,7 +4,15 @@ import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 import type { PdfFindMatches } from "./use-pdf-document";
 import type { ActiveViewerRef } from "./use-pdf-view";
 
-const NO_MATCHES: PdfFindMatches = { current: 0, total: 0 };
+/** Matches, with the search they answer (searchKey); "" for none. */
+type SearchMatches = PdfFindMatches & { search: string };
+
+const NO_MATCHES: SearchMatches = { current: 0, total: 0, search: "" };
+
+/** One search: the viewer showing it, the query and its options. */
+function searchKey(generation: number, query: string, matchCase: boolean, wholeWord: boolean) {
+  return `${generation}:${Number(matchCase)}${Number(wholeWord)}:${query}`;
+}
 
 /**
  * PDFSlick find-bar state, plus Command/Ctrl-F while the PDF surface is the
@@ -26,14 +34,20 @@ export function usePdfSearch(
   // the closed query's count, after the toolbar has already reset to 0 / 0;
   // only results of a search still in progress may reach the toolbar.
   const searchingRef = useRef(false);
+  // The search PDF.js is answering, stamped on each result it reports. PDF.js
+  // waits a moment before matching a new query and reports nothing meanwhile,
+  // so until a result carries the search on screen, the last count belongs to
+  // another query (or options, or document) and the search reads as pending.
+  const searchRef = useRef("");
   const onFindMatches = useCallback((next: PdfFindMatches) => {
-    if (searchingRef.current) setMatches(next);
+    if (searchingRef.current) setMatches({ ...next, search: searchRef.current });
   }, []);
 
   const find = useCallback((text: string, findPrevious = false, again = false) => {
     const slick = recordRef.current?.slick;
     if (!slick) return;
     searchingRef.current = Boolean(text.trim());
+    searchRef.current = searchKey(generation, text, matchCase, wholeWord);
     if (!searchingRef.current) {
       slick.dispatch("findbarclose", { source: slick });
       setMatches(NO_MATCHES);
@@ -49,7 +63,7 @@ export function usePdfSearch(
       findPrevious,
       matchDiacritics: false,
     });
-  }, [matchCase, recordRef, wholeWord]);
+  }, [generation, matchCase, recordRef, wholeWord]);
 
   useEffect(() => {
     const preview = previewRef.current;
@@ -96,5 +110,10 @@ export function usePdfSearch(
     if (generation > 0) find(query);
   }, [find, generation, query]);
 
-  return { query, setQuery, matchCase, setMatchCase, wholeWord, setWholeWord, matches, onFindMatches, find };
+  const pending = generation > 0 && Boolean(query.trim())
+    && matches.search !== searchKey(generation, query, matchCase, wholeWord);
+  return {
+    query, setQuery, matchCase, setMatchCase, wholeWord, setWholeWord,
+    matches: pending ? NO_MATCHES : matches, pending, onFindMatches, find,
+  };
 }
