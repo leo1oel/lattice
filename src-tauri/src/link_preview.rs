@@ -83,7 +83,11 @@ async fn client_for(url: &Url) -> Result<Client, ()> {
     if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(());
     }
-    crate::http::async_builder().redirect(Policy::none()).resolve(host, addresses[0]).build().map_err(|_| ())
+    crate::http::async_builder()
+        .redirect(Policy::none())
+        .resolve(host, addresses[0])
+        .build()
+        .map_err(|_| ())
 }
 
 fn is_public_ip(ip: IpAddr) -> bool {

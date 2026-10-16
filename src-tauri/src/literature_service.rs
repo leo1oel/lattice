@@ -114,7 +114,11 @@ mod tests {
             ("https://api.openalex.org/works?search=paper", false),
             ("http://127.0.0.1:12345/works", true),
         ] {
-            let request = request(&crate::http::blocking_builder().build().unwrap(), url, None, public).unwrap().build().unwrap();
+            let request =
+                request(&crate::http::blocking_builder().build().unwrap(), url, None, public)
+                    .unwrap()
+                    .build()
+                    .unwrap();
             assert_eq!(request.url().as_str(), url);
             assert_eq!(request.method(), reqwest::Method::GET);
         }
