@@ -688,7 +688,7 @@ function App() {
   // the canvas has applied it the file is saved and built again. A token that
   // is no longer on its line changes nothing, and the build reports what is.
   const pendingReplaceRef = useRef<string | null>(null);
-  const replaceDiagnosticToken = useCallback(async (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
+  const replaceDiagnosticToken = async (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
     const line = diagnostic.line;
     if (!project || !line) return;
     const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
@@ -698,15 +698,18 @@ function App() {
       pendingReplaceRef.current = id;
       updateCanvasRequest("replace", { path, line, token, replacement, id });
     });
-  }, [activeFile, openFile, project, updateCanvasRequest]);
-  const settleCanvasRequest = useCallback((id: string) => {
-    settleRequest(id);
-    if (id !== pendingReplaceRef.current) return;
-    pendingReplaceRef.current = null;
-    void (async () => {
-      if (flush() && await save()) await compileRef.current();
-    })();
-  }, [flush, save, settleRequest]);
+  };
+  // Stable, as the canvas's request effects depend on it.
+  const { settleCanvasRequest } = useStableHandlers({
+    settleCanvasRequest: (id: string) => {
+      settleRequest(id);
+      if (id !== pendingReplaceRef.current) return;
+      pendingReplaceRef.current = null;
+      void (async () => {
+        if (flush() && await save()) await compileRef.current();
+      })();
+    },
+  });
 
   const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({

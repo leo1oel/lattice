@@ -10,6 +10,7 @@ Firecrawl
 Google Scholar
 HTML
 LaTeX
+Lattice
 MCP
 name@example.org
 OpenAlex

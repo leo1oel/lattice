@@ -1,12 +1,11 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { version } from "../../package.json";
 import type { ReleaseNotes } from "../app/whats-new";
 
 // The What's new sheet shows these in the interface language, and
 // bump-version.mjs writes the Chinese empty for the maintainer to fill.
-const files = readdirSync("src/release-notes").filter((name) => name.endsWith(".json"));
-const notes = files.map((name) => [name, JSON.parse(readFileSync(`src/release-notes/${name}`, "utf8")) as ReleaseNotes] as const);
+const notes = Object.entries(import.meta.glob<ReleaseNotes>("./*.json", { eager: true, import: "default" }))
+  .map(([path, release]) => [path.slice(2), release] as const);
 
 describe("bundled release notes", () => {
   it.each(notes)("%s names its own version, a date, and Chinese for every text", (name, release) => {
