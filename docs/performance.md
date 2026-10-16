@@ -213,7 +213,8 @@ several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
 were cleared from `pdf-viewer.tsx`, the since-removed `visual-markdown-editor.tsx`,
 and `document-canvas.tsx`'s hooks. Its replacement,
 `editor/markdown/engine/lattice-visual-editor.tsx`, is pinned at 0 bailouts.
-Since October 2026 `App.tsx` and `DocumentCanvas` compile whole too. Its last reports were
+Since October 2026 `DocumentCanvas` compiles whole (item 3 below) and so does
+`App.tsx`, whose last reports were
 preserved-memo failures; the callbacks whose identity effects and children
 depend on (the build-tracking reset whose cleanup cancels a queued build,
 builds, Settings, the canvas's request settle) became one `useStableHandlers`
@@ -269,8 +270,8 @@ comment in `vitest.config.ts` for how the test suite now catches them.
   (about 370 ms in Chromium and 430 ms in WebKit for 2 MB). Caching the read
   by text, or reading in a worker, is what remains.
 - `App.tsx` state extraction — in progress rather than unscheduled; its current
-  size and extraction status live in `docs/codebase-map.md` §6. Still open: `DocumentCanvas` memoization
-  — `App.tsx` hands it ten domain models (`src/canvas/canvas-model.ts`) instead
+  size and extraction status live in `docs/codebase-map.md` §6. Still open: what `DocumentCanvas`
+  re-renders on — `App.tsx` hands it ten domain models (`src/canvas/canvas-model.ts`) instead
   of a flat prop list, but the models still carry every field, so the call site
   and its inline lambdas are unchanged in substance.
 - Split-mode publication: replace whole-document `setContent` with
