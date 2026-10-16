@@ -279,6 +279,7 @@ fn log_level(setting: Option<&str>) -> log::LevelFilter {
 pub fn run() {
     let context = tauri::generate_context!();
     app_identity::init(&context.config().identifier);
+    http::install_tls_provider();
     process_inspector::run_if_requested();
     if agent_literature::run_cli() {
         return;

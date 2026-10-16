@@ -55,7 +55,14 @@ regex = "1"
 # user behind one signed in fine and then watched Lattice's own call to the
 # same host fail with "error sending request". Loopback callers that must not
 # be proxied (the Synara health check) say `.no_proxy()` themselves.
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "multipart", "stream", "system-proxy"] }
+# 0.13 is the version tauri-plugin-updater compiles in, so there is one HTTP/TLS
+# stack. `rustls-no-provider` reuses the updater's `ring` provider instead of
+# compiling aws-lc-rs as a second one; http::install_tls_provider installs it
+# before any client is built, because without one reqwest panics. Server
+# certificates are checked against the macOS trust store (rustls-platform-
+# verifier), as the updater and the Overleaf login WKWebView already do.
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "query", "rustls-no-provider", "multipart", "stream", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
 walkdir = "2"
