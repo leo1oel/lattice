@@ -1170,9 +1170,6 @@ function answer(command: string, args: Args): unknown {
       return citationUsages();
     case "list_citations":
       return tutorialCitations();
-    case "plugin:dialog|save":
-      if (!params.get("responses")) throw new Error(`${command} is not part of the performance bench.`);
-      return `/Users/writer/Desktop/${(args?.options as { defaultPath?: string } | undefined)?.defaultPath ?? "untitled"}`;
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":
