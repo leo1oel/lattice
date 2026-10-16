@@ -23,6 +23,8 @@ async function templateTask(work: () => Promise<void>, failed: (reason: unknown)
   try { await work(); } catch (reason) { failed(reason); } finally { finished(); }
 }
 
+const templateLabel = (item: LocalTemplate) => [item.name, item.version].filter(Boolean).join(" · ");
+
 export function LocalTemplates({ selected, onSelect, currentProject = false }: {
   selected: ProjectVenue; onSelect: (value: ProjectVenue) => void; currentProject?: boolean;
 }) {
@@ -42,8 +44,8 @@ export function LocalTemplates({ selected, onSelect, currentProject = false }: {
     <section className="local-templates" aria-label={t`My templates`}>
       <span>{t`My templates`}</span>
       {items.length > 0 && <Select value={active?.id ?? ""} onValueChange={(id) => onSelect(`local:${id}`)}>
-        <SelectTrigger aria-label={t`My templates`} title={active?.name}><SelectValue placeholder={t`Choose a saved template`} /></SelectTrigger>
-        <SelectContent position="popper" className="local-template-options">{items.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
+        <SelectTrigger aria-label={t`My templates`} title={active && templateLabel(active)}><SelectValue placeholder={t`Choose a saved template`} /></SelectTrigger>
+        <SelectContent position="popper" className="local-template-options">{items.map((item) => <SelectItem key={item.id} value={item.id}>{templateLabel(item)}</SelectItem>)}</SelectContent>
       </Select>}
       {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(" · ")}</small>}
       {active && <details><summary>{t`Files`}</summary><ul className="template-saved-files">{active.files.map((file) => <li key={file}>{file}</li>)}</ul></details>}
@@ -114,7 +116,7 @@ function SaveTemplateDialog({ currentProject, onClose, onSaved }: {
         </select></label>
         <label>{t`Preview image (optional)`}<select className="ui-input" value={draft.preview ?? ""} onChange={(e) => update({ preview: e.target.value || null })}>
           <option value="">{t`None`}</option>
-          {draft.files.filter((file) => /\.(png|jpe?g|pdf|svg)$/.test(file)).map((file) => <option key={file} value={file}>{file}</option>)}
+          {draft.files.filter((file) => /\.(png|jpe?g|pdf|svg)$/i.test(file)).map((file) => <option key={file} value={file}>{file}</option>)}
         </select></label>
         <span>{t`Select files to copy`}</span>
         <div className="template-file-list">

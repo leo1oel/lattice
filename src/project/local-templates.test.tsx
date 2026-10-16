@@ -52,3 +52,21 @@ it("keeps a failed save reviewable and leaves selection unchanged", async () => 
   expect(onSelect).not.toHaveBeenCalled();
   expect(api.open).toHaveBeenCalledWith(expect.objectContaining({ directory: false, filters: [{ name: "ZIP archive", extensions: ["zip"] }] }));
 });
+
+it("labels saved versions and offers uppercase preview images", async () => {
+  api.invoke.mockImplementation(async (command) => {
+    if (command === "list_local_templates") return [
+      { id: "a", name: "Lab template", sourceUrl: "", version: "2025", files: ["main.tex"], root: "main.tex", engine: "pdf", preview: null },
+      { id: "b", name: "Lab template", sourceUrl: "", version: "2026", files: ["main.tex"], root: "main.tex", engine: "pdf", preview: null },
+    ];
+    if (command === "inspect_template_source") return { ...source, files: ["main.tex", "figures/Preview.PNG"] };
+    throw new Error(command);
+  });
+  render(<LocalTemplates selected="local:b" onSelect={vi.fn()} />);
+  expect(await screen.findByRole("combobox", { name: "My templates" })).toHaveTextContent("Lab template · 2026");
+  fireEvent.click(screen.getByRole("button", { name: "Save a local template…" }));
+  fireEvent.click(screen.getByRole("button", { name: "From folder" }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: "figures/Preview.PNG" }));
+  fireEvent.change(screen.getByLabelText("Preview image (optional)"), { target: { value: "figures/Preview.PNG" } });
+  expect(screen.getByLabelText("Preview image (optional)")).toHaveValue("figures/Preview.PNG");
+});

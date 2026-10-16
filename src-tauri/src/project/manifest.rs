@@ -349,7 +349,7 @@ pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<String> {
 
 /// A `\documentclass` on any line, ignoring what follows an unescaped `%` so a
 /// commented-out preamble in a chapter file does not turn it into a root.
-fn declares_document_class(content: &str) -> bool {
+pub(super) fn declares_document_class(content: &str) -> bool {
     content.lines().any(|line| line.split('%').next().unwrap_or("").contains("\\documentclass"))
 }
 

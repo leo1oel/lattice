@@ -248,12 +248,19 @@ pub fn instantiate(
         manifest.page_budget = None;
         manifest.engine = item.engine;
         manifest.keep_engine = true;
-        manifest.primary_bibliography =
-            item.files.iter().find(|file| file.ends_with(".bib")).cloned().unwrap_or_default();
+        if let Some(bib) = item.files.iter().find(|file| file.ends_with(".bib")) {
+            manifest.primary_bibliography = bib.clone();
+        }
         manifest.root_documents = item
             .files
             .iter()
-            .filter(|file| file.ends_with(".tex"))
+            .filter(|file| {
+                **file == item.root
+                    || (file.ends_with(".tex")
+                        && manifest::declares_document_class(&String::from_utf8_lossy(
+                            &files[*file],
+                        )))
+            })
             .map(|file| RootDocument {
                 path: file.clone(),
                 name: file.clone(),
@@ -284,6 +291,7 @@ mod tests {
             files: vec![
                 "主稿.tex".into(),
                 "appendix.tex".into(),
+                "poster.tex".into(),
                 "figures/图.png".into(),
                 "school.cls".into(),
             ],
@@ -300,6 +308,7 @@ mod tests {
         for (path, body) in [
             ("主稿.tex", "\\documentclass{school}\n中文标题"),
             ("appendix.tex", "附录"),
+            ("poster.tex", "% draft\n\\documentclass{article}"),
             ("school.cls", "style"),
             ("figures/图.png", "image"),
             ("old.tex", "private draft"),
@@ -311,7 +320,7 @@ mod tests {
             fixture.write(&format!("source/{path}"), body);
         }
         let preview = inspect(&source).unwrap();
-        assert_eq!(preview.files.len(), 5);
+        assert_eq!(preview.files.len(), 6);
         let store = fixture.path("templates");
         let saved = save(&store, &source, template()).unwrap();
         assert_eq!(list(&store).unwrap()[0].name, "实验室模板");
@@ -324,7 +333,10 @@ mod tests {
         assert!(!first.trusted);
         assert_eq!(first.engine, "xelatex");
         assert!(first.keep_engine);
-        assert_eq!(first.root_documents.len(), 2);
+        let roots: Vec<_> = first.root_documents.iter().map(|r| r.path.as_str()).collect();
+        assert_eq!(roots, ["主稿.tex", "poster.tex"]);
+        assert!(a.join("appendix.tex").is_file());
+        assert_eq!(first.primary_bibliography, "references.bib");
         assert_eq!(first.root_documents.iter().find(|r| r.is_default).unwrap().path, "主稿.tex");
         assert!(first.page_budget.is_none());
         assert!(!a.join("old.tex").exists());
