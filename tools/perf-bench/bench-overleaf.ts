@@ -10,7 +10,8 @@
  * 45-character names and an unbroken URL in a comment, for width checks.
  * `?overleaf=expired` keeps the link but has Overleaf turn the stored session
  * away, the state Settings offers to reconnect from; `expired-long` gives the
- * account a 45-character address.
+ * account a 45-character address. `?overleaf=offline` links it but never
+ * reaches the live channel, as with the network down.
  * The comments are in the page's language (`?lang=`).
  */
 export const NOT_HANDLED = Symbol("not handled");
@@ -162,7 +163,7 @@ function presence() {
 
 export function overleafAnswer(command: string, args: Record<string, unknown> | undefined, context: Context): unknown {
   const mode = context.params.get("overleaf") ?? "";
-  if (!["review", "long", "expired", "expired-long"].includes(mode)) return NOT_HANDLED;
+  if (!["review", "long", "expired", "expired-long", "offline"].includes(mode)) return NOT_HANDLED;
   const entities = DOCS.map((doc) => ({ ...doc, kind: "doc" }));
   switch (command) {
     case "overleaf_status": {
@@ -178,6 +179,7 @@ export function overleafAnswer(command: string, args: Record<string, unknown> | 
     case "overleaf_probe":
       return { changed: false, localChanged: false, versionKnown: true, remoteVersion: 143, lastSync: new Date(Date.now() - 4 * MINUTE).toISOString() };
     case "overleaf_rt_connect":
+      if (mode === "offline") throw new Error("The network connection was lost.");
       // The channel names our connection and the tree once it is up, which seeds presence.
       setTimeout(() => {
         const projectRoot = context.root();

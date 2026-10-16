@@ -24,12 +24,16 @@ export type NativeMenuLabels = {
   paste: string;
   selectAll: string;
   view: string;
+  zoomIn: string;
+  zoomOut: string;
+  actualSize: string;
   fullscreen: string;
   window: string;
   minimize: string;
   zoom: string;
   closeWindow: string;
   help: string;
+  whatsNew: string;
   /** View → Margin review, while this window shows a linked Overleaf project's source; its choice is this window's. */
   marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
@@ -57,12 +61,16 @@ export function nativeMenuLabels(): NativeMenuLabels {
     paste: i18n._(msg({ context: "macOS menu bar", message: "Paste" })),
     selectAll: i18n._(msg({ context: "macOS menu bar", message: "Select All" })),
     view: i18n._(msg({ context: "macOS menu bar", message: "View" })),
+    zoomIn: i18n._(msg({ context: "macOS menu bar", message: "Bigger" })),
+    zoomOut: i18n._(msg({ context: "macOS menu bar", message: "Smaller" })),
+    actualSize: i18n._(msg({ context: "macOS menu bar", message: "Actual Size" })),
     fullscreen: i18n._(msg({ context: "macOS menu bar", message: "Enter Full Screen" })),
     window: i18n._(msg({ context: "macOS menu bar", message: "Window" })),
     minimize: i18n._(msg({ context: "macOS menu bar", message: "Minimize" })),
     zoom: i18n._(msg({ context: "macOS menu bar", message: "Zoom" })),
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
+    whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),
     ...marginReviewAvailable() ? {
       marginReview: {
         title: i18n._(msg({ context: "macOS menu bar", message: "Margin Review" })),

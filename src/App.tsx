@@ -69,6 +69,12 @@ import { useLoadingShell } from "./app/use-loading-shell";
 import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
+import { saveSourceCopy } from "./app/save-source-copy";
+import { InterfaceZoomHud as InterfaceZoomPill } from "./app/interface-zoom-hud";
+import { useInterfaceZoom } from "./app/use-interface-zoom";
+import { useWhatsNew } from "./app/use-whats-new";
+import { RUNNING_VERSION } from "./app/whats-new";
+import { overleafSaveState, type SaveSlot } from "./canvas/save-slot";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
@@ -108,6 +114,7 @@ import { registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsh
 import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
 import {
   EMPTY_DIAGNOSTICS,
+  diagnosticMatchesFile,
   flattenProjectPaths,
   resolveDiagnosticPath,
   type CompileDiagnostic,
@@ -178,6 +185,8 @@ const ConflictResolverDialog = lazy(() =>
 // Memoized: their callbacks come through stable forwarders (useStableHandlers
 // in App), so an editor keystroke does not re-render the file tree or the paper library.
 const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
+// Memoized: its props are stable, and App re-renders on every keystroke.
+const InterfaceZoomHud = memo(InterfaceZoomPill);
 /** Papers' read state while the window's paper list is still another project's. */
 const PAPERS_LOADING = { status: "loading" } as const;
 const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
@@ -198,6 +207,7 @@ const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.defa
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
+const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
@@ -255,7 +265,7 @@ function App() {
   ) => Promise<void>>(async () => undefined);
   const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const canvasRequests = useCanvasRequests();
-  const { update: updateCanvasRequest } = canvasRequests;
+  const { update: updateCanvasRequest, settle: settleRequest } = canvasRequests;
   // Speculative preview work skips the open document, so it is set up after
   // the store; every open cancels it through this forwarder.
   const cancelPrewarmRef = useRef(() => {});
@@ -414,6 +424,8 @@ function App() {
   }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
+  const interfaceZoom = useInterfaceZoom(setAppearance);
+  const whatsNew = useWhatsNew();
   // Where Settings returns focus if not to what held it as Settings opened
   // (the project menu's trigger, when Settings is opened from that menu), the
   // row it opens on when the palette found one, and whether a section was
@@ -673,6 +685,33 @@ function App() {
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
   }, [openCompileDiagnostic]);
+  // A failed build's suggested fix (compile-explain.ts): the replacement lands
+  // in the editor as a transaction, so ⌘Z takes it back like typing, and once
+  // the canvas has applied it the file is saved and built again. A token that
+  // is no longer on its line changes nothing, and the build reports what is.
+  const pendingReplaceRef = useRef<string | null>(null);
+  const replaceDiagnosticToken = async (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
+    const line = diagnostic.line;
+    if (!project || !line) return;
+    const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
+    await showingErrors(async () => {
+      await openFile(path, { line });
+      const id = crypto.randomUUID();
+      pendingReplaceRef.current = id;
+      updateCanvasRequest("replace", { path, line, token, replacement, id });
+    });
+  };
+  // Stable, as the canvas's request effects depend on it.
+  const { settleCanvasRequest } = useStableHandlers({
+    settleCanvasRequest: (id: string) => {
+      settleRequest(id);
+      if (id !== pendingReplaceRef.current) return;
+      pendingReplaceRef.current = null;
+      void (async () => {
+        if (flush() && await save()) await compileRef.current();
+      })();
+    },
+  });
 
   const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({
@@ -1343,6 +1382,24 @@ function App() {
     if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
     else void runOverleafSync();
   };
+  // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
+  const overleafSaveLayerState = overleafLink ? overleafSaveState({
+    paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
+    channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile, detail: overleafRealtime.detail,
+  }) : null;
+  const overleafLastSync = overleafLink?.lastSync ?? null;
+  const saveSlotHandlers = useStableHandlers({
+    onRetry: () => void documents.save(),
+    onSaveCopy: () => void saveSourceCopy(activeFile, sourceRef.current),
+    onSync: syncOverleaf,
+  });
+  // Memoized, as App re-renders on every keystroke and the slot is a popover.
+  const saveStatus = documents.saveStatus;
+  const saveSlot = useMemo<SaveSlot>(() => ({
+    status: saveStatus,
+    overleaf: overleafSaveLayerState ? { state: overleafSaveLayerState, lastSync: overleafLastSync } : null,
+    ...saveSlotHandlers,
+  }), [overleafLastSync, overleafSaveLayerState, saveSlotHandlers, saveStatus]);
   const editorSelected = agentContext.selectionSource === "editor" && agentContext.selection.trim() !== "";
   /** ⌘K (or ⌘⇧P) opens the palette, and closes it again. */
   const openCommandPalette = () => {
@@ -1527,6 +1584,7 @@ function App() {
     { id: "margin-review-markers", when: inProject && overleafLink !== null, label: t`Margin review: Markers only`, detail: t`full-width text, cards on demand`, group: "view", run: () => setMarginReviewMode("markers") },
     { id: "margin-review-off", when: inProject && overleafLink !== null, label: t`Margin review: Off`, group: "view", run: () => setMarginReviewMode("off") },
     { id: "margin-review-here", when: inProject && overleafLink !== null, label: t`Review here`, detail: t`the comment or suggestion by the caret`, group: "view", run: requestMarginReviewHere },
+    { id: "whats-new", label: t`What’s new in Lattice`, detail: RUNNING_VERSION, group: "project", run: () => whatsNew.setOpen(true) },
     {
       id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject(),
       detail: t`Learn Lattice with the Understanding Attention sample project`,
@@ -1544,6 +1602,11 @@ function App() {
       label: { light: t`Use the light theme`, dark: t`Use the dark theme`, system: t`Match the system theme` }[preference],
       run: () => setThemePreference(preference),
     })),
+    // The interface size, as every Mac app binds it; ⌘= is ⌘+ without Shift.
+    { id: "interface-bigger", label: t`Larger interface`, group: "appearance", key: "+", shift: true, run: () => interfaceZoom.zoom("in") },
+    { id: "interface-bigger-unshifted", key: "=", palette: false, run: () => interfaceZoom.zoom("in") },
+    { id: "interface-smaller", label: t`Smaller interface`, group: "appearance", key: "-", run: () => interfaceZoom.zoom("out") },
+    { id: "interface-actual-size", label: t`Reset interface size`, group: "appearance", key: "0", run: () => interfaceZoom.zoom("reset") },
     { id: "settings", label: t`Open settings`, group: "project", key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
@@ -1671,6 +1734,21 @@ function App() {
     },
   });
 
+  // Shown over the welcome screen and a project alike.
+  const appOverlays = (
+    <>
+      <InterfaceZoomHud scale={appearance.interfaceScale} revealKey={interfaceZoom.revealKey} onChange={interfaceZoom.zoom} />
+      {whatsNew.open && (
+        <Suspense fallback={null}>
+          <WhatsNewDialog
+            open
+            onClose={() => whatsNew.setOpen(false)}
+            onOpenUrl={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
+          />
+        </Suspense>
+      )}
+    </>
+  );
   if (!project) {
     return (
       <>
@@ -1702,6 +1780,7 @@ function App() {
         {overleafPicker}
         {overleafReview}
         <TexSetupDialogs setup={texSetup} />
+        {appOverlays}
       </>
     );
   }
@@ -1794,6 +1873,9 @@ function App() {
               synara.showThread(threadId);
             }}
             onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
+            sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
+            onReplaceToken={(diagnostic, token, replacement) => void replaceDiagnosticToken(diagnostic, token, replacement)}
+            onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
           />
         </Suspense>
       ) : null}
@@ -1822,7 +1904,7 @@ function App() {
       nativeFigureDropActive={tree.drops.editor}
       fileDropTargetActive={tree.drops.fileTarget}
       requests={canvasRequests.requests}
-      onRequestHandled={canvasRequests.settle}
+      onRequestHandled={settleCanvasRequest}
       onEditorPosition={handleEditorPosition}
       onCompletionActiveChange={documents.canvas.onCompletionActiveChange}
       onViewState={(path, state) => rememberFileViewState(path, { text: state })}
@@ -1902,6 +1984,7 @@ function App() {
       // Papers live under .research/, which Overleaf deliberately
       // excludes from sync.
       editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
+      saveSlot={saveSlot}
       editorKey={editorKey}
       trellis={{
         editorHost: trellis.hosts.editor,
@@ -2178,6 +2261,7 @@ function App() {
         unusedSymbols={unusedSymbols}
       />
 
+      {appOverlays}
       <AppSearchDialogs
         open={searchDialog}
         setOpen={setSearchDialog}
@@ -2192,6 +2276,7 @@ function App() {
         openProjectAsset={openAsset}
         openProjectFile={openFile}
         prewarmLikelyProjectFile={prewarmLikelyProjectFile}
+        recentPaths={documents.recentPaths}
         insertReference={insertCitation}
         goToLine={(line) => {
           if (activeFile) requestEditorLine(activeFile, line);

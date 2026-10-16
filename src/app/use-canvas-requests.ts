@@ -10,13 +10,13 @@ export type UpdateCanvasRequest = <K extends keyof CanvasRequests>(
 /**
  * The one-shot requests App hands the canvas (jump to a line, put a view
  * back, insert a citation or figure, rename or wrap an environment, proofread
- * the selection). Each
+ * the selection, apply a build error's fix). Each
  * kind holds at most one pending request, which the canvas settles by id once
  * it has answered it.
  */
 export function useCanvasRequests() {
   const [requests, setRequests] = useState<CanvasRequests>({
-    navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, proofread: null,
+    navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, proofread: null, replace: null,
   });
   const update = useCallback<UpdateCanvasRequest>((kind, update) => setRequests((current) => {
     const next = typeof update === "function" ? update(current[kind]) : update;

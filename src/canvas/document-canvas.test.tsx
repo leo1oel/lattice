@@ -156,7 +156,7 @@ function setSleepingDecks(paths: readonly string[]) {
 
 /** The canvas request bundle with only `pending` set. */
 function pending(requests: Partial<CanvasProps["requests"]> = {}): CanvasProps["requests"] {
-  return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, proofread: null, ...requests };
+  return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, proofread: null, replace: null, ...requests };
 }
 
 function baseProps(): CanvasProps {
@@ -311,6 +311,15 @@ describe("DocumentCanvas / mode", () => {
       vi.useRealTimers();
       center.mockRestore();
     }
+  });
+
+  it("applies a failed build's suggested fix on its line as an undoable edit", async () => {
+    const { props, rerenderWith } = renderCanvas({ source: "first\n\\cite{a} \\cietp{b}\nlast\n" });
+    const view = await primarySourceView();
+    rerenderWith({ requests: pending({ replace: { path: "main.tex", line: 2, token: "\\cietp", replacement: "\\citep", id: "fix" } }) });
+    await vi.waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("fix"));
+    expect(view.state.doc.toString()).toBe("first\n\\cite{a} \\citep{b}\nlast\n");
+    expect(view.state.selection.main.head).toBe("first\n\\cite{a} \\citep".length);
   });
 
   it.each([

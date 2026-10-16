@@ -17,10 +17,11 @@ node scripts/bump-version.mjs patch     # or: minor | major | 0.3.0
 The script only edits files — it does not commit or tag. It bumps the version in
 lockstep across `package.json`, `src-tauri/tauri.conf.json`,
 `src-tauri/Cargo.toml`, and the `research-writer` entry in
-`src-tauri/Cargo.lock`, then prints the exact next commands:
+`src-tauri/Cargo.lock` (and writes the What's new notes, below), then prints
+the exact next commands:
 
 ```bash
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock src/release-notes/X.Y.Z.json
 git commit -m "Release vX.Y.Z"
 git tag vX.Y.Z
 git push origin main
@@ -63,6 +64,13 @@ rotation warning below — goes in `.github/release-notes/vX.Y.Z.md`, committed
 with the version bump. The workflow puts that file above the generated list, so
 the lead is reviewed with the bump instead of being edited into a published
 Release. It is per-release and optional, not a running changelog.
+
+The same lead feeds the app's What's new sheet. Write it before running
+`bump-version.mjs`, which then writes `src/release-notes/X.Y.Z.json` from its
+highlights and fixes (`scripts/release-notes.mjs`) with the Chinese left
+empty; fill in every `zh` before the release commit
+(`src/release-notes/release-notes.test.ts` fails on an empty one). A release
+without a lead keeps showing the last one that had one.
 
 ## What `release.yml` does
 

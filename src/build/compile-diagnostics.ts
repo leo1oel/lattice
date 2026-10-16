@@ -171,3 +171,21 @@ export function failedLogAnchor(log: string): number {
   const error = /^(?:! |[^\s:][^:\n]*:\d+: )/m.exec(log) ?? /^.*\b(?:LaTeX|Package \S+) Error\b/m.exec(log);
   return error ? error.index : log.length;
 }
+
+/** Where `token` stands on `text`; a command only where it ends (`\cite` is not the start of `\citep`). */
+export function tokenOffset(text: string, token: string): number {
+  let at = text.indexOf(token);
+  if (!/^\\[A-Za-z@]+$/.test(token)) return at;
+  while (at >= 0 && /[A-Za-z@]/.test(text[at + token.length] ?? "")) at = text.indexOf(token, at + 1);
+  return at;
+}
+
+/** The replacement a suggestion makes on `line` of `text`, or null when the token is no longer there. */
+export function replaceTokenOnLine(text: string, line: number, token: string, replacement: string): { from: number; to: number; insert: string } | null {
+  const lines = text.split("\n");
+  if (line < 1 || line > lines.length) return null;
+  const at = tokenOffset(lines[line - 1]!, token);
+  if (at < 0) return null;
+  const from = lines.slice(0, line - 1).reduce((offset, previous) => offset + previous.length + 1, 0) + at;
+  return { from, to: from + token.length, insert: replacement };
+}

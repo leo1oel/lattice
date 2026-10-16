@@ -1,5 +1,5 @@
 //! Saving a file the writer exports (the compiled PDF, an Excel workbook, an
-//! Agent visual's HTML) to
+//! Agent visual's HTML, a copy of a file that could not be saved in place) to
 //! the path they chose. A path without an extension gains the format's own,
 //! any other extension is refused, and the bytes must be that format.
 
@@ -93,6 +93,40 @@ pub fn save(path: &Path, bytes: &[u8], format: &Format) -> Result<String, String
     Ok(destination.to_string_lossy().to_string())
 }
 
+/// The names a copy of an open file may take: the text the editor saves,
+/// never something that runs.
+const TEXT_COPY_EXTENSIONS: [&str; 12] =
+    ["tex", "bib", "md", "txt", "sty", "cls", "bst", "bbx", "cbx", "ltx", "csv", "tsv"];
+const MAX_TEXT_COPY_BYTES: usize = 64 * 1024 * 1024;
+
+/// A copy of the open file the writer could not save in place (a full disk, a
+/// project folder that went away), written where they chose. UTF-8 text only,
+/// under a text file's name; a name without an extension becomes `.txt`.
+pub fn save_text_copy(path: &Path, bytes: &[u8]) -> Result<String, String> {
+    if path.as_os_str().is_empty() {
+        return Err("Choose where to save the copy.".to_string());
+    }
+    let destination = match path.extension().and_then(|extension| extension.to_str()) {
+        None => path.with_extension("txt"),
+        Some(extension)
+            if TEXT_COPY_EXTENSIONS.iter().any(|known| known.eq_ignore_ascii_case(extension)) =>
+        {
+            path.to_path_buf()
+        }
+        Some(_) => {
+            return Err(
+                "A copy must keep a text file's extension, such as .tex or .txt.".to_string()
+            )
+        }
+    };
+    if bytes.len() > MAX_TEXT_COPY_BYTES {
+        return Err("The text is too large to save as a copy.".to_string());
+    }
+    std::str::from_utf8(bytes).map_err(|_| "The copy is not UTF-8 text.".to_string())?;
+    fs::write(&destination, bytes).map_err(|error| error.to_string())?;
+    Ok(destination.to_string_lossy().to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +170,20 @@ mod tests {
         assert!(save(&directory.join("other.csv"), &bytes, &XLSX).is_err());
         assert!(save(&directory.join("other.xlsx"), b"PK not a workbook", &XLSX).is_err());
         assert!(!directory.join("other.xlsx").exists());
+    }
+
+    #[test]
+    fn saves_a_text_copy_only_under_a_text_name() {
+        let directory = TempDir::new("text-copy");
+        let text = "\\section{Intro}\n".as_bytes();
+        let destination = save_text_copy(&directory.join("main.tex"), text).unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), text);
+        let bare = save_text_copy(&directory.join("notes"), text).unwrap();
+        assert_eq!(Path::new(&bare).extension().unwrap(), "txt");
+
+        assert!(save_text_copy(&directory.join("run.sh"), text).is_err());
+        assert!(save_text_copy(&directory.join("other.tex"), &[0xff, 0xfe]).is_err());
+        assert!(!directory.join("run.sh").exists());
+        assert!(!directory.join("other.tex").exists());
     }
 }

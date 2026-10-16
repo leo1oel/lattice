@@ -30,6 +30,8 @@ import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import { SelectRow, SliderRow } from "./settings-controls";
+import { SegmentedControl } from "../components/ui/segmented-control";
+import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
 import { ThemeSettingsGroup } from "./theme-settings";
 import type { WindowBacking } from "./use-appearance";
@@ -381,6 +383,19 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           options={{ system: t`Match system`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
+        <SettingsRow
+          data-setting="interface-size"
+          label={t`Interface size`}
+          description={t`Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets.`}
+        >
+          <SegmentedControl
+            ariaLabel={t`Interface size`}
+            className="interface-size-control"
+            value={String(nearestInterfaceStep(props.appearance.interfaceScale))}
+            onChange={(value) => patchAppearance(props, { interfaceScale: Number(value) })}
+            items={INTERFACE_SCALE_STEPS.map((step) => ({ value: String(step), label: interfaceScalePercent(step) }))}
+          />
+        </SettingsRow>
         <SliderRow
           id="editor-font-size"
           data-setting="editor-font-size"

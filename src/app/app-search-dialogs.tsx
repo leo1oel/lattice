@@ -40,6 +40,8 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
   /** Insert `\cite{key}` or `\ref{key}` at the editor caret. */
   insertReference: (key: string, command: "cite" | "ref") => void;
   goToLine: (line: number) => void;
+  /** The files visited this session, newest first (quick open's Recent). */
+  recentPaths: () => string[];
 }) {
   const { t } = useLingui();
   const close = () => setOpen(null);
@@ -66,6 +68,15 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       };
     }),
   ];
+  const goToSymbol = (item: SearchPickerItem) => {
+    if (item.id.startsWith("section:")) {
+      const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
+      if (node) void openProjectFile(node.path || activeFile, { line: node.line });
+      return;
+    }
+    const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
+    if (reference) void openProjectFile(reference.path, { line: reference.line });
+  };
   const insertPickers = [
     {
       command: "cite", title: t`Insert citation`, placeholder: t({ message: "Insert \\cite{…}" }),
@@ -93,12 +104,17 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       <QuickOpenDialog
         open={open === "quick-open"}
         paths={open === "quick-open" ? collectFilePaths(props.files, (node) => Boolean(node.path)) : []}
+        recent={open === "quick-open" ? props.recentPaths() : []}
+        current={activeFile}
+        symbols={symbolItems}
         onClose={close}
         onIntent={props.prewarmLikelyProjectFile}
-        onOpen={closeThen((path) => {
+        onOpen={closeThen((path: string, line?: number) => {
           if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
-          else void openProjectFile(path);
+          else void openProjectFile(path, line ? { line } : undefined);
         })}
+        onSymbol={closeThen(goToSymbol)}
+        onLine={closeThen(props.goToLine)}
       />
       <SearchPickerDialog
         open={open === "goto-symbol"}
@@ -106,15 +122,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         placeholder={t`Go to section or label…`}
         items={open === "goto-symbol" ? symbolItems() : []}
         onClose={close}
-        onSelect={closeThen((item) => {
-          if (item.id.startsWith("section:")) {
-            const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
-            if (node) void openProjectFile(node.path || activeFile, { line: node.line });
-            return;
-          }
-          const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
-          if (reference) void openProjectFile(reference.path, { line: reference.line });
-        })}
+        onSelect={closeThen(goToSymbol)}
       />
       {insertPickers.map((picker) => (
         <SearchPickerDialog

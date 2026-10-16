@@ -180,3 +180,47 @@ describe("build output layout", () => {
   });
 });
 
+
+describe("explained build errors", () => {
+  afterEach(cleanup);
+
+  const source = "\\begin{document}\nSee \\citep{a} and \\citep{b}.\nNeural systems \\cietp{luong2015effective}.\n\\end{document}";
+  const log = "./main.tex:3: Undefined control sequence.\nl.3 Neural systems \\cietp\n               {luong2015effective}.";
+  const typo = { level: "error", message: "Undefined control sequence.", file: "main.tex", line: 3 };
+  const citation = { level: "warning", message: "Citation `luong2015effective' on page 1 undefined on input line 3." };
+
+  it("says what went wrong in plain words, with the line, a fix and TeX's own words", () => {
+    const onReplaceToken = vi.fn();
+    const onAskAgent = vi.fn();
+    render(<CompileDiagnosticsPanel {...props} expanded log={log} diagnostics={[typo, citation]}
+      sourceOf={(file) => (file === "main.tex" ? source : null)} onReplaceToken={onReplaceToken} onAskAgent={onAskAgent} />);
+    screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" });
+    expect(document.querySelector(".compile-excerpt-line[data-failing] mark")?.textContent).toBe("\\cietp");
+    screen.getByText("LaTeX doesn’t know \\cietp. It looks like a typo for \\citep, which this paper uses 2 times.");
+    screen.getByText("TeX: Undefined control sequence.");
+    fireEvent.click(screen.getByRole("button", { name: /Replace with/ }));
+    expect(onReplaceToken).toHaveBeenCalledWith(typo, "\\cietp", "\\citep");
+    fireEvent.click(screen.getByRole("button", { name: "Ask the agent" }));
+    expect(onAskAgent).toHaveBeenCalledWith(typo);
+    // The warning keeps one row, rewritten, in a different shape from the error.
+    const warning = screen.getByRole("button", { name: "Build log No entry for luong2015effective" });
+    expect(warning.getAttribute("title")).toContain("may clear once the error above is fixed");
+    expect(warning.querySelector("svg")?.getAttribute("class")).toContain("triangle-alert");
+    expect(screen.getByRole("button", { name: /Unknown command/ }).querySelector("svg")?.getAttribute("class")).toContain("circle-x");
+  });
+
+  it("explains two errors on one line each by its own command", () => {
+    const both = "./main.tex:3: Undefined control sequence.\nl.3 Neural systems \\cietp\n               {a} and \\reff{b}.\n"
+      + "./main.tex:3: Undefined control sequence.\nl.3 Neural systems \\cietp{a} and \\reff\n                         {b}.";
+    render(<CompileDiagnosticsPanel {...props} expanded log={both} diagnostics={[typo, { ...typo }]}
+      sourceOf={() => source.replace("\\cietp{luong2015effective}", "\\cietp{a} and \\reff{b}")} onReplaceToken={vi.fn()} />);
+    screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" });
+    screen.getByRole("button", { name: "main.tex:3 Unknown command \\reff" });
+  });
+
+  it("keeps TeX's words where the log does not say which command it stopped at", () => {
+    render(<CompileDiagnosticsPanel {...props} expanded log="Build output" diagnostics={[typo]} sourceOf={() => source} onReplaceToken={vi.fn()} />);
+    screen.getByRole("button", { name: "main.tex:3 Undefined control sequence." });
+    expect(screen.queryByRole("button", { name: /Replace with/ })).toBeNull();
+  });
+});

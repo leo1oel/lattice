@@ -21,6 +21,11 @@ msgstr " et al."
 msgid ", "
 msgstr ", "
 
+#. Ends the sentence listing a release's highlights
+#: src/app/whats-new.ts
+msgid "."
+msgstr "."
+
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
@@ -266,6 +271,10 @@ msgstr "{author} suggests deleting text"
 msgid "{author} suggests inserting text"
 msgstr "{author} suggests inserting text"
 
+#: src/build/compile-explain.ts
+msgid "{begin} is closed by {end}"
+msgstr "{begin} is closed by {end}"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -273,6 +282,10 @@ msgstr "{changeSummary} · {conflictSummary}"
 #: src/project/paper-review-panel.tsx
 msgid "{clock} elapsed"
 msgstr "{clock} elapsed"
+
+#: src/build/compile-explain.ts
+msgid "{command} runs past a blank line"
+msgstr "{command} runs past a blank line"
 
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
@@ -435,6 +448,10 @@ msgstr "{failed} not found"
 msgid "{failing} checks need attention"
 msgstr "{failing} checks need attention"
 
+#: src/canvas/status-save-state.tsx
+msgid "{file} · saves a second after you stop typing"
+msgstr "{file} · saves a second after you stop typing"
+
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -538,6 +555,10 @@ msgstr "{name} copy"
 #: src/trellis/trellis-workspace.tsx
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
+
+#: src/build/compile-explain.ts
+msgid "{name} is loaded twice with different options"
+msgstr "{name} is loaded twice with different options"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
@@ -724,6 +745,10 @@ msgstr "{when} your time · {zone}"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
+#: src/build/compile-explain.ts
+msgid "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
+msgstr "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
+
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
 msgid "% comment"
@@ -907,6 +932,14 @@ msgstr "1 word remaining"
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 
+#: src/build/compile-explain.ts
+msgid "A {BRACE_CLOSE} with no {BRACE_OPEN} before it"
+msgstr "A {BRACE_CLOSE} with no {BRACE_OPEN} before it"
+
+#: src/build/compile-explain.ts
+msgid "A {BRACE_OPEN} is never closed"
+msgstr "A {BRACE_OPEN} is never closed"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
@@ -914,6 +947,22 @@ msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
+
+#: src/build/compile-explain.ts
+msgid "A figure or table is {points} pt taller than the page"
+msgstr "A figure or table is {points} pt taller than the page"
+
+#: src/build/compile-explain.ts
+msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
+msgstr "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
+
+#: src/build/compile-explain.ts
+msgid "A length without a unit"
+msgstr "A length without a unit"
+
+#: src/build/compile-explain.ts
+msgid "A line runs {points} pt into the margin"
+msgstr "A line runs {points} pt into the margin"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
@@ -926,6 +975,10 @@ msgstr "A one-minute tour of this sample paper. Seven stops, each with something
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
+
+#: src/build/compile-explain.ts
+msgid "A preamble command inside the document"
+msgstr "A preamble command inside the document"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1055,6 +1108,11 @@ msgstr "Activity"
 msgctxt "history tab"
 msgid "Activity"
 msgstr "Activity"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Actual Size"
+msgstr "Actual Size"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
@@ -1358,6 +1416,10 @@ msgstr "All {total} references verified"
 msgid "All colours"
 msgstr "All colours"
 
+#: src/project/quick-open-dialog.tsx
+msgid "All files"
+msgstr "All files"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "All Functions…"
@@ -1432,6 +1494,10 @@ msgstr "Alt text"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Amalgamation"
 msgstr "Amalgamation"
+
+#: src/build/compile-explain.ts
+msgid "An & outside a table"
+msgstr "An & outside a table"
 
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
@@ -1549,6 +1615,10 @@ msgstr "Another compile repair is already starting for this project. Wait for it
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/build/compile-explain.ts
+msgid "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
+msgstr "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Another paper is being added"
@@ -1709,6 +1779,14 @@ msgstr "Ask it to explain, revise or check the paper. It works inside your proje
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask only for potentially unsafe actions"
 msgstr "Ask only for potentially unsafe actions"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Ask the agent"
+msgstr "Ask the agent"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Ask the agent to fix this error, then recompile"
+msgstr "Ask the agent to fix this error, then recompile"
 
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
@@ -1920,6 +1998,11 @@ msgstr "Big triangle down"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle up"
 msgstr "Big triangle up"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Bigger"
+msgstr "Bigger"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-review.tsx
@@ -2840,6 +2923,14 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your changes once you sync"
+msgstr "Co-authors see your changes once you sync"
+
+#: src/canvas/status-save-state.tsx
+msgid "Co-authors see your edits as you type"
+msgstr "Co-authors see your edits as you type"
+
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Code block"
 msgstr "Code block"
@@ -2921,6 +3012,10 @@ msgstr "command"
 #: src/app/command-palette.tsx
 msgid "Command palette"
 msgstr "Command palette"
+
+#: src/build/compile-explain.ts
+msgid "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
+msgstr "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
 
 #: src/canvas/editor-status-bar.tsx
 msgid "comment"
@@ -3475,6 +3570,10 @@ msgstr "Couldn’t reopen “{unopenedName}”: {unopenedReason}"
 msgid "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 msgstr "Couldn’t reopen “{unopenedName}”. Its folder may have been moved or renamed"
 
+#: src/canvas/status-save-state.tsx
+msgid "Couldn’t save"
+msgstr "Couldn’t save"
+
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
@@ -3523,6 +3622,10 @@ msgstr "Crossref citation-health metadata is currently unavailable"
 #: src/project/citation-health.ts
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref reports update type: {updateType}"
+
+#: src/project/quick-open-dialog.tsx
+msgid "Current"
+msgstr "Current"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Current BibTeX"
@@ -3922,6 +4025,7 @@ msgstr "DOI metadata corrections are available."
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
+#: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
@@ -4365,6 +4469,10 @@ msgstr "environment"
 msgid "environments"
 msgstr "environments"
 
+#: src/build/compile-explain.ts
+msgid "Environments close in the reverse order they open. The {opened} environment from line {line} needs its {missing} before this one."
+msgstr "Environments close in the reverse order they open. The {opened} environment from line {line} needs its {missing} before this one."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Epsilon"
 msgstr "Epsilon"
@@ -4584,6 +4692,10 @@ msgctxt "macOS menu bar"
 msgid "File"
 msgstr "File"
 
+#: src/build/compile-explain.ts
+msgid "File not found: {file}"
+msgstr "File not found: {file}"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "File order"
 msgstr "File order"
@@ -4778,6 +4890,10 @@ msgstr "Fix anything left, then save"
 msgid "Fix it in the source and the list comes back."
 msgstr "Fix it in the source and the list comes back."
 
+#: src/app/whats-new-dialog.tsx
+msgid "Fixed"
+msgstr "Fixed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Fixes to review"
 msgstr "Fixes to review"
@@ -4930,6 +5046,10 @@ msgstr "full paper"
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
 
+#: src/app/whats-new-dialog.tsx
+msgid "Full release notes"
+msgstr "Full release notes"
+
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Full text"
@@ -5041,7 +5161,9 @@ msgid "Go to line (⌘G)"
 msgstr "Go to line (⌘G)"
 
 #. placeholder {0}: node.line
+#. placeholder {0}: row.line
 #: src/canvas/document-outline.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Go to line {0}"
 msgstr "Go to line {0}"
 
@@ -5116,6 +5238,10 @@ msgstr "Grid of rows and columns with a header row."
 #: src/project/paper-library.tsx
 msgid "Group"
 msgstr "Group"
+
+#: src/build/compile-explain.ts
+msgid "Group a nested script in braces: write {grouped} rather than {flat}."
+msgstr "Group a nested script in braces: write {grouped} rather than {flat}."
 
 #: src/project/paper-library.tsx
 msgid "Group by"
@@ -5767,6 +5893,11 @@ msgstr "Interface language"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+msgid "Interface size"
+msgstr "Interface size"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
 
@@ -5998,6 +6129,11 @@ msgstr "Language"
 msgid "Larger fraction"
 msgstr "Larger fraction"
 
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Larger interface"
+msgstr "Larger interface"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
 msgstr "Last build"
@@ -6005,6 +6141,10 @@ msgstr "Last build"
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
 msgstr "Last checked"
+
+#: src/canvas/status-save-state.tsx
+msgid "Last synced"
+msgstr "Last synced"
 
 #. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
@@ -6034,6 +6174,26 @@ msgstr "LaTeX commands"
 #: src/app/use-build-pipeline.ts
 msgid "LaTeX compilation failed."
 msgstr "LaTeX compilation failed."
+
+#: src/build/compile-explain.ts
+msgid "LaTeX couldn’t break this line inside the text width. Rephrasing it, or allowing a hyphen in a long word, usually fixes it."
+msgstr "LaTeX couldn’t break this line inside the text width. Rephrasing it, or allowing a hyphen in a long word, usually fixes it."
+
+#: src/build/compile-explain.ts
+msgid "LaTeX doesn’t know {token}. Check its spelling, or load the package that defines it."
+msgstr "LaTeX doesn’t know {token}. Check its spelling, or load the package that defines it."
+
+#: src/build/compile-explain.ts
+msgid "LaTeX doesn’t know {token}. It looks like a typo for {name}, which this paper uses {uses} times."
+msgstr "LaTeX doesn’t know {token}. It looks like a typo for {name}, which this paper uses {uses} times."
+
+#: src/build/compile-explain.ts
+msgid "LaTeX doesn’t know {token}. It looks like a typo for {name}."
+msgstr "LaTeX doesn’t know {token}. It looks like a typo for {name}."
+
+#: src/build/compile-explain.ts
+msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
+msgstr "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 
 #: src/app/use-tex-setup.ts
 msgid "LaTeX is ready to build"
@@ -6071,6 +6231,10 @@ msgstr "latexmk stopped before LaTeX ran because {file} failed. The Log tab show
 msgid "latexmk version"
 msgstr "latexmk version"
 
+#: src/app/whats-new.ts
+msgid "Lattice"
+msgstr "Lattice"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -6103,6 +6267,10 @@ msgstr "Lattice couldn’t open this window"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
+
+#: src/canvas/status-save-state.tsx
+msgid "Lattice couldn’t write {file}"
+msgstr "Lattice couldn’t write {file}"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
@@ -6216,6 +6384,10 @@ msgstr "Left-right double arrow / iff"
 msgid "Lemma"
 msgstr "Lemma"
 
+#: src/build/compile-explain.ts
+msgid "Lengths need a unit: write 0.5\\linewidth, 2em or 10pt rather than a bare number."
+msgstr "Lengths need a unit: write 0.5\\linewidth, 2em or 10pt rather than a bare number."
+
 #: src/project/deadline-card.tsx
 msgid "Less than a minute left"
 msgstr "Less than a minute left"
@@ -6281,6 +6453,7 @@ msgid "Limit 1 word"
 msgstr "Limit 1 word"
 
 #: src/editor/goto-line-dialog.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Line"
 msgstr "Line"
 
@@ -6368,6 +6541,10 @@ msgstr "Literature"
 #: src/settings/settings-search-index.ts
 msgid "Literature services"
 msgstr "Literature services"
+
+#: src/canvas/status-save-state.tsx
+msgid "Live"
+msgstr "Live"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live · click to sync"
@@ -6678,6 +6855,10 @@ msgstr "Math"
 msgid "Math array"
 msgstr "Math array"
 
+#: src/build/compile-explain.ts
+msgid "Math outside math mode"
+msgstr "Math outside math mode"
+
 #: src/editor/latex/math-preview.tsx
 msgid "Math preview"
 msgstr "Math preview"
@@ -6892,6 +7073,7 @@ msgid "Most cited here"
 msgstr "Most cited here"
 
 #: src/app/command-palette.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Move"
 msgstr "Move"
 
@@ -7131,6 +7313,10 @@ msgstr "New workspace"
 msgid "New…"
 msgstr "New…"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Newer release"
+msgstr "Newer release"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Newest first"
@@ -7204,6 +7390,14 @@ msgstr "No annotations yet. Select text in the editor or the PDF and click Annot
 msgid "No answer from {0}"
 msgstr "No answer from {0}"
 
+#: src/build/compile-explain.ts
+msgid "No bibliography entry has the key {key} yet. A build that stops at an error never reads the bibliography, so this may clear once the error above is fixed."
+msgstr "No bibliography entry has the key {key} yet. A build that stops at an error never reads the bibliography, so this may clear once the error above is fixed."
+
+#: src/build/compile-explain.ts
+msgid "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
+msgstr "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
@@ -7244,6 +7438,10 @@ msgstr "No differences. You can close this window"
 msgid "No document open"
 msgstr "No document open"
 
+#: src/build/compile-explain.ts
+msgid "No entry for {key}"
+msgstr "No entry for {key}"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "No file changes recorded for this update"
@@ -7275,6 +7473,10 @@ msgstr "No indent for this paragraph"
 #: src/papers/bibliography-audit.tsx
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
 msgstr "No independent metadata was available to verify a possible record. The reference may still be valid."
+
+#: src/build/compile-explain.ts
+msgid "No label {label}"
+msgstr "No label {label}"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "No license declared"
@@ -7355,6 +7557,10 @@ msgstr "No matching settings"
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet"
 msgstr "No messages yet"
+
+#: src/app/whats-new-dialog.tsx
+msgid "No notes came with this version."
+msgstr "No notes came with this version."
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -7579,6 +7785,7 @@ msgstr "Not now"
 msgid "Not ready"
 msgstr "Not ready"
 
+#: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
@@ -7590,6 +7797,10 @@ msgstr "Not verified"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "not written"
 msgstr "not written"
+
+#: src/canvas/status-save-state.tsx
+msgid "Not yet"
+msgstr "Not yet"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
@@ -7623,6 +7834,14 @@ msgstr "Nothing here"
 #: src/app/use-project-tree.ts
 msgid "Nothing imported"
 msgstr "Nothing imported"
+
+#: src/build/compile-explain.ts
+msgid "Nothing in the paper has {command}. Check the spelling, or add the label where the reference should point."
+msgstr "Nothing in the paper has {command}. Check the spelling, or add the label where the reference should point."
+
+#: src/build/compile-explain.ts
+msgid "Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document."
+msgstr "Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
@@ -7731,6 +7950,10 @@ msgstr "Official verification incomplete"
 msgid "OK"
 msgstr "OK"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Older release"
+msgstr "Older release"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
 msgstr "Omega"
@@ -7748,6 +7971,10 @@ msgctxt "margin review"
 msgid "On screen"
 msgstr "On screen"
 
+#: src/canvas/status-save-state.tsx
+msgid "On this Mac"
+msgstr "On this Mac"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "One record matches"
 msgstr "One record matches"
@@ -7759,6 +7986,10 @@ msgstr "One record matches. Check it is the one you mean."
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
 msgstr "Only binary files would change; line-by-line review is unavailable"
+
+#: src/build/compile-explain.ts
+msgid "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it."
+msgstr "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it."
 
 #: src/settings/theme-settings.tsx
 msgid "Only in the Lattice window on macOS"
@@ -7774,6 +8005,7 @@ msgstr "only the editor"
 
 #: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Open"
 msgstr "Open"
 
@@ -8102,6 +8334,7 @@ msgid "Outline"
 msgstr "Outline"
 
 #: src/app/palette-sections.ts
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -9110,6 +9343,7 @@ msgid "Rebuttal"
 msgstr "Rebuttal"
 
 #: src/App.tsx
+#: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
 
@@ -9243,6 +9477,10 @@ msgstr "Rejected"
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
+
+#: src/app/whats-new-dialog.tsx
+msgid "Release"
+msgstr "Release"
 
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus"
@@ -9454,6 +9692,10 @@ msgstr "Replace “{deleted}” with “{inserted}”"
 msgid "Replace {replacementCount}"
 msgstr "Replace {replacementCount}"
 
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Replace {token} with {suggestion} on line {line}, then build"
+msgstr "Replace {token} with {suggestion} on line {line}, then build"
+
 #: src/editor/latex/search-panel.ts
 #: src/project/project-replace-dialog.tsx
 msgid "Replace all"
@@ -9488,6 +9730,10 @@ msgstr "Replace with"
 #: src/editor/harper-spellcheck.ts
 msgid "Replace with “{replacement}”"
 msgstr "Replace with “{replacement}”"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Replace with <0>{suggestion}</0>"
+msgstr "Replace with <0>{suggestion}</0>"
 
 #: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
@@ -9575,6 +9821,14 @@ msgstr "Research"
 #: src/project/project-dialogs.tsx
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
+
+#: src/app/interface-zoom-hud.tsx
+msgid "Reset"
+msgstr "Reset"
+
+#: src/App.tsx
+msgid "Reset interface size"
+msgstr "Reset interface size"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -9806,6 +10060,10 @@ msgstr "Resume"
 msgid "Resume syncing"
 msgstr "Resume syncing"
 
+#: src/canvas/status-save-state.tsx
+msgid "Resume the link in Overleaf settings to sync again"
+msgstr "Resume the link in Overleaf settings to sync again"
+
 #: src/project/citation-health.ts
 msgid "Retracted"
 msgstr "Retracted"
@@ -10031,6 +10289,10 @@ msgstr "Run-in paragraph heading"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Running now"
+msgstr "Running now"
+
 #: src/settings/acknowledged-software.ts
 msgid "Runs the agent runtime"
 msgstr "Runs the agent runtime"
@@ -10054,6 +10316,7 @@ msgstr "Saturation {0}%, brightness {1}%"
 msgid "Saturation and brightness"
 msgstr "Saturation and brightness"
 
+#: src/app/save-source-copy.ts
 #: src/app/use-open-documents.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -10063,6 +10326,18 @@ msgstr "Saturation and brightness"
 #: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "Save"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy"
+msgstr "Save a copy"
+
+#: src/app/save-source-copy.ts
+msgid "Save a copy of {name}"
+msgstr "Save a copy of {name}"
+
+#: src/canvas/status-save-state.tsx
+msgid "Save a copy…"
+msgstr "Save a copy…"
 
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
@@ -10128,6 +10403,10 @@ msgstr "Save pending edits before updating references."
 msgid "Save resolved file"
 msgstr "Save resolved file"
 
+#: src/canvas/status-save-state.tsx
+msgid "Save state"
+msgstr "Save state"
+
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
@@ -10150,13 +10429,34 @@ msgstr "Save visual"
 msgid "Save visual as HTML"
 msgstr "Save visual as HTML"
 
+#: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
 
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Synced"
+msgstr "Saved · Synced"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved · Syncing…"
+msgstr "Saved · Syncing…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved {age}"
+msgstr "Saved {age}"
+
+#: src/app/save-source-copy.ts
+msgid "Saved a copy to {written}"
+msgstr "Saved a copy to {written}"
+
 #: src/history/versions-timeline.tsx
 msgid "Saved by Lattice after syncs and builds since {since}"
 msgstr "Saved by Lattice after syncs and builds since {since}"
+
+#: src/canvas/status-save-state.tsx
+msgid "Saved on this Mac"
+msgstr "Saved on this Mac"
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
@@ -10175,10 +10475,20 @@ msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
 
+#: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Saving…"
 msgstr "Saving…"
+
+#: src/build/compile-explain.ts
+msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
+msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
+msgstr "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
@@ -10314,6 +10624,14 @@ msgstr "Section"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Section sign"
 msgstr "Section sign"
+
+#: src/project/quick-open-dialog.tsx
+msgid "Sections and labels"
+msgstr "Sections and labels"
+
+#: src/app/whats-new.ts
+msgid "See what’s new"
+msgstr "See what’s new"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx
@@ -10705,6 +11023,16 @@ msgstr "Small capitals"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Small section heading."
 msgstr "Small section heading."
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Smaller"
+msgstr "Smaller"
+
+#: src/App.tsx
+#: src/app/interface-zoom-hud.tsx
+msgid "Smaller interface"
+msgstr "Smaller interface"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Smile relation"
@@ -11139,15 +11467,27 @@ msgstr "Sync behavior"
 msgid "Sync mode"
 msgstr "Sync mode"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync now"
+msgstr "Sync now"
+
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "Sync only when you click the sync button"
 
+#: src/canvas/status-save-state.tsx
+msgid "Sync paused"
+msgstr "Sync paused"
+
 #: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
+
+#: src/canvas/status-save-state.tsx
+msgid "Synced {synced}"
+msgstr "Synced {synced}"
 
 #: src/project/paper-library.tsx
 msgid "Syncing references…"
@@ -11161,6 +11501,10 @@ msgstr "Syncing with “{0}” is paused"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Syncing with Overleaf…"
 msgstr "Syncing with Overleaf…"
+
+#: src/canvas/status-save-state.tsx
+msgid "Syncing…"
+msgstr "Syncing…"
 
 #: src/build/tex-doctor-messages.ts
 msgid "SyncTeX bidirectional search"
@@ -11257,6 +11601,11 @@ msgstr "TeX Live’s package manager could not install the package."
 msgid "TeX Live’s package manager needs an update, and the update did not finish."
 msgstr "TeX Live’s package manager needs an update, and the update did not finish."
 
+#. placeholder {0}: diagnostic.message
+#: src/build/compile-diagnostics-panel.tsx
+msgid "TeX: {0}"
+msgstr "TeX: {0}"
+
 #: src/build/tex-doctor-messages.ts
 msgid "TeXcount body word counts (optional status bar)"
 msgstr "TeXcount body word counts (optional status bar)"
@@ -11273,6 +11622,10 @@ msgstr "Text"
 #: src/canvas/editor-status-bar.tsx
 msgid "Text {text} · headings {headers} · captions {captions}"
 msgstr "Text {text} · headings {headers} · captions {captions}"
+
+#: src/build/compile-explain.ts
+msgid "Text before {BEGIN_DOCUMENT}"
+msgstr "Text before {BEGIN_DOCUMENT}"
 
 #: src/app/shortcut-groups.ts
 msgid "Text editing"
@@ -11383,6 +11736,14 @@ msgstr "The annotated passage changed or moved, so its proposal cannot be placed
 #: src/app/annotation-rounds.ts
 msgid "The annotated text changed or moved. Select it again and annotate it to ask about it."
 msgstr "The annotated text changed or moved. Select it again and annotate it to ask about it."
+
+#: src/build/compile-explain.ts
+msgid "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends."
+msgstr "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends."
+
+#: src/build/compile-explain.ts
+msgid "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
+msgstr "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
 
 #: src/App.tsx
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
@@ -11501,6 +11862,10 @@ msgstr "The interface framework"
 #: src/settings/literature-settings.tsx
 msgid "The key works. Testing doesn’t save it"
 msgstr "The key works. Testing doesn’t save it"
+
+#: src/build/compile-explain.ts
+msgid "The label {label} is used twice"
+msgstr "The label {label} is used twice"
 
 #: src/telemetry/app-log.tsx
 msgid "The last 300 entries"
@@ -11848,6 +12213,14 @@ msgstr "This is not a native Open Slide deck."
 msgid "This is the earliest version"
 msgstr "This is the earliest version"
 
+#: src/build/compile-explain.ts
+msgid "This line closes a group that was never opened, or leaves math mode with a {BRACE_CLOSE} before its $. Remove the extra {BRACE_CLOSE}, or add the {BRACE_OPEN} it closes."
+msgstr "This line closes a group that was never opened, or leaves math mode with a {BRACE_CLOSE} before its $. Remove the extra {BRACE_CLOSE}, or add the {BRACE_OPEN} it closes."
+
+#: src/build/compile-explain.ts
+msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
+msgstr "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "This match information describes the retrieved record; you have edited its fields."
@@ -11897,6 +12270,10 @@ msgstr "This reference cannot be updated."
 #: src/papers/bibliography-audit.tsx
 msgid "This reference has not been checked against the publication sources yet."
 msgstr "This reference has not been checked against the publication sources yet."
+
+#: src/build/compile-explain.ts
+msgid "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
+msgstr "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
 
 #: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
@@ -12026,6 +12403,10 @@ msgstr "Too dark for black text"
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "Too large for Overleaf, so left on this machine: {files}."
 
+#: src/build/compile-explain.ts
+msgid "Too many & in a table row"
+msgstr "Too many & in a table row"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"
 msgstr "Tools"
@@ -12084,6 +12465,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
+#: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
@@ -12105,6 +12487,10 @@ msgstr "Try another filter"
 msgid "Try building the project again"
 msgstr "Try building the project again"
 
+#: src/canvas/status-save-state.tsx
+msgid "Try now"
+msgstr "Try now"
+
 #: src/app/command-palette.tsx
 msgid "Try other words, or search every source file"
 msgstr "Try other words, or search every source file"
@@ -12116,6 +12502,18 @@ msgstr "Try that again now"
 #: src/history/versions-timeline.tsx
 msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
 msgstr "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
+
+#: src/build/compile-explain.ts
+msgid "Two places set {command}, so references to it may point at the wrong one. Rename one of them."
+msgstr "Two places set {command}, so references to it may point at the wrong one. Rename one of them."
+
+#: src/build/compile-explain.ts
+msgid "Two subscripts in a row"
+msgstr "Two subscripts in a row"
+
+#: src/build/compile-explain.ts
+msgid "Two superscripts in a row"
+msgstr "Two superscripts in a row"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -12239,9 +12637,17 @@ msgstr "Unknown bibliography entry type `{type}`."
 msgid "Unknown citation key “{key}”."
 msgstr "Unknown citation key “{key}”."
 
+#: src/build/compile-explain.ts
+msgid "Unknown command {token}"
+msgstr "Unknown command {token}"
+
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Unknown component: {componentName}"
 msgstr "Unknown component: {componentName}"
+
+#: src/build/compile-explain.ts
+msgid "Unknown environment {name}"
+msgstr "Unknown environment {name}"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unknown label “{key}”."
@@ -12357,6 +12763,10 @@ msgstr "Update now"
 #: src/overleaf/overleaf-connect.tsx
 msgid "updated {0}"
 msgstr "updated {0}"
+
+#: src/app/whats-new.ts
+msgid "Updated to Lattice {running}"
+msgstr "Updated to Lattice {running}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Updates {fields}"
@@ -12714,6 +13124,19 @@ msgstr "What should the agent change? (optional)"
 msgid "What the agent should do"
 msgstr "What the agent should do"
 
+#: src/app/whats-new-dialog.tsx
+msgid "What’s new"
+msgstr "What’s new"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "What’s New in {name}"
+msgstr "What’s New in {name}"
+
+#: src/App.tsx
+msgid "What’s new in Lattice"
+msgstr "What’s new in Lattice"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "When a build or a task in progress finishes"
@@ -12785,6 +13208,10 @@ msgstr "Words / pages / TODOs"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Words inside math mode"
 msgstr "Words inside math mode"
+
+#: src/canvas/status-save-state.tsx
+msgid "Working offline"
+msgstr "Working offline"
 
 #: src/papers/paper-import-progress.ts
 #: src/project/paper-library.tsx
@@ -12939,6 +13366,10 @@ msgstr "Your {BIBITEM} differs: {fields}"
 msgid "Your answer…"
 msgstr "Your answer…"
 
+#: src/canvas/status-save-state.tsx
+msgid "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+msgstr "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
@@ -12988,6 +13419,10 @@ msgstr "Your project files are safe"
 msgid "Your projects"
 msgstr "Your projects"
 
+#: src/canvas/status-save-state.tsx
+msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
+msgstr "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
+
 #: src/papers/bibliography-audit.tsx
 msgid "Yours"
 msgstr "Yours"
@@ -13020,3 +13455,8 @@ msgstr "Zoom in"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#. Search words for the Interface size setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "zoom scale bigger smaller"
+msgstr "zoom scale bigger smaller"

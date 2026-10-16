@@ -14,10 +14,14 @@
   "paste": "粘贴",
   "selectAll": "全选",
   "view": "显示",
+  "zoomIn": "放大",
+  "zoomOut": "缩小",
+  "actualSize": "实际大小",
   "fullscreen": "进入全屏幕",
   "window": "窗口",
   "minimize": "最小化",
   "zoom": "缩放",
   "closeWindow": "关闭窗口",
-  "help": "帮助"
+  "help": "帮助",
+  "whatsNew": "Lattice 新功能"
 }

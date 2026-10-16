@@ -145,6 +145,31 @@ input[type="search"]:focus-visible {
 .compile-diagnostic-line { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .compile-diagnostic-copy { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; transition: background-color var(--motion-fast), opacity var(--motion-fast); }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
+/* An error the build explains (compile-explain.ts) opens into a card: the
+   headline row, an excerpt of the failing line, one sentence, then the fix
+   first and TeX's own words last, small at the end. */
+.compile-diagnostics-group > ul > li.compile-explained { flex-direction: column; align-items: stretch; gap: var(--space-3); padding-bottom: var(--space-3); }
+.compile-explained .compile-diagnostic-message { font-weight: var(--weight-medium); }
+.compile-excerpt { margin: 0 var(--space-4); padding: var(--space-3) 0; border-radius: calc(var(--radius-control) * var(--corner-smoothing)); corner-shape: squircle; background: var(--editor-bg); box-shadow: inset 0 0 0 1px var(--border-subtle); color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 20px; overflow: hidden; display: grid; }
+.compile-excerpt-line { display: grid; grid-template-columns: 30px minmax(0, 1fr); padding-inline-end: var(--space-4); white-space: pre; }
+.compile-excerpt-line[data-failing] { background: color-mix(in srgb, var(--status-danger) 7%, transparent); box-shadow: inset 2px 0 0 var(--status-danger); color: var(--text-primary); }
+.compile-excerpt-number { padding-inline-end: var(--space-4); text-align: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.compile-excerpt-text { overflow: hidden; text-overflow: ellipsis; }
+/* The marked line shrinks its end first and then its lead, which is clipped
+   from the start (its text is packed to the end), so the token never leaves. */
+.compile-excerpt-marked { display: flex; }
+.compile-excerpt-lead { flex: 0 1 auto; min-width: 0; display: flex; justify-content: flex-end; overflow: hidden; }
+.compile-excerpt-lead > span { flex: none; }
+.compile-excerpt-marked > mark { flex: none; }
+.compile-excerpt-rest { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.compile-excerpt mark { background: none; color: var(--status-danger); text-decoration: underline wavy var(--status-danger); text-decoration-thickness: 1px; text-underline-offset: 2px; text-decoration-skip-ink: none; font-weight: var(--weight-semibold); }
+.compile-explained-text { margin: 0; padding: 0 var(--space-4); color: var(--text-primary); font-size: var(--type-caption-size); line-height: 1.5; text-wrap: pretty; }
+.compile-explained-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-inline-start: var(--space-4); }
+.compile-explained-actions code { font-family: var(--editor-font); }
+.compile-explained-enter { opacity: .55; }
+.compile-explained-raw { flex: 1 1 120px; min-width: 0; text-align: right; color: var(--text-tertiary); font-family: var(--editor-font); font-size: var(--type-micro-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* An explained card is taller than a row: the list gets room for it and the rows after it. */
+.compile-diagnostics-list:has(.compile-explained) { max-height: 320px; }
 .compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Without field-sizing a textarea is two rows tall; give it the old cap. */
 @supports not (field-sizing: content) { .compile-log { height: 220px; } }
@@ -217,6 +242,15 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb > span { min-width: 0; display: flex; align-items: center; gap: var(--space-2); }
 .editor-status-bar .status-vim-mode { min-width: max-content; flex: none; padding: 0 var(--space-3); color: var(--text-primary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 .editor-status-bar .status-vim-compact { display: none; }
+/* The save slot after the caret: tertiary ink while all is well, the
+   secondary ink and a warning-tinted icon offline, danger only for a write
+   that failed. The age trails the label after a dot. */
+.editor-status-bar .status-save { color: var(--text-tertiary); }
+.editor-status-bar .status-save .status-save-age::before { content: "·"; margin-inline-end: var(--space-2); }
+.editor-status-bar .status-save .status-save-age { margin-inline-start: var(--space-2); }
+.editor-status-bar .status-save[data-mode="offline"] { color: var(--text-secondary); }
+.editor-status-bar .status-save[data-mode="offline"] > svg { color: var(--status-warning); }
+.editor-status-bar .status-save[data-mode="error"] { color: var(--status-danger); }
 /* The bar gives way in one order as it narrows, so what stays is what a
    writer glances at most, and nothing ever wraps, overlaps or is cut:
      1. the shortcut hint, help rather than status, goes first;
@@ -226,6 +260,8 @@ input[type="search"]:focus-visible {
         into More (…), which lists the counters and every word count;
      5. the caret shortens to line:column and Vim's mode to its initial;
      6. the counters fold into More.
+   The save slot drops its age with the breadcrumb's parents (2), its label
+   with the breadcrumb (4), and keeps its icon, which still opens its details.
    The caret, Vim's mode and More never leave. Each step is the measured
    width of the English bar that stays (the longer language) with a 5-digit
    line, a 3-digit column, two-digit counts and a 7-digit manuscript, plus the
@@ -237,6 +273,10 @@ input[type="search"]:focus-visible {
    leaves the bar 216px; a panel narrower than both Split minimums shrinks the
    source below that, and the caret ellipsizes before anything spills. */
 @container (max-width: 720px) { .editor-status-bar .status-hint { display: none; } }
+@container (max-width: 600px) { .editor-status-bar .status-save .status-save-age { display: none; } }
+@container (max-width: 680px) { .editor-status-bar:has(.status-vim-mode) .status-save .status-save-age { display: none; } }
+@container (max-width: 420px) { .editor-status-bar .status-save .status-save-label { display: none; } }
+@container (max-width: 500px) { .editor-status-bar:has(.status-vim-mode) .status-save .status-save-label { display: none; } }
 @container (max-width: 800px) { .editor-status-bar:has(.status-vim-mode) .status-hint { display: none; } }
 @container (max-width: 600px) {
   .editor-status-bar .editor-breadcrumb > span:not(:last-child),
@@ -295,6 +335,14 @@ input[type="search"]:focus-visible {
 .word-count-popover dt { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
 .word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; min-width: 0; overflow-wrap: anywhere; }
+/* The save slot's details: a sentence or two above the rows when there is
+   something to say (offline, a failed write), and the actions under them. */
+.save-state-popover { display: grid; gap: var(--space-2); }
+.save-state-popover > strong { padding: var(--space-4) var(--space-6) 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.save-state-popover > p { margin: 0; padding: 0 var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+.save-state-popover > p.save-state-reason { color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); overflow-wrap: anywhere; }
+.save-state-popover .save-state-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-2) var(--space-6) var(--space-4); }
+.save-state-popover > dl + .save-state-actions { padding-top: 0; }
 /* At the narrowest steps More lists what the bar folded: the counters as
    rows that open their drawers, the open count at the end in the accent,
    then the word counts by scope. */
@@ -368,6 +416,17 @@ input[type="search"]:focus-visible {
 .command-palette-footer { position: relative; padding: var(--space-4) var(--space-6); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .command-palette-footer::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--border-subtle); }
 .command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
+/* Quick open marks the typed characters in each name: semibold on an accent
+   underline, the rest of the name a step quieter, so the match is what reads. */
+.quick-open-list .picker-match { background: none; color: var(--text-primary); font-weight: var(--weight-semibold); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.quick-open-list .picker-file-name:has(.picker-match) { color: var(--text-secondary); }
+/* "Current" or the `:42` a query asked for, at the row's end. */
+.quick-open-list .picker-file-tag { margin-inline-start: auto; flex: none; padding-inline-start: var(--space-4); color: var(--text-tertiary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* The prefixes lead at the start; the keys keep the palette's place at the end. */
+.quick-open-footer .quick-open-scopes { display: inline-flex; gap: var(--space-8); margin-inline-end: auto; min-width: 0; overflow: hidden; }
+.quick-open-footer .quick-open-scopes > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
+/* A narrow window drops the line prefix first: it is the one the writer can reach with ⌘G. */
+@media (max-width: 480px) { .quick-open-footer .quick-open-scopes > span:last-child { display: none; } }
 /* Each crumb (separator and button) is the flex item, so it is the one that
    must be allowed under its text's width: then the button ellipsizes, where a
    crumb wider than the bar was cut at both ends of the centred row. */
@@ -1302,3 +1361,15 @@ button.paper-add-text { padding: 0; border-radius: var(--radius-compact); backgr
 @container canvas-toolbar (max-width: 420px) {
   .canvas-toolbar { padding-left: var(--space-5); gap: var(--space-2); }
 }
+
+/* The interface size pill (⌘+, ⌘−, ⌘0): top centre, under the titlebar, for
+   a moment after each change. It eases in a few pixels down and out the same
+   way; hidden, it takes no pointer and holds no focus (inert). */
+.interface-zoom-hud { position: fixed; z-index: var(--z-toast); top: 44px; left: 50%; translate: -50% calc(var(--space-2) * -1); opacity: 0; pointer-events: none; height: 32px; padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--surface-panel-raised); box-shadow: var(--elevation-popover); color: var(--text-primary); font-size: var(--type-caption-size); display: inline-flex; align-items: center; gap: var(--space-1); transition: opacity var(--motion-moderate), translate var(--motion-moderate); }
+.interface-zoom-hud[data-shown] { opacity: 1; translate: -50% 0; pointer-events: auto; }
+.interface-zoom-hud button { height: 24px; min-width: 24px; border: 0; border-radius: var(--radius-pill); padding: 0 var(--space-3); background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); transition: background-color var(--motion-fast), color var(--motion-fast); }
+.interface-zoom-hud button:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.interface-zoom-hud button:disabled { opacity: .4; }
+.interface-zoom-value { min-width: 40px; text-align: center; font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.interface-zoom-divider { width: 1px; height: 14px; margin: 0 var(--space-1); background: var(--border-subtle); }
+.interface-zoom-reset .ui-keycaps { color: var(--text-tertiary); }

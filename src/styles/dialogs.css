@@ -992,3 +992,28 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   .settings-section .theme-tiles .theme-tile-name { justify-self: center; }
   .settings-section .theme-tiles :is(.theme-window, .theme-window-split, .theme-tint-art) { width: 100%; }
 }
+
+/* What's new: a dated sheet in the display face, the version stepper at its
+   right, then each highlight as a glyph and a sentence, the fixes in a quieter
+   list, and the full notes beside Done. Long notes scroll inside the sheet. */
+.modal.whats-new-modal { width: min(520px, calc(100vw - 40px)); padding: var(--space-10) var(--space-12) var(--space-8); display: grid; gap: var(--space-4); }
+.whats-new-header { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); }
+.whats-new-header h2 { margin: 0; color: var(--text-primary); font-family: var(--type-display-font); font-size: var(--type-display-size); font-weight: var(--type-display-weight); line-height: var(--type-display-line-height); }
+.whats-new-version { flex: none; height: 28px; padding: 0 var(--space-1); border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px var(--border-subtle); display: inline-flex; align-items: center; gap: var(--space-1); }
+.whats-new-version button { width: 22px; height: 22px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
+.whats-new-version button:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
+.whats-new-version button:disabled { opacity: .35; }
+.whats-new-version span { padding: 0 var(--space-2); display: inline-flex; align-items: baseline; gap: var(--space-3); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.whats-new-version em { color: var(--status-success); font-size: var(--type-micro-size); font-style: normal; }
+.whats-new-date { margin: calc(var(--space-3) * -1) 0 var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); }
+.whats-new-body { max-height: min(56vh, 520px); overflow-y: auto; display: grid; gap: var(--space-6); }
+.whats-new-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-6); }
+.whats-new-list li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.whats-new-icon { width: 30px; height: 30px; border-radius: calc(var(--radius-control) * var(--corner-smoothing)); corner-shape: squircle; background: color-mix(in srgb, var(--accent) 10%, var(--surface-panel-raised)); color: var(--accent); display: grid; place-items: center; }
+.whats-new-list strong { display: block; color: var(--text-primary); font-size: var(--type-body-size); font-weight: var(--weight-semibold); line-height: var(--type-body-line-height); }
+.whats-new-list p { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; text-wrap: pretty; }
+.whats-new-fixes { padding-top: var(--space-6); border-top: 1px solid var(--border-subtle); }
+.whats-new-fixes h3 { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--weight-medium); display: flex; align-items: center; gap: var(--space-2); }
+.whats-new-fixes ul { margin: 0; padding-inline-start: 18px; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; display: grid; gap: var(--space-2); }
+.modal-actions.whats-new-actions { margin-top: var(--space-4); justify-content: space-between; align-items: center; }
+.whats-new-link { gap: var(--space-2); color: var(--text-secondary); }

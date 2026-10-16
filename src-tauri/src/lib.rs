@@ -399,6 +399,7 @@ pub fn run() {
             ipc::files::prepare_latex_figure,
             ipc::files::save_xlsx,
             ipc::files::save_agent_visual,
+            ipc::files::save_source_copy,
             ipc::files::list_annotations,
             ipc::files::save_annotations,
             ipc::files::read_paper_review,

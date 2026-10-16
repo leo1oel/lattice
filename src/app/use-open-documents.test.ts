@@ -378,6 +378,37 @@ describe("durable text and disk", () => {
     expect(docs.current().dirty).toBe(false);
   });
 
+  it("reports each write for the save slot: saving only once one is slow, and a failure until the next write lands", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const docs = renderDocuments({ "main.tex": "Main" });
+    await docs.enter();
+    expect(docs.current().saveStatus).toEqual({ phase: "saved", at: null, path: null });
+    // A quick write goes from saved to saved: no "Saving…" flicker.
+    docs.type("Main, quick");
+    await act(async () => { await docs.current().save(); });
+    expect(docs.current().saveStatus).toMatchObject({ phase: "saved", path: "main.tex", at: Date.now() });
+    // A slow one says so after 400 ms, and settles when it lands.
+    docs.type("Main, slow");
+    const slow = docs.hold("write_project_file", "main.tex");
+    let saving!: Promise<boolean>;
+    act(() => { saving = docs.current().save(); });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    expect(docs.current().saveStatus.phase).toBe("saved");
+    await act(() => vi.advanceTimersByTimeAsync(150));
+    expect(docs.current().saveStatus.phase).toBe("saving");
+    await act(async () => { slow.resolve(undefined); await saving; });
+    expect(docs.current().saveStatus.phase).toBe("saved");
+    // A failed write keeps its reason until a later one succeeds.
+    docs.type("Main, failed");
+    const failing = docs.hold("write_project_file", "main.tex");
+    act(() => { saving = docs.current().save(); });
+    await act(async () => { failing.reject(new Error("No space left on device")); await saving; });
+    expect(docs.current().saveStatus).toMatchObject({ phase: "failed", path: "main.tex", error: "No space left on device" });
+    expect(docs.current().dirty).toBe(true);
+    await act(async () => { await docs.current().save(); });
+    expect(docs.current().saveStatus.phase).toBe("saved");
+  });
+
   it("holds an automatic save while the completion menu is open", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
     const docs = renderDocuments({ "main.tex": "Main" }, { autoBuild: true });

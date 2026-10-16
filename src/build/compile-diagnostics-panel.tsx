@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChevronDown, ChevronUp, CircleAlert, CircleHelp, LoaderCircle, PanelBottom, PictureInPicture2, Square, WandSparkles, ScrollText } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleHelp, CircleX, CornerDownLeft, LoaderCircle, PanelBottom, PictureInPicture2, Square, TriangleAlert, WandSparkles, ScrollText } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -21,6 +21,7 @@ import type { CompileRepairState } from "./use-compile-repair";
 import { compileDiagnosticText } from "./build-log-messages";
 import { buildHeadline } from "./build-result-text";
 import { compileRepairMessage } from "./compile-repair-messages";
+import { explainDiagnostic, type ExcerptLine } from "./compile-explain";
 
 const DOCKED_KEY = "lattice.build-output-docked.v1";
 
@@ -50,8 +51,42 @@ function useDockedPreference() {
 }
 
 function SeverityIcon({ level }: { level: string }) {
-  // Errors and warnings share the glyph; the status colour carries severity.
-  return diagnosticSeverity(level) === "info" ? <CircleHelp size={15} /> : <CircleAlert size={15} />;
+  // Errors and warnings differ in shape as well as colour (⊗ and △), so
+  // severity reads without telling red from amber.
+  const severity = diagnosticSeverity(level);
+  return severity === "info" ? <CircleHelp size={15} /> : severity === "warning" ? <TriangleAlert size={15} /> : <CircleX size={15} />;
+}
+
+/** How far into a failing line its token may start before the line is cut in front of it. */
+const EXCERPT_LEAD = 24;
+
+/**
+ * The failing line and one either side, numbered, the failing one tinted and
+ * its token underlined. The token stays in view however narrow the panel: a
+ * long line is cut a little before it, and what is left of the lead gives way
+ * from its start (the end of the line goes first, in an ellipsis).
+ */
+function Excerpt({ lines }: { lines: ExcerptLine[] }) {
+  return (
+    <pre className="compile-excerpt" aria-hidden="true">
+      {lines.map((line) => {
+        const { token } = line;
+        const cut = token && token.start > EXCERPT_LEAD ? token.start - EXCERPT_LEAD + 4 : 0;
+        return (
+          <span key={line.number} className="compile-excerpt-line" data-failing={line.failing || undefined}>
+            <span className="compile-excerpt-number">{line.number}</span>
+            {token ? (
+              <span className="compile-excerpt-text compile-excerpt-marked">
+                <span className="compile-excerpt-lead"><span>{cut > 0 && "…"}{line.text.slice(cut, token.start)}</span></span>
+                <mark>{line.text.slice(token.start, token.end)}</mark>
+                <span className="compile-excerpt-rest">{line.text.slice(token.end)}</span>
+              </span>
+            ) : <span className="compile-excerpt-text">{line.text}</span>}
+          </span>
+        );
+      })}
+    </pre>
+  );
 }
 
 /**
@@ -130,6 +165,12 @@ export function CompileDiagnosticsPanel(props: {
   onCancelRepair?: () => void;
   onOpenRepair?: () => void;
   onDismiss: () => void;
+  /** The text of a project file a diagnostic names, for the excerpt and the suggestion; null when not at hand. */
+  sourceOf?: (file: string | undefined) => string | null;
+  /** Replace `token` on the diagnostic's line with `replacement`, then build again. */
+  onReplaceToken?: (diagnostic: CompileDiagnostic, token: string, replacement: string) => void;
+  /** Hand this one error to the agent, as Fix all does for every message. */
+  onAskAgent?: (diagnostic: CompileDiagnostic) => void;
 }) {
   const { t } = useLingui();
   const diagnostics = sortDiagnostics(props.diagnostics);
@@ -221,6 +262,58 @@ export function CompileDiagnosticsPanel(props: {
                       const missingFile = missingTexDependencyFile(diagnostic.message);
                       const previousEngine = diagnostic.params?.previous;
                       const switchedFrom = diagnostic.params?.from ?? "";
+                      const explained = explainDiagnostic(diagnostic, {
+                        log: props.log, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
+                        sameAfter: diagnostics.slice(diagnostics.indexOf(diagnostic) + 1)
+                          .filter((other) => other.file === diagnostic.file && other.line === diagnostic.line && other.message === diagnostic.message).length,
+                      });
+                      const copy = (
+                        <CopyButton
+                          className="compile-diagnostic-copy"
+                          aria-label={t`Copy error message`}
+                          title={t`Copy error message`}
+                          iconSize={12}
+                          text={`${location} ${diagnostic.message}`}
+                        />
+                      );
+                      if (explained && severity === "error") {
+                        const { suggestion, token } = explained;
+                        return (
+                          <li key={`${severity}-${diagnostic.line ?? ""}-${index}`} className="compile-explained">
+                            <button
+                              className={`compile-diagnostic-item ${severity}`}
+                              disabled={!navigable}
+                              onClick={() => props.onSelect(diagnostic)}
+                              aria-label={`${location} ${explained.headline}`}
+                              title={navigable ? t`Jump to this location` : explained.headline}
+                            >
+                              <SeverityIcon level={diagnostic.level} />
+                              <span className="compile-diagnostic-message">{explained.headline}</span>
+                              {line ? <span className="compile-diagnostic-line">{t`line ${line}`}</span> : null}
+                            </button>
+                            {explained.excerpt.length > 0 && <Excerpt lines={explained.excerpt} />}
+                            <p className="compile-explained-text">{explained.explanation}</p>
+                            <div className="compile-explained-actions">
+                              {suggestion && token && props.onReplaceToken && (
+                                <Button variant="secondary" size="compact" onClick={() => props.onReplaceToken?.(diagnostic, token, suggestion)}
+                                  title={t`Replace ${token} with ${suggestion} on line ${line}, then build`}>
+                                  <Trans>Replace with <code>{suggestion}</code></Trans>
+                                  <CornerDownLeft size={12} aria-hidden="true" className="compile-explained-enter" />
+                                </Button>
+                              )}
+                              {props.onAskAgent && (
+                                <Button variant="ghost" size="compact" disabled={props.fixDisabled}
+                                  title={t`Ask the agent to fix this error, then recompile`} onClick={() => props.onAskAgent?.(diagnostic)}>
+                                  <WandSparkles size={13} />{t`Ask the agent`}
+                                </Button>
+                              )}
+                              <span className="compile-explained-raw" title={diagnostic.message}>{t`TeX: ${diagnostic.message}`}</span>
+                              {copy}
+                            </div>
+                          </li>
+                        );
+                      }
+                      const shown = explained?.headline ?? text;
                       return (
                         <li key={`${severity}-${diagnostic.line ?? ""}-${index}`}>
                           <button
@@ -228,11 +321,12 @@ export function CompileDiagnosticsPanel(props: {
                             disabled={!navigable}
                             onClick={() => props.onSelect(diagnostic)}
                             // The file is the group's heading; the name still says where.
-                            aria-label={`${location} ${text}`}
-                            title={navigable ? t`Jump to this location` : text}
+                            aria-label={`${location} ${shown}`}
+                            // A rewritten warning keeps its explanation and TeX's words a hover away.
+                            title={explained ? `${explained.explanation}\n\n${t`TeX: ${diagnostic.message}`}` : navigable ? t`Jump to this location` : text}
                           >
                             <SeverityIcon level={diagnostic.level} />
-                            <span className="compile-diagnostic-message">{text}</span>
+                            <span className="compile-diagnostic-message">{shown}</span>
                             {line ? <span className="compile-diagnostic-line">{t`line ${line}`}</span> : null}
                           </button>
                           {missingFile && (
@@ -253,13 +347,7 @@ export function CompileDiagnosticsPanel(props: {
                               <Trans>Undo</Trans>
                             </Button>
                           )}
-                          <CopyButton
-                            className="compile-diagnostic-copy"
-                            aria-label={t`Copy error message`}
-                            title={t`Copy error message`}
-                            iconSize={12}
-                            text={`${location} ${diagnostic.message}`}
-                          />
+                          {copy}
                         </li>
                       );
                     })}

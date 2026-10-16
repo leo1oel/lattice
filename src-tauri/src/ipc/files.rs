@@ -281,6 +281,20 @@ pub async fn save_agent_visual(request: tauri::ipc::Request<'_>) -> Result<Strin
     run_blocking("Agent visual save", move || export::save(&path, &bytes, &export::HTML)).await
 }
 
+/// A copy of the open file, when saving it in place failed, written where
+/// the writer chose.
+#[tauri::command]
+pub async fn save_source_copy(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let (path, bytes) = binary_save(
+        &request,
+        "x-copy-destination",
+        "Choose where to save the copy.",
+        "copy",
+        "The copy was not sent as binary data.",
+    )?;
+    run_blocking("Source copy save", move || export::save_text_copy(&path, &bytes)).await
+}
+
 #[tauri::command]
 pub async fn list_annotations(
     state: State<'_, AppState>, window: Window,

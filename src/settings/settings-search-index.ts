@@ -39,6 +39,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
   return [
     { tab: "appearance", label: appearance, place: t`General` },
     { tab: "appearance", place: appearance, id: "interface-language", label: t`Interface language`, terms: `${t`English`} ${t`Simplified Chinese`}` },
+    { tab: "appearance", place: appearance, id: "interface-size", label: t`Interface size`, terms: t({ message: "zoom scale bigger smaller", comment: "Search words for the Interface size setting, space-separated" }), description: t`Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets.` },
     { tab: "appearance", place: appearance, id: "editor-font-size", label: t`Editor font size`, description: t`Source editor only` },
     { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }), description: t`When a build or a task in progress finishes` },
     { tab: "appearance", place: appearance, id: "toast-position", label: t`Notification position`, terms: `${t`Top right`} ${t`Top center`} ${t`Bottom right`} ${t`Bottom center`} ${t({ message: "toast notification", comment: "Search words for the Notification position setting, space-separated" })}` },

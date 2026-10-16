@@ -1,0 +1,89 @@
+{
+  "version": "0.8.0",
+  "date": "2026-10-16",
+  "highlights": [
+    {
+      "icon": "feather",
+      "title": {
+        "en": "A much smaller app",
+        "zh": "安装包小了一半"
+      },
+      "body": {
+        "en": "Lattice drops from about 656 MB to about 310 MB installed. The slide runtime ships only what the Open Slide dev server loads, the Synara runtime no longer bundles Pi and OpenCode (they install on demand the first time you pick them), and one shared pruner now trims both runtimes while a size gate keeps the installed app from growing back.",
+        "zh": "安装后的 Lattice 从约 656 MB 降到约 310 MB。幻灯片运行时只带 Open Slide 开发服务器会加载的内容，Synara 运行时不再内置 Pi 和 OpenCode（第一次选用时才按需安装），同一个裁剪工具同时精简两个运行时，体积门槛防止安装包再变大。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "Synara 1.0.5 in the Agent panel",
+        "zh": "助手面板升级到 Synara 1.0.5"
+      }
+    },
+    {
+      "icon": "plug",
+      "title": {
+        "en": "An /mcp view for the agent's MCP servers",
+        "zh": "查看助手 MCP 服务器的 /mcp"
+      },
+      "body": {
+        "en": "A bare /mcp lists the servers with their status, and lets you sign in, sign out, reconnect, and turn each one on or off.",
+        "zh": "单独输入 /mcp 会列出各个服务器及其状态，可以登录、退出、重连，或逐个开启和关闭。"
+      }
+    },
+    {
+      "icon": "sparkles",
+      "title": {
+        "en": "Agent HTML visuals",
+        "zh": "助手生成的 HTML 图示"
+      },
+      "body": {
+        "en": "HTML the agent produces renders as a visual in the Agent panel, in a sandbox.",
+        "zh": "助手写出的 HTML 会在助手面板里以图示呈现，运行在沙箱中。"
+      }
+    },
+    {
+      "icon": "gauge",
+      "title": {
+        "en": "Usage quota is back",
+        "zh": "用量额度重新显示"
+      },
+      "body": {
+        "en": "The Agent panel's usage chip shows again when you sign in to Claude through a wrapped login.",
+        "zh": "通过封装登录使用 Claude 时，助手面板的用量标签重新出现。"
+      }
+    },
+    {
+      "icon": "git",
+      "title": {
+        "en": "Git panel empty states",
+        "zh": "Git 面板的空状态"
+      },
+      "body": {
+        "en": "A folder without Git shows Initialize Git instead of an error, and Pull requests explains what it needs.",
+        "zh": "没有 Git 的文件夹会显示“初始化 Git”，而不是报错；拉取请求也会说明它需要什么。"
+      }
+    },
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "Continuous corners",
+        "zh": "连续曲率圆角"
+      },
+      "body": {
+        "en": "Panels, dialogs, menus, cards and controls use squircle corners wherever the engine draws them.",
+        "zh": "面板、对话框、菜单、卡片和控件在渲染引擎支持的地方都使用超椭圆圆角。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "A file can be reopened from the tree after its last tab closed.",
+      "zh": "关闭最后一个标签页后，可以从文件树重新打开该文件。"
+    },
+    {
+      "en": "The .bib reference list draws its first rows again when you scroll back to the top, instead of leaving a blank gap.",
+      "zh": "滚回顶部时，.bib 参考文献列表会重新绘制前几行，不再留下一段空白。"
+    }
+  ]
+}
