@@ -1,6 +1,6 @@
 import {
   Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
-  type CSSProperties, type DragEvent, type FocusEvent, type HTMLAttributes, type PointerEventHandler, type ReactNode,
+  type CSSProperties, type DragEvent, type FocusEvent, type HTMLAttributes, type PointerEventHandler, type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
@@ -16,16 +16,14 @@ import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
 import {
   marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
-  type PresenceCursor, type TrackedChangeTooltipActions,
 } from "../overleaf/overleaf-editor-extensions";
-import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
-import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreViewportAround } from "./viewport-restore";
-import { latexEditorExtensions, latexIndexChanged, textEditorExtensions } from "../editor/latex/latex-editor";
+import {
+  latexEditorExtensions, latexIndexChanged, textEditorExtensions, type LatexEditorLiveData,
+} from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
 import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
-import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import { surfaceShown } from "../editor/focus-when-shown";
@@ -37,34 +35,29 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
 import {
-  createEditorComment, resolveCommentAnchor, type AnnotationIntent, type EditorComment,
+  createEditorComment, resolveCommentAnchor, type AnnotationIntent,
 } from "../editor/comments/editor-comment-data";
 import {
   CommentCardHosts, editorCommentsExtension, setEditorCommentsEffect, setEditorCommentDraftEffect,
   type EditorCommentsExtensionOptions,
 } from "../editor/comments/editor-comments";
-import { clamp, type AppLocale, type Theme } from "../settings/app-settings";
-import { editorDiagnosticsForFile, replaceTokenOnLine, type CompileDiagnostic } from "../build/compile-diagnostics";
+import { clamp } from "../settings/app-settings";
+import { editorDiagnosticsForFile, replaceTokenOnLine } from "../build/compile-diagnostics";
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
-import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
+import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
-import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import {
   SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH,
 } from "../app/window-layout";
-import type {
-  WordCount, EditorViewState, FileViewState, AssetPreview, CanvasRequests, EditorPosition, PaperSummary, CanvasMode,
-  EditorKeymap, EnglishVariant, TermRule,
-} from "../app-types";
+import type { FileViewState, AssetPreview } from "../app-types";
 import {
   isBibFilePath, isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath,
   markdownFrontmatterEnd, PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
-import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
-import type { AgentHostSurface, AgentPdfDocumentPlace, AgentSelectionLines } from "../agent/agent-host-context";
+import type { AgentHostSurface, AgentSelectionLines } from "../agent/agent-host-context";
 import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
@@ -78,14 +71,12 @@ import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer, type AnnotationDraft } from "./annotation-composer";
 import { EditorCommentCards } from "./editor-comment-cards";
 import { AnnotationReviewLayer } from "./annotation-review";
-import type { AnnotationRounds } from "../app/annotation-rounds";
 import { claimSupport } from "../app/claim-support";
 import { notifyInfo } from "../telemetry/app-notify";
 import { annotationReviewExtension } from "../editor/annotation-review-anchor";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
 import { EditorStatusBar } from "./editor-status-bar";
-import type { SaveSlot } from "./save-slot";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {
@@ -93,8 +84,9 @@ import {
   spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
-import { OpenSlideDeckPool, type DeckHosts } from "./open-slide-deck-pool";
-import { AfterSwitch, type SwitchState } from "./after-switch";
+import { OpenSlideDeckPool } from "./open-slide-deck-pool";
+import { AfterSwitch } from "./after-switch";
+import type { DocumentCanvasProps } from "./canvas-model";
 import { ProjectAssetPreview } from "./project-asset-preview";
 import { useBibUnreadable } from "./use-bib-readability";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
@@ -193,188 +185,42 @@ function useRegistration<T>(register: ((value: T | null) => void) | undefined, v
   }, [register, value]);
 }
 
-export function DocumentCanvas(props: {
-  projectRoot: string;
-  locale: AppLocale;
-  theme: Theme;
-  mode: CanvasMode;
-  workspaceIndex?: MarkdownWorkspaceIndex | null;
-  source: string;
-  /** `source` as of the last pause in typing, for document-wide counts and the breadcrumb (useSettledSource); defaults to `source`. */
-  settledSource?: string;
-  markdownPreviewSource?: string;
-  activeFile: string;
-  setSource: (value: string) => void;
-  onSave: () => Promise<boolean>;
-  onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
-  onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
-  /** `lines` places a source-editor selection in its file (1-based, inclusive). */
-  setSelection: (value: string, lines?: AgentSelectionLines) => void;
-  /** `place` names a project PDF open as a document; without it the text is from the compiled preview. */
-  onPdfTextSelect: (value: string, place?: AgentPdfDocumentPlace) => void;
-  onPaperTextSelect: (value: string) => void;
-  onContextSurfaceActivate: (surface: AgentHostSurface) => void;
-  onViewMarkdownSource: () => void;
-  onOpenSlideMutation: import("../editor/presentation/open-slide-workspace").OpenSlideWorkspaceProps["onMutation"];
-  onOpenSlideContext?: import("../editor/presentation/open-slide-workspace").OpenSlideWorkspaceProps["onContext"];
-  onOpenSlideError?: (message: string) => void;
-  pdfUrl: string | null;
-  pdfBytes?: ArrayBuffer | null;
-  pdfTop?: ReactNode;
-  /** Builds the project from the PDF panel while it has no PDF yet. */
-  onBuildProject?: () => void;
-  building?: boolean;
-  buildShortcut?: string;
-  activePaper: PaperSummary | null;
-  /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
-  papers?: PaperSummary[];
-  /** A .bib reference's library paper, opened from the reference list. */
-  onOpenPaper?: (paper: PaperSummary) => void;
-  /** A .bib reference's DOI, arXiv or web link. */
-  onOpenUrl?: (url: string) => void;
-  /** Looks a citation up for the reference list's Add reference. */
-  onResolveCitation?: (query: string) => Promise<ResolvedCitationDraft>;
-  /** Changes after the manuscript was saved, so the reference list scans its citations again. */
-  citationUsageRevision?: unknown;
-  activeAsset: AssetPreview | null;
-  /** The active asset was rewritten on disk: read its new version. */
-  onActiveAssetChanged?: () => void;
-  /** Whether a Paper's original PDF is on screen in place of its Markdown. */
-  onPaperPdfOpenChange?: (open: boolean) => void;
-  /** The active asset was removed from the project while open. */
-  activeAssetMissing?: boolean;
-  citationKeys: string[];
-  citations: CitationInfo[];
-  references: ReferenceInfo[];
-  /** The project's citation and label index has not landed yet. */
-  indexPending?: boolean;
-  unusedLabels: string[];
-  unusedCitations: string[];
-  onLoadReferenceImage: (path: string) => Promise<string | null>;
-  referenceImageGeneration?: number;
-  onEditorLeave: () => void;
-  onPrepareFigure: (path: string) => Promise<string | null>;
-  onPasteImageFile: (file: File) => boolean | void;
-  onImportAsset?: (file: File) => Promise<string | null>;
-  nativeFigureDropActive: boolean;
-  fileDropTargetActive: boolean;
-  requests: CanvasRequests;
-  /** Settle the request with this id (ids are unique across every kind). */
-  onRequestHandled: (id: string) => void;
-  onEditorPosition: (position: EditorPosition) => void;
-  onCompletionActiveChange: (active: boolean) => void;
-  onViewState: (path: string, state: EditorViewState) => void;
-  getFileViewState?: (path: string) => FileViewState | undefined;
-  onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
-  onGotoDefinition: (target: DefinitionTarget) => void;
-  onTexlabGoto: (path: string, line: number, column?: number) => void;
-  onFindReferences: (target: SymbolTarget) => void;
-  onRenameSymbol: (target: SymbolTarget) => void;
-  onRenameEnvironment: (name: string) => void;
-  onWrapEnvironment: () => void;
-  localMacros: { label: string; detail: string; type: "keyword" | "type" }[];
-  katexMacros: Record<string, string>;
-  onGotoLineRequest: () => void;
-  outlineOpen: boolean;
-  onOutlineOpenChange: (open: boolean) => void;
-  outlineNodes: OutlineNode[];
-  activeOutlineId: string | null;
-  /** The manuscript's root document, which `outlineNodes` is the outline of. */
-  outlineRootPath?: string;
-  onOutlineNavigate: (path: string, line: number) => void;
-  tableGeneratorOpen: boolean;
-  onTableGeneratorOpenChange: (open: boolean) => void;
-  editorKeymap: EditorKeymap;
-  editorSpellcheck: boolean;
-  spellingWords: string[];
-  onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
-  /** The project's English, which spell checking and Proofread follow. */
-  englishVariant: EnglishVariant | null;
-  /** The project's term rules, which Proofread and Polish follow. */
-  termRules: readonly TermRule[];
-  projectPaths: string[];
-  graphicsRoots: string[];
-  buildDiagnostics: CompileDiagnostic[];
-  texlabDiagnostics: CompileDiagnostic[];
-  pdfSyncTarget: PdfSyncTarget | null;
-  canForwardSync: boolean;
-  locatingPdf: boolean;
-  onForwardSync: () => void;
-  onPdfSource: (page: number, x: number, y: number) => void;
-  editorComments: EditorComment[];
-  /** Other people's carets in the document Overleaf is carrying live. */
-  overleafPresenceCursors: PresenceCursor[];
-  /** Suggestions in that document, and what can be done about one. */
-  overleafChanges: TrackedChange[];
-  overleafTrackChangeActions: TrackedChangeTooltipActions;
-  /** Margin review over the source editor (a linked Overleaf project's comments and suggestions), drawn into its view. */
-  sourceMargin?: (view: EditorView) => ReactNode;
-  activeEditorCommentId: string | null;
-  commentAuthorName: string;
-  commentAuthorId: string;
-  /** Saves a new note; resolves to the local annotation it became, or null (an Overleaf thread, or none). */
-  onCreateEditorComment: (comment: EditorComment) => EditorComment | Promise<boolean> | null;
-  onOpenEditorComments: () => void;
-  /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
-  annotationRounds: AnnotationRounds;
-  /** Resolve from a comment's card on the document, which offers it back in a toast. */
-  onResolveEditorComment: (id: string) => void;
-  /** Open the comments panel at this comment's reply (a click on a comment in the visual Markdown editor). */
-  onReplyEditorComment: (commentId: string) => void;
-  /** Post a reply written in a comment's card on the document. */
-  onPostEditorCommentReply: (commentId: string, body: string) => void;
-  commentFocusRequest: { id: string; nonce: string } | null;
-  onCommentFocusHandled: (nonce: string) => void;
-  todoCount: number;
-  onOpenTodos: () => void;
-  projectWordCount: WordCount | null;
-  onPdfPageCount: (pages: number | null) => void;
-  onPdfPageChange: (page: number) => void;
-  onCreateMissingFile: (path: string) => void;
-  onOpenMarkdownPath: (path: string) => void;
-  interactivePreviewsEnabled: boolean;
-  /** Remounts the source editor when it changes: the open file, or the Paper. */
-  editorKey: string;
-  /**
-   * Where the active document renders (its file panel's host) and where the
-   * project PDF renders (the PDF panel's host; null while that panel is
-   * closed or hibernated).
-   */
-  trellis: {
-    editorHost: HTMLElement;
-    pdfHost: HTMLElement | null;
-    /** The active board or sheet, its panel off screen long enough to unmount. */
-    editorHibernated: boolean;
-    hibernatedPlaceholder: ReactNode;
-    /** Each open deck's host, and which decks sleep (see OpenSlideDeckPool). */
-    decks: DeckHosts;
-    /** A workspace or layout switch animating, which an asset's viewer waits out (see AfterSwitch). */
-    switchState: SwitchState;
+/** The LaTeX and text editors' live data (citations, macros, spelling), read from the canvas's newest props when used. */
+function editorLiveData(latest: RefObject<DocumentCanvasProps>): { readonly current: LatexEditorLiveData } {
+  return {
+    get current() {
+      const { bibliography, preferences } = latest.current;
+      return {
+        ...bibliography,
+        projectRoot: preferences.projectRoot,
+        spellingWords: preferences.spellingWords,
+        onAddSpellingWord: preferences.onAddSpellingWord,
+        englishVariant: preferences.englishVariant,
+      };
+    },
   };
-  /** The project's open tabs: every deck among them stays loaded (see OpenSlideDeckPool). */
-  openPaths: readonly string[];
-  editorEditable: boolean;
-  /** What the status bar's save slot shows, and its actions. */
-  saveSlot?: SaveSlot;
-  onOpenCitation: (key: string) => void;
-  canOpenCitation: (key: string) => boolean;
-}) {
+}
+
+export function DocumentCanvas(props: DocumentCanvasProps) {
+  const { activeFile, editorKey, setSource, source: editorSource } = props.document;
+  const { editorKeymap, editorSpellcheck } = props.preferences;
+  const { indexPending, katexMacros } = props.bibliography;
   const {
-    activeFile, buildDiagnostics, indexPending,
-    texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck,
-    katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
-    onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
+    onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest, onOutlineNavigate, onOutlineOpenChange,
     onCreateMissingFile, onRenameEnvironment, onRenameSymbol, onTableGeneratorOpenChange, onWrapEnvironment,
-    activeOutlineId, outlineNodes, outlineOpen, setSource, source: editorSource,
-    tableGeneratorOpen, editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment,
-    onOpenEditorComments, commentFocusRequest, onCommentFocusHandled, getFileViewState, onFileViewState,
-    onRequestHandled,
-  } = props;
-  const settledSource = props.settledSource ?? editorSource;
+    activeOutlineId, outlineNodes, outlineOpen, tableGeneratorOpen, getFileViewState, onFileViewState, onRequestHandled,
+  } = props.navigation;
+  const { onPrepareFigure, onPasteImageFile } = props.assets;
+  const {
+    editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment, onOpenEditorComments,
+    commentFocusRequest, onCommentFocusHandled,
+  } = props.review;
+  const { buildDiagnostics, texlabDiagnostics } = props.status;
+  const settledSource = props.document.settledSource ?? editorSource;
   const {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
     cite: citeInsertRequest, figure: figureDropRequest, proofread: proofreadRequest, replace: tokenReplaceRequest,
-  } = props.requests;
+  } = props.navigation.requests;
   const { t } = useLingui();
   const annotationPinLabel = useCallback((numbers: number[]) => {
     const list = numbers.join(", ");
@@ -385,7 +231,7 @@ export function DocumentCanvas(props: {
   const [commentCards] = useState(() => new CommentCardHosts());
   const commentAuthor = useMemo(() => ({ id: commentAuthorId, name: commentAuthorName }), [commentAuthorId, commentAuthorName]);
   // The newest props for CodeMirror extensions and window listeners, so those
-  // never rebuild for them; also the LaTeX editors' live data (citations, macros).
+  // never rebuild for them.
   const latestRef = useRef(props);
   latestRef.current = props;
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
@@ -394,51 +240,51 @@ export function DocumentCanvas(props: {
   }, []);
   const flushPrimaryVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.(), []);
   const flushVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.() !== false, []);
-  useRegistration(props.onVisualMarkdownFlushChange, flushVisualMarkdown);
-  const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
-  const primaryKind = props.activePaper ? null : structuredDocumentKind(activeFile);
+  useRegistration(props.document.onVisualMarkdownFlushChange, flushVisualMarkdown);
+  const primarySurface: AgentHostSurface = props.document.activePaper ? "paper" : "editor";
+  const primaryKind = props.document.activePaper ? null : structuredDocumentKind(activeFile);
   // Every open deck renders in OpenSlideDeckPool; these change only with what they hold, so the pool re-derives only then.
-  const activeDeckSource = primaryKind === "presentation" ? props.source : null;
+  const activeDeckSource = primaryKind === "presentation" ? props.document.source : null;
   const activeDeck = useMemo(() => (
-    activeDeckSource === null ? null : { path: activeFile, source: activeDeckSource, editable: props.editorEditable }
-  ), [activeDeckSource, activeFile, props.editorEditable]);
+    activeDeckSource === null ? null : { path: activeFile, source: activeDeckSource, editable: props.document.editorEditable }
+  ), [activeDeckSource, activeFile, props.document.editorEditable]);
   const deckSettings = useMemo(() => ({
-    projectRoot: props.projectRoot,
-    locale: props.locale,
-    theme: props.theme,
-    onMutation: props.onOpenSlideMutation,
-    onContext: props.onOpenSlideContext,
-    onError: props.onOpenSlideError,
-  }), [props.locale, props.onOpenSlideContext, props.onOpenSlideError, props.onOpenSlideMutation, props.projectRoot, props.theme]);
-  const markdownDocument = Boolean(props.activePaper)
+    projectRoot: props.preferences.projectRoot,
+    locale: props.preferences.locale,
+    theme: props.preferences.theme,
+    onMutation: props.assets.onOpenSlideMutation,
+    onContext: props.assets.onOpenSlideContext,
+    onError: props.assets.onOpenSlideError,
+  }), [props.preferences.locale, props.assets.onOpenSlideContext, props.assets.onOpenSlideError, props.assets.onOpenSlideMutation, props.preferences.projectRoot, props.preferences.theme]);
+  const markdownDocument = Boolean(props.document.activePaper)
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
-  const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
-  const bibDocument = !props.activePaper && isBibFilePath(activeFile);
+  const htmlDocument = !props.document.activePaper && isHtmlFilePath(activeFile);
+  const bibDocument = !props.document.activePaper && isBibFilePath(activeFile);
   // The source editor's accessible name: which document, then which kind of
   // source, so a screen reader tells it from the other editor or a search field.
-  const documentName = props.activePaper?.title || activeFile.slice(activeFile.lastIndexOf("/") + 1);
+  const documentName = props.document.activePaper?.title || activeFile.slice(activeFile.lastIndexOf("/") + 1);
   const sourceLabel = isLatexSourcePath(activeFile) ? t`${documentName} — LaTeX source`
     : markdownDocument ? t`${documentName} — Markdown source`
     : bibDocument ? t`${documentName} — BibTeX source`
     : htmlDocument ? t`${documentName} — HTML source`
     : t`${documentName} — source`;
   // Shown alone, a reference list the file cannot make gives way to the source.
-  const bibUnreadable = useBibUnreadable(bibDocument && props.mode === "pdf" ? props.source : null);
-  const explicitPreview = props.markdownPreviewSource;
+  const bibUnreadable = useBibUnreadable(bibDocument && props.document.mode === "pdf" ? props.document.source : null);
+  const explicitPreview = props.document.markdownPreviewSource;
   const markdownPreviewStart = explicitPreview !== undefined
-    ? (props.source.endsWith(explicitPreview) ? props.source.length - explicitPreview.length : 0)
-    : markdownDocument ? markdownFrontmatterEnd(props.source) : 0;
-  const markdownPreviewText = props.markdownPreviewSource ?? props.source.slice(markdownPreviewStart);
+    ? (props.document.source.endsWith(explicitPreview) ? props.document.source.length - explicitPreview.length : 0)
+    : markdownDocument ? markdownFrontmatterEnd(props.document.source) : 0;
+  const markdownPreviewText = props.document.markdownPreviewSource ?? props.document.source.slice(markdownPreviewStart);
   const markdownPreviewEnd = markdownPreviewStart + markdownPreviewText.length;
   const { settled: settledPreviewText, markEcho: setVisualEchoSource, policy: markdownSyncPolicy } = useSettledPreviewText(
-    props.source,
+    props.document.source,
     // Other files never reach the Markdown preview: a constant spares each
     // keystroke a publication whose only effect was one more render.
     markdownDocument ? markdownPreviewText : "",
     activeFile,
   );
-  const paperFullTextActive = Boolean(props.activePaper) && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md");
-  const paperAuthors = props.activePaper ? paperAuthorNames(props.activePaper).join(" · ") : "";
+  const paperFullTextActive = Boolean(props.document.activePaper) && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md");
+  const paperAuthors = props.document.activePaper ? paperAuthorNames(props.document.activePaper).join(" · ") : "";
   const [paperVisualEligibility, setPaperVisualEligibility] = useState<{ path: string; text: string; reason: string | null } | null>(null);
   const reportPaperVisualEligibility = useCallback((reason: string | null) => {
     setPaperVisualEligibility((current) => {
@@ -449,19 +295,19 @@ export function DocumentCanvas(props: {
   }, [activeFile, paperFullTextActive, settledPreviewText]);
   const paperVisualEligibilityReason = paperFullTextActive && paperVisualEligibility?.path === activeFile
     && paperVisualEligibility.text === settledPreviewText ? paperVisualEligibility.reason : null;
-  const markdownPreviewLineOffset = props.source.slice(0, markdownPreviewStart).split("\n").length - 1;
+  const markdownPreviewLineOffset = props.document.source.slice(0, markdownPreviewStart).split("\n").length - 1;
   const markdownVisualCursors = useMemo(
-    () => props.overleafPresenceCursors
+    () => props.review.overleafPresenceCursors
       .filter((cursor) => cursor.row >= markdownPreviewLineOffset)
       .map((cursor) => ({ ...cursor, row: cursor.row - markdownPreviewLineOffset })),
-    [markdownPreviewLineOffset, props.overleafPresenceCursors],
+    [markdownPreviewLineOffset, props.review.overleafPresenceCursors],
   );
-  const markdownVisualChanges = useMemo(() => props.overleafChanges.flatMap((change) => {
+  const markdownVisualChanges = useMemo(() => props.review.overleafChanges.flatMap((change) => {
     const changeEnd = change.deletion ? change.position : change.position + change.text.length;
     return change.position < markdownPreviewStart || changeEnd > markdownPreviewEnd
       ? []
       : [{ ...change, position: change.position - markdownPreviewStart }];
-  }), [markdownPreviewEnd, markdownPreviewStart, props.overleafChanges]);
+  }), [markdownPreviewEnd, markdownPreviewStart, props.review.overleafChanges]);
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
   const primaryViewPathRef = useRef("");
@@ -477,17 +323,17 @@ export function DocumentCanvas(props: {
   // scope must not pin a replaced preview and its whole rendered document.
   const [markdownPreviewViewport, setMarkdownPreviewViewport] = useState<WeakRef<HTMLDivElement> | null>(null);
   const paperPdf = usePaperPdf({
-    activePaper: props.activePaper,
+    activePaper: props.document.activePaper,
     activeFile,
-    mode: props.mode,
-    onOpenMarkdownPath: props.onOpenMarkdownPath,
+    mode: props.document.mode,
+    onOpenMarkdownPath: props.document.onOpenMarkdownPath,
     flushVisualMarkdown: flushPrimaryVisualMarkdown,
     previewViewportRef: markdownPreviewViewportRef,
     settledPreviewText,
   });
   const { quoteFallback, returnViewportRef: paperReturnViewportRef } = paperPdf;
   const paperPdfOpen = paperPdf.pdfView !== null;
-  const { onPaperPdfOpenChange } = props;
+  const { onPaperPdfOpenChange } = props.document;
   useLayoutEffect(() => {
     if (!onPaperPdfOpenChange) return;
     onPaperPdfOpenChange(paperPdfOpen);
@@ -503,7 +349,7 @@ export function DocumentCanvas(props: {
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<number | null>(null);
-  const { splitRef, splitRatio, beginSplitResize, nudgeSplit } = useSplitLayout(props.mode, SPLIT_MINIMUMS);
+  const { splitRef, splitRatio, beginSplitResize, nudgeSplit } = useSplitLayout(props.document.mode, SPLIT_MINIMUMS);
   const splitMinimums = SPLIT_MINIMUMS;
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [cursorOffset, setCursorOffset] = useState(0);
@@ -519,15 +365,15 @@ export function DocumentCanvas(props: {
   // share the project's compiled PDF, including across SyncTeX jumps. The
   // canvas outlives a project switch, so the identity is tied to its root: the
   // outgoing project's file must not own the incoming project's saved PDF view.
-  const [previewIdentity, setPreviewIdentity] = useState({ root: props.projectRoot, path: activeFile });
+  const [previewIdentity, setPreviewIdentity] = useState({ root: props.preferences.projectRoot, path: activeFile });
   const previewOwner = isPreviewableSourceFilePath(activeFile) ? activeFile : undefined;
-  if (previewIdentity.root !== props.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
-    setPreviewIdentity({ root: props.projectRoot, path: previewOwner ?? activeFile });
+  if (previewIdentity.root !== props.preferences.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
+    setPreviewIdentity({ root: props.preferences.projectRoot, path: previewOwner ?? activeFile });
   }
 
   const { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView } = useMarkdownModeHandoff({
     activeFile,
-    mode: props.mode,
+    mode: props.document.mode,
     markdownDocument,
     previewStart: markdownPreviewStart,
     primaryViewRef,
@@ -538,15 +384,15 @@ export function DocumentCanvas(props: {
     latestRef,
     scrollSyncSuppressedRef: markdownScrollSyncSuppressedRef,
     reconcileFromSourceRef: markdownPreviewReconcileFromSourceRef,
-    onViewMarkdownSource: props.onViewMarkdownSource,
+    onViewMarkdownSource: props.document.onViewMarkdownSource,
   });
-  useRegistration(props.onMarkdownModeViewportCaptureChange, captureMarkdownModeViewport);
+  useRegistration(props.document.onMarkdownModeViewportCaptureChange, captureMarkdownModeViewport);
 
   // Markdown's Preview is its visual editor: a jump or comment focus for the
   // file in front lands there, instead of opening a source view for it.
   const commentFocusPath = commentFocusRequest ? editorComments.find((item) => item.id === commentFocusRequest.id)?.path : undefined;
   const visualReveal = useMemo<VisualReveal | null>(() => {
-    if (!markdownDocument || props.mode !== "pdf") return null;
+    if (!markdownDocument || props.document.mode !== "pdf") return null;
     if (editorNavigation?.path === activeFile) {
       return { id: editorNavigation.id, kind: "navigation", target: { line: Math.max(1, editorNavigation.line - markdownPreviewLineOffset) } };
     }
@@ -554,7 +400,7 @@ export function DocumentCanvas(props: {
       return { id: commentFocusRequest.nonce, kind: "comment", target: { commentId: commentFocusRequest.id } };
     }
     return null;
-  }, [activeFile, commentFocusPath, commentFocusRequest, editorNavigation, markdownDocument, markdownPreviewLineOffset, props.mode]);
+  }, [activeFile, commentFocusPath, commentFocusRequest, editorNavigation, markdownDocument, markdownPreviewLineOffset, props.document.mode]);
   const visualRevealRef = useLatestRef(visualReveal);
   const [selectedText, setSelectedText] = useState("");
   const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition; highlight: string | null } | null>(null);
@@ -584,7 +430,7 @@ export function DocumentCanvas(props: {
     if (!view) return;
     view.dispatch({ effects: harperDictionaryChanged.of(null) });
     refreshLint(view);
-  }, [props.spellingWords, props.englishVariant]);
+  }, [props.preferences.spellingWords, props.preferences.englishVariant]);
 
   const completionActiveRef = useRef(false);
   const selectionToolbarOwnerRef = useRef<{ path: string; from: number; to: number } | null>(null);
@@ -593,23 +439,23 @@ export function DocumentCanvas(props: {
     setSelectionToolbar(null);
   }, []);
 
-  const mountSourceRef = useRef(props.source);
+  const mountSourceRef = useRef(props.document.source);
   const visualSourceHistoryRef = useRef<{ path: string; undo: string[]; redo: string[] }>({ path: activeFile, undo: [], redo: [] });
   const prevEditorKeyRef = useRef(editorKey);
   if (prevEditorKeyRef.current !== editorKey) {
     prevEditorKeyRef.current = editorKey;
-    mountSourceRef.current = props.source;
+    mountSourceRef.current = props.document.source;
   }
   useEffect(() => {
     // A mounted source view holds the document; without one, only a change
     // from outside the preview replaces its local history.
     const view = primaryViewRef.current?.dom.isConnected ? primaryViewRef.current : null;
-    const source = view ? view.state.doc.toString() : props.source;
+    const source = view ? view.state.doc.toString() : props.document.source;
     if (view || mountSourceRef.current !== source) {
       visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
       mountSourceRef.current = source;
     }
-  }, [activeFile, props.mode, props.source]);
+  }, [activeFile, props.document.mode, props.document.source]);
 
   const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
     const range = view.state.selection.main;
@@ -649,17 +495,17 @@ export function DocumentCanvas(props: {
     const column = head - line.from;
     setCursorOffset((current) => (current === head ? current : head));
     setStatusPosition((current) => current.line === line.number && current.column === column ? current : { line: line.number, column });
-    latestRef.current.onEditorPosition({ path, line: line.number, column });
-    latestRef.current.onViewState(path, { cursor: head, scrollTop: view.scrollDOM.scrollTop });
+    latestRef.current.navigation.onEditorPosition({ path, line: line.number, column });
+    latestRef.current.navigation.onViewState(path, { cursor: head, scrollTop: view.scrollDOM.scrollTop });
   }, []);
-  const onPrimaryChange = useCallback((value: string) => latestRef.current.setSource(value), []);
+  const onPrimaryChange = useCallback((value: string) => latestRef.current.document.setSource(value), []);
   /** Publish the editor's selection, caret and selection toolbar after an update of `path`. */
   const reportEditorUpdate = useCallback((update: ViewUpdate, path: string | null) => {
     const { state, view } = update;
     const range = state.selection.main;
     lastInsertionPositionRef.current = range.head;
     const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
-    latestRef.current.setSelection(nextSelection, range.empty ? undefined : selectionLines(state.doc, range));
+    latestRef.current.selection.setSelection(nextSelection, range.empty ? undefined : selectionLines(state.doc, range));
     setSelectedText(nextSelection);
     if (path) {
       // Focus moving to another control (a tab, a panel, a command) hides
@@ -684,14 +530,14 @@ export function DocumentCanvas(props: {
     const completionActive = status === "active" || (status === "pending" && completionActiveRef.current);
     if (completionActiveRef.current !== completionActive) {
       completionActiveRef.current = completionActive;
-      latestRef.current.onCompletionActiveChange(completionActive);
+      latestRef.current.document.onCompletionActiveChange(completionActive);
     }
-    reportEditorUpdate(viewUpdate, latestRef.current.activeFile);
+    reportEditorUpdate(viewUpdate, latestRef.current.document.activeFile);
     if (viewUpdate.state.selection.main.empty) setCommentComposer(null);
     markdownCursorRevealRef.current?.();
   }, [reportEditorUpdate]);
   useEffect(() => () => {
-    if (completionActiveRef.current) latestRef.current.onCompletionActiveChange(false);
+    if (completionActiveRef.current) latestRef.current.document.onCompletionActiveChange(false);
   }, []);
 
   useEffect(() => onLayoutChange(
@@ -704,7 +550,7 @@ export function DocumentCanvas(props: {
   ), [activeFile, updateSelectionToolbar]);
 
   // Switching files, or to a mode without a source editor, drops the selection toolbar.
-  const sourceEditorHidden = props.mode === "pdf" || props.mode === "asset";
+  const sourceEditorHidden = props.document.mode === "pdf" || props.document.mode === "asset";
   useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, sourceEditorHidden]);
 
   useEffect(() => {
@@ -718,21 +564,21 @@ export function DocumentCanvas(props: {
 
   // Someone else's caret has to repaint when they move it, not when we type next.
   useEffect(() => {
-    primaryViewRef.current?.dispatch({ effects: setOverleafCursorsEffect.of(props.overleafPresenceCursors) });
-  }, [props.overleafPresenceCursors, editorKey]);
+    primaryViewRef.current?.dispatch({ effects: setOverleafCursorsEffect.of(props.review.overleafPresenceCursors) });
+  }, [props.review.overleafPresenceCursors, editorKey]);
 
   useEffect(() => {
     if (!commentFocusRequest) return;
     const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
     // The visual editor answers it in Markdown's Preview (visualReveal).
-    if (!comment || comment.path !== activeFile || (markdownDocument && props.mode === "pdf")) return;
+    if (!comment || comment.path !== activeFile || (markdownDocument && props.document.mode === "pdf")) return;
     if (!primaryViewRef.current) return;
     return landWhenReady(() => primaryViewRef.current, editorSource, (view) => {
       const range = resolveCommentAnchor(view.state.doc.toString(), comment);
       if (range) revealInEditor(view, range);
       onCommentFocusHandled(commentFocusRequest.nonce);
     });
-  }, [activeFile, commentFocusRequest, editorComments, editorSource, markdownDocument, onCommentFocusHandled, props.mode]);
+  }, [activeFile, commentFocusRequest, editorComments, editorSource, markdownDocument, onCommentFocusHandled, props.document.mode]);
   /** The visual editor landed on (or gave up on) the reveal it was asked for. */
   const visualRevealHandled = useCallback((id: string) => {
     const current = visualRevealRef.current;
@@ -745,7 +591,7 @@ export function DocumentCanvas(props: {
     const owner = selectionToolbarOwnerRef.current;
     if (!owner) return;
     const view = primaryViewRef.current;
-    if (!view || owner.path !== latestRef.current.activeFile) return;
+    if (!view || owner.path !== latestRef.current.document.activeFile) return;
     const range = view.state.selection.main;
     if (range.empty || range.from !== owner.from || range.to !== owner.to) {
       dismissSelectionToolbar();
@@ -765,7 +611,7 @@ export function DocumentCanvas(props: {
       dismissSelectionToolbar();
       return;
     }
-    if (!props.editorEditable) return;
+    if (!props.document.editorEditable) return;
     if (action === "support") {
       const doc = view.state.doc;
       if (activeFile) {
@@ -807,7 +653,7 @@ export function DocumentCanvas(props: {
     const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
     editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
     updateSelectionToolbar(view, owner.path);
-  }, [activeFile, dismissSelectionToolbar, proofread, props.editorEditable, updateSelectionToolbar]);
+  }, [activeFile, dismissSelectionToolbar, proofread, props.document.editorEditable, updateSelectionToolbar]);
 
   /**
    * Annotate `[from, to)` of `path`, then ask the agent about every open
@@ -822,7 +668,7 @@ export function DocumentCanvas(props: {
     });
     if (!comment) return false;
     const created = onCreateEditorComment(comment);
-    if (created && !(created instanceof Promise) && extra.revise) props.annotationRounds.revise();
+    if (created && !(created instanceof Promise) && extra.revise) props.review.annotationRounds.revise();
     return true;
   };
   const closeCommentComposer = () => {
@@ -845,7 +691,7 @@ export function DocumentCanvas(props: {
         label: t`Undo`,
         onClick: () => {
           const view = primaryViewRef.current;
-          if (!view || latestRef.current.activeFile !== draft.path) return;
+          if (!view || latestRef.current.document.activeFile !== draft.path) return;
           commentComposerViewRef.current = view;
           setCommentComposer({ ...draft, error: null });
         },
@@ -885,16 +731,16 @@ export function DocumentCanvas(props: {
     comments: EditorCommentsExtensionOptions,
     extra: Extension[] = [],
   ): Extension[] => [
-    paperDropExtension(path, () => ({ projectRoot: latestRef.current.projectRoot, papers: latestRef.current.papers ?? [] })),
+    paperDropExtension(path, () => ({ projectRoot: latestRef.current.preferences.projectRoot, papers: latestRef.current.bibliography.papers ?? [] })),
     ...keymap,
     ...(isLatexSourcePath(path) ? [
       latex(),
       ...latexEditorExtensions({
-        live: latestRef,
+        live: editorLiveData(latestRef),
         currentPath: path,
         spellcheck: editorSpellcheck && isHarperProseFilePath(path),
         texlab: true,
-        loadReferenceImage: props.onLoadReferenceImage,
+        loadReferenceImage: props.bibliography.onLoadReferenceImage,
         onGotoDefinition,
         onFindReferences,
         onRenameSymbol,
@@ -906,18 +752,18 @@ export function DocumentCanvas(props: {
       }),
     ] : [
       ...textLanguage,
-      ...textEditorExtensions(editorSpellcheck && isHarperProseFilePath(path), latestRef, onPasteImageFile),
+      ...textEditorExtensions(editorSpellcheck && isHarperProseFilePath(path), editorLiveData(latestRef), onPasteImageFile),
     ]),
     ...extra,
     editorCommentsExtension(path, {
       pinLabel: (numbers) => annotationPinLabelRef.current(numbers),
       cards: commentCards,
-      onOpenAnnotation: (comment) => latestRef.current.annotationRounds.open(comment),
+      onOpenAnnotation: (comment) => latestRef.current.review.annotationRounds.open(comment),
       ...comments,
     }),
-    linter((view) => editorDiagnosticsForFile(latestRef.current.buildDiagnostics, path, view.state.doc), { delay: 150 }),
+    linter((view) => editorDiagnosticsForFile(latestRef.current.status.buildDiagnostics, path, view.state.doc), { delay: 150 }),
     ...(isLatexSourcePath(path) ? [linter(
-      (view) => editorTexlabDiagnosticsForFile(latestRef.current.texlabDiagnostics, path, view.state.doc),
+      (view) => editorTexlabDiagnosticsForFile(latestRef.current.status.texlabDiagnostics, path, view.state.doc),
       { delay: 200 },
     )] : []),
   ];
@@ -933,14 +779,14 @@ export function DocumentCanvas(props: {
       { getComments: () => commentsForActiveFileRef.current, getDraft: () => commentComposerRef.current },
       [
         proofread.extension,
-        annotationReviewExtension(props.annotationRounds.reviewBridge),
-        overleafCursorsExtension({ getCursors: () => latestRef.current.overleafPresenceCursors }),
+        annotationReviewExtension(props.review.annotationRounds.reviewBridge),
+        overleafCursorsExtension({ getCursors: () => latestRef.current.review.overleafPresenceCursors }),
         overleafTrackChangesExtension({
-          getChanges: () => latestRef.current.overleafChanges,
-          authorName: (userId) => latestRef.current.overleafTrackChangeActions.authorName(userId),
-          canAct: () => latestRef.current.overleafTrackChangeActions.canAct(),
-          onAccept: (change) => latestRef.current.overleafTrackChangeActions.onAccept(change),
-          onReject: (change) => latestRef.current.overleafTrackChangeActions.onReject(change),
+          getChanges: () => latestRef.current.review.overleafChanges,
+          authorName: (userId) => latestRef.current.review.overleafTrackChangeActions.authorName(userId),
+          canAct: () => latestRef.current.review.overleafTrackChangeActions.canAct(),
+          onAccept: (change) => latestRef.current.review.overleafTrackChangeActions.onAccept(change),
+          onReject: (change) => latestRef.current.review.overleafTrackChangeActions.onReject(change),
         }),
         marginReviewExtension(),
       ],
@@ -991,7 +837,7 @@ export function DocumentCanvas(props: {
     const request = editorNavigation;
     if (!request || request.path !== activeFile) return;
     // No source view to land in; in Markdown's Preview the visual editor answers it (visualReveal).
-    if (props.mode === "pdf" || props.mode === "asset") return;
+    if (props.document.mode === "pdf" || props.document.mode === "asset") return;
     // A ref can be assigned before CodeMirror's DOM reports connected; treat the
     // view as ready, since the later attachment does not rerun this effect.
     const targetView = () => primaryViewRef.current ?? editorViewRef.current;
@@ -1001,24 +847,24 @@ export function DocumentCanvas(props: {
       editorViewRef.current = view;
       onRequestHandled(request.id);
     });
-  }, [activeFile, editorNavigation, editorSource, onRequestHandled, props.mode]);
+  }, [activeFile, editorNavigation, editorSource, onRequestHandled, props.document.mode]);
   // A failed build's suggested fix, once the file it names is the one shown:
   // App opens it at the line first, so this lands as a jump does.
   useEffect(() => {
     const request = tokenReplaceRequest;
     if (!request || request.path !== activeFile) return;
-    if (props.mode === "pdf" || props.mode === "asset") return;
+    if (props.document.mode === "pdf" || props.document.mode === "asset") return;
     const targetView = () => primaryViewRef.current ?? editorViewRef.current;
     if (!targetView()) return;
     return landWhenReady(targetView, editorSource, (view) => {
-      const edit = props.editorEditable
+      const edit = props.document.editorEditable
         ? replaceTokenOnLine(view.state.doc.toString(), request.line, request.token, request.replacement)
         : null;
       if (edit) editAndFocus(view, { changes: edit, selection: { anchor: edit.from + edit.insert.length } });
       editorViewRef.current = view;
       onRequestHandled(request.id);
     });
-  }, [activeFile, editorSource, onRequestHandled, props.editorEditable, props.mode, tokenReplaceRequest]);
+  }, [activeFile, editorSource, onRequestHandled, props.document.editorEditable, props.document.mode, tokenReplaceRequest]);
   useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;
@@ -1031,9 +877,9 @@ export function DocumentCanvas(props: {
     const request = proofreadRequest;
     if (!request) return;
     const view = primaryViewRef.current ?? editorViewRef.current;
-    if (view && props.editorEditable) proofread.start(view, request.mode);
+    if (view && props.document.editorEditable) proofread.start(view, request.mode);
     onRequestHandled(request.id);
-  }, [onRequestHandled, proofread, proofreadRequest, props.editorEditable]);
+  }, [onRequestHandled, proofread, proofreadRequest, props.document.editorEditable]);
   // One-shot LaTeX edits at the insertion target's caret, each settled once
   // applied. Find support's Cite instead goes after the claim, found again in
   // its file once that file is the one on screen (App opens it first).
@@ -1060,13 +906,13 @@ export function DocumentCanvas(props: {
     }
     const request = citeInsertRequest;
     const at = request?.at;
-    if (!request || !at || at.path !== activeFile || props.mode === "pdf" || props.mode === "asset") return;
+    if (!request || !at || at.path !== activeFile || props.document.mode === "pdf" || props.document.mode === "asset") return;
     const targetView = () => primaryViewRef.current ?? editorViewRef.current;
     if (!targetView()) return;
     return landWhenReady(targetView, editorSource, (view) => {
       const source = view.state.doc.toString();
       const range = resolveCommentAnchor(source, at);
-      const editable = props.editorEditable && !view.state.readOnly;
+      const editable = props.document.editorEditable && !view.state.readOnly;
       const edit = range && editable ? latexCitationAfter(source, range.from, range.to, request.key) : null;
       if (edit) {
         // The caret lands after it, in view: selected, the citation would
@@ -1080,7 +926,7 @@ export function DocumentCanvas(props: {
     });
   }, [
     activeFile, citeInsertRequest, editorSource, envRenameRequest, onRequestHandled, primaryScrollbarView,
-    props.editorEditable, props.mode, wrapEnvRequest,
+    props.document.editorEditable, props.document.mode, wrapEnvRequest,
   ]);
   useEffect(() => {
     const request = viewRestore;
@@ -1116,7 +962,7 @@ export function DocumentCanvas(props: {
   const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     // VisualMarkdownEditor retains the previous publisher until its layout
     // flush: a late callback must not write once another document owns the canvas.
-    if (latestRef.current.activeFile !== activeFile) return false;
+    if (latestRef.current.document.activeFile !== activeFile) return false;
     const view = livePrimaryView();
     const source = view?.state.doc.toString() ?? mountSourceRef.current;
     const splice = spliceMarkdownBody(source, markdownPreviewStart, expectedBody, nextBody);
@@ -1188,7 +1034,7 @@ export function DocumentCanvas(props: {
     let attempts = 0;
     // A jump into this file owns its viewport: the remembered place would land
     // first and the jump second, two moves where one was asked for.
-    const jumping = () => latestRef.current.requests.navigation?.path === path || visualRevealRef.current !== null;
+    const jumping = () => latestRef.current.navigation.requests.navigation?.path === path || visualRevealRef.current !== null;
     // Retried each frame until the preview is tall enough to hold the saved
     // place, then (with a block saved) until that block is back where it was:
     // the offset alone drifts wherever the layout changed above it.
@@ -1262,7 +1108,7 @@ export function DocumentCanvas(props: {
     history[direction === "undo" ? "redo" : "undo"].push(mountSourceRef.current);
     mountSourceRef.current = target;
     setVisualEchoSource(target);
-    latestRef.current.setSource(target);
+    latestRef.current.document.setSource(target);
     return true;
   }, [activeFile, livePrimaryView, setVisualEchoSource]);
   const undoVisualMarkdown = useCallback(() => stepVisualHistory("undo"), [stepVisualHistory]);
@@ -1275,7 +1121,7 @@ export function DocumentCanvas(props: {
    * as it does a visual Markdown edit.
    */
   const replaceBibSource = useCallback((next: string, base: string) => {
-    if (latestRef.current.activeFile !== activeFile) return false;
+    if (latestRef.current.document.activeFile !== activeFile) return false;
     const view = livePrimaryView();
     const source = view?.state.doc.toString() ?? mountSourceRef.current;
     if (source !== base) return false;
@@ -1295,7 +1141,7 @@ export function DocumentCanvas(props: {
   useMarkdownSplitScroll({
     view: primaryScrollbarView,
     preview: markdownPreviewViewport,
-    active: markdownDocument && props.mode === "split",
+    active: markdownDocument && props.document.mode === "split",
     previewStart: markdownPreviewStart,
     peerScrollSettleMs: markdownSyncPolicy.peerScrollSettleMs,
     suppressedRef: markdownScrollSyncSuppressedRef,
@@ -1306,31 +1152,31 @@ export function DocumentCanvas(props: {
 
   /** Mount-point props that let a surface restore and file its own per-file view state. */
   const viewStateBinding = <K extends keyof FileViewState>(path: string, key: K) => ({
-    initialViewState: props.getFileViewState?.(path)?.[key],
-    onViewState: (state: FileViewState[K]) => props.onFileViewState?.(path, { [key]: state }),
+    initialViewState: props.navigation.getFileViewState?.(path)?.[key],
+    onViewState: (state: FileViewState[K]) => props.navigation.onFileViewState?.(path, { [key]: state }),
   });
   const assetPreview = (asset: AssetPreview) => (
-    <AfterSwitch key={asset.path} state={props.trellis.switchState}>
+    <AfterSwitch key={asset.path} state={props.hosts.switchState}>
       <ProjectAssetPreview
         asset={asset}
-        missing={props.activeAssetMissing}
-        viewState={props.getFileViewState?.(asset.path)}
-        onViewState={(update) => props.onFileViewState?.(asset.path, update)}
-        onFileChanged={props.onActiveAssetChanged}
-        onPdfTextSelect={props.onPdfTextSelect}
+        missing={props.document.activeAssetMissing}
+        viewState={props.navigation.getFileViewState?.(asset.path)}
+        onViewState={(update) => props.navigation.onFileViewState?.(asset.path, update)}
+        onFileChanged={props.document.onActiveAssetChanged}
+        onPdfTextSelect={props.selection.onPdfTextSelect}
       />
     </AfterSwitch>
   );
   const htmlPreview = (path: string, source: string, sourceEditorView?: EditorView | null) => (
-    props.interactivePreviewsEnabled ? (
+    props.preferences.interactivePreviewsEnabled ? (
       <HtmlPreview
         key={path}
         path={path}
         source={source}
-        assetRevision={props.referenceImageGeneration ?? 0}
+        assetRevision={props.bibliography.referenceImageGeneration ?? 0}
         sourceEditorView={sourceEditorView}
         {...viewStateBinding(path, "html")}
-        onLoadAsset={props.onLoadReferenceImage}
+        onLoadAsset={props.bibliography.onLoadReferenceImage}
       />
     ) : <HtmlPreviewLoading />
   );
@@ -1341,7 +1187,7 @@ export function DocumentCanvas(props: {
   /** The board or spreadsheet that owns the canvas. (Decks render in their own pool, below.) */
   const structuredEditor = (kind: Exclude<StructuredDocumentKind, "presentation">) => {
     const path = activeFile;
-    const source = props.source;
+    const source = props.document.source;
     const [fallbackClass, fallbackLabel] = structuredFallbacks[kind];
     const editor = {
       path, source,
@@ -1353,27 +1199,27 @@ export function DocumentCanvas(props: {
     return (
       <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} />}>
         {kind === "board" ? (
-          <BoardEditor key={path} {...editor} theme={props.theme} {...viewStateBinding(path, "board")} />
+          <BoardEditor key={path} {...editor} theme={props.preferences.theme} {...viewStateBinding(path, "board")} />
         ) : (
           <SpreadsheetEditor
-            key={path} {...editor} onPersist={props.onSave} {...viewStateBinding(path, "spreadsheet")}
+            key={path} {...editor} onPersist={props.document.onSave} {...viewStateBinding(path, "spreadsheet")}
           />
         )}
       </Suspense>
     );
   };
 
-  const activatePrimarySurface = () => props.onContextSurfaceActivate(primarySurface);
+  const activatePrimarySurface = () => props.selection.onContextSurfaceActivate(primarySurface);
   /** Leaving `currentTarget` entirely, by pointer or by focus, counts as leaving the editor. */
   const leaveHandlers = {
-    onPointerLeave: props.onEditorLeave,
+    onPointerLeave: props.document.onEditorLeave,
     onBlur: (event: FocusEvent<HTMLElement>) => {
-      if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
+      if (!event.currentTarget.contains(event.relatedTarget)) props.document.onEditorLeave();
     },
   };
   /** Focusing the editor offers its agent surface and makes its source view the insertion target. */
   const focusEditor = () => {
-    props.onContextSurfaceActivate(primarySurface);
+    props.selection.onContextSurfaceActivate(primarySurface);
     if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
   };
   const resizer = (label: string, onPointerDown: PointerEventHandler<HTMLDivElement>, attributes?: HTMLAttributes<HTMLDivElement>) => (
@@ -1389,27 +1235,27 @@ export function DocumentCanvas(props: {
   );
   /** Props every visual Markdown editor shares. */
   const visualEditorProps = {
-    onOpenProjectPath: props.onOpenMarkdownPath,
-    workspaceIndex: props.workspaceIndex,
-    papers: props.papers,
+    onOpenProjectPath: props.document.onOpenMarkdownPath,
+    workspaceIndex: props.document.workspaceIndex,
+    papers: props.bibliography.papers,
     macros: katexMacros,
-    onImportAsset: props.onImportAsset,
-    onLoadAsset: props.onLoadReferenceImage,
-    assetRevision: props.referenceImageGeneration ?? 0,
-    activeEditorCommentId: props.activeEditorCommentId,
+    onImportAsset: props.assets.onImportAsset,
+    onLoadAsset: props.bibliography.onLoadReferenceImage,
+    assetRevision: props.bibliography.referenceImageGeneration ?? 0,
+    activeEditorCommentId: props.review.activeEditorCommentId,
     // Opens the panel on that thread, like replying from the source editor's tooltip.
-    onEditorCommentClick: props.onReplyEditorComment,
-    onSelectionMarkdown: (value: string) => latestRef.current.setSelection(value),
+    onEditorCommentClick: props.review.onReplyEditorComment,
+    onSelectionMarkdown: (value: string) => latestRef.current.selection.setSelection(value),
   };
   /** A visual editor's caret moved to 1-based `line` of `path`. */
   const reportVisualCaret = (path: string, line: number, column: number) => {
     setStatusPosition({ line, column });
-    props.onEditorPosition({ path, line, column });
+    props.navigation.onEditorPosition({ path, line, column });
   };
   const markdownPreview = (
     <ScrollArea
       className="markdown-preview"
-      data-tour={props.activePaper ? "paper-reading-view" : "markdown-visual-editor"}
+      data-tour={props.document.activePaper ? "paper-reading-view" : "markdown-visual-editor"}
       // Wide tables, code and formulas own their horizontal overflow; a second
       // root scrollbar made Base UI run another ResizeObserver loop.
       orientation="vertical"
@@ -1423,10 +1269,10 @@ export function DocumentCanvas(props: {
       viewportProps={{
         "data-testid": "editor-scroll-container",
         onClickCapture: (event) => {
-          if (!props.activePaper || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+          if (!props.document.activePaper || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
           const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
           if (!link) return;
-          const citation = paperSourceCitation(props.activePaper, link.href, link.title);
+          const citation = paperSourceCitation(props.document.activePaper, link.href, link.title);
           if (!citation || !paperPdf.pdfSource) return;
           event.preventDefault();
           event.stopPropagation();
@@ -1434,19 +1280,19 @@ export function DocumentCanvas(props: {
         },
         // Split mode has its own scroll coordinator and insertion viewport lock;
         // native anchoring would be a competing scroll writer.
-        style: props.mode === "split" ? { overflowAnchor: "none" } : undefined,
+        style: props.document.mode === "split" ? { overflowAnchor: "none" } : undefined,
       }}
       viewportRef={attachMarkdownPreviewViewport}
       onPointerDownCapture={activatePrimarySurface}
       onFocusCapture={activatePrimarySurface}
       {...leaveHandlers}
-      onMouseUp={props.activePaper ? (event) => {
+      onMouseUp={props.document.activePaper ? (event) => {
         const selection = window.getSelection();
         const anchor = selection?.anchorNode;
-        props.onPaperTextSelect(anchor && event.currentTarget.contains(anchor) ? selection?.toString() ?? "" : "");
+        props.selection.onPaperTextSelect(anchor && event.currentTarget.contains(anchor) ? selection?.toString() ?? "" : "");
       } : undefined}
     >
-      {props.activePaper && paperFullTextActive && (
+      {props.document.activePaper && paperFullTextActive && (
         <header className="paper-visual-header">
           <div>
             {paperVisualEligibilityReason && (
@@ -1454,22 +1300,22 @@ export function DocumentCanvas(props: {
                 {paperVisualEligibilityReason}
               </InlineMessage>
             )}
-            <h1>{props.activePaper.title}</h1>
+            <h1>{props.document.activePaper.title}</h1>
             {paperAuthors && <p>{paperAuthors}</p>}
           </div>
         </header>
       )}
-      <Suspense fallback={props.activePaper ? null : <MarkdownPreviewLoading />}>
+      <Suspense fallback={props.document.activePaper ? null : <MarkdownPreviewLoading />}>
         <DeferredVisualMarkdownEditor
           {...visualEditorProps}
           text={settledPreviewText}
-          activePath={props.activeFile}
-          projectRoot={props.activePaper ? undefined : props.projectRoot}
-          optimizeForReading={Boolean(props.activePaper)}
+          activePath={props.document.activeFile}
+          projectRoot={props.document.activePaper ? undefined : props.preferences.projectRoot}
+          optimizeForReading={Boolean(props.document.activePaper)}
           onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
           // Split previews keep source labels for scroll sync; pure preview
           // spares the labeling cost while typing.
-          synchronizeSourceScroll={props.mode === "split" || visualReveal !== null}
+          synchronizeSourceScroll={props.document.mode === "split" || visualReveal !== null}
           revealRequest={visualReveal}
           onRevealHandled={visualRevealHandled}
           onRequestViewportLock={lockMarkdownPreviewViewport}
@@ -1480,26 +1326,26 @@ export function DocumentCanvas(props: {
           onViewInSource={viewMarkdownSource}
           presenceCursors={markdownVisualCursors}
           overleafChanges={markdownVisualChanges}
-          overleafTrackChangeActions={props.overleafTrackChangeActions}
+          overleafTrackChangeActions={props.review.overleafTrackChangeActions}
           editorComments={markdownVisualComments}
           onCreateComment={(from, to, body) => createComment(
-            activeFile, props.source, markdownPreviewStart + from, markdownPreviewStart + to, body,
+            activeFile, props.document.source, markdownPreviewStart + from, markdownPreviewStart + to, body,
           )}
-          editable={props.editorEditable}
+          editable={props.document.editorEditable}
           onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
         />
       </Suspense>
     </ScrollArea>
   );
-  const paperPreview = props.activePaper ? (
+  const paperPreview = props.document.activePaper ? (
     <PaperReader
-      paper={props.activePaper}
+      paper={props.document.activePaper}
       activeFile={activeFile}
       pdf={paperPdf}
       markdown={markdownPreview}
-      onOpenMarkdownPath={props.onOpenMarkdownPath}
-      onContextSurfaceActivate={props.onContextSurfaceActivate}
-      onTextSelect={props.onPaperTextSelect}
+      onOpenMarkdownPath={props.document.onOpenMarkdownPath}
+      onContextSurfaceActivate={props.selection.onContextSurfaceActivate}
+      onTextSelect={props.selection.onPaperTextSelect}
       pdfViewState={viewStateBinding(activeFile, "pdf")}
     />
   ) : markdownPreview;
@@ -1508,18 +1354,18 @@ export function DocumentCanvas(props: {
       <Suspense fallback={<MarkdownPreviewLoading />}>
         <BibVisualEditor
           path={activeFile}
-          source={props.source}
-          projectRoot={props.projectRoot}
-          editable={props.editorEditable}
-          papers={props.papers ?? []}
-          usageRevision={props.citationUsageRevision}
+          source={props.document.source}
+          projectRoot={props.preferences.projectRoot}
+          editable={props.document.editorEditable}
+          papers={props.bibliography.papers ?? []}
+          usageRevision={props.bibliography.citationUsageRevision}
           onChange={replaceBibSource}
           onUndo={undoVisualMarkdown}
           onRedo={redoVisualMarkdown}
-          onOpenLine={(path, line) => props.onTexlabGoto(path, line)}
-          onOpenPaper={(paper) => props.onOpenPaper?.(paper)}
-          onOpenUrl={(url) => props.onOpenUrl?.(url)}
-          onResolveCitation={(query) => props.onResolveCitation?.(query) ?? Promise.reject(new Error(t`Looking up references is not available here.`))}
+          onOpenLine={(path, line) => props.navigation.onTexlabGoto(path, line)}
+          onOpenPaper={(paper) => props.bibliography.onOpenPaper?.(paper)}
+          onOpenUrl={(url) => props.bibliography.onOpenUrl?.(url)}
+          onResolveCitation={(query) => props.bibliography.onResolveCitation?.(query) ?? Promise.reject(new Error(t`Looking up references is not available here.`))}
         />
       </Suspense>
     </div>
@@ -1533,8 +1379,8 @@ export function DocumentCanvas(props: {
       <div className="source-main">
         <div
           className={`source-editor ${
-            figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""
-          } ${props.fileDropTargetActive ? "file-drop-active" : ""}`}
+            figureDropActive || props.assets.nativeFigureDropActive ? "figure-drop-active" : ""
+          } ${props.assets.fileDropTargetActive ? "file-drop-active" : ""}`}
           data-editor-pane="primary"
           onPointerDownCapture={activatePrimarySurface}
           onFocusCapture={focusEditor}
@@ -1564,10 +1410,10 @@ export function DocumentCanvas(props: {
             key={editorKey}
             className="code-editor-root"
             label={sourceLabel}
-            value={props.source}
-            editable={props.editorEditable}
+            value={props.document.source}
+            editable={props.document.editorEditable}
             extensions={editorExtensions}
-            park={props.projectRoot ? { root: props.projectRoot, path: activeFile } : null}
+            park={props.preferences.projectRoot ? { root: props.preferences.projectRoot, path: activeFile } : null}
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
@@ -1586,37 +1432,37 @@ export function DocumentCanvas(props: {
               path={activeFile}
               source={settledSource}
               nodes={outlineNodes}
-              rootPath={props.outlineRootPath ?? ""}
+              rootPath={props.navigation.outlineRootPath ?? ""}
               label={t`Outline`}
-              pdfUrl={props.pdfUrl}
+              pdfUrl={props.pdf.pdfUrl}
               onSelect={onOutlineNavigate}
             />
           )}
-          {marginView && props.sourceMargin?.(marginView)}
+          {marginView && props.review.sourceMargin?.(marginView)}
           <ProofreadLayer
             bridge={proofread}
-            projectRoot={props.projectRoot}
+            projectRoot={props.preferences.projectRoot}
             activeFile={activeFile}
             editorKey={editorKey}
-            editable={props.editorEditable && isLatexSourcePath(activeFile)}
+            editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
-            englishVariant={props.englishVariant}
-            termRules={props.termRules}
+            englishVariant={props.preferences.englishVariant}
+            termRules={props.preferences.termRules}
           />
           <AnnotationReviewLayer
-            bridge={props.annotationRounds.reviewBridge}
+            bridge={props.review.annotationRounds.reviewBridge}
             activeFile={activeFile}
             editorKey={editorKey}
-            editable={props.editorEditable}
+            editable={props.document.editorEditable}
             viewRef={primaryViewRef}
             annotations={editorComments}
-            rounds={props.annotationRounds}
+            rounds={props.review.annotationRounds}
           />
           <EditorCommentCards
             cards={commentCards}
             author={commentAuthor}
-            onResolve={props.onResolveEditorComment}
-            onReply={props.onPostEditorCommentReply}
+            onResolve={props.review.onResolveEditorComment}
+            onReply={props.review.onPostEditorCommentReply}
           />
           {commentComposer && (
             <AnnotationComposer
@@ -1645,22 +1491,22 @@ export function DocumentCanvas(props: {
           hasDiagnostics={buildDiagnostics.length > 0}
           comments={commentsForActiveFile}
           onOpenComments={onOpenEditorComments}
-          todoCount={props.todoCount}
-          onOpenTodos={props.onOpenTodos}
-          projectWordCount={props.projectWordCount}
+          todoCount={props.status.todoCount}
+          onOpenTodos={props.status.onOpenTodos}
+          projectWordCount={props.status.projectWordCount}
           selectedText={selectedText}
           source={settledSource}
-          saveSlot={props.saveSlot}
+          saveSlot={props.status.saveSlot}
         />
       </div>
       {tableGeneratorOpen && <TableGeneratorDialog onClose={() => onTableGeneratorOpenChange(false)} target={() => {
         const view = editorViewRef.current;
-        if (!view || !props.editorEditable || !isLatexSourcePath(activeFile)) return null;
+        if (!view || !props.document.editorEditable || !isLatexSourcePath(activeFile)) return null;
         const source = view.state.doc.toString();
-        const owner = { root: props.projectRoot, path: activeFile };
+        const owner = { root: props.preferences.projectRoot, path: activeFile };
         return { source, cursor: view.state.selection.main.head, apply: (from, to, insert) => {
-          if (editorViewRef.current !== view || latestRef.current.projectRoot !== owner.root
-            || latestRef.current.activeFile !== owner.path || !latestRef.current.editorEditable
+          if (editorViewRef.current !== view || latestRef.current.preferences.projectRoot !== owner.root
+            || latestRef.current.document.activeFile !== owner.path || !latestRef.current.document.editorEditable
             || view.state.doc.toString() !== source) return false;
           editAndFocus(view, { changes: { from, to, insert }, selection: { anchor: from + insert.indexOf("\\begin") } });
           return true;
@@ -1676,11 +1522,11 @@ export function DocumentCanvas(props: {
         <LatexSelectionToolbar
           position={selectionToolbar.position}
           canComment
-          canProofread={isLatexSourcePath(activeFile) && Boolean(props.projectRoot)}
+          canProofread={isLatexSourcePath(activeFile) && Boolean(props.preferences.projectRoot)}
           highlight={selectionToolbar.highlight}
           sample={selectedText}
           documentColors={documentColors}
-          commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
+          commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.document.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}
         />
@@ -1693,10 +1539,10 @@ export function DocumentCanvas(props: {
       // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
       // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
       if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
-      props.onEditorLeave();
+      props.document.onEditorLeave();
     };
     const activatePdf = () => {
-      props.onContextSurfaceActivate("pdf");
+      props.selection.onContextSurfaceActivate("pdf");
       leaveEditorForPdf();
     };
     return (
@@ -1707,30 +1553,30 @@ export function DocumentCanvas(props: {
         onFocusCapture={activatePdf}
         onWheelCapture={leaveEditorForPdf}
       >
-        {props.pdfTop}
+        {props.pdf.pdfTop}
         <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
           <PdfPreview
-            key={`project-pdf:${props.projectRoot}`}
-            url={props.pdfUrl}
-            pdfBytes={props.pdfBytes}
-            citations={props.citations}
-            canOpenCitation={props.canOpenCitation}
-            onOpenCitation={props.onOpenCitation}
-            syncTarget={props.pdfSyncTarget}
-            canForwardSync={props.canForwardSync}
-            locatingPdf={props.locatingPdf}
-            onForwardSync={props.onForwardSync}
+            key={`project-pdf:${props.preferences.projectRoot}`}
+            url={props.pdf.pdfUrl}
+            pdfBytes={props.pdf.pdfBytes}
+            citations={props.bibliography.citations}
+            canOpenCitation={props.bibliography.canOpenCitation}
+            onOpenCitation={props.bibliography.onOpenCitation}
+            syncTarget={props.pdf.pdfSyncTarget}
+            canForwardSync={props.pdf.canForwardSync}
+            locatingPdf={props.pdf.locatingPdf}
+            onForwardSync={props.pdf.onForwardSync}
             loadErrorHint={t`Try building the project again`}
-            onBuild={props.onBuildProject}
-            building={props.building}
-            buildShortcut={props.buildShortcut}
+            onBuild={props.pdf.onBuildProject}
+            building={props.pdf.building}
+            buildShortcut={props.pdf.buildShortcut}
             // Under Trellis a reverse jump always has a file panel to land in.
-            onSource={props.onPdfSource}
-            onTextSelect={props.onPdfTextSelect}
+            onSource={props.pdf.onPdfSource}
+            onTextSelect={props.selection.onPdfTextSelect}
             annotations={editorComments}
-            annotationRounds={props.annotationRounds}
-            onNumPages={props.onPdfPageCount}
-            onPageChange={props.onPdfPageChange}
+            annotationRounds={props.review.annotationRounds}
+            onNumPages={props.pdf.onPdfPageCount}
+            onPageChange={props.pdf.onPdfPageChange}
             {...viewStateBinding(previewPath, "pdf")}
             outline={(
               <DocumentOutline
@@ -1747,20 +1593,20 @@ export function DocumentCanvas(props: {
       </div>
     );
   };
-  const preview = props.activeAsset ? assetPreview(props.activeAsset)
+  const preview = props.document.activeAsset ? assetPreview(props.document.activeAsset)
     : bibDocument ? bibPreview
     : markdownDocument ? paperPreview
-      : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
+      : htmlDocument ? htmlPreview(activeFile, props.document.source, props.document.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
         : projectPdfPreview(activeFile);
   // The file panel shows the document the way its kind is edited; LaTeX
   // and other source files never split here, the PDF is its own panel.
-  const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.trellis;
-  const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument || bibDocument;
-  const fileContent = props.activeAsset ? assetPreview(props.activeAsset)
+  const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.hosts;
+  const readable = Boolean(props.document.activePaper) || markdownDocument || htmlDocument || bibDocument;
+  const fileContent = props.document.activeAsset ? assetPreview(props.document.activeAsset)
     : primaryKind === "presentation" ? null
     : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind))
       : paperPdf.pdfView ? paperPreview
-        : !readable || props.mode === "source" ? editor
+        : !readable || props.document.mode === "source" ? editor
           : bibUnreadable ? (
             <div className="bib-source-fallback">
               <InlineMessage level="warning">
@@ -1769,7 +1615,7 @@ export function DocumentCanvas(props: {
               {editor}
             </div>
           )
-          : props.mode === "pdf" ? preview
+          : props.document.mode === "pdf" ? preview
             : (
         <div
           ref={splitRef}
@@ -1783,7 +1629,7 @@ export function DocumentCanvas(props: {
         >
           {editor}
           {resizer(
-            props.activeAsset
+            props.document.activeAsset
               ? t`Resize editor and asset preview`
               : markdownDocument
                 ? t`Resize editor and Markdown preview`
@@ -1811,10 +1657,10 @@ export function DocumentCanvas(props: {
       <OpenSlideDeckPool
         shared={deckSettings}
         active={activeDeck}
-        openPaths={props.openPaths}
-        hosts={props.trellis.decks}
-        getFileViewState={props.getFileViewState}
-        onFileViewState={props.onFileViewState}
+        openPaths={props.document.openPaths}
+        hosts={props.hosts.decks}
+        getFileViewState={props.navigation.getFileViewState}
+        onFileViewState={props.navigation.onFileViewState}
       />
     </>
   );
