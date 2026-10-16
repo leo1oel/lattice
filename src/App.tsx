@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import * as Y from "yjs";
 import { bibliographyEntryLine, type DefinitionTarget, type SymbolTarget } from "./editor/latex/latex-text";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
@@ -116,8 +115,7 @@ import {
 } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
-import { registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsheet-tools";
-import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
+import { loadAgentSpreadsheetModel, registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsheet-tools";
 import {
   EMPTY_DIAGNOSTICS,
   diagnosticMatchesFile,
@@ -360,9 +358,8 @@ function App() {
     const projectRoot = projectRootRef.current;
     if (!projectRoot) return null;
     const content = await invoke<string>("read_project_file", { path, projectRoot });
-    const doc = new Y.Doc();
-    if (content) doc.getText("content").insert(0, content);
-    seedSpreadsheetDoc(doc);
+    const { openSpreadsheetDoc, spreadsheetDocContent } = await loadAgentSpreadsheetModel();
+    const doc = openSpreadsheetDoc(content);
     return {
       doc,
       canWrite: true,
