@@ -309,7 +309,9 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
             }
           }}
         />
-        <span className="lx-md-find-status" role="status">{query ? (total ? t`${current} of ${count}` : t`No matches`) : ""}</span>
+        {/* The bar draws a new query once before its effect searches for it;
+            that frame says nothing rather than "No matches". */}
+        <span className="lx-md-find-status" role="status">{query && state.query === query ? (total ? t`${current} of ${count}` : t`No matches`) : ""}</span>
         <IconButton size="compact" tooltip={false} label={t`Previous match`} disabled={!total} onClick={() => step(-1)}>
           <ChevronUp aria-hidden="true" />
         </IconButton>

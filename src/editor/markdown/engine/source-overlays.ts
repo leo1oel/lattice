@@ -90,8 +90,13 @@ export function buildOverlays(doc: PmNode, map: SourceMap | null, inputs: Overla
   if (!map) return DecorationSet.empty;
   const decorations: Decoration[] = [];
   if (inputs.labels) {
+    // Labels name top-level blocks; finding each by `nodeAt` walks the
+    // document's children from its start, which for thousands of blocks made
+    // every load of a long document in Split view cost a quarter second.
+    const blocks = new Map<number, PmNode>();
+    doc.forEach((node, pos) => blocks.set(pos, node));
     for (const label of map.labels()) {
-      const node = doc.nodeAt(label.pos);
+      const node = blocks.get(label.pos) ?? doc.nodeAt(label.pos);
       if (!node) continue;
       decorations.push(Decoration.node(label.pos, label.pos + node.nodeSize, {
         "data-source-line": String(label.line),
