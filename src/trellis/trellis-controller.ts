@@ -21,7 +21,7 @@ import { WorkspaceLibrary } from "./trellis-workspaces";
 import type { SwitchState } from "../canvas/after-switch";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
-export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist", "review"] as const;
+export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist", "review", "support"] as const;
 export type TrellisToolKind = typeof TOOL_KINDS[number];
 
 /** Which drawer (by the class it passes to ResizableDrawer) docks as which tool panel. */
@@ -35,6 +35,7 @@ const DRAWER_TOOL_CLASSES: Array<[string, TrellisToolKind]> = [
   ["todo-drawer", "todos"],
   ["checklist-drawer", "checklist"],
   ["paper-review-drawer", "review"],
+  ["support-drawer", "support"],
 ];
 
 /** Frames an editor stays on screen before focus may land in it (see `focusDocument`). */

@@ -136,6 +136,9 @@ pub struct OpenAlexWork {
     pub authors: Vec<String>,
     #[serde(default)]
     pub r#abstract: Option<String>,
+    /// Where it was published ("NAACL", "arXiv"), as OpenAlex names the source.
+    #[serde(default)]
+    pub venue: Option<String>,
 }
 
 /// A merged search hit shown in the Discover panel. alphaXiv (full-text) and
@@ -159,6 +162,9 @@ pub struct LiteratureHit {
     pub r#abstract: Option<String>,
     pub doi: Option<String>,
     pub landing_url: Option<String>,
+    /// OpenAlex: where the work was published, for a support card's byline.
+    #[serde(default)]
+    pub venue: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

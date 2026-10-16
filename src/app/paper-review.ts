@@ -21,6 +21,7 @@ import {
 import { i18n } from "../i18n";
 import { notifyInfo } from "../telemetry/app-notify";
 import { annotationRounds, revisable } from "./annotation-rounds";
+import type { SupportClaim } from "./claim-support";
 import type { EditorComments } from "./use-editor-comments";
 
 type Ref<T> = { readonly current: T };
@@ -36,8 +37,8 @@ export type PaperReviewDeps = {
   manuscript: () => { root: string | null; paths: string[]; venue: string | null };
   openProjectFile: OpenProjectFile;
   author: { id: string; name: string };
-  /** Search the literature for what would support a finding. */
-  searchLiterature: (query: string) => void;
+  /** Find papers that would support the passage a finding quotes (`app/claim-support.ts`). */
+  findSupport: (claim: SupportClaim) => void;
 };
 
 /** A review the agent is reading the paper for. */
@@ -340,10 +341,12 @@ export class PaperReviews {
     });
   };
 
-  /** Search the literature for what would support a finding. */
+  /** Find papers that would support the passage a finding quotes, searching with its keywords when it named some. */
   findSupport = (id: string) => {
     const finding = this.find(id);
-    if (finding?.search) this.deps?.searchLiterature(finding.search);
+    if (!finding) return;
+    const { path, line, from, to, quote, prefix, suffix, search } = finding;
+    this.deps?.findSupport({ path, line, from, to, quote, prefix, suffix, ...search ? { terms: search } : {} });
   };
 
   /** Open the annotation a finding became. */

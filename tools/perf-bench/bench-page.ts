@@ -613,6 +613,58 @@ const REVIEW_REPORT = (zh: boolean) => ({
 });
 let paperReviewState: unknown = null;
 
+// --- Find support ---------------------------------------------------------
+// OpenAlex's answer for a claim about attention as explanation: three real
+// abstracts that speak to it (Jain & Wallace, Serrano & Smith, Wiegreffe &
+// Pinter) and one that does not. The agent picks keywords, then names the
+// three with a sentence from each, and one passage no abstract holds
+// (Lattice leaves it out). `?support=running` holds the reading until the
+// page reloads, `?support=none` finds nothing that speaks to the claim,
+// `?support=failed` fails the reading, and `?support=long` gives every paper
+// a long title, venue and author list, for narrow panels.
+
+const SUPPORT_HITS = [
+  {
+    source: "openalex", title: "Attention is not Explanation", year: 2019, venue: "North American Chapter of the Association for Computational Linguistics",
+    authors: ["Sarthak Jain", "Byron C. Wallace"], doi: "10.18653/v1/n19-1357", citedByCount: 1580,
+    abstract: "Attention mechanisms have seen wide adoption in neural NLP models. In addition to improving predictive performance, these are often touted as affording transparency: models equipped with attention provide a distribution over attended-to input units, and this is often presented (at least implicitly) as communicating the relative importance of inputs. However, it is unclear what relationship exists between attention weights and model outputs. In this work we perform extensive experiments across a variety of NLP tasks that aim to assess the degree to which attention weights provide meaningful “explanations” for predictions. We find that they largely do not. For example, learned attention weights are frequently uncorrelated with gradient-based measures of feature importance, and one can identify very different attention distributions that nonetheless yield equivalent predictions. Our findings show that standard attention modules do not provide meaningful explanations and should not be treated as though they do.",
+  },
+  {
+    source: "openalex", title: "Is Attention Interpretable?", year: 2019, venue: "Annual Meeting of the Association for Computational Linguistics",
+    authors: ["Sofia Serrano", "Noah A. Smith"], doi: "10.18653/v1/p19-1282", arxivId: "1906.03731", citedByCount: 820,
+    abstract: "Attention mechanisms have recently boosted performance on a range of NLP tasks. Because attention layers explicitly weight input components’ representations, it is also often assumed that attention can be used to identify information that models found important (e.g., specific contextualized word tokens). We test whether that assumption holds by manipulating attention weights in already-trained text classification models and analyzing the resulting differences in their predictions. While we observe some ways in which higher attention weights correlate with greater impact on model predictions, we also find many ways in which this does not hold, i.e., where gradient-based rankings of attention weights better predict their effects than their magnitudes. We conclude that while attention noisily predicts input components’ overall importance to a model, it is by no means a fail-safe indicator.",
+  },
+  {
+    source: "openalex", title: "Attention is not not Explanation", year: 2019, venue: "Empirical Methods in Natural Language Processing",
+    authors: ["Sarah Wiegreffe", "Yuval Pinter"], doi: "10.18653/v1/d19-1002", arxivId: "1908.04626", citedByCount: 900,
+    abstract: "Attention mechanisms play a central role in NLP systems, especially within recurrent neural network (RNN) models. Recently, there has been increasing interest in whether or not the intermediate representations offered by these modules may be used to explain the reasoning for a model’s prediction, and consequently reach insights regarding the model’s decision-making process. A recent paper claims that ‘Attention is not Explanation’ (Jain and Wallace, 2019). We challenge many of the assumptions underlying this work, arguing that such a claim depends on one’s definition of explanation, and that testing it needs to take into account all elements of the model. We propose four alternative tests to determine when/whether attention can be used as explanation.",
+  },
+  {
+    source: "openalex", title: "Attention Is All You Need", year: 2017, venue: "Neural Information Processing Systems",
+    authors: ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar", "Jakob Uszkoreit", "Llion Jones"], arxivId: "1706.03762", citedByCount: 120000,
+    abstract: "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+  },
+];
+
+const SUPPORT_REPLY = {
+  papers: [
+    { id: "p1", signal: "supports", passage: "For example, learned attention weights are frequently uncorrelated with gradient-based measures of feature importance, and one can identify very different attention distributions that nonetheless yield equivalent predictions." },
+    { id: "p2", signal: "supports", passage: "We conclude that while attention noisily predicts input components’ overall importance to a model, it is by no means a fail-safe indicator." },
+    { id: "p3", signal: "mixed", passage: "We challenge many of the assumptions underlying this work, arguing that such a claim depends on one’s definition of explanation, and that testing it needs to take into account all elements of the model." },
+    { id: "p4", signal: "contradicts", passage: "Attention is a faithful explanation of every prediction." },
+  ],
+};
+
+function supportHits() {
+  if (params.get("support") !== "long") return SUPPORT_HITS;
+  return SUPPORT_HITS.map((hit) => ({
+    ...hit,
+    title: `${hit.title}: ${hit.title} — a Longer Title, with a Subtitle That Wraps`,
+    venue: `Proceedings of the 2019 Conference of the ${hit.venue}: Human Language Technologies, Volume 1 (Long and Short Papers)`,
+    authors: [...hit.authors, "Alexandria Ocasio-Fitzgerald-Montgomery", "Jean-Baptiste Delacroix-Hernández"],
+  }));
+}
+
 // --- Annotations ----------------------------------------------------------
 // `.research/annotations.json` kept in memory. On the tutorial, `?annotations=1`
 // seeds five open notes (one made on the PDF), `?annotations=review` a round
@@ -745,6 +797,18 @@ function textTask(args: Args): unknown {
       proofreadTasks.set(taskId, { text: `<review>\n${JSON.stringify(report, null, 2)}\n</review>`, ready });
       return { taskId };
     }
+    if (prompt.startsWith("Suggest how to search the scholarly literature")) {
+      const taskId = `text-task:${proofreadTasks.size + 1}`;
+      proofreadTasks.set(taskId, { text: "<terms>attention weights explanation faithfulness</terms>", ready: performance.now() + 900 });
+      return { taskId };
+    }
+    if (prompt.startsWith("A writer wants to know which papers bear on a claim")) {
+      const taskId = `text-task:${proofreadTasks.size + 1}`;
+      const reply = params.get("support") === "none" ? { papers: [] } : SUPPORT_REPLY;
+      const ready = params.get("support") === "running" ? Infinity : performance.now() + 1_800;
+      proofreadTasks.set(taskId, { text: `<support>\n${JSON.stringify(reply, null, 2)}\n</support>`, ready });
+      return { taskId };
+    }
     if (prompt.startsWith("Revise a passage")) {
       const taskId = `text-task:${proofreadTasks.size + 1}`;
       proofreadTasks.set(taskId, { text: annotationReply(prompt), ready: performance.now() + 1_200 + Math.random() * 1_600 });
@@ -772,7 +836,9 @@ function textTask(args: Args): unknown {
   if (!task) throw "Agent task not found.";
   if (action === "cancel") return { status: "running" };
   if (performance.now() < task.ready) return { status: "running" };
-  if (mode === "failed" || params.get("review") === "failed") return { status: "failed", message: "Codex is not signed in." };
+  if (mode === "failed" || params.get("review") === "failed" || (params.get("support") === "failed" && task.text.startsWith("<support>"))) {
+    return { status: "failed", message: "Codex is not signed in." };
+  }
   const model = params.get("proofreadModel");
   return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
@@ -951,6 +1017,27 @@ function answer(command: string, args: Args): unknown {
     // The fixture's health is all it knows: Crossref has nothing newer.
     case "refresh_citation_health":
       return {};
+    case "search_literature_abstracts":
+      return supportHits();
+    // Add to Papers from Find support: imported as cited, with nothing to download.
+    case "import_reference": {
+      const input = String(args?.input ?? "");
+      const hit = SUPPORT_HITS.find((item) => input.includes(item.arxivId ?? "\0") || input === item.doi);
+      if (!hit) throw "Nothing found for that reference.";
+      return { arxivId: hit.arxivId ?? "", title: hit.title, citationKey: `${hit.authors[0].split(" ").at(-1)!.toLowerCase()}2019${hit.title.split(" ")[0].toLowerCase()}`, alreadyImported: false };
+    }
+    // Find support's Cite: the DOI resolves to its entry, which joins the
+    // bibliography through write_project_file.
+    case "resolve_citation_query": {
+      const hit = SUPPORT_HITS.find((item) => item.doi && String(args?.query ?? "").toLowerCase() === item.doi);
+      if (!hit) throw "No citation found.";
+      const key = `${hit.authors[0].split(" ").at(-1)!.toLowerCase()}2019${hit.title.split(" ")[0].toLowerCase()}`;
+      const author = hit.authors.join(" and ");
+      return {
+        key, title: hit.title, author, year: String(hit.year), journal: "", booktitle: hit.venue, publisher: "", url: "", doi: hit.doi, entryType: "inproceedings",
+        bibtex: `@inproceedings{${key},\n  title = {${hit.title}},\n  author = {${author}},\n  booktitle = {${hit.venue}},\n  year = {${hit.year}},\n  doi = {${hit.doi}}\n}`,
+      };
+    }
     case "search_literature":
       return { hits: (args?.page ?? 0) === 0 ? LITERATURE_HITS : [], hasMore: false };
     // `?fetch=pending`: a paper's download stays under way until its Cancel,

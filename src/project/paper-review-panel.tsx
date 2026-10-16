@@ -130,7 +130,7 @@ function Finding({ finding, expanded, busy, onToggle }: {
                 <MessageSquarePlus size={14} aria-hidden="true" />{t`Add as annotation`}
               </Button>
             )}
-            {finding.search ? (
+            {finding.search || finding.kind === "citation" ? (
               <Button size="compact" variant="ghost" onClick={() => paperReview.findSupport(finding.id)}>
                 <Search size={14} aria-hidden="true" />{t`Find support`}
               </Button>

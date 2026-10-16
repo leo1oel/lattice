@@ -5,6 +5,7 @@ import type { PaperSummary, ProjectSnapshot, RefreshProject } from "../app-types
 import { toMessage } from "../app-utils";
 import { isMissingPaperToolsError } from "../build/tex-setup";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
+import { bibEntryKeys } from "../papers/bib-format";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery } from "../papers/paper-source";
@@ -361,11 +362,62 @@ export function useReferenceImport({
     return true;
   }, [accept, activeFile, dirty, onExternalEdits, project, projectRootRef, refreshHistory, refreshProject, save, t]);
 
+  /**
+   * A bibliography entry for `query` (a DOI, arXiv id or title) without its
+   * full text, answering its key: Find support's Cite needs the key at once,
+   * not after a download. A lookup that is unsure (several candidates, no
+   * BibTeX) opens the entry form on what it found and answers null, as does
+   * a key the bibliography already gives another work; the same work
+   * answers the key it already has.
+   */
+  const addCitation = useCallback(async (query: string): Promise<string | null> => {
+    const root = project?.root;
+    const bibliography = project?.manifest.primaryBibliography;
+    if (!root) return null;
+    if (!bibliography) {
+      showError(t`This project has no primary bibliography.`);
+      return null;
+    }
+    let resolved: ResolvedCitationDraft;
+    try {
+      resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
+    } catch (reason) {
+      const message = toMessage(reason);
+      if (isMissingPaperToolsError(message)) onMissingPaperTools(message);
+      else showError(message);
+      return null;
+    }
+    if (projectRootRef.current !== root) return null;
+    const key = resolved.key?.trim();
+    const bibtex = resolved.bibtex?.trim();
+    if (resolved.candidates?.length || !bibtex || !key) {
+      showBibEntry("add", resolved, query);
+      return null;
+    }
+    if (dirty && !(await save())) return null;
+    const existing = bibliography === activeFile
+      ? source
+      : await invoke<string>("read_project_file", { path: bibliography });
+    if (projectRootRef.current !== root) return null;
+    if (bibEntryKeys(existing).some((item) => item.toLowerCase() === key.toLowerCase())) {
+      const known = existing.toLowerCase();
+      const same = resolved.doi ? known.includes(resolved.doi.toLowerCase()) : known.includes(resolved.title.toLowerCase());
+      if (same) return key;
+      showBibEntry("add", resolved, query);
+      return null;
+    }
+    await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, bibtex), projectRoot: root });
+    onExternalEdits.current([bibliography]);
+    if (bibliography === activeFile) accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
+    await refreshProject();
+    return key;
+  }, [accept, activeFile, dirty, onExternalEdits, onMissingPaperTools, project, projectRootRef, refreshProject, save, showBibEntry, source, t]);
+
   const clearStage = useCallback(() => setStage(null), []);
 
   return {
     input, setInput, importing, stage, clearStage, recentImport, importLabel: adding.label, justAdded: adding.justAdded,
-    importReference, importFromInput, cancelImport,
+    importReference, importFromInput, cancelImport, addCitation,
     addSheet: adding.sheet, addPapers, ...requestActions,
     literatureOpen, setLiteratureOpen, literatureSeed: adding.literature,
     linkedLibrary, rewriteBibliography,

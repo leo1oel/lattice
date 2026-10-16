@@ -25,6 +25,7 @@ import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { annotationRounds, revisable } from "./app/annotation-rounds";
 import { paperReview } from "./app/paper-review";
+import { claimSupport } from "./app/claim-support";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -210,7 +211,7 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "git", "overleaf"] as const;
+const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
@@ -755,6 +756,7 @@ function App() {
       resetBuildErrorFix();
       projectSearch.closeReplace();
       paperReview.reset();
+      claimSupport.reset();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -824,6 +826,23 @@ function App() {
           venue: typeof venue === "string" && venue ? venue : null,
         };
       },
+      findSupport: (claim) => void claimSupport.find(claim),
+    });
+    claimSupport.attach({
+      projectRootRef, openProjectFile: openFile,
+      openPanel: () => tools.open("support"),
+      library: () => papers,
+      addCitation: referenceImport.addCitation,
+      addToPapers: async (query) => {
+        const result = await referenceImport.importReference(query, { notices: "problems" }).catch(() => undefined);
+        return result?.citationKey ?? null;
+      },
+      // The claim's file comes up first; the canvas places the citation once it shows it.
+      citeAfter: (claim, key) => new Promise((settled) => {
+        void openFile(claim.path, { line: claim.line });
+        updateCanvasRequest("cite", { key, command: "citep", id: crypto.randomUUID(), at: { ...claim, settled } });
+        reveal("editor");
+      }),
       searchLiterature: (query) => {
         referenceImport.searchLiterature(query);
         tools.open("literature");
