@@ -19,7 +19,7 @@ import type { LiteratureHit } from "../papers/literature-discovery-panel";
 import { ProofreadFailure, runAgentTextTask } from "./agent-proofread";
 import { findQuote, stripComments } from "./agent-review";
 
-export const SUPPORT_SIGNALS = ["supports", "mixed", "contradicts"] as const;
+const SUPPORT_SIGNALS = ["supports", "mixed", "contradicts"] as const;
 export type SupportSignal = (typeof SUPPORT_SIGNALS)[number];
 
 /** A paper whose abstract speaks to the claim, with the sentence that does. */

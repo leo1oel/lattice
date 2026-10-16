@@ -93,7 +93,7 @@ const CITE_WAIT_MS = 10_000;
 const normalTitle = (title: string) => title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 /** The library paper that is `candidate`: same DOI, same arXiv paper, or the same title. */
-export function libraryMatch(candidate: SupportCandidate, papers: readonly PaperSummary[]): PaperSummary | null {
+function libraryMatch(candidate: SupportCandidate, papers: readonly PaperSummary[]): PaperSummary | null {
   const doi = candidate.doi?.toLowerCase();
   const arxiv = candidate.arxivId ? baseArxivId(candidate.arxivId).toLowerCase() : null;
   const title = normalTitle(candidate.title);

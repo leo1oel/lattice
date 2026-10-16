@@ -318,7 +318,7 @@ export type ClaimCitationOutcome = "cited" | "already" | "moved" | "read-only";
  * A claim a citation goes after (Find support's Cite), found again in its
  * file as an annotation is; `settled` hears how it went.
  */
-export type CitationTarget = {
+type CitationTarget = {
   path: string;
   from: number;
   to: number;
