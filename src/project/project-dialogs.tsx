@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Cloud, FileArchive, Folder, FolderOpen, PackageCheck, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
@@ -15,14 +15,18 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { LatticeMark } from "../components/ui/lattice-mark";
 import { InlineMessage } from "../components/ui/inline-message";
+import { ChunkGate } from "../components/chunk-gate";
+import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { WelcomeLattice } from "./welcome-lattice";
 import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
 import { PROJECT_VENUES } from "./project-venues";
 
-/** A recent project launch could not reopen, with the backend's reason. */
 // Loaded on demand: only the new-project dialog needs it, and the eager-JS budget is tight.
-const LocalTemplates = lazy(() => import("./local-templates").then((module) => ({ default: module.LocalTemplates })));
+const loadLocalTemplates = chunk(() => import("./local-templates"));
+const LocalTemplates = lazyChunk(loadLocalTemplates, (module) => module.LocalTemplates);
+
+/** A recent project launch could not reopen, with the backend's reason. */
 
 export type UnopenedProject = RecentProject & { reason: string };
 
@@ -185,7 +189,9 @@ export function CreateProjectDialog(props: {
           </small>
         </div>
         <Suspense fallback={null}>
-          <LocalTemplates selected={props.projectVenue} onSelect={props.setProjectVenue} currentProject={props.currentProject} />
+          <ChunkGate chunk={loadLocalTemplates}>
+            <LocalTemplates selected={props.projectVenue} onSelect={props.setProjectVenue} currentProject={props.currentProject} />
+          </ChunkGate>
         </Suspense>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">

@@ -1735,6 +1735,10 @@ msgstr "还有修改正在传到 Overleaf，请稍后再试"
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "修改还在传，请稍后再拒绝"
 
+#: src/project/project-dialogs.tsx
+msgid "An empty article with no venue style or page limit"
+msgstr "空白文章，无会议样式或页数限制"
+
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "有一条文献的引用名无效"
@@ -2297,6 +2301,10 @@ msgstr "黑色"
 msgid "Black text reads clearly"
 msgstr "黑色文字清晰可读"
 
+#: src/project/project-dialogs.tsx
+msgid "Blank article"
+msgstr "空白文章"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "独立一行的公式"
@@ -2622,6 +2630,7 @@ msgstr "加拿大式"
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
+#: src/project/local-templates.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
@@ -2982,6 +2991,10 @@ msgstr "希"
 msgid "Choose .bib file…"
 msgstr "选择 .bib 文件…"
 
+#: src/project/project-dialogs.tsx
+msgid "Choose a built-in template"
+msgstr "选择内置模板"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "从项目中选择文件，或用快速打开查找"
@@ -2993,6 +3006,10 @@ msgstr "选一条文献，看看查了什么"
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "选择一条文献，查看它在哪里被引用并编辑字段"
+
+#: src/project/local-templates.tsx
+msgid "Choose a saved template"
+msgstr "选择已保存的模板"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -3021,6 +3038,14 @@ msgstr "需要选择"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "在“面板”里选阅读"
+
+#: src/project/local-templates.tsx
+msgid "Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied."
+msgstr "请选择可复用的源文件、样式和图片。隐藏文件、项目历史、批注、会话和凭据均不包含在内。仅复制已保存到磁盘的文件。"
+
+#: src/project/local-templates.tsx
+msgid "Choose template source"
+msgstr "选择模板来源"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Choose the document class"
@@ -3548,6 +3573,10 @@ msgstr "编译问题"
 #: src/settings/settings-search-index.ts
 msgid "Compile engine"
 msgstr "编译方式"
+
+#: src/project/local-templates.tsx
+msgid "Compile root"
+msgstr "编译主文件"
 
 #: src/papers/bib-format.ts
 msgid "Complete the unfinished bibliography entry before adding another reference."
@@ -4092,6 +4121,10 @@ msgstr "当前条目"
 #: src/editor/latex/search-panel.ts
 msgid "current match"
 msgstr "当前匹配项"
+
+#: src/project/local-templates.tsx
+msgid "Current project"
+msgstr "当前项目"
 
 #: src/settings/settings-search-index.ts
 msgid "Custom"
@@ -5293,6 +5326,7 @@ msgstr "上传文件"
 
 #: src/app/command-palette.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/local-templates.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "文件"
@@ -5626,6 +5660,10 @@ msgstr "起"
 msgid "From {name}"
 msgstr "从“{name}”起"
 
+#: src/project/local-templates.tsx
+msgid "From folder"
+msgstr "从文件夹"
+
 #. placeholder {0}: formatDate(built)
 #: src/pdf/review-pdf-sheet.tsx
 msgid "From the build of {0}"
@@ -5634,6 +5672,10 @@ msgstr "来自 {0} 的编译"
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "取自会议官方作者模板包，原样内置，保留作者署名"
+
+#: src/project/local-templates.tsx
+msgid "From ZIP"
+msgstr "从 ZIP"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -6868,6 +6910,10 @@ msgstr "LaTeX 不认识 {token}。它看起来是 {name} 的笔误。"
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX 不认识 {name} 环境。检查 \\begin 和 \\end 里的拼写，或加载定义它的宏包。"
 
+#: src/project/local-templates.tsx
+msgid "LaTeX engine"
+msgstr "LaTeX 引擎"
+
 #. placeholder {0}: r + 1
 #. placeholder {1}: c + 1
 #: src/editor/insert/table-generator-dialog.tsx
@@ -7873,6 +7919,10 @@ msgstr "多行对齐的公式"
 msgid "Multiset union"
 msgstr "多重集并"
 
+#: src/project/local-templates.tsx
+msgid "My templates"
+msgstr "我的模板"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
@@ -8488,6 +8538,10 @@ msgstr "未注明年份"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "none"
+msgstr "无"
+
+#: src/project/local-templates.tsx
+msgid "None"
 msgstr "无"
 
 #: src/papers/support-panel.tsx
@@ -9844,6 +9898,10 @@ msgstr "预览"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
+
+#: src/project/local-templates.tsx
+msgid "Preview image (optional)"
+msgstr "预览图片（可选）"
 
 #: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -11333,6 +11391,14 @@ msgstr "保存 {name} 的副本"
 msgid "Save a copy…"
 msgstr "另存一份…"
 
+#: src/project/local-templates.tsx
+msgid "Save a local template"
+msgstr "保存本地模板"
+
+#: src/project/local-templates.tsx
+msgid "Save a local template…"
+msgstr "保存本地模板…"
+
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
 msgstr "保存一个版本，标记一份随时能回来的草稿。关联 Overleaf 的项目每次同步和编译成功后也会自动保存一个"
@@ -11413,6 +11479,7 @@ msgstr "保存规则"
 msgid "Save state"
 msgstr "保存状态"
 
+#: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
 msgid "Save template"
 msgstr "保存模板"
@@ -11454,6 +11521,10 @@ msgstr "将可视化内容另存为 HTML"
 #: src/project/arxiv-export-dialog.tsx
 msgid "Save your edits before exporting."
 msgstr "请先保存修改再导出。"
+
+#: src/project/local-templates.tsx
+msgid "Save your school, journal or lab files to reuse them in new projects."
+msgstr "保存学校、期刊或实验室的模板文件，以便在新项目中复用。"
 
 #: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
@@ -11740,6 +11811,10 @@ msgstr "选中段落"
 msgid "Select bulleted list"
 msgstr "选中列表"
 
+#: src/project/local-templates.tsx
+msgid "Select files to copy"
+msgstr "选择要复制的文件"
+
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select list item"
 msgstr "选中此项"
@@ -11755,6 +11830,10 @@ msgstr "选中清单"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Select text in the editor and choose Comment. Every note gathers here."
 msgstr "在编辑器选中文字，点“评论”，评论都汇总在这"
+
+#: src/project/local-templates.tsx
+msgid "Select the compile root in the file list to continue."
+msgstr "请在文件列表中勾选编译主文件以继续。"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Select the environment"
@@ -12267,6 +12346,10 @@ msgstr "来源出错"
 msgid "Source temporarily unavailable"
 msgstr "来源暂时不可用"
 
+#: src/project/local-templates.tsx
+msgid "Source URL (optional)"
+msgstr "来源网址（可选）"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "右下箭头"
@@ -12719,6 +12802,7 @@ msgstr "青色"
 msgid "Technical details"
 msgstr "详细信息"
 
+#: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
 msgid "Template name"
 msgstr "模板名称"
@@ -14272,6 +14356,10 @@ msgstr "版本名"
 msgid "Version named."
 msgstr "已命名"
 
+#: src/project/local-templates.tsx
+msgid "Version or year (optional)"
+msgstr "版本或年份（可选）"
+
 #: src/history/use-git-versions.ts
 msgid "Version saved."
 msgstr "版本已保存"
@@ -14561,6 +14649,7 @@ msgid "Working out what to search for…"
 msgstr "正在确定搜索关键词…"
 
 #: src/papers/paper-import-progress.ts
+#: src/project/local-templates.tsx
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "正在处理…"
@@ -14774,6 +14863,10 @@ msgstr "你的文件都在，没有丢失"
 msgid "Your projects"
 msgstr "我的项目"
 
+#: src/project/project-dialogs.tsx
+msgid "Your saved template is selected below"
+msgstr "已选择下方的自有模板"
+
 #: src/canvas/status-save-state.tsx
 msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
 msgstr "文字仍完好地留在这个窗口里，没有丢失任何内容。可以重试，或把副本保存到别处。"
@@ -14789,6 +14882,7 @@ msgstr "泽塔"
 
 #: src/app/use-project-lifecycle.ts
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/local-templates.tsx
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
 

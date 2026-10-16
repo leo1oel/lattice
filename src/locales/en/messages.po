@@ -1735,6 +1735,10 @@ msgstr "An edit is still on its way to Overleaf. Try again in a moment."
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 
+#: src/project/project-dialogs.tsx
+msgid "An empty article with no venue style or page limit"
+msgstr "An empty article with no venue style or page limit"
+
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "An existing bibliography entry has an invalid citation key."
@@ -2297,6 +2301,10 @@ msgstr "Black"
 msgid "Black text reads clearly"
 msgstr "Black text reads clearly"
 
+#: src/project/project-dialogs.tsx
+msgid "Blank article"
+msgstr "Blank article"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
@@ -2622,6 +2630,7 @@ msgstr "Canadian"
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/deadline-card.tsx
 #: src/project/import-conflict-dialog.tsx
+#: src/project/local-templates.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
@@ -2982,6 +2991,10 @@ msgstr "Chi"
 msgid "Choose .bib file…"
 msgstr "Choose .bib file…"
 
+#: src/project/project-dialogs.tsx
+msgid "Choose a built-in template"
+msgstr "Choose a built-in template"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Choose a file from the project, or find it with Quick open"
 msgstr "Choose a file from the project, or find it with Quick open"
@@ -2993,6 +3006,10 @@ msgstr "Choose a reference to see what was checked."
 #: src/papers/bib-visual-editor.tsx
 msgid "Choose a reference to see where it is cited and edit its fields"
 msgstr "Choose a reference to see where it is cited and edit its fields"
+
+#: src/project/local-templates.tsx
+msgid "Choose a saved template"
+msgstr "Choose a saved template"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -3021,6 +3038,14 @@ msgstr "Choose one"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "Choose Reading in Panels"
+
+#: src/project/local-templates.tsx
+msgid "Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied."
+msgstr "Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied."
+
+#: src/project/local-templates.tsx
+msgid "Choose template source"
+msgstr "Choose template source"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Choose the document class"
@@ -3548,6 +3573,10 @@ msgstr "Compile diagnostics"
 #: src/settings/settings-search-index.ts
 msgid "Compile engine"
 msgstr "Compile engine"
+
+#: src/project/local-templates.tsx
+msgid "Compile root"
+msgstr "Compile root"
 
 #: src/papers/bib-format.ts
 msgid "Complete the unfinished bibliography entry before adding another reference."
@@ -4092,6 +4121,10 @@ msgstr "Current BibTeX"
 #: src/editor/latex/search-panel.ts
 msgid "current match"
 msgstr "current match"
+
+#: src/project/local-templates.tsx
+msgid "Current project"
+msgstr "Current project"
 
 #: src/settings/settings-search-index.ts
 msgid "Custom"
@@ -5293,6 +5326,7 @@ msgstr "file upload"
 
 #: src/app/command-palette.tsx
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/local-templates.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "Files"
@@ -5626,6 +5660,10 @@ msgstr "From"
 msgid "From {name}"
 msgstr "From {name}"
 
+#: src/project/local-templates.tsx
+msgid "From folder"
+msgstr "From folder"
+
 #. placeholder {0}: formatDate(built)
 #: src/pdf/review-pdf-sheet.tsx
 msgid "From the build of {0}"
@@ -5634,6 +5672,10 @@ msgstr "From the build of {0}"
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "From the official conference author kits, bundled unmodified with their authors' credits"
+
+#: src/project/local-templates.tsx
+msgid "From ZIP"
+msgstr "From ZIP"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
@@ -6868,6 +6910,10 @@ msgstr "LaTeX doesn’t know {token}. It looks like a typo for {name}."
 msgid "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 msgstr "LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."
 
+#: src/project/local-templates.tsx
+msgid "LaTeX engine"
+msgstr "LaTeX engine"
+
 #. placeholder {0}: r + 1
 #. placeholder {1}: c + 1
 #: src/editor/insert/table-generator-dialog.tsx
@@ -7873,6 +7919,10 @@ msgstr "Multi-line aligned equations"
 msgid "Multiset union"
 msgstr "Multiset union"
 
+#: src/project/local-templates.tsx
+msgid "My templates"
+msgstr "My templates"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "Nabla / del"
@@ -8489,6 +8539,10 @@ msgstr "No year"
 #: src/papers/linked-library-sheet.tsx
 msgid "none"
 msgstr "none"
+
+#: src/project/local-templates.tsx
+msgid "None"
+msgstr "None"
 
 #: src/papers/support-panel.tsx
 msgid "None is in your library yet."
@@ -9844,6 +9898,10 @@ msgstr "Preview"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
+
+#: src/project/local-templates.tsx
+msgid "Preview image (optional)"
+msgstr "Preview image (optional)"
 
 #: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -11333,6 +11391,14 @@ msgstr "Save a copy of {name}"
 msgid "Save a copy…"
 msgstr "Save a copy…"
 
+#: src/project/local-templates.tsx
+msgid "Save a local template"
+msgstr "Save a local template"
+
+#: src/project/local-templates.tsx
+msgid "Save a local template…"
+msgstr "Save a local template…"
+
 #: src/history/versions-timeline.tsx
 msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
 msgstr "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
@@ -11413,6 +11479,7 @@ msgstr "Save rule"
 msgid "Save state"
 msgstr "Save state"
 
+#: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
 msgid "Save template"
 msgstr "Save template"
@@ -11454,6 +11521,10 @@ msgstr "Save visual as HTML"
 #: src/project/arxiv-export-dialog.tsx
 msgid "Save your edits before exporting."
 msgstr "Save your edits before exporting."
+
+#: src/project/local-templates.tsx
+msgid "Save your school, journal or lab files to reuse them in new projects."
+msgstr "Save your school, journal or lab files to reuse them in new projects."
 
 #: src/canvas/status-save-state.tsx
 #: src/project/paper-inspector.tsx
@@ -11740,6 +11811,10 @@ msgstr "Select block"
 msgid "Select bulleted list"
 msgstr "Select bulleted list"
 
+#: src/project/local-templates.tsx
+msgid "Select files to copy"
+msgstr "Select files to copy"
+
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select list item"
 msgstr "Select list item"
@@ -11755,6 +11830,10 @@ msgstr "Select task list"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Select text in the editor and choose Comment. Every note gathers here."
 msgstr "Select text in the editor and choose Comment. Every note gathers here."
+
+#: src/project/local-templates.tsx
+msgid "Select the compile root in the file list to continue."
+msgstr "Select the compile root in the file list to continue."
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Select the environment"
@@ -12267,6 +12346,10 @@ msgstr "Source service error"
 msgid "Source temporarily unavailable"
 msgstr "Source temporarily unavailable"
 
+#: src/project/local-templates.tsx
+msgid "Source URL (optional)"
+msgstr "Source URL (optional)"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "South-east arrow"
@@ -12719,6 +12802,7 @@ msgstr "Teal"
 msgid "Technical details"
 msgstr "Technical details"
 
+#: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
 msgid "Template name"
 msgstr "Template name"
@@ -14272,6 +14356,10 @@ msgstr "Version label"
 msgid "Version named."
 msgstr "Version named."
 
+#: src/project/local-templates.tsx
+msgid "Version or year (optional)"
+msgstr "Version or year (optional)"
+
 #: src/history/use-git-versions.ts
 msgid "Version saved."
 msgstr "Version saved."
@@ -14561,6 +14649,7 @@ msgid "Working out what to search for…"
 msgstr "Working out what to search for…"
 
 #: src/papers/paper-import-progress.ts
+#: src/project/local-templates.tsx
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "Working…"
@@ -14774,6 +14863,10 @@ msgstr "Your project files are safe"
 msgid "Your projects"
 msgstr "Your projects"
 
+#: src/project/project-dialogs.tsx
+msgid "Your saved template is selected below"
+msgstr "Your saved template is selected below"
+
 #: src/canvas/status-save-state.tsx
 msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
 msgstr "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
@@ -14789,6 +14882,7 @@ msgstr "Zeta"
 
 #: src/app/use-project-lifecycle.ts
 #: src/project/arxiv-export-dialog.tsx
+#: src/project/local-templates.tsx
 msgid "ZIP archive"
 msgstr "ZIP archive"
 
