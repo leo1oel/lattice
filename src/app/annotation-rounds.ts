@@ -101,6 +101,10 @@ export type AnnotationRoundsSnapshot = {
   review: { id: string; nonce: string } | null;
   /** The Revision rounds sheet is open. */
   roundsOpen: boolean;
+  /** A compiled PDF is on screen to export a review copy of (`hostReviewPdf`). */
+  reviewPdfReady: boolean;
+  /** The Export review PDF sheet is open, over that PDF. */
+  reviewPdfOpen: boolean;
 };
 
 /**
@@ -126,7 +130,11 @@ export type AnnotationRoundsSnapshot = {
  */
 export class AnnotationRounds {
   private deps: AnnotationRoundsDeps | null = null;
-  private snapshot: AnnotationRoundsSnapshot = { running: new Set(), review: null, roundsOpen: false };
+  private snapshot: AnnotationRoundsSnapshot = {
+    running: new Set(), review: null, roundsOpen: false, reviewPdfReady: false, reviewPdfOpen: false,
+  };
+  /** The compiled PDF previews that can export a review copy: one, unless a swap overlaps. */
+  private reviewPdfHosts = 0;
   private readonly listeners = new Set<() => void>();
   private readonly tasks = new Map<string, AbortController>();
   private queue: Array<() => Promise<void>> = [];
@@ -500,6 +508,26 @@ export class AnnotationRounds {
   openRounds = () => this.publish({ roundsOpen: true });
   closeRounds = () => this.publish({ roundsOpen: false });
 
+  /**
+   * A compiled PDF preview offers the review copy while it shows a PDF: the
+   * sheet measures where each note goes on the document it has loaded, so
+   * the Annotations panel's Export asks it rather than exporting itself.
+   * Returns the preview's release.
+   */
+  hostReviewPdf = () => {
+    this.reviewPdfHosts += 1;
+    this.publish({ reviewPdfReady: true });
+    return () => {
+      this.reviewPdfHosts -= 1;
+      if (!this.reviewPdfHosts) this.publish({ reviewPdfReady: false, reviewPdfOpen: false });
+    };
+  };
+  openReviewPdf = () => { if (this.reviewPdfHosts) this.publish({ reviewPdfOpen: true }); };
+  closeReviewPdf = () => this.publish({ reviewPdfOpen: false });
+
+  /** The project the rounds are working in. */
+  projectRoot = () => this.deps?.projectRootRef.current ?? null;
+
   openInHistory = (historyId: string) => {
     this.closeRounds();
     this.deps?.openHistoryEntry(historyId);
@@ -553,7 +581,7 @@ export class AnnotationRounds {
     this.tasks.clear();
     this.queue = [];
     this.baselines.clear();
-    this.publish({ running: new Set(), review: null, roundsOpen: false });
+    this.publish({ running: new Set(), review: null, roundsOpen: false, reviewPdfOpen: false });
   };
 
   /** The conversation's `propose_annotation_edit` and `ask_about_annotation`, recorded in the open round. */

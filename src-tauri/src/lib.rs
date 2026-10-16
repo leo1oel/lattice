@@ -48,6 +48,7 @@ mod presentation;
 mod process_inspector;
 mod project;
 mod project_fs;
+mod review_pdf;
 mod sidecar;
 mod synara;
 #[cfg(test)]
@@ -457,6 +458,7 @@ pub fn run() {
             ipc::build::clean_project,
             ipc::build::read_compiled_pdf,
             ipc::build::save_compiled_pdf,
+            ipc::build::save_review_pdf,
             ipc::build::synctex_edit,
             ipc::build::synctex_view,
             ipc::build::synctex_body_pages,

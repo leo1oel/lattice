@@ -743,6 +743,26 @@ const BENCH_REVISIONS: Array<[string, string, string, string]> = [
     "Says what the choice was before judging it.", "先说是什么选择，再评价它。"],
 ];
 
+function reviewPdfStates(main: string, numberBase: number): BenchAnnotation[] {
+  const at = new Date(Date.now() - 5 * 60_000).toISOString();
+  const note = (number: number, path: string, source: string, quote: string, body: string, extra: Record<string, unknown> = {}): BenchAnnotation => {
+    const from = Math.max(0, source.indexOf(quote));
+    return {
+      id: `bench-review-${number}`, number: numberBase + number, path, from, to: from + quote.length, quote,
+      prefix: "", suffix: "", body, authorId: "me", authorName: "Leo", resolved: false, replies: [], createdAt: at, updatedAt: at, ...extra,
+    };
+  };
+  const notes = String(current.files.get("notes.md") ?? "");
+  return [
+    note(1, "main.tex", main, "Additive attention introduced a learned alignment mechanism", "Date this: 2014 or 2015?", {
+      resolved: true,
+      replies: [{ id: "bench-reply", authorId: "co", authorName: "Mina Okafor-Lindqvist", body: "Bahdanau et al. is ICLR 2015.", createdAt: at }],
+    }),
+    note(2, "main.tex", main, "\\citep{vaswani2017attention}", "Cite the NeurIPS version, not arXiv"),
+    note(3, "notes.md", notes, "Markdown component gallery", "Retitle before sharing"),
+  ];
+}
+
 function benchAnnotations() {
   if (annotationsState) return annotationsState;
   const seed = params.get("annotations");
@@ -762,6 +782,10 @@ function benchAnnotations() {
       authorId: "me", authorName: "Leo", resolved: false, replies: [], createdAt: at, updatedAt: at,
     }];
   });
+  // `?reviewPdf=states` adds what Export review PDF tells apart: a resolved
+  // note with a reply, one quoting only a citation (a margin note), and one in
+  // a file the PDF is not built from (not on it).
+  if (params.get("reviewPdf") === "states") annotations.push(...reviewPdfStates(main, numberBase + annotations.length));
   const rounds: Array<Record<string, unknown>> = [];
   if (seed === "review" || seed === "rounds") {
     const settled = (number: number, hoursAgo: number) => ({
@@ -1142,6 +1166,18 @@ function answer(command: string, args: Args): unknown {
     // sixty lines, top to bottom; Lattice then finds the selected words near it.
     case "synctex_edit":
       return { path: "main.tex", line: Math.max(1, Math.round(Number(args?.y ?? 0) / 792 * 60)) };
+    // Forward SyncTeX on the same rough map, a page per sixty lines.
+    case "synctex_view": {
+      if (!String(args?.path ?? "").endsWith(".tex")) return null;
+      const line = Math.max(1, Number(args?.line ?? 1));
+      return { page: Math.floor((line - 1) / 60) + 1, x: 108, y: (line - 1) % 60 / 60 * 792, width: 396, height: 10 };
+    }
+    // Export review PDF writes nothing here; `?reviewPdf=rebuilt` refuses as a PDF rebuilt meanwhile does.
+    case "save_review_pdf":
+      if (params.get("reviewPdf") === "rebuilt") throw new Error("The PDF was rebuilt while you were exporting. Export again.");
+      return String(args?.destination ?? "");
+    case "plugin:dialog|save":
+      return `/Users/writer/Desktop/${(args?.options as { defaultPath?: string } | undefined)?.defaultPath ?? "paper.pdf"}`;
     case "synara_ensure_ready":
     case "create_project_entry":
       return createEntry(args);

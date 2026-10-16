@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ButtonHTMLAttributes,
   type ChangeEvent,
   type FocusEvent,
@@ -31,6 +32,7 @@ import {
   Download,
   Ellipsis,
   LocateFixed,
+  MessageSquareShare,
   Play,
   RectangleHorizontal,
   RectangleVertical,
@@ -81,7 +83,10 @@ export type { PdfAnnotationMark, PdfSourceQuote, PdfSyncTarget, PdfTextSelection
 
 // Keep import expressions outside the component: React Compiler cannot lower them.
 const PdfAnnotationLayer = lazy(() => import("./pdf-annotations"));
+const ReviewPdfSheet = lazy(() => import("./review-pdf-sheet"));
 const NO_ANNOTATIONS: readonly EditorComment[] = [];
+const noSubscription = () => () => {};
+const notOpen = () => false;
 
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
@@ -457,6 +462,18 @@ export function PdfPreview({
     </Suspense>
   ) : null;
 
+  // A compiled PDF on screen, loaded and not mid-swap, is what a review copy
+  // is exported from (review-pdf-sheet.tsx); the Annotations panel asks it
+  // through the rounds. A rebuild releases it, which closes an open sheet.
+  const loadSettled = Boolean(loadKey && doc.loadedKey === loadKey);
+  const reviewHost = Boolean(annotationRounds && pdfBytes && hasActiveViewer && loadSettled);
+  useEffect(() => reviewHost && annotationRounds ? annotationRounds.hostReviewPdf() : undefined, [annotationRounds, reviewHost, pdfBytes]);
+  const reviewPdfOpen = useSyncExternalStore(
+    annotationRounds?.subscribe ?? noSubscription,
+    annotationRounds ? () => annotationRounds.getSnapshot().reviewPdfOpen : notOpen,
+  );
+  const hasLocalAnnotations = Boolean(annotations?.some((annotation) => annotation.number));
+
   const goToPage = (nextPage: number) => {
     const slick = recordRef.current?.slick;
     if (!slick || !numPages) return;
@@ -748,7 +765,12 @@ export function PdfPreview({
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },
                 ],
-                showSave ? [{ label: saveName, icon: <Download />, disabled: !canSave || savingPdf, run: download }] : [],
+                [
+                  ...(showSave ? [{ label: saveName, icon: <Download />, disabled: !canSave || savingPdf, run: download }] : []),
+                  ...(reviewHost && annotationRounds ? [{
+                    label: t`Export review PDF…`, icon: <MessageSquareShare />, disabled: !hasLocalAnnotations, run: annotationRounds.openReviewPdf,
+                  }] : []),
+                ],
               ]}
             />
           </div>
@@ -786,6 +808,18 @@ export function PdfPreview({
         renderCount={doc.renderCount}
       />
       {annotationLayer}
+      {reviewPdfOpen && reviewHost && annotationRounds && (
+        <Suspense fallback={null}>
+          <ReviewPdfSheet
+            key={generation}
+            recordRef={recordRef}
+            fileName={fileName}
+            annotations={annotations ?? NO_ANNOTATIONS}
+            rounds={annotationRounds}
+            onClose={annotationRounds.closeReviewPdf}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

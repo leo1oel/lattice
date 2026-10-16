@@ -11,7 +11,9 @@ use crate::doctor::DoctorReport;
 use crate::latex::{BuildResult, BuildStep, BuildSteps, PdfSyncTarget};
 use crate::models::SyncTexTarget;
 use crate::texlab::{DocumentAt, TexlabCompletionItem, TexlabHover, TexlabLocation};
-use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab, wide_event};
+use crate::{
+    doctor, export, format_latex, harper, latex, review_pdf, synara, tex_setup, texlab, wide_event,
+};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, Window};
@@ -162,6 +164,21 @@ pub async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<Strin
         "The PDF contents were not sent as binary data.",
     )?;
     run_blocking("Compiled PDF save", move || export::save(&path, &bytes, &export::PDF)).await
+}
+
+/// A review copy of the compiled PDF with the writer's chosen annotations
+/// (review_pdf.rs), saved to `destination`.
+#[tauri::command]
+pub async fn save_review_pdf(
+    state: State<'_, AppState>, window: Window, project_root: String, destination: String,
+    review: review_pdf::ReviewPdf,
+) -> Result<String, String> {
+    let root = pinned_root(&state, &window, &project_root, "its review PDF could be saved")?;
+    run_blocking("Review PDF save", move || {
+        let annotated = review_pdf::annotate(latex::read_compiled_pdf(&root)?, &review)?;
+        export::save(Path::new(&destination), &annotated, &export::PDF)
+    })
+    .await
 }
 
 #[tauri::command]
