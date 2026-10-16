@@ -263,6 +263,8 @@ Lattice owns the prompt and the reply contract (`src/agent/agent-annotations.ts`
 An "Add a citation" annotation also lists the bibliography's keys, and the agent may cite only those.
 As with Proofread, nothing is written by the agent: `src/canvas/annotation-review.tsx` splits the revision into edits with `proofread-edits.ts`, holds back changes to protected LaTeX (citations are allowed when the note asks for one), and the writer accepts or rejects each proposal in the editor.
 
+**Review the paper** (the palette command, in the Review tool panel) runs one text task over the same relay: Lattice owns the prompt and the reply contract (`src/agent/agent-review.ts`), sending the root document and its `\input`/`\include` files with comments stripped, and reading a JSON report between `<review>` markers. Lattice re-anchors every quoted passage in the source and drops points that do not anchor; the agent writes nothing, and points become annotations only when the writer adds them.
+
 A conversation can answer an annotation too, through two host tools Lattice already handles as `synara:annotations-tool-request` / `lattice:annotations-tool-result` (`parseAgentAnnotationsToolRequest`): `propose_annotation_edit {annotation, edits: [{find, replace}], reason}` (each `find` occurs exactly once in the annotated passage) and `ask_about_annotation {annotation, question}`, where `annotation` is the pin number `read_editor_comments` now reports (`number`, `intent`, `status`, `question`, `pdfPage`).
 The pinned runtime does not declare these tools yet; until a Synara pin adds them beside `read_editor_comments` (a native Lattice tool relayed through the shared host-tools poll, in `LATTICE_NATIVE_TOOL_NAMES`), proposals come only from the panel's revision rounds.
 
