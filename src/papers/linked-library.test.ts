@@ -80,6 +80,31 @@ describe("compareLibrary", () => {
     expect(next).not.toContain("vaswaniAttention");
   });
 
+  it.each([["published first", true], ["preprint first", false]])("offers a published version sharing its preprint's title as new (%s)", (_order, conferenceFirst) => {
+    const preprint = "@misc{foo_arxiv,\n  title = {Foo Bar},\n  year = {2023},\n  eprint = {2301.00001},\n  archivePrefix = {arXiv},\n}\n";
+    const conference = "@inproceedings{foo_conf,\n  title = {Foo Bar},\n  year = {2023},\n  booktitle = {ICML},\n}\n";
+    const updated = preprint.replace("@misc{foo_arxiv,", "@misc{foo_arxiv,\n  note = {v2},");
+    const library = conferenceFirst ? `${conference}\n${updated}` : `${updated}\n${conference}`;
+    for (const base of [preprint, null]) {
+      const changes = compare(base, library, preprint);
+      expect(changes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "new", key: "foo_conf" }),
+        expect.objectContaining({ key: "foo_arxiv", libraryKey: "foo_arxiv", fields: [{ name: "note", local: null, library: "v2", conflict: false }] }),
+      ]));
+      expect(changes).toHaveLength(2);
+    }
+    const next = applyLibraryChanges(preprint, library, compare(preprint, library, preprint));
+    expect(next).toContain("@misc{foo_arxiv,\n  title = {Foo Bar},");
+    expect(next).toContain("@inproceedings{foo_conf,");
+  });
+
+  it("says when the library dropped a paper whose title another one shares", () => {
+    const preprint = "@misc{foo_arxiv,\n  title = {Foo Bar},\n  year = {2023},\n}\n";
+    const conference = "@inproceedings{foo_conf,\n  title = {Foo Bar},\n  year = {2023},\n}\n";
+    expect(compare(`${preprint}\n${conference}`, conference, `${preprint}\n${conference}`))
+      .toEqual([expect.objectContaining({ kind: "removed", key: "foo_arxiv" })]);
+  });
+
   it("applies an update matched only through the base, after the writer removed the DOI here", () => {
     const local = BASE.replace("  doi = {10.5555/3295222.3295349},\n", "").replace("Attention Is All You Need", "Attention, mine");
     const library = BASE.replace("vaswani2017", "Vaswani_2017").replace("year = {2017}", "year = {2018}");

@@ -79,7 +79,7 @@ type Indexed = {
   document: BibDocument;
   source: string;
   byKey: Map<string, BibEntry>;
-  byIdentity: Map<string, BibEntry>;
+  byIdentity: Map<string, BibEntry[]>;
 };
 
 /** Read a .bib, or say why not with `name` in the message. */
@@ -90,11 +90,11 @@ function index(source: string, name: string): Indexed {
     throw new Error(i18n._(msg`${name} can't be read. ${reason}`));
   }
   const byKey = new Map<string, BibEntry>();
-  const byIdentity = new Map<string, BibEntry>();
+  const byIdentity = new Map<string, BibEntry[]>();
   for (const entry of parse.document.entries) {
     if (!byKey.has(entry.key.toLowerCase())) byKey.set(entry.key.toLowerCase(), entry);
     for (const identity of identities(source, entry, parse.document)) {
-      if (!byIdentity.has(identity)) byIdentity.set(identity, entry);
+      byIdentity.set(identity, [...byIdentity.get(identity) ?? [], entry]);
     }
   }
   return { document: parse.document, source, byKey, byIdentity };
@@ -113,15 +113,38 @@ function identities(source: string, entry: BibEntry, document: BibDocument): str
   ].filter(Boolean);
 }
 
-/** The same paper in `other`: by key first, then by DOI or arXiv id, then by title and year. */
-function find(other: Indexed, from: Indexed, entry: BibEntry): BibEntry | undefined {
-  const byKey = other.byKey.get(entry.key.toLowerCase());
-  if (byKey) return byKey;
-  for (const identity of identities(from.source, entry, from.document)) {
-    const match = other.byIdentity.get(identity);
-    if (match) return match;
+/** The text's entries, each key's first only (as `byKey` holds them). */
+const firsts = (text: Indexed) => text.document.entries.filter((entry) => text.byKey.get(entry.key.toLowerCase()) === entry);
+
+/**
+ * Each of `from`'s entries paired with the same paper in `other`, one to
+ * one: by key first, every key before any identity, so a preprint and its
+ * published version sharing a title never take the paper the other's key
+ * holds; then by DOI or arXiv id, then by title and year, among entries no
+ * other has taken.
+ */
+function pair(from: Indexed, other: Indexed): Map<BibEntry, BibEntry> {
+  const pairs = new Map<BibEntry, BibEntry>();
+  const taken = new Set<BibEntry>();
+  const entries = firsts(from);
+  for (const entry of entries) {
+    const match = other.byKey.get(entry.key.toLowerCase());
+    if (match) {
+      pairs.set(entry, match);
+      taken.add(match);
+    }
   }
-  return undefined;
+  for (const entry of entries) {
+    if (pairs.has(entry)) continue;
+    for (const identity of identities(from.source, entry, from.document)) {
+      const match = other.byIdentity.get(identity)?.find((candidate) => !taken.has(candidate));
+      if (!match) continue;
+      pairs.set(entry, match);
+      taken.add(match);
+      break;
+    }
+  }
+  return pairs;
 }
 
 /** The entry's fields by lower-cased name, and its type, with whitespace runs read as one space. */
@@ -165,11 +188,15 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
   const ours = index(local, localName);
   const before = readBase(base, libraryName);
   const changes: LibraryChange[] = [];
-  const seen = new Set<BibEntry>();
-  for (const entry of theirs.document.entries) {
-    if (theirs.byKey.get(entry.key.toLowerCase()) !== entry) continue;
-    const was = before ? find(before, theirs, entry) : undefined;
-    const here = find(ours, theirs, entry) ?? (was && before ? find(ours, before, was) : undefined);
+  const toLocal = pair(theirs, ours);
+  const toBase = before ? pair(theirs, before) : new Map<BibEntry, BibEntry>();
+  const baseToLocal = before ? pair(before, ours) : new Map<BibEntry, BibEntry>();
+  const seen = new Set(toLocal.values());
+  for (const entry of firsts(theirs)) {
+    const was = toBase.get(entry);
+    // The library changed what told the paper apart here; the base still has it.
+    const through = was && baseToLocal.get(was);
+    const here = toLocal.get(entry) ?? (through && !seen.has(through) ? through : undefined);
     if (!here) {
       // In the base but gone from here: the writer removed it, or declined it once already.
       if (!was) {
@@ -179,7 +206,6 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
       }
       continue;
     }
-    if (seen.has(here)) continue;
     seen.add(here);
     const now = fieldsOf(theirs, entry);
     const then = was && before ? fieldsOf(before, was) : null;
@@ -209,9 +235,10 @@ export function compareLibrary({ base, library, local, libraryName, localName, c
     }
   }
   if (before) {
-    for (const was of before.document.entries) {
-      if (find(theirs, before, was)) continue;
-      const here = find(ours, before, was);
+    const kept = new Set(toBase.values());
+    for (const was of firsts(before)) {
+      if (kept.has(was)) continue;
+      const here = baseToLocal.get(was);
       if (!here || seen.has(here)) continue;
       seen.add(here);
       changes.push({
