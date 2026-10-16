@@ -18,6 +18,7 @@ export const PANEL_TITLES: Record<TrellisSingleton, MessageDescriptor> = {
   review: msg`Review`,
   support: msg`Support`,
   terms: msg`Terms`,
+  responses: msg`Responses`,
 };
 
 /**

@@ -1,0 +1,266 @@
+/* Answering the reviewers (reviewer-responses-panel.tsx). Laid out like the
+   reviewer's pass beside it (paper-review.css): docked, the panel can be as
+   narrow as a tool panel's 200px floor, so nothing holds a width of its own;
+   comment text wraps or clamps, and every row of controls wraps. */
+.reviewer-responses-drawer {
+  --responses-mark: 10px;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+.responses-panel { flex: 1 0 auto; display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; container: responses-panel / inline-size; }
+.responses-panel > .ui-empty-state[data-fill] { flex: 1 0 auto; }
+
+/* ── Summary ── */
+.responses-summary { display: grid; gap: var(--space-3); min-width: 0; padding-top: var(--space-2); }
+.responses-summary-count {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
+  font-variant-numeric: tabular-nums;
+}
+.responses-summary-detail { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+/* Done, then answered with a change to make, then replies to check: the
+   unfilled rest is what has no reply yet. */
+.responses-meter { display: flex; height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
+.responses-meter > span { display: block; height: 100%; }
+.responses-meter > [data-tone="done"] { background: var(--status-success); }
+.responses-meter > [data-tone="changing"] { background: color-mix(in srgb, var(--status-success) 45%, var(--border-strong)); }
+.responses-meter > [data-tone="drafted"] { background: color-mix(in srgb, var(--status-warning) 55%, var(--border-strong)); }
+.responses-summary > .ui-segmented { justify-self: start; margin-top: var(--space-3); }
+
+/* ── Reviewers and their comments ── */
+.responses-group h3 {
+  margin: 0 0 var(--space-3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--weight-medium);
+}
+.responses-group-title { min-width: 0; overflow-wrap: anywhere; }
+.responses-group h3 > span:last-child { flex: none; color: var(--text-tertiary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+.responses-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.responses-comment { min-width: 0; border-radius: calc(var(--radius-surface) * var(--corner-smoothing)); corner-shape: squircle; }
+.responses-comment[data-open] { background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
+.responses-comment-row {
+  width: 100%;
+  min-height: var(--control-height-default);
+  border: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  color: var(--text-primary);
+  display: grid;
+  grid-template-columns: var(--responses-mark) auto minmax(0, 1fr) auto 14px;
+  align-items: start;
+  gap: var(--space-4);
+  text-align: start;
+  font: inherit;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  cursor: pointer;
+  transition: background-color var(--motion-fast);
+}
+.responses-comment-row:hover { background: var(--control-hover-surface); }
+.responses-comment[data-open] .responses-comment-row:hover { background: transparent; }
+.responses-comment-row > svg { color: var(--text-tertiary); margin-top: 3px; }
+/* A ring with no reply, half full with a reply to check, a full dot once
+   answered with a change still to make, a tick when done. */
+.responses-mark {
+  width: var(--responses-mark);
+  height: var(--responses-mark);
+  margin-top: 5px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--text-tertiary);
+  display: grid;
+  place-items: center;
+  color: var(--surface-elevated);
+}
+.responses-comment[data-status="drafted"] .responses-mark { box-shadow: inset 0 0 0 1.5px var(--status-warning); background: linear-gradient(90deg, var(--status-warning) 50%, transparent 50%); }
+.responses-comment[data-status="changing"] .responses-mark { box-shadow: none; background: color-mix(in srgb, var(--status-success) 55%, var(--border-strong)); }
+.responses-comment[data-status="done"] .responses-mark { box-shadow: none; background: var(--status-success); }
+.responses-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-body-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.responses-comment-text {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.responses-comment[data-status="done"] .responses-comment-text { color: var(--text-secondary); }
+.responses-comment[data-open] .responses-comment-text { color: var(--text-secondary); font-size: var(--type-caption-size); }
+.responses-comment-meta { display: flex; align-items: center; gap: var(--space-2); min-width: 0; line-height: var(--type-body-line-height); }
+.responses-lost { flex: none; color: var(--status-warning); }
+.responses-owner {
+  max-width: 7em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-input);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+  line-height: 18px;
+}
+
+/* ── One comment, opened ── */
+.responses-detail {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: 0 var(--space-4) var(--space-6) calc(var(--space-4) * 2 + var(--responses-mark));
+}
+/* The reviewer's words, as written: selectable, never an input. */
+.responses-original {
+  margin: 0;
+  max-height: 16em;
+  overflow: auto;
+  padding: var(--space-1) 0 var(--space-1) var(--space-6);
+  border-inline-start: 2px solid var(--border-strong);
+  color: var(--text-primary);
+  font-family: var(--reading-font);
+  font-size: var(--type-typeset-size);
+  line-height: var(--type-typeset-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.responses-field { display: grid; gap: var(--space-2); min-width: 0; }
+.responses-field > span:first-child { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.responses-field > .ui-segmented { justify-self: start; max-width: 100%; }
+.responses-reply { min-height: calc(var(--type-body-line-height) * 3 + var(--space-6)); max-height: 24em; resize: none; }
+.responses-checked { min-width: 0; }
+.responses-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.responses-detail-actions .responses-remove { margin-inline-start: auto; }
+
+.responses-links { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.responses-link { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-width: 0; }
+.responses-link-open {
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: inherit;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0 var(--space-3);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.responses-link-open:hover:not(:disabled) { background: var(--control-hover-surface); }
+.responses-link-open:disabled { cursor: default; }
+.responses-link-quote { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.responses-link-where {
+  grid-column: 2;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+  line-height: var(--type-micro-line-height);
+  overflow-wrap: anywhere;
+}
+.responses-link[data-lost] .responses-link-where { color: var(--status-warning); }
+.responses-link-where > svg { flex: none; }
+
+.responses-menu { max-width: min(360px, 90vw); }
+.responses-menu [role="menuitem"] { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.responses-menu-quote { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.responses-menu-empty { max-width: 260px; white-space: normal; color: var(--text-secondary); font-weight: var(--weight-regular); }
+.responses-unreadable { display: grid; justify-items: start; gap: var(--space-4); padding-top: var(--space-2); }
+.responses-none { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+
+/* ── Adding comments ── */
+.responses-intake { flex: 1 0 auto; display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; padding-top: var(--space-2); }
+.responses-intake-head { display: grid; gap: var(--space-2); }
+.responses-intake-title {
+  color: var(--text-primary);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
+}
+.responses-intake-head p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.responses-intake-text { min-height: 9em; max-height: 40vh; resize: vertical; font-family: var(--reading-font); }
+.responses-intake-reviewer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.responses-intake-reviewer [data-slot="select-trigger"] { max-width: 100%; }
+.responses-intake-group h3 { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.responses-intake-group ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.responses-intake-group li {
+  display: grid;
+  grid-template-columns: 16px 3.5em minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+}
+.responses-intake-group li > .ui-checkbox { margin-top: var(--space-1); }
+/* A part joined to the one above reads as its continuation: no box, no number. */
+.responses-intake-group li[data-continues] { margin-top: calc(var(--space-2) * -1); padding-top: 0; }
+.responses-intake-group li p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.responses-intake-group li[data-skipped] p { color: var(--text-tertiary); text-decoration: line-through; text-decoration-color: var(--border-strong); }
+.responses-intake-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.responses-intake-group li [aria-pressed="true"] { color: var(--control-active); background: var(--control-active-soft); }
+
+/* The footer stays on screen while the list scrolls, edge to edge of the drawer. */
+.responses-foot {
+  position: sticky;
+  bottom: calc(var(--drawer-content-inset) * -1);
+  margin: auto calc(var(--drawer-content-inset) * -1) calc(var(--drawer-content-inset) * -1);
+  padding: var(--space-6) var(--drawer-content-inset);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-input);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4) var(--space-6);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.responses-foot > span { flex: 1 1 12em; min-width: 0; }
+.responses-foot > button { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+
+/* A docked panel near its 200px floor: the owner moves under the comment,
+   the opened comment uses the full width, and the intake drops its number column. */
+@container responses-panel (max-width: 280px) {
+  .responses-summary-count { font-size: var(--type-typeset-size); line-height: var(--type-typeset-line-height); }
+  .responses-comment-row { grid-template-columns: var(--responses-mark) minmax(0, 1fr) 14px; row-gap: var(--space-1); }
+  .responses-label { grid-column: 2; grid-row: 1; }
+  .responses-comment-text { grid-column: 2; grid-row: 2; }
+  .responses-comment-meta { grid-column: 2; grid-row: 3; }
+  .responses-comment-meta:empty { display: none; }
+  .responses-comment-row > svg { grid-column: 3; grid-row: 1; }
+  .responses-detail { padding-inline-start: var(--space-4); }
+  .responses-intake-group li { grid-template-columns: 16px minmax(0, 1fr) auto; }
+  .responses-intake-group li > .responses-intake-label { display: none; }
+  .responses-foot > button { flex: 1 1 100%; }
+}

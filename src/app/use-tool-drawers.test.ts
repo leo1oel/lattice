@@ -26,7 +26,7 @@ it("opens a drawer it owns after bringing its content up to date, then reveals i
   act(() => view.result.current.open("checklist"));
   expect(refreshTodos).toHaveBeenCalledTimes(1);
   expect(refreshWordCount).toHaveBeenCalledTimes(1);
-  expect(view.result.current.isOpen).toEqual({ history: false, git: false, todos: false, checklist: true, review: false, support: false, terms: false });
+  expect(view.result.current.isOpen).toEqual({ history: false, git: false, todos: false, checklist: true, review: false, support: false, terms: false, responses: false });
   expect(trellis.revealOpenTool).toHaveBeenCalledWith("checklist");
 
   act(() => view.result.current.open("todos"));
@@ -66,7 +66,7 @@ it("routes comments to the surface the project uses and literature to its own dr
   act(() => view.result.current.open("literature"));
   expect(references.setLiteratureOpen).toHaveBeenCalledWith(true);
   expect(trellis.revealOpenTool).toHaveBeenLastCalledWith("literature");
-  expect(view.result.current.isOpen).toEqual({ history: false, git: false, todos: false, checklist: false, review: false, support: false, terms: false });
+  expect(view.result.current.isOpen).toEqual({ history: false, git: false, todos: false, checklist: false, review: false, support: false, terms: false, responses: false });
 });
 
 it("forgets the outgoing project's TODO list and turn review", () => {
@@ -78,7 +78,7 @@ it("forgets the outgoing project's TODO list and turn review", () => {
     view.result.current.open("git", { turnReview: review });
   });
   act(() => view.result.current.resetForProject());
-  expect(view.result.current.isOpen).toEqual({ history: true, git: true, todos: false, checklist: false, review: false, support: false, terms: false });
+  expect(view.result.current.isOpen).toEqual({ history: true, git: true, todos: false, checklist: false, review: false, support: false, terms: false, responses: false });
   expect(view.result.current.turnReview).toBeNull();
 });
 

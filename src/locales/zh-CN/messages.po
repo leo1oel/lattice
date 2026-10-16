@@ -105,6 +105,11 @@ msgstr "{0} 条批注"
 msgid "{0} changes"
 msgstr "{0} 处改动"
 
+#. placeholder {0}: formatCount(toChange)
+#: src/project/reviewer-responses-panel.tsx
+msgid "{0} changes to make"
+msgstr "{0} 处修改待完成"
+
 #. placeholder {0}: compactCount(cites, i18n.locale)
 #. placeholder {0}: formatCount(cites, i18n.locale)
 #: src/papers/literature-discovery-panel.tsx
@@ -161,6 +166,11 @@ msgstr "{0} 处修改待审"
 msgid "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it: change the {BIBITEM} by hand, or copy the corrected one."
 msgstr "{0} 自带参考文献列表。Lattice 只拿它和核实过的记录比对，从不改动：请手动修改这条 {BIBITEM}，或复制改好的版本。"
 
+#. placeholder {0}: formatCount(revisable)
+#: src/project/reviewer-responses-panel.tsx
+msgid "{0} linked annotations still to change"
+msgstr "{0} 条关联批注仍待修改"
+
 #. placeholder {0}: counts.review
 #: src/papers/bibliography-audit.tsx
 msgid "{0} need your eyes"
@@ -175,6 +185,12 @@ msgstr "{0} 条尚未检查"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "{0} notes"
 msgstr "{0} 条批注"
+
+#. placeholder {0}: formatCount(answered)
+#. placeholder {1}: formatCount(comments.length)
+#: src/project/reviewer-responses-panel.tsx
+msgid "{0} of {1} answered"
+msgstr "已回复 {0} / {1} 条"
 
 #. placeholder {0}: chosen.length
 #. placeholder {1}: changes.length
@@ -234,6 +250,11 @@ msgstr "{0} 条记录匹配"
 msgid "{0} records match. Choose the one you mean."
 msgstr "{0} 条记录匹配，请选出你要的那一条。"
 
+#. placeholder {0}: formatCount(counts.drafted)
+#: src/project/reviewer-responses-panel.tsx
+msgid "{0} replies to check"
+msgstr "{0} 条回复待核对"
+
 #. placeholder {0}: stats.sections
 #: src/project/paper-review-panel.tsx
 msgid "{0} sections"
@@ -269,6 +290,11 @@ msgstr "{0} 票"
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} wait for your choice"
 msgstr "{0} 篇等你选择"
+
+#. placeholder {0}: formatCount(counts.unanswered)
+#: src/project/reviewer-responses-panel.tsx
+msgid "{0} without a reply"
+msgstr "{0} 条尚未回复"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{accepted} accepted"
@@ -928,6 +954,10 @@ msgstr "1 条批注"
 msgid "1 change"
 msgstr "1 处改动"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "1 change to make"
+msgstr "1 处修改待完成"
+
 #: src/history/compare-versions.tsx
 msgid "1 changed paragraph"
 msgstr "1 个段落有改动"
@@ -988,6 +1018,10 @@ msgstr "1 处"
 #: src/project/deadline-card.tsx
 msgid "1 hour"
 msgstr "1 小时"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "1 linked annotation still to change"
+msgstr "1 条关联批注仍待修改"
 
 #: src/project/deadline-card.tsx
 msgid "1 minute"
@@ -1069,6 +1103,10 @@ msgstr "有 1 条意见未列出：引用的原文不在论文中"
 msgid "1 reference, not checked yet"
 msgstr "共 1 条文献，尚未检查"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "1 reply to check"
+msgstr "1 条回复待核对"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "1 result for “{shownQuery}”"
 msgstr "“{shownQuery}”共 1 条结果"
@@ -1101,6 +1139,10 @@ msgstr "1 票"
 #: src/papers/add-papers-sheet.tsx
 msgid "1 waits for your choice"
 msgstr "1 篇等你选择"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "1 without a reply"
+msgstr "1 条尚未回复"
 
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
@@ -1157,6 +1199,10 @@ msgstr "每处改动旁加一条竖线"
 #: src/build/compile-explain.ts
 msgid "A line runs {points} pt into the margin"
 msgstr "有一行超出页边 {points} pt"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "A linked passage needs checking"
+msgstr "有关联段落需要核对"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
@@ -1322,6 +1368,11 @@ msgstr "添加"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "把“{projectWord}”加入项目词库"
 
+#. placeholder {0}: formatCount(total)
+#: src/project/reviewer-responses-panel.tsx
+msgid "Add {0} comments"
+msgstr "添加 {0} 条意见"
+
 #. placeholder {0}: addable.length
 #: src/papers/add-papers-sheet.tsx
 msgid "Add {0} papers"
@@ -1330,6 +1381,10 @@ msgstr "添加 {0} 篇论文"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Add {title} to Papers"
 msgstr "把 {title} 加入论文库"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Add 1 comment"
+msgstr "添加 1 条意见"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Add 1 paper"
@@ -1430,6 +1485,10 @@ msgstr "添加词语"
 msgid "Add reference"
 msgstr "添加文献"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Add reviewer comments"
+msgstr "添加审稿意见"
+
 #: src/project/terms-panel.tsx
 msgid "Add rule"
 msgstr "添加规则"
@@ -1441,6 +1500,10 @@ msgstr "把你认同的意见加为批注；在你这样做之前，论文不会
 #: src/project/deadline-card.tsx
 msgid "Add the submission deadline"
 msgstr "添加投稿截止时间"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Add this comment"
+msgstr "添加这条意见"
 
 #: src/papers/literature-discovery-panel.tsx
 #: src/papers/support-panel.tsx
@@ -1620,6 +1683,11 @@ msgstr "对齐"
 msgid "All"
 msgstr "全部"
 
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "reviewer comments"
+msgid "All"
+msgstr "全部"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "All ({threadCount})"
 msgstr "全部（{threadCount}）"
@@ -1773,6 +1841,10 @@ msgstr "批注"
 msgid "Annotate at most {limit} characters for the agent to revise."
 msgstr "交给 AI 助手修改的批注最多 {limit} 个字符。"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Annotate the passage you changed, then link it here"
+msgstr "先为修改过的段落添加批注，再在这里关联"
+
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "Annotate the PDF"
 msgstr "在 PDF 上批注"
@@ -1796,6 +1868,7 @@ msgid "Annotation {pin}"
 msgstr "批注 {pin}"
 
 #: src/app/use-editor-comments.ts
+#: src/project/reviewer-responses-panel.tsx
 msgid "Annotation deleted"
 msgstr "已删除批注"
 
@@ -1856,6 +1929,10 @@ msgstr "已有另一条文献使用“{key}”。"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Answer and revise"
 msgstr "回答并修改"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Answer every reviewer comment"
+msgstr "逐条回复审稿意见"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Answer the agent"
@@ -2625,6 +2702,7 @@ msgstr "加拿大式"
 #: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/project/reviewer-responses-panel.tsx
 #: src/project/submission-items.tsx
 #: src/project/terms-panel.tsx
 #: src/telemetry/app-log.tsx
@@ -2795,6 +2873,15 @@ msgstr "修改 1 处"
 msgid "Change all {0}"
 msgstr "全部修改（{0} 处）"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Change to make"
+msgstr "待修改正文"
+
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "paper change for a reviewer comment"
+msgid "Changed"
+msgstr "已修改"
+
 #: src/history/compare-versions.tsx
 msgid "Changed files"
 msgstr "有改动的文件"
@@ -2806,6 +2893,10 @@ msgstr "本地已改"
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed here, untouched there"
 msgstr "本机改了，Overleaf 没动"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Changed passages"
+msgstr "修改位置"
 
 #: src/project/submission-items.tsx
 msgid "Changed since confirmed"
@@ -3460,6 +3551,10 @@ msgstr "评论所选"
 msgid "Comment or uncomment lines"
 msgstr "注释开关"
 
+#: src/app/reviewer-responses.ts
+msgid "Comment removed"
+msgstr "已移除意见"
+
 #: src/app/use-editor-comments.ts
 msgid "Comment resolved"
 msgstr "评论已解决"
@@ -3505,6 +3600,10 @@ msgstr "已移除注释"
 #: src/project/arxiv-export.ts
 msgid "Comments will be published"
 msgstr "注释将被公开"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Comments without a heading are from"
+msgstr "没有标题的意见来自"
 
 #: src/app/annotation-rounds.ts
 msgid "Compare"
@@ -4497,6 +4596,7 @@ msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 #: src/onboarding/guided-tour.tsx
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Done"
 msgstr "完成"
 
@@ -4666,6 +4766,14 @@ msgstr "例如 Lattice"
 #: src/project/deadline-card.tsx
 msgid "e.g. NeurIPS 2027"
 msgstr "例如 NeurIPS 2027"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Each comment keeps the reviewer's words and a number that stays. A heading such as “Reviewer 2” starts the next reviewer."
+msgstr "每条意见保留审稿人原文和固定编号。“Reviewer 2”“审稿人 2”这样的标题会开始下一位审稿人。"
+
+#: src/App.tsx
+msgid "Each comment numbered, answered and checked"
+msgstr "逐条编号、回复并核对"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
@@ -5022,6 +5130,18 @@ msgstr "估计量 / 单位向量记号"
 msgid "Eta"
 msgstr "伊塔"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Every annotation is linked already"
+msgstr "所有批注都已关联"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Every comment is answered"
+msgstr "每条意见都已回复"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Every comment is done"
+msgstr "每条意见都已完成"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Every comment is resolved. All shows the resolved ones"
 msgstr "所有评论都已解决，切到“全部”可查看"
@@ -5182,6 +5302,10 @@ msgstr "导出评阅 PDF"
 #: src/pdf/pdf-viewer.tsx
 msgid "Export review PDF…"
 msgstr "导出评阅 PDF…"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Export the response letter"
+msgstr "导出回复信"
 
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/project-dialogs.tsx
@@ -6627,6 +6751,10 @@ msgstr "原文已删除，找不到原来的位置"
 msgid "Its words were not found on the page, so the note goes in the margin beside them."
 msgstr "页面上找不到这段文字，批注会放在旁边的页边。"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Join with the comment above"
+msgstr "并入上一条意见"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "期刊"
@@ -6835,6 +6963,10 @@ msgstr "姓, 名 and 姓, 名"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "LaTeX"
 msgstr "LaTeX"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "LaTeX (.tex)"
+msgstr "LaTeX 文件 (.tex)"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -7205,6 +7337,10 @@ msgstr "表达式下方加横线"
 msgid "Link"
 msgstr "链接"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Link annotation"
+msgstr "关联批注"
+
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Link definition"
 msgstr "链接定义"
@@ -7479,6 +7615,10 @@ msgstr "品红色"
 msgid "Main pages"
 msgstr "正文页数"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Make its own comment"
+msgstr "拆为单独一条"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Manual"
 msgstr "手动"
@@ -7538,6 +7678,10 @@ msgstr "将“{title}”标为未确认"
 #: src/history/export-changes-dialog.tsx
 msgid "Mark changes"
 msgstr "标记方式"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Markdown (.md)"
+msgstr "Markdown 文件 (.md)"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
@@ -8049,6 +8193,10 @@ msgstr "新建幻灯片"
 msgid "New project"
 msgstr "新建项目"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "New reviewer (R{newReviewer})"
+msgstr "新审稿人（R{newReviewer}）"
+
 #: src/project/terms-panel.tsx
 msgid "New rule"
 msgstr "新规则"
@@ -8168,6 +8316,11 @@ msgstr "参考文献里没有键为 {key} 的条目。检查这个键，或把�
 #: src/project/arxiv-export.ts
 msgid "No bibliography to include"
 msgstr "无需包含参考文献"
+
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "paper change for a reviewer comment"
+msgid "No change"
+msgstr "无需修改"
 
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
@@ -8514,6 +8667,10 @@ msgstr "未添加"
 msgid "Not an element of"
 msgstr "不属于"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Not answered"
+msgstr "尚未回复"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Not built"
 msgstr "未编译"
@@ -8680,6 +8837,10 @@ msgstr "没有待审的了。其余文献都对上了核实过的记录。"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Nothing matches “{0}”."
 msgstr "没有“{0}”相关结果"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Nothing to add: every part is left out"
+msgstr "没有可添加的内容：所有部分都已排除"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Nothing to change — {target} already matches."
@@ -8860,6 +9021,11 @@ msgstr "打开"
 msgctxt "annotation filter"
 msgid "Open"
 msgstr "待处理"
+
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "reviewer comments still to answer"
+msgid "Open"
+msgstr "未完成"
 
 #: src/App.tsx
 msgid "Open {name}"
@@ -9358,6 +9524,10 @@ msgstr "只有概览"
 msgid "Overwrite files of the same name; merge folders"
 msgstr "覆盖同名文件，合并同名文件夹"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Owner"
+msgstr "负责人"
+
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
 msgstr "{page} 页"
@@ -9427,6 +9597,11 @@ msgstr "全文"
 msgctxt "theme tint"
 msgid "Paper"
 msgstr "纸张"
+
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "whether the paper changes for a reviewer comment"
+msgid "Paper"
+msgstr "正文"
 
 #: src/canvas/paper-reader.tsx
 msgid "Paper actions"
@@ -9518,6 +9693,10 @@ msgstr "已有 {completed}/{progressTotal} 条结果"
 msgid "pass {run}"
 msgstr "第 {run} 遍"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Passage rewritten since it was linked"
+msgstr "关联后该段落已被改写"
+
 #: src/papers/support-panel.tsx
 msgid "Passages are quoted from each paper’s abstract. Read the paper before you rely on it."
 msgstr "引文摘自各篇论文的摘要。引用前请先读原文。"
@@ -9544,9 +9723,21 @@ msgstr "粘贴 DOI、arXiv ID、链接、标题或 BibTeX——每行一条，�
 msgid "Paste or type a link"
 msgstr "粘贴或输入链接"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Paste reviews"
+msgstr "粘贴审稿意见"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
 msgstr "粘贴电子表格单元格或 CSV 并核对数据。如需再次编辑，将光标放在生成的表格内，选择“插入表格”。"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Paste the reviews"
+msgstr "粘贴审稿意见"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Paste the reviews to number each comment, then track its reply, its owner and the passages that changed for it"
+msgstr "粘贴审稿意见后逐条编号，再跟踪每条的回复、负责人和对应的正文修改"
 
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
@@ -10428,6 +10619,11 @@ msgstr "松开放大{title} · Esc 取消"
 msgid "Remove"
 msgstr "移除"
 
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "reviewer comment"
+msgid "Remove"
+msgstr "移除"
+
 #: src/app/remove-reference-action.ts
 msgid "Remove “{title}” from the bibliography?"
 msgstr "从文献中删除“{title}”？"
@@ -10731,12 +10927,21 @@ msgstr "正在替换…"
 #: src/editor/comments/comment-card.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Reply"
 msgstr "回复"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reply checked against the paper"
+msgstr "已对照正文核对回复"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {author}"
 msgstr "回复 {author}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reply to check"
+msgstr "回复待核对"
 
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -10882,6 +11087,16 @@ msgstr "正在查找文献信息…"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "正在查找…"
+
+#: src/App.tsx
+msgid "Respond to reviewers"
+msgstr "回复审稿意见"
+
+#: src/app/reviewer-responses.ts
+#: src/project/reviewer-responses-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Responses"
+msgstr "审稿回复"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Restart Lattice"
@@ -11126,6 +11341,26 @@ msgstr "审阅论文"
 msgid "Review the proposal"
 msgstr "审阅这条建议"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reviewer {reviewer}"
+msgstr "审稿人 {reviewer}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reviewer {reviewer} · {name}"
+msgstr "审稿人 {reviewer} · {name}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reviewer 1\n"
+"1. The ablation leaves out…\n"
+"2. …"
+msgstr "审稿人 1\n"
+"1. 消融实验缺少……\n"
+"2. ……"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Reviewer of comments without a heading"
+msgstr "无标题意见所属的审稿人"
+
 #: src/history/export-changes-dialog.tsx
 msgid "Reviewers see what was removed"
 msgstr "审稿人能看到删掉了什么"
@@ -11142,6 +11377,7 @@ msgstr "根据 1 条批注修改"
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/project/paper-review-panel.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Revise from annotations"
 msgstr "根据批注修改"
 
@@ -11492,6 +11728,10 @@ msgstr "已存在这台 Mac"
 #: src/project/submission-items.tsx
 msgid "Saved on this Mac for your other papers: item names, files and sources, not their status."
 msgstr "保存在这台 Mac 上，供你的其他论文使用：只存事项名称、文件和来源，不存状态。"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Saved the response letter to {path}"
+msgstr "回复信已保存到 {path}"
 
 #: src/agent/agent-visual-save.ts
 #: src/pdf/pdf-viewer.tsx
@@ -11902,6 +12142,10 @@ msgstr "显示全部文献"
 #: src/project/project-find-dialog.tsx
 msgid "Show all results"
 msgstr "显示全部"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Show annotation {number}"
+msgstr "显示批注 {number}"
 
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -13212,6 +13456,15 @@ msgstr "修复服务没响应"
 msgid "The required tools"
 msgstr "所需工具"
 
+#. placeholder {0}: toMessage(reason)
+#: src/app/reviewer-responses.ts
+msgid "The responses could not be saved: {0}"
+msgstr "无法保存审稿回复：{0}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "The responses file (.research/responses.json) could not be read. Nothing will be saved until it is fixed."
+msgstr "无法读取审稿回复文件（.research/responses.json）。修复之前不会保存任何内容。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "找到多篇相似的，无法确定是哪篇"
@@ -13220,6 +13473,10 @@ msgstr "找到多篇相似的，无法确定是哪篇"
 #: src/app/paper-review.ts
 msgid "The review could not be saved: {0}"
 msgstr "无法保存审阅：{0}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "The reviewer's comment"
+msgstr "审稿人原文"
 
 #: src/settings/acknowledged-software.ts
 msgid "The rich-text editor"
@@ -13632,6 +13889,11 @@ msgstr "to（短右箭头）"
 msgid "To {name}"
 msgstr "到“{name}”止"
 
+#: src/project/reviewer-responses-panel.tsx
+msgctxt "paper change for a reviewer comment"
+msgid "To change"
+msgstr "待修改"
+
 #: src/editor/latex/highlighters.ts
 #: src/project/submission-items.tsx
 msgid "To check"
@@ -13739,6 +14001,7 @@ msgstr "换个更短或不同的词试试"
 #: src/papers/support-panel.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
+#: src/project/reviewer-responses-panel.tsx
 msgid "Try again"
 msgstr "重试"
 
@@ -13858,6 +14121,7 @@ msgstr "仅下划线"
 
 #: src/app/claim-support.ts
 #: src/app/paper-review.ts
+#: src/app/reviewer-responses.ts
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
 #: src/canvas/document-canvas.tsx
@@ -13945,6 +14209,14 @@ msgstr "来源返回未知结果"
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
 msgstr "取消关联"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Unlink annotation {number}"
+msgstr "取消关联批注 {number}"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Unlink the deleted annotation"
+msgstr "取消关联已删除的批注"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlinked. {target} stays as it is."
@@ -14450,6 +14722,10 @@ msgstr "要 AI 助手做什么"
 msgid "What you leave unticked is not offered again."
 msgstr "未勾选的更改以后不会再次提示。"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "What you tell the reviewer"
+msgstr "写给审稿人的回复"
+
 #: src/app/whats-new-dialog.tsx
 msgid "What’s new"
 msgstr "新功能"
@@ -14477,6 +14753,14 @@ msgstr "协作者开启“修订”编辑时，每处改动都会在这里等你
 msgid "When you delete a file here"
 msgstr "在这里删除文件时"
 
+#: src/project/reviewer-responses-panel.tsx
+msgid "Whether the paper changes for this comment"
+msgstr "正文是否需要为此修改"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Which comments to show"
+msgstr "显示哪些意见"
+
 #: src/components/ui/color-picker.tsx
 msgid "White"
 msgstr "白色"
@@ -14484,6 +14768,10 @@ msgstr "白色"
 #: src/project/submission-items.tsx
 msgid "Who"
 msgstr "负责人"
+
+#: src/project/reviewer-responses-panel.tsx
+msgid "Who answers it"
+msgstr "由谁回复"
 
 #: src/editor/latex/search-panel.ts
 #: src/pdf/pdf-viewer.tsx

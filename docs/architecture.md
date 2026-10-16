@@ -373,6 +373,7 @@ creates it.
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
 | `.research/reviews/<id>.json` | `project/reviews.rs` (`REVIEWS_DIRECTORY`) | the agent's reviews of the paper, one per run named by its UTC start, with the writer's decision on each point; the newest is reopened |
+| `.research/responses.json` | `project/responses.rs` (`RESPONSES_FILE`) | the writer's answers to the venue's reviewers: each pasted comment with its stable number (R1.2), owner, reply and whether it is checked, the paper change's state and the ids of the annotations linked to it; written only once a comment is added, and never over a file that exists but cannot be read (the panel shows an error until it reads cleanly) |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
 | `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
 | `.research/tutorial.json` | `project/create.rs` | tutorial-project state |
