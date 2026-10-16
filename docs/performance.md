@@ -261,8 +261,8 @@ comment in `vitest.config.ts` for how the test suite now catches them.
   by text, or reading in a worker, is what remains.
 - `App.tsx` state extraction — in progress rather than unscheduled; its current
   size and extraction status live in `docs/codebase-map.md` §6. Still open: `DocumentCanvas` memoization
-  — 126 props and 26 inline lambdas at the call site in `App.tsx`, up from 109
-  props when this was first measured.
+  — `App.tsx` hands it ten domain models (`src/canvas/canvas-model.ts`), down
+  from 126 flat props, but those still carry 119 fields between them.
 - Split-mode publication: replace whole-document `setContent` with
   block-level splices; measure after the mdast-cache fix, which removed the
   worst multiplier.

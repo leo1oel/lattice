@@ -1705,180 +1705,197 @@ function App() {
   const workspaceLoading = <div className="document-canvas-loading" aria-label={t`Preparing workspace`} />;
   const documentCanvas = (
     <DocumentCanvas
-      projectRoot={project.root}
-      locale={appLocale}
-      theme={theme}
-      mode={canvasMode}
-      workspaceIndex={workspaceIndex}
-      papers={papers}
-      onOpenPaper={(paper) => void openPaper(paper)}
-      onOpenUrl={(url) => void openUrl(url).catch((reason) => showError(toMessage(reason)))}
-      onResolveCitation={referenceImport.resolveBibQuery}
-      citationUsageRevision={unusedSymbols}
-      source={canvasSource}
-      settledSource={settledCanvasSource}
-      markdownPreviewSource={documents.canvas.previewText}
-      activeFile={documents.canvas.path}
-      setSource={documents.canvas.setText}
-      onSave={save}
-      onVisualMarkdownFlushChange={documents.canvas.registerFlush}
-      onMarkdownModeViewportCaptureChange={documents.canvas.registerViewportCapture}
-      setSelection={(value, lines) => agentContext.reportSelection(activePaper ? "paper" : "editor", value, undefined, lines)}
-      onPdfTextSelect={(value, place) => agentContext.reportSelection("pdf", value, place)}
-      onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
-      onImportAsset={tree.importClipboardImageFile}
-      onContextSurfaceActivate={agentContext.activateSurface}
-      onViewMarkdownSource={() => chooseMode("split")}
-      onOpenSlideMutation={applyOpenSlideMutation}
-      onOpenSlideContext={setOpenSlideContext}
-      onOpenSlideError={showError}
-      pdfUrl={pdfUrl}
-      pdfBytes={buildPipeline.displayedPdfBytesRef.current}
-      onBuildProject={() => void compileAndShowPdf(false, true)}
-      building={building}
-      buildShortcut={commandShortcutText(commands, "build") ?? undefined}
-      pdfTop={(!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
-        <Suspense fallback={null}>
-          <CompileDiagnosticsPanel
-            diagnostics={build.diagnostics}
-            log={build.log}
-            success={build.success}
-            expanded={buildPipeline.diagnosticsExpanded}
-            onExpandedChange={buildPipeline.setDiagnosticsExpanded}
-            onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-            onInstallDependency={texSetup.installDependency}
-            onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
-            onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
-            onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
-            fixDisabled={!repairWritable || building || compileRepair.busy}
-            repair={compileRepair.state}
-            onCancelRepair={() => void compileRepair.cancel()}
-            onOpenRepair={() => {
-              const threadId = compileRepair.state?.threadId;
-              if (!threadId) return;
-              persistSynaraThread(project.root, threadId);
-              synara.mountFrame();
-              trellis.showPanel("agent");
-              synara.showThread(threadId);
-            }}
-            onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
-            sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
-            onReplaceToken={replaceDiagnosticToken}
-            onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
-          />
-        </Suspense>
-      ) : null}
-      activePaper={activePaper}
-      activeAsset={activeAsset}
-      onActiveAssetChanged={documents.canvas.onAssetChanged}
-      onPaperPdfOpenChange={setPaperPdfOpen}
-      activeAssetMissing={documents.assetMissing}
-      canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
-      onOpenCitation={(key) => {
-        const paper = readablePaperCited(key);
-        const url = citationUrl(key);
-        if (paper) void openPaper(paper);
-        else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+      document={{
+        mode: canvasMode,
+        workspaceIndex,
+        source: canvasSource,
+        settledSource: settledCanvasSource,
+        markdownPreviewSource: documents.canvas.previewText,
+        activeFile: documents.canvas.path,
+        setSource: documents.canvas.setText,
+        onSave: save,
+        onVisualMarkdownFlushChange: documents.canvas.registerFlush,
+        onMarkdownModeViewportCaptureChange: documents.canvas.registerViewportCapture,
+        onViewMarkdownSource: () => chooseMode("split"),
+        activePaper,
+        activeAsset,
+        onActiveAssetChanged: documents.canvas.onAssetChanged,
+        onPaperPdfOpenChange: setPaperPdfOpen,
+        activeAssetMissing: documents.assetMissing,
+        onEditorLeave: documents.canvas.onLeave,
+        onCompletionActiveChange: documents.canvas.onCompletionActiveChange,
+        onOpenMarkdownPath: openMarkdownProjectPath,
+        // Papers live under .research/, which Overleaf deliberately
+        // excludes from sync.
+        editorEditable: editorEditableForPath(activeFile, activePaper !== null),
+        editorKey,
+        openPaths: documents.tabs,
       }}
-      citationKeys={citationKeys}
-      citations={citations}
-      references={liveReferences}
-      indexPending={bibliographyIndexPending}
-      unusedLabels={texlabActive ? [] : unusedSymbols.labels}
-      unusedCitations={texlabActive ? [] : unusedSymbols.citations}
-      onLoadReferenceImage={referenceImages.load}
-      referenceImageGeneration={referenceImages.generation}
-      onEditorLeave={documents.canvas.onLeave}
-      onPrepareFigure={tree.prepareLatexFigure}
-      onPasteImageFile={tree.pasteImageFile}
-      nativeFigureDropActive={tree.drops.editor}
-      fileDropTargetActive={tree.drops.fileTarget}
-      requests={canvasRequests.requests}
-      onRequestHandled={settleCanvasRequest}
-      onEditorPosition={handleEditorPosition}
-      onCompletionActiveChange={documents.canvas.onCompletionActiveChange}
-      onViewState={(path, state) => rememberFileViewState(path, { text: state })}
-      getFileViewState={getFileViewState}
-      onFileViewState={rememberFileViewState}
-      onGotoDefinition={(target) => void gotoDefinition(target)}
-      onTexlabGoto={(path, line) => { void openFile(path, { line }); }}
-      onFindReferences={(target) => void findSymbolReferences(target)}
-      onRenameSymbol={beginSymbolRename}
-      onRenameEnvironment={(name) => beginRename({ kind: "environment", name })}
-      onWrapEnvironment={() => beginRename({ kind: "wrap-environment" })}
-      localMacros={latex.macros}
-      katexMacros={latex.katexMacros}
-      onGotoLineRequest={() => setSearchDialog("goto-line")}
-      outlineOpen={outlineOpen}
-      onOutlineOpenChange={setOutlineOpen}
-      outlineNodes={outlineNodes}
-      activeOutlineId={latex.activeOutlineId}
-      outlineRootPath={rootDocumentPath}
-      onOutlineNavigate={(path, line) => {
-        setOutlineOpen(false);
-        void syncTex.navigateOutline(path, line);
+      preferences={{
+        projectRoot: project.root,
+        locale: appLocale,
+        theme,
+        editorKeymap: appearance.editorKeymap,
+        editorSpellcheck: appearance.editorSpellcheck,
+        spellingWords: project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS,
+        onAddSpellingWord: addProjectSpellingWord,
+        englishVariant: project.manifest.englishVariant ?? null,
+        termRules: project.manifest.termRules ?? EMPTY_TERM_RULES,
+        interactivePreviewsEnabled: postStartupInteraction,
       }}
-      tableGeneratorOpen={tableGeneratorOpen}
-      onTableGeneratorOpenChange={setTableGeneratorOpen}
-      editorKeymap={appearance.editorKeymap}
-      editorSpellcheck={appearance.editorSpellcheck}
-      spellingWords={project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS}
-      onAddSpellingWord={addProjectSpellingWord}
-      englishVariant={project.manifest.englishVariant ?? null}
-      termRules={project.manifest.termRules ?? EMPTY_TERM_RULES}
-      projectPaths={projectPaths}
-      graphicsRoots={latex.graphicsRoots}
-      buildDiagnostics={
-        buildPipeline.compiledSources.get(activeFile) === source
+      bibliography={{
+        papers,
+        onOpenPaper: (paper) => void openPaper(paper),
+        onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
+        onResolveCitation: referenceImport.resolveBibQuery,
+        citationUsageRevision: unusedSymbols,
+        canOpenCitation: (key) => Boolean(readablePaperCited(key) || citationUrl(key)),
+        onOpenCitation: (key) => {
+          const paper = readablePaperCited(key);
+          const url = citationUrl(key);
+          if (paper) void openPaper(paper);
+          else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
+        },
+        citationKeys,
+        citations,
+        references: liveReferences,
+        indexPending: bibliographyIndexPending,
+        unusedLabels: texlabActive ? [] : unusedSymbols.labels,
+        unusedCitations: texlabActive ? [] : unusedSymbols.citations,
+        onLoadReferenceImage: referenceImages.load,
+        referenceImageGeneration: referenceImages.generation,
+        localMacros: latex.macros,
+        katexMacros: latex.katexMacros,
+        projectPaths,
+        graphicsRoots: latex.graphicsRoots,
+      }}
+      navigation={{
+        requests: canvasRequests.requests,
+        onRequestHandled: settleCanvasRequest,
+        onEditorPosition: handleEditorPosition,
+        onViewState: (path, state) => rememberFileViewState(path, { text: state }),
+        getFileViewState,
+        onFileViewState: rememberFileViewState,
+        onGotoDefinition: (target) => void gotoDefinition(target),
+        onTexlabGoto: (path, line) => { void openFile(path, { line }); },
+        onFindReferences: (target) => void findSymbolReferences(target),
+        onRenameSymbol: beginSymbolRename,
+        onRenameEnvironment: (name) => beginRename({ kind: "environment", name }),
+        onWrapEnvironment: () => beginRename({ kind: "wrap-environment" }),
+        onGotoLineRequest: () => setSearchDialog("goto-line"),
+        outlineOpen,
+        onOutlineOpenChange: setOutlineOpen,
+        outlineNodes,
+        activeOutlineId: latex.activeOutlineId,
+        outlineRootPath: rootDocumentPath,
+        onOutlineNavigate: (path, line) => {
+          setOutlineOpen(false);
+          void syncTex.navigateOutline(path, line);
+        },
+        tableGeneratorOpen,
+        onTableGeneratorOpenChange: setTableGeneratorOpen,
+        onCreateMissingFile: (path) => {
+          void tree.createEntry(path, "file");
+        },
+      }}
+      pdf={{
+        pdfUrl,
+        pdfBytes: buildPipeline.displayedPdfBytesRef.current,
+        onBuildProject: () => void compileAndShowPdf(false, true),
+        building,
+        buildShortcut: commandShortcutText(commands, "build") ?? undefined,
+        pdfTop: (!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
+          <Suspense fallback={null}>
+            <CompileDiagnosticsPanel
+              diagnostics={build.diagnostics}
+              log={build.log}
+              success={build.success}
+              expanded={buildPipeline.diagnosticsExpanded}
+              onExpandedChange={buildPipeline.setDiagnosticsExpanded}
+              onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
+              onInstallDependency={texSetup.installDependency}
+              onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
+              onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
+              onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
+              fixDisabled={!repairWritable || building || compileRepair.busy}
+              repair={compileRepair.state}
+              onCancelRepair={() => void compileRepair.cancel()}
+              onOpenRepair={() => {
+                const threadId = compileRepair.state?.threadId;
+                if (!threadId) return;
+                persistSynaraThread(project.root, threadId);
+                synara.mountFrame();
+                trellis.showPanel("agent");
+                synara.showThread(threadId);
+              }}
+              onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
+              sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
+              onReplaceToken={replaceDiagnosticToken}
+              onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
+            />
+          </Suspense>
+        ) : null,
+        pdfSyncTarget: syncTex.pdfSyncTarget,
+        canForwardSync: syncTex.canForwardSync,
+        locatingPdf: syncTex.locatingPdf,
+        onForwardSync: () => void revealSourceInPdf(),
+        onPdfSource: syncTex.revealPdfSource,
+        onPdfPageCount: setPdfPageCount,
+        onPdfPageChange: setPdfPageNumber,
+      }}
+      review={{
+        editorComments: editorComments.all,
+        overleafPresenceCursors: overleafActiveCursors,
+        overleafChanges: overleafRealtime.changes,
+        sourceMargin: overleafLink ? (view) => (
+          <AppOverleafMarginReview overleaf={overleaf} view={view} path={documents.canvas.path} focusMode={focusMode} />
+        ) : undefined,
+        overleafTrackChangeActions: {
+          authorName: overleafTrackChanges.authorName,
+          canAct: () => overleafRealtime.canWrite,
+          onAccept: (change) => void overleafTrackChanges.accept([change.id]),
+          onReject: (change) => void overleafTrackChanges.reject([change]),
+        },
+        activeEditorCommentId: editorComments.activeId,
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
+        commentAuthorName: authorName.trim() || "Anonymous",
+        commentAuthorId: editorCommentAuthorId,
+        onCreateEditorComment: editorComments.create,
+        annotationRounds,
+        onOpenEditorComments: () => tools.open("comments"),
+        onResolveEditorComment: editorComments.resolve,
+        onReplyEditorComment: (commentId) => tools.open("comments", { replyTo: commentId }),
+        onPostEditorCommentReply: editorComments.reply,
+        commentFocusRequest: editorComments.focusRequest,
+        onCommentFocusHandled: editorComments.focusHandled,
+      }}
+      selection={{
+        setSelection: (value, lines) => agentContext.reportSelection(activePaper ? "paper" : "editor", value, undefined, lines),
+        onPdfTextSelect: (value, place) => agentContext.reportSelection("pdf", value, place),
+        onPaperTextSelect: (value) => agentContext.reportSelection("paper", value),
+        onContextSurfaceActivate: agentContext.activateSurface,
+      }}
+      assets={{
+        onImportAsset: tree.importClipboardImageFile,
+        onOpenSlideMutation: applyOpenSlideMutation,
+        onOpenSlideContext: setOpenSlideContext,
+        onOpenSlideError: showError,
+        onPrepareFigure: tree.prepareLatexFigure,
+        onPasteImageFile: tree.pasteImageFile,
+        nativeFigureDropActive: tree.drops.editor,
+        fileDropTargetActive: tree.drops.fileTarget,
+      }}
+      status={{
+        buildDiagnostics: buildPipeline.compiledSources.get(activeFile) === source
           ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
-          : EMPTY_DIAGNOSTICS
-      }
-      texlabDiagnostics={texlabDiagnostics}
-      pdfSyncTarget={syncTex.pdfSyncTarget}
-      canForwardSync={syncTex.canForwardSync}
-      locatingPdf={syncTex.locatingPdf}
-      onForwardSync={() => void revealSourceInPdf()}
-      onPdfSource={syncTex.revealPdfSource}
-      editorComments={editorComments.all}
-      overleafPresenceCursors={overleafActiveCursors}
-      overleafChanges={overleafRealtime.changes}
-      sourceMargin={overleafLink ? (view) => (
-        <AppOverleafMarginReview overleaf={overleaf} view={view} path={documents.canvas.path} focusMode={focusMode} />
-      ) : undefined}
-      overleafTrackChangeActions={{
-        authorName: overleafTrackChanges.authorName,
-        canAct: () => overleafRealtime.canWrite,
-        onAccept: (change) => void overleafTrackChanges.accept([change.id]),
-        onReject: (change) => void overleafTrackChanges.reject([change]),
+          : EMPTY_DIAGNOSTICS,
+        texlabDiagnostics,
+        todoCount: todoHits.length,
+        onOpenTodos: () => tools.open("todos"),
+        projectWordCount,
+        saveSlot,
       }}
-      activeEditorCommentId={editorComments.activeId}
-      // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
-      commentAuthorName={authorName.trim() || "Anonymous"}
-      commentAuthorId={editorCommentAuthorId}
-      onCreateEditorComment={editorComments.create}
-      annotationRounds={annotationRounds}
-      onOpenEditorComments={() => tools.open("comments")}
-      onResolveEditorComment={editorComments.resolve}
-      onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
-      onPostEditorCommentReply={editorComments.reply}
-      commentFocusRequest={editorComments.focusRequest}
-      onCommentFocusHandled={editorComments.focusHandled}
-      todoCount={todoHits.length}
-      onOpenTodos={() => tools.open("todos")}
-      projectWordCount={projectWordCount}
-      onPdfPageCount={setPdfPageCount}
-      onPdfPageChange={setPdfPageNumber}
-      onCreateMissingFile={(path) => {
-        void tree.createEntry(path, "file");
-      }}
-      onOpenMarkdownPath={openMarkdownProjectPath}
-      interactivePreviewsEnabled={postStartupInteraction}
-      // Papers live under .research/, which Overleaf deliberately
-      // excludes from sync.
-      editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
-      saveSlot={saveSlot}
-      editorKey={editorKey}
-      trellis={{
+      hosts={{
         editorHost: trellis.hosts.editor,
         pdfHost: pdfLive ? trellis.hosts.pdf : null,
         editorHibernated,
@@ -1886,7 +1903,6 @@ function App() {
         decks: trellis.decks,
         switchState: trellis.switchState,
       }}
-      openPaths={documents.tabs}
     />
   );
 

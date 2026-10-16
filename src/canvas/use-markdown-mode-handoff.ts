@@ -33,7 +33,7 @@ export function useMarkdownModeHandoff({
   previewViewport: WeakRef<HTMLDivElement> | null;
   primaryView: WeakRef<EditorView> | null;
   /** The canvas's newest props: a reveal is dropped once another file is open. */
-  latestRef: RefObject<{ activeFile: string }>;
+  latestRef: RefObject<{ document: { activeFile: string } }>;
   scrollSyncSuppressedRef: RefObject<boolean>;
   reconcileFromSourceRef: RefObject<(() => void) | null>;
   onViewMarkdownSource: () => void;
@@ -125,7 +125,7 @@ export function useMarkdownModeHandoff({
     if (mode !== "split") explicitViewInSourceTransitionRef.current = true;
     const reveal = {};
     pendingRevealRef.current = reveal;
-    const revealIsCurrent = () => pendingRevealRef.current === reveal && latestRef.current.activeFile === activeFile;
+    const revealIsCurrent = () => pendingRevealRef.current === reveal && latestRef.current.document.activeFile === activeFile;
     const endReveal = () => {
       pendingRevealRef.current = null;
       scrollSyncSuppressedRef.current = false;
