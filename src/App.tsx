@@ -298,6 +298,7 @@ function App() {
   const { file: activeFileRef, text: sourceRef, saved: savedSourceRef, asset: activeAssetRef } = documents.live;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
+  const [paperPdfOpen, setPaperPdfOpen] = useState(false);
   const {
     workspaceIndex,
     cancelPreviewPrewarm,
@@ -1367,8 +1368,8 @@ function App() {
   const todoCount = todoHits.length;
   // A line jump lands in the text on screen: a Paper's reading file in front
   // of the retained source, never that source underneath it. An asset preview
-  // has no lines to go to.
-  const lineTarget = activeAsset ? null : documents.canvas.path || null;
+  // and a Paper's original PDF have no lines to go to.
+  const lineTarget = activeAsset || paperPdfOpen ? null : documents.canvas.path || null;
   const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
   // The welcome screen keeps the shortcuts listening, so a command that needs
   // a project, a text editor or LaTeX source says so and is neither listed
@@ -1896,6 +1897,7 @@ function App() {
       activePaper={activePaper}
       activeAsset={activeAsset}
       onActiveAssetChanged={documents.canvas.onAssetChanged}
+      onPaperPdfOpenChange={setPaperPdfOpen}
       activeAssetMissing={documents.assetMissing}
       canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
       onOpenCitation={(key) => {

@@ -628,6 +628,21 @@ describe("DocumentCanvas / editor for the open document", () => {
     expect(warning.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("reports while a paper's original PDF stands in for its Markdown", async () => {
+    const onPaperPdfOpenChange = vi.fn();
+    renderCanvas({
+      mode: "pdf", activeFile: ".research/papers/2408.05088/paper.md", source: "Paper body.", onPaperPdfOpenChange,
+      activePaper: { arxivId: "2408.05088", title: "UNIC", authors: "Mert and Philippe", hasFullText: true, hasBlog: false },
+    });
+
+    const toggle = await screen.findByRole("button", { name: "View original PDF" });
+    expect(onPaperPdfOpenChange).toHaveBeenLastCalledWith(false);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(onPaperPdfOpenChange).toHaveBeenLastCalledWith(true));
+    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(onPaperPdfOpenChange).toHaveBeenLastCalledWith(false));
+  });
+
   it("hands a native Open Slide deck its complete workspace in the document panel", async () => {
     const path = "slides/research-update/index.tsx";
     const { props } = renderCanvas({
