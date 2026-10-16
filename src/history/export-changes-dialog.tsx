@@ -79,6 +79,8 @@ export function ExportChangesDialog(props: {
   toName: string;
   /** The files the comparison changed; the preview reads its .tex files, the root document first. */
   changed: ReadonlyArray<{ path: string; oldPath?: string }> | null;
+  /** Bumped each time Now is read again, so the preview reads its files again too. */
+  read: number;
   onOpenFile?: (path: string) => void;
   onClose: () => void;
 }) {
@@ -94,15 +96,15 @@ export function ExportChangesDialog(props: {
   const saved = changesPdfName(props.rootDocument);
   const pdf = props.rootDocument.replace(/\.tex$/i, ".pdf");
   const preview = useLatestLoad<ProsePassage[]>();
-  const loadPreview = preview.load;
-  const { changed, from, rootDocument, to } = props;
+  const loadPreview = preview.revalidate;
+  const { changed, from, read, rootDocument, to } = props;
   useEffect(() => {
     if (!changed) return;
     const sources = changed
       .filter((file) => /\.tex$/i.test(file.path))
       .sort((a, b) => Number(b.path === rootDocument) - Number(a.path === rootDocument));
     loadPreview(`${from}:${to}`, () => previewPassages(from, to, sources));
-  }, [changed, from, loadPreview, rootDocument, to]);
+  }, [changed, from, loadPreview, read, rootDocument, to]);
   const shown = preview.value ?? [];
 
   // Worded outside the try: the compiler cannot compile a conditional inside one.

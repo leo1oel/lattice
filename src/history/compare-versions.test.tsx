@@ -132,18 +132,31 @@ describe("CompareVersions", () => {
     await waitFor(() => expect(invokeCalls("git_compare_file").at(-1)).toMatchObject({ path: "refs.bib", to: null }));
   });
 
-  it("reads Now again when the project's files change", async () => {
+  it("reads Now again in place when the project's sources change", async () => {
     let current = after;
     mockRepository({ git_compare_file: () => ({ before, after: current, binary: false }) });
     const emit = mockListen();
     renderCompare();
     await openCompare();
     expect(await screen.findByText("2 changed paragraphs")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next change" }));
+    expect(screen.getByText("2 of 2")).toBeInTheDocument();
 
-    current = before.replace("explain predictions", "describe routing weights");
+    // A version commit or a build touches nothing the comparison reads.
+    emit({ root: "/papers/attention", paths: [".git/index", "main.aux", "main.pdf"] });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(invokeCalls("git_compare_files")).toHaveLength(1);
+
+    // An unchanged save reads again without dropping the place in the changes.
+    emit({ root: "/papers/attention", paths: ["main.tex"] });
+    await waitFor(() => expect(invokeCalls("git_compare_files")).toHaveLength(2));
+    expect(screen.queryByText("Comparing…")).not.toBeInTheDocument();
+    expect(screen.getByText("2 of 2")).toBeInTheDocument();
+
+    current = after.replace("retrieve different", "look at");
     emit({ root: "/papers/attention", paths: ["main.tex"] });
     expect(await screen.findByText("1 changed paragraph")).toBeInTheDocument();
-    expect(invokeCalls("git_compare_files")).toHaveLength(2);
+    expect(screen.queryByText("Loading diff…")).not.toBeInTheDocument();
   });
 
   it("exports the PDF with the chosen marks and says where it went", async () => {

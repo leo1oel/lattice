@@ -33,6 +33,12 @@ import "./compare-versions.css";
 /** The newer side when it is the files as they are, not a saved version. */
 const NOW = "now";
 
+/** Writes that cannot change a comparison: git's own, and what a build leaves behind. */
+const NOT_SOURCE = /(^|\/)\.git(\/|$)|\.(aux|log|fls|fdb_latexmk|synctex(\.gz)?|out|toc|bbl|blg|bcf|run\.xml|xdv|pdf)$/i;
+
+/** How long a burst of saves settles before Now is read again. */
+const NOW_SETTLE_MS = 300;
+
 type ComparedFile = { path: string; kind: GitLogFileKind; oldPath?: string };
 
 /** What a side is called: a version's own name, or Now. */
@@ -70,15 +76,6 @@ export function CompareVersions(props: {
     ?? (older.find((entry) => !isAutomaticVersion(entry.message)) ?? older[0])?.hash
     ?? "";
   const toRev = to === NOW ? null : to;
-  // Now moves as the files do: each change the watcher reports reads both sides again.
-  const [nowRead, setNowRead] = useState(0);
-  const { projectRoot } = props;
-  useEffect(() => {
-    if (to !== NOW || !projectRoot) return;
-    return onProjectFilesChanged(projectRoot, () => setNowRead((read) => read + 1));
-  }, [projectRoot, to]);
-  const pair = to === NOW ? `${from}:${NOW}@${nowRead}` : `${from}:${to}`;
-
   // A version a side has chosen stays listed while the automatic ones are folded away.
   const automatic = entries.filter((entry) => isAutomaticVersion(entry.message));
   const listed = entries.filter((entry) => showAutomatic || !isAutomaticVersion(entry.message) || entry.hash === from || entry.hash === to);
@@ -86,6 +83,7 @@ export function CompareVersions(props: {
   const fromIndex = rows.indexOf(from);
   const toIndex = rows.indexOf(to);
 
+  const pair = `${from}:${to}`;
   const loadFiles = files.load;
   useEffect(() => {
     if (!from) return;
@@ -110,6 +108,30 @@ export function CompareVersions(props: {
   }, [from, fromPath, loadDiff, pair, path, toRev]);
 
   const diffReady = fileDiff.key === `${pair}:${path}` ? fileDiff.value : null;
+
+  // Now moves as the files do: a burst the watcher reports reads both sides
+  // again behind what is shown, so the place in the changes stays put.
+  const { projectRoot } = props;
+  const [nowRead, setNowRead] = useState(0);
+  const revalidateFiles = files.revalidate;
+  const revalidateDiff = fileDiff.revalidate;
+  useEffect(() => {
+    if (to !== NOW || !projectRoot || !from) return;
+    let timer: number | undefined;
+    const stop = onProjectFilesChanged(projectRoot, (paths) => {
+      if (paths?.every((changedPath) => NOT_SOURCE.test(changedPath))) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        revalidateFiles(pair, () => invoke<ComparedFile[]>("git_compare_files", { from, to: null }));
+        if (path) revalidateDiff(`${pair}:${path}`, () => invoke<GitFileDiff>("git_compare_file", { from, to: null, path, fromPath }));
+        setNowRead((read) => read + 1);
+      }, NOW_SETTLE_MS);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      stop();
+    };
+  }, [from, fromPath, pair, path, projectRoot, revalidateDiff, revalidateFiles, to]);
   const passages = path && diffReady && !diffReady.binary && PROSE_FILE.test(path) ? prosePassages(diffReady.before ?? "", diffReady.after ?? "") : null;
   // Counted as the diff found them; read with the short words between edits joined in.
   const counts = passages ? changedWords(passages) : null;
@@ -235,6 +257,7 @@ export function CompareVersions(props: {
           fromName={fromName}
           toName={toName}
           changed={changed}
+          read={nowRead}
           onOpenFile={props.onOpenFile}
           onClose={() => setExporting(false)}
         />
@@ -269,13 +292,15 @@ function ComparedFileChanges(props: {
 }) {
   const { t } = useLingui();
   const { counts, diff, path, passages } = props;
-  const [current, setCurrent] = useState(0);
+  const [stepped, setStepped] = useState(0);
   const passageRefs = useRef<Array<HTMLElement | null>>([]);
   if (!passages) return <HistoryDiff change={{ path, before: diff.before, after: diff.after }} binary={diff.binary} />;
 
+  // Now read again may hold fewer changes than the one stepped through.
+  const current = Math.min(stepped, Math.max(0, passages.length - 1));
   const step = (by: number) => {
     const next = Math.min(passages.length - 1, Math.max(0, current + by));
-    setCurrent(next);
+    setStepped(next);
     passageRefs.current[next]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     passageRefs.current[next]?.focus({ preventScroll: true });
   };
