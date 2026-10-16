@@ -54,7 +54,7 @@ function attach() {
     manuscript: () => ({ root: "main.tex", paths: ["main.tex", "method.tex"], venue: "neurips" }),
     openProjectFile: vi.fn(async () => {}),
     author: { id: "me", name: "Ada" },
-    searchLiterature: vi.fn(),
+    findSupport: vi.fn(),
   };
   review.attach(deps);
 }
@@ -243,14 +243,17 @@ describe("PaperReviews", () => {
     expect(review.getSnapshot().report?.findings[0].state).toBeUndefined();
   });
 
-  it("dismisses a finding with an Undo, and searches the literature for its keywords", async () => {
+  it("dismisses a finding with an Undo, and finds support for its passage with its keywords", async () => {
     await finishedReview();
     review.dismiss("f2");
     expect(review.getSnapshot().report?.findings[1].state).toBe("dismissed");
     notifyMock.mock.calls[0][2]?.primaryAction?.onClick();
     expect(review.getSnapshot().report?.findings[1]).not.toHaveProperty("state");
     review.findSupport("f1");
-    expect(deps.searchLiterature).toHaveBeenCalledWith("causal attention");
+    expect(deps.findSupport).toHaveBeenCalledWith({
+      path: "main.tex", line: 2, from: 16, to: 39, quote: "We claim a causal link.",
+      prefix: "\\section{Intro}\n", suffix: "\n\\input{method}\n", terms: "causal attention",
+    });
   });
 
   it("opens the passage where it is now", async () => {

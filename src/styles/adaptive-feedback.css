@@ -46,7 +46,7 @@
      past the components' own single-class rules, whatever order they load in. */
   html .lattice-mark-glint, html .welcome-lattice-trail, html .welcome-lattice-pulse,
   html .welcome-lattice-ring, html .welcome-lattice-bloom, html .empty-illustration-typing > g,
-  html .pdf-skeleton-page::after, html .git-workspace-skeleton::after, html .synara-thread-skeleton::after, html .review-skeleton::after,
+  html .pdf-skeleton-page::after, html .git-workspace-skeleton::after, html .synara-thread-skeleton::after, html .review-skeleton::after, html .support-pulse,
   html .bibliography-audit-mark[data-mark="checking"] > .bibliography-audit-ring { animation: none; }
   /* The build result lands whole: its cross and its warning dot do not wait their turn. */
   html .trellis-build-status[data-fresh] .trellis-build-pip,

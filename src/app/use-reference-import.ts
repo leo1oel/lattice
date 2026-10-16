@@ -4,7 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, RefreshProject } from "../app-types";
 import { toMessage } from "../app-utils";
 import { isMissingPaperToolsError } from "../build/tex-setup";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
+import { bibEntryKeys } from "../papers/bib-format";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
 import { isTitleQuery } from "../papers/paper-source";
@@ -287,6 +289,7 @@ export function useReferenceImport({
   }, [onMissingPaperTools, setBibEntry]);
 
   const { activeFile, source, dirty, save, accept } = editor;
+  const editorRef = useLatestRef(editor);
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     const { importRoot, mode } = bibEntry;
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
@@ -361,11 +364,64 @@ export function useReferenceImport({
     return true;
   }, [accept, activeFile, dirty, onExternalEdits, project, projectRootRef, refreshHistory, refreshProject, save, t]);
 
+  /**
+   * A bibliography entry for `query` (a DOI, arXiv id or title) without its
+   * full text, answering its key: Find support's Cite needs the key at once,
+   * not after a download. A lookup that is unsure (several candidates, no
+   * BibTeX) opens the entry form on what it found and answers null, as does
+   * a key the bibliography already gives another work; the same work
+   * answers the key it already has.
+   */
+  const addCitation = useCallback(async (query: string): Promise<string | null> => {
+    const root = project?.root;
+    const bibliography = project?.manifest.primaryBibliography;
+    if (!root) return null;
+    if (!bibliography) {
+      showError(t`This project has no primary bibliography.`);
+      return null;
+    }
+    let resolved: ResolvedCitationDraft;
+    try {
+      resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
+    } catch (reason) {
+      const message = toMessage(reason);
+      if (isMissingPaperToolsError(message)) onMissingPaperTools(message);
+      else showError(message);
+      return null;
+    }
+    if (projectRootRef.current !== root) return null;
+    const key = resolved.key?.trim();
+    const bibtex = resolved.bibtex?.trim();
+    if (resolved.candidates?.length || !bibtex || !key) {
+      showBibEntry("add", resolved, query);
+      return null;
+    }
+    const pending = editorRef.current;
+    if (pending.dirty && !(await pending.save())) return null;
+    const latest = editorRef.current;
+    const existing = bibliography === latest.activeFile
+      ? latest.source
+      : await invoke<string>("read_project_file", { path: bibliography });
+    if (projectRootRef.current !== root) return null;
+    if (bibEntryKeys(existing).some((item) => item.toLowerCase() === key.toLowerCase())) {
+      const known = existing.toLowerCase();
+      const same = resolved.doi ? known.includes(resolved.doi.toLowerCase()) : known.includes(resolved.title.toLowerCase());
+      if (same) return key;
+      showBibEntry("add", resolved, query);
+      return null;
+    }
+    await invoke("write_project_file", { path: bibliography, content: appendBibEntry(existing, bibtex), projectRoot: root });
+    onExternalEdits.current([bibliography]);
+    if (bibliography === latest.activeFile) latest.accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
+    await refreshProject();
+    return key;
+  }, [editorRef, onExternalEdits, onMissingPaperTools, project, projectRootRef, refreshProject, showBibEntry, t]);
+
   const clearStage = useCallback(() => setStage(null), []);
 
   return {
     input, setInput, importing, stage, clearStage, recentImport, importLabel: adding.label, justAdded: adding.justAdded,
-    importReference, importFromInput, cancelImport,
+    importReference, importFromInput, cancelImport, addCitation,
     addSheet: adding.sheet, addPapers, ...requestActions,
     literatureOpen, setLiteratureOpen, literatureSeed: adding.literature,
     linkedLibrary, rewriteBibliography,

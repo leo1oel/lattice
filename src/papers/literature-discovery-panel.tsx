@@ -36,6 +36,8 @@ export type LiteratureHit = {
   abstract?: string | null;
   doi?: string | null;
   landingUrl?: string | null;
+  /** OpenAlex: where it was published. */
+  venue?: string | null;
 };
 
 type LiteraturePage = { hits: LiteratureHit[]; hasMore: boolean };

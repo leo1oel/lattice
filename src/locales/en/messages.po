@@ -14,6 +14,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/support-panel.tsx
 msgid " et al."
 msgstr " et al."
 
@@ -88,6 +89,11 @@ msgstr "{0} → {1}"
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} already in Papers are skipped"
 msgstr "{0} already in Papers are skipped"
+
+#. placeholder {0}: formatCount(inLibrary, i18n.locale)
+#: src/papers/support-panel.tsx
+msgid "{0} already in your library."
+msgstr "{0} already in your library."
 
 #. placeholder {0}: Object.keys(version.round!.outcomes).length
 #: src/editor/comments/annotation-rounds-dialog.tsx
@@ -389,6 +395,11 @@ msgstr "{count} panels. Double-click to zoom in."
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
+
+#. placeholder {0}: formatCount(favour, i18n.locale)
+#: src/papers/support-panel.tsx
+msgid "{count} papers speak to this, {0} in favour."
+msgstr "{count} papers speak to this, {0} in favour."
 
 #: src/project/project-tree-clipboard.ts
 msgid "{count} paths copied"
@@ -979,6 +990,10 @@ msgstr "1 page remaining"
 msgid "1 paper"
 msgstr "1 paper"
 
+#: src/papers/support-panel.tsx
+msgid "1 paper speaks to this."
+msgstr "1 paper speaks to this."
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "1 person on Overleaf now"
 msgstr "1 person on Overleaf now"
@@ -1337,6 +1352,7 @@ msgid "Add the submission deadline"
 msgstr "Add the submission deadline"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/support-panel.tsx
 msgid "Add to Papers"
 msgstr "Add to Papers"
 
@@ -1520,6 +1536,10 @@ msgstr "All ({threadCount})"
 #: src/papers/bibliography-audit.tsx
 msgid "All {total} references verified"
 msgstr "All {total} references verified"
+
+#: src/papers/support-panel.tsx
+msgid "All are in your library."
+msgstr "All are in your library."
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "All colours"
@@ -1837,6 +1857,10 @@ msgstr "Approximately equal"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Archived"
 msgstr "Archived"
+
+#: src/papers/support-panel.tsx
+msgid "Argues both ways"
+msgstr "Argues both ways"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Argument"
@@ -2916,6 +2940,10 @@ msgstr "Citations in the manuscript: {citedCount}"
 msgid "citations or references"
 msgstr "citations or references"
 
+#: src/papers/support-panel.tsx
+msgid "Cite"
+msgstr "Cite"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
@@ -2924,6 +2952,10 @@ msgstr "Cite bibliography entries"
 #: src/project/paper-library.tsx
 msgid "Cited"
 msgstr "Cited"
+
+#: src/papers/support-panel.tsx
+msgid "Cited · {command}"
+msgstr "Cited · {command}"
 
 #: src/project/paper-library.tsx
 msgid "Cited {count}× in this paper"
@@ -3429,6 +3461,10 @@ msgstr "Continue"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue?"
 msgstr "Continue?"
+
+#: src/papers/support-panel.tsx
+msgid "Contradicts"
+msgstr "Contradicts"
 
 #: src/editor/codemirror-host.tsx
 msgid "Control character"
@@ -4748,6 +4784,10 @@ msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
 msgid "Every panel is closed"
 msgstr "Every panel is closed"
 
+#: src/papers/support-panel.tsx
+msgid "Every paper has been set aside."
+msgstr "Every paper has been set aside."
+
 #: src/project/paper-review-panel.tsx
 msgid "Every point has been dismissed"
 msgstr "Every point has been dismissed"
@@ -5056,9 +5096,15 @@ msgstr "Find in project"
 msgid "Find references"
 msgstr "Find references"
 
+#: src/app/claim-support.ts
+#: src/editor/latex/latex-selection-toolbar.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Find support"
 msgstr "Find support"
+
+#: src/papers/support-panel.tsx
+msgid "Find support for a claim"
+msgstr "Find support for a claim"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -5841,6 +5887,7 @@ msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/papers/support-panel.tsx
 msgid "In Papers"
 msgstr "In Papers"
 
@@ -6183,6 +6230,10 @@ msgstr "Invalid worksheet: {name}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "Iota"
+
+#: src/papers/support-panel.tsx
+msgid "It is in your library."
+msgstr "It is in your library."
 
 #: src/papers/bib-visual-editor.tsx
 msgid "It is still cited in the manuscript ({cited})."
@@ -7994,6 +8045,14 @@ msgstr "No year"
 msgid "none"
 msgstr "none"
 
+#: src/papers/support-panel.tsx
+msgid "None is in your library yet."
+msgstr "None is in your library yet."
+
+#: src/papers/support-panel.tsx
+msgid "None of the {read} papers the search found speaks to this claim."
+msgstr "None of the {read} papers the search found speaks to this claim."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "North-east arrow"
@@ -8076,6 +8135,10 @@ msgstr "Not now"
 #: src/project/paper-review-panel.tsx
 msgid "Not ready"
 msgstr "Not ready"
+
+#: src/papers/support-panel.tsx
+msgid "Not relevant"
+msgstr "Not relevant"
 
 #: src/canvas/status-save-state.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -8565,6 +8628,10 @@ msgstr "Open the linked Overleaf project first."
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
 
+#: src/papers/support-panel.tsx
+msgid "Open the paper’s page"
+msgstr "Open the paper’s page"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "Open the reader"
 msgstr "Open the reader"
@@ -8908,6 +8975,10 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
+#: src/app/claim-support.ts
+msgid "Paper set aside"
+msgstr "Paper set aside"
+
 #: src/app/use-open-documents.ts
 msgid "Paper switch"
 msgstr "Paper switch"
@@ -8973,6 +9044,10 @@ msgstr "Partial results for {completed} of {progressTotal} references"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "pass {run}"
 msgstr "pass {run}"
+
+#: src/papers/support-panel.tsx
+msgid "Passages are quoted from each paper’s abstract. Read the paper before you rely on it."
+msgstr "Passages are quoted from each paper’s abstract. Read the paper before you rely on it."
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -9607,10 +9682,19 @@ msgstr "Readiness: {0}"
 msgid "Reading"
 msgstr "Reading"
 
+#. placeholder {0}: formatCount(count, i18n.locale)
+#: src/papers/support-panel.tsx
+msgid "Reading {0} abstracts for this claim…"
+msgstr "Reading {0} abstracts for this claim…"
+
 #. placeholder {0}: fileName(source)
 #: src/papers/linked-library-sheet.tsx
 msgid "Reading {0}…"
 msgstr "Reading {0}…"
+
+#: src/papers/support-panel.tsx
+msgid "Reading 1 abstract for this claim…"
+msgstr "Reading 1 abstract for this claim…"
 
 #: src/project/paper-library.tsx
 msgid "Reading state"
@@ -10879,6 +10963,10 @@ msgstr "scroll area"
 msgid "Search"
 msgstr "Search"
 
+#: src/papers/support-panel.tsx
+msgid "Search again"
+msgstr "Search again"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search alphaXiv and OpenAlex by title or topic"
 msgstr "Search alphaXiv and OpenAlex by title or topic"
@@ -10914,6 +11002,10 @@ msgstr "Search files, papers and commands"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Search files, papers and commands…"
 msgstr "Search files, papers and commands…"
+
+#: src/papers/support-panel.tsx
+msgid "Search further"
+msgstr "Search further"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
@@ -10975,6 +11067,18 @@ msgstr "Search your files and saved papers."
 msgid "Search…"
 msgstr "Search…"
 
+#: src/papers/support-panel.tsx
+msgid "Searched for “{terms}”"
+msgstr "Searched for “{terms}”"
+
+#: src/papers/support-panel.tsx
+msgid "Searched OpenAlex for “{terms}”"
+msgstr "Searched OpenAlex for “{terms}”"
+
+#: src/papers/support-panel.tsx
+msgid "Searching OpenAlex for “{terms}”…"
+msgstr "Searching OpenAlex for “{terms}”…"
+
 #: src/project/paper-library.tsx
 msgid "Searching saved text…"
 msgstr "Searching saved text…"
@@ -11017,6 +11121,10 @@ msgstr "See what’s new"
 #: src/papers/bibliography-audit.tsx
 msgid "Select {0}"
 msgstr "Select {0}"
+
+#: src/papers/support-panel.tsx
+msgid "Select a sentence in the source and choose Find support: the papers that speak to it, each with the passage that does"
+msgstr "Select a sentence in the source and choose Find support: the papers that speak to it, each with the passage that does"
 
 #: src/editor/latex/search-panel.ts
 #: src/papers/bibliography-audit.tsx
@@ -11236,6 +11344,7 @@ msgstr "Show in history"
 msgid "Show in source"
 msgstr "Show in source"
 
+#: src/papers/support-panel.tsx
 #: src/pdf/pdf-annotations.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Show in the source"
@@ -11248,6 +11357,10 @@ msgstr "Show Mermaid preview"
 #: src/history/history-drawer.tsx
 msgid "Show older history"
 msgstr "Show older history"
+
+#: src/papers/support-panel.tsx
+msgid "Show only the passage"
+msgstr "Show only the passage"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
@@ -11278,6 +11391,10 @@ msgstr "Show the citation card"
 #: src/app/focus-mode-bar.tsx
 msgid "Show the PDF beside the editor"
 msgstr "Show the PDF beside the editor"
+
+#: src/papers/support-panel.tsx
+msgid "Show the whole abstract"
+msgstr "Show the whole abstract"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -11675,6 +11792,7 @@ msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try co
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
 #: src/papers/add-papers-sheet.tsx
+#: src/papers/support-panel.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -11782,6 +11900,15 @@ msgstr "Superset"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
+
+#: src/papers/support-panel.tsx
+#: src/trellis/trellis-titles.ts
+msgid "Support"
+msgstr "Support"
+
+#: src/papers/support-panel.tsx
+msgid "Supports"
+msgstr "Supports"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
@@ -12070,6 +12197,15 @@ msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
 
 #. placeholder {0}: reason.detail
+#: src/app/claim-support.ts
+msgid "The agent could not read the papers: {0}"
+msgstr "The agent could not read the papers: {0}"
+
+#: src/app/claim-support.ts
+msgid "The agent could not read the papers."
+msgstr "The agent could not read the papers."
+
+#. placeholder {0}: reason.detail
 #: src/app/paper-review.ts
 msgid "The agent could not review the paper: {0}"
 msgstr "The agent could not review the paper: {0}"
@@ -12109,6 +12245,10 @@ msgstr "The Agent started {seconds} s ago and hasn’t answered yet"
 #: src/canvas/annotation-review.tsx
 msgid "The agent suggests leaving the passage as it is."
 msgstr "The agent suggests leaving the passage as it is."
+
+#: src/app/claim-support.ts
+msgid "The agent's answer could not be read. Try again."
+msgstr "The agent's answer could not be read. Try again."
 
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
@@ -12165,6 +12305,10 @@ msgstr "The bundled Agent service could not start"
 #: src/agent/use-synara-runtime.ts
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
+
+#: src/app/claim-support.ts
+msgid "The claim has changed since the search, so the citation has nowhere to go. The paper is in the bibliography as {command}."
+msgstr "The claim has changed since the search, so the citation has nowhere to go. The paper is in the bibliography as {command}."
 
 #: src/settings/theme-settings.tsx
 msgid "The colour of the window's surfaces"
@@ -12328,6 +12472,10 @@ msgstr "The paper is longer than one review reads, so its end was left out"
 msgid "The paper stays editable; findings point at the text as it was when the review started"
 msgstr "The paper stays editable; findings point at the text as it was when the review started"
 
+#: src/papers/support-panel.tsx
+msgid "The paper the search found does not speak to this claim."
+msgstr "The paper the search found does not speak to this claim."
+
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "The passage changed after the agent read it. Try again to have it read the passage as it is now."
@@ -12424,6 +12572,14 @@ msgstr "The rich-text editor"
 #: src/onboarding/guided-tour-steps.ts
 msgid "The same seven stops, for a refresher."
 msgstr "The same seven stops, for a refresher."
+
+#: src/papers/support-panel.tsx
+msgid "The search found no paper with an abstract for this claim."
+msgstr "The search found no paper with an abstract for this claim."
+
+#: src/papers/support-panel.tsx
+msgid "The search was stopped."
+msgstr "The search was stopped."
 
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
@@ -12598,6 +12754,10 @@ msgstr "This entry is cited in 1 place."
 msgid "This file"
 msgstr "This file"
 
+#: src/app/claim-support.ts
+msgid "This file can't be edited here, so the claim was not cited. The paper is in the bibliography as {command}."
+msgstr "This file can't be edited here, so the claim was not cited. The paper is in the bibliography as {command}."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
 msgstr "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
@@ -12700,6 +12860,10 @@ msgstr "This TeX Live release is older than the package repository. Install the 
 #: src/papers/bib-visual-editor.tsx
 msgid "This value joins strings with #; keep it valid BibTeX."
 msgstr "This value joins strings with #; keep it valid BibTeX."
+
+#: src/app/claim-support.ts
+msgid "This version of the agent runtime cannot find support yet. Update Lattice to use it."
+msgstr "This version of the agent runtime cannot find support yet. Update Lattice to use it."
 
 #: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
@@ -12889,6 +13053,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
+#: src/papers/support-panel.tsx
 #: src/project/paper-library.tsx
 #: src/project/paper-review-panel.tsx
 msgid "Try again"
@@ -13000,6 +13165,7 @@ msgstr "Under arXiv’s size limit"
 msgid "Underline"
 msgstr "Underline"
 
+#: src/app/claim-support.ts
 #: src/app/paper-review.ts
 #: src/app/use-editor-comments.ts
 #: src/build/compile-diagnostics-panel.tsx
@@ -13672,6 +13838,10 @@ msgstr "Words inside math mode"
 msgid "Working offline"
 msgstr "Working offline"
 
+#: src/papers/support-panel.tsx
+msgid "Working out what to search for…"
+msgstr "Working out what to search for…"
+
 #: src/papers/paper-import-progress.ts
 #: src/project/paper-library.tsx
 msgid "Working…"
@@ -13828,6 +13998,10 @@ msgstr "Your answer…"
 #: src/canvas/status-save-state.tsx
 msgid "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
 msgstr "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
+
+#: src/papers/support-panel.tsx
+msgid "Your claim · {place}"
+msgstr "Your claim · {place}"
 
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"

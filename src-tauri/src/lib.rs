@@ -437,6 +437,7 @@ pub fn run() {
             ipc::bibliography::bibliography_audit_entry,
             ipc::bibliography::bibliography_audit_apply,
             ipc::papers::search_literature,
+            ipc::papers::search_literature_abstracts,
             ipc::papers::import_reference,
             ipc::papers::cancel_reference_import,
             ipc::papers::fetch_paper,

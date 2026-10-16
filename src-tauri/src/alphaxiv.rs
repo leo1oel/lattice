@@ -305,6 +305,7 @@ fn map_hit(hit: SearchHit) -> Option<LiteratureHit> {
         r#abstract: None,
         doi: None,
         landing_url: None,
+        venue: None,
     })
 }
 

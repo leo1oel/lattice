@@ -42,6 +42,12 @@ struct Author {
 #[derive(Debug, Deserialize)]
 struct PrimaryLocation {
     landing_page_url: Option<String>,
+    source: Option<LocationSource>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LocationSource {
+    display_name: Option<String>,
 }
 
 /// OpenAlex results per page; `page` is 1-indexed.
@@ -108,6 +114,13 @@ fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
         cited_by_count: work.cited_by_count.unwrap_or(0),
         doi,
         arxiv_id,
+        venue: work
+            .primary_location
+            .as_ref()
+            .and_then(|location| location.source.as_ref()?.display_name.as_deref())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string),
         landing_url: work.primary_location.and_then(|location| location.landing_page_url),
         authors,
         r#abstract: work.abstract_inverted_index.and_then(abstract_text),
@@ -151,11 +164,15 @@ mod tests {
             "doi": "https://doi.org/10.48550/arXiv.1706.03762",
             "ids": {"openalex": "https://openalex.org/W123", "doi": "https://doi.org/10.48550/arXiv.1706.03762"},
             "authorships": [{"author": {"display_name": "Ashish Vaswani"}}],
-            "primary_location": {"landing_page_url": "https://arxiv.org/abs/1706.03762"},
+            "primary_location": {
+                "landing_page_url": "https://arxiv.org/abs/1706.03762",
+                "source": {"display_name": "arXiv (Cornell University)"},
+            },
         }))
         .unwrap();
         let work = map_work(payload).unwrap();
         assert_eq!(work.arxiv_id.as_deref(), Some("1706.03762"));
+        assert_eq!(work.venue.as_deref(), Some("arXiv (Cornell University)"));
         assert_eq!(work.authors, vec!["Ashish Vaswani".to_string()]);
         assert_eq!(work.doi.as_deref(), Some("10.48550/arxiv.1706.03762"));
         assert_eq!(arxiv_id_from_doi("10.1145/123"), None);
