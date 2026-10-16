@@ -289,6 +289,14 @@ export class ClaimSupport {
       .finally(() => placing.abort());
     if (!live()) return;
     if (outcome === "cited" || outcome === "already") {
+      // A claim that ends on its full stop now holds the citation the canvas
+      // put before it: re-pinned to that text, the next Cite still finds it.
+      // The editor's own module, loaded by then: imported eagerly, it would
+      // pull CodeMirror into the startup chunk.
+      const { latexCitationAfter } = outcome === "cited" ? await import("../editor/paper-drop") : {};
+      if (!live()) return;
+      const current = this.snapshot.claim;
+      if (latexCitationAfter && current) this.publish({ claim: { ...current, ...citedClaim(current, key, latexCitationAfter) } });
       this.update(id, { cited: true });
       return;
     }
@@ -329,6 +337,24 @@ export class ClaimSupport {
     const terms = this.snapshot.result?.terms ?? this.snapshot.run?.terms;
     if (terms) this.deps?.searchLiterature(terms);
   };
+}
+
+/** `claim` once the canvas has cited `key` after it, as `latexCitationAfter` does to the claim in its context. */
+function citedClaim(
+  claim: SupportClaim,
+  key: string,
+  latexCitationAfter: typeof import("../editor/paper-drop").latexCitationAfter,
+): Pick<SupportClaim, "to" | "quote" | "suffix"> {
+  const start = claim.prefix.length;
+  const end = start + claim.quote.length;
+  const context = `${claim.prefix}${claim.quote}${claim.suffix}`;
+  const edit = latexCitationAfter(context, start, end, key);
+  if (!edit) return claim;
+  const next = context.slice(0, edit.from) + edit.insert + context.slice(edit.to);
+  const grown = edit.insert.length - (edit.to - edit.from);
+  // Inside the claim, the citation becomes part of it; after it, of the words that follow.
+  const newEnd = edit.from < end ? Math.max(end, edit.to) + grown : end;
+  return { to: claim.to + (newEnd - end), quote: next.slice(start, newEnd), suffix: next.slice(newEnd) };
 }
 
 /** The window's claim support, for its one project at a time. */

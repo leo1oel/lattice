@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PaperSummary } from "../app-types";
+import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import { notifyInfo } from "../telemetry/app-notify";
 import { annotationRounds, type AnnotationRoundsDeps } from "./annotation-rounds";
 import { ClaimSupport, type ClaimSupportDeps, type SupportClaim } from "./claim-support";
@@ -119,6 +120,12 @@ describe("acting on a paper", () => {
     expect(support.getSnapshot().result?.papers[0]).toMatchObject({ key: "jain2019attention", cited: true });
     await support.cite("p2");
     expect(deps.addCitation).toHaveBeenCalledTimes(1);
+    // The claim ends on its full stop, so the first citation went inside it:
+    // the second Cite must still find the claim in the cited source.
+    const cited = MAIN.replace("prediction.", "prediction~\\citep{jain2019attention}.");
+    const second = vi.mocked(deps.citeAfter).mock.lastCall![0];
+    expect(second.quote).toBe("Attention weights are not an explanation of a prediction~\\citep{jain2019attention}.");
+    expect(resolveCommentAnchor(cited, second)).toEqual({ from: 16, to: 16 + second.quote.length });
     expect(deps.citeAfter).toHaveBeenLastCalledWith(expect.anything(), "serrano2019", expect.anything());
     expect(support.getSnapshot().busy.size).toBe(0);
   });
