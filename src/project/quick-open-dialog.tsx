@@ -90,7 +90,7 @@ type QuickOpenProps = {
   paths: string[];
   /** The files visited this session, newest first. */
   recent: string[];
-  /** The file on screen, tagged in the list and the target of `:42`. */
+  /** The file on screen, tagged in the list. */
   current: string;
   /** Where `:42` goes: the document on screen, or null when it has no lines (nothing is offered). */
   lineTarget: string | null;
