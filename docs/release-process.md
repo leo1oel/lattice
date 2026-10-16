@@ -64,6 +64,13 @@ with the version bump. The workflow puts that file above the generated list, so
 the lead is reviewed with the bump instead of being edited into a published
 Release. It is per-release and optional, not a running changelog.
 
+The same lead feeds the app's What's new sheet. Write it before running
+`bump-version.mjs`, which then writes `src/release-notes/X.Y.Z.json` from its
+highlights and fixes (`scripts/release-notes.mjs`) with the Chinese left
+empty; fill in every `zh` before the release commit
+(`src/release-notes/release-notes.test.ts` fails on an empty one). A release
+without a lead keeps showing the last one that had one.
+
 ## What `release.yml` does
 
 One job on `macos-latest` (Apple Silicon), with `contents: write` so it can

@@ -1135,6 +1135,9 @@ if (!params.has("keepStorage")) {
   const appearance = stored && typeof stored === "object" ? stored : {};
   localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang, ...themeChoices }));
 }
+// `?whatsNew=toast`: the last launch ran an older version, so this one is the
+// first after an update and announces it.
+if (params.get("whatsNew") === "toast") localStorage.setItem("lattice.last-run-version.v1", "0.7.0");
 // `?recents=1` gives the welcome screen (`?welcome=1`) projects to reopen. The
 // newest one's folder is gone, so launch cannot reopen it and the welcome
 // screen says so, as after a writer moved the folder. The next one has built

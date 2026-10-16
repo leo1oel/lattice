@@ -21,6 +21,11 @@ msgstr " 等"
 msgid ", "
 msgstr "、"
 
+#. Ends the sentence listing a release's highlights
+#: src/app/whats-new.ts
+msgid "."
+msgstr "。"
+
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
@@ -4020,6 +4025,7 @@ msgstr "DOI 信息可修正"
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
+#: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
@@ -4884,6 +4890,10 @@ msgstr "改好剩下的再保存"
 msgid "Fix it in the source and the list comes back."
 msgstr "在源码中修正后，列表会恢复显示。"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Fixed"
+msgstr "已修复"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Fixes to review"
 msgstr "待审修改"
@@ -5035,6 +5045,10 @@ msgstr "全文"
 #: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "没有全文，先显示概览"
+
+#: src/app/whats-new-dialog.tsx
+msgid "Full release notes"
+msgstr "完整更新说明"
 
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
@@ -6217,6 +6231,10 @@ msgstr "由于 {file} 失败，latexmk 在运行 LaTeX 之前就已停止。“�
 msgid "latexmk version"
 msgstr "latexmk 版本"
 
+#: src/app/whats-new.ts
+msgid "Lattice"
+msgstr "Lattice"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
@@ -7295,6 +7313,10 @@ msgstr "新建工作区"
 msgid "New…"
 msgstr "新建…"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Newer release"
+msgstr "较新的版本"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Newest first"
@@ -7535,6 +7557,10 @@ msgstr "没有匹配的设置"
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet"
 msgstr "还没有消息"
+
+#: src/app/whats-new-dialog.tsx
+msgid "No notes came with this version."
+msgstr "这个版本没有附带更新说明。"
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -7923,6 +7949,10 @@ msgstr "官方核实没完成"
 #: src/telemetry/app-log.tsx
 msgid "OK"
 msgstr "正常"
+
+#: src/app/whats-new-dialog.tsx
+msgid "Older release"
+msgstr "较早的版本"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
@@ -9448,6 +9478,10 @@ msgstr "已拒绝"
 msgid "Relative project links are unavailable in this preview"
 msgstr "预览里不能打开项目内链接"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Release"
+msgstr "版本"
+
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus"
 msgstr "松开即可放大"
@@ -10255,6 +10289,10 @@ msgstr "行内段落标题"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Lattice 固定版本文献工具所用的运行器"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Running now"
+msgstr "正在使用"
+
 #: src/settings/acknowledged-software.ts
 msgid "Runs the agent runtime"
 msgstr "运行智能体运行时"
@@ -10590,6 +10628,10 @@ msgstr "节标记"
 #: src/project/quick-open-dialog.tsx
 msgid "Sections and labels"
 msgstr "章节与标签"
+
+#: src/app/whats-new.ts
+msgid "See what’s new"
+msgstr "看看新功能"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx
@@ -12722,6 +12764,10 @@ msgstr "立即更新"
 msgid "updated {0}"
 msgstr "更新于 {0}"
 
+#: src/app/whats-new.ts
+msgid "Updated to Lattice {running}"
+msgstr "已更新到 Lattice {running}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Updates {fields}"
 msgstr "更新{fields}"
@@ -13077,6 +13123,19 @@ msgstr "要 AI 助手怎么改？（可选）"
 #: src/canvas/annotation-composer.tsx
 msgid "What the agent should do"
 msgstr "要 AI 助手做什么"
+
+#: src/app/whats-new-dialog.tsx
+msgid "What’s new"
+msgstr "新功能"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "What’s New in {name}"
+msgstr "{name} 新功能"
+
+#: src/App.tsx
+msgid "What’s new in Lattice"
+msgstr "Lattice 新功能"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts

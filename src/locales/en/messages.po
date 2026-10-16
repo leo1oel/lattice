@@ -21,6 +21,11 @@ msgstr " et al."
 msgid ", "
 msgstr ", "
 
+#. Ends the sentence listing a release's highlights
+#: src/app/whats-new.ts
+msgid "."
+msgstr "."
+
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
 msgid "“{0}” already has files and isn’t linked to Overleaf\n"
@@ -4020,6 +4025,7 @@ msgstr "DOI metadata corrections are available."
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
+#: src/app/whats-new-dialog.tsx
 #: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
@@ -4884,6 +4890,10 @@ msgstr "Fix anything left, then save"
 msgid "Fix it in the source and the list comes back."
 msgstr "Fix it in the source and the list comes back."
 
+#: src/app/whats-new-dialog.tsx
+msgid "Fixed"
+msgstr "Fixed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Fixes to review"
 msgstr "Fixes to review"
@@ -5035,6 +5045,10 @@ msgstr "full paper"
 #: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
+
+#: src/app/whats-new-dialog.tsx
+msgid "Full release notes"
+msgstr "Full release notes"
 
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
@@ -6217,6 +6231,10 @@ msgstr "latexmk stopped before LaTeX ran because {file} failed. The Log tab show
 msgid "latexmk version"
 msgstr "latexmk version"
 
+#: src/app/whats-new.ts
+msgid "Lattice"
+msgstr "Lattice"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -7295,6 +7313,10 @@ msgstr "New workspace"
 msgid "New…"
 msgstr "New…"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Newer release"
+msgstr "Newer release"
+
 #: src/papers/bib-visual-editor.tsx
 #: src/project/paper-library.tsx
 msgid "Newest first"
@@ -7535,6 +7557,10 @@ msgstr "No matching settings"
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet"
 msgstr "No messages yet"
+
+#: src/app/whats-new-dialog.tsx
+msgid "No notes came with this version."
+msgstr "No notes came with this version."
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -7923,6 +7949,10 @@ msgstr "Official verification incomplete"
 #: src/telemetry/app-log.tsx
 msgid "OK"
 msgstr "OK"
+
+#: src/app/whats-new-dialog.tsx
+msgid "Older release"
+msgstr "Older release"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
@@ -9448,6 +9478,10 @@ msgstr "Rejected"
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Release"
+msgstr "Release"
+
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus"
 msgstr "Release to focus"
@@ -10255,6 +10289,10 @@ msgstr "Run-in paragraph heading"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
 
+#: src/app/whats-new-dialog.tsx
+msgid "Running now"
+msgstr "Running now"
+
 #: src/settings/acknowledged-software.ts
 msgid "Runs the agent runtime"
 msgstr "Runs the agent runtime"
@@ -10590,6 +10628,10 @@ msgstr "Section sign"
 #: src/project/quick-open-dialog.tsx
 msgid "Sections and labels"
 msgstr "Sections and labels"
+
+#: src/app/whats-new.ts
+msgid "See what’s new"
+msgstr "See what’s new"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx
@@ -12722,6 +12764,10 @@ msgstr "Update now"
 msgid "updated {0}"
 msgstr "updated {0}"
 
+#: src/app/whats-new.ts
+msgid "Updated to Lattice {running}"
+msgstr "Updated to Lattice {running}"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
@@ -13077,6 +13123,19 @@ msgstr "What should the agent change? (optional)"
 #: src/canvas/annotation-composer.tsx
 msgid "What the agent should do"
 msgstr "What the agent should do"
+
+#: src/app/whats-new-dialog.tsx
+msgid "What’s new"
+msgstr "What’s new"
+
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "What’s New in {name}"
+msgstr "What’s New in {name}"
+
+#: src/App.tsx
+msgid "What’s new in Lattice"
+msgstr "What’s new in Lattice"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts

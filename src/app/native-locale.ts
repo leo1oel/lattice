@@ -33,6 +33,7 @@ export type NativeMenuLabels = {
   zoom: string;
   closeWindow: string;
   help: string;
+  whatsNew: string;
   /** View → Margin review, while this window shows a linked Overleaf project's source; its choice is this window's. */
   marginReview?: { title: string; auto: string; markers: string; off: string; mode: MarginReviewMode };
 };
@@ -69,6 +70,7 @@ export function nativeMenuLabels(): NativeMenuLabels {
     zoom: i18n._(msg({ context: "macOS menu bar", message: "Zoom" })),
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
+    whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),
     ...marginReviewAvailable() ? {
       marginReview: {
         title: i18n._(msg({ context: "macOS menu bar", message: "Margin Review" })),

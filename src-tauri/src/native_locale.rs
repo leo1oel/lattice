@@ -44,6 +44,9 @@ pub(crate) struct MenuLabels {
     zoom: String,
     close_window: String,
     help: String,
+    /// Help ▸ What's New in Lattice, which opens the release notes sheet
+    /// (src/app/whats-new-dialog.tsx).
+    whats_new: String,
     /// View → Margin review, sent while the focused window shows a linked
     /// Overleaf project's source (src/overleaf/margin-review-mode.ts).
     #[serde(default)]
@@ -80,6 +83,10 @@ const INTERFACE_ZOOM_PREFIX: &str = "interface-zoom:";
 /// The event a size change sends to the focused window, which steps its
 /// interface size as ⌘+, ⌘− or ⌘0 would.
 const INTERFACE_ZOOM_EVENT: &str = "interface-zoom";
+
+/// The menu id of Help ▸ What's New, and the event it sends to the focused
+/// window, which opens its release notes sheet.
+const WHATS_NEW: &str = "whats-new";
 
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
@@ -210,8 +217,13 @@ pub(crate) fn build_menu<R: Runtime>(
             &PredefinedMenuItem::close_window(app, Some(labels.close_window.as_str()))?,
         ],
     )?;
-    let help_menu =
-        Submenu::with_id_and_items(app, tauri::menu::HELP_SUBMENU_ID, &labels.help, true, &[])?;
+    let help_menu = Submenu::with_id_and_items(
+        app,
+        tauri::menu::HELP_SUBMENU_ID,
+        &labels.help,
+        true,
+        &[&MenuItem::with_id(app, WHATS_NEW, &labels.whats_new, true, None::<&str>)?],
+    )?;
     Menu::with_items(
         app,
         &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
@@ -220,8 +232,8 @@ pub(crate) fn build_menu<R: Runtime>(
 
 /// A margin review choice goes to the window it was made in, which keeps it
 /// as its own and sends the menu back with the new check; Undo and Redo go
-/// to the focused window's focused editor, and an interface size change to
-/// the focused window.
+/// to the focused window's focused editor, and an interface size change and
+/// What's New to the focused window.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::Emitter;
 
@@ -232,6 +244,8 @@ pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEven
         (EDIT_HISTORY_EVENT, direction)
     } else if let Some(change) = id.strip_prefix(INTERFACE_ZOOM_PREFIX) {
         (INTERFACE_ZOOM_EVENT, change)
+    } else if id == WHATS_NEW {
+        (WHATS_NEW, "")
     } else {
         return;
     };

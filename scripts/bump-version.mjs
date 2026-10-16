@@ -10,11 +10,15 @@
 //   node scripts/bump-version.mjs 0.3.0      # set an explicit version
 //
 // It only edits files; it does not commit or tag. It prints the exact git
-// commands to run next.
+// commands to run next. With a release lead (.github/release-notes/vX.Y.Z.md)
+// already written, it also writes the in-app What's new notes from it
+// (src/release-notes/X.Y.Z.json, scripts/release-notes.mjs), whose Chinese
+// the maintainer fills in before the release commit.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeReleaseNotes } from "./release-notes.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgPath = join(projectRoot, "package.json");
@@ -87,10 +91,19 @@ if (!lockEntry.test(lock)) {
 }
 writeFileSync(lockPath, lock.replace(lockEntry, `$1"${next}"`));
 
+const notes = writeReleaseNotes(next, new Date().toISOString().slice(0, 10), projectRoot);
+
 console.log(`Bumped ${current} -> ${next}`);
 console.log("");
+if (notes) {
+  console.log(`Wrote the What's new notes to ${notes.path}.`);
+  if (notes.untranslated) console.log(`  Translate its ${notes.untranslated} empty "zh" text(s) before committing.`);
+} else {
+  console.log(`No .github/release-notes/v${next}.md: What's new keeps showing the last release that had one.`);
+}
+console.log("");
 console.log("Next steps:");
-console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock`);
+console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock${notes ? ` src/release-notes/${next}.json` : ""}`);
 console.log(`  git commit -m "Release v${next}"`);
 console.log(`  git tag v${next}`);
 console.log(`  git push origin main`);

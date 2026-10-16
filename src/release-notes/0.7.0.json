@@ -1,0 +1,49 @@
+{
+  "version": "0.7.0",
+  "date": "2026-10-15",
+  "highlights": [
+    {
+      "icon": "undo",
+      "title": {
+        "en": "Undo and redo work again",
+        "zh": "撤销和重做恢复正常"
+      },
+      "body": {
+        "en": "⌘Z and ⇧⌘Z reach every editor again, and Edit ▸ Undo and Redo step the focused editor's own history, including Enter, completions, brackets and paste. Both had been broken since v0.1.239.",
+        "zh": "⌘Z 和 ⇧⌘Z 重新作用于每个编辑器，“编辑 ▸ 撤销/重做”会按当前编辑器自己的历史逐步回退，包括回车、补全、括号和粘贴。这两项自 v0.1.239 起一直失效。"
+      }
+    },
+    {
+      "icon": "message",
+      "title": {
+        "en": "Comment cards that answer in place",
+        "zh": "就地回复的批注卡片"
+      },
+      "body": {
+        "en": "A comment's card on the source is redrawn as the collaboration panel's thread card: Resolve is a check that confirms the result and offers Undo, and Reply is an inline field under the thread. Comments on the PDF get a hover preview and the same card on click. The note composer drops its Esc button; Esc or a press outside closes it, and a discarded note can be brought back with Undo.",
+        "zh": "源码上的批注卡片改用协作面板的讨论卡片样式：“解决”是一个勾选，会确认结果并提供撤销；“回复”是讨论下方的内联输入框。PDF 上的批注支持悬停预览，点击后显示同样的卡片。笔记输入框去掉了 Esc 按钮，按 Esc 或点击外部即可关闭，丢弃的笔记可以用撤销找回。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "Menus close where you expect",
+        "zh": "菜单在预期的位置关闭"
+      },
+      "body": {
+        "en": "A press beside any menu, select or context menu only closes it instead of moving the caret, jumping the PDF or reaching an iframe, and pressing a menu's button again closes it. Menus, selects and popovers in the Agent panel and in Settings → Models / MCP / Skills now close on a press anywhere else in Lattice too.",
+        "zh": "在任何菜单、下拉框或右键菜单旁边点击，只会关闭它，不会移动光标、跳动 PDF 或点进内嵌页面；再次点击菜单按钮也会关闭它。助手面板和“设置 → 模型 / MCP / 技能”中的菜单、下拉框和浮层，现在点击 Lattice 的其他任何地方也会关闭。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Settings → Appearance gives the Color theme and Tint tiles more room, and a selected tile's ring no longer touches its name.",
+      "zh": "“设置 → 外观”为颜色主题和色调卡片留出了更多空间，选中卡片的外框不再碰到名称。"
+    },
+    {
+      "en": "Tab close buttons are a 22 × 22 square inset from the tab's edges on every tab strip.",
+      "zh": "所有标签栏上的标签关闭按钮都是 22 × 22 的方块，并与标签边缘保持间距。"
+    }
+  ]
+}

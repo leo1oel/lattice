@@ -72,6 +72,8 @@ import { AppTitlebar } from "./app/app-titlebar";
 import { saveSourceCopy } from "./app/save-source-copy";
 import { InterfaceZoomHud } from "./app/interface-zoom-hud";
 import { useInterfaceZoom } from "./app/use-interface-zoom";
+import { useWhatsNew } from "./app/use-whats-new";
+import { RUNNING_VERSION } from "./app/whats-new";
 import type { OverleafSaveLayer } from "./canvas/status-save-state";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
@@ -203,6 +205,7 @@ const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.defa
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
+const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
@@ -420,6 +423,7 @@ function App() {
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
   const interfaceZoom = useInterfaceZoom(setAppearance);
+  const whatsNew = useWhatsNew();
   // Where Settings returns focus if not to what held it as Settings opened
   // (the project menu's trigger, when Settings is opened from that menu), the
   // row it opens on when the palette found one, and whether a section was
@@ -1569,6 +1573,7 @@ function App() {
     { id: "margin-review-markers", when: inProject && overleafLink !== null, label: t`Margin review: Markers only`, detail: t`full-width text, cards on demand`, group: "view", run: () => setMarginReviewMode("markers") },
     { id: "margin-review-off", when: inProject && overleafLink !== null, label: t`Margin review: Off`, group: "view", run: () => setMarginReviewMode("off") },
     { id: "margin-review-here", when: inProject && overleafLink !== null, label: t`Review here`, detail: t`the comment or suggestion by the caret`, group: "view", run: requestMarginReviewHere },
+    { id: "whats-new", label: t`What’s new in Lattice`, detail: RUNNING_VERSION, group: "project", run: () => whatsNew.setOpen(true) },
     {
       id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject(),
       detail: t`Learn Lattice with the Understanding Attention sample project`,
@@ -1718,7 +1723,21 @@ function App() {
     },
   });
 
-  const interfaceZoomHud = <InterfaceZoomHud scale={appearance.interfaceScale} revealKey={interfaceZoom.revealKey} onChange={interfaceZoom.zoom} />;
+  // Shown over the welcome screen and a project alike.
+  const appOverlays = (
+    <>
+      <InterfaceZoomHud scale={appearance.interfaceScale} revealKey={interfaceZoom.revealKey} onChange={interfaceZoom.zoom} />
+      {whatsNew.open && (
+        <Suspense fallback={null}>
+          <WhatsNewDialog
+            open
+            onClose={() => whatsNew.setOpen(false)}
+            onOpenUrl={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
+          />
+        </Suspense>
+      )}
+    </>
+  );
   if (!project) {
     return (
       <>
@@ -1750,7 +1769,7 @@ function App() {
         {overleafPicker}
         {overleafReview}
         <TexSetupDialogs setup={texSetup} />
-        {interfaceZoomHud}
+        {appOverlays}
       </>
     );
   }
@@ -2237,7 +2256,7 @@ function App() {
         unusedSymbols={unusedSymbols}
       />
 
-      {interfaceZoomHud}
+      {appOverlays}
       <AppSearchDialogs
         open={searchDialog}
         setOpen={setSearchDialog}
