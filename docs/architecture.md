@@ -360,7 +360,7 @@ creates it.
 
 | Path | Owner | Contents |
 | --- | --- | --- |
-| `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words |
+| `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words, submission checklist items |
 | `.research/brief.md` | `project/create.rs` | the project brief shown in the sidebar |
 | `.research/papers/<arxivId>/` | `papers/` | imported papers: `paper.md`, `blog.md`, `metadata.json`, `paper_assets/` |
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
