@@ -7341,13 +7341,13 @@ msgstr "Margin review: Markers only"
 msgid "Margin review: Off"
 msgstr "Margin review: Off"
 
-#: src/history/export-changes-dialog.tsx
-msgid "Mark changes"
-msgstr "Mark changes"
-
 #: src/project/submission-items.tsx
 msgid "Mark “{title}” not confirmed"
 msgstr "Mark “{title}” not confirmed"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Mark changes"
+msgstr "Mark changes"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"

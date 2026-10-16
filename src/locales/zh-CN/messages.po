@@ -7341,13 +7341,13 @@ msgstr "页边审阅：仅标记"
 msgid "Margin review: Off"
 msgstr "页边审阅：关闭"
 
-#: src/history/export-changes-dialog.tsx
-msgid "Mark changes"
-msgstr "标记方式"
-
 #: src/project/submission-items.tsx
 msgid "Mark “{title}” not confirmed"
 msgstr "将“{title}”标为未确认"
+
+#: src/history/export-changes-dialog.tsx
+msgid "Mark changes"
+msgstr "标记方式"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Markdown document editor"
