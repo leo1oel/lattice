@@ -9,7 +9,7 @@
  * fallback that covered all of them would unmount an open TODO panel while
  * an unrelated chunk loads.
  */
-import { lazy, memo, Suspense, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useMemo, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
@@ -34,14 +34,9 @@ import type {
   OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
-  SubmissionItem,
   UnusedSymbols,
   WordCount,
 } from "../app-types";
-
-// One empty list for every render: the items list tells a new manifest from
-// the one its last edit was built on by identity.
-const NO_ITEMS: SubmissionItem[] = [];
 
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
@@ -119,7 +114,10 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   // the one landing last would undo the other. Run in order, the newest answer
   // also holds every earlier change.
   const manifestQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const submissionItems = project.manifest.submissionItems ?? NO_ITEMS;
+  // A new list for each manifest installed and the same one in between: the
+  // items list tells a new manifest from the one its last edit was built on by
+  // identity, even while it is empty.
+  const submissionItems = useMemo(() => project.manifest.submissionItems ?? [], [project.manifest]);
   // The compiled PDF is the usual thing an item is signed off against; it sits
   // beside the root document, though the project tree leaves it out.
   const rootDocument = props.build?.rootDocument
@@ -129,18 +127,26 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
     ? [...new Set(submissionItems.flatMap((item) => item.file ? [item.file] : []))]
     : [];
   const fileStats = useLinkedFileStats(project.root, linkedFiles, project.files, props.build);
-  const writeManifest = (write: () => Promise<ProjectManifest>) => {
+  // Answers whether the write was made. The commands write to whichever
+  // project is open when they run, so one whose turn comes after its project
+  // closed is never sent.
+  const writeManifest = (write: () => Promise<ProjectManifest>): Promise<boolean> => {
     const request = ++manifestWriteRef.current;
     const ownsProject = props.captureProjectScope();
-    const queued = manifestQueueRef.current.catch(() => undefined).then(write);
+    const queued = manifestQueueRef.current.catch(() => undefined)
+      .then(() => ownsProject() ? write() : null);
     manifestQueueRef.current = queued;
-    void queued.then(
+    return queued.then(
       (manifest) => {
-        if (request === manifestWriteRef.current && ownsProject()) {
+        if (manifest && request === manifestWriteRef.current && ownsProject()) {
           props.setProject((current) => current ? { ...current, manifest } : current);
         }
+        return !!manifest;
       },
-      (reason) => { if (ownsProject()) showError(toMessage(reason)); },
+      (reason) => {
+        if (ownsProject()) showError(toMessage(reason));
+        return false;
+      },
     );
   };
   // Where the writer was writing: the active file, still active while a Paper

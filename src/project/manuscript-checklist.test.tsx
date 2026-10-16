@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ManuscriptChecklistPanel, type ManuscriptChecklistData } from "./manuscript-checklist";
 import { activateAppLocale } from "../i18n";
@@ -13,7 +13,7 @@ const base: ManuscriptChecklistData = {
 };
 
 function renderChecklist(data: Partial<ManuscriptChecklistData>) {
-  const onSaveItems = vi.fn();
+  const onSaveItems = vi.fn().mockResolvedValue(true);
   const onOpenFile = vi.fn();
   const { container } = render(
     <ManuscriptChecklistPanel
@@ -178,6 +178,18 @@ describe("ManuscriptChecklistPanel materials and sign-offs", () => {
       { ...authors, status: "confirmed", confirmedMtimeMs: undefined },
       { ...authors, id: "b", title: "Ethics form signed", status: "confirmed", confirmedMtimeMs: undefined },
       expect.objectContaining({ title: "Cover letter", status: "todo" }),
+    ]);
+  });
+
+  it("builds the next edit on the saved list, not on one whose write failed", async () => {
+    const { onSaveItems } = renderChecklist({ items: [authors, { ...authors, id: "b", title: "Ethics form signed" }] });
+    onSaveItems.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “All authors confirmed”" }));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm “Ethics form signed”" }));
+    expect(onSaveItems).toHaveBeenLastCalledWith([
+      authors,
+      { ...authors, id: "b", title: "Ethics form signed", status: "confirmed", confirmedMtimeMs: undefined },
     ]);
   });
 

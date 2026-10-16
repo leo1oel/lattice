@@ -69,7 +69,8 @@ export function SubmissionItems(props: {
   fileStats: Record<string, LinkedFileStat>;
   /** Project files offered when linking one, the compiled PDF first. */
   filePaths: string[];
-  onChange: (items: SubmissionItem[]) => void;
+  /** Answers whether the list was saved. */
+  onChange: (items: SubmissionItem[]) => Promise<boolean>;
   onOpenFile: (path: string) => void;
   onOpenSource: (url: string) => void;
 }) {
@@ -88,7 +89,9 @@ export function SubmissionItems(props: {
   const save = (update: (latest: SubmissionItem[]) => SubmissionItem[]) => {
     const next = update(sent.current?.base === items ? sent.current.items : items);
     sent.current = { base: items, items: next };
-    props.onChange(next);
+    void props.onChange(next).then((saved) => {
+      if (!saved && sent.current?.items === next) sent.current = null;
+    });
   };
   const replace = (id: string, next: (item: SubmissionItem) => SubmissionItem | null) =>
     save((latest) => latest.flatMap((item) => {

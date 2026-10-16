@@ -126,7 +126,8 @@ export function ManuscriptChecklistPanel(props: {
   onOpenTodos: () => void;
   onSaveBudgets: (wordBudget: number | null, pageBudget: number | null) => void;
   onSaveDeadline: (deadline: ProjectDeadline | null) => void;
-  onSaveItems: (items: SubmissionItem[]) => void;
+  /** Answers whether the list was saved. */
+  onSaveItems: (items: SubmissionItem[]) => Promise<boolean>;
   onOpenFile: (path: string) => void;
   onOpenSource: (url: string) => void;
 }) {

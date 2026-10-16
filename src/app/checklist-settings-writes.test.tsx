@@ -72,12 +72,14 @@ it("installs no manifest a deadline or budget write answers after its project cl
     ["deadline", ["B"]], ["deadline", ["B", "A"]], ["budgets", ["B"]], ["budgets", ["B", "A"]],
   ] as const) {
     const write = deferred<ProjectManifest>();
-    vi.mocked(invoke).mockReturnValue(write.promise);
+    vi.mocked(invoke).mockReset().mockReturnValue(write.promise);
     const { window, open } = renderPanels();
     act(() => {
       if (save === "deadline") checklist.props!.onSaveDeadline(DEADLINE);
       else checklist.props!.onSaveBudgets(8000, 9);
     });
+    await act(async () => undefined);
+    expect(invoke).toHaveBeenCalledTimes(1);
     switches.forEach(open);
     const landed = window.current;
     await act(async () => {
@@ -108,7 +110,9 @@ it("keeps the newest settings write when an older one answers last, and the proj
 
   const failing = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(failing.promise);
-  act(() => checklist.props!.onSaveDeadline(null));
+  act(() => { checklist.props!.onSaveDeadline(null); });
+  await act(async () => undefined);
+  expect(invoke).toHaveBeenCalledWith("set_project_deadline", { deadline: null });
   open("B");
   await act(async () => {
     failing.reject(new Error("disk full"));
@@ -139,6 +143,28 @@ it("runs every manifest write one after another, the newest answer holding them 
     await deadline.promise;
   });
   expect(window.current.manifest).toMatchObject({ submissionItems: [item], deadline: DEADLINE });
+});
+
+it("never sends a write still queued when its project closed", async () => {
+  const items = deferred<ProjectManifest>();
+  vi.mocked(invoke).mockReturnValueOnce(items.promise);
+  const { open } = renderPanels();
+  const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
+  let saved: Promise<boolean> | undefined;
+  act(() => {
+    checklist.props!.onSaveItems([item]);
+    saved = checklist.props!.onSaveItems([{ ...item, status: "todo" }]);
+    checklist.props!.onSaveDeadline(DEADLINE);
+  });
+  await act(async () => undefined);
+  open("B");
+  await act(async () => {
+    items.resolve(answered("A", { submissionItems: [item] }));
+    await saved;
+  });
+  expect(await saved).toBe(false);
+  expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
+  expect(showError).not.toHaveBeenCalled();
 });
 
 it("runs item writes one after another, so an older one never lands over a newer", async () => {
