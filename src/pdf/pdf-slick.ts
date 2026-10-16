@@ -126,6 +126,11 @@ export function createViewerRecord(
   const root = document.createElement("div");
   root.className = "pdfSlick pdfSlickViewer pdf-scroll-area-viewport";
   root.dataset.slot = "scroll-area-viewport";
+  // The element PageDown, Space and the arrows scroll, so the toolbar hands
+  // focus back here when the reader is done with a page number or Find; out of
+  // the Tab order, which the toolbar's controls own. Named by the caller.
+  root.tabIndex = -1;
+  root.setAttribute("role", "region");
   root.classList.toggle("pdf-viewer-staging", staged);
   const viewer = document.createElement("div");
   viewer.className = "pdfViewer pdf-pages";

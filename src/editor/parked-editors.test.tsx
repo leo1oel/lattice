@@ -46,6 +46,7 @@ function tabs(initial: Record<string, string>) {
   const element = (path: string) => (
     <CodeMirrorHost
       key={path}
+      label={path}
       value={disk[path]}
       extensions={EXTENSIONS}
       park={{ root: ROOT, path }}

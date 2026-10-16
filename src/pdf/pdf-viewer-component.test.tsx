@@ -416,6 +416,116 @@ describe("PDFSlick viewer integration", () => {
     await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("2 / 2"));
   });
 
+  it("shows a changed search as pending until its own result arrives, never the last query's count", async () => {
+    const view = renderPdf();
+    await view.findByLabelText("PDF page 3");
+    const searchInput = view.getByLabelText("Search PDF");
+    const position = () => view.container.querySelector(".pdf-search-position");
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    await waitFor(() => expect(position()).toHaveTextContent("1 / 3"));
+
+    // PDF.js matches a new query after a delay: until then the readout is a
+    // quiet ellipsis that the live region does not speak, and Next has nothing to move.
+    fireEvent.change(searchInput, { target: { value: "page 2" } });
+    expect(position()).toHaveTextContent("…");
+    expect(position()?.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    expect(view.getByRole("button", { name: "Next search result" })).toBeDisabled();
+    await waitFor(() => expect(position()).toHaveTextContent("1 / 1"));
+    expect(position()?.children).toHaveLength(0);
+
+    // A changed option is a changed search too (the mock matches either way).
+    fireEvent.click(view.getByRole("button", { name: "Match case" }));
+    expect(position()).toHaveTextContent("…");
+    await waitFor(() => expect(position()).toHaveTextContent("1 / 1"));
+
+    // Moving through one search's results is never pending.
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    fireEvent.click(view.getByRole("button", { name: "Match case" }));
+    await waitFor(() => expect(position()).toHaveTextContent("1 / 3"));
+    fireEvent.keyDown(searchInput, { key: "Enter" });
+    expect(position()).toHaveTextContent("2 / 3");
+  });
+
+  it("leaves an IME's candidate-confirming Enter and Escape to the IME in Find and the page field", async () => {
+    pdf.state.numPages = 6;
+    const view = renderPdf();
+    await view.findByLabelText("PDF page 6");
+    const instance = pdf.state.instances[0]!;
+    const searchInput = view.getByLabelText("Search PDF");
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    const position = () => view.container.querySelector(".pdf-search-position");
+    await waitFor(() => expect(position()).toHaveTextContent("1 / 6"));
+
+    fireEvent.keyDown(searchInput, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(searchInput, { key: "Enter", keyCode: 229 });
+    // WebKit ends the composition just before the Enter that accepted the candidate.
+    fireEvent.compositionStart(searchInput);
+    fireEvent.compositionEnd(searchInput);
+    fireEvent.keyDown(searchInput, { key: "Enter" });
+    fireEvent.keyDown(searchInput, { key: "Escape", isComposing: true });
+    expect(position()).toHaveTextContent("1 / 6");
+    expect(searchInput).toHaveValue("attention");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    fireEvent.keyDown(searchInput, { key: "Enter" });
+    await waitFor(() => expect(position()).toHaveTextContent("2 / 6"));
+
+    const pageInput = view.getByLabelText("PDF page number");
+    act(() => pageInput.focus());
+    fireEvent.change(pageInput, { target: { value: "4" } });
+    fireEvent.keyDown(pageInput, { key: "Enter", isComposing: true });
+    expect(pageInput).toHaveFocus();
+    expect(instance.gotoPage).not.toHaveBeenCalledWith(4);
+    fireEvent.keyDown(pageInput, { key: "Enter" });
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(4);
+  });
+
+  it("hands focus to the pages after a page number or an emptied Find, so the keyboard goes on reading", async () => {
+    pdf.state.numPages = 6;
+    const view = renderPdf();
+    await view.findByLabelText("PDF page 6");
+    const instance = pdf.state.instances[0]!;
+    const pages = view.getByRole("region", { name: "PDF pages" });
+    // The scrollport itself, focusable by the toolbar but out of the Tab order.
+    expect(pages).toBe(instance.args.container);
+    expect(pages).toHaveAttribute("tabindex", "-1");
+
+    const pageInput = view.getByLabelText("PDF page number");
+    act(() => pageInput.focus());
+    fireEvent.change(pageInput, { target: { value: "5" } });
+    fireEvent.keyDown(pageInput, { key: "Enter" });
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(5);
+    expect(pages).toHaveFocus();
+
+    // Escape drops the draft and still goes back to reading.
+    instance.gotoPage.mockClear();
+    act(() => pageInput.focus());
+    fireEvent.change(pageInput, { target: { value: "2" } });
+    fireEvent.keyDown(pageInput, { key: "Escape" });
+    expect(instance.gotoPage).not.toHaveBeenCalled();
+    expect(pages).toHaveFocus();
+
+    const zoomInput = view.getByLabelText("PDF zoom percentage");
+    act(() => zoomInput.focus());
+    fireEvent.change(zoomInput, { target: { value: "150" } });
+    fireEvent.keyDown(zoomInput, { key: "Enter" });
+    expect(pages).toHaveFocus();
+
+    // The first Escape clears the query and stays to type another; the second leaves.
+    const searchInput = view.getByLabelText("Search PDF");
+    act(() => searchInput.focus());
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    fireEvent.keyDown(searchInput, { key: "Escape" });
+    expect(searchInput).toHaveValue("");
+    expect(searchInput).toHaveFocus();
+    fireEvent.keyDown(searchInput, { key: "Escape" });
+    expect(pages).toHaveFocus();
+
+    // A rebuild replaces the pages being read; focus moves to the new ones.
+    view.rerender(preview({ url: "https://example.test/second.pdf" }));
+    const second = await viewerAt(1);
+    await waitFor(() => expect(second.args.container).toHaveFocus());
+  });
+
   it("draws the pane's scrollbars as hover-reveal overlay bars on the PDF.js viewport", async () => {
     const view = renderPdf();
     expect(await view.findByLabelText("PDF page 1")).toBeInTheDocument();
