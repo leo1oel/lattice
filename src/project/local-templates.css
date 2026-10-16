@@ -1,0 +1,17 @@
+.local-templates { display: grid; gap: var(--space-4); margin-top: var(--space-6); min-width: 0; }
+.local-templates small { color: var(--text-secondary); overflow-wrap: anywhere; }
+.local-templates [data-slot="select-trigger"] { min-width: 0; max-width: 100%; }
+.template-details { display: block; }
+.modal.local-template-modal { width: min(520px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); overflow-y: auto; }
+.template-source-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.template-fields { display: grid; gap: var(--space-6); min-width: 0; border: 0; padding: 0; margin: var(--space-6) 0 0; }
+.template-fields select { width: 100%; min-width: 0; }
+.template-file-list { display: grid; gap: var(--space-3); max-height: 180px; overflow: auto; }
+.modal .template-file-list label { flex-direction: row; align-items: flex-start; font-weight: var(--weight-regular); }
+.template-file-list .ui-checkbox-field-copy { min-width: 0; overflow-wrap: anywhere; }
+.local-template-modal .modal-actions { flex-wrap: wrap; }
+
+.local-templates [data-slot="select-value"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
+.local-template-options [data-slot="select-item"] { white-space: normal; overflow-wrap: anywhere; }
+.template-saved-files { max-height: 180px; overflow: auto; padding-inline-start: var(--space-8); overflow-wrap: anywhere; }
+.create-project-modal { max-height: calc(100dvh - 40px); overflow-y: auto; }

@@ -114,6 +114,7 @@ export function AppProjectDialogs({
       </LazyMount>
       {createForm.open && (
         <CreateProjectDialog
+          currentProject
           projectName={createForm.name}
           setProjectName={(name) => updateCreateForm({ name })}
           projectVenue={createForm.venue}

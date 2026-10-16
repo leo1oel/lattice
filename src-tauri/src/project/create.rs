@@ -60,6 +60,7 @@ pub enum Venue {
     Neurips,
     Icml,
     Iclr,
+    Blank,
 }
 
 impl Venue {
@@ -68,6 +69,7 @@ impl Venue {
             "" | "neurips" | "nips" => Ok(Self::Neurips),
             "icml" => Ok(Self::Icml),
             "iclr" => Ok(Self::Iclr),
+            "blank" => Ok(Self::Blank),
             other => Err(format!("Unknown venue “{other}”. Choose neurips, icml, or iclr.")),
         }
     }
@@ -77,6 +79,7 @@ impl Venue {
             Self::Neurips => "neurips",
             Self::Icml => "icml",
             Self::Iclr => "iclr",
+            Self::Blank => "blank",
         }
     }
 
@@ -86,6 +89,7 @@ impl Venue {
         match self {
             Self::Neurips | Self::Iclr => 9,
             Self::Icml => 8,
+            Self::Blank => 0,
         }
     }
 
@@ -94,6 +98,7 @@ impl Venue {
             Self::Neurips => NEURIPS_TEMPLATE,
             Self::Icml => ICML_TEMPLATE,
             Self::Iclr => ICLR_TEMPLATE,
+            Self::Blank => &[("main.tex", "\\documentclass{article}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
         }
     }
 }
@@ -118,7 +123,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         keep_engine: false,
         venue: venue.as_str().to_string(),
         word_budget: None,
-        page_budget: Some(venue.page_budget()),
+        page_budget: (venue != Venue::Blank).then(|| venue.page_budget()),
         deadline: None,
         spelling_words: Vec::new(),
         submission_items: Vec::new(),
