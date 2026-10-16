@@ -18,6 +18,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { WelcomeLattice } from "./welcome-lattice";
 import { welcomeDeskProjects } from "./first-pages";
 import { WelcomeDesk } from "./welcome-desk";
+import { LocalTemplates } from "./local-templates";
 import { PROJECT_VENUES } from "./project-venues";
 
 /** A recent project launch could not reopen, with the backend's reason. */
@@ -138,6 +139,7 @@ export function Welcome(props: {
 }
 
 export function CreateProjectDialog(props: {
+  currentProject?: boolean;
   projectName: string;
   setProjectName: (value: string) => void;
   projectVenue: ProjectVenue;
@@ -159,24 +161,28 @@ export function CreateProjectDialog(props: {
         <div className="venue-picker">
           <span className="venue-picker-label">{t`Venue template`}</span>
           <Select
-            value={props.projectVenue}
+            value={props.projectVenue.startsWith("local:") ? "" : props.projectVenue}
             onValueChange={(value) => props.setProjectVenue(value as ProjectVenue)}
           >
             <SelectTrigger aria-label={t`Venue template`}>
-              <SelectValue />
+              <SelectValue placeholder={t`Choose a built-in template`} />
             </SelectTrigger>
             <SelectContent className="venue-picker-content" position="popper" align="start">
+              <SelectItem value="blank">{t`Blank article`}</SelectItem>
               {PROJECT_VENUES.map((item) => (
                 <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <small className="venue-picker-detail">
-            {venue.id === "iclr"
+            {props.projectVenue === "blank" ? t`An empty article with no venue style or page limit`
+              : props.projectVenue.startsWith("local:") ? t`Your saved template is selected below`
+              : venue.id === "iclr"
               ? t`Official 2026 style`
               : t`Official 2026 style · preprint draft`}
           </small>
         </div>
+        <LocalTemplates selected={props.projectVenue} onSelect={props.setProjectVenue} currentProject={props.currentProject} />
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>

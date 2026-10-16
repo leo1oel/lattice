@@ -1046,6 +1046,12 @@ function answer(command: string, args: Args): unknown {
   if (linked !== NOT_HANDLED) return linked;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
+    case "list_local_templates":
+      return params.has("templates") ? [{ id: "12345678-1234-4234-8234-123456789abc", name: "学校与实验室联合投稿模板 · Journal of Long Research Titles 2026", sourceUrl: "https://example.edu/templates/journal", version: "2026", files: ["main.tex"], root: "main.tex", engine: "xelatex", preview: null }] : [];
+    case "inspect_template_source":
+      return { files: ["main.tex", "appendix.tex", "styles/学校学位论文与实验室联合投稿格式文件.cls", "figures/多语言图示与较长资源文件名称.png"], root: "main.tex", engine: "xelatex" };
+    case "save_local_template":
+      return { ...args?.template as object, id: "87654321-1234-4234-8234-123456789abc" };
     case "initial_project":
       // `?tutorial=1` starts in the tutorial project, as after its Guided tutorial entry.
       return params.has("welcome") ? null : params.has("tutorial") ? openTutorial() : snapshot();

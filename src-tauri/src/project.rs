@@ -40,6 +40,7 @@ mod references;
 mod reviews;
 mod search;
 mod symbols;
+pub mod templates;
 mod terms;
 #[cfg(test)]
 pub(crate) mod test_support;

@@ -357,6 +357,9 @@ pub fn run() {
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_mouse,
             ipc::workspace::create_project,
+            ipc::workspace::list_local_templates,
+            ipc::workspace::inspect_template_source,
+            ipc::workspace::save_local_template,
             ipc::workspace::open_tutorial_project,
             ipc::workspace::initial_project,
             ipc::workspace::open_project,

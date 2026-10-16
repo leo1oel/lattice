@@ -27,13 +27,47 @@ pub(crate) fn documents_folder(app: &AppHandle, name: &str, what: &str) -> Resul
 /// one somewhere else.
 #[tauri::command]
 pub async fn create_project(
-    parent: String, name: String, venue: Option<String>,
+    app: AppHandle, parent: String, name: String, venue: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
-    let venue = project::Venue::parse(venue.as_deref().unwrap_or("neurips"))?;
+    let store = app.path().app_data_dir().map_err(crate::util::err)?.join("templates");
     run_blocking("Project creation", move || {
-        project::open(&project::create_with_venue(Path::new(&parent), &name, venue)?)
+        let venue = venue.as_deref().unwrap_or("neurips");
+        let root = if let Some(id) = venue.strip_prefix("local:") {
+            project::templates::instantiate(&store, id, Path::new(&parent), &name)?
+        } else {
+            project::create_with_venue(Path::new(&parent), &name, project::Venue::parse(venue)?)?
+        };
+        project::open(&root)
     })
     .await
+}
+
+#[tauri::command]
+pub async fn list_local_templates(
+    app: AppHandle,
+) -> Result<Vec<project::templates::LocalTemplate>, String> {
+    let store = app.path().app_data_dir().map_err(crate::util::err)?.join("templates");
+    run_blocking("Template list", move || project::templates::list(&store)).await
+}
+
+#[tauri::command]
+pub async fn inspect_template_source(
+    state: State<'_, AppState>, window: Window, source: Option<String>,
+) -> Result<project::templates::TemplateSource, String> {
+    let source =
+        source.map(PathBuf::from).map(Ok).unwrap_or_else(|| current_root(&state, &window))?;
+    run_blocking("Template preview", move || project::templates::inspect(&source)).await
+}
+
+#[tauri::command]
+pub async fn save_local_template(
+    app: AppHandle, state: State<'_, AppState>, window: Window, source: Option<String>,
+    template: project::templates::LocalTemplate,
+) -> Result<project::templates::LocalTemplate, String> {
+    let store = app.path().app_data_dir().map_err(crate::util::err)?.join("templates");
+    let source =
+        source.map(PathBuf::from).map(Ok).unwrap_or_else(|| current_root(&state, &window))?;
+    run_blocking("Template save", move || project::templates::save(&store, &source, template)).await
 }
 
 #[tauri::command]

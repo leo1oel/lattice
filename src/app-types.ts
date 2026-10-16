@@ -12,7 +12,7 @@ type RootDocument = {
   isDefault: boolean;
 };
 
-export type ProjectVenue = "neurips" | "icml" | "iclr";
+export type ProjectVenue = "neurips" | "icml" | "iclr" | "blank" | `local:${string}`;
 
 export type ProjectManifest = {
   schemaVersion: number;
