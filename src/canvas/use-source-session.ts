@@ -125,7 +125,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     if (!current) return;
     current.dispatch({ effects: harperDictionaryChanged.of(null) });
     refreshLint(current);
-  }, [props.preferences.spellingWords, props.preferences.englishVariant]);
+  }, [props.preferences.spellingWords]);
 
   useEffect(() => {
     viewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(comments) });

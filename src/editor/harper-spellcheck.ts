@@ -23,8 +23,6 @@ type AddProjectWord = (word: string) => boolean | Promise<boolean>;
 
 type HarperDiagnosticOptions = {
   projectWords?: string[];
-  /** The project's English variant ("british", …); unset is American. */
-  dialect?: string | null;
   onAddProjectWord?: AddProjectWord;
 };
 
@@ -298,7 +296,6 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
     const lints = await invoke<HarperLintResult[]>("harper_lint", {
       text: prose,
       projectWords: normalizeProjectWords(options.projectWords ?? []),
-      dialect: options.dialect ?? null,
     });
     return lints.flatMap((lint) => {
       const from = Math.max(0, Math.min(source.length, lint.start));
@@ -367,9 +364,9 @@ export function harperLintWindow(view: EditorView): { from: number; to: number }
   };
 }
 
-/** Harper prose diagnostics for an editor, reading the project dictionary and English live. */
+/** Harper prose diagnostics for an editor, reading the project dictionary live. */
 export function harperSpellcheck(live?: {
-  current: { spellingWords: string[]; englishVariant?: string | null; onAddSpellingWord?: AddProjectWord };
+  current: { spellingWords: string[]; onAddSpellingWord?: AddProjectWord };
 }): Extension {
   return linter(async (view) => {
     const data = live?.current;
@@ -378,7 +375,6 @@ export function harperSpellcheck(live?: {
     if (window.to <= window.from) return [];
     const diagnostics = await harperDiagnostics(view.state.sliceDoc(window.from, window.to), {
       projectWords: data?.spellingWords ?? [],
-      dialect: data?.englishVariant,
       onAddProjectWord: onAdd && (async (word: string) => {
         if (await onAdd(word) === false) return false;
         const current = live?.current;

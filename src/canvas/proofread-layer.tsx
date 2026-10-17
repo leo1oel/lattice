@@ -14,8 +14,6 @@ import {
   type ProofreadContext,
 } from "../agent/proofread-edits";
 import { proofreadAnchor, setProofreadAnchorEffect } from "../editor/proofread-anchor";
-import type { EnglishVariant, TermRule } from "../app-types";
-import { termGuidance } from "../project/term-check";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import type { ProofreadBridge } from "./proofread-bridge";
 import { ProofreadCard, type ProofreadCardState } from "./proofread-card";
@@ -50,9 +48,6 @@ type ProofreadLayerProps = {
   editorKey: string;
   editable: boolean;
   viewRef: RefObject<EditorView | null>;
-  /** The project's English variant and term rules, which Proofread and Polish follow. */
-  englishVariant: EnglishVariant | null;
-  termRules: readonly TermRule[];
 };
 
 /**
@@ -136,9 +131,8 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
       settle({ status: "error", message: t`Select at most ${limit} characters to proofread.`, retryable: false });
       return;
     }
-    const { projectRoot, termRules, englishVariant } = optionsRef.current;
-    const terms = termGuidance(original, termRules, englishVariant);
-    proofreadWithAgent({ projectRoot, path, text: original, mode, language, terms, signal: controller.signal }).then(
+    const { projectRoot } = optionsRef.current;
+    proofreadWithAgent({ projectRoot, path, text: original, mode, language, signal: controller.signal }).then(
       ({ text, reasons = [], model }) => settle({
         status: "ready",
         review: withReasons(reviewProofread(original, text, context), original, reasons),

@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import type { EditorView } from "@codemirror/view";
 import type { AgentHostSurface, AgentPdfDocumentPlace, AgentSelectionLines } from "../agent/agent-host-context";
 import type {
-  AssetPreview, CanvasMode, CanvasRequests, EditorKeymap, EditorPosition, EditorViewState, EnglishVariant, FileViewState,
-  PaperSummary, TermRule, WordCount,
+  AssetPreview, CanvasMode, CanvasRequests, EditorKeymap, EditorPosition, EditorViewState, FileViewState,
+  PaperSummary, WordCount,
 } from "../app-types";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
@@ -87,10 +87,6 @@ type CanvasPreferences = Readonly<{
   editorSpellcheck: boolean;
   spellingWords: string[];
   onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
-  /** The project's English, which spell checking and Proofread follow. */
-  englishVariant: EnglishVariant | null;
-  /** The project's term rules, which Proofread and Polish follow. */
-  termRules: readonly TermRule[];
   interactivePreviewsEnabled: boolean;
 }>;
 

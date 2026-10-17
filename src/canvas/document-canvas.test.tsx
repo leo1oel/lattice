@@ -176,7 +176,7 @@ function baseProps(): CanvasProps {
     },
     preferences: {
       projectRoot: "/tmp/project", locale: "en", theme: "light", editorKeymap: "default", editorSpellcheck: false,
-      spellingWords: [], onAddSpellingWord: vi.fn(() => true), englishVariant: null, termRules: [], interactivePreviewsEnabled: false,
+      spellingWords: [], onAddSpellingWord: vi.fn(() => true), interactivePreviewsEnabled: false,
     },
     bibliography: {
       citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],

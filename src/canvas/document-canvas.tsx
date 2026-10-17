@@ -1206,8 +1206,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
             editorKey={editorKey}
             editable={props.document.editorEditable && isLatexSourcePath(activeFile)}
             viewRef={primaryViewRef}
-            englishVariant={props.preferences.englishVariant}
-            termRules={props.preferences.termRules}
           />
           <AnnotationReviewLayer
             bridge={props.review.annotationRounds.reviewBridge}

@@ -30,9 +30,6 @@ export type ProjectManifest = {
   deadline?: ProjectDeadline | null;
   spellingWords?: string[];
   submissionItems?: SubmissionItem[];
-  /** Unset: spell checking stays American and Proofread follows the text's own spelling. */
-  englishVariant?: EnglishVariant | null;
-  termRules?: TermRule[];
 };
 
 /**
@@ -55,23 +52,6 @@ export type SubmissionItem = {
   /** The linked file's mtime when the item was confirmed; the backend stamps one sent without it. */
   confirmedMtimeMs?: number;
 };
-
-export type EnglishVariant = "american" | "british" | "canadian" | "australian";
-
-/**
- * A term the paper settles on (src-tauri/src/project/terms.rs): the form it
- * writes, the other forms the check finds, why, and the places the writer
- * chose to keep as written.
- */
-export type TermRule = {
-  term: string;
-  variants: string[];
-  note?: string;
-  skipped?: TermSkip[];
-};
-
-/** A place kept as written: its file and the words around the form there. */
-type TermSkip = { path: string; context: string };
 
 /** The submission deadline, as a wall-clock time Anywhere on Earth ("2027-05-15T23:59"). */
 export type ProjectDeadline = {
