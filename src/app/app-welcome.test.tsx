@@ -1,4 +1,6 @@
-import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, failedBuild, deferred, setAutoBuildMode, chooseOption, buildButton, renderApp, renderOverleafPaper, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, deferred, chooseOption, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
+import { settingsDialog } from "./app-test-settings";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -6,6 +8,8 @@ import { getDocument } from "pdfjs-dist";
 import { describe, expect, it, vi } from "vitest";
 import { referenceAssetPreviewDataUrl } from "../project/reference-preview";
 import { getAppLogEntry, getVisibleAppToastIds } from "../telemetry/app-log-store";
+
+const { renderApp, renderOverleafPaper } = appHarness({ settingsDialog });
 
 describe("welcome screen", () => {
   it("renders the first page of a PDF figure for reference hover previews", async () => {
@@ -139,68 +143,6 @@ describe("welcome screen", () => {
     await expectInvoked("read_project_file", { path: "main.tex", projectRoot: snapshot.root });
     expect(invoke).not.toHaveBeenCalledWith("open_tutorial_project");
     expect(open).not.toHaveBeenCalled();
-  });
-
-  it("starts the first build as soon as a new project opens", async () => {
-    const snapshot = projectSnapshot({ root: "/tmp/research/New paper", projectId: "new-paper-id", name: "New paper" });
-    vi.mocked(open).mockResolvedValue("/tmp/research");
-    renderApp({
-      ...projectCommands(null), create_project: snapshot, build_project: buildResult(),
-      // Creation no longer binds a window; the caller places the project.
-      open_project: snapshot,
-    });
-    fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
-    fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
-    fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
-    fireEvent.click(screen.getByRole("option", { name: "ICML" }));
-    fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
-    await expectInvoked("create_project", { parent: "/tmp/research", name: "New paper", venue: "icml" });
-    await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: "/tmp/research/New paper" }));
-    expect(await screen.findByRole("button", { name: "Switch project" })).toHaveTextContent("New paper");
-    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
-  }, 30_000);
-
-  it("preserves a forced build queued behind an ordinary build", async () => {
-    const success = buildResult({ durationMs: 1 })();
-    const ordinaryBuild = deferred<typeof success>();
-    let buildCalls = 0;
-    renderApp({ ...projectCommands(), build_project: () => (++buildCalls === 1 ? ordinaryBuild.promise : success) });
-    await waitFor(() => expect(buildButton()).toHaveAttribute("aria-busy", "true"));
-    await waitFor(() => expect(buildCalls).toBe(1));
-    fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
-    fireEvent.click(await screen.findByRole("option", { name: /Clean rebuild/i }));
-    // The palette runs its choice once it has closed and handed focus back.
-    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
-    for (let tick = 0; tick < 2; tick += 1) await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(buildCalls).toBe(1);
-    ordinaryBuild.resolve(success);
-    await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(2));
-    expect(invokeCalls("build_project")[1]?.[1]).toEqual(expect.objectContaining({ force: true }));
-    // The queued build can finish before the lazy editor imports do. Let the
-    // real canvas mount before teardown so those imports keep a live test host.
-    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
-  });
-
-  // The Build button reports how the last build ended, whatever started it:
-  // opening the project, ⌘S, or the palette.
-  it("shows the last build's result on the Build button: a check and its time, or Failed", async () => {
-    setAutoBuildMode("manual");
-    let answer = buildResult({ durationMs: 3_200 })();
-    renderApp({ ...projectCommands(), build_project: () => answer });
-    const showing = () => buildButton().querySelector(".trellis-build-label > span:not(.trellis-build-label-off)")?.textContent;
-    await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
-    expect(showing()).toBe("3.2 s");
-    answer = failedBuild("Undefined control sequence.")();
-    fireEvent.keyDown(window, { key: "s", metaKey: true });
-    await waitFor(() => expect(buildButton()).toHaveClass("is-failed"));
-    expect(showing()).toBe("Failed");
-    answer = buildResult({ durationMs: 1_500 })();
-    fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
-    fireEvent.click(await screen.findByRole("option", { name: /Build project/i }));
-    await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
-    expect(showing()).toBe("1.5 s");
-    expect(buildButton()).not.toHaveAttribute("aria-busy");
-    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });
 
   it("shows an existing compiled PDF without waiting for the initial build", async () => {
@@ -488,20 +430,6 @@ describe("welcome screen", () => {
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText("Check spelling in prose")).toHaveFocus());
-  });
-
-  it("leaves project commands' shortcuts idle on the welcome screen, so none waits for the next project", async () => {
-    localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
-    vi.mocked(open).mockResolvedValue(ROOT);
-    renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
-    await screen.findByRole("heading", { name: "Research, written with evidence" });
-    for (const key of ["f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
-    for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });
-
-    fireEvent.click(screen.getByRole("button", { name: /open folder/i }));
-    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
-    expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {

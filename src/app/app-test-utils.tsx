@@ -1,8 +1,12 @@
 /**
- * The shared harness of the App integration suites in this directory: the module mocks, stubs and per-test
- * setup every suite needs, plus the render and interaction helpers they share. Each suite imports it first,
- * before anything that imports a mocked module, so its `vi.mock` calls are registered before those modules
- * load; its top-level `beforeEach`/`afterEach` then run around every test of the importing file.
+ * The inert platform layer of the App integration suites in this directory: the module mocks, stubs and
+ * per-test setup every suite needs, plus the fixtures and interaction helpers they share. Each suite imports it
+ * first, before anything that imports a mocked module, so its `vi.mock` calls are registered before those
+ * modules load; its top-level `beforeEach`/`afterEach` then run around every test of the importing file.
+ *
+ * It imports no App, no feature surface and no lazy feature loader: Vitest selects a suite for every module its
+ * imports reach, so a surface imported here would rerun every suite on a change to it. Mounting the app is
+ * `app-test-mount.tsx`'s, and each real surface is its own harness module (`app-test-canvas.ts`, …).
  */
 /* eslint-disable lingui/no-unlocalized-strings -- test-only code: the strings are the English UI the suites query by, not interface copy */
 import v8 from "node:v8";
@@ -13,32 +17,16 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { getDocument } from "pdfjs-dist";
 import { createDocument, layout as panels } from "@danfessler/trellis";
 import { afterEach, beforeEach, expect, vi } from "vitest";
-import App from "../App";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { persistWorkspaceLayout, type WorkspaceLayout } from "../settings/app-settings";
 import { activateAppLocale } from "../i18n";
 import type { SynaraRuntimeInfo } from "../agent/synara-runtime";
-import { ConfirmActionProvider } from "../components/ui/confirm-action-dialog";
 import { openMarkdown } from "../editor/markdown/engine/markdown-document";
 import { saveLayout } from "../trellis/trellis-layout";
-// Keep the cold Vite transforms of these real lazy surfaces outside interaction-test deadlines; the tests
-// still mount them, not doubles: the Trellis workspace every open project renders into, the visual Markdown
-// editor, the file tree and paper library, the canvas and comment surfaces the comment-routing regression uses, and
-// the PDF panel and viewer source navigation needs.
-import "../trellis/trellis-workspace";
-import "../trellis/trellis-agent-surface";
-import "../editor/markdown/engine/lattice-visual-editor";
-import "../project/project-file-tree";
-import "../project/paper-library";
-import "../canvas/document-canvas";
-import "../canvas/project-pdf-panel";
-import "../overleaf/overleaf-collab";
-import "../editor/comments/editor-comments-panel";
-import "../pdf/pdf-viewer";
 import type { FileNode, ProjectManifest, ProjectSnapshot } from "../app-types";
 import type { OpenSlideMutation, OpenSlideSyncOperation } from "../editor/presentation/open-slide-bridge";
 
@@ -428,6 +416,16 @@ export function readFiles(files: Record<string, unknown>, fallback: unknown = "\
 /** Answers each read with `content:<path>`, so a pane shows which file it holds. */
 export const readPathContent = (args: InvokeArgs | undefined) => `content:${argPath(args)}`;
 
+/** A full-text search hit in a project file. */
+export const fileHit = (path: string, line: number, snippet: string, fileKind = "tex") => ({
+  kind: "file", path, title: path, snippet, line, fileKind,
+});
+
+/** Expands `directories` in the project tree, as a previous session left them. */
+export const expandDirectories = (...directories: string[]) => (
+  localStorage.setItem("lattice:expanded-directories:/tmp/lattice-paper", JSON.stringify(directories))
+);
+
 /** A promise whose settlers the test holds. */
 export function deferred<T = void>() {
   let resolve!: (value: T) => void;
@@ -553,30 +551,6 @@ afterEach(() => {
   // Drop tests stub the hit test; jsdom has none of its own.
   Reflect.deleteProperty(document, "elementFromPoint");
 });
-
-/** Renders the app, first answering `invoke` from `commands` when given; `confirmations` mounts the in-app
- * confirmation dialog host `main.tsx` provides. */
-export function renderApp(commands?: Commands, { confirmations = false } = {}) {
-  if (commands) mockCommands(commands);
-  return render(confirmations ? <ConfirmActionProvider><App /></ConfirmActionProvider> : <App />);
-}
-
-/** Renders a linked Overleaf project — the Overleaf paper unless `snapshot` says otherwise — with manual builds
- * and, when given, a persisted Overleaf sync mode. */
-export function renderOverleafPaper(overrides: Commands, { snapshot = overleafPaperSnapshot(), syncMode, confirmations }:
-  { snapshot?: ProjectSnapshot; syncMode?: "live" | "manual"; confirmations?: boolean } = {}) {
-  setAutoBuildMode("manual");
-  if (syncMode) localStorage.setItem("lattice.overleaf.sync-mode.v1", syncMode);
-  return renderApp({ ...refreshableProject(snapshot), ...overleafCommands(overrides) }, { confirmations });
-}
-
-/** Opens `snapshot` with automatic builds, waits for its initial build, then forgets the calls made so far. */
-export async function openWithAutomaticBuilds(commands: Commands, snapshot = projectSnapshot({ files: [] })) {
-  setAutoBuildMode("automatic");
-  renderApp({ ...projectCommands(snapshot), build_project: buildResult(), ...commands });
-  await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: ROOT }));
-  vi.mocked(invoke).mockClear();
-}
 
 /** Opens Settings from the titlebar button, then `section` when given. */
 export async function openSettings(section?: string) {

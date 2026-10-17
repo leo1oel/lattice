@@ -1,4 +1,6 @@
-import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, queryProjectTreeItem, renderApp, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, queryProjectTreeItem, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
+import { documentCanvas } from "./app-test-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { syntaxTree } from "@codemirror/language";
@@ -9,6 +11,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceLayout } from "../settings/app-settings";
 import { loadTextLanguageExtensions } from "../editor/editor-languages";
 import { loadVisualMarkdownEditorModule } from "../canvas/canvas-lazy-modules";
+
+const { renderApp } = appHarness({ documentCanvas });
 
 describe("documents and editors", () => {
   it.each([
@@ -737,32 +741,5 @@ describe("documents and editors", () => {
     postMessage.mockClear();
     fireEvent.scroll(editor.scrollDOM);
     await waitFor(() => expect(postMessage).toHaveBeenCalledWith({ type: "lattice:html-preview-set-scroll-top", scrollTop: 1700 }, "*"));
-  });
-
-  it("adds and removes project dictionary terms from Editor settings", async () => {
-    const snapshot = projectSnapshot({ spellingWords: ["VLM"] });
-    renderApp({
-      ...projectCommands(snapshot),
-      set_project_spelling_words: (args) => {
-        snapshot.manifest.spellingWords = (args as { words: string[] }).words;
-        return snapshot.manifest;
-      },
-    });
-    await chooseProjectMenuItem("Settings");
-    // Settings is lazy; this suite can be the first to open it.
-    await findSettingsDialog();
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    expect(screen.getByRole("list", { name: "Project dictionary terms" })).toHaveTextContent("VLM");
-    fireEvent.change(screen.getByLabelText("Add project term"), { target: { value: "TexLab" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    await expectInvoked("set_project_spelling_words", { words: ["VLM", "TexLab"] });
-    expect(await screen.findByText("TexLab")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remove VLM from project dictionary" }));
-    await expectInvoked("set_project_spelling_words", { words: ["TexLab"] });
-    expect(screen.queryByText("VLM")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Add project term"), { target: { value: "Synara" } });
-    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    expect(screen.getByLabelText("Add project term")).toHaveValue("Synara");
   });
 });

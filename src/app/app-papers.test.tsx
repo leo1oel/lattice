@@ -1,4 +1,6 @@
-import { synaraHook, chooseLayoutPreset, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent, selectDocumentView } from "./app-test-utils";
+import { synaraHook, chooseLayoutPreset, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent, selectDocumentView } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
+import { documentCanvas } from "./app-test-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -6,6 +8,8 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { getDocument } from "pdfjs-dist";
 import { describe, expect, it, vi } from "vitest";
 import { loadVisualMarkdownEditorModule } from "../canvas/canvas-lazy-modules";
+
+const { renderApp } = appHarness({ documentCanvas });
 
 describe("papers", () => {
   it("lists a work that is only cited but does not offer to open it", async () => {

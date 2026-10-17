@@ -46,7 +46,7 @@ import { useProjectHistoryItems } from "./app/use-project-history-items";
 import { addSpellingWordToProject } from "./app/project-spelling-action";
 import { submitSymbolRename, type ReferenceHits } from "./app/symbol-rename-action";
 import { removeReference } from "./app/remove-reference-action";
-import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
+import { usePreviewPrewarm } from "./app/use-preview-prewarm";
 import { useSettledSource } from "./app/use-settled-source";
 import {
   useFullscreen,
@@ -98,7 +98,8 @@ import { InfinityLoader } from "./components/ui/activity-icons";
 import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
-import { loadPaperLibrary, loadProjectFileTree, loadProjectPdfPanel, loadTrellisWorkspace } from "./app/workspace-chunks";
+import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./app/workspace-chunks";
+import type { AppSurfaces } from "./app/app-surfaces";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import { persistSynaraThread } from "./app/app-synara-embed";
@@ -157,9 +158,6 @@ import { showError, showWarning, showingErrors } from "./app/notify";
 import "./App.css";
 
 const loadTexlabLanguage = () => import("./build/texlab-language");
-const SettingsDialog = lazy(() =>
-  import("./settings/settings-dialog").then((module) => ({ default: module.SettingsDialog })),
-);
 const OverleafPickerDialog = lazy(() =>
   import("./overleaf/overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
 );
@@ -190,9 +188,8 @@ const CompileDiagnosticsPanel = lazy(() =>
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
 // with no Suspense reveal to wait out. The file tree and paper library above
-// keep their boundaries: their reveal waits, after the editor's.
-const DocumentCanvas = lazyChunk(loadDocumentCanvas, (module) => module.DocumentCanvas);
-const ProjectPdfPanel = lazyChunk(loadProjectPdfPanel, (module) => module.ProjectPdfPanel);
+// keep their boundaries: their reveal waits, after the editor's. The canvas,
+// the project PDF and Settings come with App's surfaces (app/app-surfaces.ts).
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
@@ -213,7 +210,12 @@ function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
 }
 
-function App() {
+function App({ surfaces }: { surfaces: AppSurfaces }) {
+  const {
+    documentCanvas: { load: loadDocumentCanvas, Component: DocumentCanvas },
+    projectPdfPanel: { load: loadProjectPdfPanel, Component: ProjectPdfPanel },
+    settingsDialog: SettingsDialog,
+  } = surfaces;
   const { t, i18n } = useLingui();
   // The Trellis workspace arranges every panel; App owns what is in them.
   const [trellis] = useState(() => new TrellisController());
@@ -295,7 +297,7 @@ function App() {
     cancelPreviewPrewarm,
     prewarmLikelyProjectFile,
     prewarmLikelyPaper,
-  } = usePreviewPrewarm(project, projectRef, { activeFile, activePaperId: activePaper?.arxivId, paperView });
+  } = usePreviewPrewarm(project, projectRef, { activeFile, activePaperId: activePaper?.arxivId, paperView }, loadDocumentCanvas);
   useLayoutEffect(() => { cancelPrewarmRef.current = cancelPreviewPrewarm; }, [cancelPreviewPrewarm]);
   const overleafSyncingRef = useRef(false);
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
@@ -743,7 +745,7 @@ function App() {
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
     openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
-    projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm,
+    projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm, loadCanvas: loadDocumentCanvas,
     resetCompileTracking: resetAgentCompileTracking,
     overleafSync: {
       syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,

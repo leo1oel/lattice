@@ -44,7 +44,7 @@ import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime"
 /** The Settings tabs that embed a Synara settings page, and which one. */
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
 
-type SettingsDialogProps = DoctorSettingsProps & {
+export type SettingsDialogProps = DoctorSettingsProps & {
   /**
    * Its loading shell (`app/tool-loading-shell.tsx`) still lies over it.
    * Settings that mounts under it takes its place, so it is already on

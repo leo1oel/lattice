@@ -3,11 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
-import { chunk } from "../lib/lazy-chunk";
 import { whenIdle } from "./effect-helpers";
 import { paperDocumentPath, type PaperView } from "./use-open-documents";
 
-export const loadDocumentCanvas = chunk(() => import("../canvas/document-canvas"));
 const loadCanvasPrewarm = () => import("../canvas/canvas-prewarm");
 
 function recordPerformanceMeasure(name: string, start: number, detail: object) {
@@ -29,6 +27,8 @@ export function usePreviewPrewarm(
   project: ProjectSnapshot | null,
   projectRef: RefObject<ProjectSnapshot | null>,
   current: { activeFile: string; activePaperId: string | undefined; paperView: PaperView },
+  /** The document canvas's chunk, from App's surfaces: warmed with the previews it renders. */
+  loadCanvas: () => Promise<unknown>,
 ) {
   const workspaceIndex = useMemo(
     () => new MarkdownWorkspaceIndex((path) => invoke<string>("read_project_file", { path })),
@@ -38,7 +38,7 @@ export function usePreviewPrewarm(
     if (!project) return;
     let cancelled = false;
     const paths = flattenProjectPaths(project.files);
-    const canvasModule = loadDocumentCanvas();
+    const canvasModule = loadCanvas();
     // Chunk downloads (visual editor + pdf viewer + worker, ~4 MB) are
     // idle-gated so they do not compete with the first real editor mount.
     const cancelWarm = whenIdle(() => {
@@ -54,7 +54,7 @@ export function usePreviewPrewarm(
       cancelled = true;
       cancelWarm();
     };
-  }, [workspaceIndex, project]);
+  }, [workspaceIndex, project, loadCanvas]);
 
   const stateRef = useRef({
     generation: 0,
@@ -107,14 +107,14 @@ export function usePreviewPrewarm(
     if (!root) return;
     schedulePreviewPrewarm(`${kind}:${root}:${path}`, async (isCurrent) => {
       const startedAt = performance.now();
-      const [, warm] = await Promise.all([loadDocumentCanvas(), loadCanvasPrewarm()]);
+      const [, warm] = await Promise.all([loadCanvas(), loadCanvasPrewarm()]);
       if (!isCurrent() || projectRef.current?.root !== root) return false;
       // The editor keeps no parse cache across mounts, so the document itself is not read ahead.
       await warm.prewarmMarkdownPreviewDocument();
       recordPerformanceMeasure("lattice:markdown-prewarm", startedAt, { path });
       return isCurrent();
     });
-  }, [projectRef, schedulePreviewPrewarm]);
+  }, [loadCanvas, projectRef, schedulePreviewPrewarm]);
 
   const { activeFile, activePaperId, paperView } = current;
   const prewarmLikelyProjectFile = useCallback((path: string) => {
