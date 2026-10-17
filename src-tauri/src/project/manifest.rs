@@ -627,7 +627,8 @@ mod tests {
 
         set_spelling_words(&fixture.root, vec!["frobnicator".to_string()]).unwrap();
 
-        let written: serde_json::Value = serde_json::from_str(&fixture.read(MANIFEST_PATH)).unwrap();
+        let written: serde_json::Value =
+            serde_json::from_str(&fixture.read(MANIFEST_PATH)).unwrap();
         assert_eq!(written["termRules"], terms);
         assert_eq!(written["englishVariant"], "british");
         assert_eq!(written["spellingWords"], serde_json::json!(["frobnicator"]));
