@@ -302,7 +302,7 @@ here, with the requirement it rests on.
   the order the document first refers to them; notes never referred to follow
   in document order.
 - **Mermaid (R-BLK-5).** Only a fence of exactly three backticks on both
-  sides with the language `mermaid` renders. The diagram follows the app
+  sides with the language `mermaid` renders, drawn by Pele. The diagram follows the app
   theme. Dragging a preview edge resizes it symmetrically, and the new
   `w=<n>px` is written when the drag ends.
 - **Code blocks (R-FMT-8, R-BLK-7).** A picked language is written as its
