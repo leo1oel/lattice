@@ -13,7 +13,6 @@ import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 const MARKERS = ["% TODO", "% FIXME", "% XXX", "\\todo"];
 
 /** The kind as the writer typed it: a `\todo` command is not a comment marker. */
-// eslint-disable-next-line lingui/no-unlocalized-strings -- LaTeX syntax, not interface copy
 const kindLabel = (kind: string) => (kind === "todo" ? "\\todo" : kind);
 
 /** Hits in the scan's order, gathered under the file they sit in. */
