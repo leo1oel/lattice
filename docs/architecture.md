@@ -284,10 +284,10 @@ Practical consequence: to find what a button does, grep the command name in
 | `overleaf` + `overleaf_realtime` | 42 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
 | `files` | 30 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 22 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
-| `search` | 11 | `search_project`, `replace_in_project`, `apply_term_edits`, `rename_symbol`, `list_todos` |
+| `search` | 11 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
-| `workspace` | 16 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest`, `set_project_terms` |
+| `workspace` | 16 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 13 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 10 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_compare_files`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
@@ -360,7 +360,7 @@ creates it.
 
 | Path | Owner | Contents |
 | --- | --- | --- |
-| `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words, submission checklist items, term rules and English variant (`project/terms.rs`) |
+| `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words, submission checklist items |
 | `.research/brief.md` | `project/create.rs` | the project brief shown in the sidebar |
 | `.research/papers/<arxivId>/` | `papers/` | imported papers: `paper.md`, `blog.md`, `metadata.json`, `paper_assets/` |
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
@@ -372,8 +372,6 @@ creates it.
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
 | `.research/annotations.json` | `project/annotations.rs` (`ANNOTATIONS_PATH`) | local annotations (source or PDF anchored, numbered), the agent's revision of each, and the revision rounds |
 | `.research/annotation-rounds/round-<n>.json` | `project/annotations.rs` | each revision round's files, before and after, for comparing and restoring rounds |
-| `.research/reviews/<id>.json` | `project/reviews.rs` (`REVIEWS_DIRECTORY`) | the agent's reviews of the paper, one per run named by its UTC start, with the writer's decision on each point; the newest is reopened |
-| `.research/responses.json` | `project/responses.rs` (`RESPONSES_FILE`) | the writer's answers to the venue's reviewers: each pasted comment with its stable number (R1.2), owner, reply and whether it is checked, the paper change's state and the ids of the annotations linked to it; written only once a comment is added, and never over a file that exists but cannot be read (the panel shows an error until it reads cleanly) |
 | `.research/editor-comments.json` | `project/annotations.rs` (`LEGACY_COMMENTS_PATH`) | editor comments from older builds; read as annotations while `annotations.json` is absent, never written |
 | `.research/pdf-annotations.json` | — | PDF annotations from older builds; no longer read or written |
 | `.research/tutorial.json` | `project/create.rs` | tutorial-project state |
