@@ -1,13 +1,11 @@
 /**
  * The panels that hang off the editor rather than the project: the
- * Annotations panel and its Revision rounds sheet, the TODO scavenger, the
- * submission checklist, the reviewer's pass over the paper, the support
- * found for a claim, Terms, and the answers to the venue's reviewers.
+ * Annotations panel and its Revision rounds sheet, the TODO scavenger, and
+ * the submission checklist.
  *
- * The annotations, the review, the support and the responses are lazy, so each carries its own
- * `Suspense` rather than sharing one with the other drawers — a `null`
- * fallback that covered all of them would unmount an open TODO panel while
- * an unrelated chunk loads.
+ * The annotations are lazy, so they carry their own `Suspense` rather than
+ * sharing one with the other drawers — a `null` fallback that covered all of
+ * them would unmount an open TODO panel while an unrelated chunk loads.
  */
 import { lazy, memo, Suspense, useRef, useState, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -33,12 +31,10 @@ import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
   BodyBoundary,
   BuildResult,
-  EnglishVariant,
   OpenProjectFile,
   ProjectManifest,
   ProjectSnapshot,
   SubmissionItem,
-  TermRule,
   UnusedSymbols,
   WordCount,
 } from "../app-types";
@@ -49,24 +45,9 @@ const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dia
 const EditorCommentsPanel = lazy(() =>
   import("../editor/comments/editor-comments-panel").then((module) => ({ default: module.EditorCommentsPanel })),
 );
-const PaperReviewPanel = lazy(() =>
-  import("../project/paper-review-panel").then((module) => ({ default: module.PaperReviewPanel })),
-);
-const SupportPanel = lazy(() =>
-  import("../papers/support-panel").then((module) => ({ default: module.SupportPanel })),
-);
-const TermsPanel = lazy(() =>
-  import("../project/terms-panel").then((module) => ({ default: module.TermsPanel })),
-);
-const ReviewerResponsesPanel = lazy(() =>
-  import("../project/reviewer-responses-panel").then((module) => ({ default: module.ReviewerResponsesPanel })),
-);
 const AnnotationRoundsDialog = lazy(() =>
   import("../editor/comments/annotation-rounds-dialog").then((module) => ({ default: module.AnnotationRoundsDialog })),
 );
-
-/** Shared empty rule list, so the panel's check does not rerun for a new `[]`. */
-const NO_TERM_RULES: TermRule[] = [];
 
 /**
  * The Revision rounds sheet, loaded once it is first opened: the rounds'
@@ -115,10 +96,6 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   captureProjectScope: () => () => boolean;
   projectWordCount: WordCount | null;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
-  /** Save the open editor's unsaved edits, if any, before files are read or rewritten; false when that failed. */
-  saveEdits: () => Promise<boolean>;
-  /** Reload what a project-wide change rewrote: the open file, the tree, history. */
-  afterProjectEdits: () => Promise<void>;
   todoHits: TodoHit[];
   tools: Pick<ToolDrawers, "isOpen" | "open" | "close" | "loading">;
   unusedSymbols: UnusedSymbols;
@@ -166,40 +143,6 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
         return false;
       },
     );
-  };
-  /**
-   * The project's .tex files as on disk, once the open editor's edits are
-   * saved, so a change confirmed from them lands on what the writer sees. A
-   * file Lattice cannot read as text is left out of the check.
-   */
-  const readTermSources = async () => {
-    if (!(await props.saveEdits())) throw new Error(t`Save the open file to check its terms.`);
-    const root = project.root;
-    const paths = flattenProjectPaths(project.files).filter((path) => path.toLowerCase().endsWith(".tex"));
-    const read = await Promise.all(paths.map((path) => invoke<string>("read_project_file", { path, projectRoot: root }).then(
-      (text) => ({ path, text }),
-      () => null,
-    )));
-    return read.filter((source) => source !== null);
-  };
-  const applyTermChanges = async (label: string, files: Array<{ path: string; before: string; after: string }>) => {
-    if (!files.length) return false;
-    const ownsProject = props.captureProjectScope();
-    // Edits typed since the check are saved first; the backend then refuses
-    // a file that no longer reads as the check saw it.
-    const write = async () => {
-      if (!(await props.saveEdits()) || !ownsProject()) return false;
-      const changed = await invoke<string[]>("apply_term_edits", { projectRoot: project.root, label, files });
-      if (!ownsProject()) return false;
-      await props.afterProjectEdits();
-      const count = files.length;
-      showNotice(changed.length === 1 ? t`Changed the term in 1 file.` : t`Changed the terms in ${count} files.`);
-      return true;
-    };
-    return write().catch((reason: unknown) => {
-      if (ownsProject()) showError(toMessage(reason));
-      return false;
-    });
   };
   // Where the writer was writing: the active file, still active while a Paper
   // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
@@ -276,40 +219,6 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
             tools.close("todos");
           }}
         />
-      )}
-      {tools.isOpen.review && (
-        <Suspense fallback={null}>
-          <PaperReviewPanel
-            venue={typeof project.manifest.venue === "string" && project.manifest.venue ? project.manifest.venue : null}
-            annotations={comments.comments}
-            onClose={() => tools.close("review")}
-          />
-        </Suspense>
-      )}
-      {tools.isOpen.support && (
-        <Suspense fallback={null}>
-          <SupportPanel onClose={() => tools.close("support")} />
-        </Suspense>
-      )}
-      {tools.isOpen.terms && (
-        <Suspense fallback={null}>
-          <TermsPanel
-            rules={project.manifest.termRules ?? NO_TERM_RULES}
-            englishVariant={project.manifest.englishVariant ?? null}
-            readSources={readTermSources}
-            onSaveTerms={(rules: TermRule[], englishVariant: EnglishVariant | null) => writeManifest(
-              () => invoke<ProjectManifest>("set_project_terms", { rules, englishVariant }),
-            )}
-            onApply={applyTermChanges}
-            onOpen={(path, line) => void openProjectFile(path, { line })}
-            onClose={() => tools.close("terms")}
-          />
-        </Suspense>
-      )}
-      {tools.isOpen.responses && (
-        <Suspense fallback={null}>
-          <ReviewerResponsesPanel annotations={comments.comments} onClose={() => tools.close("responses")} />
-        </Suspense>
       )}
       {figuresOpen && <Suspense fallback={null}><FigureInventoryDialog
         key={project.root} project={project} activeFile={activeFile} activeSource={activeSource} onOpen={props.openFigureFile}
