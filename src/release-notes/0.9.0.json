@@ -1,0 +1,171 @@
+{
+  "version": "0.9.0",
+  "date": "2026-10-17",
+  "highlights": [
+    {
+      "icon": "message",
+      "title": {
+        "en": "Review the paper as a reviewer would",
+        "zh": "像审稿人一样审阅全文"
+      },
+      "body": {
+        "en": "A Review panel reads every file the root document reaches and writes a dated report: a verdict, strengths, and findings, each anchored to its passage and one click from an annotation.",
+        "zh": "审阅面板会读完根文档引用到的每个文件，写出一份带日期的报告：结论、优点和问题，每条都定位到原文段落，一键即可添加为批注。"
+      }
+    },
+    {
+      "icon": "message",
+      "title": {
+        "en": "Answer reviewer comments",
+        "zh": "逐条回复审稿意见"
+      },
+      "body": {
+        "en": "Paste the venue's reviews into the Responses panel: each comment gets a fixed number (R1.1, R2.3), an owner, a reply and links to the passages that changed, and the response letter exports as Markdown or LaTeX.",
+        "zh": "把会议或期刊的审稿意见粘贴到审稿回复面板：每条意见都有固定编号（R1.1、R2.3）、负责人、回复，以及指向修改段落的链接，回复信可以导出为 Markdown 或 LaTeX。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Export a review PDF",
+        "zh": "导出评阅 PDF"
+      },
+      "body": {
+        "en": "Pick the annotations to share and export the PDF with them as standard PDF comments any reader shows.",
+        "zh": "挑选要分享的批注，导出时以标准 PDF 注释写入，任何阅读器都能显示。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "Submission requirements and materials",
+        "zh": "投稿要求与材料"
+      },
+      "body": {
+        "en": "The Submission checklist keeps your own items under the automatic checks, each linked to a project file and flagged again when that file changes, with the deadline in AoE above it.",
+        "zh": "投稿检查在自动检查下方保存你自己的条目，每条可关联一个项目文件，文件变化后会重新标记；上方显示 AoE 时区的截止时间。"
+      }
+    },
+    {
+      "icon": "sparkles",
+      "title": {
+        "en": "Export for arXiv",
+        "zh": "导出 arXiv 提交包"
+      },
+      "body": {
+        "en": "The source pack is built from what the last build read and checked first: every figure included, the .bbl shipped, the pack building alone, TODO comments, and arXiv's 50 MB limit.",
+        "zh": "提交包按上次编译实际读取的文件生成，并先做检查：图片是否齐全、是否附带 .bbl、提交包能否单独编译、TODO 注释，以及 arXiv 的 50 MB 上限。"
+      }
+    },
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "Figure inventory",
+        "zh": "图片清单"
+      },
+      "body": {
+        "en": "See every figure, where the paper uses it, and what a pre-submission check finds, and replace one with a preview you can undo.",
+        "zh": "查看每张图片、它在论文中的引用位置以及投稿前检查的结果；替换图片前可以预览，替换后也能撤销。"
+      }
+    },
+    {
+      "icon": "git",
+      "title": {
+        "en": "Compare any two versions",
+        "zh": "对比任意两个版本"
+      },
+      "body": {
+        "en": "History compares any two versions as marked prose or a line diff, and exports a PDF with the changes marked.",
+        "zh": "历史可以对比任意两个版本，以标注修改的正文或逐行差异显示，并导出标出修改的 PDF。"
+      }
+    },
+    {
+      "icon": "sparkles",
+      "title": {
+        "en": "Term rules",
+        "zh": "术语规则"
+      },
+      "body": {
+        "en": "A Terms panel keeps the names, spellings and English variant a paper settles on, and lists every place across the .tex files that writes a term another way.",
+        "zh": "术语面板记录论文确定下来的名称、拼写和英语变体，并列出所有 .tex 文件中写法不一致的地方。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "Find support for a claim",
+        "zh": "为论点查找支持文献"
+      },
+      "body": {
+        "en": "Select a sentence and Lattice finds papers whose abstracts bear on it, each with the sentence that speaks to it and one click to cite.",
+        "zh": "选中一句话，Lattice 会找出摘要与之相关的论文，每篇附上摘要中对应的那句话，一键即可引用。"
+      }
+    },
+    {
+      "icon": "plug",
+      "title": {
+        "en": "Link a reference manager's .bib",
+        "zh": "关联文献管理器的 .bib"
+      },
+      "body": {
+        "en": "A Zotero or Paperpile export outside the project stays linked, and its new papers and changed fields are shown for review before they land.",
+        "zh": "项目之外的 Zotero 或 Paperpile 导出文件会保持关联，新增的论文和变化的字段会先列出供你确认，再写入项目。"
+      }
+    },
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "Tables from pasted data",
+        "zh": "用粘贴的数据生成表格"
+      },
+      "body": {
+        "en": "Paste CSV or spreadsheet cells into Insert table, edit the grid, and reopen a generated table later to change it.",
+        "zh": "在插入表格中粘贴 CSV 或电子表格单元格，编辑表格后插入；之后还能重新打开生成的表格进行修改。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Local templates",
+        "zh": "本地模板"
+      },
+      "body": {
+        "en": "Start a new project from your own reusable templates, or from a blank one.",
+        "zh": "新建项目时可以使用你自己的可复用模板，也可以从空白文档开始。"
+      }
+    },
+    {
+      "icon": "gauge",
+      "title": {
+        "en": "A faster app",
+        "zh": "更快的应用"
+      },
+      "body": {
+        "en": "The React Compiler now optimizes the main window, its editor, PDF and panels render independently of each other, and startup loads less JavaScript.",
+        "zh": "React Compiler 现在会优化主窗口，编辑器、PDF 和各个面板彼此独立渲染，启动时加载的 JavaScript 也更少了。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Overleaf shows \"Synced\" only once Overleaf has acknowledged the change.",
+      "zh": "只有在 Overleaf 确认收到修改后，才会显示“已同步”。"
+    },
+    {
+      "en": "Results that arrive late from one project no longer show up in the next one after a switch.",
+      "zh": "切换项目后，上一个项目迟到的结果不会再出现在新项目中。"
+    },
+    {
+      "en": "Enter in Go to line no longer types a newline into the source.",
+      "zh": "在“跳到行”中按回车不会再往源码里插入换行。"
+    },
+    {
+      "en": "Save a copy after a failed save, and line jumps, act on the document on screen.",
+      "zh": "保存失败后的“保存副本”以及跳到行，都会作用于屏幕上正在显示的文档。"
+    },
+    {
+      "en": "The PDF can be read from the keyboard after entering a page number or using Find.",
+      "zh": "输入页码或使用查找后，可以继续用键盘阅读 PDF。"
+    }
+  ]
+}
