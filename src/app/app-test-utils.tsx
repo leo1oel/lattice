@@ -792,7 +792,7 @@ export function dragTreeItem(source: Element, target: Element | (() => Element))
 
 /** A loaded pdf.js document of identical stub pages; `pages` overrides the page stub. */
 export function pdfDocumentStub(numPages: number, pages: object = {}, extra: object = {}) {
-  return { numPages, getPage: vi.fn(async () => pdfPageStub(pages)), getDestination: vi.fn(), getPageIndex: vi.fn(), ...extra };
+  return { numPages, getPage: vi.fn(async () => pdfPageStub(pages)), getDestination: vi.fn(), getPageIndex: vi.fn(), getData: vi.fn(async () => new Uint8Array()), ...extra };
 }
 
 /** Makes every pdf.js load resolve to `document()`. */
