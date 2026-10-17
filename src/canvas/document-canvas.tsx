@@ -524,7 +524,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     });
     if (!comment) return false;
     const created = onCreateEditorComment(comment);
-    if (created && !(created instanceof Promise) && extra.revise) props.review.annotationRounds.revise();
+    if (created && extra.revise) props.review.annotationRounds.revise();
     return true;
   };
   const closeCommentComposer = () => {

@@ -569,8 +569,7 @@ export class AnnotationRounds {
       intent, pdf: { page: selection.page, rects: selection.rects, text: selection.text },
     });
     if (!comment) return false;
-    const created = deps.store.create(comment);
-    if (created && !(created instanceof Promise) && revise) this.revise();
+    if (deps.store.create(comment) && revise) this.revise();
     return true;
   };
 

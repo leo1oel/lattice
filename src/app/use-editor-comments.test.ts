@@ -64,7 +64,7 @@ it("deletes a comment at once and its undo puts it back where it was, keeping la
   const undo = lastUndo();
 
   // Something else changes before the undo; the undo must not lose it.
-  act(() => { view.result.current.create(comment("d")); });
+  act(() => view.result.current.create(comment("d")));
   act(() => undo());
   expect(ids(view.result.current.comments)).toEqual(["a", "b", "c", "d"]);
   expect(saved().at(-1)).toEqual(["a", "b", "c", "d"]);

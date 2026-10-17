@@ -164,7 +164,7 @@ type CanvasReview = Readonly<{
   commentAuthorName: string;
   commentAuthorId: string;
   /** Saves a new note; resolves to the local annotation it became, or null (an Overleaf thread, or none). */
-  onCreateEditorComment: (comment: EditorComment) => EditorComment | Promise<boolean> | null;
+  onCreateEditorComment: (comment: EditorComment) => EditorComment | null;
   /** The revision rounds over the local annotations: the review card, Revise, the PDF's marks. */
   annotationRounds: AnnotationRounds;
   onOpenEditorComments: () => void;
