@@ -8,18 +8,18 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-10-15 against upstream
-`v1.0.5` (`1eb2beb6b5019fc311f23a3deb5362f68d07d537`), the current integration changes
-**734 files, +77,447 / −8,287 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-16 against upstream
+`v1.0.6` (`7cfd65d77a3ffc14259bf3c0fe29d32e28d0d749`), the current integration changes
+**753 files, +84,450 / −8,429 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.5 HEAD
+git diff --shortstat v1.0.6 HEAD
 ```
 
-The current pin is the upstream **1.0.5 stable release**, merged with the complete previous
-`amp/lattice-v1.0.4-sync` history (which carries the earlier `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.6 stable release**, merged with the complete previous
+`amp/lattice-v1.0.5-sync` history (which carries the earlier `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -110,3 +110,17 @@ Changes lists, stages and commits from Git's own file list rather than from the 
 A working tree whose unstaged patch passed the 1 MB response cap used to parse to no files and read "Everything is committed" with no list or commit form; it now lists every file, says the preview was cut, and loads a cut-off file's change when it is opened.
 Git C-quotes non-ASCII, quote, tab and backslash names in patch headers, so a file such as `…-中文.tex` showed as `…-\344\270\255\346\226\207.tex` and Stage sent that string to `git add`, which matched nothing; rows now show and act on the raw name, a rename stages, unstages and commits both of its paths, and the pull request redline decodes those headers too.
 The clean state also waits for `git.status` to report a clean tree.
+
+## Synara 1.0.6 compatibility
+
+1.0.6 is a reliability patch, and none of it adds an embedded surface.
+Long chats stop rescanning their activity history on streaming and checkpoint paths, so opening and streaming into a long conversation costs less.
+RPCs from the panel now wait in bounded first-in-first-out queues by request class instead of being rejected and retried, and repository and workspace-file refreshes are throttled with a final trailing read; the server-busy popup and its client heartbeat are gone, so the panel no longer raises that notice (the fork drops its localized copy of it).
+The classification of requests moved into the shared package, so the fork's `/mcp` list and action requests and commit-message generation are classified as expensive reads there, as they were in the server before.
+Runtime reconciliation keeps the live turn owner and pages through stale candidates, a provider handoff settles known outcomes without replaying them, and a partial model catalog no longer overwrites a complete one, which also discards the old cached catalog once.
+Claude's model controls follow the effort, adaptive-thinking and fast-mode metadata of the installed CLI; the picker the embed shares drops the old synthetic "Default" effort, and an unset effort leaves Claude Code's own default in charge.
+Git diff reads pin the `a/` and `b/` prefixes whatever the user's Git configuration says, including the per-file reads behind Changes.
+Codex moderation metadata no longer becomes chat activity, and Antigravity quota (not offered in Lattice) uses the matching OAuth client.
+The ASCII landing fading around the composer belongs to the standalone empty landing, which the embed replaces with its own empty thread.
+Upstream turned the /, @ and + menus into opaque popovers and dropped the `chat-composer-menu-surface` class; the fork keeps that class as a style-free hook, so the embed still gives them the host-themed composer surface (`#fafafa` in the light theme) instead of the popover white.
+1.0.6 adds no strings that render in the panel, and removing the server-busy popup retires its zh-CN entries.
