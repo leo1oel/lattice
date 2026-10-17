@@ -72,7 +72,6 @@ function editorLiveData(live: SourceSessionLive): { readonly current: LatexEdito
         projectRoot: preferences.projectRoot,
         spellingWords: preferences.spellingWords,
         onAddSpellingWord: preferences.onAddSpellingWord,
-        englishVariant: preferences.englishVariant,
       };
     },
   };

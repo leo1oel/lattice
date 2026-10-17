@@ -617,6 +617,24 @@ mod tests {
     }
 
     #[test]
+    fn a_rewrite_keeps_the_keys_it_does_not_read() {
+        let fixture = Fixture::folder("unread-keys", "paper");
+        let mut manifest = serde_json::to_value(default_manifest("paper")).unwrap();
+        let terms = serde_json::json!([{ "term": "ResNet", "variants": ["Resnet"] }]);
+        manifest["termRules"] = terms.clone();
+        manifest["englishVariant"] = "british".into();
+        fixture.write(MANIFEST_PATH, manifest.to_string());
+
+        set_spelling_words(&fixture.root, vec!["frobnicator".to_string()]).unwrap();
+
+        let written: serde_json::Value =
+            serde_json::from_str(&fixture.read(MANIFEST_PATH)).unwrap();
+        assert_eq!(written["termRules"], terms);
+        assert_eq!(written["englishVariant"], "british");
+        assert_eq!(written["spellingWords"], serde_json::json!(["frobnicator"]));
+    }
+
+    #[test]
     fn opening_a_folder_claims_only_root_documents_it_has() {
         let fixture = Fixture::folder("markdown-only", "notes");
         fixture.write("ideas.md", "# Ideas\n");

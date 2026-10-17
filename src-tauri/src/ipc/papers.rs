@@ -4,7 +4,7 @@ use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
-use crate::models::{LiteratureHit, ProjectSearchResult};
+use crate::models::ProjectSearchResult;
 use crate::papers::{ImportResult, PaperSummary};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::collections::BTreeMap;
@@ -28,12 +28,6 @@ pub async fn search_literature(
     let (precise, page) = (precise.unwrap_or(false), page.unwrap_or(0));
     run_blocking("The literature search task", move || literature::search(&query, precise, page))
         .await
-}
-
-/// Works with an abstract that speaks to `query`, for Find support.
-#[tauri::command]
-pub async fn search_literature_abstracts(query: String) -> Result<Vec<LiteratureHit>, String> {
-    run_blocking("The literature search task", move || literature::search_abstracts(&query)).await
 }
 
 #[tauri::command]

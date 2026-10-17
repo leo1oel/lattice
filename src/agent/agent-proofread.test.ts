@@ -30,19 +30,6 @@ describe("proofreadPrompt", () => {
     expect(prompt).toMatch(/Preserve all math verbatim/);
     expect(prompt).toContain("<proofread>");
   });
-
-  it("takes the project's English variant over the excerpt's, and its term rules last", () => {
-    const plain = proofreadPrompt("Text.", "main.tex");
-    expect(plain).toMatch(/Follow the English spelling variant already used/);
-    const prompt = proofreadPrompt("Text.", "main.tex", "proofread", "English", {
-      spelling: "Spell in British English throughout; the project settles it.",
-      rules: ["The project settles these terms.", "- \"zero-shot\" (not \"zero shot\")"],
-    });
-    expect(prompt).not.toMatch(/Follow the English spelling variant already used/);
-    expect(prompt).toContain("Spell in British English");
-    expect(prompt.indexOf("- \"zero-shot\"")).toBeGreaterThan(prompt.indexOf("Preserve all math verbatim"));
-    expect(prompt.indexOf("- \"zero-shot\"")).toBeLessThan(prompt.indexOf("<excerpt>"));
-  });
 });
 
 describe("parseProofreadReply", () => {

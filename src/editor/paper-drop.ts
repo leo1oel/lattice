@@ -77,30 +77,6 @@ export function latexCitationDrop(source: string, dropPosition: number, key: str
   return { from: at, to: at, insert: `${tie}\\citep{${key}}${space}` };
 }
 
-/** Sentence punctuation a claim may end on; the citation goes before it, as "claim~\citep{key}." */
-const CLOSING_PUNCTUATION = /[.,;:!?。，；：！？]/;
-
-/**
- * The citation for a claim at `[from, to)` of `source`, after its last word:
- * before the full stop or comma that ends it, and into the citation list
- * that already follows it (after a space or a tie) rather than beside it.
- * Null when that list already cites `key`.
- */
-export function latexCitationAfter(source: string, from: number, to: number, key: string): CitationEdit | null {
-  let end = to;
-  while (end > from && /\s/.test(source[end - 1])) end -= 1;
-  if (end > from && CLOSING_PUNCTUATION.test(source[end - 1]) && source[end - 2] !== "\\") end -= 1;
-  while (end > from && /\s/.test(source[end - 1])) end -= 1;
-  let next = end;
-  while (next < source.length && /[ \t~]/.test(source[next])) next += 1;
-  const following = new RegExp(CITATION_COMMAND.source, "y");
-  following.lastIndex = next;
-  const command = following.exec(source);
-  // Before its closing brace, so the key joins the end of that list.
-  if (command) return latexCitationDrop(source, next + command[0].length - 1, key);
-  return latexCitationDrop(source, end, key);
-}
-
 /**
  * Where the drop caret goes for a citation dropped at `dropPosition`: where
  * `latexCitationDrop` puts the key, or null when that drop inserts nothing.

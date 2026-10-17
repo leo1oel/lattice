@@ -30,9 +30,6 @@ export type ProjectManifest = {
   deadline?: ProjectDeadline | null;
   spellingWords?: string[];
   submissionItems?: SubmissionItem[];
-  /** Unset: spell checking stays American and Proofread follows the text's own spelling. */
-  englishVariant?: EnglishVariant | null;
-  termRules?: TermRule[];
 };
 
 /**
@@ -55,23 +52,6 @@ export type SubmissionItem = {
   /** The linked file's mtime when the item was confirmed; the backend stamps one sent without it. */
   confirmedMtimeMs?: number;
 };
-
-export type EnglishVariant = "american" | "british" | "canadian" | "australian";
-
-/**
- * A term the paper settles on (src-tauri/src/project/terms.rs): the form it
- * writes, the other forms the check finds, why, and the places the writer
- * chose to keep as written.
- */
-export type TermRule = {
-  term: string;
-  variants: string[];
-  note?: string;
-  skipped?: TermSkip[];
-};
-
-/** A place kept as written: its file and the words around the form there. */
-type TermSkip = { path: string; context: string };
 
 /** The submission deadline, as a wall-clock time Anywhere on Earth ("2027-05-15T23:59"). */
 export type ProjectDeadline = {
@@ -354,21 +334,6 @@ export type CompileProject = (force?: boolean, sound?: boolean, options?: { cons
 /** Put the caret (a character offset) and scroll position back in a file. */
 export type ViewRestoreRequest = { path: string; cursor: number; scrollTop: number; id: string };
 /** One-shot requests App hands the canvas; each is answered once and settled by its id. */
-/** How a citation placed after a claim went: placed, already there, the claim gone, or a file the editor can't change. */
-export type ClaimCitationOutcome = "cited" | "already" | "moved" | "read-only";
-/**
- * A claim a citation goes after (Find support's Cite), found again in its
- * file as an annotation is; `settled` hears how it went.
- */
-type CitationTarget = {
-  path: string;
-  from: number;
-  to: number;
-  quote: string;
-  prefix: string;
-  suffix: string;
-  settled: (outcome: ClaimCitationOutcome) => void;
-};
 export type CanvasRequests = {
   /** Jump the editor holding `path` to a line. */
   navigation: EditorNavigation | null;
@@ -378,8 +343,8 @@ export type CanvasRequests = {
   rename: { newName: string; id: string } | null;
   /** Wrap the selection in a new environment. */
   wrap: { name: string; id: string } | null;
-  /** Insert `\cite{key}`-style commands at the caret, or after a claim (`at`). */
-  cite: { key: string; command: InsertSymbolCommand; id: string; at?: CitationTarget } | null;
+  /** Insert `\cite{key}`-style commands at the caret. */
+  cite: { key: string; command: InsertSymbolCommand; id: string } | null;
   /** Insert imported figures where they were dropped (or at the caret). */
   figure: FigureDropRequest | null;
   /** Proofread or polish the source editor's selection, as its ⌘⌥P and selection toolbar do. */

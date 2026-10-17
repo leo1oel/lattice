@@ -16,7 +16,7 @@ import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scri
 import { arxivAnswer } from "./bench-arxiv";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
-import type { EnglishVariant, FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem, TermRule } from "../../src/app-types";
+import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
 import {
@@ -161,21 +161,6 @@ function stageTypo(files: Map<string, string | Uint8Array>) {
 }
 stageTypo(current.files);
 
-// `?review=unread` has main.tex input a results section whose read fails, as
-// an unreadable file's does, so the review's report says what it did not
-// cover; `?review=unread-long` names that file at length, for narrow panels.
-const UNREAD_INCLUDE = params.get("review") === "unread-long"
-  ? "sections/experimental-results-and-ablations-on-long-context-benchmarks.tex"
-  : "sections/results.tex";
-const unreadInclude = params.get("review")?.startsWith("unread") ?? false;
-function stageUnreadInclude(files: Map<string, string | Uint8Array>) {
-  const main = files.get("main.tex");
-  if (!unreadInclude || typeof main !== "string" || files.has(UNREAD_INCLUDE)) return;
-  files.set("main.tex", main.replace("\\end{document}", `\\input{${UNREAD_INCLUDE.replace(/\.tex$/, "")}}\n\\end{document}`));
-  files.set(UNREAD_INCLUDE, "\\section{Results}\n");
-}
-stageUnreadInclude(current.files);
-
 async function openTutorial(): Promise<ProjectSnapshot> {
   if (current.root !== TUTORIAL_ROOT) {
     const relative = (path: string) => path.slice(path.indexOf("/tutorial/") + "/tutorial/".length);
@@ -186,7 +171,6 @@ async function openTutorial(): Promise<ProjectSnapshot> {
       tutorialFiles.set(relative(path), new Uint8Array(await (await fetch(url)).arrayBuffer()));
     }
     stageTypo(tutorialFiles);
-    stageUnreadInclude(tutorialFiles);
     Object.assign(current, { root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
   }
   return snapshot();
@@ -354,39 +338,6 @@ let benchItems: SubmissionItem[] = params.get("submissionItems") === "1"
   ]
   : [];
 
-/**
- * `?terms=1` stages the Terms panel: three rules, British English, and a
- * section whose prose writes the terms other ways, beside the same forms in
- * math, a comment, keys and a path, which stay as written. `?terms=long`
- * adds a rule and a folder with long names, for the panel's narrow widths.
- */
-const stagedTerms = params.get("terms");
-let benchTermRules: TermRule[] = stagedTerms ? [
-  { term: "zero-shot", variants: ["zero shot", "zeroshot"], note: "Hyphenated when it modifies a noun." },
-  { term: "ResNet", variants: [] },
-  { term: "fine-tuning", variants: ["finetuning", "fine tuning"] },
-  ...(stagedTerms === "long" ? [{
-    term: "retrieval-augmented generation",
-    variants: ["retrieval augmented generation", "retrieval-augmented-generation", "Retrieval Augmented Generation (RAG)"],
-    note: "Spelled out in full on first use in every section, then RAG; the hyphen joins the compound modifier.",
-  }] : []),
-] : [];
-let benchEnglishVariant: EnglishVariant | null = stagedTerms ? "british" : null;
-if (stagedTerms) {
-  const folder = stagedTerms === "long" ? "sections/experiments-on-zero-shot-transfer-across-benchmarks" : "sections";
-  current.files.set(`${folder}/method.tex`, [
-    "\\section{Zero Shot Transfer}",
-    "We evaluate zero shot transfer with a Resnet backbone. Zero shot results follow the zeroshot protocol,",
-    "and finetuning uses the same ResNet weights; fine tuning took two hours.",
-    "我们的 zero shot 设置沿用 Resnet-50。",
-    stagedTerms === "long" ? "Retrieval augmented generation helps; retrieval augmented generation costs more." : "",
-    "\\begin{figure}\\caption{A zero shot example.}\\label{fig:zero shot}\\end{figure}",
-    "% zero shot: kept, a comment",
-    "Math $zero shot$ and \\cite{resnet} and \\includegraphics{figs/zero shot.pdf} stay as written.",
-    "",
-  ].join("\n"));
-}
-
 function snapshot(): ProjectSnapshot {
   return {
     root: current.root,
@@ -400,8 +351,6 @@ function snapshot(): ProjectSnapshot {
       venue: "neurips",
       deadline: benchDeadline,
       submissionItems: benchItems,
-      termRules: benchTermRules,
-      englishVariant: benchEnglishVariant,
     },
     files: fileTree(),
   };
@@ -651,160 +600,6 @@ const UNSAFE_FIXES: Fix[] = [
 ];
 const proofreadTasks = new Map<string, { text: string; ready: number }>();
 
-// --- Reviewer's pass ------------------------------------------------------
-// The agent's review of the tutorial: real passages of its main.tex, with a
-// point whose quote the paper does not hold (Lattice leaves it out). The
-// report comes back 2.5 s after the ask; `?review=running` holds it until the
-// page reloads, for the running state, `?review=failed` fails the task, and
-// `?review=long` gives every point a long title and place, for narrow panels.
-// `.research/reviews/` is kept in memory.
-
-const REVIEW_REPORT = (zh: boolean) => ({
-  readiness: "needs-work",
-  verdict: zh
-    ? "一篇清楚、严谨的教程。有两处会让审稿人停下来：§3 关于“解释”的论断没有出处，数值例子也无法核对。其余都是润色层面的问题。"
-    : "A clear, careful tutorial. Two things would stop a reviewer: the explanation claim in §3 has no source, and the numerical example can’t be checked. The rest is polish.",
-  strengths: zh
-    ? ["清楚区分了注意力“计算了什么”和“解释了什么”。", "每个公式后面都有一句话说明它的作用。", "表 1 比较的是角色，而不是不可比的分数。"]
-    : ["A careful line between what attention computes and what it explains.", "Every equation is followed by one sentence that says what it does.", "Table 1 compares roles, not incompatible scores."],
-  findings: [
-    {
-      kind: "key", severity: "major", section: "§3", file: "main.tex", search: "attention as explanation faithfulness",
-      title: zh ? "关于“注意力即解释”的论断缺少出处" : "A claim about attention as explanation has no source",
-      quote: "Attention visualizations describe routing weights inside a model, not a causal explanation of the model's final prediction.",
-      reason: zh
-        ? "这是全文最强的论断，审稿人一定会要证据。Jain & Wallace (2019) 与 Wiegreffe & Pinter (2019) 分别给出了正反两方面的论证，引用它们并说明你依据的是哪一个结论。"
-        : "This is the paper's strongest claim and a reviewer will ask for evidence. Jain & Wallace (2019) and Wiegreffe & Pinter (2019) argue both sides; cite them and say which result you rely on.",
-    },
-    {
-      kind: "key", severity: "major", section: "§2.1", file: "main.tex",
-      title: zh ? "数值例子无法复现" : "The numerical example can’t be reproduced",
-      quote: "For the query at \\emph{connects}, suppose the scaled scores are",
-      reason: zh
-        ? "这个例子跳过了它要说明的那一步：请给出原始点积和 d_k，让读者能在 softmax 之前核对缩放。"
-        : "The example skips the step it illustrates: give the raw dot products and d_k, so a reader can check the scaling before the softmax.",
-    },
-    {
-      kind: "citation", severity: "minor", section: "§3", file: "main.tex", search: "relative position representations transformer",
-      title: zh ? "“可学习或相对位置表示”没有引用" : "“Learned or relative position representations” is uncited",
-      quote: "many later architectures use learned or relative position representations",
-      reason: zh ? "至少各举一例，例如相对位置的 Shaw et al. (2018) 与 RoFormer (2021)。" : "Name at least one of each, e.g. Shaw et al. (2018) for relative positions and RoFormer (2021).",
-    },
-    {
-      kind: "citation", severity: "minor", section: "§5", file: "main.tex", search: "FlashAttention exact attention IO-aware",
-      title: zh ? "“精确注意力”需要限定" : "“Exact attention” needs its qualifier",
-      quote: "FlashAttention computes exact attention while tiling operations to reduce expensive transfers",
-      reason: zh ? "它在浮点运算重排的意义下是精确的；照 FlashAttention 原文那样说明这一点。" : "Exact up to floating-point reordering; say so, as the FlashAttention paper does.",
-    },
-    {
-      kind: "clarity", severity: "minor", section: "§7", file: "main.tex",
-      title: zh ? "“可复现的学习流程”一节读起来像产品说明" : "“Reproducible learning workflow” reads as product notes",
-      quote: "This repository is also a worked example of a research workspace.",
-      reason: zh ? "它打断了第 6 节与结论之间的论证，建议移到附录。" : "It interrupts the argument between §6 and the conclusion; move it to an appendix.",
-    },
-    {
-      kind: "question", severity: "minor", section: "Table 1", file: "main.tex",
-      title: zh ? "ViT 一行是否默认使用了 class token？" : "Does the ViT row assume a class token?",
-      quote: "ViT & Image patch & Bidirectional & Image classification",
-      reason: zh ? "说明分类读取的是 [CLS] token 还是对图块做池化；这会改变“双向”所指的范围。" : "Say whether classification reads a [CLS] token or pools patches; it changes what “bidirectional” covers.",
-    },
-    {
-      kind: "clarity", severity: "minor", section: "§4", file: "main.tex",
-      title: "Invented", quote: "A sentence the tutorial never wrote.", reason: "",
-    },
-  ],
-});
-let paperReviewState: unknown = null;
-/**
- * The reviewer responses the page keeps, as `.research/responses.json` would.
- * `?responses=1` seeds two reviewers' comments at every status, linked to the
- * notes `?annotations=1` seeds (one link shared by two comments, one to a
- * deleted annotation), with a long owner name.
- */
-let reviewerResponsesState: unknown = params.get("responses") ? seededResponses() : null;
-
-function seededResponses() {
-  const at = new Date(Date.now() - 3_600_000).toISOString();
-  const comment = (id: string, reviewer: number, number: number, text: string, rest: Record<string, unknown> = {}) => ({
-    id, reviewer, number, comment: text, owner: "", reply: "", replyChecked: false, change: "todo", annotationIds: [],
-    createdAt: at, updatedAt: at, ...rest,
-  });
-  return {
-    version: 1,
-    reviewers: { 1: "xK7p" },
-    last: { 1: 4, 2: 2 },
-    comments: [
-      comment("bench-r1-1", 1, 1, "W1: The opening never says what the reader will be able to do after the tutorial. State the goal before defining attention.", {
-        owner: "Leo", reply: "We now open with what the tutorial teaches, before the definition.", replyChecked: true, change: "done", annotationIds: ["bench-annotation-1", "bench-annotation-3"],
-      }),
-      comment("bench-r1-2", 1, 2, "W2: The contrast with recurrent networks is implied but never made. One sentence would help readers new to sequence models.\n  - especially in Section 2", {
-        owner: "Maximiliane Rosenkranz-Oyelaran", reply: "Added a clause contrasting parallel training with an RNN's step-by-step pass.", change: "done", annotationIds: ["bench-annotation-3"],
-      }),
-      comment("bench-r1-4", 1, 4, "Q1: Why is the scale exactly 1/sqrt(d_k)? A short intuition before the variance argument would make §3 easier to follow.", {
-        change: "todo", annotationIds: ["bench-annotation-4", "bench-annotation-deleted"],
-      }),
-      comment("bench-r2-1", 2, 1, "The related-work discussion leaves out multiplicative attention variants (Luong et al., 2015).", {
-        owner: "Ada", reply: "We cite Luong et al. and name both variants.", replyChecked: true, change: "todo", annotationIds: ["bench-annotation-5"],
-      }),
-      comment("bench-r2-2", 2, 2, "Minor: figure 1's caption repeats the body text.", {
-        reply: "Thank you; we shortened the caption.", replyChecked: true, change: "none",
-      }),
-    ],
-  };
-}
-
-// --- Find support ---------------------------------------------------------
-// OpenAlex's answer for a claim about attention as explanation: three real
-// abstracts that speak to it (Jain & Wallace, Serrano & Smith, Wiegreffe &
-// Pinter) and one that does not. The agent picks keywords, then names the
-// three with a sentence from each, and one passage no abstract holds
-// (Lattice leaves it out). `?support=running` holds the reading until the
-// page reloads, `?support=none` finds nothing that speaks to the claim,
-// `?support=failed` fails the reading, and `?support=long` gives every paper
-// a long title, venue and author list, for narrow panels.
-
-const SUPPORT_HITS = [
-  {
-    source: "openalex", title: "Attention is not Explanation", year: 2019, venue: "North American Chapter of the Association for Computational Linguistics",
-    authors: ["Sarthak Jain", "Byron C. Wallace"], doi: "10.18653/v1/n19-1357", citedByCount: 1580,
-    abstract: "Attention mechanisms have seen wide adoption in neural NLP models. In addition to improving predictive performance, these are often touted as affording transparency: models equipped with attention provide a distribution over attended-to input units, and this is often presented (at least implicitly) as communicating the relative importance of inputs. However, it is unclear what relationship exists between attention weights and model outputs. In this work we perform extensive experiments across a variety of NLP tasks that aim to assess the degree to which attention weights provide meaningful “explanations” for predictions. We find that they largely do not. For example, learned attention weights are frequently uncorrelated with gradient-based measures of feature importance, and one can identify very different attention distributions that nonetheless yield equivalent predictions. Our findings show that standard attention modules do not provide meaningful explanations and should not be treated as though they do.",
-  },
-  {
-    source: "openalex", title: "Is Attention Interpretable?", year: 2019, venue: "Annual Meeting of the Association for Computational Linguistics",
-    authors: ["Sofia Serrano", "Noah A. Smith"], doi: "10.18653/v1/p19-1282", arxivId: "1906.03731", citedByCount: 820,
-    abstract: "Attention mechanisms have recently boosted performance on a range of NLP tasks. Because attention layers explicitly weight input components’ representations, it is also often assumed that attention can be used to identify information that models found important (e.g., specific contextualized word tokens). We test whether that assumption holds by manipulating attention weights in already-trained text classification models and analyzing the resulting differences in their predictions. While we observe some ways in which higher attention weights correlate with greater impact on model predictions, we also find many ways in which this does not hold, i.e., where gradient-based rankings of attention weights better predict their effects than their magnitudes. We conclude that while attention noisily predicts input components’ overall importance to a model, it is by no means a fail-safe indicator.",
-  },
-  {
-    source: "openalex", title: "Attention is not not Explanation", year: 2019, venue: "Empirical Methods in Natural Language Processing",
-    authors: ["Sarah Wiegreffe", "Yuval Pinter"], doi: "10.18653/v1/d19-1002", arxivId: "1908.04626", citedByCount: 900,
-    abstract: "Attention mechanisms play a central role in NLP systems, especially within recurrent neural network (RNN) models. Recently, there has been increasing interest in whether or not the intermediate representations offered by these modules may be used to explain the reasoning for a model’s prediction, and consequently reach insights regarding the model’s decision-making process. A recent paper claims that ‘Attention is not Explanation’ (Jain and Wallace, 2019). We challenge many of the assumptions underlying this work, arguing that such a claim depends on one’s definition of explanation, and that testing it needs to take into account all elements of the model. We propose four alternative tests to determine when/whether attention can be used as explanation.",
-  },
-  {
-    source: "openalex", title: "Attention Is All You Need", year: 2017, venue: "Neural Information Processing Systems",
-    authors: ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar", "Jakob Uszkoreit", "Llion Jones"], arxivId: "1706.03762", citedByCount: 120000,
-    abstract: "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
-  },
-];
-
-const SUPPORT_REPLY = {
-  papers: [
-    { id: "p1", signal: "supports", passage: "For example, learned attention weights are frequently uncorrelated with gradient-based measures of feature importance, and one can identify very different attention distributions that nonetheless yield equivalent predictions." },
-    { id: "p2", signal: "supports", passage: "We conclude that while attention noisily predicts input components’ overall importance to a model, it is by no means a fail-safe indicator." },
-    { id: "p3", signal: "mixed", passage: "We challenge many of the assumptions underlying this work, arguing that such a claim depends on one’s definition of explanation, and that testing it needs to take into account all elements of the model." },
-    { id: "p4", signal: "contradicts", passage: "Attention is a faithful explanation of every prediction." },
-  ],
-};
-
-function supportHits() {
-  if (params.get("support") !== "long") return SUPPORT_HITS;
-  return SUPPORT_HITS.map((hit) => ({
-    ...hit,
-    title: `${hit.title}: ${hit.title} — a Longer Title, with a Subtitle That Wraps`,
-    venue: `Proceedings of the 2019 Conference of the ${hit.venue}: Human Language Technologies, Volume 1 (Long and Short Papers)`,
-    authors: [...hit.authors, "Alexandria Ocasio-Fitzgerald-Montgomery", "Jean-Baptiste Delacroix-Hernández"],
-  }));
-}
-
 // --- Annotations ----------------------------------------------------------
 // `.research/annotations.json` kept in memory. On the tutorial, `?annotations=1`
 // seeds five open notes (one made on the PDF), `?annotations=review` a round
@@ -948,31 +743,6 @@ function textTask(args: Args): unknown {
   if (action === "start") {
     if (mode === "unavailable") throw "agent_route_unavailable";
     const prompt = String(args?.prompt ?? "");
-    if (prompt.startsWith("Review the LaTeX paper")) {
-      const taskId = `text-task:${proofreadTasks.size + 1}`;
-      const report = REVIEW_REPORT(prompt.includes("in Simplified Chinese"));
-      if (params.get("review") === "long") {
-        for (const finding of report.findings) {
-          finding.title = `${finding.title} ${finding.title}`;
-          finding.section = `${finding.section}, Appendix B.3 (Ablations)`;
-        }
-      }
-      const ready = params.get("review") === "running" ? Infinity : performance.now() + 2_500;
-      proofreadTasks.set(taskId, { text: `<review>\n${JSON.stringify(report, null, 2)}\n</review>`, ready });
-      return { taskId };
-    }
-    if (prompt.startsWith("Suggest how to search the scholarly literature")) {
-      const taskId = `text-task:${proofreadTasks.size + 1}`;
-      proofreadTasks.set(taskId, { text: "<terms>attention weights explanation faithfulness</terms>", ready: performance.now() + 900 });
-      return { taskId };
-    }
-    if (prompt.startsWith("A writer wants to know which papers bear on a claim")) {
-      const taskId = `text-task:${proofreadTasks.size + 1}`;
-      const reply = params.get("support") === "none" ? { papers: [] } : SUPPORT_REPLY;
-      const ready = params.get("support") === "running" ? Infinity : performance.now() + 1_800;
-      proofreadTasks.set(taskId, { text: `<support>\n${JSON.stringify(reply, null, 2)}\n</support>`, ready });
-      return { taskId };
-    }
     if (prompt.startsWith("Revise a passage")) {
       const taskId = `text-task:${proofreadTasks.size + 1}`;
       proofreadTasks.set(taskId, { text: annotationReply(prompt), ready: performance.now() + 1_200 + Math.random() * 1_600 });
@@ -1000,9 +770,7 @@ function textTask(args: Args): unknown {
   if (!task) throw "Agent task not found.";
   if (action === "cancel") return { status: "running" };
   if (performance.now() < task.ready) return { status: "running" };
-  if (mode === "failed" || params.get("review") === "failed" || (params.get("support") === "failed" && task.text.startsWith("<support>"))) {
-    return { status: "failed", message: "Codex is not signed in." };
-  }
+  if (mode === "failed") return { status: "failed", message: "Codex is not signed in." };
   const model = params.get("proofreadModel");
   return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
@@ -1101,7 +869,6 @@ function answer(command: string, args: Args): unknown {
     case "open_tutorial_project":
       return openTutorial();
     case "read_project_file": {
-      if (unreadInclude && pathArg(args) === UNREAD_INCLUDE) throw new Error("Permission denied (os error 13)");
       const content = current.files.get(pathArg(args));
       if (typeof content !== "string") throw new Error(`No such text file: ${pathArg(args)}`);
       return content;
@@ -1200,27 +967,6 @@ function answer(command: string, args: Args): unknown {
     // The fixture's health is all it knows: Crossref has nothing newer.
     case "refresh_citation_health":
       return {};
-    case "search_literature_abstracts":
-      return supportHits();
-    // Add to Papers from Find support: imported as cited, with nothing to download.
-    case "import_reference": {
-      const input = String(args?.input ?? "");
-      const hit = SUPPORT_HITS.find((item) => input.includes(item.arxivId ?? "\0") || input === item.doi);
-      if (!hit) throw "Nothing found for that reference.";
-      return { arxivId: hit.arxivId ?? "", title: hit.title, citationKey: `${hit.authors[0].split(" ").at(-1)!.toLowerCase()}2019${hit.title.split(" ")[0].toLowerCase()}`, alreadyImported: false };
-    }
-    // Find support's Cite: the DOI resolves to its entry, which joins the
-    // bibliography through write_project_file.
-    case "resolve_citation_query": {
-      const hit = SUPPORT_HITS.find((item) => item.doi && String(args?.query ?? "").toLowerCase() === item.doi);
-      if (!hit) throw "No citation found.";
-      const key = `${hit.authors[0].split(" ").at(-1)!.toLowerCase()}2019${hit.title.split(" ")[0].toLowerCase()}`;
-      const author = hit.authors.join(" and ");
-      return {
-        key, title: hit.title, author, year: String(hit.year), journal: "", booktitle: hit.venue, publisher: "", url: "", doi: hit.doi, entryType: "inproceedings",
-        bibtex: `@inproceedings{${key},\n  title = {${hit.title}},\n  author = {${author}},\n  booktitle = {${hit.venue}},\n  year = {${hit.year}},\n  doi = {${hit.doi}}\n}`,
-      };
-    }
     case "search_literature":
       return { hits: (args?.page ?? 0) === 0 ? LITERATURE_HITS : [], hasMore: false };
     // `?fetch=pending`: a paper's download stays under way until its Cancel,
@@ -1246,23 +992,6 @@ function answer(command: string, args: Args): unknown {
       return textTask(args);
     case "list_annotations":
       return benchAnnotations();
-    case "read_paper_review":
-      return paperReviewState;
-    case "save_paper_review":
-      paperReviewState = args?.review ?? null;
-      return null;
-    case "read_reviewer_responses":
-      return reviewerResponsesState;
-    case "save_reviewer_responses":
-      reviewerResponsesState = args?.responses ?? null;
-      return null;
-    // With `?responses=1`, an exported letter "saves" into `window.__latticeBenchSavedText`.
-    case "save_source_copy": {
-      const bytes = args as unknown;
-      (window as unknown as { __latticeBenchSavedText?: string }).__latticeBenchSavedText = bytes instanceof Uint8Array
-        ? new TextDecoder().decode(bytes) : "";
-      return "/Users/writer/Desktop/response-letter";
-    }
     case "save_annotations":
       annotationsState = { annotations: (args?.annotations as BenchAnnotation[]) ?? [], rounds: (args?.rounds as Array<Record<string, unknown>>) ?? [] };
       return null;
@@ -1311,18 +1040,6 @@ function answer(command: string, args: Args): unknown {
           : undefined,
       }));
       return snapshot().manifest;
-    case "set_project_terms":
-      benchTermRules = (args?.rules as TermRule[] | undefined) ?? [];
-      benchEnglishVariant = (args?.englishVariant as EnglishVariant | null | undefined) ?? null;
-      return snapshot().manifest;
-    case "apply_term_edits": {
-      // As the backend does: a file changed since the check refuses them all.
-      const files = (args?.files as Array<{ path: string; before: string; after: string }> | undefined) ?? [];
-      const stale = files.find((file) => current.files.get(file.path) !== file.before);
-      if (stale) throw new Error(`${stale.path} changed since the check. Check again.`);
-      for (const file of files) current.files.set(file.path, file.after);
-      return files.map((file) => file.path);
-    }
     case "set_project_deadline":
       benchDeadline = (args?.deadline as ProjectDeadline | null | undefined) ?? null;
       return snapshot().manifest;

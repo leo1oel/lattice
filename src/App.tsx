@@ -23,9 +23,6 @@ import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { annotationRounds, revisable } from "./app/annotation-rounds";
-import { paperReview } from "./app/paper-review";
-import { claimSupport } from "./app/claim-support";
-import { reviewerResponses } from "./app/reviewer-responses";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
@@ -133,7 +130,6 @@ import { NEW_ENTRIES, type NewEntryRequest, type NewEntryType } from "./project/
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
-  TermRule,
   EditorPosition,
   PaperSummary,
   RenameTarget,
@@ -196,13 +192,12 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "review", "support", "terms", "responses", "git", "overleaf"] as const;
+const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
 /** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
 const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
-const EMPTY_TERM_RULES: TermRule[] = [];
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
 
@@ -325,16 +320,14 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     updateCanvasRequest("restore", update);
   }, [updateCanvasRequest]);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
-  /** After a change across the project's files (a replace, confirmed terms): reload the open file, the tree, history. */
-  const afterProjectEdits = async () => {
-    if (activeFileRef.current) await loadFile(activeFileRef.current);
-    await refreshProject();
-    await refreshHistory();
-  };
   const projectSearch = useProjectSearch({
     projectRef, captureProjectScope, save,
     unsavedEdits: () => sourceRef.current !== savedSourceRef.current,
-    afterReplace: afterProjectEdits,
+    afterReplace: async () => {
+      if (activeFileRef.current) await loadFile(activeFileRef.current);
+      await refreshProject();
+      await refreshHistory();
+    },
   });
   const { openFind: openProjectFind, openFindFor: openProjectFindFor, openReplace: openProjectReplace } = projectSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
@@ -751,7 +744,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,
       flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
     },
-    flushProjectStores: reviewerResponses.flush,
     resetProjectUi: () => {
       endGuidedTour();
       resetAgentSelection();
@@ -759,9 +751,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       annotationRounds.reset();
       resetBuildErrorFix();
       projectSearch.closeReplace();
-      paperReview.reset();
-      claimSupport.reset();
-      reviewerResponses.reset();
       tools.resetForProject();
       setDiskTodos([]);
     },
@@ -818,44 +807,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         await refreshHistory();
       },
     });
-    paperReview.attach({
-      store: editorComments, projectRootRef, openProjectFile: openFile,
-      author: { id: editorCommentAuthorId, name: authorName },
-      manuscript: () => {
-        const current = projectRef.current;
-        const roots = current?.manifest.rootDocuments ?? [];
-        const venue = current?.manifest.venue;
-        return {
-          root: (roots.find((document) => document.isDefault) ?? roots[0])?.path ?? null,
-          paths: flattenProjectPaths(current?.files ?? []),
-          venue: typeof venue === "string" && venue ? venue : null,
-        };
-      },
-      findSupport: (claim) => void claimSupport.find(claim),
-    });
-    claimSupport.attach({
-      projectRootRef, openProjectFile: openFile,
-      openPanel: () => tools.open("support"),
-      library: () => papers,
-      addCitation: referenceImport.addCitation,
-      addToPapers: async (query) => {
-        const result = await referenceImport.importReference(query, { notices: "problems" }).catch(() => undefined);
-        return result?.citationKey ?? null;
-      },
-      // The claim's file comes up first; the canvas places the citation once it shows it.
-      citeAfter: (claim, key, signal) => new Promise((settled) => {
-        const id = crypto.randomUUID();
-        signal.addEventListener("abort", () => updateCanvasRequest("cite", (current) => current?.id === id ? null : current), { once: true });
-        void openFile(claim.path, { line: claim.line });
-        updateCanvasRequest("cite", { key, command: "citep", id, at: { ...claim, settled } });
-        reveal("editor");
-      }),
-      searchLiterature: (query) => {
-        referenceImport.searchLiterature(query);
-        tools.open("literature");
-      },
-    });
-    reviewerResponses.attach({ store: editorComments, projectRootRef });
   });
   const { clearStage: clearImportStage } = referenceImport;
   const { openForMissingPaperTools } = texSetup;
@@ -1418,22 +1369,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       id: "checklist", when: inProject, label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: "edit",
       run: () => tools.open("checklist"),
     },
-    {
-      id: "terms", when: inProject, label: t`Terms`, detail: t`One name and spelling across the paper`, group: "edit",
-      run: () => tools.open("terms"),
-    },
-    {
-      // Opens on the last review; with none yet, the command is the ask for one.
-      id: "review-paper", when: inProject, label: t`Review the paper`, detail: t`As a reviewer would, each point anchored`, group: "research",
-      run: () => {
-        tools.open("review");
-        void paperReview.startIfNone();
-      },
-    },
-    {
-      id: "reviewer-responses", when: inProject, label: t`Respond to reviewers`, detail: t`Each comment numbered, answered and checked`, group: "research",
-      run: () => tools.open("responses"),
-    },
     { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
     {
       id: "annotations-revise", when: inProject && revisableAnnotations > 0, label: t`Revise from annotations`,
@@ -1746,8 +1681,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         editorSpellcheck: appearance.editorSpellcheck,
         spellingWords: project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS,
         onAddSpellingWord: addProjectSpellingWord,
-        englishVariant: project.manifest.englishVariant ?? null,
-        termRules: project.manifest.termRules ?? EMPTY_TERM_RULES,
         interactivePreviewsEnabled: postStartupInteraction,
       }}
       bibliography={{
@@ -2226,8 +2159,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         project={project}
         projectWordCount={projectWordCount}
         setProject={setProject}
-        saveEdits={async () => sourceRef.current === savedSourceRef.current || await save()}
-        afterProjectEdits={afterProjectEdits}
         tools={tools}
         todoHits={todoHits}
         unusedSymbols={unusedSymbols}

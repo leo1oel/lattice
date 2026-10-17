@@ -2,7 +2,7 @@
 //! TODOs and word counts.
 
 use super::{current_root, in_project, pinned_root, run_blocking};
-use crate::app_state::{AppState, Lease};
+use crate::app_state::AppState;
 use crate::models::{ProjectSearchResult, SymbolOccurrence};
 use crate::project::{
     ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, TodoHit, UnusedSymbols,
@@ -49,18 +49,6 @@ pub async fn replace_in_project(
         project::replace_in_project(&root, &query, &replacement, match_case, use_regex)
     })
     .await
-}
-
-/// The Terms panel's confirmed changes, read and checked against the files
-/// as the check saw them; named by project like a replace, which it is.
-#[tauri::command]
-pub async fn apply_term_edits(
-    state: State<'_, AppState>, window: Window, project_root: String, label: String,
-    files: Vec<project::TermFileEdit>,
-) -> Result<Vec<String>, String> {
-    let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = pinned_root(&state, &window, &project_root, "the changes could be made")?;
-    run_blocking("Term changes", move || project::apply_term_edits(&root, &label, files)).await
 }
 
 #[tauri::command]

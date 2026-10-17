@@ -23,18 +23,15 @@ export type SaveEveryEditOutcome = "saved" | "composing" | "failed" | "changed";
  * "saved" means letting go loses nothing. An unfinished IME composition
  * cannot be published yet, a failed save is reported where it happened, and
  * an edit typed while the save ran is still only in this page's memory.
- * The project's own stores (the reviewer responses) write here too, while the
- * backend still owns the project they are written to.
  */
-export async function saveEveryEdit({ flush, save, flushWholeFiles, flushProjectStores, hasUnsavedEdits }: {
+export async function saveEveryEdit({ flush, save, flushWholeFiles, hasUnsavedEdits }: {
   flush: () => boolean;
   save: () => Promise<boolean>;
   flushWholeFiles: () => Promise<void>;
-  flushProjectStores: () => Promise<void>;
   hasUnsavedEdits: () => boolean;
 }): Promise<SaveEveryEditOutcome> {
   if (!flush()) return "composing";
   if (!(await save())) return "failed";
-  await settleWithin(Promise.all([flushWholeFiles(), flushProjectStores()]));
+  await settleWithin(flushWholeFiles());
   return hasUnsavedEdits() ? "changed" : "saved";
 }
