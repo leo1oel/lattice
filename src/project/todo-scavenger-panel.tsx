@@ -81,6 +81,8 @@ export function TodoScavengerPanel(props: {
                           onClick={() => props.onOpen(hit.path, hit.line)}
                         >
                           <span className="todo-hit-kind">{kindLabel(hit.kind)}</span>
+                          {/* The file heads the group on screen; a screen reader hears it with each marker. */}
+                          <span className="todo-hit-path">{hit.path}</span>
                           <span className="todo-hit-line">{t`Line ${hit.line}`}</span>
                           <span className="todo-hit-preview">{hit.preview}</span>
                         </button>

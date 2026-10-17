@@ -134,6 +134,7 @@
 .todo-file-count { flex: none; margin-left: auto; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .todo-file-hits { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .todo-hit {
+  position: relative;
   width: 100%;
   padding: var(--space-4) var(--space-5);
   border: 0;
@@ -151,6 +152,7 @@
 .todo-hit:hover { background: var(--control-hover-surface); }
 .todo-hit-kind { padding: 0 var(--space-3); border-radius: var(--radius-compact); background: var(--control-active-soft); color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-semibold); white-space: nowrap; }
 .todo-hit:is([data-kind="fixme"], [data-kind="xxx"]) .todo-hit-kind { background: var(--status-danger-soft); color: var(--status-danger); }
+.todo-hit-path { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .todo-hit-line { justify-self: end; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 .todo-hit-preview { grid-column: 1 / -1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .checklist-drawer { width: min(420px, 100%); }
