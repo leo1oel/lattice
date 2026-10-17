@@ -112,11 +112,47 @@
 }
 
 .todo-drawer { width: min(460px, 100%); }
-/* The scroller hosts the fluid hover, so the list inside it does not scroll. */
-.todo-hits { --nested-radius: var(--radius-control); max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); overflow: auto; }
-.todo-hits > .project-replace-hits { max-height: none; overflow: visible; }
-.todo-kind { color: var(--control-active); }
-.todo-kind.fixme, .todo-kind.xxx { color: var(--status-danger); }
+/* Empty: the note spike on the drawer's own surface (trellis.css), a title,
+   one line on where markers come from, then the markers themselves. */
+.todo-empty { --art-paper: var(--surface-input); padding: var(--space-10) var(--space-6); }
+.todo-empty .research-art { width: 144px; margin-bottom: var(--space-4); }
+.todo-empty .ui-empty-state-description { max-width: 34ch; color: var(--text-secondary); text-wrap: pretty; }
+.todo-empty .ui-empty-state-actions { margin-top: var(--space-4); }
+.todo-empty-markers { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
+.todo-empty-markers code { display: block; padding: var(--space-1) var(--space-4); border-radius: var(--radius-compact); box-shadow: 0 0 0 1px var(--border-subtle); background: var(--surface-panel-raised); color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
+/* With markers: a count, then each file's markers under its name, as Find
+   groups its hits. A row is the kind as the writer typed it, the line, and
+   the comment itself; FIXME and XXX take the danger tone, as flagged work. */
+.todo-summary { margin: 0 0 var(--space-4); display: flex; flex-wrap: wrap; gap: 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); font-variant-numeric: tabular-nums; }
+.todo-summary span { color: var(--text-secondary); font-weight: var(--weight-regular); }
+/* Rows reach into the drawer's inset so their text lines up with the count. */
+.todo-hits { --nested-radius: var(--radius-control); margin: 0 calc(-1 * var(--space-5)); display: grid; gap: var(--space-6); }
+.todo-file { min-width: 0; }
+.todo-file-head { min-width: 0; margin: 0 0 var(--space-2); padding: 0 var(--space-5); display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.todo-file-head svg { flex: none; color: var(--text-tertiary); }
+.todo-file-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-file-count { flex: none; margin-left: auto; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.todo-file-hits { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.todo-hit {
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+.todo-hit:hover { background: var(--control-hover-surface); }
+.todo-hit-kind { padding: 0 var(--space-3); border-radius: var(--radius-compact); background: var(--control-active-soft); color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-semibold); white-space: nowrap; }
+.todo-hit:is([data-kind="fixme"], [data-kind="xxx"]) .todo-hit-kind { background: var(--status-danger-soft); color: var(--status-danger); }
+.todo-hit-line { justify-self: end; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.todo-hit-preview { grid-column: 1 / -1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .checklist-drawer { width: min(420px, 100%); }
 /* The verdict first, in the title serif: whether anything stands between the
    manuscript and submission. The track below it gives each check one segment
