@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { saveEveryEdit } from "./use-project-lifecycle";
+import { saveEveryEdit } from "./save-every-edit";
 
 describe("saveEveryEdit", () => {
   const steps = (overrides: Partial<Parameters<typeof saveEveryEdit>[0]> = {}) => ({

@@ -607,8 +607,14 @@ lower it when you remove warnings, never raise it.
 Testing environment: Vitest + jsdom, 20 s test timeout (`testTimeout` in
 `vitest.config.ts`), `literature-worker/**`, `.tmp/**` and `.synara-src/**`
 excluded (its `exclude` list). The App integration suites (`src/app/app-*.test.tsx`,
-sharing the mocks and helpers in `src/app/app-test-utils.tsx`) render the real
-`App` with a mocked `invoke`, and startup ordering matters: the
+sharing the inert mocks and helpers in `src/app/app-test-utils.tsx`) render the real
+`App` with a mocked `invoke`. App does not import the surfaces Vitest would
+otherwise rerun every suite for (the document canvas, the compiled-project PDF
+panel, Settings): `main.tsx` hands them in (`src/app/app-surfaces.ts`). Each
+suite mounts App through `appHarness` in `src/app/app-test-mount.tsx` with the
+real surface its feature needs and inert doubles for the rest, and
+`app-composition.test.tsx` mounts the production surfaces for the behavior that
+crosses them. A test that needs a surface its suite doubles belongs there. Startup ordering matters: the
 backend's `initial_project` (`ipc/workspace.rs`; see `initialProjectProbe` in
 `src/app/use-project-lifecycle.ts`) must beat the recent-project auto-reopen.
 

@@ -12,15 +12,13 @@ import {
 import type { CreateProjectForm } from "./app-project-dialogs";
 import type { UnopenedProject } from "../project/project-dialogs";
 import { showError, showNotice } from "./notify";
+import { saveEveryEdit, settleWithin } from "./save-every-edit";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-library";
-import { loadDocumentCanvas } from "./use-preview-prewarm";
 import type { ProjectState } from "./use-project-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
 
-/** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
-const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
 /** How long launch shows an empty window while it reopens a project, before the welcome screen. */
 const LAUNCH_EMPTY_WINDOW_MS = 1_000;
 
@@ -28,36 +26,6 @@ const LAUNCH_EMPTY_WINDOW_MS = 1_000;
 // failure. Everything else it can fail with is the project itself.
 // eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
 const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
-
-const settleWithin = (work: Promise<unknown>) => Promise.race([
-  work,
-  new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
-]);
-
-/** Why {@link saveEveryEdit} stopped, or "saved" once every open edit is on disk. */
-export type SaveEveryEditOutcome = "saved" | "composing" | "failed" | "changed";
-
-/**
- * Publish and durably save every open edit before this surface lets go of its
- * project: a project switch, or another surface taking the workspace. Only
- * "saved" means letting go loses nothing. An unfinished IME composition
- * cannot be published yet, a failed save is reported where it happened, and
- * an edit typed while the save ran is still only in this page's memory.
- * The project's own stores (the reviewer responses) write here too, while the
- * backend still owns the project they are written to.
- */
-export async function saveEveryEdit({ flush, save, flushWholeFiles, flushProjectStores, hasUnsavedEdits }: {
-  flush: () => boolean;
-  save: () => Promise<boolean>;
-  flushWholeFiles: () => Promise<void>;
-  flushProjectStores: () => Promise<void>;
-  hasUnsavedEdits: () => boolean;
-}): Promise<SaveEveryEditOutcome> {
-  if (!flush()) return "composing";
-  if (!(await save())) return "failed";
-  await settleWithin(Promise.all([flushWholeFiles(), flushProjectStores()]));
-  return hasUnsavedEdits() ? "changed" : "saved";
-}
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
@@ -70,6 +38,8 @@ export type ProjectLifecycleDeps = {
   /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
   resetCompileTracking: (cancelQueuedBuild: boolean) => void;
   cancelPrewarm: () => void;
+  /** Starts the document canvas's chunk, which App receives with its surfaces, as a project is entered. */
+  loadCanvas: () => Promise<unknown>;
   /**
    * The Overleaf sync gate: a sync must finish its disk refresh before a
    * switch, and the whole-file documents it deferred must reach Overleaf.
@@ -203,7 +173,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     snapshot: ProjectSnapshot,
     options?: { deferInitialBuild?: boolean },
   ) => {
-    void loadDocumentCanvas();
+    void depsRef.current.loadCanvas();
     beginProjectTransition(true);
     // The backend already owns the incoming root. The outgoing documents go
     // before that root is exposed to effects (see the documents' enter).

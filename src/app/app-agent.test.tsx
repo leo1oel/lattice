@@ -1,76 +1,12 @@
-import { windowApi, synaraHook, chooseLayoutPreset, mockAppCommand, fileNode, projectCommands, attentionPaper, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, selectPanelTab, buildButton, waitForBuildIdle, renderApp, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
-import { invoke } from "@tauri-apps/api/core";
+import { windowApi, synaraHook, chooseLayoutPreset, mockAppCommand, projectCommands, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, buildButton, waitForBuildIdle, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
+const { renderApp } = appHarness();
 
 describe("Agent panel", () => {
-  it("shows Synara failure states without rendering the retired Agent settings or composer", async () => {
-    // Keep both lazy surfaces' cold transforms outside DOM query deadlines.
-    await Promise.all([import("../trellis/trellis-agent-surface"), import("../settings/settings-dialog")]);
-    synaraHook.runtime = {
-      state: "stopped", origin: null, authToken: null, message: "Synara did not start.", startupMs: null, version: null, revision: null,
-    };
-    renderApp(projectCommands());
-    await selectPanelTab("Agent");
-    const agentFailure = await screen.findByRole("alert");
-    expect(agentFailure).toBeVisible();
-    expect(agentFailure).toHaveTextContent("Agent unavailable");
-    expect(agentFailure).toHaveTextContent("Synara did not start.");
-    expect(screen.queryByPlaceholderText(/ask the agent/i)).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Conversation history")).not.toBeInTheDocument();
-    await chooseProjectMenuItem("Settings");
-    const settings = await findSettingsDialog();
-    fireEvent.click(within(settings).getByRole("button", { name: "Providers" }));
-    await waitFor(() => expect(within(settings).getByRole("alert")).toHaveTextContent("Agent unavailable"));
-    expect(within(settings).queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
-    expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
-  });
-
-  it("restores the Agent's saved thread and follows only its own frame", async () => {
-    // Finish cold compilation before DOM waits and unmount/remount assertions.
-    await Promise.all([import("../settings/settings-dialog"), import("../canvas/document-canvas")]);
-    localStorage.setItem("lattice.agent-thread.v1:/tmp/lattice-paper", "saved-thread");
-
-    const view = renderApp(projectCommands());
-    await selectPanelTab("Agent");
-    expect(screen.getByRole("tab", { name: "Agent" })).toHaveAttribute("aria-selected", "true");
-    await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
-    const frame = await findFrame();
-    expect(new URL(frame.src).pathname).toBe("/saved-thread");
-    const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
-
-    fireEvent.load(frame);
-    expect(postMessage).not.toHaveBeenCalled();
-    expect(frame.closest(".synara-frame-shell")).not.toHaveAttribute("data-ready");
-
-    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
-
-    await waitFor(() => expect(frame.closest(".synara-frame-shell")).toHaveAttribute("data-ready"));
-    expect(postMessage).toHaveBeenCalledWith({ type: "lattice:request-agent-permission-mode" }, synaraHook.runtime.origin);
-
-    postProjectHistory(frame, "wrong-thread", [], "https://untrusted.example");
-    expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("saved-thread");
-    postProjectHistory(frame, "selected-thread", []);
-    expect(localStorage.getItem("lattice.agent-thread.v1:/tmp/lattice-paper")).toBe("selected-thread");
-    // Recording navigation must not reload the live iframe or interrupt a turn.
-    expect(new URL(frame.src).pathname).toBe("/saved-thread");
-
-    const openSettings = { type: "synara:open-settings", section: "providers" };
-    postWindowMessage(frame.contentWindow, openSettings, "https://untrusted.example");
-    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
-
-    postWindowMessage(frame.contentWindow, openSettings);
-    const settings = await screen.findByRole("dialog", { name: "Settings" });
-    expect(within(settings).getByRole("button", { name: "Providers" })).toHaveAttribute("aria-current", "page");
-    view.unmount();
-    renderApp();
-    await waitFor(() => {
-      const restored = document.querySelector<HTMLIFrameElement>('iframe[title="Agent"]');
-      expect(restored).not.toBeNull();
-      expect(new URL(restored!.src).pathname).toBe("/selected-thread");
-    });
-  });
 
   it("starts Synara when source control is requested", async () => {
     persistLayoutWithoutAgent();
@@ -84,65 +20,6 @@ describe("Agent panel", () => {
     expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Open this repository on GitHub" }));
     expect(openUrl).toHaveBeenCalledWith("https://github.com/leo1oel/lattice");
-  });
-
-  it("routes agent paper, file, link, and review requests to their native surfaces", async () => {
-    const sections = fileNode("sections", "folder", { children: [fileNode("sections/intro.tex")] });
-    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), sections] });
-    renderApp({
-      ...projectCommands(snapshot),
-      read_project_file: (args) => {
-        if (!argPath(args)?.endsWith(".png")) return "\\documentclass{article}";
-        throw new Error("This is a binary or unsupported file and cannot be opened in the source editor.");
-      },
-      read_project_asset: (args) => ({ path: argPath(args), mimeType: "image/png", base64: "iVBORw0KGgo=" }),
-      stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
-      list_papers: () => [attentionPaper({ authors: "Ashish Vaswani and Noam Shazeer", hasBlog: false })],
-      read_paper: "---\ntitle: Attention Is All You Need\n---\n\n## Abstract\n\nPaper content.", read_paper_blog_local: null,
-      build_project: buildResult({ durationMs: 5, rootDocument: "/private/outside/main.tex" }),
-    });
-    await screen.findByRole("button", { name: "Switch project" });
-    await screen.findByTitle("Attention Is All You Need");
-    const { frame } = await openAgentFrame();
-
-    const agent = (data: object) => postWindowMessage(frame.contentWindow, data);
-    agent({ type: "synara:open-file", filePath: "/tmp/lattice-paper/notes/detailed%20distillation.md" });
-    await expectInvoked("read_project_file", expect.objectContaining({ path: "notes/detailed distillation.md" }));
-
-    agent({ type: "synara:open-external", url: "https://example.com/paper" });
-    await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/paper"));
-
-    agent({ type: "synara:open-external", url: "javascript:alert(1)" });
-    expect(openUrl).toHaveBeenCalledTimes(1);
-
-    agent({ type: "synara:open-file", filePath: "/tmp/lattice-paper/.research/papers/1706.03762/paper.md" });
-    expect(await screen.findByRole("heading", { name: "Attention Is All You Need" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: "1706.03762" });
-
-    agent({ type: "synara:open-review", filePath: "sections/intro.tex" });
-    await expectInvoked("read_project_file", expect.objectContaining({ path: "sections/intro.tex" }));
-    expect(screen.queryByRole("tab", { name: "Changes" })).not.toBeInTheDocument();
-
-    const figure = "figures/mmvp_prefix_suffix_retained_pair_accuracy_plotly.png";
-    agent({ type: "synara:open-review", filePath: figure });
-    expect(await screen.findByAltText(`Preview of ${figure}`)).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: figure });
-
-    agent({ type: "synara:open-review", threadId: "thread-1", turnId: "turn-9" });
-    expect(await screen.findByRole("tab", { name: "Agent turn" })).toBeInTheDocument();
-    expect(screen.getByRole("tablist", { name: "Git workspace" })).toHaveClass("drawer-view-tabs");
-    expect(screen.getByRole("tab", { name: "Changes" })).toHaveClass("drawer-view-tab");
-    expect(screen.getByRole("tab", { name: "Changes" })).not.toHaveClass("ui-compact-selectable");
-    const reviewFrame = document.querySelector<HTMLIFrameElement>('iframe[title="Agent turn review"]');
-    expect(reviewFrame).not.toBeNull();
-    expect(reviewFrame!.src).toContain("threadId=thread-1");
-    expect(reviewFrame!.src).toContain("turnId=turn-9");
-
-    // Tabbing back to the working tree drops the pinned turn.
-    fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
-    await waitFor(() => expect(screen.queryByRole("tab", { name: "Agent turn" })).not.toBeInTheDocument());
-    expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
   });
 
   it("keeps the Agent panel at least as wide as its composer reports it needs", async () => {

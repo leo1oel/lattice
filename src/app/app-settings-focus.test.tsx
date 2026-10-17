@@ -1,6 +1,10 @@
-import { renderApp, projectCommands, openAgentFrame, postWindowMessage } from "./app-test-utils";
+import { projectCommands, openAgentFrame, postWindowMessage } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
+import { settingsDialog } from "./app-test-settings";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it } from "vitest";
+
+const { renderApp } = appHarness({ settingsDialog });
 
 // Its own suite so the first open below is the cold one: App's lazy Settings
 // has not loaded in this module graph yet, so it suspends before it mounts.

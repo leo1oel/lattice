@@ -1,6 +1,10 @@
-import { renderApp, projectCommands } from "./app-test-utils";
+import { projectCommands } from "./app-test-utils";
+import { appHarness } from "./app-test-mount";
+import { settingsDialog } from "./app-test-settings";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, expect, it, vi } from "vitest";
+
+const { renderApp } = appHarness({ settingsDialog });
 
 // Settings' chunk is held back until `release`, so it opens behind its loading
 // shell; the module is still the real Settings.
