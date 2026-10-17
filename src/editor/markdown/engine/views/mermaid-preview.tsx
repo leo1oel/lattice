@@ -15,11 +15,11 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, RotateCcw, ZoomIn, ZoomOut }
 
 const PAN_STEP = 48;
 
-type Mermaid = typeof import("mermaid").default;
-let mermaidModule: Promise<Mermaid> | null = null;
-const loadMermaid = () => {
-  mermaidModule ??= import("mermaid").then((module) => module.default);
-  return mermaidModule;
+type Pele = typeof import("pele");
+let peleModule: Promise<Pele> | null = null;
+const loadPele = () => {
+  peleModule ??= import("pele");
+  return peleModule;
 };
 
 /** The app theme, read from the root element and followed as it changes. */
@@ -49,20 +49,18 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
-      void loadMermaid().then(async (mermaid) => {
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: theme === "dark" ? "dark" : "neutral",
-          // Mermaid measures and writes its labels in this family, so it gets
-          // the resolved interface stack (Timeless in a build that embeds it).
+      void loadPele().then((pele) => {
+        renderSequence += 1;
+        const { svg: rendered } = pele.render(chart, {
+          // eslint-disable-next-line lingui/no-unlocalized-strings -- an element id prefix
+          idPrefix: `${baseId}-pele-${renderSequence}`,
+          responsive: true,
+          // Pele measures its labels in this family, so it gets the resolved
+          // interface stack (Timeless in a build that embeds it).
           fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--ui-font").trim()
             // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS font stack
             || "Inter Variable, Inter, system-ui, sans-serif",
         });
-        renderSequence += 1;
-        // eslint-disable-next-line lingui/no-unlocalized-strings -- an element id
-        const { svg: rendered } = await mermaid.render(`${baseId}-mermaid-${renderSequence}`, chart);
         if (cancelled) return;
         setSvg(rendered);
         setError(null);
