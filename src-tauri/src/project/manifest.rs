@@ -623,7 +623,7 @@ mod tests {
         let terms = serde_json::json!([{ "term": "ResNet", "variants": ["Resnet"] }]);
         manifest["termRules"] = terms.clone();
         manifest["englishVariant"] = "british".into();
-        fixture.write(MANIFEST_PATH, &manifest.to_string());
+        fixture.write(MANIFEST_PATH, manifest.to_string());
 
         set_spelling_words(&fixture.root, vec!["frobnicator".to_string()]).unwrap();
 
