@@ -65,6 +65,16 @@ describe("the project's LaTeX structure", () => {
     expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "chapters/intro.tex" });
   });
 
+  it("keeps the same outline while an edit leaves its headings where they were", () => {
+    const view = renderStructure();
+    const outline = view.result.current.outlineNodes;
+    view.rerender(renderArgs({ settledSource: MAIN.replace("\\begin{document}", "\\begin{document} Typed.") }));
+    expect(view.result.current.outlineNodes).toBe(outline);
+    view.rerender(renderArgs({ settledSource: MAIN.replace("{Results}", "{Findings}") }));
+    expect(view.result.current.outlineNodes).not.toBe(outline);
+    expect(view.result.current.outlineNodes.map((node) => node.title)).toContain("Findings");
+  });
+
   it("joins the open TeX buffer's labels and macros, and leaves a Markdown buffer out of them", () => {
     const tex = renderStructure();
     expect(tex.result.current.liveReferences.map((reference) => reference.label)).toContain("sec:results");

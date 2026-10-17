@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
@@ -135,5 +135,8 @@ export function useCompileRepair(options: {
   }, [noteError]);
 
   const busy = state !== null && !["completed", "failed"].includes(state.status);
-  return { state, busy, start, cancel };
+  // Memoized by hand: the React Compiler skips this hook (its try/finally),
+  // and a new object each render rebuilt the diagnostics panel App builds
+  // from it on every keystroke.
+  return useMemo(() => ({ state, busy, start, cancel }), [busy, cancel, start, state]);
 }

@@ -160,6 +160,17 @@ export function activeOutlineNode(nodes: OutlineNode[], path: string, line: numb
   return innermostSections(sections).at(-1) ?? null;
 }
 
+/** Whether two outlines list the same headings, at the same lines, in the same tree. */
+export function sameOutline(left: OutlineNode[], right: OutlineNode[]): boolean {
+  return left === right || (left.length === right.length && left.every((node, index) => {
+    const other = right[index];
+    return node.id === other.id && node.level === other.level && node.title === other.title
+      && node.line === other.line && node.path === other.path && node.kind === other.kind
+      && node.starred === other.starred && node.appendix === other.appendix
+      && sameOutline(node.children, other.children);
+  }));
+}
+
 /** The section tree of a single file (includes are not followed). */
 export function parseLatexOutline(source: string, path = ""): OutlineNode[] {
   return parseProjectOutline(path, { [path]: source }, []);
@@ -200,6 +211,10 @@ export function parseProjectOutline(
   // Read in reading order across files, as TeX does: an \appendix in an
   // included file turns every heading after it into an appendix.
   let inAppendix = false;
+  // A heading's id names it by file, level, title and which of its namesakes
+  // it is, not by its offset: typing above a heading moves the offset, and
+  // an id that moved with it changed the outline on every keystroke.
+  const namesakes = new Map<string, number>();
 
   const walk = (path: string, depth: number) => {
     const source = sources[path];
@@ -213,8 +228,11 @@ export function parseProjectOutline(
         continue;
       }
       if (event.kind === "section") {
+        const name = `${path}:${event.level}:${event.title}`;
+        const namesake = namesakes.get(name) ?? 0;
+        namesakes.set(name, namesake + 1);
         const node: OutlineNode = {
-          id: `${path}:${event.level}:${event.offset}:${event.title}`,
+          id: `${name}#${namesake}`,
           level: event.level,
           title: event.title,
           line: lineAt(event.offset),

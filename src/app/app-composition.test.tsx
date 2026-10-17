@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fireEvent, screen, waitFor, within, act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { createElement, type ComponentProps } from "react";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { completionStatus, insertBracket, selectedCompletionIndex } from "@codemirror/autocomplete";
@@ -32,6 +33,19 @@ import type { LayoutDocument } from "@danfessler/trellis";
  * from.
  */
 const { renderApp, renderOverleafPaper, openWithAutomaticBuilds } = appHarness(PRODUCTION_SURFACES);
+
+// The PDF viewer, counting its renders.
+const pdfPreviewRenders = vi.hoisted(() => ({ count: 0 }));
+vi.mock("../pdf/pdf-viewer", async (importOriginal) => {
+  const viewer = await importOriginal<typeof import("../pdf/pdf-viewer")>();
+  return {
+    ...viewer,
+    PdfPreview: (props: ComponentProps<typeof viewer.PdfPreview>) => {
+      pdfPreviewRenders.count += 1;
+      return createElement(viewer.PdfPreview, props);
+    },
+  };
+});
 
 // The Agent with Settings and the canvas.
 describe("Agent panel", () => {
@@ -819,6 +833,90 @@ describe("builds and the PDF reader", () => {
     fireEvent.click(revealCursor);
     await expectInvoked("synctex_view", { path: "main.tex", line: 1, column: 0 });
     expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
+  }, 60_000);
+
+  it("leaves the PDF viewer alone while the writer types, until a heading changes", async () => {
+    // Regression: the outline, the jump to the PDF and the diagnostics above
+    // it followed every keystroke, and each re-rendered the PDF viewer.
+    setAutoBuildMode("manual");
+    persistLayout(ROOT, { openTabs: ["main.tex"], activeFile: "main.tex", canvasMode: "source" });
+    mockPdfDocument(() => pdfDocumentStub(1));
+    stubObjectUrls(() => "blob:lattice-typing");
+    const files: Record<string, string> = {
+      "main.tex": "\\documentclass{article}\n\\begin{document}\nSome text.\n\\section{Intro}\nBody.\n\\section{Method}\n\\end{document}",
+    };
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex") })),
+      read_project_file: readFiles(files),
+      write_project_file: (args) => {
+        const { path, content } = args as { path: string; content: string };
+        files[path] = content;
+      },
+      build_project: buildResult({
+        hasPdf: true,
+        diagnostics: [{ level: "warning", message: "Overfull \\hbox (4.2pt too wide) in paragraph", file: "main.tex", line: 5 }],
+      }),
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
+      synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
+    });
+    const view = await findEditorView(".source-editor .cm-editor");
+    const revealCursor = await screen.findByRole("button", { name: /Reveal cursor in PDF/i }, { timeout: 30_000 });
+    await waitFor(() => expect(revealCursor).toBeEnabled());
+    expect(await screen.findByLabelText("Compile diagnostics")).toBeInTheDocument();
+    // Above both headings, so every keystroke moves where they start.
+    const caret = view.state.doc.toString().indexOf("text.");
+    act(() => view.dispatch({ selection: { anchor: caret } }));
+    await act(async () => {});
+    const settled = pdfPreviewRenders.count;
+    for (const letter of "more ") {
+      act(() => view.dispatch({ changes: { from: view.state.selection.main.head, insert: letter }, selection: { anchor: view.state.selection.main.head + 1 } }));
+      await act(async () => {});
+    }
+    expect(view.state.doc.toString()).toContain("Some more text.");
+    expect(pdfPreviewRenders.count).toBe(settled);
+
+    // The jump still starts from where the caret is now.
+    fireEvent.click(revealCursor);
+    await expectInvoked("synctex_view", { path: "main.tex", line: 3, column: 10 });
+    await waitFor(() => expect(revealCursor).toBeEnabled());
+
+    // A renamed heading is the outline's news: the PDF's outline lists it.
+    const heading = view.state.doc.toString().indexOf("Method");
+    act(() => view.dispatch({ changes: { from: heading, to: heading + "Method".length, insert: "Methods" } }));
+    fireEvent.click(screen.getByRole("button", { name: "Show document outline" }));
+    const outline = await screen.findByLabelText("Document outline");
+    expect(within(outline).getByRole("button", { name: "Methods" })).toBeInTheDocument();
+    expect(within(outline).getByRole("button", { name: "Intro" })).toBeInTheDocument();
+  }, 60_000);
+
+  it("quotes the line being typed in an expanded build error's excerpt", async () => {
+    // The diagnostics above the PDF read the buffer only while they can show
+    // it; expanded, an error's excerpt still follows the writer's edits.
+    setAutoBuildMode("manual");
+    persistLayout(ROOT, { openTabs: ["main.tex"], activeFile: "main.tex", canvasMode: "source" });
+    mockPdfDocument(() => pdfDocumentStub(1));
+    stubObjectUrls(() => "blob:lattice-excerpt");
+    const files: Record<string, string> = { "main.tex": "\\documentclass{article}\n\\begin{document}\nSee \\cietp{vaswani}.\n\\end{document}" };
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex") })),
+      read_project_file: readFiles(files),
+      write_project_file: (args) => {
+        const { path, content } = args as { path: string; content: string };
+        files[path] = content;
+      },
+      build_project: buildResult({
+        success: false,
+        log: "./main.tex:3: Undefined control sequence.\nl.3 See \\cietp\n          {vaswani}.\n",
+        diagnostics: [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 3 }],
+      }),
+    });
+    const view = await findEditorView(".source-editor .cm-editor");
+    const diagnostics = await screen.findByLabelText("Compile diagnostics", {}, { timeout: 30_000 });
+    const excerpt = () => diagnostics.querySelector(".compile-excerpt-line[data-failing]");
+    await waitFor(() => expect(excerpt()).toHaveTextContent("See \\cietp{vaswani}."));
+    const at = view.state.doc.toString().indexOf("See ") + "See ".length;
+    act(() => view.dispatch({ changes: { from: at, insert: "also " } }));
+    await waitFor(() => expect(excerpt()).toHaveTextContent("See also \\cietp{vaswani}."));
   }, 60_000);
 
   it.each([
