@@ -1,0 +1,57 @@
+{
+  "version": "0.10.0",
+  "date": "2026-10-17",
+  "highlights": [
+    {
+      "title": {
+        "en": "Synara 1.0.6 in the Agent panel",
+        "zh": "Agent 面板升级到 Synara 1.0.6"
+      },
+      "body": {
+        "en": "The bundled agent runtime moves to Synara 1.0.6.",
+        "zh": "内置的智能体运行时升级到 Synara 1.0.6。"
+      }
+    },
+    {
+      "title": {
+        "en": "Smoother long documents",
+        "zh": "长文档更流畅"
+      },
+      "body": {
+        "en": "Typing no longer re-renders the PDF preview on every keystroke.",
+        "zh": "输入时不再每次按键都重新渲染 PDF 预览。"
+      }
+    },
+    {
+      "title": {
+        "en": "A clearer TODOs panel",
+        "zh": "更清晰的 TODO 面板"
+      },
+      "body": {
+        "en": "TODOs are grouped by file, with a new illustration when there is nothing left to do.",
+        "zh": "TODO 按文件分组，全部完成时会显示一幅新插图。"
+      }
+    },
+    {
+      "title": {
+        "en": "A tidier submission checklist",
+        "zh": "更整洁的投稿检查清单"
+      },
+      "body": {
+        "en": "The figure inventory and limits have more room.",
+        "zh": "图片清单和篇幅限制有了更宽裕的空间。"
+      }
+    },
+    {
+      "title": {
+        "en": "A more focused Lattice",
+        "zh": "更专注的 Lattice"
+      },
+      "body": {
+        "en": "The Review, Find support, Terms and Responses tools have been removed. Data they saved in your projects stays on disk untouched.",
+        "zh": "审阅、查找支撑文献、术语和审稿回复工具已移除。它们保存在项目中的数据仍原样保留在磁盘上。"
+      }
+    }
+  ],
+  "fixes": []
+}
