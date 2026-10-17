@@ -44,7 +44,7 @@ export const CORE_SOFTWARE: readonly Credit[] = [
   { name: "Pierre Diffs", role: msg`Diffs of changes and history`, url: "https://diffs.com", pkg: { closure: "npm", name: "@pierre/diffs" } },
   { name: "Univer", role: msg`The spreadsheet editor`, url: "https://univer.ai", pkg: { closure: "npm", name: "@univerjs/core" } },
   { name: "KaTeX", role: msg`Math previews`, url: "https://katex.org", pkg: { closure: "npm", name: "katex" } },
-  { name: "Mermaid", role: msg`Diagrams in Markdown`, url: "https://mermaid.js.org", pkg: { closure: "npm", name: "mermaid" } },
+  { name: "Pele", role: msg`Diagrams in Markdown`, url: "https://pele.run", pkg: { closure: "npm", name: "pele" } },
   { name: "Shiki", role: msg`Code highlighting`, url: "https://shiki.style", pkg: { closure: "npm", name: "shiki" } },
   { name: "Harper", role: msg`Grammar checking`, url: "https://writewithharper.com", pkg: { closure: "crates", name: "harper-core" } },
 ];
