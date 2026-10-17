@@ -61,12 +61,16 @@ export function MermaidDiagram({ chart }: { chart: string }) {
             // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS font stack
             || "Inter Variable, Inter, system-ui, sans-serif",
         });
+        // Pele throws on a source it can't parse or that exceeds its limits;
+        // an empty result would otherwise leave a blank block.
+        if (!rendered.trim()) throw new Error(t`This diagram could not be rendered.`);
         if (cancelled) return;
         setSvg(rendered);
         setError(null);
       }).catch((reason: unknown) => {
         if (cancelled) return;
-        setError(reason instanceof Error ? reason.message : String(reason));
+        const message = reason instanceof Error ? reason.message : String(reason);
+        setError(message.trim() || t`This diagram could not be rendered.`);
       });
     }, svg == null ? 0 : 250);
     return () => {
