@@ -6455,6 +6455,11 @@ msgstr "正在导入文件…"
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
 
+#. placeholder {0}: files.length
+#: src/project/todo-scavenger-panel.tsx
+msgid "in {0} files"
+msgstr "分布在 {0} 个文件中"
+
 #: src/history/export-changes-dialog.tsx
 msgid "In colour"
 msgstr "彩色标出"
@@ -7395,10 +7400,12 @@ msgstr "上限 1 词"
 msgid "Line"
 msgstr "行"
 
+#. placeholder {0}: hit.line
 #. placeholder {0}: hunk.line
 #. placeholder {0}: passage.line
 #: src/history/compare-versions.tsx
 #: src/history/conflict-resolver.tsx
+#: src/project/todo-scavenger-panel.tsx
 msgid "Line {0}"
 msgstr "第 {0} 行"
 
@@ -7702,10 +7709,6 @@ msgstr "此处无法查找文献。"
 msgid "Looking up…"
 msgstr "正在查找…"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
-msgstr "查找 <0>% TODO</0>、<1>% FIXME</1>、<2>% XXX</2> 和 <3>\\todo</3>"
-
 #: src/editor/latex/latex-shortcuts.ts
 msgid "lower case"
 msgstr "小写"
@@ -7802,6 +7805,10 @@ msgstr "Markdown 文档编辑器"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown 源码"
+
+#: src/project/todo-scavenger-panel.tsx
+msgid "Markers left in any source file of the project are listed here"
+msgstr "项目中任一源文件里留下的标记都会列在这里"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -8036,6 +8043,10 @@ msgstr "找不到文件“{path}”"
 #: src/project/figure-inventory-dialog.tsx
 msgid "Missing image"
 msgstr "图片缺失"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Missing images and print resolution, figure by figure"
+msgstr "逐张检查缺失图片与印刷分辨率"
 
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
@@ -15036,6 +15047,10 @@ msgstr "窗口"
 #: src/project/paper-library.tsx
 msgid "With full text"
 msgstr "有全文"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Word and page limits"
+msgstr "词数与页数上限"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"

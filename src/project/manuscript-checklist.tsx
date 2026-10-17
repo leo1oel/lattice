@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check, ChevronRight, ClipboardCheck, Minus } from "lucide-react";
+import { Check, ChevronRight, ClipboardCheck, Images, Minus } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
-import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
@@ -278,27 +277,40 @@ export function ManuscriptChecklistPanel(props: {
           onOpenFile={props.onOpenFile}
           onOpenSource={props.onOpenSource}
         />
-        {props.onOpenFigures && <Button onClick={props.onOpenFigures}>{t`Figure inventory`}</Button>}
-        <div className="checklist-budgets">
-          {([
-            ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],
-            ["page", t`Page budget`, pageBudget, setPageBudget, t`No limit`],
-          ] as const).map(([budgetKey, label, value, setValue, placeholder]) => (
-            <label key={budgetKey}>
-              {label}
-              <Input
-                controlSize="compact"
-                inputMode="numeric"
-                value={value}
-                placeholder={placeholder}
-                onChange={(event) => setValue(event.target.value)}
-              />
-            </label>
-          ))}
-          <button type="button" onClick={() => props.onSaveBudgets(parseBudget(wordBudget), parseBudget(pageBudget))}>
-            <Trans>Save budgets</Trans>
-          </button>
-        </div>
+        {/* A way into a closer check, not a check of its own: no result mark
+            and no segment on the track, only the row's shape and where it leads. */}
+        {props.onOpenFigures && (
+          <div className="checklist-rows">
+            <button type="button" className="checklist-row checklist-link" onClick={props.onOpenFigures}>
+              <i className="checklist-status" aria-hidden="true"><Images size={12} /></i>
+              <strong>{t`Figure inventory`}</strong>
+              <span><ChevronRight size={13} aria-hidden="true" /></span>
+              <small>{t`Missing images and print resolution, figure by figure`}</small>
+            </button>
+          </div>
+        )}
+        <section className="checklist-limits">
+          <h3>{t`Word and page limits`}</h3>
+          <div className="checklist-budgets">
+            {([
+              ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],
+              ["page", t`Page budget`, pageBudget, setPageBudget, t`No limit`],
+            ] as const).map(([budgetKey, label, value, setValue, placeholder]) => (
+              <label key={budgetKey}>
+                {label}
+                <Input
+                  inputMode="numeric"
+                  value={value}
+                  placeholder={placeholder}
+                  onChange={(event) => setValue(event.target.value)}
+                />
+              </label>
+            ))}
+            <button type="button" onClick={() => props.onSaveBudgets(parseBudget(wordBudget), parseBudget(pageBudget))}>
+              <Trans>Save budgets</Trans>
+            </button>
+          </div>
+        </section>
     </ResizableDrawer>
   );
 }
