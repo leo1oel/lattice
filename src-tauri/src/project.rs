@@ -5,8 +5,6 @@
 //!   and compile roots.
 //! - [`annotations`] — local annotations, their revision rounds and the
 //!   rounds' snapshots.
-//! - [`reviews`] — the agent's reviews of the paper.
-//! - [`responses`] — the writer's answers to the venue's reviewers.
 //! - [`linked_bibliography`] — a reference manager's `.bib` linked to the
 //!   project's bibliography.
 //! - [`paths`] — the path guards every file operation goes through, and the
