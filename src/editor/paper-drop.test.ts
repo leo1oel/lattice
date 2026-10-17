@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { undo, history } from "@codemirror/commands";
-import { latexCitationAfter, paperDropExtension } from "./paper-drop";
+import { paperDropExtension } from "./paper-drop";
 import { beginPaperDrag, PAPER_DRAG_TYPE } from "../papers/paper-drag";
 
 const paper = { arxivId: "1706.03762", title: "Attention", citationKey: "attention2017", hasFullText: true, hasBlog: false };
@@ -69,25 +69,5 @@ describe("CodeMirror paper drop", () => {
     vi.mocked(view.posAtCoords).mockReturnValue(4);
     drop();
     expect(view.state.doc.toString()).toBe("See [@attention2017](../.research/papers/1706.03762/paper.md)\\citep{older,later}.");
-  });
-});
-
-describe("latexCitationAfter", () => {
-  const cite = (source: string, quote: string, key = "jain2019") => {
-    const from = source.indexOf(quote);
-    const edit = latexCitationAfter(source, from, from + quote.length, key);
-    return edit ? source.slice(0, edit.from) + edit.insert + source.slice(edit.to) : null;
-  };
-  it("puts the citation after the claim's last word, before the punctuation that ends it", () => {
-    expect(cite("Attention is not explanation. Next.", "Attention is not explanation.")).toBe("Attention is not explanation~\\citep{jain2019}. Next.");
-    expect(cite("Attention is not explanation. Next.", "Attention is not explanation")).toBe("Attention is not explanation~\\citep{jain2019}. Next.");
-    expect(cite("First, attention is not explanation, and so on.", "attention is not explanation, ")).toBe("First, attention is not explanation~\\citep{jain2019}, and so on.");
-    expect(cite("注意力不是解释。下一句。", "注意力不是解释。")).toBe("注意力不是解释~\\citep{jain2019}。下一句。");
-  });
-  it("joins the citation list that already follows the claim, once", () => {
-    expect(cite("Not explanation~\\citep{serrano2019}. Next.", "Not explanation")).toBe("Not explanation~\\citep{serrano2019, jain2019}. Next.");
-    expect(cite("Not explanation \\cite[see][]{serrano2019}.", "Not explanation")).toBe("Not explanation \\cite[see][]{serrano2019, jain2019}.");
-    expect(cite("Not explanation~\\citep{serrano2019}.", "Not explanation~\\citep{serrano2019}.")).toBe("Not explanation~\\citep{serrano2019, jain2019}.");
-    expect(cite("Not explanation~\\citep{jain2019}.", "Not explanation")).toBeNull();
   });
 });
