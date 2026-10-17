@@ -8037,6 +8037,10 @@ msgstr "找不到文件“{path}”"
 msgid "Missing image"
 msgstr "图片缺失"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Missing images and print resolution, figure by figure"
+msgstr "逐张检查缺失图片与印刷分辨率"
+
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "缺少 LaTeX 依赖 `{file}`。BasicTeX 并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装对应的 TeX Live 软件包。"
@@ -15036,6 +15040,10 @@ msgstr "窗口"
 #: src/project/paper-library.tsx
 msgid "With full text"
 msgstr "有全文"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Word and page limits"
+msgstr "词数与页数上限"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"

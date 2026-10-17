@@ -263,6 +263,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-row .checklist-meter-over { background: var(--meter-tone); }
 .checklist-row .checklist-meter-over:not(:first-child) { border-left: 2px solid var(--surface-panel-raised); }
 .checklist-row small b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+/* The figure inventory leads elsewhere rather than passing or failing, so its
+   mark stays the neutral disc and its row reads as a way in, like TODOs. */
+.checklist-link .checklist-status svg { stroke-width: 2; }
+/* The limits close the panel as a section of their own, headed like the
+   writer's items above, so the fields never read as part of either list. */
+.checklist-limits h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
 /* One row when the drawer has room; in a narrow one the button wraps to a row
    of its own rather than squeezing the two fields down to an ellipsis. */
 .checklist-budgets {

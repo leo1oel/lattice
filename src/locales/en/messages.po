@@ -8037,6 +8037,10 @@ msgstr "Missing file “{path}”."
 msgid "Missing image"
 msgstr "Missing image"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Missing images and print resolution, figure by figure"
+msgstr "Missing images and print resolution, figure by figure"
+
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
@@ -15036,6 +15040,10 @@ msgstr "Window"
 #: src/project/paper-library.tsx
 msgid "With full text"
 msgstr "With full text"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Word and page limits"
+msgstr "Word and page limits"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
