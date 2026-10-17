@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { BodyBoundary, EditorPosition, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import {
-  activeOutlineNode, findBodyEnd, includedPathsIn, parseProjectOutline, type BodySpan,
+  activeOutlineNode, findBodyEnd, includedPathsIn, parseProjectOutline, sameOutline, type BodySpan,
 } from "../editor/latex/latex-outline";
 import {
   katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
@@ -196,10 +196,16 @@ export function useLatexStructure({
       : null;
   }, [activeFile, activeTexSource, manuscript, projectRoot]);
 
-  const outlineNodes = useMemo(() => {
+  const parsedOutline = useMemo(() => {
     if (!rootDocumentPath) return [];
     return parseProjectOutline(rootDocumentPath, liveSources, projectPaths);
   }, [liveSources, projectPaths, rootDocumentPath]);
+  // The outline is parsed again on every keystroke a short buffer takes, but
+  // what it lists changes only when a heading does (or moves to another
+  // line). Keeping the last one while it lists the same headings spares what
+  // shows it, the PDF viewer among them, a render per keystroke.
+  const [outlineNodes, setOutlineNodes] = useState(parsedOutline);
+  if (outlineNodes !== parsedOutline && !sameOutline(outlineNodes, parsedOutline)) setOutlineNodes(parsedOutline);
   const liveReferences = useMemo(() => (
     activeTexSource == null ? references : mergeReferences(references, activeFile, parseLocalLabels(activeFile, activeTexSource))
   ), [activeFile, activeTexSource, references]);

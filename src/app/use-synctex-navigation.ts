@@ -51,6 +51,10 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
     && !activeAsset && editorPosition.path === activeFile
     ? editorPosition : null;
+  // Read when the jump starts rather than closed over: the caret moves with
+  // every keystroke, and a callback that changed with it re-rendered the PDF
+  // viewer it is handed to on every keystroke too.
+  const forwardSyncPositionRef = useLatestRef(forwardSyncPosition);
 
   /**
    * From the caret to its place in the PDF, saving first, and building when
@@ -59,8 +63,8 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
    * the jump to whatever passage used to stand on the caret's line.
    */
   const revealSourceInPdf = useCallback(async () => {
-    if (!forwardSyncPosition || locatingPdf) return;
-    const position = forwardSyncPosition;
+    const position = forwardSyncPositionRef.current;
+    if (!position || locatingPdf) return;
     const requestGeneration = forwardSyncGenerationRef.current + 1;
     forwardSyncGenerationRef.current = requestGeneration;
     const ownsDocuments = scope();
@@ -104,7 +108,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     });
   }, [
-    editorPositionRef, ensureCompiled, forwardSyncPosition, locatingPdf, reveal, save, scope, t,
+    editorPositionRef, ensureCompiled, forwardSyncPositionRef, locatingPdf, reveal, save, scope, t,
   ]);
 
   /**

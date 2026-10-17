@@ -1702,14 +1702,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
 
 
-  // The build panel's engine actions: write the engine, then build with it.
-  // `keepEngine` is the undo of an automatic switch, which must not recur.
-  const switchEngineAndBuild = (engine: string, keepEngine?: boolean) => void showingErrors(async () => {
-    const manifest = await invoke<ProjectManifest>("update_project_manifest", { engine, keepEngine });
-    setProject((current) => current ? { ...current, manifest } : current);
-    await buildPipeline.runBuild(false, { requested: true, sound: true });
-  });
-
   // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
   const navigateOutline = (path: string, line: number) => {
     setOutlineOpen(false);
@@ -1863,6 +1855,26 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     />
   );
 
+  // The build panel's engine actions: write the engine, then build with it.
+  // `keepEngine` is the undo of an automatic switch, which must not recur.
+  // Declared below the canvas: the compiler takes the canvas's
+  // `buildPipeline.compiledSources.get` for a write to the pipeline and
+  // memoizes no function made from it above that read, so the diagnostics
+  // panel handed this one rendered again with every render of App.
+  const switchEngineAndBuild = (engine: string, keepEngine?: boolean) => void showingErrors(async () => {
+    const manifest = await invoke<ProjectManifest>("update_project_manifest", { engine, keepEngine });
+    setProject((current) => current ? { ...current, manifest } : current);
+    await buildPipeline.runBuild(false, { requested: true, sound: true });
+  });
+
+  // The diagnostics' excerpts quote the open buffer, and only an expanded list
+  // naming its file shows one: handed the buffer otherwise, the panel above
+  // the PDF re-rendered on every keystroke for nothing on screen.
+  const diagnosticSourceOf = buildPipeline.diagnosticsExpanded
+    && build?.diagnostics.some((diagnostic) => diagnosticMatchesFile(diagnostic.file, activeFile))
+    ? (file: string | undefined) => (diagnosticMatchesFile(file, activeFile) ? source : null)
+    : undefined;
+
   // The compiled PDF in its own panel, beside the canvas: it takes the open
   // document's path, not its text, so only what it shows changing renders it.
   const projectPdfPanel = (
@@ -1901,7 +1913,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
                 synara.showThread(threadId);
               }}
               onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
-              sourceOf={(file) => (diagnosticMatchesFile(file, activeFile) ? source : null)}
+              sourceOf={diagnosticSourceOf}
               onReplaceToken={replaceDiagnosticToken}
               onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
             />

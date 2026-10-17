@@ -5,6 +5,7 @@ import {
   flattenOutline,
   parseLatexOutline,
   parseProjectOutline,
+  sameOutline,
   sectionBreadcrumbNodes,
 } from "./latex-outline";
 
@@ -60,6 +61,16 @@ describe("latex outline", () => {
       section(3, "Intro", 3, [section(4, "Setup", 5, [section(5, "Details", 6)])]),
       section(3, "Results", 7),
     ]);
+  });
+
+  it("names each heading by what it says, so typing above it keeps the outline the same", () => {
+    const source = "Draft.\n\\section{Intro}\n\\section{Notes}\n\\section{Notes}\n";
+    const outline = parseLatexOutline(source, "main.tex");
+    expect(new Set(outline.map((node) => node.id)).size).toBe(3);
+    expect(sameOutline(outline, parseLatexOutline(source.replace("Draft.", "Drafts and more."), "main.tex"))).toBe(true);
+    expect(sameOutline(outline, parseLatexOutline(source.replace("Intro", "Introduction"), "main.tex"))).toBe(false);
+    // A heading on another line is one the outline jumps to differently.
+    expect(sameOutline(outline, parseLatexOutline(`\n${source}`, "main.tex"))).toBe(false);
   });
 
   it("follows input and include files for a project outline", () => {
