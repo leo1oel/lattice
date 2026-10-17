@@ -38,12 +38,9 @@ mod linked_bibliography;
 mod manifest;
 mod paths;
 mod references;
-mod responses;
-mod reviews;
 mod search;
 mod symbols;
 pub mod templates;
-mod terms;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod tree;
@@ -92,8 +89,6 @@ pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};
 pub use references::references;
 pub use references::ReferenceInfo;
-pub use responses::{read_responses, write_responses};
-pub use reviews::{read_latest_review, write_review};
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,
 };
@@ -102,7 +97,6 @@ pub use search::{ReplacePreview, ReplaceResult, TodoHit};
 pub(crate) use symbols::remove_citation_usages;
 pub use symbols::{citation_usages, find_citation_usages, unused_symbols, Symbol};
 pub use symbols::{RenameSymbolResult, UnusedSymbols};
-pub use terms::{apply_term_edits, set_terms, TermFileEdit};
 pub(crate) use tree::{project_tree_path_visible, scan_tree, tree_files, TreeView};
 pub use tree::{read_file, stat_file, ProjectFileStat};
 // Fixtures for other modules' tests.

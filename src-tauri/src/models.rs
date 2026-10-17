@@ -224,7 +224,7 @@ pub struct LiteratureHit {
     pub r#abstract: Option<String>,
     pub doi: Option<String>,
     pub landing_url: Option<String>,
-    /// OpenAlex: where the work was published, for a support card's byline.
+    /// OpenAlex: where the work was published.
     #[serde(default)]
     pub venue: Option<String>,
 }

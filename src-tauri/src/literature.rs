@@ -21,16 +21,6 @@ pub fn search(query: &str, precise: bool, page: u32) -> Result<LiteraturePage, S
     Ok(LiteraturePage { hits: merge_available(alpha, open), has_more })
 }
 
-/// Works whose abstract speaks to `query`, for finding support for a claim:
-/// OpenAlex's first page by relevance, keeping only works that carry an
-/// abstract, since a support card quotes it. alphaXiv is left out: its hits
-/// carry a full-text snippet rather than an abstract, and merged first they
-/// would hide the OpenAlex copy of the same paper that has one.
-pub fn search_abstracts(query: &str) -> Result<Vec<LiteratureHit>, String> {
-    let works = openalex::search_works(query, false, 1)?;
-    Ok(works.into_iter().filter(|work| work.r#abstract.is_some()).map(from_openalex).collect())
-}
-
 fn merge_available(
     alpha: Result<Vec<LiteratureHit>, String>, open: Vec<OpenAlexWork>,
 ) -> Vec<LiteratureHit> {
