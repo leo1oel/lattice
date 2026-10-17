@@ -1,6 +1,5 @@
 import {
   Bold,
-  BookSearch,
   ChevronDown,
   Heading,
   Highlighter,
@@ -39,8 +38,7 @@ export type LatexSelectionAction =
   | "unhighlight"
   | "comment"
   | "proofread"
-  | "polish"
-  | "support";
+  | "polish";
 
 /** The toolbar and the menus it opens: pointer or focus there keeps it open. */
 export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker";
@@ -61,7 +59,6 @@ const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: t
   { action: "comment", label: msg`Annotate`, icon: MessageSquareText, separated: true },
   { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: "⌘⌥P" },
   { action: "polish", label: msg`Polish`, icon: WandSparkles },
-  { action: "support", label: msg`Find support`, icon: BookSearch },
 ];
 
 const headingLevels: { command: string; label: MessageDescriptor }[] = [
@@ -76,7 +73,7 @@ export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
   canComment: boolean;
   commentOnly?: boolean;
-  /** Offer the agent's proofread, polish and find support (an editable LaTeX source with a project). */
+  /** Offer the agent's proofread and polish (an editable LaTeX source with a project). */
   canProofread?: boolean;
   /** The colour of the highlight around the selection (`latex-highlights.ts`), or null outside one. */
   highlight?: string | null;
@@ -106,7 +103,7 @@ export function LatexSelectionToolbar(props: {
     setHighlightOpen(false);
   };
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
-    : action === "proofread" || action === "polish" || action === "support" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
+    : action === "proofread" || action === "polish" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
   const onDismiss = props.onDismiss;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {

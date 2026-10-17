@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
 import { takeResumed } from "../editor/parked-editors";
-import { latexCitationAfter } from "../editor/paper-drop";
 import { closeCompletion } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
 import type { TransactionSpec } from "@codemirror/state";
@@ -53,7 +52,6 @@ import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { AnnotationComposer } from "./annotation-composer";
 import { EditorCommentCards } from "./editor-comment-cards";
 import { AnnotationReviewLayer } from "./annotation-review";
-import { claimSupport } from "../app/claim-support";
 import { notifyInfo } from "../telemetry/app-notify";
 import { createProofreadBridge } from "./proofread-bridge";
 import { ProofreadLayer } from "./proofread-layer";
@@ -81,7 +79,7 @@ import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-spl
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "support" | "unhighlight">, (value?: string) => [string, string] | null> = {
+const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "unhighlight">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
   underline: () => ["\\underline{", "}"],
@@ -483,19 +481,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       return;
     }
     if (!props.document.editorEditable) return;
-    if (action === "support") {
-      const doc = view.state.doc;
-      if (activeFile) {
-        void claimSupport.find({
-          path: activeFile, from: range.from, to: range.to, line: doc.lineAt(range.from).number,
-          quote: view.state.sliceDoc(range.from, range.to),
-          prefix: view.state.sliceDoc(Math.max(0, range.from - 32), range.from),
-          suffix: view.state.sliceDoc(range.to, Math.min(doc.length, range.to + 32)),
-        });
-      }
-      dismissSelectionToolbar();
-      return;
-    }
     if (action === "proofread" || action === "polish") {
       proofread.start(view, action);
       dismissSelectionToolbar();
@@ -673,54 +658,28 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     if (view && props.document.editorEditable) proofread.start(view, request.mode);
     onRequestHandled(request.id);
   }, [editorViewRef, onRequestHandled, primaryViewRef, proofread, proofreadRequest, props.document.editorEditable]);
-  // One-shot LaTeX edits at the insertion target's caret, each settled once
-  // applied. Find support's Cite instead goes after the claim, found again in
-  // its file once that file is the one on screen (App opens it first).
+  // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
   useEffect(() => {
     const view = editorViewRef.current;
-    if (view) {
-      if (citeInsertRequest && !citeInsertRequest.at) {
-        const from = view.state.selection.main.head;
-        const insert = `\\${citeInsertRequest.command}{${citeInsertRequest.key}}`;
-        editAndFocus(view, { changes: { from, insert }, selection: { anchor: from + insert.length } });
-        onRequestHandled(citeInsertRequest.id);
-      }
-      if (envRenameRequest) {
-        const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, envRenameRequest.newName);
-        if (edits) editAndFocus(view, { changes: edits });
-        onRequestHandled(envRenameRequest.id);
-      }
-      if (wrapEnvRequest) {
-        const { from, to } = view.state.selection.main;
-        const edit = wrapEnvironment(view.state.doc.toString(), from, to, wrapEnvRequest.name);
-        editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
-        onRequestHandled(wrapEnvRequest.id);
-      }
+    if (!view) return;
+    if (citeInsertRequest) {
+      const from = view.state.selection.main.head;
+      const insert = `\\${citeInsertRequest.command}{${citeInsertRequest.key}}`;
+      editAndFocus(view, { changes: { from, insert }, selection: { anchor: from + insert.length } });
+      onRequestHandled(citeInsertRequest.id);
     }
-    const request = citeInsertRequest;
-    const at = request?.at;
-    if (!request || !at || at.path !== activeFile || props.document.mode === "pdf" || props.document.mode === "asset") return;
-    const targetView = () => primaryViewRef.current ?? editorViewRef.current;
-    if (!targetView()) return;
-    return landWhenReady(targetView, editorSource, (view) => {
-      const source = view.state.doc.toString();
-      const range = resolveCommentAnchor(source, at);
-      const editable = props.document.editorEditable && !view.state.readOnly;
-      const edit = range && editable ? latexCitationAfter(source, range.from, range.to, request.key) : null;
-      if (edit) {
-        // The caret lands after it, in view: selected, the citation would
-        // raise the selection toolbar over the very text it shows.
-        const end = edit.from + edit.insert.length;
-        editAndFocus(view, { changes: edit, selection: { anchor: end } });
-        revealInEditor(view, { from: end });
-      }
-      at.settled(!range ? "moved" : !editable ? "read-only" : edit ? "cited" : "already");
-      onRequestHandled(request.id);
-    });
-  }, [
-    activeFile, citeInsertRequest, editorSource, editorViewRef, envRenameRequest, onRequestHandled, primaryScrollbarView,
-    primaryViewRef, props.document.editorEditable, props.document.mode, wrapEnvRequest,
-  ]);
+    if (envRenameRequest) {
+      const edits = renameEnvironmentAt(view.state.doc.toString(), view.state.selection.main.head, envRenameRequest.newName);
+      if (edits) editAndFocus(view, { changes: edits });
+      onRequestHandled(envRenameRequest.id);
+    }
+    if (wrapEnvRequest) {
+      const { from, to } = view.state.selection.main;
+      const edit = wrapEnvironment(view.state.doc.toString(), from, to, wrapEnvRequest.name);
+      editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+      onRequestHandled(wrapEnvRequest.id);
+    }
+  }, [citeInsertRequest, editorSource, editorViewRef, envRenameRequest, onRequestHandled, primaryScrollbarView, wrapEnvRequest]);
   useEffect(() => {
     const request = viewRestore;
     if (!request) return;
