@@ -286,7 +286,7 @@
   --pele-border: var(--border-strong);
   --pele-surface: var(--surface-panel);
   --pele-surface-alt: var(--surface-inset);
-  --pele-accent: var(--accent);
+  --pele-accent: var(--focus);
   --pele-critical: var(--status-danger);
   --pele-error: var(--status-danger);
   --pele-radius: var(--radius-control);
