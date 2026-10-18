@@ -1,0 +1,17 @@
+{
+  "version": "0.10.1",
+  "date": "2026-10-18",
+  "highlights": [
+    {
+      "title": {
+        "en": "Faster Mermaid diagrams in Markdown",
+        "zh": "Markdown 中的 Mermaid 图表更快"
+      },
+      "body": {
+        "en": "Mermaid diagrams now render with Pele instead of mermaid.js, so the app is lighter and diagrams draw faster. They follow Lattice's light and dark theme, and a diagram that can't be drawn shows a clear error. Layouts may differ slightly from before.",
+        "zh": "Mermaid 图表现在使用 Pele 而非 mermaid.js 渲染，应用更轻巧，图表绘制更快。图表会跟随 Lattice 的浅色和深色主题，无法绘制时会显示清晰的错误提示。布局可能与之前略有不同。"
+      }
+    }
+  ],
+  "fixes": []
+}
