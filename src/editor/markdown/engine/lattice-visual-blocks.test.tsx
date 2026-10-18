@@ -16,11 +16,8 @@ import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
 import { engineHealth } from "./views/view-chrome";
 import { moveTableColumn } from "./table-commands";
 
-vi.mock("mermaid", () => ({
-  default: {
-    initialize: vi.fn(),
-    render: vi.fn(async () => ({ svg: "<svg viewBox=\"0 0 100 100\"><g><text>Graph</text></g></svg>" })),
-  },
+vi.mock("pele", () => ({
+  render: vi.fn(() => ({ type: "flowchart", svg: "<svg viewBox=\"0 0 100 100\"><g><text>Graph</text></g></svg>" })),
 }));
 const panzoom = vi.hoisted(() => ({ create: vi.fn(() => ({ pan: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), reset: vi.fn(), destroy: vi.fn() })) }));
 vi.mock("@panzoom/panzoom", () => ({ default: panzoom.create }));

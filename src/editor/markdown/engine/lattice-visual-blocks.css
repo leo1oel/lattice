@@ -275,6 +275,24 @@
 .lx-md-editor .lx-md-code-preview:hover .lx-md-resize-handle { opacity: 1; }
 
 .lx-md-editor .lx-md-mermaid { position: relative; min-height: 64px; }
+/* Pele colours its SVG through these variables. The Lattice tokens already
+   follow data-theme, so light and dark need no separate block and a theme
+   switch restyles the diagram without re-rendering it. */
+.lx-md-editor .lx-md-mermaid {
+  --pele-bg: transparent;
+  --pele-fg: var(--text-primary);
+  --pele-muted: var(--text-secondary);
+  --pele-line: var(--text-tertiary);
+  --pele-border: var(--border-strong);
+  --pele-surface: var(--surface-panel);
+  --pele-surface-alt: var(--surface-inset);
+  --pele-accent: var(--focus);
+  --pele-critical: var(--status-danger);
+  --pele-error: var(--status-danger);
+  --pele-radius: var(--radius-control);
+  --pele-font: var(--ui-font);
+  --pele-font-mono: var(--editor-font);
+}
 .lx-md-editor .lx-md-mermaid-viewport { overflow: hidden; border-radius: var(--radius-control); }
 .lx-md-editor .lx-md-mermaid-canvas { display: flex; justify-content: center; }
 .lx-md-editor .lx-md-mermaid-canvas svg { max-width: 100%; height: auto; }

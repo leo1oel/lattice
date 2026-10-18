@@ -13033,6 +13033,10 @@ msgstr "本机"
 msgid "This computer removed this part."
 msgstr "本机删了这段"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
+msgid "This diagram could not be rendered."
+msgstr "无法渲染此图表。"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "This document changed in the same place"
 msgstr "这份文档同一处被改了"

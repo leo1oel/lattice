@@ -13033,6 +13033,10 @@ msgstr "This computer"
 msgid "This computer removed this part."
 msgstr "This computer removed this part."
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
+msgid "This diagram could not be rendered."
+msgstr "This diagram could not be rendered."
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"

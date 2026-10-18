@@ -431,7 +431,7 @@ and `ui`. The production build has a single html entry (`vite.config.ts`), so a
 third eager chunk means the module grouping changed and the allowlist should be
 re-derived rather than widened.
 
-Heavy libraries must stay behind dynamic imports: pdfjs, mermaid, katex,
+Heavy libraries must stay behind dynamic imports: pdfjs, pele (Mermaid diagrams), katex,
 the CodeMirror language packs, TipTap, Univer, tldraw, Yjs. Yjs and the
 spreadsheet operations reach the Agent's spreadsheet tools through
 `loadAgentSpreadsheetModel` (`src/agent/agent-spreadsheet-tools.ts`), whose
