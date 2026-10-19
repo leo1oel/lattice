@@ -20,6 +20,7 @@ import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
 import { SmallStore, type Listener } from "./trellis-small-store";
 import { DocumentTabs } from "./trellis-tab-policy";
+import { terminalHome } from "../terminal/terminal-layout";
 import type { SwitchState } from "../canvas/after-switch";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
@@ -56,7 +57,7 @@ export function toolKindForDrawer(className: string | undefined): TrellisToolKin
   return DRAWER_TOOL_CLASSES.find(([name]) => classes.includes(name))?.[1] ?? null;
 }
 
-export type TrellisSingleton = "project" | "papers" | "agent" | "pdf" | TrellisToolKind;
+export type TrellisSingleton = "project" | "papers" | "agent" | "pdf" | "terminal" | TrellisToolKind;
 
 /** What a file panel holds: a project text/structured file, an asset preview or a Paper. */
 export type TrellisTabKind = "file" | "asset" | "paper";
@@ -319,26 +320,25 @@ export class TrellisController {
     this.bridge = bridge;
   }
 
-  /** Save, then animate back to the default layout (installed by the mounted workspace). */
+  /** Save, then animate back to the default layout. */
   resetLayout() {
     return this.resetHandler?.() ?? Promise.resolve();
   }
 
-  /** Reconcile document panels with App's tabs now (installed by the mounted workspace). */
+  /** Reconcile document panels with App's tabs. */
   resync() {
     this.resyncHandler?.();
   }
 
-  /** Enter a layout preset, or (null) return to the writer's own layout (installed by the mounted workspace). */
+  /** Enter a layout preset, or (null) return to the writer's own layout. */
   setPreset(preset: LayoutPreset | null) {
     this.presetHandler?.(preset);
   }
 
   /**
-   * Turn focus mode on or off (installed by the mounted workspace). On, the
-   * open documents fill the window in one panel, the PDF beside them as the
-   * writer last chose, and App drops its chrome; off, the layout comes back
-   * as it was, a preset's included.
+   * Turn focus mode on or off. On, the open documents fill the window in one
+   * panel, the PDF beside them as the writer last chose, and App drops its
+   * chrome; off, the layout comes back as it was, a preset's included.
    */
   setFocus(on: boolean) {
     this.focusHandler?.(on);
@@ -350,8 +350,8 @@ export class TrellisController {
   }
 
   /**
-   * Enter the named workspace `id` (installed by the mounted workspace). The
-   * one the project is in already returns from a preset or focus mode over it.
+   * Enter the named workspace `id`. The one the project is in returns
+   * from a preset or focus mode over it.
    */
   switchWorkspace(id: string) {
     const { workspace, preset, focus } = this.ui.get();
@@ -385,6 +385,7 @@ export class TrellisController {
     this.revertWorkspaceHandler?.();
   }
 
+  /** The mounted workspace's side of the above. */
   installHandlers(handlers: {
     reset?: () => Promise<void>;
     resync?: () => void;
@@ -631,8 +632,9 @@ export class TrellisController {
   /**
    * Where a closed panel comes back. Project and the Agent share a panel,
    * Papers sits below them, the PDF right of the documents, Annotations with
-   * the PDF (else right of the documents they annotate), and other tools join
-   * the Project/Agent panel as tabs; with those gone, beside the documents.
+   * the PDF (else right of the documents they annotate), the Terminal below
+   * all, and other tools join the Project/Agent panel as tabs; with those
+   * gone, beside the documents.
    */
   private homeOf(kind: TrellisSingleton): Placement {
     const ws = this.ws;
@@ -657,6 +659,7 @@ export class TrellisController {
       case "papers": return near("project", "bottom", 0.38) ?? near("agent", "bottom", 0.38) ?? besideDocuments("left", 0.25);
       case "pdf": return besideDocuments("right", 0.42);
       case "comments": return into("pdf") ?? besideDocuments("right", 0.36);
+      case "terminal": return terminalHome(ws);
       default: return into("agent") ?? into("project") ?? besideDocuments("right", 0.32);
     }
   }

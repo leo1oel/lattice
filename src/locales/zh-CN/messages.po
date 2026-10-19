@@ -642,6 +642,10 @@ msgstr "{name} 以不同选项加载了两次"
 msgid "{name} is not in a file right now."
 msgstr "{name} 当前没在看任何文件"
 
+#: src/terminal/terminal-window.ts
+msgid "{name} is still running. Closing stops it."
+msgstr "{name} 仍在运行，关闭会将其停止。"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name}设置"
@@ -1044,9 +1048,17 @@ msgstr "多出一个 {BRACE_CLOSE}，前面没有对应的 {BRACE_OPEN}"
 msgid "A {BRACE_OPEN} is never closed"
 msgstr "有一个 {BRACE_OPEN} 没有闭合"
 
+#: src/terminal/terminal-panel.tsx
+msgid "A browser tab cannot run commands on this Mac"
+msgstr "浏览器标签页无法在这台 Mac 上运行命令"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
+
+#: src/terminal/terminal-window.ts
+msgid "A command is still running. Closing stops it."
+msgstr "仍有命令在运行，关闭会将其停止。"
 
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
@@ -1108,6 +1120,10 @@ msgstr "有正式发表版"
 #: src/papers/audit-messages.ts
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "这篇预印本已有正式发表版本。正文内文献需要手动修改。"
+
+#: src/terminal/terminal-panel.tsx
+msgid "A shell in this project’s folder, for latexmk, git and your own scripts"
+msgstr "在本项目文件夹中打开的 shell，可运行 latexmk、git 和你自己的脚本"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
@@ -3079,6 +3095,10 @@ msgstr "清空"
 msgid "Clear search"
 msgstr "清空"
 
+#: src/terminal/terminal-view-type.tsx
+msgid "Clear terminal"
+msgstr "清空终端"
+
 #: src/canvas/proofread-card.tsx
 msgid "Click an edit to keep the original"
 msgstr "点一处修改可保留原文"
@@ -3103,8 +3123,14 @@ msgstr "剪贴板"
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-window.ts
 msgid "Close"
 msgstr "关闭"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Close {label}"
+msgstr "关闭 {label}"
 
 #: src/components/ui/panel-header.tsx
 #: src/trellis/trellis-labels.ts
@@ -3112,6 +3138,7 @@ msgid "Close {title}"
 msgstr "关闭 {title}"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Close find"
 msgstr "关闭"
 
@@ -3147,6 +3174,14 @@ msgstr "关闭"
 #: src/trellis/trellis-keymap.ts
 msgid "Close the tab"
 msgstr "关闭标签"
+
+#: src/terminal/terminal-window.ts
+msgid "Close the terminal?"
+msgstr "关闭终端？"
+
+#: src/terminal/terminal-window.ts
+msgid "Close the terminals?"
+msgstr "关闭这些终端？"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Close visual"
@@ -4261,6 +4296,7 @@ msgid "Discover literature"
 msgstr "找文献"
 
 #: src/canvas/proofread-card.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Dismiss"
 msgstr "关闭"
 
@@ -4373,6 +4409,10 @@ msgstr "双击一段"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
 msgstr "双击 PDF 跳到对应原文，⌘⇧J 跳回"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Double-click to rename"
+msgstr "双击以重命名"
 
 #: src/trellis/trellis-labels.ts
 msgid "Double-click to zoom in"
@@ -5246,6 +5286,11 @@ msgstr "在 PDF 中搜索"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "全局搜索"
+
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-view-type.tsx
+msgid "Find in terminal"
+msgstr "在终端中查找"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Find references"
@@ -7946,6 +7991,12 @@ msgstr "向右分屏"
 msgid "New spreadsheet"
 msgstr "新建表格"
 
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-view-type.tsx
+#: src/terminal/terminal-view.tsx
+msgid "New terminal"
+msgstr "新建终端"
+
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "新版本 {version}"
@@ -7993,6 +8044,7 @@ msgstr "下一个问题"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Next match"
 msgstr "下一个"
 
@@ -8313,6 +8365,7 @@ msgstr "没有已解决的批注"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "No results"
 msgstr "没有结果"
 
@@ -8336,6 +8389,10 @@ msgstr "没有“{0}”相关的快捷键"
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this file"
 msgstr "这个文件没有修订建议"
+
+#: src/terminal/terminal-panel.tsx
+msgid "No terminal open"
+msgstr "没有打开的终端"
 
 #: src/history/compare-versions.tsx
 #: src/history/file-diff-view.tsx
@@ -9759,6 +9816,7 @@ msgstr "上一处改动"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Previous match"
 msgstr "上一个"
 
@@ -11125,6 +11183,10 @@ msgstr "rtex 已停止。PDF 仍会随每次编译更新。"
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
 msgstr "第 {run} 次"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Run latexmk, git or any command in this project’s folder"
+msgstr "在本项目文件夹中运行 latexmk、git 或任意命令"
 
 #: src/App.tsx
 #: src/settings/doctor-settings.tsx
@@ -12543,6 +12605,22 @@ msgstr "详细信息"
 msgid "Template name"
 msgstr "模板名称"
 
+#: src/trellis/trellis-titles.ts
+msgid "Terminal"
+msgstr "终端"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminal {number}"
+msgstr "终端 {number}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminal name"
+msgstr "终端名称"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminals"
+msgstr "终端"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
@@ -13021,6 +13099,18 @@ msgstr "这段已经很好"
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "显示的是共享版本，你的草稿已保留，可复制或恢复后重试"
 
+#: src/terminal/terminal-panel.tsx
+msgid "The shell did not start: {message}"
+msgstr "shell 未能启动：{message}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The shell exited with code {code}"
+msgstr "shell 已退出，代码 {code}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The shell was stopped"
+msgstr "shell 已被停止"
+
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
@@ -13032,6 +13122,10 @@ msgstr "源码编辑器"
 #: src/settings/acknowledged-software.ts
 msgid "The spreadsheet editor"
 msgstr "电子表格编辑器"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The terminal is in the Lattice window"
+msgstr "终端位于 Lattice 窗口中"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
@@ -13490,6 +13584,7 @@ msgstr "换个更短或不同的词试试"
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/project/paper-library.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "重试"
 

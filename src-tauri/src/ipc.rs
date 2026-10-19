@@ -15,16 +15,19 @@ pub(crate) mod overleaf;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
 pub(crate) mod search;
+pub(crate) mod terminal;
 pub(crate) mod windows;
 pub(crate) mod workspace;
 
 use crate::app_state::{AppState, Lease, ProjectLease};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::path::{Path, PathBuf};
-use tauri::Window;
+use tauri::{Runtime, Window};
 
 /// The project of the window that sent the request.
-pub(crate) fn current_root(state: &AppState, window: &Window) -> Result<PathBuf, String> {
+pub(crate) fn current_root<R: Runtime>(
+    state: &AppState, window: &Window<R>,
+) -> Result<PathBuf, String> {
     state.root_for(window.label())?.ok_or_else(|| "Open a project first.".to_string())
 }
 
@@ -35,8 +38,8 @@ pub(crate) fn current_root(state: &AppState, window: &Window) -> Result<PathBuf,
 /// for A as an action on B, so every command that can mutate project files
 /// pins itself before touching disk or the network. `action` completes the
 /// refusal "The project changed before {action}."
-pub(crate) fn pinned_root(
-    state: &AppState, window: &Window, project_root: &str, action: &str,
+pub(crate) fn pinned_root<R: Runtime>(
+    state: &AppState, window: &Window<R>, project_root: &str, action: &str,
 ) -> Result<PathBuf, String> {
     expect_root(current_root(state, window)?, project_root, action)
 }

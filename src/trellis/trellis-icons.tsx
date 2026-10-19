@@ -14,6 +14,7 @@ import { FileGlyph } from "../components/ui/file-glyph";
 import { fileGlyphKind, type FileGlyphKind } from "../components/ui/file-glyphs";
 import type { TrellisSingleton } from "./trellis-controller";
 import type { LayoutPreset } from "./trellis-layout";
+import { TERMINAL_ICON } from "../terminal/terminal-icon";
 
 /** The layout presets, in the titlebar's Panels menu. */
 export const PRESETS = [
@@ -43,6 +44,7 @@ export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   papers: <Library size={14} />,
   agent: <Bot size={14} />,
   pdf: <FileText size={14} />,
+  terminal: TERMINAL_ICON,
   history: <History size={14} />,
   git: <GitBranch size={14} />,
   comments: <MessageSquare size={14} />,

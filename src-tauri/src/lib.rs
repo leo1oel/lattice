@@ -53,6 +53,7 @@ mod project_fs;
 mod review_pdf;
 mod sidecar;
 mod synara;
+mod terminal;
 #[cfg(test)]
 mod test_support;
 mod tex_setup;
@@ -148,6 +149,7 @@ fn shutdown_child_runtimes(app: &AppHandle) {
     app.state::<synara::SynaraRuntime>().shutdown();
     app.state::<presentation::PresentationRuntime>().shutdown();
     app.state::<AppState>().stop_all_live_previews();
+    app.state::<AppState>().terminals.close_all_and_wait();
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
@@ -182,11 +184,13 @@ fn on_page_load<R: Runtime>(
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
         }
-        // Nothing is left to draw a live preview that page had started.
+        // Nothing is left to draw a live preview that page had started, or
+        // the terminals it had open.
         if let Some(state) = webview.try_state::<AppState>() {
             if let Ok(Some(root)) = state.root_for(webview.label()) {
                 state.project(&root).stop_live_preview();
             }
+            state.terminals.close_window(webview.label());
         }
     }
 }
@@ -562,6 +566,12 @@ pub fn run() {
             presentation::presentation_ensure_ready,
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,
+            ipc::terminal::terminal_open,
+            ipc::terminal::terminal_write,
+            ipc::terminal::terminal_resize,
+            ipc::terminal::terminal_ack,
+            ipc::terminal::terminal_running_command,
+            ipc::terminal::terminal_close,
         ])
         .build(context)
         .expect("error while running tauri application");

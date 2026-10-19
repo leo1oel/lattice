@@ -33,6 +33,7 @@ const CORE_PANELS = [
   { kind: "papers", icon: <Library size={14} /> },
   { kind: "agent", icon: <Bot size={14} /> },
   { kind: "pdf", icon: <FileText size={14} /> },
+  { kind: "terminal", icon: PANEL_ICONS.terminal },
 ] as const satisfies ReadonlyArray<{ kind: TrellisSingleton; icon: unknown }>;
 
 /**

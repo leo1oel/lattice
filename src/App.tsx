@@ -85,6 +85,7 @@ import { TrellisController, TrellisControllerContext, useTrellisUi } from "./tre
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { WORKSPACE_SHORTCUTS } from "./trellis/trellis-workspaces";
 import { FOCUS_MODE_KEY, FRAME_TOGGLE_KEY } from "./trellis/trellis-keymap";
+import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./app/panel-toggles";
 import { REVEAL_IN_PDF_KEY } from "./pdf/pdf-keys";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -193,9 +194,6 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
-const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
-/** The titlebar's toggled panels' keys, with ⌘⌥; their tooltips read them back from the command table. */
-const PANEL_TOGGLE_KEYS: Partial<Record<(typeof SINGLETON_PANELS)[number], string>> = { project: "1", papers: "2", agent: "3" };
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
@@ -1334,8 +1332,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       label: preset === "writing" ? t`Switch to the Writing layout` : t`Switch to the Reading layout`,
       run: () => trellis.setPreset(preset),
     })),
-    // Project, Papers and the Agent toggle, as their Panels menu entries do, on ⌘⌥1 to ⌘⌥3 in the
-    // menu's order (⌘1 to ⌘9 are the workspaces); every other panel and tool is shown.
+    // A panel with a toggle key (app/panel-toggles.ts) toggles, as its Panels menu entry does; the rest are shown.
     ...SINGLETON_PANELS.map((kind): AppCommand => {
       const name = i18n._(PANEL_TITLES[kind]);
       const toggleKey = PANEL_TOGGLE_KEYS[kind];
@@ -1343,7 +1340,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       return {
         id: `panel-${kind}`, when: inProject, group: "layout",
         label: spaceMixedScript(hide ? t({ message: `Hide ${name} panel` }) : t({ message: `Show ${name} panel` })),
-        ...(toggleKey ? { key: toggleKey, alt: true } : {}),
+        ...toggleKey,
         run: () => (toggleKey ? trellis.togglePanel(kind) : trellis.showPanel(kind)),
       };
     }),

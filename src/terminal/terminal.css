@@ -1,0 +1,177 @@
+/* ---------------------------------------------------------------- terminal
+   The Terminal panel: a strip of terminal tabs when there is more than one,
+   and the screen. Loaded with the panel (terminal-panel.tsx).
+
+   Colour roles. terminal-theme.ts reads these and hands xterm.js the
+   resolved colours, so the terminal stands on the source editor's ground in
+   its ink, caret and selection, and follows the code theme, the tint and
+   light or dark. The ANSI hues take the status roles (red, green, yellow)
+   and the file glyphs' (blue, magenta, cyan), which already read on that
+   ground; xterm.js lifts any program's colour to 4.5:1 on top. Black is the
+   darkest and white the lightest whichever way the ground goes, so a program
+   painting "black on white" reads as it means. */
+.terminal-panel {
+  --terminal-ground: var(--code-ground);
+  --terminal-ink: var(--code-ink);
+  --terminal-caret: var(--code-caret);
+  --terminal-selection: var(--code-selection-focused);
+  --terminal-selection-inactive: var(--code-selection);
+  --terminal-red: var(--status-danger);
+  --terminal-green: var(--status-success);
+  --terminal-yellow: var(--status-warning);
+  --terminal-blue: var(--file-glyph-tex);
+  --terminal-magenta: var(--file-glyph-style);
+  --terminal-cyan: var(--file-glyph-board);
+  --terminal-bright-red: color-mix(in oklab, var(--terminal-red) 80%, var(--terminal-ink));
+  --terminal-bright-green: color-mix(in oklab, var(--terminal-green) 80%, var(--terminal-ink));
+  --terminal-bright-yellow: color-mix(in oklab, var(--terminal-yellow) 80%, var(--terminal-ink));
+  --terminal-bright-blue: color-mix(in oklab, var(--terminal-blue) 80%, var(--terminal-ink));
+  --terminal-bright-magenta: color-mix(in oklab, var(--terminal-magenta) 80%, var(--terminal-ink));
+  --terminal-bright-cyan: color-mix(in oklab, var(--terminal-cyan) 80%, var(--terminal-ink));
+  --terminal-black: var(--terminal-ink);
+  --terminal-bright-black: color-mix(in oklab, var(--terminal-ink) 55%, var(--terminal-ground));
+  --terminal-white: color-mix(in oklab, var(--terminal-ink) 30%, var(--terminal-ground));
+  --terminal-bright-white: color-mix(in oklab, var(--terminal-ink) 12%, var(--terminal-ground));
+  --terminal-font-size: var(--type-diff-code-size);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--terminal-ground);
+  color: var(--text-primary);
+}
+:root[data-code-theme-kind="dark"] .terminal-panel {
+  --terminal-black: color-mix(in oklab, var(--terminal-ink) 12%, var(--terminal-ground));
+  --terminal-bright-black: color-mix(in oklab, var(--terminal-ink) 45%, var(--terminal-ground));
+  --terminal-white: color-mix(in oklab, var(--terminal-ink) 80%, var(--terminal-ground));
+  --terminal-bright-white: var(--terminal-ink);
+}
+.lattice-trellis [data-trellis-part="surface"][data-type="terminal"] { background: var(--code-ground); }
+
+/* The tabs, once there are two terminals: the compact tab plates of a panel's
+   own strip (trellis.css), one step quieter, on the screen's ground. */
+.terminal-tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--gap-tight) var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.terminal-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--gap-inline-tight);
+  height: var(--control-height-compact);
+  max-width: 200px;
+  padding-inline: var(--pad-inline-control-tight) var(--gap-tight);
+  border-radius: calc(var(--radius-control) * var(--corner-smoothing));
+  corner-shape: squircle;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.terminal-tab:hover:not([data-selected]) { background: var(--control-hover-surface); }
+.terminal-tab[data-selected] {
+  background: color-mix(in srgb, var(--text-primary) 10%, var(--terminal-ground));
+  color: var(--text-primary);
+}
+.terminal-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+.terminal-tab-rename {
+  width: 120px;
+  min-width: 0;
+  height: var(--control-size-icon-compact);
+  padding-inline: var(--gap-inline-tight);
+  border: var(--field-control-border-width) solid var(--field-control-interactive-border-color);
+  border-radius: calc(var(--radius-compact) * var(--corner-smoothing));
+  corner-shape: squircle;
+  background: var(--field-control-background);
+  outline: none;
+  color: var(--text-primary);
+  font: inherit;
+}
+/* The close button holds its width while hidden, so hovering never resizes a tab. */
+.terminal-tab .ui-icon-button { flex: none; }
+.terminal-tab:not([data-selected], :hover, :focus-within) .ui-icon-button { opacity: 0; }
+
+.terminal-new { color: var(--text-secondary); }
+
+/* A first-use line above the screen, until it is dismissed. */
+.terminal-hint {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--gap-tight) var(--space-3) var(--gap-tight) var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.terminal-hint > span { flex: 1; min-width: 0; }
+
+.terminal-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.terminal-slot { position: absolute; inset: var(--space-1) var(--space-1) 0 var(--space-5); }
+.terminal-slot[hidden] { display: none; }
+.terminal-screen { width: 100%; height: 100%; }
+.terminal-screen .xterm { height: 100%; }
+.terminal-screen .xterm .xterm-viewport { background-color: var(--terminal-ground); }
+
+/* How a shell that stopped by itself ended, over the foot of its screen. */
+.terminal-ended {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.terminal-ended > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+/* Find in the terminal (⌘F): a compact field over the screen's top right. */
+.terminal-find {
+  position: absolute;
+  top: var(--space-2);
+  /* Clear of the screen's scroll bar. */
+  right: var(--space-12);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-hairline);
+  padding: var(--gap-tight);
+  border-radius: calc(var(--radius-surface) * var(--corner-smoothing));
+  corner-shape: squircle;
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-floating);
+}
+.terminal-find input { width: 180px; }
+.terminal-find-count {
+  min-width: 48px;
+  padding-inline: var(--gap-inline-tight);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}

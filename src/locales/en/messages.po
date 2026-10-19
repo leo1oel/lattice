@@ -642,6 +642,10 @@ msgstr "{name} is loaded twice with different options"
 msgid "{name} is not in a file right now."
 msgstr "{name} is not in a file right now."
 
+#: src/terminal/terminal-window.ts
+msgid "{name} is still running. Closing stops it."
+msgstr "{name} is still running. Closing stops it."
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name} properties"
@@ -1044,9 +1048,17 @@ msgstr "A {BRACE_CLOSE} with no {BRACE_OPEN} before it"
 msgid "A {BRACE_OPEN} is never closed"
 msgstr "A {BRACE_OPEN} is never closed"
 
+#: src/terminal/terminal-panel.tsx
+msgid "A browser tab cannot run commands on this Mac"
+msgstr "A browser tab cannot run commands on this Mac"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
+
+#: src/terminal/terminal-window.ts
+msgid "A command is still running. Closing stops it."
+msgstr "A command is still running. Closing stops it."
 
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
@@ -1108,6 +1120,10 @@ msgstr "A published version is available."
 #: src/papers/audit-messages.ts
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "A published version of this preprint exists. Inline references are edited by hand."
+
+#: src/terminal/terminal-panel.tsx
+msgid "A shell in this project’s folder, for latexmk, git and your own scripts"
+msgstr "A shell in this project’s folder, for latexmk, git and your own scripts"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
@@ -3079,6 +3095,10 @@ msgstr "Clear PDF search"
 msgid "Clear search"
 msgstr "Clear search"
 
+#: src/terminal/terminal-view-type.tsx
+msgid "Clear terminal"
+msgstr "Clear terminal"
+
 #: src/canvas/proofread-card.tsx
 msgid "Click an edit to keep the original"
 msgstr "Click an edit to keep the original"
@@ -3103,8 +3123,14 @@ msgstr "Clipboard"
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-window.ts
 msgid "Close"
 msgstr "Close"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Close {label}"
+msgstr "Close {label}"
 
 #: src/components/ui/panel-header.tsx
 #: src/trellis/trellis-labels.ts
@@ -3112,6 +3138,7 @@ msgid "Close {title}"
 msgstr "Close {title}"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Close find"
 msgstr "Close find"
 
@@ -3147,6 +3174,14 @@ msgstr "Close settings"
 #: src/trellis/trellis-keymap.ts
 msgid "Close the tab"
 msgstr "Close the tab"
+
+#: src/terminal/terminal-window.ts
+msgid "Close the terminal?"
+msgstr "Close the terminal?"
+
+#: src/terminal/terminal-window.ts
+msgid "Close the terminals?"
+msgstr "Close the terminals?"
 
 #: src/agent/agent-visual-dialog.tsx
 msgid "Close visual"
@@ -4261,6 +4296,7 @@ msgid "Discover literature"
 msgstr "Discover literature"
 
 #: src/canvas/proofread-card.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -4373,6 +4409,10 @@ msgstr "Double-click a paragraph"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
 msgstr "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
+
+#: src/terminal/terminal-panel.tsx
+msgid "Double-click to rename"
+msgstr "Double-click to rename"
 
 #: src/trellis/trellis-labels.ts
 msgid "Double-click to zoom in"
@@ -5246,6 +5286,11 @@ msgstr "Find in PDF"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "Find in project"
+
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-view-type.tsx
+msgid "Find in terminal"
+msgstr "Find in terminal"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Find references"
@@ -7946,6 +7991,12 @@ msgstr "New split right"
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
 
+#: src/terminal/terminal-panel.tsx
+#: src/terminal/terminal-view-type.tsx
+#: src/terminal/terminal-view.tsx
+msgid "New terminal"
+msgstr "New terminal"
+
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "New version {version}"
@@ -7993,6 +8044,7 @@ msgstr "Next finding"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Next match"
 msgstr "Next match"
 
@@ -8313,6 +8365,7 @@ msgstr "No resolved annotations"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "No results"
 msgstr "No results"
 
@@ -8336,6 +8389,10 @@ msgstr "No shortcut matches “{0}”"
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this file"
 msgstr "No suggestions in this file"
+
+#: src/terminal/terminal-panel.tsx
+msgid "No terminal open"
+msgstr "No terminal open"
 
 #: src/history/compare-versions.tsx
 #: src/history/file-diff-view.tsx
@@ -9759,6 +9816,7 @@ msgstr "Previous change"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Previous match"
 msgstr "Previous match"
 
@@ -11125,6 +11183,10 @@ msgstr "rtex stopped. The PDF still updates with each build."
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
 msgstr "run {run}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Run latexmk, git or any command in this project’s folder"
+msgstr "Run latexmk, git or any command in this project’s folder"
 
 #: src/App.tsx
 #: src/settings/doctor-settings.tsx
@@ -12543,6 +12605,22 @@ msgstr "Technical details"
 msgid "Template name"
 msgstr "Template name"
 
+#: src/trellis/trellis-titles.ts
+msgid "Terminal"
+msgstr "Terminal"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminal {number}"
+msgstr "Terminal {number}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminal name"
+msgstr "Terminal name"
+
+#: src/terminal/terminal-panel.tsx
+msgid "Terminals"
+msgstr "Terminals"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
@@ -13021,6 +13099,18 @@ msgstr "The selection already reads well."
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 
+#: src/terminal/terminal-panel.tsx
+msgid "The shell did not start: {message}"
+msgstr "The shell did not start: {message}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The shell exited with code {code}"
+msgstr "The shell exited with code {code}"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The shell was stopped"
+msgstr "The shell was stopped"
+
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
@@ -13032,6 +13122,10 @@ msgstr "The source editor"
 #: src/settings/acknowledged-software.ts
 msgid "The spreadsheet editor"
 msgstr "The spreadsheet editor"
+
+#: src/terminal/terminal-panel.tsx
+msgid "The terminal is in the Lattice window"
+msgstr "The terminal is in the Lattice window"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
@@ -13490,6 +13584,7 @@ msgstr "Try a shorter phrase or different terms"
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/project/paper-library.tsx
+#: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "Try again"
 

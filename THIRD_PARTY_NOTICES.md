@@ -445,11 +445,11 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**589 packages.**
+**595 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 481 |
+| `MIT` | 487 |
 | `Apache-2.0` | 30 |
 | `ISC` | 28 |
 | `BSD-3-Clause` | 18 |
@@ -537,7 +537,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (65 distinct texts across 589 packages)
+### License texts (65 distinct texts across 595 packages)
 
 #### 1. MIT (+1 other declarations) — 233 package(s), from `LICENSE`
 
@@ -685,7 +685,76 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 3. MIT — 45 package(s), from `license`
+#### 3. MIT — 50 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`@jridgewell/gen-mapping@0.3.13`, `@jridgewell/remapping@2.3.5`, `@jridgewell/resolve-uri@3.1.2`, `@jridgewell/sourcemap-codec@1.5.5`, `@jridgewell/trace-mapping@0.3.31`, `@messageformat/date-skeleton@1.1.0`, `@messageformat/parser@5.1.1`, `@wendellhu/redi@1.1.1`, `@xterm/addon-fit@0.11.0`, `@xterm/addon-search@0.16.0`, `@xterm/addon-unicode11@0.9.0`, `@xterm/addon-web-links@0.12.0`, `@xterm/addon-webgl@0.19.0`, `@xterm/xterm@6.0.0`, `archiver-utils@2.1.0`, `archiver-utils@3.0.4`, `archiver@5.3.2`, `async@3.2.6`, `color-convert@2.0.1`, `compress-commons@4.1.2`, `core-util-is@1.0.3`, `crc32-stream@4.0.3`, `crelt@1.0.7`, `csstype@3.2.3`, `emoji-regex@8.0.0`, `fdir@6.5.0`, `immediate@3.0.6`, `lazystream@1.0.1`, `linkifyjs@4.3.3`, `magic-string@0.30.21`, `numfmt@3.2.6`, `orderedmap@2.1.1`, `prosemirror-changeset@2.4.4`, `prosemirror-commands@1.7.2`, `prosemirror-dropcursor@1.8.4`, `prosemirror-gapcursor@1.4.1`, `prosemirror-history@1.5.1`, `prosemirror-inputrules@1.5.1`, `prosemirror-keymap@1.2.3`, `prosemirror-model@1.25.12`, `prosemirror-schema-list@1.5.1`, `prosemirror-state@1.4.4`, `prosemirror-tables@1.8.5`, `prosemirror-transform@1.12.2`, `prosemirror-view@1.42.6`, `rope-sequence@1.3.4`, `setimmediate@1.0.5`, `style-mod@4.1.3`, `w3c-keyname@2.2.8`, `zip-stream@4.1.1`
+
+</details>
+
+Copyright notices (32):
+
+```text
+Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
+Copyright (C) 2015-2017 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin>
+Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+Copyright (C) 2017 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
+Copyright (C) 2020 by Marijn Haverbeke <marijn@haverbeke.berlin>
+Copyright (c) 2010-2018 Caolan McMahon
+Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
+Copyright (c) 2012 Barnesandnoble.com, llc, Donavon West, Domenic Denicola, Brian Cavalier
+Copyright (c) 2012 Barnesandnoble.com, llc, Donavon West, and Domenic Denicola
+Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/)
+Copyright (c) 2012-2014 Chris Talkington, contributors.
+Copyright (c) 2013 J. Pommerening, contributors.
+Copyright (c) 2014 Chris Talkington, contributors.
+Copyright (c) 2014-2016, SourceLair Private Company (https://www.sourcelair.com)
+Copyright (c) 2015 Chris Talkington.
+Copyright (c) 2017, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2017-2018 Fredrik Nicol
+Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2018, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2019, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2020, Borgar Þorsteinsson <borgar@borgar.net>
+Copyright (c) 2024 Nick Frasser
+Copyright 2018 Rich Harris
+Copyright 2019 Justin Ridgewell <jridgewell@google.com>
+Copyright 2021 Wendell Hu
+Copyright 2023 Abdullah Atta
+Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
+Copyright Mathias Bynens <https://mathiasbynens.be/>
+Copyright Node.js contributors. All rights reserved.
+Copyright OpenJS Foundation and contributors, https://openjsf.org/
+```
+
+```text
+Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2014-2016, SourceLair Private Company (https://www.sourcelair.com)
+Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+#### 4. MIT — 45 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -755,68 +824,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
-
-#### 4. MIT — 44 package(s), from `LICENSE.txt`
-
-<details><summary>Packages sharing this text</summary>
-
-`@jridgewell/gen-mapping@0.3.13`, `@jridgewell/remapping@2.3.5`, `@jridgewell/resolve-uri@3.1.2`, `@jridgewell/sourcemap-codec@1.5.5`, `@jridgewell/trace-mapping@0.3.31`, `@messageformat/date-skeleton@1.1.0`, `@messageformat/parser@5.1.1`, `@wendellhu/redi@1.1.1`, `archiver-utils@2.1.0`, `archiver-utils@3.0.4`, `archiver@5.3.2`, `async@3.2.6`, `color-convert@2.0.1`, `compress-commons@4.1.2`, `core-util-is@1.0.3`, `crc32-stream@4.0.3`, `crelt@1.0.7`, `csstype@3.2.3`, `emoji-regex@8.0.0`, `fdir@6.5.0`, `immediate@3.0.6`, `lazystream@1.0.1`, `linkifyjs@4.3.3`, `magic-string@0.30.21`, `numfmt@3.2.6`, `orderedmap@2.1.1`, `prosemirror-changeset@2.4.4`, `prosemirror-commands@1.7.2`, `prosemirror-dropcursor@1.8.4`, `prosemirror-gapcursor@1.4.1`, `prosemirror-history@1.5.1`, `prosemirror-inputrules@1.5.1`, `prosemirror-keymap@1.2.3`, `prosemirror-model@1.25.12`, `prosemirror-schema-list@1.5.1`, `prosemirror-state@1.4.4`, `prosemirror-tables@1.8.5`, `prosemirror-transform@1.12.2`, `prosemirror-view@1.42.6`, `rope-sequence@1.3.4`, `setimmediate@1.0.5`, `style-mod@4.1.3`, `w3c-keyname@2.2.8`, `zip-stream@4.1.1`
-
-</details>
-
-Copyright notices (26):
-
-```text
-Copyright (C) 2015-2016 by Marijn Haverbeke <marijnh@gmail.com> and others
-Copyright (C) 2015-2017 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
-Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin>
-Copyright (C) 2016 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
-Copyright (C) 2017 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
-Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
-Copyright (C) 2020 by Marijn Haverbeke <marijn@haverbeke.berlin>
-Copyright (c) 2010-2018 Caolan McMahon
-Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
-Copyright (c) 2012 Barnesandnoble.com, llc, Donavon West, Domenic Denicola, Brian Cavalier
-Copyright (c) 2012 Barnesandnoble.com, llc, Donavon West, and Domenic Denicola
-Copyright (c) 2012-2014 Chris Talkington, contributors.
-Copyright (c) 2013 J. Pommerening, contributors.
-Copyright (c) 2014 Chris Talkington, contributors.
-Copyright (c) 2015 Chris Talkington.
-Copyright (c) 2017-2018 Fredrik Nicol
-Copyright (c) 2020, Borgar Þorsteinsson <borgar@borgar.net>
-Copyright (c) 2024 Nick Frasser
-Copyright 2018 Rich Harris
-Copyright 2019 Justin Ridgewell <jridgewell@google.com>
-Copyright 2021 Wendell Hu
-Copyright 2023 Abdullah Atta
-Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
-Copyright Mathias Bynens <https://mathiasbynens.be/>
-Copyright Node.js contributors. All rights reserved.
-Copyright OpenJS Foundation and contributors, https://openjsf.org/
-```
-
-```text
-Copyright (c) 2012 Barnesandnoble.com, llc, Donavon West, Domenic Denicola, Brian Cavalier
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 #### 5. Apache-2.0 (+2 other declarations) — 21 package(s), from `LICENSE_APACHE-2.0`

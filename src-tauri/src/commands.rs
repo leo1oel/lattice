@@ -193,6 +193,18 @@ fn command_directories() -> Vec<PathBuf> {
     directories
 }
 
+/// Where TeX installs its programs, among the directories above: what a
+/// terminal's shell adds to its search path (terminal/pty.rs).
+pub(crate) fn tex_directories() -> Vec<PathBuf> {
+    let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
+    directories.extend(discover_texlive_bins(Path::new("/usr/local/texlive")));
+    directories.extend(discover_texlive_bins(Path::new("/opt/homebrew/texlive")));
+    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+        directories.extend(discover_texlive_bins(&home.join("Library/TinyTeX")));
+    }
+    directories
+}
+
 /// `<root>/<year>/bin/<arch>` directories, newest tree first (year names sort
 /// lexicographically: 2025, 2025basic, 2024).
 fn discover_texlive_bins(root: &Path) -> Vec<PathBuf> {
