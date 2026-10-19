@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type { BuildResult, BuildStep, ProjectSnapshot } from "../app-types";
+import type { BuildResult, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
-import {
-  diagnosticsFingerprint, flattenProjectPaths, missingTexDependencyFile, resolveDiagnosticPath, sortDiagnostics,
-  summarizeDiagnostics, type CompileDiagnostic, type DiagnosticCounts,
-} from "../build/compile-diagnostics";
+import { diagnosticsFingerprint, missingTexDependencyFile, sortDiagnostics, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { isBuildOutput } from "../build/build-inputs";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
@@ -21,6 +18,13 @@ import { showError, showNotice } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 import type { LivePreviewBuildHooks } from "../live-preview/use-live-preview";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
+import { adoptRootDocument } from "./adopt-root-document";
+import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-outcome";
+import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
+import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
+
+export type { BuildOutcome } from "./build-outcome";
+export type { BuildProgressStore } from "./build-progress";
 
 type BuildOptions = {
   immediatePreview?: boolean;
@@ -28,62 +32,6 @@ type BuildOptions = {
   sound?: boolean;
   consumeAgentAssociations?: boolean;
 };
-
-/**
- * How the last build ended, as the .tex panels' Build button reports it: its
- * time when it succeeded, what its diagnostics counted, the document it
- * compiled (when the backend said) and when it finished. The pipeline holds
- * null when there is nothing to report (no build yet, a new project, or a
- * build the writer stopped).
- */
-export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status: "failed" }) & {
-  counts: DiagnosticCounts;
-  rootDocument: string | null;
-  finishedAt: number;
-  /** The passes it ran, how many pages it wrote and whether SyncTeX came with them (see BuildResult). */
-  steps: BuildStep[];
-  pages: number | null;
-  synctex: boolean | null;
-  /** The problem the writer meets first (an error before a warning), for the Build button's sequence. */
-  issue: CompileDiagnostic | null;
-};
-
-/**
- * The passes of the build running now, as the backend announces them
- * (`build-progress`), and when it started on `performance.now()`'s clock, so
- * the pass still running can count its own time.
- */
-type BuildProgress = { steps: BuildStep[]; startedAt: number };
-
-/**
- * The running build's progress, held outside React state: only the Build
- * button's card reads it, and only while it is open, so a pass starting
- * re-renders that card and nothing else (App, the panels' headers).
- */
-export type BuildProgressStore = {
-  get: () => BuildProgress | null;
-  subscribe: (listener: () => void) => () => void;
-};
-
-function createProgressStore(): BuildProgressStore & { set: (next: BuildProgress | null) => void } {
-  let value: BuildProgress | null = null;
-  const listeners = new Set<() => void>();
-  return {
-    get: () => value,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => { listeners.delete(listener); };
-    },
-    set: (next) => {
-      if (next === value) return;
-      value = next;
-      for (const listener of [...listeners]) listener();
-    },
-  };
-}
-
-const BUILD_PROGRESS_EVENT = "build-progress";
-type BuildProgressEvent = { projectRoot: string; progressId: number | null; elapsedMs: number; steps: BuildStep[] };
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
 type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
@@ -96,53 +44,6 @@ const OWN_WRITE_ECHO_MS = 3_000;
 
 /** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
 type RunningBuild = { settled: Promise<void>; revision: number };
-
-/** The text each file had when the build compiled it, keyed by project path. */
-export type CompiledSources = ReadonlyMap<string, string>;
-const NO_COMPILED_SOURCES: CompiledSources = new Map();
-
-/**
- * The text a build's diagnostics describe, for every project file they name:
- * the open buffer for the file the writer was in, and the file on disk for the
- * rest (the build compiled those as saved). Without the other files, an error
- * in an included chapter, or any diagnostic of the build a project opens with,
- * never showed in the editor or answered F8 there.
- */
-async function readCompiledSources(
-  project: ProjectSnapshot,
-  diagnostics: CompileDiagnostic[],
-  activeFile: string,
-  activeSource: string,
-): Promise<CompiledSources> {
-  const sources = new Map<string, string>();
-  if (activeFile) sources.set(activeFile, activeSource);
-  const projectPaths = flattenProjectPaths(project.files ?? []);
-  const known = new Set(projectPaths);
-  const paths = new Set(diagnostics
-    .map((diagnostic) => resolveDiagnosticPath(diagnostic.file, projectPaths))
-    .filter((path) => known.has(path) && !sources.has(path)));
-  await Promise.all([...paths].map((path) => invoke<string>("read_project_file", { path, projectRoot: project.root })
-    .then((text) => { sources.set(path, text); })
-    // A file the writer cannot open shows no diagnostics in an editor either.
-    .catch(() => undefined)));
-  return sources;
-}
-
-/**
- * Adopt the root document the backend built. It may have promoted the open
- * file to the manifest default (Overleaf's rule); mirroring that locally keeps
- * the outline and the next build's guard in agreement without a re-read.
- */
-function adoptRootDocument(project: ProjectSnapshot, rootDocument: string): ProjectSnapshot {
-  const documents = project.manifest.rootDocuments;
-  if (documents.some((document) => document.isDefault && document.path === rootDocument)) return project;
-  const rootDocuments = documents.map((document) => ({ ...document, isDefault: document.path === rootDocument }));
-  if (!documents.some((document) => document.path === rootDocument)) {
-    const stem = rootDocument.split("/").pop()?.replace(/\.tex$/i, "");
-    rootDocuments.push({ path: rootDocument, name: stem || rootDocument, isDefault: true });
-  }
-  return { ...project, manifest: { ...project.manifest, rootDocuments } };
-}
 
 /**
  * Delete LaTeX auxiliary files while `cleaning` is held; false when it failed.
@@ -500,19 +401,7 @@ export function useBuildPipeline({
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
-        const issue = sortDiagnostics(result.diagnostics).find((item) => item.level === "error" || item.level === "warning") ?? null;
-        const report = {
-          counts: summarizeDiagnostics(result.diagnostics),
-          rootDocument: result.rootDocument || null,
-          finishedAt: Date.now(),
-          steps: result.steps,
-          pages: result.pages,
-          synctex: result.synctex,
-          issue,
-        };
-        setOutcome(result.success
-          ? { status: "succeeded", seconds: result.durationMs / 1000, ...report }
-          : cancelled ? null : { status: "failed", ...report });
+        setOutcome(buildOutcome(result, cancelled));
         const { rootDocument } = result;
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
@@ -580,10 +469,7 @@ export function useBuildPipeline({
       if (scopeIsCurrent()) {
         compiledRef.current = null;
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
-        setOutcome({
-          status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now(),
-          steps: [], pages: null, synctex: null, issue: null,
-        });
+        setOutcome(rejectedBuildOutcome());
         completionSound = "error";
         if (isMissingTexBuildError(toMessage(reason))) onMissingTex();
       }
