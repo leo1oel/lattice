@@ -46,11 +46,20 @@ export function LivePreviewLayer({ recordRef, generation, renderCount }: PdfPage
     if (!record || !session) return;
     // A new viewer: the PDF the build pipeline announced is the one on screen.
     session.basePromoted();
+    // So is a rebuild swapped into this viewer, which changes its bytes but
+    // not its generation (pdf-page-swap.ts); the swap counts as a render.
+    let shown = record.bytes;
     const painter = new PagePainter(session, record);
     const unsubscribePages = session.subscribePages((pages) => painter.invalidate(pages));
     // pdf.js draws a page again on zoom, and adds and drops pages as they near
     // the view: each draw may have taken the canvas with it.
-    const unsubscribeRenders = renderCount.subscribe(() => painter.invalidate("all"));
+    const unsubscribeRenders = renderCount.subscribe(() => {
+      if (record.bytes !== shown) {
+        shown = record.bytes;
+        session.basePromoted();
+      }
+      painter.invalidate("all");
+    });
     painter.invalidate("all");
     return () => {
       unsubscribePages();
