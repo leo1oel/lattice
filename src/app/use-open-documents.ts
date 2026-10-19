@@ -26,8 +26,9 @@ import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import { useFileViewStates } from "./use-file-view-states";
 import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
+import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 
-export type PaperView = "blog" | "fulltext";
+export { paperDocumentPath, readPaperDocuments, type PaperView };
 
 /**
  * What the status bar's save slot reports: the last write to disk, as the
@@ -48,12 +49,6 @@ export type SaveStatus = {
 const SAVING_SHOWN_AFTER_MS = 400;
 const NOTHING_SAVED: SaveStatus = { phase: "saved", at: null, path: null };
 
-/** The two cached reading files of an imported Paper. */
-export function paperDocumentPath(arxivId: string, view: PaperView): string {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
-  return `.research/papers/${arxivId}/${view === "blog" ? "blog.md" : "paper.md"}`;
-}
-
 /** Which reader a tab key opens through: a Paper's, an asset preview's, or the text editor's. */
 export function documentKind(key: string, assetPaths: ReadonlySet<string>): "paper" | "asset" | "file" {
   return isPaperTabKey(key) ? "paper" : assetPaths.has(key) ? "asset" : "file";
@@ -73,25 +68,6 @@ const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
 /** A canvas mode that brings the PDF on screen beside an editor-only view. */
 const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);
 
-/**
- * A Paper's full text and overview, read from the local library. They are
- * independent: an arxiv2md conversion can fail while alphaXiv still supplied
- * a useful blog, so keep either readable result rather than letting one
- * rejection discard the other. Library rows stay local on open — refreshing
- * alphaXiv in the foreground made a cached Paper switch wait on the network.
- */
-export async function readPaperDocuments(arxivId: string) {
-  const [fullText, blog] = await Promise.allSettled([
-    invoke<string>("read_paper", { arxivId }),
-    invoke<string | null>("read_paper_blog_local", { arxivId }),
-  ]);
-  return {
-    markdown: fullText.status === "fulfilled" ? fullText.value : "",
-    blog: blog.status === "fulfilled" ? blog.value : null,
-    failure: fullText.status === "rejected" ? fullText.reason as unknown : null,
-  };
-}
-
 /** Run the canvas's deferred-edit flush: published, refused (a text composition is open), or what it threw. */
 function publishDeferredEdits(flush: (() => boolean) | null): "published" | "refused" | { error: unknown } {
   try {
@@ -109,11 +85,6 @@ async function readDiskMtime(path: string): Promise<number | null> {
   } catch {
     return null;
   }
-}
-
-/** Keep full text when it is showing and exists; otherwise prefer the overview. */
-function preferredPaperView(current: PaperView, markdown: string, blog: string | null): PaperView {
-  return current === "fulltext" && markdown ? "fulltext" : blog ? "blog" : "fulltext";
 }
 
 function recordNavigationTiming(
