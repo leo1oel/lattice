@@ -131,6 +131,7 @@ export function createXtermScreen(): XtermScreen {
       if (opened) return;
       opened = true;
       term.open(element);
+      element.dataset.renderer = "dom";
     },
     fit: () => {
       if (!opened || !element.clientWidth || !element.clientHeight) return;
