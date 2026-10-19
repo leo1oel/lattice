@@ -38,6 +38,7 @@ export type LivePreviewState =
 export type LivePreviewBuildHooks = Pick<LivePreviewSession, "noteSaved" | "buildStarted" | "baseLoading" | "baseShown" | "basePageCount">;
 
 const OFF: LivePreviewState = { kind: "off" };
+const STARTING: LivePreviewState = { kind: "starting" };
 
 export function useLivePreview({ project, activeFile, source, savedSource }: {
   project: ProjectSnapshot | null;
@@ -54,17 +55,21 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   const enabled = enabledFor.root === root ? enabledFor.enabled : Boolean(root && loadLivePreviewEnabled(root));
   if (enabledFor.root !== root) setEnabledFor({ root, enabled });
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<LivePreviewState>(OFF);
+  /** Each run's state under the key of the run it belongs to: another run's is not shown. */
+  const [run, setRun] = useState<{ key: string; state: LivePreviewState }>({ key: "", state: OFF });
   /** The running session, for the build pipeline's calls; null otherwise. */
   const buildHooks = useRef<LivePreviewBuildHooks | null>(null);
   const projectRef = useLatestRef(project);
 
   const active = Boolean(root && available && enabled && mainFile);
+  const runKey = active ? `${root}\n${mainFile}\n${attempt}` : "";
+  const state = useMemo<LivePreviewState>(
+    () => (!active ? OFF : run.key === runKey ? run.state : STARTING),
+    [active, run, runKey],
+  );
   useEffect(() => {
-    if (!active || !root || !mainFile) {
-      setState(OFF);
-      return;
-    }
+    if (!runKey || !root || !mainFile) return;
+    const setState = (next: LivePreviewState) => setRun({ key: runKey, state: next });
     let cancelled = false;
     let session: LivePreviewSession | null = null;
     void (async () => {
@@ -96,7 +101,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
       buildHooks.current = null;
       session?.dispose();
     };
-  }, [active, attempt, mainFile, root, t]);
+  }, [mainFile, root, runKey, t]);
 
   const session = state.kind === "running" ? state.session : null;
   // The open file as it is typed, and as it is on disk.

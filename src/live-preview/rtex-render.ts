@@ -3,6 +3,7 @@
 // THIRD_PARTY_NOTICES.md.
 //
 // Drawing rtex display lists (realtime-tex docs/display-list.md) on a 2D canvas.
+/* eslint-disable lingui/no-unlocalized-strings -- canvas colors, font specs and display-list item tags, never shown */
 import * as opentype from "opentype.js";
 import type { DisplayList, FontDesc, ImageInfo, Item, Line } from "./rtex-protocol";
 

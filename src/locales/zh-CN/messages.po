@@ -577,6 +577,10 @@ msgstr "{installedProduct} 已装好，但以下检查未通过：\n"
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place}——点击跳转"
 
+#: src/live-preview/live-preview-status.tsx
+msgid "{label}. Restart live preview"
+msgstr "{label}。重新启动实时预览"
+
 #: src/papers/linked-library-sheet.tsx
 msgid "{library} is up to date."
 msgstr "{library} 已是最新。"
@@ -1079,6 +1083,10 @@ msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
 #: src/onboarding/guided-tour-steps.ts
 msgid "A one-minute tour of this sample paper. Seven stops, each with something to try."
 msgstr "一分钟看懂这篇示例论文，共七步，每步试一下"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "A one-time download of about 4 MB. Builds work as usual meanwhile."
+msgstr "只需下载一次，约 4 MB。下载期间编译照常进行。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
@@ -3779,6 +3787,10 @@ msgstr "报告没能保存，请别关窗口以保留结果"
 msgid "Could not show that item in Finder. {message}"
 msgstr "无法在访达中显示。{message}"
 
+#: src/live-preview/live-preview-settings.tsx
+msgid "Could not start: {message}"
+msgstr "无法启动：{message}"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "上传失败"
@@ -4422,6 +4434,11 @@ msgstr "正在下载 LaTeX…"
 #: src/papers/paper-import-progress.ts
 msgid "Downloading full text and figures…"
 msgstr "正在下载全文和图片…"
+
+#: src/live-preview/live-preview-settings.tsx
+#: src/live-preview/live-preview-status.tsx
+msgid "Downloading rtex… {percent}%"
+msgstr "正在下载 rtex… {percent}%"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -5274,6 +5291,10 @@ msgstr "Firecrawl"
 #: src/project/paper-library.tsx
 msgid "First author"
 msgstr "第一作者"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "First layout…"
+msgstr "首次排版中…"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "First update from this file: where an entry differs here, your version stays unless you tick it."
@@ -6800,6 +6821,10 @@ msgstr "布局"
 msgid "Layout reset"
 msgstr "布局已重置"
 
+#: src/live-preview/live-preview-status.tsx
+msgid "Layout updating"
+msgstr "版面更新中"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Layouts for each task"
 msgstr "按需布局"
@@ -7073,6 +7098,7 @@ msgid "Literature services"
 msgstr "文献来源"
 
 #: src/canvas/status-save-state.tsx
+#: src/live-preview/live-preview-status.tsx
 msgid "Live"
 msgstr "实时"
 
@@ -7100,9 +7126,34 @@ msgstr "暂不能实时协作（{detail}）· 改用同步"
 msgid "Live editing with Overleaf could not start ({detail}). Your project still syncs every few seconds."
 msgstr "实时协作没能启动（{detail}），项目仍每隔几秒同步"
 
+#: src/live-preview/live-preview-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Live preview"
+msgstr "实时预览"
+
+#: src/live-preview/live-preview-settings.tsx
+msgid "Live preview engine"
+msgstr "实时预览引擎"
+
+#: src/live-preview/use-live-preview.ts
+msgid "Live preview needs a Mac with Apple silicon."
+msgstr "实时预览需要搭载 Apple 芯片的 Mac。"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Live preview redraws the paragraph you are typing within milliseconds, with rtex and your own LuaLaTeX. Page breaks, references, the exported PDF and jumps to the source still come from the normal build."
+msgstr "实时预览借助 rtex 和你本机的 LuaLaTeX，在几毫秒内重绘你正在输入的段落。分页、引用、导出的 PDF 和跳转到源码仍以常规编译为准。"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Live preview stopped"
+msgstr "实时预览已停止"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
 msgstr "实时同步"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Live typing paused"
+msgstr "实时排版已暂停"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Live with Overleaf · click to sync"
@@ -7197,6 +7248,10 @@ msgstr "正在加载版本…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Loading your Overleaf projects…"
 msgstr "正在加载项目…"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Loading your preamble into LuaLaTeX."
+msgstr "正在把导言区载入 LuaLaTeX。"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
@@ -10029,6 +10084,11 @@ msgstr "可以投稿"
 msgid "Real part"
 msgstr "实部"
 
+#. Search words for the Live preview setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "realtime instant"
+msgstr "实时 即时 预览"
+
 #: src/project/deadline-card.tsx
 msgid "rebuttal"
 msgstr "作者回复"
@@ -10091,6 +10151,10 @@ msgstr "重做"
 msgctxt "macOS menu bar"
 msgid "Redo"
 msgstr "重做"
+
+#: src/live-preview/live-preview-settings.tsx
+msgid "Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build."
+msgstr "借助 rtex 和你本机的 LuaLaTeX，在几毫秒内于 PDF 中重绘你正在输入的段落。首次开启时下载 rtex（约 4 MB）。导出的 PDF、错误和跳转到源码仍以常规编译为准。"
 
 #: src/editor/latex/latex-text.ts
 #: src/project/references-panel.tsx
@@ -10193,6 +10257,7 @@ msgstr "松开放大{title} · Esc 取消"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
+#: src/live-preview/live-preview-settings.tsx
 #: src/project/deadline-card.tsx
 #: src/project/submission-items.tsx
 msgid "Remove"
@@ -10282,6 +10347,10 @@ msgstr "已从 Overleaf 删除 1 个文件"
 #: src/settings/settings-search-index.ts
 msgid "Removes .aux, .log and other build files"
 msgstr "删除 .aux、.log 等临时文件"
+
+#: src/live-preview/live-preview-settings.tsx
+msgid "Removing…"
+msgstr "正在移除…"
 
 #: src/editor/latex/highlight-palette.tsx
 #: src/project/project-dialogs.tsx
@@ -11017,6 +11086,18 @@ msgstr "行选项"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Rows"
 msgstr "行数"
+
+#: src/live-preview/live-preview-settings.tsx
+msgid "rtex {version} is downloaded. Removing it turns live preview off in every project."
+msgstr "已下载 rtex {version}。移除后，所有项目的实时预览都会关闭。"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "rtex could not load the preamble for live typing. The preview still updates after each full layout and build."
+msgstr "rtex 无法为实时排版载入导言区。每次整篇排版和编译后，预览仍会更新。"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "rtex stopped. The PDF still updates with each build."
+msgstr "rtex 已停止。PDF 仍会随每次编译更新。"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "run {run}"
@@ -12105,6 +12186,10 @@ msgstr "正在启动"
 msgid "Starting Agent"
 msgstr "正在启动 AI 助手"
 
+#: src/live-preview/live-preview-status.tsx
+msgid "Starting live preview…"
+msgstr "正在启动实时预览…"
+
 #: src/canvas/open-slide-deck-pool.tsx
 msgid "Starting Open Slide"
 msgstr "正在打开幻灯片"
@@ -12787,6 +12872,10 @@ msgstr "论文中没有 \\bibliography"
 msgid "The paper has no figures"
 msgstr "论文中没有图片"
 
+#: src/live-preview/live-preview-status.tsx
+msgid "The paragraph you typed is shown. Page breaks and what follows it catch up in a moment."
+msgstr "已显示你输入的段落。分页和其后的内容稍后跟上。"
+
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "AI 助手读过之后这一段又改了。请重试，让它按现在的内容修改。"
@@ -13441,6 +13530,10 @@ msgstr "排版参考文献"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset the title block"
 msgstr "排版标题区"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."
+msgstr "正在对整篇文档排版一次。完成后，你的输入会立即显示在这里。"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "UI"

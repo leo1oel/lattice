@@ -28,9 +28,12 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
   }, [state.kind]);
 
   const about = t`Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build.`;
+  const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
+  const message = state.kind === "failed" ? state.message : "";
   const description = state.kind === "downloading"
-    ? t`Downloading rtex… ${Math.round(state.progress * 100)}%`
-    : state.kind === "failed" ? t`Could not start: ${state.message}` : about;
+    ? t`Downloading rtex… ${percent}%`
+    : state.kind === "failed" ? t`Could not start: ${message}` : about;
+  const version = install?.version ?? "";
   const remove = () => {
     setRemoving(true);
     setRemoveError(null);
@@ -54,7 +57,7 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
         <SettingsRow
           data-setting="live-preview-engine"
           label={t`Live preview engine`}
-          description={removeError ?? t`rtex ${install.version} is downloaded. Removing it turns live preview off in every project.`}
+          description={removeError ?? t`rtex ${version} is downloaded. Removing it turns live preview off in every project.`}
         >
           <Button size="compact" disabled={removing} onClick={remove}>
             {removing ? t`Removing…` : t`Remove`}

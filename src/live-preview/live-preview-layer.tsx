@@ -13,29 +13,31 @@
  * selection, links and the double-click to the source (on the last real
  * SyncTeX) work as they do without it.
  */
-import { useEffect } from "react";
-import type { ActiveViewerRef } from "../pdf/use-pdf-view";
-import type { PdfRenderCount } from "../pdf/use-pdf-document";
+import { useContext, useEffect } from "react";
+import type { PdfPageLayerProps } from "../pdf/pdf-viewer";
 import { pdfPageView, type ViewerRecord } from "../pdf/pdf-slick";
 import { cachedPictureMoves, type Rect } from "./rtex-model";
 import { inexactReason, Painter, type Mat } from "./rtex-render";
 import { SP_PER_BP } from "./rtex-protocol";
 import type { LivePreviewSession } from "./live-preview-session";
+import { LivePreviewSessionContext } from "./live-preview-context";
 
 const PT = 65536;
 /** pdf.js's own canvas cap (pdf-slick.ts): the overlay drops resolution beyond it. */
 const MAX_CANVAS_PIXELS = 2 ** 24;
 const LAYER_CLASS = "live-preview-page-layer";
+/** Paper: rendered pages stay white in both themes. */
+const PAPER = "#fff";
 
-export function LivePreviewLayer({ session, recordRef, generation, renderCount }: {
-  session: LivePreviewSession;
-  recordRef: ActiveViewerRef;
-  generation: number;
-  renderCount: PdfRenderCount;
-}) {
+/**
+ * PdfPreview's `pageLayer`: it renders this with its viewer; the session
+ * comes from the panel through LivePreviewSessionContext.
+ */
+export function LivePreviewLayer({ recordRef, generation, renderCount }: PdfPageLayerProps) {
+  const session = useContext(LivePreviewSessionContext);
   useEffect(() => {
     const record = recordRef.current;
-    if (!record) return;
+    if (!record || !session) return;
     // A new viewer: the PDF the build pipeline announced is the one on screen.
     session.basePromoted();
     const painter = new PagePainter(session, record);
@@ -120,6 +122,7 @@ class PagePainter {
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
     canvas.setAttribute("aria-hidden", "true");
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- a canvas context type
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const base: Mat = [k * dpr, 0, 0, k * dpr, 0, 0];
@@ -139,7 +142,7 @@ class PagePainter {
         this.drawn.delete(page);
         return;
       }
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = PAPER;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const painter = new Painter(ctx, base, fonts, images);
       painter.draw(source.page.dl, source.page.dl.other ?? []);
@@ -161,14 +164,14 @@ class PagePainter {
       }
       new Painter(ctx, base, fonts, images).clearLines(
         source.page.dl.lines.filter((_, i) => hidden.has(i)).map((line) => ({ line, dx: 0, dy: 0 })),
-        "#fff",
+        PAPER,
       );
     } else if (pageList) {
       // The base PDF's page is rtex's page as of the base: clear the rows the
       // live paragraphs held there.
       new Painter(ctx, base, fonts, images).clearLines(
         pageList.dl.lines.filter((_, i) => hidden.has(i)).map((line) => ({ line, dx: 0, dy: 0 })),
-        "#fff",
+        PAPER,
       );
     }
     // Live units: clear the bands their rows occupy now (they may reach into
@@ -176,7 +179,7 @@ class PagePainter {
     // back, then draw their rows, so a picture never covers live text and no
     // clear erases a picture already placed.
     const painters = overlays.map(() => new Painter(ctx, base, fonts, images));
-    overlays.forEach(({ rows }, i) => painters[i].clearRects(rowBands(rows), "#fff"));
+    overlays.forEach(({ rows }, i) => painters[i].clearRects(rowBands(rows), PAPER));
     for (const { img, dst } of pictureSnaps) putRect(ctx, base, img, dst);
     overlays.forEach(({ overlay, rows }, i) => {
       painters[i].draw(overlay.dl, overlay.dl.other ?? []);
@@ -224,7 +227,7 @@ function putRect(ctx: CanvasRenderingContext2D, base: Mat, img: ImageData, r: Re
 }
 
 /** Rectangles [x0, y0, x1, y1] (sp) covering each overlay row and the gap above it. */
-export function rowBands(rows: { line: { x: number; y: number; w: number; h: number; d: number }; dx: number; dy: number }[]): [number, number, number, number][] {
+function rowBands(rows: { line: { x: number; y: number; w: number; h: number; d: number }; dx: number; dy: number }[]): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   let prevBottom: number | undefined;
   let prevBase = -Infinity;

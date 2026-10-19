@@ -14,6 +14,7 @@ import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { DocumentOutline } from "./document-outline";
 import { SavedViewState } from "./saved-view-state";
+import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
 import { LivePreviewStatus } from "../live-preview/live-preview-status";
 import { loadLivePreviewModule, type LivePreview } from "../live-preview/use-live-preview";
 
@@ -132,6 +133,7 @@ export function ProjectPdfPanel({
       onWheelCapture={onLeaveEditor}
     >
       {pdf.pdfTop}
+      <LivePreviewSessionContext value={liveSession}>
       <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
         {/* One viewer per project, across its TeX files: it restores the place it mounts with. */}
         <SavedViewState<FileViewState["pdf"] | undefined>
@@ -159,7 +161,7 @@ export function ProjectPdfPanel({
               annotations={review.annotations}
               annotationRounds={review.annotationRounds}
               onNumPages={pdf.onPdfPageCount}
-              pageLayer={liveSession && LiveLayer ? (viewer) => <LiveLayer session={liveSession} {...viewer} /> : undefined}
+              pageLayer={liveSession ? LiveLayer : undefined}
               status={livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
               onPageChange={pdf.onPdfPageChange}
               initialViewState={initialViewState}
@@ -178,6 +180,7 @@ export function ProjectPdfPanel({
           )}
         </SavedViewState>
       </Suspense></ChunkGate>
+      </LivePreviewSessionContext>
     </div>,
     host,
   );

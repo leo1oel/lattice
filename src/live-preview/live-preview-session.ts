@@ -236,7 +236,6 @@ export class LivePreviewSession {
       if (typed === undefined) continue;
       this.typedAt.delete(overlay.overlay.revision);
       // Read in the lab (docs/driving-the-app.md): keystroke to painted overlay.
-      // eslint-disable-next-line lingui/no-unlocalized-strings -- a performance entry name
       performance.measure("lattice-live-preview-paint", { start: typed, end: now, detail: { revision: overlay.overlay.revision, page } });
     }
   }

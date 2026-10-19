@@ -3,6 +3,7 @@
 // Type1 fonts (.pfb/.pfa) and pdftex.map entries → glyph outlines by character code.
 // TFM fonts in rtex display lists carry only a char code (no glyph index, no file); the
 // backend finds their outlines through the map file. Pure module.
+/* eslint-disable lingui/no-unlocalized-strings -- PostScript glyph names and font syntax */
 
 export interface MapEntry {
   tfm: string;

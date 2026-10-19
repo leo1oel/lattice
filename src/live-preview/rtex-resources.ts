@@ -6,6 +6,7 @@
 // finds TeX fonts with kpsewhich and refuses anything that is not a font, an
 // encoding, a map file or a project image) and this module turns the bytes
 // into what the renderer draws.
+/* eslint-disable lingui/no-unlocalized-strings -- why a font or image could not load: logged, never shown */
 import { fontKey, type FontResource, type ImageResource } from "./rtex-render";
 import type { DisplayList, FontDesc } from "./rtex-protocol";
 import { parseEncFile, parseMapFile, type1Outlines, type MapEntry } from "./rtex-type1";

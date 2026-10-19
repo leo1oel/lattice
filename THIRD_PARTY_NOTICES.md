@@ -161,6 +161,22 @@ None of the three packages ships a separate license file. What the files themsel
 All five files are shipped byte-for-byte, so every notice and credit in them reaches users intact. Do not edit or strip their header comments; the LPPL in particular requires a modified `.bst` to be renamed and its changes identified.
 The project keeps these templates bundled. The absence of a license grant on the three `.sty` files remains recorded in the [gaps](#known-attribution-gaps-todo) below.
 
+## Realtime TeX live preview renderer (`src/live-preview/`)
+
+The LuaLaTeX live preview draws rtex's display lists with code adapted from the [Realtime TeX VS Code plugin](https://github.com/HenryXiaoYang/realtime-tex-vsc-plugin) (`webview/render.ts`, `webview/model.ts`, `webview/opentype.d.ts`, `src/fontKey.ts`, `src/type1.ts`, `src/edits.ts`, `src/protocol.ts`, `src/resources.ts`). Each adapted file names its source in its header.
+
+MIT License
+
+Copyright (c) 2026 Henry Yang
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The engine itself, [rtex (realtime-tex)](https://github.com/HenryXiaoYang/realtime-tex) 0.0.4, is not shipped with Lattice: turning the live preview on downloads its release archive (verified by SHA-256) into Lattice's Application Support folder, together with the archive's own `LICENSE`. It is licensed MIT, Copyright (c) 2026 Henry Yang and the realtime-tex contributors.
+
 ## Claude Agent SDK (bundled in the Synara sidecar)
 
 `scripts/prepare-synara-sidecar.mjs` installs the Synara server's production

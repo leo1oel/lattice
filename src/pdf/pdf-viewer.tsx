@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type ButtonHTMLAttributes,
   type ChangeEvent,
+  type ComponentType,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -372,7 +373,7 @@ export function PdfPreview({
   onOpenCitation,
   annotations,
   annotationRounds,
-  pageLayer,
+  pageLayer: PageLayer,
   status,
   ...callbackProps
 }: PdfCitationProps & PdfViewerCallbacks & {
@@ -410,8 +411,8 @@ export function PdfPreview({
   annotations?: readonly EditorComment[];
   /** Annotating the PDF: the Annotate offer on a selection, its note, and the marks' pins. */
   annotationRounds?: AnnotationRounds;
-  /** Drawn on the pages by its own layers, given the viewer on screen (the LuaLaTeX live preview). */
-  pageLayer?: (viewer: PdfPageLayerProps) => ReactNode;
+  /** Draws on the pages with layers of its own (the LuaLaTeX live preview), given the viewer on screen. */
+  pageLayer?: ComponentType<PdfPageLayerProps>;
   /** A short status in the corner of the pages, such as the live preview's. */
   status?: ReactNode;
 }) {
@@ -788,7 +789,7 @@ export function PdfPreview({
       <div className="pdf-scroll-area" onMouseUp={annotationRounds && !annotating ? () => setAnnotating(true) : undefined}>
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
-        {pageLayer && hasActiveViewer ? pageLayer({ recordRef, generation, renderCount: doc.renderCount }) : null}
+        {PageLayer && hasActiveViewer ? <PageLayer recordRef={recordRef} generation={generation} renderCount={doc.renderCount} /> : null}
         {status}
         {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
         {pdfError && !hasActiveViewer
