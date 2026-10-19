@@ -58,6 +58,18 @@ describe("settings search", () => {
     expect(search("engine", false)).toEqual([]);
   });
 
+  it("finds Live preview only in a LuaLaTeX project, which is offered it", async () => {
+    const find = (query: string, livePreview: boolean) => {
+      const { result } = renderHook(() => useSettingsSearchIndex(true, null, livePreview));
+      return searchSettings(result.current, query).map((entry) => entry.id ?? `page:${entry.tab}`);
+    };
+    expect(find("rtex", false)).toEqual([]);
+    expect(find("rtex", true)).toEqual(["live-preview"]);
+    expect(find("live preview", true)).toEqual(["live-preview"]);
+    await act(() => activateAppLocale("zh-CN"));
+    expect(find("实时预览", true)).toEqual(["live-preview"]);
+  });
+
   it("finds Your name by the name its comments are signed with", () => {
     expect(search("lovelace", true, "Ada Lovelace")).toEqual(["author-name"]);
   });
