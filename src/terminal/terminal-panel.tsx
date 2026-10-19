@@ -125,7 +125,7 @@ function TerminalTab({ session, selected, label }: { session: Session; selected:
     event.stopPropagation();
   };
   return (
-    <div className="terminal-tab" role="tab" aria-selected={selected} title={renaming ? undefined : t`Double-click to rename`}>
+    <div className="terminal-tab" data-selected={selected || undefined} title={renaming ? undefined : t`Double-click to rename`}>
       {renaming ? (
         <input
           ref={inputRef}
@@ -139,16 +139,30 @@ function TerminalTab({ session, selected, label }: { session: Session; selected:
       ) : (
         <button
           type="button"
+          role="tab"
+          aria-selected={selected}
           className="terminal-tab-label"
           onClick={() => {
             terminals.select(session.key);
             session.screen.focus();
           }}
           onDoubleClick={() => setRenaming(true)}
+          data-terminal-key={session.key}
+          tabIndex={selected ? 0 : -1}
           onKeyDown={(event) => {
-            if (event.key !== "F2") return;
+            if (event.key === "F2") {
+              event.preventDefault();
+              setRenaming(true);
+              return;
+            }
+            // The tab list's arrow keys, as every tab list's.
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
             event.preventDefault();
-            setRenaming(true);
+            const { sessions } = terminals.get();
+            const index = sessions.findIndex(({ key }) => key === session.key) + (event.key === "ArrowRight" ? 1 : -1);
+            const next = sessions[(index + sessions.length) % sessions.length];
+            terminals.select(next.key);
+            requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-terminal-key="${next.key}"]`)?.focus());
           }}
         >
           {label}

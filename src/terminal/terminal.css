@@ -76,8 +76,8 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
 }
-.terminal-tab:hover:not([aria-selected="true"]) { background: var(--control-hover-surface); }
-.terminal-tab[aria-selected="true"] {
+.terminal-tab:hover:not([data-selected]) { background: var(--control-hover-surface); }
+.terminal-tab[data-selected] {
   background: color-mix(in srgb, var(--text-primary) 10%, var(--terminal-ground));
   color: var(--text-primary);
 }
@@ -106,7 +106,7 @@
 }
 /* The close button holds its width while hidden, so hovering never resizes a tab. */
 .terminal-tab .ui-icon-button { flex: none; }
-.terminal-tab:not([aria-selected="true"], :hover, :focus-within) .ui-icon-button { opacity: 0; }
+.terminal-tab:not([data-selected], :hover, :focus-within) .ui-icon-button { opacity: 0; }
 
 .terminal-new { color: var(--text-secondary); }
 
