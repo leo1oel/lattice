@@ -75,8 +75,8 @@ function SourceSkeleton({ reveal }: { reveal: CSSProperties }) {
 
 function PageSkeleton({ reveal }: { reveal: CSSProperties }) {
   return (
-    <div className="document-skeleton-page loading-reveal" style={reveal} aria-hidden="true">
-      <div className="document-skeleton-column loading-sheen">
+    <div className="document-skeleton-page" aria-hidden="true">
+      <div className="document-skeleton-column loading-sheen loading-reveal" style={reveal}>
         {PAGE_BLOCKS.map((block, index) => (
           Array.isArray(block)
             ? (
