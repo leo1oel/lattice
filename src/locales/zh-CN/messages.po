@@ -13737,7 +13737,6 @@ msgstr "取消固定"
 msgid "Unresolved"
 msgstr "未解决"
 
-#: src/trellis/trellis-document-tabs.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"

@@ -13737,7 +13737,6 @@ msgstr "Unpin tab"
 msgid "Unresolved"
 msgstr "Unresolved"
 
-#: src/trellis/trellis-document-tabs.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"

@@ -263,8 +263,8 @@ export class BenchDriver {
     await this.markByText(`[role="tab"][aria-selected="true"] ${TAB_TITLE}`, path.split("/").pop(), "tab");
     const rect = await this.stableRect("[data-bench-tab]");
     const [x, y] = [rect.left + rect.width / 2, rect.top + rect.height / 2];
-    await this.mouse("mousePressed", x, y, { button: "right" });
-    await this.mouse("mouseReleased", x, y, { button: "right" });
+    // A synthetic event: WebKit's protocol right-click raises no contextmenu.
+    await this.evaluate(`document.elementFromPoint(${x}, ${y})?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, clientX: ${x}, clientY: ${y}, button: 2 }))`);
     await this.markByText('[role="menuitem"]', "Pin tab", "menu");
     await this.click("[data-bench-menu]");
   }
