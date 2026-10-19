@@ -118,7 +118,10 @@ impl Record {
 
     fn current(&self, head: &str, project: &Path) -> bool {
         self.head == head
-            && self.inputs.iter().all(|input| fingerprint(&input.path, project) == input.fingerprint)
+            && self
+                .inputs
+                .iter()
+                .all(|input| fingerprint(&input.path, project) == input.fingerprint)
     }
 }
 
@@ -250,19 +253,26 @@ fn recorded(fls: &str) -> Recorded {
 /// missing from every build — or read one of the document's own build
 /// outputs, which change every build, or loaded biblatex, whose Biber
 /// pipeline is left to the plain build.
-fn verdict(recorded: &Recorded, directory: &Path, root_document: &Path) -> Result<(), &'static str> {
+fn verdict(
+    recorded: &Recorded, directory: &Path, root_document: &Path,
+) -> Result<(), &'static str> {
     let own = |extension: &str| directory.join(format!("{JOB}.{extension}"));
     if recorded.outputs.iter().any(|path| *path != own("fmt") && *path != own("log")) {
         return Err("writes_files");
     }
     let stem = root_document.file_stem();
     let parent = root_document.parent();
-    if recorded.inputs.iter().any(|path| {
-        path != root_document && path.parent() == parent && path.file_stem() == stem
-    }) {
+    if recorded
+        .inputs
+        .iter()
+        .any(|path| path != root_document && path.parent() == parent && path.file_stem() == stem)
+    {
         return Err("reads_build_output");
     }
-    if recorded.inputs.iter().any(|path| path.file_name().is_some_and(|name| name == "biblatex.sty"))
+    if recorded
+        .inputs
+        .iter()
+        .any(|path| path.file_name().is_some_and(|name| name == "biblatex.sty"))
     {
         return Err("biblatex");
     }
@@ -379,11 +389,7 @@ fn prepare_in(
     // pdfTeX writes a format even when it refuses part of the dump, so only
     // a run that exited cleanly counts.
     let built = succeeded && directory.join(format!("{JOB}.fmt")).is_file();
-    let verdict = if built {
-        verdict(&recorded, directory, root_document)
-    } else {
-        Err("failed")
-    };
+    let verdict = if built { verdict(&recorded, directory, root_document) } else { Err("failed") };
     wide_event::record("preamble_format", verdict.err().unwrap_or("built"));
     let inputs = recorded
         .inputs
@@ -476,7 +482,8 @@ mod tests {
         let fls = "PWD /p\nINPUT /tex/article.cls\nINPUT ./macros.sty\nINPUT macros.sty\n\
             OUTPUT /cache/preamble.log\nINPUT /tex/article.cls\nOUTPUT /cache/preamble.fmt\n";
         let recorded = recorded(fls);
-        let paths = |list: &[PathBuf]| list.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
+        let paths =
+            |list: &[PathBuf]| list.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
         assert_eq!(paths(&recorded.inputs), ["/tex/article.cls", "/p/macros.sty"]);
         assert_eq!(paths(&recorded.outputs), ["/cache/preamble.log", "/cache/preamble.fmt"]);
     }
@@ -501,7 +508,8 @@ mod tests {
         let root = TempDir::new("preamble-format");
         let macros = root.write("macros.sty", "\\def\\x{1}");
         let input = Input { fingerprint: fingerprint(&macros, &root), path: macros.clone() };
-        let record = Record { version: VERSION, head: "h".into(), inputs: vec![input], usable: true };
+        let record =
+            Record { version: VERSION, head: "h".into(), inputs: vec![input], usable: true };
         assert!(record.current("h", &root));
         assert!(!record.current("other", &root));
         // Same size, same second: only the contents tell.
@@ -520,7 +528,8 @@ mod tests {
         assert_ne!(head(b"\\documentclass{book}\n", &root), before);
     }
 
-    const DOCUMENT: &str = "\\documentclass{article}\n\\usepackage{macros}\n\\usepackage{amsmath}\n\
+    const DOCUMENT: &str =
+        "\\documentclass{article}\n\\usepackage{macros}\n\\usepackage{amsmath}\n\
         \\begin{document}\nHello \\greeting.\n\\end{document}\n";
 
     /// Prepare the format of the project at `root`, kept in its own folder,
@@ -529,7 +538,8 @@ mod tests {
         let project = root.canonicalize().unwrap();
         let (main, steps) = (project.join("main.tex"), BuildSteps::silent());
         let active = ActiveBuild::default();
-        let prepared = prepare_in(&project.join(".format"), &project, "main.tex", &main, &active, &steps);
+        let prepared =
+            prepare_in(&project.join(".format"), &project, "main.tex", &main, &active, &steps);
         let made = steps.take().iter().any(|step| step.tool == STEP);
         match prepared {
             Prepared::Ready(format) => (Some(format), made),
@@ -564,7 +574,10 @@ mod tests {
         root.write("macros.sty", "\\newcommand\\greeting{world}\n");
         // An object written while the format is made would be missing from
         // every PDF built from it.
-        root.write("main.tex", DOCUMENT.replace("\\usepackage{amsmath}", "\\immediate\\pdfobj{(x)}"));
+        root.write(
+            "main.tex",
+            DOCUMENT.replace("\\usepackage{amsmath}", "\\immediate\\pdfobj{(x)}"),
+        );
         assert!(matches!(prepare_here(&root), (None, true)), "a preamble that writes is declined");
         assert!(matches!(prepare_here(&root), (None, false)), "and not tried again");
 

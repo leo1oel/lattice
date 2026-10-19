@@ -149,7 +149,6 @@ export function usePdfDocument({
     const active = recordRef.current;
     const bytes = sourceRef.current.bytes;
     if (!rebuilds || !stableLoadKey || !active?.bytes || !bytes || active.destroyed || stagingRef.current) {
-      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- hands the debounced key to the staged loader below.
       setFullLoad({ key: stableLoadKey });
       return;
     }

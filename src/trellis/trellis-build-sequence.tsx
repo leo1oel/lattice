@@ -30,6 +30,7 @@ const BIBLIOGRAPHY = new Set(["bibtex", "bibtex8", "bibtexu", "pbibtex", "upbibt
 const INDEX = new Set(["makeindex", "mendex", "upmendex", "xindy", "texindy"]);
 const PDF_OUTPUT = new Set(["xdvipdfmx", "dvipdfmx", "dvipdfm", "dvipdf", "ps2pdf"]);
 /** `preamble_format.rs`'s step: loads the preamble once so later passes skip it. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- a program's command line
 const PREAMBLE_FORMAT = "pdflatex -ini";
 
 /** "0.6 s"; a pass too quick to show a tenth still took some time. */

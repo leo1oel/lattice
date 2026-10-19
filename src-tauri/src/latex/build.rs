@@ -300,7 +300,9 @@ fn run_latexmk_with(
     let format = match prepared {
         Prepared::Ready(format) => Some(format),
         Prepared::Plain => None,
-        Prepared::Cancelled(log) => return Ok(cancelled_build(steps.started(), &log, &document.path)),
+        Prepared::Cancelled(log) => {
+            return Ok(cancelled_build(steps.started(), &log, &document.path))
+        }
     };
 
     let mut command = commands::command("latexmk");
@@ -567,7 +569,8 @@ mod tests {
             root.write("main.tex", main.replace("LATTICE_PROJECT_TITLE", "A Paper"));
             let steps = BuildSteps::silent();
             let result =
-                run_latexmk_with(&root, false, &ActiveBuild::default(), &steps, use_format).unwrap();
+                run_latexmk_with(&root, false, &ActiveBuild::default(), &steps, use_format)
+                    .unwrap();
             let log = fs::read_to_string(root.join("main.log")).unwrap();
             (result, steps.take(), log.contains("CUSTOMISED FORMAT"))
         };
@@ -579,7 +582,8 @@ mod tests {
         assert_eq!(formatted.venue, Some("ICLR"));
         assert_eq!((formatted.venue, formatted.pages), (plain.venue, plain.pages));
         let messages = |result: &BuildResult| {
-            let mut messages: Vec<_> = result.diagnostics.iter().map(|d| d.message.clone()).collect();
+            let mut messages: Vec<_> =
+                result.diagnostics.iter().map(|d| d.message.clone()).collect();
             messages.sort();
             messages
         };
@@ -591,13 +595,19 @@ mod tests {
     fn a_build_only_the_preamble_format_breaks_is_built_plain_and_the_format_dropped() {
         let root = TempDir::new("latex");
         project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
-        root.write("main.tex", "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n");
+        root.write(
+            "main.tex",
+            "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n",
+        );
         let build = || run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent());
         assert!(build().unwrap().success);
         let format = preamble_format::format_file(&root).unwrap();
         fs::write(&format, b"not a format").unwrap();
 
-        root.write("main.tex", "\\documentclass{article}\n\\begin{document}\nHey\n\\end{document}\n");
+        root.write(
+            "main.tex",
+            "\\documentclass{article}\n\\begin{document}\nHey\n\\end{document}\n",
+        );
         let result = build().unwrap();
         assert!(result.success, "{}", result.log);
         assert!(!format.exists(), "the format that broke the build is gone");

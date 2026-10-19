@@ -165,6 +165,7 @@ function rerunSearch(
 ) {
   finder.setDocument(next);
   if (!search) return;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a PDF.js field name, never shown
   Object.defineProperty(finder, "_scrollMatches", { configurable: true, get: () => false, set: () => undefined });
   slick.dispatch("find", { ...search, source: slick, type: "highlightallchange" });
   const restore = () => {
