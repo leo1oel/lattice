@@ -37,14 +37,13 @@ export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof Visual
 
 /** The PDF viewer's frame before a document shows: `toolbar` fills its bar, `children` replaces the spinner. */
 export function PdfPreviewLoading({ toolbar, children }: { toolbar?: ReactNode; children?: ReactNode }) {
-  const { t } = useLingui();
   return (
     <div className="pdf-preview">
       <div className="pdf-toolbar-frame">
         <div className="pdf-toolbar">{toolbar}</div>
       </div>
       <div className="pdf-scroll-area">
-        {children ?? <PdfLoading label={t`Loading PDF…`} />}
+        {children ?? <PdfLoading phase="loading" />}
       </div>
     </div>
   );

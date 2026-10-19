@@ -728,46 +728,6 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
 }
-/* The agent panel's wait: the thread's shape from the top (the Agent's lines
-   full width, the writer's bubbles at the end), so the thread lands where its
-   shape was. A stall's note stands in the room below it. */
-.synara-loading-surface[data-shape="thread"] {
-  align-items: stretch;
-  gap: var(--space-8);
-  overflow: hidden;
-  padding: var(--space-12) var(--space-6) var(--space-6);
-  text-align: start;
-}
-.synara-loading-surface[data-shape="thread"] > :first-child { margin-top: 0; }
-.synara-thread-skeleton {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-6);
-  animation: git-workspace-skeleton-in var(--motion-moderate) both;
-}
-.synara-thread-skeleton > span {
-  display: block;
-  height: var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--border-subtle);
-}
-.synara-thread-skeleton > span[data-from="writer"] {
-  align-self: flex-end;
-  height: var(--control-height-default);
-  margin-block: var(--space-2);
-  border-radius: var(--radius-surface);
-}
-.synara-thread-skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-sidebar) 70%, transparent) 50%, transparent 70%);
-  transform: translateX(-100%);
-  animation: git-workspace-skeleton-sheen 1.6s ease-in-out infinite;
-}
 .synara-slow {
   margin-block: auto;
   display: grid;

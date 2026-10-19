@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { PdfFileViewState } from "../app-types";
 import { applyPdfZoom, type ViewerRecord } from "./pdf-slick";
-import { clampPdfScale, pdfFitMode, toAppScale, type PdfFitMode } from "./pdf-viewer-utils";
+import { clampPdfScale, loadPdfViewPreference, PDF_VIEW_PREFERENCE_KEY, pdfFitMode, toAppScale, type PdfFitMode } from "./pdf-viewer-utils";
 
-const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
 /**
  * A page change this soon after the last one is part of a scroll through the
  * document: `onPageChange` hears of it once the page has held this long.
@@ -28,22 +27,6 @@ export type PdfViewerCallbacks = {
 };
 
 export type ActiveViewerRef = RefObject<ViewerRecord | null>;
-
-function loadPdfViewPreference(): { fitMode: PdfFitMode; scale: number } {
-  try {
-    const stored = JSON.parse(localStorage.getItem(PDF_VIEW_PREFERENCE_KEY) ?? "null") as
-      | { fitMode?: unknown; scale?: unknown }
-      | null;
-    const fitMode = stored?.fitMode;
-    const scale = stored?.scale;
-    return {
-      fitMode: fitMode === "height" || fitMode === null ? fitMode : "width",
-      scale: typeof scale === "number" && Number.isFinite(scale) ? clampPdfScale(scale) : 1.1,
-    };
-  } catch {
-    return { fitMode: "width", scale: 1.1 };
-  }
-}
 
 /**
  * Page, zoom and fit of the viewer. A file's saved view state wins over the

@@ -18,6 +18,7 @@ import { isBrowserHosted } from "./platform/browser-runtime";
 import { BROWSER_ENTRY_PORT } from "./platform/flavor";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { configureToastPosition } from "./telemetry/toast-position";
+import { OpeningOverlay } from "./app/opening-overlay";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
@@ -92,7 +93,6 @@ import type {
   OpenSlideMutation,
   OpenSlideSyncOperation,
 } from "./editor/presentation/open-slide-bridge";
-import { InfinityLoader } from "./components/ui/activity-icons";
 import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
@@ -2075,10 +2075,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           trellis.hosts.agent,
         )}
         {documents.opening && createPortal(
-          <div className="primary-opening-overlay" role="status" aria-live="polite">
-            <InfinityLoader size={16} />
-            <span>{t({ message: `Opening ${documents.opening}…` })}</span>
-          </div>,
+          <OpeningOverlay name={documents.opening} />,
           trellis.hosts.editor,
         )}
         <ChunkGate chunk={loadDocumentCanvas}>

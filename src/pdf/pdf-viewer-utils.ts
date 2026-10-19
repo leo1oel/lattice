@@ -66,6 +66,25 @@ export function pdfFitMode(scaleValue: unknown): PdfFitMode {
   return scaleValue === "page-width" ? "width" : scaleValue === "page-fit" ? "height" : null;
 }
 
+export const PDF_VIEW_PREFERENCE_KEY = "lattice.pdf-view-preference.v1";
+
+/** The fit and zoom a viewer opens with when its file has no saved view of its own. */
+export function loadPdfViewPreference(): { fitMode: PdfFitMode; scale: number } {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PDF_VIEW_PREFERENCE_KEY) ?? "null") as
+      | { fitMode?: unknown; scale?: unknown }
+      | null;
+    const fitMode = stored?.fitMode;
+    const scale = stored?.scale;
+    return {
+      fitMode: fitMode === "height" || fitMode === null ? fitMode : "width",
+      scale: typeof scale === "number" && Number.isFinite(scale) ? clampPdfScale(scale) : 1.1,
+    };
+  } catch {
+    return { fitMode: "width", scale: 1.1 };
+  }
+}
+
 /** Turn a directly entered percentage into the viewer's bounded scale. */
 export function parsePdfZoomPercent(value: string): number | null {
   const percent = Number(value.trim().replace(/%$/, ""));
