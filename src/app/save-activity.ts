@@ -24,15 +24,26 @@ export type SaveStatus = {
 const SAVING_SHOWN_AFTER_MS = 400;
 export const NOTHING_SAVED: SaveStatus = { phase: "saved", at: null, path: null };
 
-/** Saves asked for and not yet settled, and every save ever asked for. */
-export type SaveActivity = { pending: number; generation: number };
+/**
+ * Saves asked for and not yet settled, every save ever asked for, and the
+ * last one asked for, which the next waits behind (never rejects).
+ */
+export type SaveActivity = { pending: number; generation: number; queue: Promise<boolean> };
 
-export const createSaveActivity = (): SaveActivity => ({ pending: 0, generation: 0 });
+export const createSaveActivity = (): SaveActivity => ({ pending: 0, generation: 0, queue: Promise.resolve(true) });
 
 /**
  * Run one save of the project at `root`, keeping `activity` counted and the
  * save slot honest. Kept outside the save body: React Compiler cannot lower
  * try/finally, while Promise.finally still covers every early return/error.
+ *
+ * One save at a time. Each sends the saved text as the base the backend
+ * merges against, and that text only moves on when the save before it
+ * answers. A second save sent meanwhile (autosave after an undo, a blur, a
+ * build) carried the older base, so the writer's own first save looked like
+ * an outside edit on disk and the merge put conflict markers between the two.
+ * Queued, it reads the buffer and its base once the first has landed; with
+ * nothing under way, it takes the buffer as it is now, as callers expect.
  */
 export function trackSave(
   activity: SaveActivity,
@@ -40,10 +51,13 @@ export function trackSave(
   setSaveStatus: Dispatch<SetStateAction<SaveStatus & { root?: string }>>,
   saveContents: () => Promise<boolean>,
 ): Promise<boolean> {
+  const idle = activity.pending === 0;
   activity.pending += 1;
   activity.generation += 1;
   const slow = window.setTimeout(() => setSaveStatus((status) => ({ ...(status.root === root ? status : NOTHING_SAVED), phase: "saving", root })), SAVING_SHOWN_AFTER_MS);
-  return saveContents().finally(() => {
+  const saving = idle ? saveContents() : activity.queue.then(saveContents);
+  activity.queue = saving.catch(() => false);
+  return saving.finally(() => {
     activity.pending -= 1;
     window.clearTimeout(slow);
     // A slow save that wrote nothing (another save had already written it) leaves the last word standing.
