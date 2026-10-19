@@ -8,14 +8,16 @@ use crate::app_state::AppState;
 use crate::terminal::{self, Session};
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody, Request};
-use tauri::{Manager, State, Webview, Window};
+use tauri::{Manager, Runtime, State, Webview, Window};
 
 /// The most a page may type into a shell in one request; the page splits a
 /// longer paste.
 const MAX_WRITE_BYTES: usize = 256 * 1024;
 
 /// The calling window, once its page passed [`terminal::caller::check`].
-fn caller_window(webview: &Webview, request: &Request<'_>) -> Result<Window, String> {
+fn caller_window<R: Runtime>(
+    webview: &Webview<R>, request: &Request<'_>,
+) -> Result<Window<R>, String> {
     let window = webview.window();
     let page = webview.url().map(|url| url.to_string()).unwrap_or_default();
     let origin = request.headers().get("origin").and_then(|value| value.to_str().ok());
@@ -39,8 +41,8 @@ pub struct OpenedTerminal {
 
 /// Start a login shell in the window's project folder, `cols` × `rows`.
 #[tauri::command]
-pub async fn terminal_open(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, project_root: String,
+pub async fn terminal_open<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, project_root: String,
     cols: u16, rows: u16, on_output: Channel<InvokeResponseBody>,
 ) -> Result<OpenedTerminal, String> {
     let window = caller_window(&webview, &request)?;
@@ -63,8 +65,8 @@ pub async fn terminal_open(
 }
 
 #[tauri::command]
-pub async fn terminal_write(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, id: u32, data: String,
+pub async fn terminal_write<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, id: u32, data: String,
 ) -> Result<(), String> {
     let window = caller_window(&webview, &request)?;
     if data.len() > MAX_WRITE_BYTES {
@@ -74,8 +76,8 @@ pub async fn terminal_write(
 }
 
 #[tauri::command]
-pub async fn terminal_resize(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, id: u32, cols: u16,
+pub async fn terminal_resize<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, id: u32, cols: u16,
     rows: u16,
 ) -> Result<(), String> {
     let window = caller_window(&webview, &request)?;
@@ -84,8 +86,8 @@ pub async fn terminal_resize(
 
 /// The window has drawn `bytes` more of terminal `id`'s output.
 #[tauri::command]
-pub async fn terminal_ack(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, id: u32, bytes: usize,
+pub async fn terminal_ack<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, id: u32, bytes: usize,
 ) -> Result<(), String> {
     let window = caller_window(&webview, &request)?;
     state.terminals.with(window.label(), id, |session| session.acknowledge(bytes))
@@ -94,8 +96,8 @@ pub async fn terminal_ack(
 /// The command running in terminal `id` ("latexmk"; empty when its name is
 /// unknown), or null at the prompt: what closing it would stop.
 #[tauri::command]
-pub async fn terminal_running_command(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, id: u32,
+pub async fn terminal_running_command<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, id: u32,
 ) -> Result<Option<String>, String> {
     let window = caller_window(&webview, &request)?;
     state.terminals.with(window.label(), id, Session::running_command)
@@ -103,10 +105,155 @@ pub async fn terminal_running_command(
 
 /// End terminal `id`: its shell and whatever it runs.
 #[tauri::command]
-pub async fn terminal_close(
-    state: State<'_, AppState>, webview: Webview, request: Request<'_>, id: u32,
+pub async fn terminal_close<R: Runtime>(
+    state: State<'_, AppState>, webview: Webview<R>, request: Request<'_>, id: u32,
 ) -> Result<(), String> {
     let window = caller_window(&webview, &request)?;
     state.terminals.close(window.label(), id);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::app_state::AppState;
+    use crate::test_support::TempDir;
+    use serde_json::{json, Value};
+    use tauri::ipc::{CallbackFn, InvokeBody};
+    use tauri::test::{
+        get_ipc_response, mock_builder, mock_context, noop_assets, MockRuntime, INVOKE_KEY,
+    };
+    use tauri::webview::InvokeRequest;
+    use tauri::{App, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+    const REFUSED: &str = "The terminal is only available in a Lattice window.";
+    const CLOSED: &str = "This terminal has closed.";
+
+    fn app(project: &std::path::Path) -> App<MockRuntime> {
+        let app = mock_builder()
+            .manage(AppState::from_environment())
+            .invoke_handler(tauri::generate_handler![
+                super::terminal_open,
+                super::terminal_write,
+                super::terminal_resize,
+                super::terminal_ack,
+                super::terminal_running_command,
+                super::terminal_close,
+            ])
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        for label in ["main", "project-2", "browser-1"] {
+            app.state::<AppState>().bind_window(label, project.to_path_buf()).unwrap();
+        }
+        app
+    }
+
+    fn window(app: &App<MockRuntime>, label: &str, url: WebviewUrl) -> WebviewWindow<MockRuntime> {
+        WebviewWindowBuilder::new(app, label, url).build().unwrap()
+    }
+
+    /// The command's error, as the page would receive it, from a request a
+    /// frame on `frame_url` sent with `origin`.
+    fn call(
+        webview: &WebviewWindow<MockRuntime>, cmd: &str, body: Value, frame_url: &str,
+        origin: Option<&str>,
+    ) -> Result<(), String> {
+        let mut headers = tauri::http::HeaderMap::new();
+        if let Some(origin) = origin {
+            headers.insert("origin", origin.parse().unwrap());
+        }
+        let request = InvokeRequest {
+            cmd: cmd.into(),
+            callback: CallbackFn(0),
+            error: CallbackFn(1),
+            url: frame_url.parse().unwrap(),
+            body: InvokeBody::Json(body),
+            headers,
+            invoke_key: INVOKE_KEY.into(),
+        };
+        get_ipc_response(webview, request).map(|_| ()).map_err(|error| match error {
+            Value::String(text) => text,
+            other => other.to_string(),
+        })
+    }
+
+    #[test]
+    fn lattice_s_own_page_in_a_workspace_window_reaches_the_terminal_commands() {
+        let dir = TempDir::new("terminal-ipc");
+        let app = app(&dir);
+        let main = window(&app, "main", WebviewUrl::App("index.html".into()));
+        // Past the gate: the command itself answers (there is no terminal 99).
+        let reached = call(
+            &main,
+            "terminal_running_command",
+            json!({ "id": 99 }),
+            "tauri://localhost",
+            Some("tauri://localhost"),
+        );
+        assert_eq!(reached, Err(CLOSED.to_string()));
+        assert_eq!(
+            call(&main, "terminal_close", json!({ "id": 99 }), "tauri://localhost", None),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn other_windows_pages_frames_and_origins_cannot_open_or_drive_a_shell() {
+        let dir = TempDir::new("terminal-ipc");
+        let app = app(&dir);
+        let root = dir.to_string_lossy().into_owned();
+        let open =
+            json!({ "projectRoot": root, "cols": 80, "rows": 24, "onOutput": "__CHANNEL__:7" });
+        let main = window(&app, "main", WebviewUrl::App("index.html".into()));
+        // The hidden host that relays a browser tab.
+        let browser = window(&app, "browser-1", WebviewUrl::App("index.html".into()));
+        // A workspace window whose page navigated off Lattice.
+        let navigated = window(
+            &app,
+            "project-2",
+            WebviewUrl::External("https://evil.example/".parse().unwrap()),
+        );
+        // Any other window Lattice opens (the Overleaf sign-in).
+        let other = window(
+            &app,
+            "overleaf-login",
+            WebviewUrl::External("https://www.overleaf.com/login".parse().unwrap()),
+        );
+        for (webview, frame, origin) in [
+            (&browser, "tauri://localhost", Some("tauri://localhost")),
+            (&navigated, "tauri://localhost", Some("tauri://localhost")),
+            (&other, "tauri://localhost", None),
+            // A frame inside Lattice's page on another origin: the Synara
+            // panel or an Open Slide deck on loopback, a sandboxed preview.
+            (&main, "tauri://localhost", Some("http://127.0.0.1:51234")),
+            (&main, "tauri://localhost", Some("null")),
+        ] {
+            for (cmd, body) in [
+                ("terminal_open", open.clone()),
+                ("terminal_write", json!({ "id": 1, "data": "ls\r" })),
+                ("terminal_running_command", json!({ "id": 1 })),
+            ] {
+                let answer = call(webview, cmd, body, frame, origin);
+                assert_eq!(
+                    answer,
+                    Err(REFUSED.to_string()),
+                    "{} {cmd} {origin:?}",
+                    webview.label()
+                );
+            }
+        }
+        // A request whose frame is not Lattice's never reaches the command:
+        // Tauri refuses it, as no capability grants a remote URL.
+        let remote = call(
+            &main,
+            "terminal_open",
+            open,
+            "http://127.0.0.1:51234/",
+            Some("http://127.0.0.1:51234"),
+        );
+        assert!(
+            remote.is_err_and(|error| error != REFUSED && error != CLOSED),
+            "remote frame reached the command"
+        );
+        assert_eq!(app.state::<AppState>().terminals.len(), 0);
+    }
 }

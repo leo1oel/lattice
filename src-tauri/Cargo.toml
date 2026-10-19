@@ -154,4 +154,6 @@ objc2-web-kit = { version = "0.3", default-features = false, features = [
 block2 = "0.6"
 
 [dev-dependencies]
+# The mock runtime, to drive the terminal commands through real IPC requests.
+tauri = { version = "2", features = ["macos-private-api", "test"] }
 tiny_http = "0.12.0"

@@ -147,23 +147,18 @@ mod tests {
         }
     }
 
-    /// Every terminal command checks its caller before anything else, and no
-    /// capability lets a remote page reach app commands at all.
+    /// No capability lets a page on another origin reach Lattice's commands
+    /// at all; the IPC tests in ipc/terminal.rs drive the gate itself.
     #[test]
-    fn every_terminal_command_checks_its_caller_and_no_remote_page_is_granted() {
-        let commands = include_str!("../ipc/terminal.rs");
-        let bodies: Vec<&str> = commands.split("#[tauri::command]").skip(1).collect();
-        assert_eq!(bodies.len(), 6);
-        for body in bodies {
-            let first_statement =
-                body.split(") -> ").nth(1).and_then(|rest| rest.lines().nth(1)).unwrap_or_default();
-            assert!(first_statement.contains("caller_window(&webview, &request)?"), "{body}");
+    fn no_capability_grants_a_remote_page() {
+        #[derive(serde::Deserialize)]
+        struct Capability {
+            windows: Vec<String>,
+            remote: Option<serde_json::Value>,
         }
-        let capability: serde_json::Value =
+        let capability: Capability =
             serde_json::from_str(include_str!("../../capabilities/default.json")).unwrap();
-        assert!(
-            capability.get("remote").is_none(),
-            "a remote URL may not invoke Lattice's commands"
-        );
+        assert!(capability.remote.is_none(), "a remote URL may not invoke Lattice's commands");
+        assert!(!capability.windows.is_empty());
     }
 }
