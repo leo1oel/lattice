@@ -22,22 +22,14 @@ import type { XtermScreen } from "./terminal-screen";
 import { terminalFontFamily, terminalTheme } from "./terminal-theme";
 import { closeTerminal, findRequests, followProject, openTerminal, terminals } from "./terminal-window";
 import { TERMINAL_ICON } from "./terminal-icon";
+import { ScreenSlot } from "./terminal-slot";
 import "./terminal.css";
 
-/** Set once the first-use line has been dismissed. */
-const INTRODUCED_KEY = "lattice.terminal.introduced";
 /** What re-themes the terminal: the root's appearance attributes (use-appearance.ts). */
 const APPEARANCE_ATTRIBUTES = ["data-theme", "data-tint", "data-accent", "data-code-theme", "data-code-theme-kind", "style"];
 
 type Session = TerminalSession<XtermScreen>;
 
-function introduced() {
-  try {
-    return localStorage.getItem(INTRODUCED_KEY) === "1";
-  } catch {
-    return true;
-  }
-}
 
 /** Hand every screen the colours and font the panel's cascade resolves to, now and on each appearance change. */
 function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readonly Session[]) {
@@ -66,43 +58,6 @@ function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readon
       themed.current.add(screen);
     }
   }, [panel, sessions, revision]);
-}
-
-/** The slot a session's screen stands in: shown only for the tab in front. */
-function ScreenSlot({ session, shown, focused }: { session: Session; shown: boolean; focused: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { screen } = session;
-  useLayoutEffect(() => {
-    const slot = ref.current;
-    if (!slot) return;
-    screen.attach(slot);
-    return () => {
-      if (screen.element.parentElement === slot) slot.removeChild(screen.element);
-    };
-  }, [screen]);
-  useLayoutEffect(() => {
-    screen.setShown(shown);
-    if (!shown) return;
-    screen.fit();
-    const slot = ref.current;
-    if (!slot) return;
-    // Every change of the slot's size (the divider dragged, the window
-    // resized) refits the grid, once per frame.
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => screen.fit());
-    });
-    observer.observe(slot);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [screen, shown]);
-  useEffect(() => {
-    if (shown && focused) screen.focus();
-  }, [screen, shown, focused]);
-  return <div ref={ref} className="terminal-slot" hidden={!shown} />;
 }
 
 function TerminalTab({ session, selected, label }: { session: Session; selected: boolean; label: string }) {
@@ -222,12 +177,11 @@ function FindField({ screen, onClose }: { screen: XtermScreen; onClose: () => vo
   );
 }
 
-export function TerminalPanel({ controller, shown, focused }: { controller: TrellisController; shown: boolean; focused: boolean }) {
+export function TerminalPanel({ controller, shown, focused, moving }: { controller: TrellisController; shown: boolean; focused: boolean; moving: boolean }) {
   const { t } = useLingui();
   const panelRef = useRef<HTMLDivElement>(null);
   const { sessions, active } = useSyncExternalStore(terminals.subscribe, terminals.get);
   const root = useSyncExternalStore(controller.app.subscribe, () => controller.app.get().projectRoot);
-  const [hint, setHint] = useState(() => !introduced());
   // The terminal whose find field is open (⌘F, or the panel menu's Find).
   const [findingIn, setFindingIn] = useState<number | null>(null);
   useAppearance(panelRef, sessions);
@@ -248,14 +202,6 @@ export function TerminalPanel({ controller, shown, focused }: { controller: Trel
     return () => { findRequests.delete(request); };
   }, [sessions]);
   const label = ({ name, number }: Session) => name ?? t`Terminal ${number}`;
-  const dismissHint = () => {
-    setHint(false);
-    try {
-      localStorage.setItem(INTRODUCED_KEY, "1");
-    } catch {
-      // Without storage the line comes back next time; nothing else depends on it.
-    }
-  };
   if (hosted) {
     return (
       <div ref={panelRef} className="terminal-panel">
@@ -281,15 +227,9 @@ export function TerminalPanel({ controller, shown, focused }: { controller: Trel
           ))}
         </div>
       )}
-      {hint && sessions.length > 0 && (
-        <div className="terminal-hint">
-          <span>{t`A shell in this project’s folder, for latexmk, git and your own scripts`}</span>
-          <IconButton size="compact" label={t`Dismiss`} onClick={dismissHint}><X size={14} aria-hidden="true" /></IconButton>
-        </div>
-      )}
       <div className="terminal-stage">
         {sessions.map((session) => (
-          <ScreenSlot key={session.key} session={session} shown={shown && session.key === active} focused={focused && !finding} />
+          <ScreenSlot key={session.key} screen={session.screen} shown={shown && session.key === active} focused={focused && !finding} moving={moving} />
         ))}
         {finding && <FindField screen={current.screen} onClose={() => setFindingIn(null)} />}
         {!sessions.length && (

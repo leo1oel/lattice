@@ -1121,10 +1121,6 @@ msgstr "有正式发表版"
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "这篇预印本已有正式发表版本。正文内文献需要手动修改。"
 
-#: src/terminal/terminal-panel.tsx
-msgid "A shell in this project’s folder, for latexmk, git and your own scripts"
-msgstr "在本项目文件夹中打开的 shell，可运行 latexmk、git 和你自己的脚本"
-
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
 msgstr "源文件已更改，请刷新后重新预览替换。"
@@ -4296,7 +4292,6 @@ msgid "Discover literature"
 msgstr "找文献"
 
 #: src/canvas/proofread-card.tsx
-#: src/terminal/terminal-panel.tsx
 msgid "Dismiss"
 msgstr "关闭"
 

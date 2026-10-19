@@ -1121,10 +1121,6 @@ msgstr "A published version is available."
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "A published version of this preprint exists. Inline references are edited by hand."
 
-#: src/terminal/terminal-panel.tsx
-msgid "A shell in this project’s folder, for latexmk, git and your own scripts"
-msgstr "A shell in this project’s folder, for latexmk, git and your own scripts"
-
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
 msgstr "A source file changed. Refresh and preview the replacement again."
@@ -4296,7 +4292,6 @@ msgid "Discover literature"
 msgstr "Discover literature"
 
 #: src/canvas/proofread-card.tsx
-#: src/terminal/terminal-panel.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 

@@ -111,18 +111,6 @@
 .terminal-new { color: var(--text-secondary); }
 
 /* A first-use line above the screen, until it is dismissed. */
-.terminal-hint {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--gap-inline);
-  padding: var(--gap-tight) var(--space-3) var(--gap-tight) var(--space-5);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
-}
-.terminal-hint > span { flex: 1; min-width: 0; }
-
 .terminal-stage {
   position: relative;
   flex: 1;
