@@ -33,6 +33,7 @@ mod link_preview;
 mod literature;
 mod literature_credentials;
 mod literature_service;
+mod live_preview;
 mod macos_window;
 mod models;
 mod native_locale;
@@ -145,6 +146,7 @@ fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
 fn shutdown_child_runtimes(app: &AppHandle) {
     app.state::<synara::SynaraRuntime>().shutdown();
     app.state::<presentation::PresentationRuntime>().shutdown();
+    app.state::<AppState>().stop_all_live_previews();
 }
 
 fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
@@ -171,13 +173,19 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 
 /// WebKit reports `Started` when a main-frame navigation commits (a reload,
 /// or the first load): the page it replaced never ran its cleanup, so its
-/// deck leases are released here.
+/// deck leases are released and its live preview stopped here.
 fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
+        }
+        // Nothing is left to draw a live preview that page had started.
+        if let Some(state) = webview.try_state::<AppState>() {
+            if let Ok(Some(root)) = state.root_for(webview.label()) {
+                state.project(&root).stop_live_preview();
+            }
         }
     }
 }
@@ -473,6 +481,13 @@ pub fn run() {
             ipc::build::texlab_definition,
             ipc::build::start_tex_install,
             ipc::build::start_tex_dependency_install,
+            ipc::live_preview::live_preview_status,
+            ipc::live_preview::live_preview_install,
+            ipc::live_preview::live_preview_remove,
+            ipc::live_preview::live_preview_start,
+            ipc::live_preview::live_preview_stop,
+            ipc::live_preview::live_preview_send,
+            ipc::live_preview::live_preview_read_file,
             ipc::git::git_status,
             ipc::git::git_user_name,
             ipc::git::git_init,

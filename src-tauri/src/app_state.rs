@@ -1,7 +1,7 @@
 //! Which project each window shows, and the resources an open project owns.
 
 use crate::ipc::overleaf_realtime::OverleafRealtimeState;
-use crate::{fs_watch, git, latex, project, texlab, MAIN_WINDOW_LABEL};
+use crate::{fs_watch, git, latex, live_preview, project, texlab, MAIN_WINDOW_LABEL};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -49,6 +49,8 @@ pub(crate) struct ProjectResources {
     /// Filesystem watcher feeding `project-fs-changed` events. Dropped with the
     /// project's resources when the last window showing it closes.
     pub(crate) fs_watcher: Mutex<Option<fs_watch::ProjectWatcher>>,
+    /// The rtex live preview, while the project's window has it on.
+    pub(crate) live_preview: Mutex<Option<live_preview::Session>>,
 }
 
 /// How a command is serialized against the rest of its project's work.
@@ -152,8 +154,28 @@ impl AppState {
                 pool.reset();
             }
             resources.shutdown_realtime();
+            resources.stop_live_preview();
             false
         });
+    }
+
+    /// Stop every project's live preview and wait for it: the app is exiting,
+    /// or rtex is about to be removed.
+    pub(crate) fn stop_all_live_previews(&self) {
+        let projects: Vec<_> = self
+            .projects
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
+        for project in projects {
+            let session =
+                project.live_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+            if let Some(session) = session {
+                session.stop_and_wait();
+            }
+        }
     }
 
     /// Close every project's live channel.
@@ -252,6 +274,14 @@ impl ProjectLease {
 }
 
 impl ProjectResources {
+    /// End the project's rtex session, if one runs. Safe to call when none does.
+    pub(crate) fn stop_live_preview(&self) {
+        let session = self.live_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(session) = session {
+            session.stop();
+        }
+    }
+
     pub(crate) fn realtime(&self) -> Result<MutexGuard<'_, OverleafRealtimeState>, String> {
         self.realtime.lock().map_err(|_| "The Overleaf connection is unavailable.".to_string())
     }

@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 mod installer;
 mod macos;
 
+pub(crate) use installer::{create_private_file, PinnedDownload};
+pub(crate) use macos::download as download_pinned;
 pub use macos::{install_dependency, install_tex};
 
 #[derive(Clone, Serialize)]

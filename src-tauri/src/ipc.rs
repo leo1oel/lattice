@@ -10,6 +10,7 @@ pub(crate) mod build;
 pub(crate) mod files;
 pub(crate) mod git;
 pub(crate) mod history;
+pub(crate) mod live_preview;
 pub(crate) mod overleaf;
 pub(crate) mod overleaf_realtime;
 pub(crate) mod papers;
