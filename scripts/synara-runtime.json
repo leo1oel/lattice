@@ -1,8 +1,8 @@
 {
   "repository": "https://github.com/leo1oel/synara.git",
   "upstream": "https://github.com/Emanuele-web04/synara.git",
-  "branch": "amp/lattice-v1.0.6-sync",
-  "revision": "cf65e1c21295fc961dfc556486b97e832d8e554b",
-  "sourceDirectory": "../synara-v106-sync",
+  "branch": "amp/lattice-cursor-no-autologin",
+  "revision": "8e60865c43ad7ba4c8662bfc4cca45bedfb51455",
+  "sourceDirectory": "../synara-cursor-no-autologin",
   "nodeVersion": "24.20.0"
 }
