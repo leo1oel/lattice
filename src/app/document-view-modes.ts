@@ -44,3 +44,12 @@ export function modeOnLoad(
 export function setsDocumentMode(path: string, mode: CanvasMode): mode is DocumentViewMode {
   return isPreviewableSourceFilePath(path) && !isHtmlFilePath(path) && mode !== "asset";
 }
+
+/** A canvas mode that brings an editor on screen, widening a preview-only or asset surface to split. */
+export const withEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
+/** The canvas mode a jump into `path` needs: Markdown's Preview is its visual editor, which takes the jump itself. */
+export const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
+  mode === "pdf" && /\.md$/i.test(path) ? mode : withEditor(mode)
+);
+/** A canvas mode that brings the PDF on screen beside an editor-only view. */
+export const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);

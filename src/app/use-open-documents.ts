@@ -28,7 +28,9 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
-import { modeOnLoad, rememberedViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
+import {
+  modeOnLoad, rememberedViewMode, setsDocumentMode, withEditor, withEditorFor, withPdf, type RememberedViewModes,
+} from "./document-view-modes";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView, type SaveStatus };
 
@@ -41,15 +43,6 @@ export function documentKind(key: string, assetPaths: ReadonlySet<string>): "pap
 const DISK_POLL_MS = 2500;
 const RECENTLY_CLOSED_LIMIT = 20;
 const NAVIGATION_HISTORY_LIMIT = 80;
-
-/** A canvas mode that brings an editor on screen, widening a preview-only or asset surface to split. */
-const withEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
-/** The canvas mode a jump into `path` needs: Markdown's Preview is its visual editor, which takes the jump itself. */
-const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
-  mode === "pdf" && /\.md$/i.test(path) ? mode : withEditor(mode)
-);
-/** A canvas mode that brings the PDF on screen beside an editor-only view. */
-const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);
 
 /** Run the canvas's deferred-edit flush: published, refused (a text composition is open), or what it threw. */
 function publishDeferredEdits(flush: (() => boolean) | null): "published" | "refused" | { error: unknown } {
