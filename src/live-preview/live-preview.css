@@ -1,8 +1,13 @@
-/* The live preview's status pill (live-preview-status.tsx), at the bottom left
-   of the PDF's pages, clear of the centered loader and notices. */
+/* The live preview's status (live-preview-status.tsx), at the bottom left of
+   the PDF's pages, clear of the centered loader and notices. It stands at the
+   popover level with the PDF's other statuses (pdf-notice). While all is live
+   it shrinks to its dot, so it does not sit over the page while you type;
+   the tooltip still names it. */
 .live-preview-status-host { position: absolute; left: var(--space-6); bottom: var(--space-6); z-index: 10; max-width: calc(100% - var(--space-12)); pointer-events: none; }
-.live-preview-status { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--space-3); max-width: 100%; min-height: var(--control-height-compact); box-sizing: border-box; margin: 0; padding: var(--space-1) var(--space-5); border: 0; border-radius: var(--radius-pill); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); font: inherit; font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--type-micro-weight); white-space: nowrap; }
+.live-preview-status { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--space-3); max-width: 100%; box-sizing: border-box; margin: 0; padding: var(--space-2) var(--space-5); border: 0; border-radius: var(--radius-control); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); font: inherit; font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--type-micro-weight); white-space: nowrap; }
 .live-preview-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.live-preview-status[data-tone="live"] { padding: var(--space-3); }
+.live-preview-status[data-tone="live"] .live-preview-status-label { display: none; }
 button.live-preview-status { cursor: pointer; color: var(--text-primary); }
 button.live-preview-status:hover { background: var(--toolbar-hover-surface); }
 .live-preview-status-dot { flex: none; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-pill); background: var(--text-tertiary); }
