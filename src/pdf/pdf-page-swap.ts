@@ -52,7 +52,8 @@ export function pdfPageSignatures(bytes: ArrayBuffer): Promise<PdfPageSignatures
   // transferred to PDF.js while this is in flight.
   const copy = bytes.slice(0);
   return Promise.resolve()
-    .then(() => invoke<PdfPageSignatures>("pdf_page_signatures", copy))
+    .then(() => invoke<PdfPageSignatures | undefined>("pdf_page_signatures", copy))
+    .then((signatures) => signatures && Array.isArray(signatures.pages) ? signatures : null)
     .catch(() => null);
 }
 
