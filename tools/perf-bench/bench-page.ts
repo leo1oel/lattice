@@ -898,6 +898,19 @@ function answer(command: string, args: Args): unknown {
     case "read_compiled_pdf":
       if (params.get("pdf")) return fetch(params.get("pdf")!).then((response) => response.arrayBuffer());
       return copyBuffer(fixture.compiledPdf);
+    // `?signatures=<url>`: page signatures (src-tauri/src/pdf_pages.rs) of the
+    // PDFs `?pdf=` answers with, computed outside the page and keyed by byte
+    // length, so a rebuild can be shown in place. Without it the preview
+    // reloads whole, as it does for a PDF the backend cannot read.
+    case "pdf_page_signatures": {
+      const signatures = params.get("signatures");
+      if (!signatures) throw new Error("The bench has no page signatures.");
+      const length = (args as unknown as ArrayBuffer).byteLength;
+      return fetch(signatures).then((response) => response.json()).then((known: Record<string, unknown>) => {
+        if (!known[length]) throw new Error(`No page signatures for a ${length}-byte PDF.`);
+        return known[length];
+      });
+    }
     case "synctex_heading_pages":
       // The fixture PDF has no SyncTeX map: about a page per 45 source lines.
       return (args?.headings as Array<{ line: number }> | undefined ?? []).map(({ line }) => Math.max(1, Math.ceil(line / 45)));
