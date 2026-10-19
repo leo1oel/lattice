@@ -416,7 +416,9 @@ export class LivePreviewSession {
       layoutVersion: event.versions.layout_version,
       hasFallback: Boolean(event.pdf_fallback),
     });
-    this.loadResources(event.pages_changed.map((page) => page.dl));
+    // Only the pages drawn from the display list need its fonts and images:
+    // most pages stay the PDF's, and a paper's figures run to tens of MB.
+    this.loadResources(event.pages_changed.filter((page) => this.model.pageSource(page.page).kind === "display-list").map((page) => page.dl));
     const settled = event.convergence.state === "Converged" || event.convergence.state === "PassLimitReached";
     this.updateSnapshot({
       phase: this.snapshot.phase === "paused" ? "paused" : "live",

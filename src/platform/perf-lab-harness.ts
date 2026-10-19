@@ -914,12 +914,14 @@ async function livePreview() {
     .find((element) => element.textContent?.trim().startsWith("Editor")), "the Editor & builds tab");
   tab.click();
   const toggle = await waitFor(() => document.querySelector('[data-setting="live-preview"] [role="switch"]'), "the Live preview switch");
-  if (toggle.getAttribute("aria-checked") !== "true") toggle.click();
+  // `--flags liveoff` types the same text with the preview off, for a baseline.
+  const wanted = !(window.__latticeLabFlags ?? []).includes("liveoff");
+  if ((toggle.getAttribute("aria-checked") === "true") !== wanted) toggle.click();
   const enabledAt = performance.now();
   await sleep(300);
   syntheticKey("Escape");
   const phases = [];
-  await waitFor(() => {
+  if (wanted) await waitFor(() => {
     const label = (status()?.textContent?.trim() ?? "").replace(/\d+%/, "%");
     if (label && phases.at(-1)?.label !== label) phases.push({ label, ms: Math.round(performance.now() - enabledAt) });
     return status()?.getAttribute("data-tone") === "live";

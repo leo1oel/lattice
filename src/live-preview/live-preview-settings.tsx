@@ -30,9 +30,11 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
   const about = t`Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build.`;
   const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
   const message = state.kind === "failed" ? state.message : "";
-  const description = state.kind === "downloading"
-    ? t`Downloading rtex… ${percent}%`
-    : state.kind === "failed" ? t`Could not start: ${message}` : about;
+  const description = install?.supported === false
+    ? t`Live preview needs a Mac with Apple silicon.`
+    : state.kind === "downloading"
+      ? t`Downloading rtex… ${percent}%`
+      : state.kind === "failed" ? t`Could not start: ${message}` : about;
   const version = install?.version ?? "";
   const remove = () => {
     setRemoving(true);
