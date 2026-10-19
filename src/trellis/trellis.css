@@ -529,10 +529,13 @@
    pointer's way, changes inherited properties of everything in the
    workspace, and WebKit restyled all of it on the press and twice on the
    release: 40-80 ms frames beside a long document. Those properties now stay
-   as they are; only the shield comes and goes. A tab drag keeps Trellis's. */
-.lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"]) { cursor: inherit; user-select: inherit; -webkit-user-select: inherit; }
-.lattice-trellis .trellis[data-busy]:not([data-dragging], [data-resizing="float"]) [data-trellis-part="content"] { pointer-events: inherit; user-select: inherit; -webkit-user-select: inherit; }
+   as they are; only the shield comes and goes. A tab or panel drag does the
+   same with a shield over everything, the lifted panel and the drop preview
+   included, that holds Trellis's grabbing cursor. */
+.lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"], [data-dragging]) { cursor: inherit; user-select: inherit; -webkit-user-select: inherit; }
+.lattice-trellis .trellis:is([data-busy]:not([data-resizing="float"]), [data-dragging]) [data-trellis-part="content"] { pointer-events: inherit; user-select: inherit; -webkit-user-select: inherit; }
 .lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"])::after { content: ""; position: absolute; inset: 0; z-index: 15; user-select: none; -webkit-user-select: none; }
+.lattice-trellis .trellis[data-dragging]::after { content: ""; position: absolute; inset: 0; z-index: 4000; cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .lattice-trellis .trellis[data-resizing="x"]::after { cursor: col-resize; }
 .lattice-trellis .trellis[data-resizing="y"]::after { cursor: row-resize; }
 
