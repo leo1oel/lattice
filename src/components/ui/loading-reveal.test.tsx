@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { LOADING_REVEAL_DELAY_MS, useLoadingReveal } from "./loading-status";
+import { LOADING_REVEAL_DELAY_MS, useLoadingReveal } from "./loading-reveal";
 
 function Indicator({ scope }: { scope: string }) {
   return <div data-testid="indicator" style={useLoadingReveal(scope)} />;

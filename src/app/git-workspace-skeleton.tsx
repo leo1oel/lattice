@@ -6,7 +6,8 @@
  * technology only.
  */
 import { GitBranch, Search, Sparkles } from "lucide-react";
-import { LoadingAnnouncement, useLoadingReveal } from "../components/ui/loading-status";
+import { useLoadingReveal } from "../components/ui/loading-reveal";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import type { GitWorkspaceFrameKey } from "./git-workspace-frames";
 import "./git-workspace-skeleton.css";
 

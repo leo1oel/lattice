@@ -5,7 +5,8 @@
  * said to assistive technology only.
  */
 import type { CSSProperties } from "react";
-import { LoadingAnnouncement, useLoadingReveal } from "../components/ui/loading-status";
+import { useLoadingReveal } from "../components/ui/loading-reveal";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 
 /** Name widths (%) of the placeholder rows, varied so they read as titles. */
 const ROWS = [62, 44, 70, 52, 38];

@@ -1,7 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CSSProperties } from "react";
 import { InfinityLoader } from "../components/ui/activity-icons";
-import { LoadingAnnouncement, useLoadingReveal } from "../components/ui/loading-status";
+import { useLoadingReveal } from "../components/ui/loading-reveal";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { loadPdfViewPreference, type PdfFitMode } from "./pdf-viewer-utils";
 import "./pdf-viewer.css";
 

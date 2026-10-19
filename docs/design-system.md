@@ -694,7 +694,7 @@ all take it.
   elsewhere it is one small status. Nothing stands beside it: its words go
   to assistive technology through `LoadingAnnouncement`, not into a caption
   or a second spinner. Every indicator waits 150 ms before it fades in
-  (`useLoadingReveal` in `components/ui/loading-status.tsx`), on a clock
+  (`useLoadingReveal` in `components/ui/loading-reveal.ts`), on a clock
   that one load's Suspense fallback hands on to the component's own
   skeleton, so the hand-off neither flickers nor waits again.
 - **Empty states offer the way forward.** An empty region says what would be

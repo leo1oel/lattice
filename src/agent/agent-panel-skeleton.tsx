@@ -6,7 +6,7 @@
  * foot. A panel wide enough for the suggestions' descriptions (Synara's own
  * container query) gets taller suggestion rows, as the embed does.
  */
-import { useLoadingReveal } from "../components/ui/loading-status";
+import { useLoadingReveal } from "../components/ui/loading-reveal";
 import "./agent-panel-skeleton.css";
 
 /** Title widths (%) of the four suggestions: Polish, Revise, Proofread, Check references. */

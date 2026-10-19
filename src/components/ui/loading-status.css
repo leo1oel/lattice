@@ -1,4 +1,4 @@
-/* A loading indicator's reveal (loading-status.tsx): transparent until the
+/* A loading indicator's reveal (loading-reveal.ts): transparent until the
    load outlasts the delay, then a quick fade. The delay is the clock's, set
    inline by useLoadingReveal; this one serves an indicator without a scope.
    Reduced motion shortens the fade, never the delay, so a quick load still

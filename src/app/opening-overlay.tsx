@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { InfinityLoader } from "../components/ui/activity-icons";
-import { useLoadingReveal } from "../components/ui/loading-status";
+import { useLoadingReveal } from "../components/ui/loading-reveal";
 
 /**
  * Over the editor while a file opens. It holds the pointer from the start
