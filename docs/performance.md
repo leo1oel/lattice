@@ -153,6 +153,7 @@ and printed, and `--json` keeps them, but no ceiling holds them
 | `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
+| `startup` | `commits`, `renders`, `hooks` | `mutations` | Trellis measures a panel's header by writing each state of its action row to the DOM, and again when the row changes size. On a busy machine the Project and Papers panels' actions arrive a frame after the first measurement, and the second adds about 95 attribute writes (WebKit: 721–738 at rest, 818–864 in about a run in four under load). |
 | all others | `commits`, `renders`, `hooks`, `mutations` | | |
 
 The gated counts repeat exactly or move by a commit or two when an async load
