@@ -18,10 +18,12 @@ export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status:
   synctex: boolean | null;
   /** The problem the writer meets first (an error before a warning), for the Build button's sequence. */
   issue: CompileDiagnostic | null;
+  /** A quiet build's success (live-preview/quiet-builds.ts): the Build button shows it without its flourish. */
+  quiet?: true;
 };
 
 /** The outcome a finished pass reports; null for one the writer stopped. */
-export function buildOutcome(result: BuildResult, cancelled: boolean): BuildOutcome | null {
+export function buildOutcome(result: BuildResult, cancelled: boolean, quiet: boolean): BuildOutcome | null {
   const issue = sortDiagnostics(result.diagnostics).find((item) => item.level === "error" || item.level === "warning") ?? null;
   const report = {
     counts: summarizeDiagnostics(result.diagnostics),
@@ -33,7 +35,7 @@ export function buildOutcome(result: BuildResult, cancelled: boolean): BuildOutc
     issue,
   };
   return result.success
-    ? { status: "succeeded", seconds: result.durationMs / 1000, ...report }
+    ? { status: "succeeded", seconds: result.durationMs / 1000, ...report, ...(quiet && { quiet: true as const }) }
     : cancelled ? null : { status: "failed", ...report };
 }
 

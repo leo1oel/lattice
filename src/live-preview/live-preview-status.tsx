@@ -1,6 +1,7 @@
 /**
  * The live preview's state, as a small pill over the PDF: downloading rtex,
- * starting, the first layout, live, a layout catching up, or stopped. It
+ * starting, the first layout, live, a layout catching up, or stopped; its dot
+ * pulses while a quiet build brings the full PDF up to date. It
  * floats over the pages rather than joining the PDF toolbar, so it costs the
  * toolbar no width in a narrow panel. Live preview is on by default, so a Mac
  * that cannot run it or a download that failed shows nothing here: the PDF
@@ -68,9 +69,13 @@ function StatusPill({ state, snapshot, onRetry }: {
     label = t`Live`;
   }
   const stopped = tone === "stopped";
-  const tip = [label, detail, about].filter(Boolean).join("\n\n");
+  // The pulse stands in for the Build button's spinner and the PDF's
+  // "Updating…", which a quiet build does not show (quiet-builds.ts).
+  const rebuilding = !stopped && snapshot?.rebuilding === true;
+  const rebuildNote = rebuilding ? t`The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes.` : null;
+  const tip = [label, detail, rebuildNote, about].filter(Boolean).join("\n\n");
   return (
-    <div className="live-preview-status-host">
+    <div className="live-preview-status-host" data-rebuilding={rebuilding || undefined}>
       <Tip label={<span className="live-preview-status-tip">{tip}</span>} side="top">
         {stopped ? (
           <button type="button" className="live-preview-status" data-tone={tone} onClick={onRetry} aria-label={t`${label}. Restart live preview`}>

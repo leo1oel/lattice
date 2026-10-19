@@ -272,7 +272,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     autoBuild: {
       enabled: buildPreferences.autoBuildMode === "automatic",
       // Called after this render, by which point the build pipeline below exists.
-      afterSave: () => void buildPipeline.runBuild(false, { immediatePreview: false }),
+      afterSave: () => void buildPipeline.runBuild(false, { automatic: true }),
       afterDiskEdit: () => void compileRef.current(),
     },
   });

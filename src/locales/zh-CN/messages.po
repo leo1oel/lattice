@@ -12808,6 +12808,10 @@ msgstr "第一处：{path}:{line}"
 msgid "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
 msgstr "第一行为表头。普通文本会自动转义；仅在输入公式或宏时启用 LaTeX。Booktabs 样式需要 booktabs 宏包。"
 
+#: src/live-preview/live-preview-status.tsx
+msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
+msgstr "完整 PDF 正在后台重新编译。完成后，分页、引用和跳转到源码会随之更新。"
+
 #: src/project/import-conflict-dialog.tsx
 msgid "The imported copies get a numbered name"
 msgstr "导入的副本使用带编号的名称"

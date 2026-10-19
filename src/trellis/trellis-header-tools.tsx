@@ -153,7 +153,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const reach = () => setReachedAt(Date.now());
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
-      const fresh = state !== "idle" && state !== "building" && isFreshOutcome(lastBuild);
+      const fresh = state !== "idle" && state !== "building" && !lastBuild?.quiet && isFreshOutcome(lastBuild);
       const labels = { build: t`Build`, failed: t`Failed`, time: seconds ?? "" };
       const shown = state === "succeeded" ? "time" : state === "failed" ? "failed" : "build";
       return (

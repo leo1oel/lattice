@@ -22,6 +22,7 @@ import { adoptRootDocument } from "./adopt-root-document";
 import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-outcome";
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
+import { createQuietBuilds } from "../live-preview/quiet-builds";
 
 export type { BuildOutcome } from "./build-outcome";
 export type { BuildProgressStore } from "./build-progress";
@@ -31,6 +32,10 @@ type BuildOptions = {
   requested?: boolean;
   sound?: boolean;
   consumeAgentAssociations?: boolean;
+  /** Autosave asked: it waits for a pause while the live preview is live (quiet-builds.ts). */
+  automatic?: boolean;
+  /** Runs without the Build button's spinner or the PDF's "Updating…" (quiet-builds.ts). */
+  quiet?: boolean;
 };
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
@@ -41,6 +46,9 @@ type Ref<T> = { readonly current: T };
 
 /** How long after the app writes a file the watcher's next report of that file is its echo, not a new change. */
 const OWN_WRITE_ECHO_MS = 3_000;
+
+/** The live preview's name for the files a build read, and whether it ran quietly. */
+type LiveBase = { token: number | null; quiet: boolean };
 
 /** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
 type RunningBuild = { settled: Promise<void>; revision: number };
@@ -95,6 +103,9 @@ export function useBuildPipeline({
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
   const [building, , buildingRef, setBuilding] = useRefState(false);
+  const [quiet, , quietRef, setQuiet] = useRefState(false);
+  const [quietBuilds] = useState(() => createQuietBuilds({ livePreview, activeFileRef, sourceRef, savedSourceRef }));
+  useEffect(() => quietBuilds.cancel, [quietBuilds]);
   const [progress] = useState(createProgressStore);
   /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
   const progressIdRef = useRef(0);
@@ -115,8 +126,8 @@ export function useBuildPipeline({
   const previewTimerRef = useRef<number | null>(null);
   /** Stable preview payload — debounced so automatic rebuilds do not thrash pdf.js. */
   const pendingPreviewRef = useRef<ArrayBuffer | null>(null);
-  /** The live preview's name for the files the pending payload was built from. */
-  const pendingLiveTokenRef = useRef<number | null>(null);
+  /** The live preview's name for the files the pending payload was built from, and whether a quiet build made it. */
+  const pendingLiveRef = useRef<LiveBase>({ token: null, quiet: false });
   /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
   const previewGenerationRef = useRef(0);
 
@@ -183,27 +194,27 @@ export function useBuildPipeline({
     return nextUrl;
   }), []);
 
-  const showPreview = useCallback((bytes: ArrayBuffer, previewGeneration: number, immediate: boolean, liveToken: number | null) => {
+  const showPreview = useCallback((bytes: ArrayBuffer, previewGeneration: number, immediate: boolean, live: LiveBase) => {
     // LaTeX rewrites PDF metadata on every compile, so bytes almost always
     // change. Debounce preview updates for autosave compiles so pdf.js is
     // not destroyed mid-load on every keystroke pause.
     pendingPreviewRef.current = bytes;
-    pendingLiveTokenRef.current = liveToken;
+    pendingLiveRef.current = live;
     clearTimer(previewTimerRef);
     const applyPreview = () => {
       const pending = pendingPreviewRef.current;
       if (previewGeneration !== previewGenerationRef.current || !pending) return;
       const fingerprint = pdfBytesFingerprint(pending);
       pendingPreviewRef.current = null;
-      const liveToken = pendingLiveTokenRef.current;
+      const { token, quiet } = pendingLiveRef.current;
       // The same pages as on screen: they hold what this build compiled now.
       if (fingerprint === pdfFingerprintRef.current) {
-        livePreview?.current?.baseShown(liveToken);
+        livePreview?.current?.baseShown(token);
         return;
       }
       pdfFingerprintRef.current = fingerprint;
       displayedPdfBytesRef.current = pending;
-      livePreview?.current?.baseLoading(liveToken);
+      livePreview?.current?.baseLoading(token, quiet);
       replacePdfUrl(pdfBytesToObjectUrl(pending));
     };
     if (immediate) applyPreview();
@@ -224,6 +235,7 @@ export function useBuildPipeline({
     compiledRef.current = null;
     inputRevisionRef.current += 1;
     ownWritesRef.current.clear();
+    quietBuilds.cancel();
     readPdfFingerprintRef.current = null;
     const generation = ++previewGenerationRef.current;
     pdfFingerprintRef.current = null;
@@ -255,7 +267,7 @@ export function useBuildPipeline({
         // A new or cleaned project has no cached PDF; the initial build
         // remains the source of its first preview.
       });
-  }, [projectRef, replacePdfUrl]);
+  }, [projectRef, quietBuilds, replacePdfUrl]);
 
   /** Forget queued work; `cancelQueuedBuild` also drops a queued pass itself. */
   const resetQueue = useCallback((cancelQueuedBuild: boolean) => {
@@ -273,6 +285,7 @@ export function useBuildPipeline({
 
   const { takePendingCompiles, reportCompiles } = agent;
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
+    if (options?.automatic && quietBuilds.defer((quiet) => void runBuild(false, { quiet }))) return;
     const queue = queueRef.current;
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -293,6 +306,9 @@ export function useBuildPipeline({
       }
       return;
     }
+    if (!options?.quiet) quietBuilds.cancel();
+    // A build asked for any other way shows, and so does the quiet one it waits on.
+    if (!options?.quiet || !buildingRef.current) setQuiet(options?.quiet === true);
     if (buildingRef.current) {
       queue.force = (queue.force ?? false) || force;
       queue.sound ||= options?.sound === true;
@@ -308,7 +324,7 @@ export function useBuildPipeline({
     runningBuildRef.current = running;
     // The spinner stands in while this runs; whatever the previous build
     // reported must not come back if no pass of this one gets to report.
-    setOutcome(null);
+    if (!quietRef.current) setOutcome(null);
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
     let trace = logAction(t`Build`, t`Build`, force ? t`clean rebuild` : undefined, BUILD_OPERATION);
@@ -352,7 +368,7 @@ export function useBuildPipeline({
         // leaves the pass's PDF behind it, as it should.
         const revisionAtBuild = inputRevisionRef.current;
         running.revision = revisionAtBuild;
-        const liveTokenAtBuild = livePreview?.current?.buildStarted() ?? null;
+        const liveAtBuild = { token: livePreview?.current?.buildStarted(quietRef.current) ?? null, quiet: quietRef.current };
         const sourceAtBuild = sourceRef.current;
         const fileAtBuild = activeFileRef.current;
         // The open file rides along so the backend can re-target the build on
@@ -401,7 +417,7 @@ export function useBuildPipeline({
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
-        setOutcome(buildOutcome(result, cancelled));
+        setOutcome(buildOutcome(result, cancelled, quietRef.current));
         const { rootDocument } = result;
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
@@ -432,7 +448,7 @@ export function useBuildPipeline({
         // The debounce exists so a slow pdf.js load is not torn down by the
         // next rebuild while someone is still typing. Once they have stopped —
         // the buffer matches what is on disk — waiting is just the PDF lagging.
-        if (pdfBytes) showPreview(pdfBytes, previewGeneration, immediatePreview || sourceRef.current === savedSourceRef.current, liveTokenAtBuild);
+        if (pdfBytes) showPreview(pdfBytes, previewGeneration, immediatePreview || sourceRef.current === savedSourceRef.current, liveAtBuild);
         if (!result.success) {
           const firstError = result.diagnostics.find((item) => missingTexDependencyFile(item.message))
             ?? result.diagnostics.find((item) => item.level === "error")
@@ -478,6 +494,8 @@ export function useBuildPipeline({
       const queued = queue.force === null ? null : { ...queue, force: queue.force };
       Object.assign(queue, IDLE_QUEUE);
       setBuilding(false);
+      setQuiet(false);
+      livePreview?.current?.buildFinished();
       progress.set(null);
       runningBuildRef.current = null;
       settle();
@@ -491,7 +509,8 @@ export function useBuildPipeline({
     }
   }, [
     activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
-    reportCompiles, savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
+    quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
+    takePendingCompiles,
   ]);
 
   /**
@@ -564,7 +583,8 @@ export function useBuildPipeline({
   return useMemo(() => ({
     build,
     setBuild,
-    building,
+    /** A build the writer sees running: a quiet one is not (quiet-builds.ts). */
+    building: building && !quiet,
     progress,
     outcome,
     cleaning,
@@ -586,7 +606,7 @@ export function useBuildPipeline({
     cleanAndRebuild,
   }), [
     abortBuild, build, building, progress, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
-    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl,
+    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl, quiet,
     resetForProject, resetQueue, runBuild,
   ]);
 }
