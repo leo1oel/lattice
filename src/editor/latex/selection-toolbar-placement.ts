@@ -1,4 +1,4 @@
-import type { EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { clamp } from "../../settings/app-settings";
 import { highlightAround } from "./latex-highlights";
 import type { LatexSelectionToolbarPosition } from "./latex-selection-toolbar";
@@ -11,18 +11,37 @@ export type SelectionToolbarPlacement = {
   to: number;
 };
 
+/** When each view's last input-method composition ended. */
+const compositionEndedAt = new WeakMap<EditorView, number>();
+
+/** Records composition ends for `selectionToolbarPlacement`; one of the source editor's extensions. */
+export const compositionEndTracker = EditorView.domEventObservers({
+  compositionend: (_event, view) => {
+    compositionEndedAt.set(view, Date.now());
+  },
+});
+
+/**
+ * An input method's marked text (pinyin before a candidate is picked) can
+ * arrive as a selection over the composing range. WebKit also selects the
+ * composition to replace it when a candidate or a punctuation mark is
+ * committed, after compositionend, so CodeMirror reads that selection once
+ * the view no longer reports composing. Either opened the toolbar for a
+ * moment until the text landed.
+ */
+function composingOrCommitting(view: EditorView) {
+  return view.compositionStarted || Date.now() - (compositionEndedAt.get(view) ?? Number.NEGATIVE_INFINITY) < 100;
+}
+
 /**
  * Where the source editor's selection toolbar sits for the view's selection,
  * or null when it should not show.
  */
 export function selectionToolbarPlacement(view: EditorView, path: string): SelectionToolbarPlacement | null {
   const range = view.state.selection.main;
-  // An input method's marked text (pinyin before a candidate is picked) can
-  // arrive as a selection over the composing range, which flashed the
-  // toolbar until the candidate was committed. A tab behind another one
-  // stays laid out (inert, hidden), so its coordinates look valid; the
-  // toolbar is portaled and would not hide.
-  const wrappable = !range.empty && !view.compositionStarted
+  // A tab behind another one stays laid out (inert, hidden), so its
+  // coordinates look valid; the toolbar is portaled and would not hide.
+  const wrappable = !range.empty && !composingOrCommitting(view)
     && (path.endsWith(".tex") || path.toLocaleLowerCase().endsWith(".md"))
     && !view.dom.closest("[inert]");
   const visibleRange = wrappable

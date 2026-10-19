@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { selectionToolbarPlacement } from "./selection-toolbar-placement";
+import { compositionEndTracker, selectionToolbarPlacement } from "./selection-toolbar-placement";
 
 let view: EditorView | null = null;
 
@@ -9,13 +9,14 @@ afterEach(() => {
   view?.destroy();
   host?.remove();
   view = null;
+  vi.restoreAllMocks();
 });
 
 /** A source editor holding `doc`. jsdom has no text layout, so it reports fixed bounds and coordinates. */
 function sourceView(doc: string) {
   const host = document.body.appendChild(document.createElement("div"));
   host.className = "source-editor";
-  view = new EditorView({ doc, parent: host });
+  view = new EditorView({ doc, parent: host, extensions: compositionEndTracker });
   vi.spyOn(host, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 600, 500));
   vi.spyOn(view, "coordsAtPos").mockImplementation(() => ({ left: 100, right: 150, top: 100, bottom: 120 }));
   return view;
@@ -45,10 +46,19 @@ describe("selectionToolbarPlacement", () => {
       expect(selectionToolbarPlacement(editor, "main.tex")).toBeNull();
       expect(selectionToolbarPlacement(editor, "notes.md")).toBeNull();
     }
+    // WebKit commits a candidate by selecting the composition after
+    // compositionend; CodeMirror reads that selection before the text lands.
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
     compose(editor, "compositionend", "你好");
+    expect(editor.compositionStarted).toBe(false);
+    editor.dispatch({ selection: { anchor: 5, head: 11 } });
+    expect(selectionToolbarPlacement(editor, "main.tex")).toBeNull();
+    clock.mockReturnValue(now + 50);
     editor.dispatch({ changes: { from: 5, to: 11, insert: "你好" }, selection: { anchor: 7 } });
     expect(selectionToolbarPlacement(editor, "main.tex")).toBeNull();
     // Composition over, a selection made with the mouse or keyboard shows it again.
+    clock.mockReturnValue(now + 500);
     editor.dispatch({ selection: { anchor: 5, head: 7 } });
     expect(selectionToolbarPlacement(editor, "main.tex")).toMatchObject({ from: 5, to: 7 });
   });
