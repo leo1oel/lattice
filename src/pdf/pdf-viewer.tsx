@@ -432,6 +432,8 @@ export function PdfPreview({
     recordRef,
     setGeneration,
     source,
+    // A preview with a Build button shows one document's successive builds.
+    rebuilds: Boolean(onBuild),
     view,
     history,
     callbacks,

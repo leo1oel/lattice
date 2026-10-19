@@ -1,10 +1,11 @@
-import { useEffect, useState, useSyncExternalStore, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { pdfBytesFingerprint } from "./pdf-bytes";
 import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
 import { isProjectPdfStale } from "./project-pdf-refusals";
+import { changedPages, pdfPageSignatures, swapPdfPages } from "./pdf-page-swap";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
 import { installPdfTextLayerSelection, refreshPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
@@ -90,12 +91,14 @@ function copyPdfBuffer(bytes: ArrayBuffer | Uint8Array): ArrayBuffer {
  * old document stays readable until then; failures only replace an empty pane.
  */
 export function usePdfDocument({
-  hostRef, recordRef, setGeneration, source, view, history, callbacks, onFindMatches, timeoutMessage,
+  hostRef, recordRef, setGeneration, source, rebuilds = false, view, history, callbacks, onFindMatches, timeoutMessage,
 }: {
   hostRef: RefObject<HTMLDivElement | null>;
   recordRef: ActiveViewerRef;
   setGeneration: Dispatch<SetStateAction<number>>;
   source: PdfSource;
+  /** Every new source is a rebuild of the document on screen, which may be shown in place. */
+  rebuilds?: boolean;
   view: PdfViewState;
   history: PdfLocationHistory;
   callbacks: RefObject<PdfViewerCallbacks>;
@@ -131,9 +134,54 @@ export function usePdfDocument({
     return () => window.clearTimeout(timer);
   }, [recordRef, source.key, stableLoadKey]);
 
+  // A rebuild of the bytes on screen is shown in the open viewer, redrawing
+  // only the pages it changed (pdf-page-swap.ts). Anything else, a swap that
+  // cannot be made, or one that would overtake a staged load still under way,
+  // is a staged load: a new object each time, so the same key loads again
+  // after a swap showed another.
+  const [fullLoad, setFullLoad] = useState({ key: "" });
+  const stagingRef = useRef(false);
+  useEffect(() => {
+    const active = recordRef.current;
+    const bytes = sourceRef.current.bytes;
+    if (!rebuilds || !stableLoadKey || !active?.bytes || !bytes || active.destroyed || stagingRef.current) {
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect -- hands the debounced key to the staged loader below.
+      setFullLoad({ key: stableLoadKey });
+      return;
+    }
+    const key = stableLoadKey;
+    let current = true;
+    const isCurrent = () => current && recordRef.current === active && !active.destroyed;
+    const before = active.signatures ??= pdfPageSignatures(active.bytes);
+    const after = pdfPageSignatures(bytes);
+    void Promise.all([before, after])
+      .then(async ([previous, next]) => {
+        const changed = previous && next && changedPages(previous, next);
+        if (!changed || !isCurrent() || !await swapPdfPages(active, bytes, changed, isCurrent)) return false;
+        active.key = key;
+        active.bytes = bytes;
+        active.signatures = after;
+        return true;
+      })
+      .catch(() => false)
+      .then((swapped) => {
+        if (!current) return;
+        if (!swapped) {
+          setFullLoad({ key });
+          return;
+        }
+        setLoadedKey(key);
+        setPdfError("");
+        setPdfErrorDetail("");
+      });
+    return () => {
+      current = false;
+    };
+  }, [rebuilds, recordRef, sourceRef, stableLoadKey]);
+
   useEffect(() => {
     const host = hostRef.current;
-    if (!stableLoadKey) {
+    if (!fullLoad.key) {
       const previous = recordRef.current;
       recordRef.current = null;
       setGeneration(0);
@@ -147,7 +195,7 @@ export function usePdfDocument({
     }
     if (!host) return;
 
-    const key = stableLoadKey;
+    const key = fullLoad.key;
     let cancelled = false;
     let promoted = false;
     let loadSettled = false;
@@ -158,6 +206,10 @@ export function usePdfDocument({
     let unsubscribeReady = () => {};
     const blocking = recordRef.current === null;
     const { bytes, url, file } = sourceRef.current;
+    stagingRef.current = true;
+    const settle = () => {
+      stagingRef.current = false;
+    };
     const data = bytes ? copyPdfBuffer(bytes) : null;
     // A failed range read: why the load failed, or why later pages stay blank.
     let rangeFailure: unknown = null;
@@ -192,6 +244,7 @@ export function usePdfDocument({
     const record = createViewerRecord(key, host, !blocking, options, (reason) => {
       loadFailure = reason;
     });
+    if (bytes) record.bytes = bytes;
     const { slick, root } = record;
     root.setAttribute("aria-label", t({ message: "PDF pages", context: "The scrolling area that shows them" }));
     const isActive = () => recordRef.current === record;
@@ -211,6 +264,7 @@ export function usePdfDocument({
     const disposeRecord = () => void destroyViewerRecord(record);
     const fail = (reason: unknown) => {
       if (timeout !== null) window.clearTimeout(timeout);
+      settle();
       clearLoadFeedback();
       const title = t`PDF could not be loaded`;
       const detail = reason ? toMessage(reason) : "";
@@ -253,6 +307,7 @@ export function usePdfDocument({
       if (cancelled || promoted || !slick.document || !slick.store.getState().pagesReady) return;
       const pages = slick.document.numPages;
       promoted = true;
+      settle();
       unsubscribeReady();
       if (timeout !== null) window.clearTimeout(timeout);
       updateLoadFeedback("rendering", null);
@@ -364,6 +419,7 @@ export function usePdfDocument({
     timeout = window.setTimeout(() => {
       if (promoted || cancelled) return;
       cancelled = true;
+      settle();
       unsubscribeReady();
       clearLoadFeedback();
       if (!recordRef.current) {
@@ -400,12 +456,13 @@ export function usePdfDocument({
       if (timeout !== null) window.clearTimeout(timeout);
       if (promoted && isActive()) return;
       cancelled = true;
+      settle();
       unsubscribeReady();
       if (loadSettled) disposeRecord();
     };
   }, [
     activate, browserHosted, callbacks, hostRef, initialViewState, onFindMatches, recordRef, renderCount,
-    resetHistory, schedule, setFitMode, setGeneration, setPageNumber, setScale, sourceRef, stableLoadKey, t,
+    resetHistory, schedule, setFitMode, setGeneration, setPageNumber, setScale, sourceRef, fullLoad, t,
     timeoutMessage, trackHistory, viewRef
   ]);
 
