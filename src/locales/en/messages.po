@@ -12808,6 +12808,10 @@ msgstr "The first is at {path}:{line}."
 msgid "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
 msgstr "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
 
+#: src/live-preview/live-preview-status.tsx
+msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
+msgstr "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
+
 #: src/project/import-conflict-dialog.tsx
 msgid "The imported copies get a numbered name"
 msgstr "The imported copies get a numbered name"

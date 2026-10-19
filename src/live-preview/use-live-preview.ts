@@ -42,7 +42,9 @@ export type LivePreviewState =
   | { kind: "download-failed"; message: string };
 
 /** What the build pipeline tells the session (see LivePreviewSession). */
-export type LivePreviewBuildHooks = Pick<LivePreviewSession, "noteSaved" | "buildStarted" | "baseLoading" | "baseShown" | "basePageCount">;
+export type LivePreviewBuildHooks = Pick<
+  LivePreviewSession, "noteSaved" | "buildStarted" | "buildFinished" | "baseLoading" | "baseShown" | "basePageCount" | "getSnapshot"
+>;
 
 const OFF: LivePreviewState = { kind: "off" };
 const STARTING: LivePreviewState = { kind: "starting" };

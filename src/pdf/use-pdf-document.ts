@@ -173,11 +173,13 @@ export function usePdfDocument({
         setLoadedKey(key);
         setPdfError("");
         setPdfErrorDetail("");
+        // What draws over the pages reads them again: their document changed.
+        renderCount.bump("pages");
       });
     return () => {
       current = false;
     };
-  }, [rebuilds, recordRef, sourceRef, stableLoadKey]);
+  }, [rebuilds, recordRef, renderCount, sourceRef, stableLoadKey]);
 
   useEffect(() => {
     const host = hostRef.current;

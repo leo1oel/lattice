@@ -15,7 +15,11 @@ button.live-preview-status:hover { background: var(--toolbar-hover-surface); }
 .live-preview-status[data-tone="pending"] .live-preview-status-dot { background: var(--status-warning); }
 .live-preview-status[data-tone="stopped"] .live-preview-status-dot { background: var(--status-danger); }
 .live-preview-status[data-tone="busy"] .live-preview-status-dot { animation: live-preview-status-pulse var(--motion-flourish) ease-in-out infinite alternate; }
+.live-preview-status-host[data-rebuilding] .live-preview-status-dot { animation: live-preview-status-pulse var(--motion-flourish) ease-in-out infinite alternate; }
 @keyframes live-preview-status-pulse { from { opacity: 1; } to { opacity: 0.35; } }
+/* A quiet build's PDF loads behind pages that already show the edit: the pill's
+   pulse is its only sign, not pdf-viewer's "Updating…" (quiet-builds.ts). */
+.pdf-scroll-area:has(> .live-preview-status-host[data-rebuilding]) > .pdf-loading-quiet { display: none; }
 .live-preview-status-tip { display: block; max-width: calc(var(--space-16) * 9); white-space: pre-line; }
 
 /* A page the live preview draws on (live-preview-layer.tsx): over pdf.js's

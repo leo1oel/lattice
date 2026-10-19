@@ -121,6 +121,22 @@ describe("a live preview session", () => {
     session.dispose();
   });
 
+  it("reports a quiet build until the PDF it made is on screen", async () => {
+    const session = new LivePreviewSession("/project", "main.tex");
+    await session.start();
+    const token = session.buildStarted(true);
+    expect(session.getSnapshot().rebuilding).toBe(true);
+    session.baseLoading(token, true);
+    session.buildFinished();
+    expect(session.getSnapshot().rebuilding).toBe(true);
+    session.basePromoted();
+    expect(session.getSnapshot().rebuilding).toBe(false);
+    // A build the writer asked for shows itself: the session does not report it.
+    session.baseLoading(session.buildStarted(), false);
+    expect(session.getSnapshot().rebuilding).toBe(false);
+    session.dispose();
+  });
+
   it("reports rtex stopping on its own", async () => {
     const session = new LivePreviewSession("/project", "main.tex");
     await session.start();

@@ -38,9 +38,11 @@ export type LivePreviewSnapshot = Readonly<{
   layoutPending: boolean;
   /** rtex's words when it stopped or failed. */
   detail: string | null;
+  /** A quiet build (quiet-builds.ts) is bringing the full PDF up to date: running, or its PDF loading. */
+  rebuilding: boolean;
 }>;
 
-const INITIAL: LivePreviewSnapshot = { phase: "starting", layoutPending: false, detail: null };
+const INITIAL: LivePreviewSnapshot = { phase: "starting", layoutPending: false, detail: null, rebuilding: false };
 
 /** A fallback PDF of one layout, kept in memory: rtex deletes the file two layouts later. */
 type Fallback = { layoutVersion: number; document: Promise<PdfDocument | null> };
@@ -83,6 +85,9 @@ export class LivePreviewSession {
   private awaitingSince: number | null = null;
   /** A base PDF the viewer is still loading. */
   private nextBase: number | null = null;
+  /** A quiet build running, and a quiet build's PDF loading. */
+  private quietBuild = false;
+  private quietBase = false;
 
   // ---- Disk reads: a counter per file, so a read a newer change overtook is dropped.
   private readonly fileGeneration = new Map<string, number>();
@@ -186,8 +191,16 @@ export class LivePreviewSession {
   }
 
   /** A latexmk pass starts reading the files: the token `baseShown` takes when its PDF is shown. */
-  buildStarted(): number {
+  buildStarted(quiet = false): number {
+    this.quietBuild = quiet;
+    this.refreshRebuilding();
     return this.diskIndex;
+  }
+
+  /** The build, and every pass it queued, ended. */
+  buildFinished(): void {
+    this.quietBuild = false;
+    this.refreshRebuilding();
   }
 
   /**
@@ -195,14 +208,18 @@ export class LivePreviewSession {
    * `token`; it takes over once the viewer shows it (`basePromoted`), so the
    * edits stay painted over the old one until then.
    */
-  baseLoading(token: number | null): void {
+  baseLoading(token: number | null, quiet = false): void {
     this.nextBase = token;
+    this.quietBase = quiet;
+    this.refreshRebuilding();
   }
 
   /** The viewer now shows the PDF `baseLoading` announced. */
   basePromoted(): void {
     const token = this.nextBase;
     this.nextBase = null;
+    this.quietBase = false;
+    this.refreshRebuilding();
     if (token !== null) this.baseShown(token);
   }
 
@@ -324,6 +341,10 @@ export class LivePreviewSession {
   private awaitLayout(revision = this.latestRevision): void {
     this.awaitingSince = Math.max(this.awaitingSince ?? revision, revision);
     this.refreshPending();
+  }
+
+  private refreshRebuilding(): void {
+    this.updateSnapshot({ rebuilding: this.quietBuild || this.quietBase });
   }
 
   private refreshPending(): void {
@@ -496,7 +517,8 @@ export class LivePreviewSession {
 
   private updateSnapshot(patch: Partial<LivePreviewSnapshot>): void {
     const next = { ...this.snapshot, ...patch };
-    if (next.phase === this.snapshot.phase && next.layoutPending === this.snapshot.layoutPending && next.detail === this.snapshot.detail) return;
+    const { phase, layoutPending, detail, rebuilding } = this.snapshot;
+    if (next.phase === phase && next.layoutPending === layoutPending && next.detail === detail && next.rebuilding === rebuilding) return;
     this.snapshot = next;
     for (const listener of [...this.listeners]) listener();
   }
