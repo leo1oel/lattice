@@ -109,14 +109,16 @@
   corner-shape: squircle;
 }
 /* The tabs stand as far from the panel's side as from its top: the compact
-   tab centred in the 34px strip leaves 3px all round. The first tab's corner
-   then runs parallel to the panel's, inner radius = outer radius - inset
-   (styles/surfaces.css, concentric nesting), never below a control's: 7px.
-   Trellis draws the tabs from this pair; the panel menu at the bar's other
-   end stands at the same inset with the same corner. */
+   tab centred in the 40px strip leaves 6px (--space-3) all round, clear of
+   the panel's 10px corner. The first tab's corner follows the panel's, inner
+   radius = outer radius - inset (styles/surfaces.css, concentric nesting),
+   never below a control's: 6px. Trellis draws the tabs from this pair; the
+   panel menu at the bar's other end stands at the same inset with the same
+   corner. */
 .lattice-trellis [data-trellis-part="tabbar"] {
   --trellis-tab-inset: calc((var(--tab-strip-height) - var(--control-height-compact)) / 2);
   --trellis-tab-radius: max(var(--radius-control), calc(var(--radius-surface) - var(--trellis-tab-inset)));
+  --trellis-tab-close-inset: calc((var(--control-height-compact) - var(--control-size-icon-compact)) / 2);
   gap: 0;
   padding: 0 var(--trellis-tab-inset) 0 0;
   background: var(--lattice-tabstrip);
@@ -132,7 +134,7 @@
   gap: var(--space-3);
   /* Puts the tab's icon on the panel's one icon gutter, with the Project
      tree's glyphs and the Papers search icon (app-shell.css). */
-  padding: 0 var(--trellis-tab-inset) 0 var(--tab-inset-inline);
+  padding: 0 var(--trellis-tab-close-inset) 0 var(--tab-inset-inline);
   border-radius: calc(var(--trellis-tab-radius) * var(--corner-smoothing));
   corner-shape: squircle;
   color: var(--text-secondary);
@@ -175,13 +177,15 @@
   color: var(--text-tertiary);
   opacity: 1;
 }
-/* The close button nests in its tab as the tab nests in the strip: a square
-   held off the tab's top, end and bottom by the strip's own inset, its corner
-   the tab's less that inset. Full height, it ran into the tab's edges. */
+/* The close button nests in its tab as the tab nests in the strip: a row's
+   24px action square held off the tab's top, end and bottom by the same
+   2px, its corner the tab's less that inset. Full height, it ran into the
+   tab's edges; sized from the strip's 6px inset, it would shrink to 16px with
+   a square corner. */
 .lattice-trellis [data-trellis-part="tab-close"] {
-  width: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
-  height: calc(var(--control-height-compact) - 2 * var(--trellis-tab-inset));
-  border-radius: calc((var(--trellis-tab-radius) - var(--trellis-tab-inset)) * var(--corner-smoothing));
+  width: var(--control-size-icon-compact);
+  height: var(--control-size-icon-compact);
+  border-radius: calc((var(--trellis-tab-radius) - var(--trellis-tab-close-inset)) * var(--corner-smoothing));
   corner-shape: squircle;
 }
 .lattice-trellis [data-trellis-part="tab-close"] { opacity: 0; }

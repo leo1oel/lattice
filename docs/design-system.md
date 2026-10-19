@@ -437,11 +437,13 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   the window between them; the sidebar navigation header matches that height.
   Short of room the field narrows, then folds to its icon before any control
   is shed.
-- Every panel's tab strip is 34px (`--tab-strip-height`) and its tabs stand on
-  the compact control height, centred in it. The 3px left above them is also
-  their inset from the panel's side, and their corner is the panel's 10px less
-  that inset (7px), so the first tab sits square and concentric in the panel's
-  corner; the panel menu takes the same inset and corner at the other end. The strip and
+- Every panel's tab strip is 40px (`--tab-strip-height`) and its tabs stand on
+  the compact control height, centred in it. The 6px (`--space-3`) left above
+  them is also their inset from the panel's side, so the first tab stands clear
+  of the panel's 10px corner; their corner is the panel's less that inset,
+  held at a control's 6px. The panel menu takes the same inset and corner at
+  the other end, and a tab's close button is the 24px row action, 2px inside
+  the tab. The strip and
   the body below are one surface, the panel's own. The selected tab is told
   by a fill one step deeper than it (lighter in dark), 10% of the ink laid
   opaque on the panel's surface, and by the primary ink; it draws no ring except under
