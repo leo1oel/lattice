@@ -20,6 +20,15 @@ const PDF_FIND_PENDING = 3;
 
 export type PdfSource = { url: string | null; bytes: ArrayBuffer | null; file: ProjectPdfFile | null; key: string };
 
+/**
+ * How long a rebuilt PDF waits for a newer one before it replaces the one on
+ * screen, so a burst of rebuilds loads once. The build pipeline already holds
+ * an autosave's build back while the writer types (use-build-pipeline's
+ * showPreview), so this is only for bursts; at the 900 ms it once was, every
+ * explicit build waited it out before its pages changed.
+ */
+const REBUILD_COALESCE_MS = 120;
+
 /** Fingerprint the document so identical rebuilds do not reload the viewer. */
 export function pdfSource(url: string | null, pdfBytes: ArrayBuffer | null, file: ProjectPdfFile | null = null): PdfSource {
   // A blob URL made from the same bytes is only a handle for them.
@@ -134,9 +143,9 @@ export function usePdfDocument({
       setStableLoadKey(source.key);
       return;
     }
-    const timer = window.setTimeout(() => setStableLoadKey(source.key), recordRef.current ? 900 : 120);
+    const timer = window.setTimeout(() => setStableLoadKey(source.key), REBUILD_COALESCE_MS);
     return () => window.clearTimeout(timer);
-  }, [rebuilds, recordRef, source.key, sourceRef, stableLoadKey]);
+  }, [rebuilds, source.key, sourceRef, stableLoadKey]);
 
   // A rebuild of the bytes on screen is shown in the open viewer, redrawing
   // only the pages it changed (pdf-page-swap.ts). Anything else, a swap that
