@@ -51,11 +51,18 @@ const findToolbarGeometry = (driver) => driver.evaluate(`(() => {
 const COMPILED_PDF = ".pdf-column > .pdf-preview";
 const PDF_SCROLLER = `${COMPILED_PDF} .pdf-scroll-area-viewport:not(.pdf-viewer-staging)`;
 
-/** Where the "Page N: …" heading of the compiled fixture PDF's page N is, if drawn and on screen. */
+/**
+ * Where the "Page N: …" heading of the compiled fixture PDF's page N is, if
+ * drawn and on screen. PDF.js hides a page's text layer while it lays it out
+ * again for a new zoom, and the heading's span in it has an empty box at 0,0:
+ * taken as where to drag, it sent the drag to the window's corner, which
+ * selected the sidebar instead.
+ */
 const pdfHeading = (page) => `(() => {
-  const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="${page}"] .textLayer span`)})]
-    .find((node) => node.textContent.startsWith(${JSON.stringify(`Page ${page}:`)}));
-  const rect = span?.getBoundingClientRect();
+  const rect = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="${page}"] .textLayer span`)})]
+    .filter((node) => node.textContent.startsWith(${JSON.stringify(`Page ${page}:`)}))
+    .map((node) => node.getBoundingClientRect())
+    .find((box) => box.width && box.height);
   return rect && rect.top >= 0 && rect.bottom <= innerHeight ? { left: rect.left, right: rect.right, y: rect.top + rect.height / 2 } : null;
 })()`;
 
