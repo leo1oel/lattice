@@ -120,7 +120,7 @@
   --pad-inline-control: 10px; /* Chrome control side padding. */
   --pad-inline-control-tight: 8px; /* The same, on a shorter control. */
   --drawer-content-inset: 14px; /* Shared edge for drawer headers and first-level content. */
-  --tab-inset-inline: 17px; /* A panel tab's side padding: past the strip's 3px inset, its icon lands on the panel's 20px icon gutter. */
+  --tab-inset-inline: 14px; /* A panel tab's side padding: past the strip's 6px inset, its icon lands on the panel's 20px icon gutter. */
   --drawer-section-gap: var(--space-5); /* Vertical rhythm between first-level drawer sections. */
 
   /*
@@ -345,8 +345,9 @@
   --titlebar-project-title-max-width-compact: 200px;
 
   /* Every panel's tab strip (trellis.css); its tabs stand on the compact
-     control height. */
-  --tab-strip-height: 34px;
+     control height, which leaves them 6px off the strip's top and sides. At
+     34px that was 3px, and the first tab crowded the panel's corner. */
+  --tab-strip-height: 40px;
   --tab-dirty-dot-size: 5px;
 
   --badge-height: 20px;
