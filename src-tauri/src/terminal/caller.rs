@@ -31,14 +31,13 @@ pub(crate) struct Caller<'a> {
 /// The origins Lattice's bundled frontend loads from: the app scheme, and in
 /// a debug build the Vite dev server it is configured with.
 pub(crate) fn local_origins<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Vec<String> {
-    let mut origins = vec!["tauri://localhost".to_string(), "http://tauri.localhost".to_string()];
-    #[cfg(debug_assertions)]
-    if let Some(url) = app.config().build.dev_url.as_ref() {
-        origins.push(url.origin().ascii_serialization());
-    }
-    #[cfg(not(debug_assertions))]
-    let _ = app;
-    origins
+    let dev_server = cfg!(debug_assertions)
+        .then(|| app.config().build.dev_url.as_ref().map(|url| url.origin().ascii_serialization()))
+        .flatten();
+    ["tauri://localhost".to_string(), "http://tauri.localhost".to_string()]
+        .into_iter()
+        .chain(dev_server)
+        .collect()
 }
 
 fn origin_of(url: &str) -> Option<String> {
