@@ -56,8 +56,11 @@ pub fn forward_search(
     if line == 0 {
         return Err("Choose a source line before locating it in the PDF.".to_string());
     }
+    // `safe_path` resolves beneath the canonical root, so strip that: a root
+    // reached through a symlink (macOS's /var and /tmp are) is not its prefix.
+    let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
     let relative = project::safe_path(root, path)?
-        .strip_prefix(root)
+        .strip_prefix(&canonical_root)
         .map_err(|_| "Source path is outside this project.".to_string())?
         .to_string_lossy()
         .replace('\\', "/");

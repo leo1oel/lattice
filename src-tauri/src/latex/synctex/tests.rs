@@ -253,8 +253,7 @@ fn names_the_cause_instead_of_reprinting_the_synctex_manual() {
 #[ignore = "requires a local latexmk and pdfLaTeX installation"]
 fn forward_search_highlights_a_subfigure_row_where_the_figure_is() {
     let parent = TempDir::new("latex");
-    // The temporary directory sits behind a symlink on macOS (/var).
-    let root = project::create(&parent, "Subfigure sync").unwrap().canonicalize().unwrap();
+    let root = project::create(&parent, "Subfigure sync").unwrap();
     fs::write(
         root.join("main.tex"),
         "\\documentclass{article}\n\
@@ -301,7 +300,7 @@ fn forward_search_highlights_a_subfigure_row_where_the_figure_is() {
 #[ignore = "requires a local latexmk, pdfLaTeX and the mwe package"]
 fn forward_search_highlights_a_scaled_graphic_where_it_is_drawn() {
     let parent = TempDir::new("latex");
-    let root = project::create(&parent, "Graphic sync").unwrap().canonicalize().unwrap();
+    let root = project::create(&parent, "Graphic sync").unwrap();
     fs::write(
         root.join("main.tex"),
         "\\documentclass{article}\n\
@@ -373,4 +372,55 @@ fn forward_searches_from_a_bib_entry_through_the_generated_bbl() {
         .expect("the generated bibliography item should have a PDF position");
     assert_eq!(target.page, 1);
     assert!(target.x.is_finite() && target.y.is_finite());
+}
+
+/// A project at `real`, opened through a symlink to it, as macOS's /var and
+/// /tmp and a writer's own link to a folder are.
+fn linked_project(parent: &Path, name: &str) -> PathBuf {
+    fs::create_dir(parent.join("real")).unwrap();
+    let real = project::create(&parent.join("real"), name).unwrap();
+    let link = parent.join("link");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    link
+}
+
+#[test]
+fn a_project_reached_through_a_symlink_keeps_its_sources_inside() {
+    let parent = TempDir::new("synctex-link");
+    let root = linked_project(&parent, "Linked");
+    // Past the path check: what is missing is the build.
+    assert_eq!(
+        forward_search(&root, "main.tex", 1, 0).unwrap_err(),
+        "Build the project before locating source in the PDF."
+    );
+    // A path that really leaves the project is still refused.
+    fs::write(parent.join("real/outside.tex"), "").unwrap();
+    let escape = forward_search(&root, "../outside.tex", 1, 0).unwrap_err();
+    assert!(escape.contains("outside the project"), "{escape}");
+}
+
+#[test]
+#[ignore = "requires a local latexmk and pdfLaTeX installation"]
+fn searches_both_ways_in_a_project_reached_through_a_symlink() {
+    let parent = TempDir::new("synctex-link");
+    let root = linked_project(&parent, "Linked sync");
+    fs::write(
+        root.join("main.tex"),
+        "\\documentclass{article}\n\\begin{document}\nAlpha paragraph.\n\nBeta paragraph.\n\\end{document}\n",
+    )
+    .unwrap();
+    let result = super::super::build(
+        &root,
+        true,
+        &Default::default(),
+        None,
+        &super::super::BuildSteps::silent(),
+    )
+    .unwrap();
+    assert!(result.success, "{}", result.log);
+    let beta = forward_search(&root, "main.tex", 5, 0).unwrap().expect("a PDF position");
+    let back =
+        inverse_search(&root, beta.page, beta.x + beta.width / 2.0, beta.y + beta.height / 2.0)
+            .unwrap();
+    assert_eq!((back.path.as_str(), back.line), ("main.tex", 5));
 }
