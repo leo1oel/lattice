@@ -28,9 +28,9 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
-import { readDiskMtime } from "./read-document";
+import { readDiskMtime, readDocumentText } from "./read-document";
 import {
-  modeOnLoad, rememberedViewMode, setsDocumentMode, withEditor, withEditorFor, withPdf, type RememberedViewModes,
+  modeOnLoad, panelViewMode, setsDocumentMode, withEditor, withEditorFor, withPdf, type RememberedViewModes,
 } from "./document-view-modes";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView, type SaveStatus };
@@ -218,7 +218,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const viewModes = useCallback((): RememberedViewModes => ({
     html: htmlModesRef.current, bib: bibModeRef.current, document: documentModeRef.current,
   }), []);
-  const viewModeFor = useCallback((path: string) => rememberedViewMode(path, viewModes()), [viewModes]);
+  const viewModeFor = useCallback((path: string) => panelViewMode(path, viewModes()), [viewModes]);
   useEffect(() => {
     if (!paper && !asset && file && setsDocumentMode(file, mode)) documentModeRef.current = mode;
   }, [asset, file, paper, mode]);
@@ -380,7 +380,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       return true;
     };
     return Promise.all([
-      invoke<string>("read_project_file", { path, projectRoot: expectedRoot }),
+      readDocumentText(path, expectedRoot),
       options?.gate ?? Promise.resolve(true),
     ]).then(commitLoaded).catch((reason: unknown) => {
       if (isLatestLoad()) showError(toMessage(reason));

@@ -25,6 +25,16 @@ export function rememberedViewMode(path: string, modes: RememberedViewModes): Do
 }
 
 /**
+ * The view the file panel draws `path` in: a readable document's remembered
+ * one; LaTeX and other source files are only ever their source there (their
+ * PDF is a panel of its own).
+ */
+export function panelViewMode(path: string, modes: RememberedViewModes): DocumentViewMode {
+  const readable = /\.md$/i.test(path) || isHtmlFilePath(path) || isBibFilePath(path);
+  return (readable && rememberedViewMode(path, modes)) || "source";
+}
+
+/**
  * The canvas mode loading `path` switches to from `current`: its remembered
  * view, else the source when the open asks for it, else what LaTeX and
  * Markdown return to when leaving a document with views of its own, else

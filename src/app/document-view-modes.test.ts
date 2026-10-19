@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modeOnLoad, rememberedViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
+import { modeOnLoad, panelViewMode, rememberedViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
 
 const modes = (overrides: Partial<RememberedViewModes> = {}): RememberedViewModes => ({
   html: new Map([["site/chosen.html", "split"]]), bib: "source", document: "pdf", ...overrides,
@@ -13,6 +13,14 @@ describe("document view modes", () => {
     expect(rememberedViewMode("site/chosen.html", modes())).toBe("split");
     expect(rememberedViewMode("site/page.html", modes())).toBe("pdf");
     expect(rememberedViewMode("data.csv", modes())).toBeNull();
+  });
+
+  it("draws LaTeX and other sources in the file panel as their source only", () => {
+    expect(panelViewMode("main.tex", modes({ document: "split" }))).toBe("source");
+    expect(panelViewMode("notes.txt", modes())).toBe("source");
+    expect(panelViewMode("notes.md", modes({ document: "split" }))).toBe("split");
+    expect(panelViewMode("site/page.html", modes())).toBe("pdf");
+    expect(panelViewMode("references.bib", modes({ bib: "pdf" }))).toBe("pdf");
   });
 
   it("keeps or widens the canvas for a document with one view", () => {
