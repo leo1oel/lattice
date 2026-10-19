@@ -14,12 +14,12 @@
 /* eslint-disable lingui/no-unlocalized-strings -- parse errors are logged, never shown */
 
 /** One piece of a virtual character: a character of base font `font` at (h, v), or a rule. */
-export type VirtualPart =
+type VirtualPart =
   | { font: number; char: number; h: number; v: number }
   | { rule: true; h: number; v: number; width: number; height: number };
 
 /** A base font a virtual font draws from, at `scale` times the virtual font's size. */
-export type VirtualFontRef = { name: string; scale: number };
+type VirtualFontRef = { name: string; scale: number };
 
 export type VirtualFont = {
   fonts: VirtualFontRef[];

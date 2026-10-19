@@ -125,7 +125,7 @@ function splitFont(file: Uint8Array): { clear: string; encrypted: Uint8Array } {
   return { clear: s.slice(0, at + 5), encrypted };
 }
 
-export function parseType1(file: Uint8Array): Type1Font {
+function parseType1(file: Uint8Array): Type1Font {
   const { clear, encrypted } = splitFont(file);
   const fm = /\/FontMatrix\s*\[([^\]]*)\]/.exec(clear);
   const fontMatrix = fm ? fm[1].trim().split(/\s+/).map(Number) : [0.001, 0, 0, 0.001, 0, 0];
@@ -176,7 +176,7 @@ export function parseType1(file: Uint8Array): Type1Font {
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** Interpret a Type1 charstring into SVG path data (font units, y up). */
-export function charStringToPath(font: Type1Font, name: string): string | undefined {
+function charStringToPath(font: Type1Font, name: string): string | undefined {
   const cs = font.charStrings.get(name);
   if (!cs) return undefined;
   const out: string[] = [];

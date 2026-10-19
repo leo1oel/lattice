@@ -3,9 +3,9 @@
 // Types of the `rtex serve` JSON-lines protocol (realtime-tex crates/rtex-cli/src/serve.rs and
 // crates/rtex-core/src/session.rs). Display lists use the JSON mirror of docs/DISPLAY_LIST.md.
 
-export type Sp = number;
+type Sp = number;
 
-export interface Versions {
+interface Versions {
   source_revision: number;
   context_revision: number;
   engine_generation: number;
@@ -96,15 +96,15 @@ export interface PageUpdate {
   dl: DisplayList;
 }
 
-export type Convergence =
+type Convergence =
   | { state: "Converged" }
   | { state: "Converging"; pass: number; reasons: string[] }
   | { state: "PassLimitReached"; passes: number; reasons: string[] }
   | { state: "Stale"; pending_since: number };
 
-export type CompileStatus = { state: "Ok" } | { state: "CompiledWithErrors"; count: number } | { state: "Failed" };
+type CompileStatus = { state: "Ok" } | { state: "CompiledWithErrors"; count: number } | { state: "Failed" };
 
-export interface Diagnostic {
+interface Diagnostic {
   severity: string;
   file?: string | null;
   line?: number | null;
@@ -112,7 +112,7 @@ export interface Diagnostic {
   context?: string | null;
 }
 
-export interface Timing {
+interface Timing {
   total_us: number;
   tex_us: number;
   traverse_us: number;
@@ -148,27 +148,27 @@ export interface LayoutUpdateEvent {
   wall_ms: number;
 }
 
-export interface DiagnosticsEvent {
+interface DiagnosticsEvent {
   event: "Diagnostics";
   source: string;
   items: Diagnostic[];
 }
 
-export interface EngineStateEvent {
+interface EngineStateEvent {
   event: "EngineState";
   engine_generation: number;
   state: string;
   reason: string | null;
 }
 
-export interface BackgroundScheduledEvent {
+interface BackgroundScheduledEvent {
   event: "BackgroundScheduled";
   par_id: number | null;
   reasons: string[];
   edit_id: number;
 }
 
-export interface PdfExportedEvent {
+interface PdfExportedEvent {
   event: "PdfExported";
   job_id: number;
   path: string | null;
@@ -178,7 +178,7 @@ export interface PdfExportedEvent {
 }
 
 /** Lattice's own: rtex exited without being asked to (src-tauri/src/live_preview/session.rs). */
-export interface SessionExitedEvent {
+interface SessionExitedEvent {
   event: "SessionExited";
   session: number;
   stderr: string;
@@ -193,13 +193,13 @@ export type RtexEvent =
   | BackgroundScheduledEvent
   | PdfExportedEvent;
 
-export interface EditOutcome {
+interface EditOutcome {
   touched: number[];
   added: number[];
   removed: number[];
 }
 
-export interface EditResult {
+interface EditResult {
   edit_id: number;
   source_revision: number;
   outcome: EditOutcome;
@@ -207,7 +207,7 @@ export interface EditResult {
   reasons: string[];
 }
 
-export interface Span {
+interface Span {
   id: number;
   range: { start: number; end: number };
   kind: "Preamble" | "Body" | "Env" | "Heading" | "Trailer";
@@ -232,6 +232,5 @@ export type Command =
   | { cmd: "status" }
   | { cmd: "request_layout" };
 
-/** 1 pt = 65536 sp; 1 bp = 65781.76 sp. */
-export const SP_PER_PT = 65536;
+/** 1 bp = 65781.76 sp (1 pt = 65536 sp). */
 export const SP_PER_BP = 65781.76;

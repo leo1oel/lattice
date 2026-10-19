@@ -28,9 +28,9 @@ export type ImageResource = { kind: "bitmap" | "pdf"; mime: string; data: Uint8A
 
 /** Affine map [a, b, c, d, e, f]: x" = a·x + c·y + e, y" = b·x + d·y + f. */
 export type Mat = [number, number, number, number, number, number];
-export const IDENTITY: Mat = [1, 0, 0, 1, 0, 0];
+const IDENTITY: Mat = [1, 0, 0, 1, 0, 0];
 
-export function mul(m: Mat, n: Mat): Mat {
+function mul(m: Mat, n: Mat): Mat {
   return [
     m[0] * n[0] + m[2] * n[1],
     m[1] * n[0] + m[3] * n[1],
@@ -42,7 +42,7 @@ export function mul(m: Mat, n: Mat): Mat {
 }
 
 /** CSS color of the fill (else stroke) operator in a PDF color string ("1 0 0 rg 1 0 0 RG"). */
-export function pdfColor(data: string): string | undefined {
+function pdfColor(data: string): string | undefined {
   const t = data.trim().split(/\s+/);
   let fill: string | undefined;
   let stroke: string | undefined;
@@ -191,7 +191,7 @@ export class ImageStore {
 /** The image an IMAGE item refers to. Items carry LuaTeX's image index (1, 2, … in creation
  * order) while rtex keys `images_info` by \lastsavedimageresourceindex (an object number); when
  * the key does not match, map by rank: both grow in creation order. */
-export function imageInfo(dl: DisplayList, index: number): ImageInfo | undefined {
+function imageInfo(dl: DisplayList, index: number): ImageInfo | undefined {
   const infos = dl.images_info;
   if (!infos) return undefined;
   const direct = infos[String(index)];

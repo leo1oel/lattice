@@ -301,7 +301,7 @@ export interface Rect {
 
 /** A picture rtex reused from its picture cache: `["u", "cached_picture", "<index> <x> <top> <width> <height>"]`
  * (sp, in the list's frame). Undefined for any other item. */
-export function cachedPicture(it: Item): (Rect & { index: number }) | undefined {
+function cachedPicture(it: Item): (Rect & { index: number }) | undefined {
   if (it[0] !== "u" || it[1] !== "cached_picture") return undefined;
   const raw = it[2];
   const v = (Array.isArray(raw) ? raw : String(raw ?? "").trim().split(/\s+/)).map(Number);

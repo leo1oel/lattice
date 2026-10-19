@@ -30,7 +30,7 @@ type PdfDocument = Awaited<ReturnType<typeof getDocument>["promise"]>;
  * preamble for live typing; whole-document passes still run. `error`: rtex
  * stopped, or its first pass failed.
  */
-export type LivePreviewPhase = "starting" | "first-layout" | "live" | "paused" | "error";
+type LivePreviewPhase = "starting" | "first-layout" | "live" | "paused" | "error";
 
 export type LivePreviewSnapshot = Readonly<{
   phase: LivePreviewPhase;
