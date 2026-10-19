@@ -124,10 +124,12 @@ jobs:
   # synctex.rs) are `#[ignore]`d because they need latexmk and a TeX tree,
   # which CI's runners lack. BasicTeX installs into /Library/TeX/texbin, where
   # the app looks for TeX on a Mac; tlmgr adds what it leaves out: latexmk,
-  # mwe (example-image), caption (subcaption), and the packages the NeurIPS
-  # template a new project starts from loads. rust-cache keys a cache by job
-  # id, so `shared-key: rust` puts this job's id in place of `tex` and it
-  # restores what ci.yml's `rust` job last compiled on main.
+  # mwe (example-image), caption (subcaption), mylatexformat (the preamble
+  # format), latexdiff with the zref and changebar its marked PDF loads, and
+  # the packages and fonts the NeurIPS and ICLR templates load (courier is
+  # times' typewriter face, helvetic ICLR's headings). rust-cache keys a cache
+  # by job id, so `shared-key: rust` puts this job's id in place of `tex` and
+  # it restores what ci.yml's `rust` job last compiled on main.
   tex:
     if: github.event.schedule != '17 7 * * *'
     runs-on: macos-latest
@@ -149,8 +151,8 @@ jobs:
           brew install --cask basictex
           echo /Library/TeX/texbin >> "$GITHUB_PATH"
           sudo /Library/TeX/texbin/tlmgr update --self
-          sudo /Library/TeX/texbin/tlmgr install latexmk mwe caption \
-            lineno environ trimspaces units booktabs psnfss times symbol microtype
+          sudo /Library/TeX/texbin/tlmgr install latexmk mwe caption mylatexformat latexdiff zref changebar \
+            lineno environ trimspaces units booktabs psnfss times courier helvetic symbol microtype
       - run: cargo test --manifest-path src-tauri/Cargo.toml "latex::" -- --ignored
 
   record:
