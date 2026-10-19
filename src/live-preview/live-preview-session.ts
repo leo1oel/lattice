@@ -436,7 +436,8 @@ export class LivePreviewSession {
       return;
     }
     if (revision <= this.model.baseRevision) return;
-    this.markPages(this.model.applyParagraph(event.par_id, event.dl, event.fragments, revision));
+    const fragments = event.pagination_stale ? event.fragments : this.model.placeLive(event.par_id, event.fragments);
+    this.markPages(this.model.applyParagraph(event.par_id, event.dl, fragments, revision));
     this.loadResources([event.dl]);
     if (event.pagination_stale) this.awaitLayout(revision);
   }

@@ -125,6 +125,23 @@ export class PreviewModel {
     return dirty;
   }
 
+  /**
+   * Where a live result's rows go, given rtex's own `fragments` for it. When
+   * the unit kept its row count, its rows stay on the baselines the last
+   * layout gave them: rtex's live engine can set a unit's first rows a few
+   * points off its whole-document pass (an abstract's heading gap, measured
+   * 2.9 pt short), which would shift the paragraph on every keystroke. A
+   * unit that gained or lost rows takes rtex's fragments, and the layout
+   * that its pagination change schedules puts it right.
+   */
+  placeLive(parId: number, fragments: Fragment[]): Fragment[] {
+    const placed = this.placements.get(parId);
+    if (!placed) return fragments;
+    const count = (list: readonly Fragment[]) => list.reduce((rows, f) => rows + f.baselines.length, 0);
+    if (count(placed) !== count(fragments) || placed.length !== fragments.length) return fragments;
+    return fragments.map((f, i) => ({ ...f, page: placed[i].page, baselines: [...placed[i].baselines] }));
+  }
+
   /** Drop overlays (all when `ids` is undefined). Returns the pages to redraw. */
   dropOverlays(ids?: number[]): Set<number> {
     const dirty = new Set<number>();

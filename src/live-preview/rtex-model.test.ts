@@ -98,6 +98,16 @@ describe("the live preview model", () => {
     expect(model.pagesDisagree(2)).toBe(false);
   });
 
+  it("keeps a live unit on its laid-out baselines while its row count holds", () => {
+    const model = setup();
+    // rtex set the live rows 2 pt higher than its layout did.
+    const live = [frag(1, [10, 10], [110, 122]), frag(2, [10], [98], 3)];
+    expect(model.placeLive(5, live).map((f) => f.baselines)).toEqual([[112 * U, 124 * U], [100 * U]]);
+    // One row more: rtex's own placement, until the next layout.
+    const longer = [frag(1, [10, 10], [110, 122]), frag(2, [10, 10], [98, 110], 3)];
+    expect(model.placeLive(5, longer)).toBe(longer);
+  });
+
   it("extends rows past the placement on its last page", () => {
     const rows = [line(0, 10), line(0, 22), line(0, 34)];
     const fragments = reanchor([frag(3, [50, 50], [200, 212])], rows);
