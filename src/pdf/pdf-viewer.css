@@ -120,7 +120,7 @@
    at the zoom's width. It is a raised card in each theme rather than
    paper-colored: a bright page that is not the paper yet would glare in the
    dark theme. */
-.pdf-skeleton { --pdf-skeleton-width: 100%; position: absolute; inset: 0; overflow: hidden; border: var(--space-4) solid transparent; pointer-events: none; }
+.pdf-skeleton { --pdf-skeleton-width: 100%; position: absolute; inset: 0; z-index: 5; overflow: hidden; border: var(--space-4) solid transparent; pointer-events: none; }
 .pdf-skeleton-page { --loading-sheen-surface: var(--surface-panel-raised); width: 100%; aspect-ratio: 8.5 / 11; margin-inline: auto; padding: 9% 8%; border-radius: var(--radius-compact); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
 .pdf-skeleton[data-fit="height"] .pdf-skeleton-page { width: auto; height: 100%; }
 .pdf-skeleton[data-fit="zoom"] .pdf-skeleton-page { width: var(--pdf-skeleton-width); }
