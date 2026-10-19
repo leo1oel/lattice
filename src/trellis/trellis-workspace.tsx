@@ -12,7 +12,6 @@
  * own live host (see DeckSlot).
  */
 import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
   Workspace, ViewType, useCloseGuard, useView, useViewBadge,
@@ -21,19 +20,11 @@ import {
 } from "@danfessler/trellis-react";
 import type { LayoutNode, PanelNode } from "@danfessler/trellis";
 import "@danfessler/trellis/style.css";
-// Panel menus open at the pointer and have submenus, so they build on the
-// primitive rather than the shared DropdownMenuContent; they take the same
-// surface, fluid hover included.
-// eslint-disable-next-line no-restricted-imports -- see above
-import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
+import { BookOpen, FileText, FolderTree, Moon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { floatingSurfaceClassName, keepFocusOnClose, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
-import { popupMotionClassName } from "@/components/ui/popup-motion";
-import { FluidHoverSurface } from "@/components/ui/fluid-hover-surface";
 import { ResearchArt } from "@/components/ui/research-art";
 import { MANUSCRIPT_CLIPBOARD } from "@/components/ui/research-art-clipboard";
 import { confirmAction, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
@@ -63,7 +54,10 @@ import { TRELLIS_KEYMAP } from "./trellis-keymap";
 import { installTrellisLabels } from "./trellis-labels";
 import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./trellis-workspaces";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
-import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
+import { PANEL_ICONS, fileIcon } from "./trellis-icons";
+import { PanelMenu } from "./trellis-panel-menu";
+import { openDocumentTab, useDocumentTabs, useFileTab, withTabItems } from "./trellis-document-tabs";
+import type { FileParams } from "./trellis-tab-policy";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { AfterSwitch } from "../canvas/after-switch";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
@@ -115,8 +109,6 @@ function measuredMinSize(base: { width: number; height: number }, measured: () =
   };
 }
 
-
-type FileParams = { key: string };
 
 function findPanel(node: LayoutNode, id: string): PanelNode | null {
   if (node.kind === "panel") return node.id === id ? node : null;
@@ -635,7 +627,7 @@ function FileView({ controller }: { controller: TrellisController }) {
   useEffect(() => {
     if (active) controller.ui.set({ editorVisible: view.visible });
   }, [active, controller, view.visible]);
-  const surfaceIcon = useFileTabIcon(controller, view.id, key);
+  const surfaceIcon = useFileTab(controller, view);
   if (isOpenSlideDeckPath(key)) {
     return (
       <>
@@ -705,18 +697,6 @@ function DeckSlot({ controller, fileKey, view }: { controller: TrellisController
   return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
 }
 
-/** Per-file tab icons: a type's `icon` is shared by all its views, so file panels portal their own. */
-function useFileTabIcon(controller: TrellisController, viewId: string, key: string) {
-  const ws = controller.ws;
-  // Read during render, not set from an effect: the tab's icon slot usually
-  // exists by the time the view renders, and an effect would cost every file
-  // panel an extra commit on mount.
-  const subscribe = useCallback((listener: () => void) => ws?.on("surfaces", listener) ?? (() => {}), [ws]);
-  const iconHost = useSyncExternalStore(subscribe, () => ws?.surfaces().find((surface) => surface.view.id === viewId)?.icon ?? null);
-  const kind = controller.bridge?.tabKind(key) ?? "file";
-  return iconHost ? createPortal(fileIcon(key, kind), iconHost) : null;
-}
-
 /** Quick open's keys beside its button, from the command table rather than typed out. */
 function QuickOpenKeys({ controller }: { controller: TrellisController }) {
   const keys = controller.bridge?.shortcut("quick-open");
@@ -761,108 +741,6 @@ function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
         {t`Reset layout`}
       </button>
     </EmptyState>
-  );
-}
-
-/**
- * Panel menus drawn with Lattice's own menu surface (portaled, so they are
- * not clipped to the workspace), instead of Trellis's built-in menu.
- */
-function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun: () => void }) {
-  // A check column only when something in this list can be checked.
-  const checks = entries.some((entry) => entry !== "separator" && entry.checked !== undefined);
-  return (
-    <>
-      {entries.map((entry, index) => {
-        if (entry === "separator") {
-          return <MenuPrimitive.Separator key={`separator-${index}`} className="-mx-1 my-1 h-px bg-border" />;
-        }
-        if (entry.items?.length) {
-          return (
-            <MenuPrimitive.Sub key={entry.id ?? entry.label}>
-              <MenuPrimitive.SubTrigger className={cn(menuItemClassName, "data-[state=open]:bg-accent")} disabled={entry.disabled}>
-                {checks && <span className="trellis-menu-check" />}
-                {entry.id && MENU_ICONS[entry.id]}
-                <span className="flex-1 truncate">{entry.label}</span>
-                <ChevronRight className="ml-auto" />
-              </MenuPrimitive.SubTrigger>
-              <MenuPrimitive.Portal>
-                <MenuPrimitive.SubContent
-                  sideOffset={4}
-                  className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[10rem]", popupMotionClassName)}
-                >
-                  <FluidHoverSurface />
-                  <MenuEntries entries={entry.items} onRun={onRun} />
-                </MenuPrimitive.SubContent>
-              </MenuPrimitive.Portal>
-            </MenuPrimitive.Sub>
-          );
-        }
-        return (
-          <MenuPrimitive.Item
-            key={entry.id ?? entry.label}
-            className={menuItemClassName}
-            data-variant={entry.danger ? "destructive" : "default"}
-            disabled={entry.disabled}
-            onPointerLeave={keepFocusOnClose}
-            onSelect={() => {
-              onRun();
-              entry.run?.();
-            }}
-          >
-            {checks && <span className="trellis-menu-check">{entry.checked && <Check />}</span>}
-            {entry.id && MENU_ICONS[entry.id]}
-            <span className="flex-1 truncate">{entry.label}</span>
-            {entry.shortcut && <span className="trellis-menu-shortcut">{entry.shortcut}</span>}
-          </MenuPrimitive.Item>
-        );
-      })}
-    </>
-  );
-}
-
-function PanelMenu({ request, open, onDismiss, onClose }: {
-  request: MenuRequest;
-  open: boolean;
-  onDismiss: () => void;
-  onClose: () => void;
-}) {
-  // Closing plays the shared exit (`.popup-motion[data-state="closed"]`) and
-  // drops the request when it ends: unmounting the menu with its owner would
-  // cut it. With no exit to play, Radix has already removed the content, so the
-  // request goes at once. A new request opens at once, even over one leaving.
-  const content = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open && !content.current) onClose();
-  }, [open, onClose]);
-  return (
-    <MenuPrimitive.Root open={open} modal={false} onOpenChange={(next) => { if (!next) onDismiss(); }}>
-      <MenuPrimitive.Trigger asChild>
-        <span aria-hidden="true" style={{ position: "fixed", left: request.x, top: request.y, width: 0, height: 0 }} />
-      </MenuPrimitive.Trigger>
-      <MenuPrimitive.Portal>
-        <MenuPrimitive.Content
-          align={request.align}
-          side="bottom"
-          sideOffset={4}
-          className={cn(floatingSurfaceClassName, menuViewportClassName, "fluid-hover-surface min-w-[12rem] max-w-[20rem]", popupMotionClassName)}
-          onCloseAutoFocus={(event) => event.preventDefault()}
-          // A press on the button the menu opened from is that button's: its
-          // click closes the menu (openMenu). Dismissed here too, the menu
-          // would close on the press and open again on the click.
-          onInteractOutside={(event) => {
-            if (event.target instanceof Node && request.anchor?.contains(event.target)) event.preventDefault();
-          }}
-          ref={content}
-          onAnimationEnd={(event) => {
-            if (!open && event.target === event.currentTarget) onClose();
-          }}
-        >
-          <FluidHoverSurface />
-          <MenuEntries entries={request.entries} onRun={onDismiss} />
-        </MenuPrimitive.Content>
-      </MenuPrimitive.Portal>
-    </MenuPrimitive.Root>
   );
 }
 
@@ -976,6 +854,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
 
   useTabSync(controller, ws, quietCloses);
   useHibernation(controller);
+  useDocumentTabs(controller, ws);
 
   // The window's minimum follows the layout's: its panels' minimums plus
   // whatever sits beside the workspace. Measured only when the layout's own
@@ -1534,7 +1413,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           tabbar={focusMode ? "never" : undefined}
           title={(view) => controller.bridge?.tabLabel(String(view.params.key ?? "")) ?? String(view.params.key ?? "")}
           accessory={<FileHeaderTools controller={controller} />}
-          menu={fileMenu}
+          menu={(view) => withTabItems(controller, view, fileMenu(view))}
         >
           <FileView controller={controller} />
         </ViewType>
@@ -1593,17 +1472,13 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
         if (slot) return slot.panelId;
         return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
       };
+      // The writer's open of the active document: a quick look, or another (see trellis-tab-policy.ts).
+      const opened = controller.tabs.opening(controller.app.get(), { lastActive, lastReveal, lastTabsReady });
       const open = (key: string) => {
         const panelId = anchorPanel(key);
         let info: ViewInfo | undefined;
-        if (panelId) {
-          info = ws.open("file", {
-            params: { key },
-            reuse: (view) => view.type === "file" && view.params.key === key,
-            focus: false,
-            placement: { into: panelId },
-          });
-        } else {
+        if (panelId) info = openDocumentTab(controller, ws, key, panelId, key === activeKey ? opened : null);
+        else {
           const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
           const navigators = NAVIGATORS.flatMap((kind) => ws.view(kind)?.panelId ?? []);
           // Not animated: this is how the first document appears at startup,

@@ -18,6 +18,8 @@ import { isBibFilePath, isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome, BuildProgressStore } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
+import { SmallStore, type Listener } from "./trellis-small-store";
+import { DocumentTabs } from "./trellis-tab-policy";
 import type { SwitchState } from "../canvas/after-switch";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
@@ -191,8 +193,6 @@ export type TrellisUiState = {
   pdfMinWidth: number;
 };
 
-type Listener = () => void;
-
 function createHost({ className }: { className: string }): HTMLDivElement {
   const host = document.createElement("div");
   host.className = className;
@@ -203,28 +203,6 @@ function createHost({ className }: { className: string }): HTMLDivElement {
 function ownsGestures(host: HTMLDivElement) {
   host.setAttribute("data-trellis-owns-gestures", "");
   return host;
-}
-
-class SmallStore<T extends object> {
-  private listeners = new Set<Listener>();
-  constructor(private value: T) {}
-  get = () => this.value;
-  subscribe = (listener: Listener) => {
-    this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
-  };
-  set(patch: Partial<T>) {
-    let changed = false;
-    for (const key of Object.keys(patch) as Array<keyof T>) {
-      if (!Object.is(this.value[key], patch[key])) {
-        changed = true;
-        break;
-      }
-    }
-    if (!changed) return;
-    this.value = { ...this.value, ...patch };
-    for (const listener of [...this.listeners]) listener();
-  }
 }
 
 export class TrellisController {
@@ -322,6 +300,8 @@ export class TrellisController {
   });
   /** Files being dragged in from the Project panel: open as panels, not yet as App tabs. */
   readonly pendingDrops = new Set<string>();
+  /** Preview and pinned tabs, and which tab makes room (see trellis-tab-policy.ts). */
+  readonly tabs = new DocumentTabs(() => this.ws);
   bridge: TrellisBridge | null = null;
   ws: WorkspaceHandle | null = null;
   private pointerPanel: string | null = null;

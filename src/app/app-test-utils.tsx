@@ -335,37 +335,9 @@ export function attentionPaper<T extends object>(paper: T = {} as T) {
   return { arxivId: "1706.03762", title: "Attention Is All You Need", hasFullText: true, ...paper };
 }
 
-// Overleaf responses for a linked, connected project; tests override what they exercise.
-export const overleafLink = (link: object = {}) => ({
-  projectId: "ol-project", projectName: "Overleaf paper", host: "https://www.overleaf.com", lastSync: null, paused: false, ...link,
-});
-export const overleafStatus = (status: object = {}) => ({
-  connected: true, expired: false, email: "writer@example.com", name: "Writer", host: "https://www.overleaf.com", ...status,
-});
-export const overleafProbe = (probe: object = {}) => ({
-  changed: false, localChanged: false, versionKnown: true, remoteVersion: 1, lastSync: null, ...probe,
-});
-export const overleafSyncResult = (result: object = {}) => ({
-  pulled: [], pushed: [], merged: [], conflicts: [], deletedLocal: [], skippedRemoteDeletes: [],
-  automaticRemoteDeletes: [], readOnly: false, ...result,
-});
-export const overleafSession = (session: object = {}) => ({
-  publicId: null, rootFolderId: "root", docs: [{ id: "main-doc", path: "main.tex" }], entities: [],
-  permission: "readAndWrite", trackChanges: false, userId: null, ...session,
-});
-/** The realtime feeds an open Overleaf project polls, all empty. */
-export const OVERLEAF_EMPTY_FEEDS = {
-  overleaf_chat_messages: () => [], overleaf_threads: () => [], overleaf_comment_anchors: () => [],
-  overleaf_change_authors: () => [], overleaf_rt_connected_users: () => [],
-};
-/** The commands of a linked Overleaf project whose realtime session opens with empty feeds. */
-export function overleafCommands(overrides: Commands = {}): Commands {
-  return {
-    overleaf_link: () => overleafLink(), overleaf_status: () => overleafStatus(), overleaf_probe: () => overleafProbe(),
-    overleaf_sync: () => overleafSyncResult(), overleaf_rt_connect: () => overleafSession(), overleaf_rt_disconnect: undefined,
-    git_auto_commit: null, ...OVERLEAF_EMPTY_FEEDS, ...overrides,
-  };
-}
+// Overleaf responses and commands live in app-test-overleaf.ts; tests import them from here.
+// eslint-disable-next-line react-refresh/only-export-components -- test helpers; nothing here is hot-reloaded
+export * from "./app-test-overleaf";
 
 /** Root of the standard test project. */
 export const ROOT = "/tmp/lattice-paper";
@@ -729,8 +701,11 @@ export async function chooseLayoutPreset(name: "Writing" | "Reading") {
 }
 
 /** Opens `path` from the Project tree and waits for its tab to take focus. */
+/** Open a file from the tree to work in: a press, then a double-click, which keeps its tab rather than leaving a preview. */
 export async function openTreeFile(path: string) {
-  fireEvent.click(await findProjectTreeItem(path));
+  const item = await findProjectTreeItem(path);
+  fireEvent.click(item);
+  fireEvent.doubleClick(item);
   await waitForSelectedTab(path);
 }
 

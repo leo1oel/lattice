@@ -6532,6 +6532,10 @@ msgstr "保留我的"
 msgid "Keep my fields"
 msgstr "用我填的"
 
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Keep open"
+msgstr "保持打开"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "用 Overleaf 的"
@@ -9567,10 +9571,18 @@ msgstr "分段定义"
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
 
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Pin tab"
+msgstr "固定标签"
+
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Pink"
 msgstr "粉色"
+
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Pinned"
+msgstr "已固定"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Placement"
@@ -9697,6 +9709,7 @@ msgstr "按 ⌘S 或点“编译”"
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-document-tabs.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Preview"
@@ -13719,6 +13732,10 @@ msgstr "带圆点的列表"
 #: src/papers/bibliography-audit.tsx
 msgid "Unpaywall"
 msgstr "Unpaywall"
+
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Unpin tab"
+msgstr "取消固定"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"

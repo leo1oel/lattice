@@ -125,10 +125,13 @@ export class BenchDriver {
     await this.page.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1, ...extra });
   }
 
-  async clickAt(x, y) {
+  async clickAt(x, y, { double = false } = {}) {
     await this.mouse("mouseMoved", x, y, { button: "none" });
     await this.mouse("mousePressed", x, y);
     await this.mouse("mouseReleased", x, y);
+    if (!double) return;
+    await this.mouse("mousePressed", x, y, { clickCount: 2 });
+    await this.mouse("mouseReleased", x, y, { clickCount: 2 });
   }
 
   /** The element's rect once it has stopped moving (tree rows animate in when a folder opens). */
@@ -143,12 +146,12 @@ export class BenchDriver {
     }
   }
 
-  async click(selector, { offsetX = 0.5, offsetY = 0.5 } = {}) {
+  async click(selector, { offsetX = 0.5, offsetY = 0.5, double = false } = {}) {
     const rect = await this.stableRect(selector);
     const x = rect.left + rect.width * offsetX;
     const y = rect.top + rect.height * offsetY;
     await this.waitFor(`window.__benchHits(${JSON.stringify(selector)}, ${x}, ${y})`, { what: `${selector} to be uncovered` });
-    await this.clickAt(x, y);
+    await this.clickAt(x, y, { double });
   }
 
   async hover(selector) {
@@ -238,20 +241,37 @@ export class BenchDriver {
         expandedHere.unshift(folder);
       }
     }
-    await this.click(treeItem(path));
+    // A double-click, as a writer opening a file to work in: a single press
+    // is a quick look, whose preview tab the next one would replace.
+    await this.click(treeItem(path), { double: true });
     // A click that lands within a few hundred milliseconds of the previous
     // call collapsing a folder can be swallowed by the tree (the driver clicks
     // faster than a person). Setup is unmeasured, so click once more.
     await this.waitForActiveFile(path, 2_000).catch(async () => {
-      await this.click(treeItem(path));
+      await this.click(treeItem(path), { double: true });
       await this.waitForActiveFile(path);
     });
     for (const folder of expandedHere) await this.click(treeItem(folder));
   }
 
+  /**
+   * Pins the active file's tab through its menu, so a panel making room for
+   * another never closes it: a scenario that switches between open files
+   * keeps them all, whatever the window's width.
+   */
+  async pinActiveTab(path) {
+    await this.markByText(`[role="tab"][aria-selected="true"] ${TAB_TITLE}`, path.split("/").pop(), "tab");
+    const rect = await this.stableRect("[data-bench-tab]");
+    const [x, y] = [rect.left + rect.width / 2, rect.top + rect.height / 2];
+    // A synthetic event: WebKit's protocol right-click raises no contextmenu.
+    await this.evaluate(`document.elementFromPoint(${x}, ${y})?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, clientX: ${x}, clientY: ${y}, button: 2 }))`);
+    await this.markByText('[role="menuitem"]', "Pin tab", "menu");
+    await this.click("[data-bench-menu]");
+  }
+
   /** Switches to an already open file through its editor tab. */
   async switchTab(path) {
-    await this.markByText('[role="tab"]', path.split("/").pop(), "tab");
+    await this.markByText(`[role="tab"] ${TAB_TITLE}`, path.split("/").pop(), "tab");
     await this.click("[data-bench-tab]");
     await this.waitForActiveFile(path);
   }
@@ -259,7 +279,7 @@ export class BenchDriver {
   async waitForActiveFile(path, timeout) {
     const name = path.split("/").pop();
     await this.waitFor(
-      `[...document.querySelectorAll('[role="tab"][aria-selected="true"]')].some((tab) => tab.textContent.trim() === ${JSON.stringify(name)})`,
+      `[...document.querySelectorAll('[role="tab"][aria-selected="true"] ${TAB_TITLE}')].some((title) => title.textContent.trim() === ${JSON.stringify(name)})`,
       { timeout, what: `active tab ${name}` },
     );
   }
@@ -306,6 +326,8 @@ export class BenchDriver {
   }
 }
 
+/** A document tab's title: the tab's own text also carries its screen-reader marks ("Preview"). */
+const TAB_TITLE = '[data-trellis-part="tab-title"]';
 const treeItem = (path) => `file-tree-container.lattice-file-tree >>> [data-item-path="${path}"]`;
 
 const EDITOR = ".cm-editor .cm-content";
@@ -388,10 +410,10 @@ export const SCENARIOS = [
     unit: "switch",
     steps: 4,
     async setup(driver) {
-      await driver.openFile("large.md");
-      await driver.openFile("notes/note-000.md");
-      await driver.openFile("chapters/ch01.tex");
-      await driver.openFile("main.tex");
+      for (const path of ["large.md", "notes/note-000.md", "chapters/ch01.tex", "main.tex"]) {
+        await driver.openFile(path);
+        await driver.pinActiveTab(path);
+      }
     },
     async run(driver) {
       for (const path of ["large.md", "notes/note-000.md", "chapters/ch01.tex", "main.tex"]) {

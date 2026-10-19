@@ -6532,6 +6532,10 @@ msgstr "Keep mine"
 msgid "Keep my fields"
 msgstr "Keep my fields"
 
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Keep open"
+msgstr "Keep open"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "Keep Overleaf's version"
@@ -9567,10 +9571,18 @@ msgstr "Piecewise definition"
 msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
 
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Pin tab"
+msgstr "Pin tab"
+
 #: src/editor/latex/highlighters.ts
 #: src/settings/theme-settings.tsx
 msgid "Pink"
 msgstr "Pink"
+
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Pinned"
+msgstr "Pinned"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Placement"
@@ -9697,6 +9709,7 @@ msgstr "Press ⌘S or click Build"
 #: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-document-tabs.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Preview"
@@ -13719,6 +13732,10 @@ msgstr "Unordered list of items."
 #: src/papers/bibliography-audit.tsx
 msgid "Unpaywall"
 msgstr "Unpaywall"
+
+#: src/trellis/trellis-document-tabs.tsx
+msgid "Unpin tab"
+msgstr "Unpin tab"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"

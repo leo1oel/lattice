@@ -448,11 +448,14 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   by a fill one step deeper than it (lighter in dark), 10% of the ink laid
   opaque on the panel's surface, and by the primary ink; it draws no ring except under
   increased contrast. The others are their label in the secondary ink with a
-  fainter hover fill (`--control-hover-surface`). A tab's trailing slot (its close button or
-  unsaved dot) is one width whatever it holds, so hovering, saving or
+  fainter hover fill (`--control-hover-surface`). A tab's trailing slot (its close button, or
+  a pinned tab's pin) is one width whatever it holds, so hovering, saving or
   selecting never resizes a tab; squeezed below its natural width, an
-  unselected tab's empty slot gives its room to the title first. The selected
-  tab stays in view whenever the strip has to scroll.
+  unselected tab's empty slot gives its room to the title first. Unsaved
+  changes are a dot on the tab's icon, cut out of the glyph, never a mark
+  trailing the title. A preview tab (a quick look the next one replaces) sets
+  its title in italics. The selected tab stays in view whenever the strip has
+  to scroll.
 
 ## Elevation
 
