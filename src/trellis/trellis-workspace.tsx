@@ -627,7 +627,7 @@ function FileView({ controller }: { controller: TrellisController }) {
   useEffect(() => {
     if (active) controller.ui.set({ editorVisible: view.visible });
   }, [active, controller, view.visible]);
-  const surfaceIcon = useFileTab(controller, view, dirty);
+  const surfaceIcon = useFileTab(controller, view);
   if (isOpenSlideDeckPath(key)) {
     return (
       <>

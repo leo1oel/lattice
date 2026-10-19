@@ -37,11 +37,17 @@ function panelOf(doc: LayoutDocument, id: string): PanelNode | null {
     ?? null;
 }
 
-/** A tab's width with its whole title (up to Trellis's tab maximum), unsqueezed. */
-function naturalWidth(tab: HTMLElement) {
+/**
+ * A tab's width with its whole title (up to Trellis's tab maximum). An
+ * unselected tab's close slot holds nothing visible and gives way before its
+ * title does (trellis.css), so it is not counted; the selected tab keeps its
+ * close button.
+ */
+function naturalWidth(tab: HTMLElement, selected: boolean) {
   const shrink = tab.style.flexShrink;
   tab.style.flexShrink = "0";
-  const width = tab.getBoundingClientRect().width;
+  const close = selected ? 0 : tab.querySelector('[data-trellis-part="tab-close"]')?.getBoundingClientRect().width ?? 0;
+  const width = tab.getBoundingClientRect().width - close;
   tab.style.flexShrink = shrink;
   return Math.max(TAB_MIN_WIDTH, width);
 }
@@ -67,7 +73,8 @@ function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
   const widths = new Map<string, number>();
   for (const tab of tabs) {
     // A named panel's tab (a tool beside the documents) keeps the width it has.
-    const taken = tab.hasAttribute("data-atomic") ? tab.getBoundingClientRect().width : naturalWidth(tab);
+    // Every tab there now gives up its selection to the one coming in.
+    const taken = tab.hasAttribute("data-atomic") ? tab.getBoundingClientRect().width : naturalWidth(tab, false);
     widths.set(tab.dataset.view ?? "", taken + gap);
   }
   let incoming = TAB_MIN_WIDTH;
@@ -80,7 +87,7 @@ function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
     probe.style.position = "absolute";
     probe.style.visibility = "hidden";
     strip.append(probe);
-    incoming = naturalWidth(probe);
+    incoming = naturalWidth(probe, true);
     probe.remove();
   }
   const used = [...widths.values()].reduce((sum, taken) => sum + taken, 0);
@@ -198,10 +205,12 @@ export function useDocumentTabs(controller: TrellisController, ws: WorkspaceHand
 /**
  * A document tab's icon and marks. A type's `icon` is shared by all its
  * views, so file panels portal their own into the tab's icon slot, with what
- * a screen reader says before the title (Preview, Pinned, Unsaved changes);
- * trellis.css draws the marks from these spans (an italic title, a pin).
+ * a screen reader says before the title (Preview, Pinned); trellis.css draws
+ * the marks from these spans (an italic title, a pin). Unsaved changes are
+ * Trellis's badge: a span here would mount and unmount with every autosave
+ * while typing.
  */
-export function useFileTab(controller: TrellisController, view: { id: string; params: FileParams }, dirty: boolean) {
+export function useFileTab(controller: TrellisController, view: { id: string; params: FileParams }) {
   const { t } = useLingui();
   const ws = controller.ws;
   // Read during render, not set from an effect: the tab's icon slot usually
@@ -211,7 +220,7 @@ export function useFileTab(controller: TrellisController, view: { id: string; pa
   const iconHost = useSyncExternalStore(subscribe, () => ws?.surfaces().find((surface) => surface.view.id === view.id)?.icon ?? null);
   const { key, preview = false, pinned = false } = view.params;
   const kind = controller.bridge?.tabKind(key) ?? "file";
-  const marks = [preview && t`Preview`, pinned && t`Pinned`, dirty && t`Unsaved changes`].filter(Boolean).join(", ");
+  const marks = [preview && t`Preview`, pinned && t`Pinned`].filter(Boolean).join(", ");
   return iconHost ? createPortal(
     <>
       {fileIcon(key, kind)}
