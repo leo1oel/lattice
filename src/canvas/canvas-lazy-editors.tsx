@@ -59,7 +59,7 @@ export function HtmlPreviewLoading() {
   const { t } = useLingui();
   return (
     <div className="html-preview">
-      <DocumentSkeleton shape="page" label={t`Preparing HTML preview…`} />
+      <DocumentSkeleton shape="page" page="html" label={t`Preparing HTML preview…`} />
     </div>
   );
 }

@@ -36,8 +36,10 @@ const PAGE_BLOCKS: ({ heading: number } | number[])[] = [
  * visual editor's chunk, an HTML page's first load) is one indicator that
  * waits once, and a quick open shows nothing.
  */
-export function DocumentSkeleton({ shape, label }: {
+export function DocumentSkeleton({ shape, page = "markdown", label }: {
   shape: DocumentSkeletonShape;
+  /** Whose page: Markdown's visual editor, or an HTML file's own (white, and no heading rail). */
+  page?: "markdown" | "html";
   /** What is loading, for assistive technology. */
   label: string;
 }) {
@@ -46,7 +48,7 @@ export function DocumentSkeleton({ shape, label }: {
     ? { gridTemplateColumns: splitGridTemplate(SPLIT_MINIMUMS), "--split-ratio": loadSplitRatio() } as CSSProperties
     : undefined;
   return (
-    <div className="document-skeleton" data-shape={shape} style={split}>
+    <div className="document-skeleton" data-shape={shape} data-page={page} style={split}>
       {shape !== "page" && <SourceSkeleton reveal={reveal} />}
       {shape === "split" && <span className="document-skeleton-divider" />}
       {shape !== "source" && <PageSkeleton reveal={reveal} />}

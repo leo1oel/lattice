@@ -29,7 +29,7 @@
 .document-skeleton-divider { background: var(--border-subtle); }
 
 .document-skeleton-page { flex: 1 1 0; min-width: 0; overflow: hidden; background: var(--editor-bg); }
-.html-preview > .document-skeleton .document-skeleton-page { --document-skeleton-ink: rgb(0 0 0 / 9%); background: white; }
+.document-skeleton[data-page="html"] .document-skeleton-page { --document-skeleton-ink: rgb(0 0 0 / 9%); background: white; }
 .document-skeleton-column {
   --loading-sheen-surface: var(--editor-bg);
   --document-skeleton-pitch: calc(var(--type-typeset-size) * 1.7);
@@ -39,7 +39,7 @@
   padding: calc(2 * var(--space-16)) var(--space-12) 0;
   font-size: var(--type-typeset-size);
 }
-.html-preview > .document-skeleton .document-skeleton-column { --loading-sheen-surface: white; }
+.document-skeleton[data-page="html"] .document-skeleton-column { --loading-sheen-surface: white; }
 .document-skeleton-column p { margin: 0 0 0.85em; }
 .document-skeleton-column p span, .document-skeleton-heading {
   display: block;
@@ -54,3 +54,14 @@
 
 /* The places a skeleton stands in for their content: it fills them. */
 .markdown-preview-content:has(> .document-skeleton), .bib-preview:has(> .document-skeleton) { position: relative; }
+
+/* A Markdown page in a document panel draws its heading rail in the left
+   margin once it is 480px wide (document-heading-rail.tsx), and its text
+   moves clear of it (trellis.css): the skeleton's lines start there too. */
+.document-skeleton-page { container-type: inline-size; }
+@container (min-width: 480px) {
+  .trellis-workspace .document-skeleton[data-page="markdown"] .document-skeleton-column {
+    --rail-clearance: calc(var(--space-6) + 2 * var(--space-12) + var(--space-4));
+    padding-inline-start: max(var(--space-12), min(var(--rail-clearance), calc(var(--rail-clearance) - (100% - 760px - 2 * var(--space-12)) / 2)));
+  }
+}

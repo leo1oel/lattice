@@ -8,7 +8,7 @@ import { useLingui } from "@lingui/react/macro";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
+import { isHtmlFilePath, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
 import { latexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
@@ -46,7 +46,13 @@ export function TextSnapshot({ controller, fileKey, panelId }: { controller: Tre
   const opening = useSyncExternalStore(controller.docTools.subscribe, () => controller.bridge?.documentMode(fileKey) ?? "source");
   if (!besideActive) {
     const name = controller.bridge?.tabLabel(fileKey) ?? fileKey;
-    return <DocumentSkeleton shape={opening === "pdf" ? "page" : opening} label={t`Opening ${name}…`} />;
+    return (
+      <DocumentSkeleton
+        shape={opening === "pdf" ? "page" : opening}
+        page={isHtmlFilePath(fileKey) ? "html" : "markdown"}
+        label={t`Opening ${name}…`}
+      />
+    );
   }
   return <SnapshotContent controller={controller} fileKey={fileKey} mode={isMarkdownSnapshot(fileKey) ? opening : "source"} />;
 }

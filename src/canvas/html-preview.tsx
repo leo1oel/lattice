@@ -281,7 +281,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
           if (restoreScrollTopRef.current > 0) setScrollTop(restoreScrollTopRef.current);
         }}
       />
-      {!pageLoaded && <DocumentSkeleton shape="page" label={t`Loading HTML preview…`} />}
+      {!pageLoaded && <DocumentSkeleton shape="page" page="html" label={t`Loading HTML preview…`} />}
       <ZoomControls
         className="asset-preview-zoom-controls html-preview-zoom-controls"
         groupLabel={t`HTML zoom controls`}
