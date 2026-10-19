@@ -3,7 +3,7 @@
    inline by useLoadingReveal; this one serves an indicator without a scope.
    Reduced motion shortens the fade, never the delay, so a quick load still
    shows nothing. */
-.loading-reveal { animation: loading-reveal var(--motion-moderate) both; animation-delay: 150ms; }
+.loading-reveal { animation: loading-reveal var(--motion-fast) both; animation-delay: 150ms; }
 @keyframes loading-reveal { from { opacity: 0; } }
 
 /* A skeleton's sheen: a band crossing it as a transform, so it costs no

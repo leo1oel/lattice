@@ -687,6 +687,16 @@ all take it.
   finished state; the diagnostics card holds the messages and the raw log. A
   failed build's log opens at TeX's first error (else the end, where latexmk
   says why it stopped), and Copy log takes all of it.
+- **A load shows one indicator, and a quick one shows none.** Where the
+  loaded view has a known shape (the PDF page, the Git drawer, the agent
+  panel, the Overleaf project list), the indicator is a skeleton measured
+  from that view, at its place and size, so the hand-off moves nothing;
+  elsewhere it is one small status. Nothing stands beside it: its words go
+  to assistive technology through `LoadingAnnouncement`, not into a caption
+  or a second spinner. Every indicator waits 150 ms before it fades in
+  (`useLoadingReveal` in `components/ui/loading-status.tsx`), on a clock
+  that one load's Suspense fallback hands on to the component's own
+  skeleton, so the hand-off neither flickers nor waits again.
 - **Empty states offer the way forward.** An empty region says what would be
   there and offers the next step, with its shortcut taken from the command table.
   An empty inside a panel titles itself in the subtitle role and sits on the
