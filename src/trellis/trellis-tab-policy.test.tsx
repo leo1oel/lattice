@@ -30,8 +30,13 @@ describe("chooseEvictions", () => {
     expect(chooseEvictions(tabs, 100, { held: none, lastUsed })).toEqual(["v-x.tex", "v-y.tex"]);
   });
 
-  it("never closes a pinned tab, a preview or a held one (the active document, the one coming in)", () => {
-    const tabs = [tab("a.tex"), tab("b.tex", { pinned: true }), tab("c.tex", { preview: true }), tab("x.tex")];
+  it("closes a preview before any kept tab", () => {
+    const tabs = [tab("b.tex"), tab("a.tex", { preview: true })];
+    expect(chooseEvictions(tabs, 1, { held: none, lastUsed })).toEqual(["v-a.tex"]);
+  });
+
+  it("never closes a pinned tab or a held one (the active document, the one coming in)", () => {
+    const tabs = [tab("a.tex"), tab("b.tex", { pinned: true }), tab("x.tex")];
     expect(chooseEvictions(tabs, 1000, { held: (key) => key === "x.tex", lastUsed })).toEqual(["v-a.tex"]);
     expect(chooseEvictions(tabs, 1, { held: (key) => key === "a.tex" || key === "x.tex", lastUsed })).toEqual([]);
   });
@@ -214,17 +219,25 @@ describe("a panel out of room", () => {
     expect(viewOf("c.tex")?.params.preview).toBeFalsy();
   });
 
-  it("never closes a pinned tab, a preview or the active document, and squeezes when none may go", async () => {
-    const { controller, closed, open, viewOf, strip } = await openProject(["main.tex", "a.tex"]);
+  it("closes its preview before a kept tab", async () => {
+    const { closed, open, strip } = await openProject(["main.tex", "a.tex"]);
     await open("p.tex", { quick: true });
-    act(() => controller.tabs.setPinned(viewOf("main.tex")!.id, true));
-    act(() => controller.tabs.setPinned(viewOf("a.tex")!.id, true));
-    // The preview is replaced in place, so a quick look needs no room.
-    await open("q.tex", { quick: true });
-    expect(closed).toEqual(["p.tex"]);
     await open("c.tex");
     expect(closed).toEqual(["p.tex"]);
-    expect(strip()).toEqual(["main.tex", "a.tex", "q.tex", "c.tex"]);
+    expect(strip()).toEqual(["main.tex", "a.tex", "c.tex"]);
+  });
+
+  it("never closes a pinned tab or the active document, and squeezes when none may go", async () => {
+    const { controller, closed, open, viewOf, strip } = await openProject(["main.tex", "a.tex"]);
+    act(() => controller.tabs.setPinned(viewOf("main.tex")!.id, true));
+    act(() => controller.tabs.setPinned(viewOf("a.tex")!.id, true));
+    await open("b.tex");
+    act(() => controller.tabs.setPinned(viewOf("b.tex")!.id, true));
+    // Nothing may go for the preview; the next one is replaced in place, so it needs no room.
+    await open("p.tex", { quick: true });
+    await open("q.tex", { quick: true });
+    expect(closed).toEqual(["p.tex"]);
+    expect(strip()).toEqual(["main.tex", "a.tex", "b.tex", "q.tex"]);
   });
 
   it("leaves the tabs restored with the project alone", async () => {

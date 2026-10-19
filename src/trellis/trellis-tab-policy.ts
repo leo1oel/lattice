@@ -10,10 +10,10 @@
  * problem, a link followed, a file just made).
  *
  * A panel whose strip has no room for another tab with its whole title
- * closes its least recently used tabs for the one coming in, as the writer's
- * own close would (see trellis-document-tabs.tsx). Never a pinned tab, a
- * preview, the active document or one with unsaved changes; with none of its
- * tabs free to go, the strip squeezes and scrolls as before.
+ * closes tabs for the one coming in, as the writer's own close would (see
+ * trellis-document-tabs.tsx): its preview first, then the least recently
+ * used. Never a pinned tab, the active document or one with unsaved changes;
+ * with none of its tabs free to go, the strip squeezes and scrolls as before.
  *
  * Both marks are params of the file view, so they are saved and restored
  * with the layout. Eager, as the controller that holds it: nothing from
@@ -28,10 +28,10 @@ export type FileParams = { key: string; preview?: boolean; pinned?: boolean };
 export type TabCandidate = { id: string; key: string; preview: boolean; pinned: boolean; width: number };
 
 /**
- * The tabs to close to free `short` px of strip: the least recently used of
- * those that may go first (strip order among tabs never used this session),
- * never a preview, a pinned tab or one `held`. With too few free to go, all
- * of those: the strip is then as roomy as it can be.
+ * The tabs to close to free `short` px of strip: a preview first, then the
+ * least recently used (strip order among tabs never used this session),
+ * never a pinned tab or one `held`. With too few free to go, all of those:
+ * the strip is then as roomy as it can be.
  */
 export function chooseEvictions(
   tabs: readonly TabCandidate[],
@@ -40,8 +40,8 @@ export function chooseEvictions(
 ): string[] {
   const order = tabs
     .map((tab, index) => ({ tab, index }))
-    .filter(({ tab }) => !tab.preview && !tab.pinned && !held(tab.key))
-    .sort((a, b) => lastUsed(a.tab.key) - lastUsed(b.tab.key) || a.index - b.index);
+    .filter(({ tab }) => !tab.pinned && !held(tab.key))
+    .sort((a, b) => Number(b.tab.preview) - Number(a.tab.preview) || lastUsed(a.tab.key) - lastUsed(b.tab.key) || a.index - b.index);
   const chosen: string[] = [];
   let freed = 0;
   for (const { tab } of order) {
