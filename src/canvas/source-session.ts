@@ -22,6 +22,7 @@ import { editorCommentsExtension, type CommentCardHosts } from "../editor/commen
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { latexEditorExtensions, textEditorExtensions, type LatexEditorLiveData } from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
+import { compositionEndTracker } from "../editor/latex/selection-toolbar-placement";
 import { paperDropExtension } from "../editor/paper-drop";
 import { marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension } from "../overleaf/overleaf-editor-extensions";
 import { editorDiagnosticsForFile } from "../build/compile-diagnostics";
@@ -109,6 +110,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
       ...textEditorExtensions(spellcheck, editorLiveData(live), onPasteImage),
     ]),
     config.proofread,
+    compositionEndTracker,
     annotationReviewExtension(config.reviewBridge),
     overleafCursorsExtension({ getCursors: () => review().overleafPresenceCursors }),
     overleafTrackChangesExtension({
