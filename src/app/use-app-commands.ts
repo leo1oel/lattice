@@ -26,6 +26,8 @@ export type AppCommand = {
   alt?: boolean;
   /** False for a key pressed alone (F8), without ⌘ or Ctrl. */
   mod?: false;
+  /** ⌃ itself, never ⌘: the terminal's ⌃`, where ⌘` would cycle the windows. */
+  ctrl?: true;
   /**
    * The keys shown for a command something other than this table binds:
    * Trellis's ⌘⇧↩, ⌘1 to ⌘9 by position, the editor's ⌘⌥P, ⌘S through
@@ -45,8 +47,9 @@ export type AppCommand = {
 };
 
 /** A keyed command's combination, for the palette, the sheet and any menu that repeats it. */
-export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod">): KeyCombo | null {
-  return command.key ? { key: command.key, mod: command.mod !== false, shift: command.shift, alt: command.alt } : null;
+export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod" | "ctrl">): KeyCombo | null {
+  if (!command.key) return null;
+  return { key: command.key, mod: command.mod !== false && !command.ctrl, ctrl: command.ctrl, shift: command.shift, alt: command.alt };
 }
 
 /** A command's keys as one string ("⌘P"), for a hint beside another control that runs it. */
@@ -57,7 +60,7 @@ export function commandShortcutText(commands: readonly AppCommand[], id: string)
 }
 
 /** The keycaps the palette draws beside `command`: its key's, else the `shortcut` bound elsewhere. */
-export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod" | "shortcut">): string[] | null {
+export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "alt" | "mod" | "ctrl" | "shortcut">): string[] | null {
   const combo = commandCombo(command) ?? command.shortcut;
   return combo ? comboKeys(combo) : null;
 }
@@ -97,7 +100,8 @@ export function useAppCommands(commands: AppCommand[]) {
       // the one that can run now takes it.
       const command = commandsRef.current.find((item) => (
         item.when !== false && item.key === key && Boolean(item.shift) === event.shiftKey
-          && Boolean(item.alt) === event.altKey && (item.mod !== false) === mod
+          && Boolean(item.alt) === event.altKey
+          && (item.ctrl ? event.ctrlKey && !event.metaKey : (item.mod !== false) === mod)
       ));
       if (!command) return;
       event.preventDefault();

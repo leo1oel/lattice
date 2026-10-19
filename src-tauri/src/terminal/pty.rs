@@ -108,7 +108,8 @@ fn open(cols: u16, rows: u16) -> io::Result<(OwnedFd, OwnedFd)> {
 
 /// Start `shell` as a login shell in `cwd` on a new pseudo-terminal.
 pub(super) fn spawn_shell(shell: &Path, cwd: &Path, cols: u16, rows: u16) -> io::Result<Shell> {
-    let (master, slave) = open(cols.max(2), rows.max(1))?;
+    let (cols, rows) = bounded(cols, rows);
+    let (master, slave) = open(cols, rows)?;
     let name =
         shell.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let mut command = Command::new(shell);
@@ -164,10 +165,15 @@ pub(super) fn spawn_shell(shell: &Path, cwd: &Path, cols: u16, rows: u16) -> io:
     Ok(Shell { master, child, name })
 }
 
+/// A size a page asked for, held to what a screen can show.
+fn bounded(cols: u16, rows: u16) -> (u16, u16) {
+    (cols.clamp(2, 1000), rows.clamp(1, 500))
+}
+
 /// Tell the terminal its new size; its foreground job gets SIGWINCH.
 pub(super) fn resize(master: &OwnedFd, cols: u16, rows: u16) -> io::Result<()> {
-    let size =
-        libc::winsize { ws_row: rows.max(1), ws_col: cols.max(2), ws_xpixel: 0, ws_ypixel: 0 };
+    let (cols, rows) = bounded(cols, rows);
+    let size = libc::winsize { ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0 };
     // SAFETY: TIOCSWINSZ reads one winsize from the pointer.
     if unsafe { libc::ioctl(master.as_raw_fd(), libc::TIOCSWINSZ, &size) } < 0 {
         return Err(io::Error::last_os_error());

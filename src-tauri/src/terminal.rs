@@ -11,10 +11,11 @@
 //! outlives it. Opening the panel starts nothing but the shell: the Synara
 //! sidecar stays down.
 //!
-//! The parts: `pty` opens the pseudo-terminal and starts the shell in it;
+//! The parts: `caller` decides which pages may reach a shell at all; `pty` opens the pseudo-terminal and starts the shell in it;
 //! `session` streams its output to the window in batches, writes the
 //! writer's keys to it, and ends it.
 
+pub(crate) mod caller;
 mod pty;
 mod session;
 

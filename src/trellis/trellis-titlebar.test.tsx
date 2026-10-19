@@ -83,12 +83,12 @@ describe("titlebar panel controls in a narrow window", () => {
     expect(within(presets).getByRole("button", { name: "New workspace" })).toBeInTheDocument();
 
     const panels = screen.getByRole("button", { name: "Panels" });
-    // The trigger keeps its name once only the icon is left.
+    // The trigger keeps its name with only its icon left.
     expect(panels.querySelector("span")).toHaveTextContent("Panels");
     fireEvent.pointerDown(panels, { button: 0, ctrlKey: false, pointerType: "mouse" });
     const menu = within(screen.getByRole("menu"));
     expect(menu.getAllByRole("menuitemcheckbox").map((item) => [item.textContent, item.getAttribute("aria-checked")])).toEqual([
-      ["Project", "false"], ["Papers", "false"], ["Agent", "false"], ["PDF", "false"],
+      ["Project", "false"], ["Papers", "false"], ["Agent", "false"], ["PDF", "false"], ["Terminal", "false"],
     ]);
     for (const name of ["Maximize focused panel", "Reset layout"]) {
       expect(menu.getByRole("menuitem", { name: new RegExp(`^${name}`) })).toBeVisible();
@@ -194,7 +194,7 @@ describe("titlebar layout presets", () => {
     expect(bar()).not.toHaveAttribute("data-compact");
     resize(LABELLED - 3);
     expect(bar()).toHaveAttribute("data-compact");
-    // Compact, the room is held to the labelled need, so nothing flips back and forth.
+    // Compact, the room is held to the labelled need: nothing flips back and forth.
     resize(LABELLED - 1);
     expect(bar()).toHaveAttribute("data-compact");
     resize(LABELLED);
@@ -216,7 +216,7 @@ describe("titlebar layout presets", () => {
   });
 
   it("drops the labels before the room squeezes a restore chip below its own cap", () => {
-    // The chips shrink one by one inside their row, so the row itself need not overflow.
+    // The chips shrink one by one inside their row, so the row need not overflow.
     const controller = new TrellisController();
     render(<TrellisTitlebar controller={controller} />);
     resize(LABELLED);
@@ -309,7 +309,7 @@ describe("the Panels menu", () => {
   it("leaves focus with a panel it brings forward", async () => {
     const controller = new TrellisController();
     const target = document.body.appendChild(document.createElement("button"));
-    // Trellis moves DOM focus into the panel on the next frame, before the menu's close settles.
+    // Trellis moves DOM focus into the panel next frame, before the menu's close settles.
     const focus = vi.fn(() => requestAnimationFrame(() => target.focus()));
     // Behind another tab, so choosing it brings it forward.
     controller.attachWorkspace({ view: () => ({ placement: "docked", visible: false }), focus } as unknown as WorkspaceHandle);
@@ -519,7 +519,7 @@ describe("named workspaces in the titlebar", () => {
     expect(selectedTab()).toBe("Workspace");
     fireEvent.keyDown(screen.getByRole("tab", { name: "Workspace" }), { key: "ArrowLeft" });
     act(() => controller.setPreset("writing"));
-    // The workspace under the preset is marked, and choosing it again returns from the preset.
+    // The workspace under the preset is marked; choosing it again returns from the preset.
     expect(screen.getByRole("tab", { name: "Review" })).toHaveAttribute("data-underlying", "true");
     fireEvent.click(screen.getByRole("tab", { name: "Review" }));
     expect(controller.ui.get().preset).toBeNull();

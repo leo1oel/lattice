@@ -47,6 +47,18 @@ describe("app commands", () => {
     expect(run.sheet).toHaveBeenCalledTimes(2);
   });
 
+  it("runs a ⌃ key on Control alone, never on ⌘, and draws it with ⌃", () => {
+    const toggle = vi.fn();
+    renderHook(() => useAppCommands([{ id: "terminal", key: "`", ctrl: true, run: toggle }]));
+    fireEvent.keyDown(window, { key: "`", metaKey: true });
+    fireEvent.keyDown(window, { key: "`", ctrlKey: true, metaKey: true });
+    fireEvent.keyDown(window, { key: "`" });
+    expect(toggle).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "`", ctrlKey: true });
+    expect(toggle).toHaveBeenCalledOnce();
+    expect(commandKeys({ key: "`", ctrl: true })).toEqual(["⌃", "`"]);
+  });
+
   it("writes a command's keys as one string for a hint elsewhere, and nothing for a command without keys", () => {
     const run = () => {};
     const commands: AppCommand[] = [

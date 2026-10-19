@@ -60,6 +60,7 @@ import { openDocumentTab, useDocumentTabs, useFileTab, withTabItems } from "./tr
 import type { FileParams } from "./trellis-tab-policy";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { AfterSwitch } from "../canvas/after-switch";
+import { terminalViewType } from "../terminal/terminal-view-type";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
@@ -79,10 +80,9 @@ installTrellisLabels();
 const HIBERNATE_AFTER_MS = 20_000;
 
 /** Content minima only. The Trellis patch separately reserves header actions
- * and all tabs at 100px each (capped at 480px; under it the tabs shrink and the
- * actions give way before the strip scrolls, see trellis.css). A panel
- * is as wide as the widest of its views needs, so selecting another tab never
- * resizes it. The Agent and the PDF raise theirs to what their live content
+ * and all tabs at 100px each (capped at 480px, see trellis.css). A panel is
+ * as wide as its widest view needs, so selecting another tab never resizes
+ * it. The Agent and the PDF raise theirs to what their live content
  * measures (see `measuredMinSize`). The Agent's height keeps one row of its
  * empty thread's starters clear of the composer and an editor selection's
  * context bar above it, the most the empty thread can give up (its starters
@@ -825,11 +825,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       controller.attachWorkspace(null);
     };
   }, [controller]);
-  // Trellis reads its own strings (menus, drop labels, tooltips) from this table at use time.
+  // Trellis reads its strings (menus, drop labels, tooltips) from this table on use.
   useEffect(() => installTrellisLabels(), [i18n.locale]);
 
-  // Views App closed (e.g. file deleted) or a reset replaced: their
-  // close events must not close App tabs a second time.
+  // Views App closed (a file deleted) or a reset replaced: their close
+  // events must not close App tabs again.
   const quietCloses = useRef(new Set<string>());
   const resettingRef = useRef(false);
   /** The preset the layout is in, with the writer's own layout to return to. */
@@ -1426,6 +1426,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
             <ToolView controller={controller} kind={kind} />
           </ViewType>
         ))}
+        {terminalViewType(controller)}
         <Workspace.Empty>
           <WorkspaceEmpty controller={controller} />
         </Workspace.Empty>
