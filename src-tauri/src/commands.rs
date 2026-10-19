@@ -21,6 +21,9 @@ pub(crate) use python_tools::UvTool;
 pub use python_tools::{
     arxiv2md_cache_dir, prewarm_literature_tools, ARXIV2MD, ARXIV_SOURCE2MD, BIBCITE,
 };
+// Tests keep the preamble formats, its only other user, out of the user's cache.
+#[cfg_attr(test, allow(unused_imports))]
+pub(crate) use python_tools::app_cache_dir;
 pub(crate) use python_tools::{bibcite_output_cancellable, redact_bibcite_output};
 
 pub const MANAGED_UV_VERSION: &str = "0.12.3";

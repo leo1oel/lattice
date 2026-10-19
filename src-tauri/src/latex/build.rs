@@ -2,9 +2,10 @@
 
 use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
-    parse_diagnostics, skipped_recompile, trim_log,
+    parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
 };
 use super::build_steps::BuildSteps;
+use super::preamble_format::{self, Prepared};
 use super::{default_root_document, engine_mismatch, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
@@ -208,6 +209,11 @@ fn build_passes(
     if let Some(target) = open_document.and_then(|open| project::resolve_compile_root(root, open)) {
         project::set_compile_root(root, &target)?;
     }
+    // A Clean rebuild starts the preamble format over too. The reruns below
+    // that force latexmk keep it: they are not about the preamble.
+    if force {
+        preamble_format::discard(root);
+    }
     if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, steps)? {
         return Ok(cancelled);
     }
@@ -274,12 +280,28 @@ pub(super) fn engine_args(root: &Path, manifest: &ProjectManifest) -> Vec<&'stat
 fn run_latexmk(
     root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
+    run_latexmk_with(root, force, active, steps, true)
+}
+
+fn run_latexmk_with(
+    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps, use_format: bool,
+) -> Result<BuildResult, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
     let root_document = project::safe_path(root, &document.path)?;
     if !root_document.exists() {
         return Err(format!("Root document not found: {}", document.path));
     }
+    let prepared = if use_format {
+        preamble_format::prepare(root, &manifest, &document.path, &root_document, active, steps)
+    } else {
+        Prepared::Plain
+    };
+    let format = match prepared {
+        Prepared::Ready(format) => Some(format),
+        Prepared::Plain => None,
+        Prepared::Cancelled(log) => return Ok(cancelled_build(steps.started(), &log, &document.path)),
+    };
 
     let mut command = commands::command("latexmk");
     command.current_dir(root).args([
@@ -289,6 +311,9 @@ fn run_latexmk(
         "-halt-on-error",
     ]);
     command.args(engine_args(root, &manifest));
+    if let Some(format) = &format {
+        command.arg(format.latexmk_arg());
+    }
     if force {
         command.arg("-g");
     }
@@ -311,6 +336,19 @@ fn run_latexmk(
     }
 
     let success = output.status.success();
+    // Whatever went wrong, the plain build decides: a document error fails it
+    // too, and the format stays; a build only the format broke passes, and
+    // the format is never used for these inputs again. Forced, because
+    // latexmk does not count a changed command as a reason to run again and
+    // would only repeat that the last run failed.
+    if let Some(format) = format.as_ref().filter(|_| !success) {
+        wide_event::record("preamble_format", "retried_plain");
+        let plain = run_latexmk_with(root, true, active, steps, false)?;
+        if plain.success {
+            format.reject();
+        }
+        return Ok(plain);
+    }
     let pdf_path = root_document.with_extension("pdf");
     let pdf_bytes = if pdf_path.exists() {
         Some(fs::read(&pdf_path).map_err(|error| error.to_string())?)
@@ -320,10 +358,18 @@ fn run_latexmk(
     if let Some(pdf) = &pdf_bytes {
         wide_event::record("pdf_bytes", pdf.len());
     }
-    let mut diagnostics = parse_diagnostics(&log);
+    // A build from the preamble format never loads the preamble, so what
+    // loading it reported comes from when the format was made.
+    let mut diagnostics = match &format {
+        Some(format) => parse_format_diagnostics(&format.output, &log),
+        None => parse_diagnostics(&log),
+    };
     // latexmk's output is TeX's terminal, which leaves out what fontspec
     // notes only in the log file.
-    let tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
+    let mut tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
+    if let Some(format) = &format {
+        tex_log.insert_str(0, &format.log);
+    }
     if let Some(mut warning) =
         pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &tex_log, &log))
     {
@@ -505,6 +551,58 @@ mod tests {
         assert!(result.success, "{}", result.log);
         assert_eq!(result.root_document, "main.tex");
         assert!(super::super::read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    #[ignore = "requires latexmk, pdfLaTeX and mylatexformat"]
+    fn a_build_from_the_preamble_format_reports_what_the_plain_build_does() {
+        let template = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/iclr-2026");
+        let build = |use_format| {
+            let root = TempDir::new("latex");
+            project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+            for file in ["iclr2026_conference.sty", "iclr2026_conference.bst"] {
+                fs::copy(template.join(file), root.join(file)).unwrap();
+            }
+            let main = fs::read_to_string(template.join("main.tex")).unwrap();
+            root.write("main.tex", main.replace("LATTICE_PROJECT_TITLE", "A Paper"));
+            let steps = BuildSteps::silent();
+            let result =
+                run_latexmk_with(&root, false, &ActiveBuild::default(), &steps, use_format).unwrap();
+            let log = fs::read_to_string(root.join("main.log")).unwrap();
+            (result, steps.take(), log.contains("CUSTOMISED FORMAT"))
+        };
+        let (plain, _, plain_format) = build(false);
+        let (formatted, steps, from_format) = build(true);
+        assert!(!plain_format && from_format, "only the second build ran from the format");
+        assert_eq!(steps[0].tool, "preamble");
+        assert!(plain.success && formatted.success, "{}", formatted.log);
+        assert_eq!(formatted.venue, Some("ICLR"));
+        assert_eq!((formatted.venue, formatted.pages), (plain.venue, plain.pages));
+        let messages = |result: &BuildResult| {
+            let mut messages: Vec<_> = result.diagnostics.iter().map(|d| d.message.clone()).collect();
+            messages.sort();
+            messages
+        };
+        assert_eq!(messages(&formatted), messages(&plain));
+    }
+
+    #[test]
+    #[ignore = "requires latexmk, pdfLaTeX and mylatexformat"]
+    fn a_build_only_the_preamble_format_breaks_is_built_plain_and_the_format_dropped() {
+        let root = TempDir::new("latex");
+        project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
+        root.write("main.tex", "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n");
+        let build = || run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent());
+        assert!(build().unwrap().success);
+        let format = preamble_format::format_file(&root).unwrap();
+        fs::write(&format, b"not a format").unwrap();
+
+        root.write("main.tex", "\\documentclass{article}\n\\begin{document}\nHey\n\\end{document}\n");
+        let result = build().unwrap();
+        assert!(result.success, "{}", result.log);
+        assert!(!format.exists(), "the format that broke the build is gone");
+        assert!(build().unwrap().success);
+        assert!(!format.exists(), "and is not made again for the same inputs");
     }
 
     #[test]

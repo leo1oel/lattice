@@ -2,7 +2,8 @@
 //!
 //! - `build` runs latexmk for a project's default root document, one build at
 //!   a time and abortable from the UI; `prewarm` shortens a cold first build;
-//!   `build_steps` times the passes it runs.
+//!   `preamble_format` keeps a pdfLaTeX format of the document's preamble so
+//!   passes skip loading it; `build_steps` times the passes it runs.
 //! - `changes` builds the PDF with the changes between two versions marked.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab.
@@ -24,6 +25,7 @@ mod build_log;
 mod build_steps;
 mod changes;
 mod engine_mismatch;
+mod preamble_format;
 mod prewarm;
 mod synctex;
 mod venue;

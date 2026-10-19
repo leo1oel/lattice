@@ -296,7 +296,7 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
     app_cache_dir("arxiv2md", "/tmp/research-writer-arxiv2md-cache")
 }
 
-fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
+pub(crate) fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
     match env::var_os("HOME") {
         Some(home) => PathBuf::from(home)
             .join("Library/Caches")
