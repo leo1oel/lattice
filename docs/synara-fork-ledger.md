@@ -41,6 +41,8 @@ Its optional `editor` role is the editor's page: in the light theme the agent's 
 Each frame holds the handshake it booted with (its config, the `#lattice-auth` credential and the last palette) for the life of its document; the `window.name`-keyed sessionStorage slot is only the copy a reload recovers from, so losing it can no longer repaint the panel with Synara's own white palette or strip the credential from attachment image URLs.
 Providers, MCP and Skills follow the native Settings layout (a serif page title, each group's rows in one bordered card at 52px), and Settings tells their frame `lattice:settings-layout` `{compact}` when the window crosses its 680px breakpoint, since the frame sees only its own column width.
 
+The pin also carries `amp/lattice-cursor-no-autologin`: Cursor's startup model discovery and background text generation use ACP `authPolicy: "never"`, so a signed-out Cursor CLI no longer opens its sign-in page when Lattice starts (discovery falls back to `cursor-agent models`).
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
