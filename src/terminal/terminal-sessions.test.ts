@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { TerminalSessions, type TerminalBackend, type TerminalScreen } from "./terminal-sessions";
+import { RESIZE_SETTLE_MS, TerminalSessions, type TerminalBackend, type TerminalScreen } from "./terminal-sessions";
 
 type Opened = Parameters<TerminalBackend["open"]>[0] & { resolve: (id: number) => void; reject: (reason: Error) => void };
 
@@ -71,6 +71,32 @@ describe("terminal sessions", () => {
     session.screen.type("x");
     await settle();
     expect(calls.at(-1)).toBe('write 7 "x"');
+  });
+
+  it("tells the shell only the size the screen settles on, so a panel moved or animated is one redraw", async () => {
+    const { sessions, opened, calls } = setup();
+    const session = sessions.open()!;
+    opened[0].resolve(7);
+    await settle();
+    calls.length = 0;
+    vi.useFakeTimers();
+    try {
+      // A dropped panel growing into place: a new size every frame.
+      for (const [cols, rows] of [[17, 12], [61, 17], [80, 20], [86, 20]]) {
+        session.screen.resizeTo(cols, rows);
+        vi.advanceTimersByTime(16);
+      }
+      expect(calls).toEqual([]);
+      vi.advanceTimersByTime(RESIZE_SETTLE_MS);
+      expect(calls).toEqual(["resize 7 86x20"]);
+      // A tab closed while a size waits tells the host nothing more.
+      session.screen.resizeTo(100, 30);
+      sessions.close(session.key);
+      vi.advanceTimersByTime(RESIZE_SETTLE_MS);
+      expect(calls).toEqual(["resize 7 86x20", "close 7"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("starts nothing without a project", () => {

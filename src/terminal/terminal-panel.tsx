@@ -58,8 +58,14 @@ function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readon
   }, [panel, sessions, revision]);
 }
 
-/** The slot a session's screen stands in: shown only for the tab in front. */
-function ScreenSlot({ session, shown, focused }: { session: Session; shown: boolean; focused: boolean }) {
+/**
+ * The slot a session's screen stands in: shown only for the tab in front.
+ * While a panel is dragged (`moving`) the grid keeps its size: Trellis shrinks
+ * the panel being dragged to a strip a row high, and a grid fitted to that
+ * pushes all but the cursor's line into the scrollback, where the shell's
+ * redraw cannot reach, so its prompt came back twice after the drop.
+ */
+function ScreenSlot({ session, shown, focused, moving }: { session: Session; shown: boolean; focused: boolean; moving: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const { screen } = session;
   useLayoutEffect(() => {
@@ -72,7 +78,7 @@ function ScreenSlot({ session, shown, focused }: { session: Session; shown: bool
   }, [screen]);
   useLayoutEffect(() => {
     screen.setShown(shown);
-    if (!shown) return;
+    if (!shown || moving) return;
     screen.fit();
     const slot = ref.current;
     if (!slot) return;
@@ -88,7 +94,7 @@ function ScreenSlot({ session, shown, focused }: { session: Session; shown: bool
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [screen, shown]);
+  }, [screen, shown, moving]);
   useEffect(() => {
     if (shown && focused) screen.focus();
   }, [screen, shown, focused]);
@@ -212,7 +218,7 @@ function FindField({ screen, onClose }: { screen: XtermScreen; onClose: () => vo
   );
 }
 
-export function TerminalPanel({ controller, shown, focused }: { controller: TrellisController; shown: boolean; focused: boolean }) {
+export function TerminalPanel({ controller, shown, focused, moving }: { controller: TrellisController; shown: boolean; focused: boolean; moving: boolean }) {
   const { t } = useLingui();
   const panelRef = useRef<HTMLDivElement>(null);
   const { sessions, active } = useSyncExternalStore(terminals.subscribe, terminals.get);
@@ -264,7 +270,7 @@ export function TerminalPanel({ controller, shown, focused }: { controller: Trel
       )}
       <div className="terminal-stage">
         {sessions.map((session) => (
-          <ScreenSlot key={session.key} session={session} shown={shown && session.key === active} focused={focused && !finding} />
+          <ScreenSlot key={session.key} session={session} shown={shown && session.key === active} focused={focused && !finding} moving={moving} />
         ))}
         {finding && <FindField screen={current.screen} onClose={() => setFindingIn(null)} />}
         {!sessions.length && (

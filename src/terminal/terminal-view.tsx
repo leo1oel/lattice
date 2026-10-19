@@ -7,7 +7,7 @@
  */
 import { Suspense } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { useCloseGuard, useView } from "@danfessler/trellis-react";
+import { useCloseGuard, useView, useWorkspaceSelector } from "@danfessler/trellis-react";
 import { Plus } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import { lazyChunk } from "../lib/lazy-chunk";
@@ -18,6 +18,7 @@ const TerminalPanel = lazyChunk(loadTerminalPanel, (module) => module.TerminalPa
 
 export function TerminalView({ controller }: { controller: TrellisController }) {
   const view = useView();
+  const moving = useWorkspaceSelector((state) => state.dragging);
   // Closing the panel ends its shells (hiding it keeps them). A layout reset
   // or a workspace without the panel skips this guard: the shells wait for
   // the panel to come back.
@@ -27,7 +28,7 @@ export function TerminalView({ controller }: { controller: TrellisController }) 
   });
   return (
     <Suspense fallback={null}>
-      <TerminalPanel controller={controller} shown={view.visible} focused={view.focused} />
+      <TerminalPanel controller={controller} shown={view.visible} focused={view.focused} moving={moving} />
     </Suspense>
   );
 }
