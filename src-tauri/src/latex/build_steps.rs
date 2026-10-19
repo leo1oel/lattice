@@ -17,7 +17,8 @@ use std::time::Instant;
 #[serde(rename_all = "camelCase")]
 pub struct BuildStep {
     /// The program, as latexmk names its rule without the file it runs on:
-    /// `pdflatex`, `xelatex`, `bibtex`, `biber`, `makeindex`, `xdvipdfmx`, …
+    /// `pdflatex`, `xelatex`, `bibtex`, `biber`, `makeindex`, `xdvipdfmx`, …;
+    /// `pdflatex -ini` makes the preamble format before latexmk starts.
     pub tool: String,
     /// Which run of this tool it is within the build, from 1.
     pub run: u32,

@@ -42,6 +42,7 @@ mod overleaf_rt;
 mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
+mod pdf_pages;
 #[cfg(feature = "perf-lab")]
 mod perf_lab;
 mod presentation;
@@ -459,6 +460,7 @@ pub fn run() {
             ipc::build::clean_project,
             ipc::build::read_compiled_pdf,
             ipc::build::save_compiled_pdf,
+            ipc::build::pdf_page_signatures,
             ipc::build::save_review_pdf,
             ipc::build::synctex_edit,
             ipc::build::synctex_view,

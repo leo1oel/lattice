@@ -12,7 +12,8 @@ use crate::latex::{BuildResult, BuildStep, BuildSteps, PdfSyncTarget};
 use crate::models::SyncTexTarget;
 use crate::texlab::{DocumentAt, TexlabCompletionItem, TexlabHover, TexlabLocation};
 use crate::{
-    doctor, export, format_latex, harper, latex, review_pdf, synara, tex_setup, texlab, wide_event,
+    doctor, export, format_latex, harper, latex, pdf_pages, review_pdf, synara, tex_setup, texlab,
+    wide_event,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -164,6 +165,19 @@ pub async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<Strin
         "The PDF contents were not sent as binary data.",
     )?;
     run_blocking("Compiled PDF save", move || export::save(&path, &bytes, &export::PDF)).await
+}
+
+/// Signatures of the pages of the PDF sent as the raw body, so the preview
+/// can tell which pages a rebuild changed (pdf_pages.rs).
+#[tauri::command]
+pub async fn pdf_page_signatures(
+    request: tauri::ipc::Request<'_>,
+) -> Result<pdf_pages::PageSignatures, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("The PDF was not sent as binary data.".to_string());
+    };
+    let bytes = bytes.clone();
+    run_quietly("PDF page signatures", move || pdf_pages::signatures(&bytes)).await
 }
 
 /// A review copy of the compiled PDF with the writer's chosen annotations

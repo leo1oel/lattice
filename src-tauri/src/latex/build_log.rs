@@ -266,6 +266,17 @@ fn shell_word(value: &str) -> String {
     }
 }
 
+/// The diagnostics of a build from the preamble format: what loading the
+/// preamble reported when the format was made, then the build's own, in the
+/// order one plain pass reports both.
+pub(super) fn parse_format_diagnostics(preamble_output: &str, log: &str) -> Vec<Diagnostic> {
+    let mut diagnostics = parse_diagnostics(preamble_output);
+    for diagnostic in parse_diagnostics(log) {
+        push_unique(&mut diagnostics, diagnostic);
+    }
+    diagnostics
+}
+
 fn last_typeset_pass(log: &str) -> &str {
     let start = ["pdflatex", "xelatex", "lualatex", "latex"]
         .iter()

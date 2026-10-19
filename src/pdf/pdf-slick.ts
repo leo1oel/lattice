@@ -32,6 +32,11 @@ export type ViewerRecord = {
   /** Listeners and service patches to undo before PDFSlick is torn down. */
   cleanup: Array<() => void>;
   destroyed: boolean;
+  /**
+   * The bytes on screen when they came as bytes (a project build): what
+   * pdf-page-swap.ts compares a rebuild with.
+   */
+  bytes?: ArrayBuffer;
 };
 
 type PdfSlickPageView = {
