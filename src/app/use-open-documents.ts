@@ -28,6 +28,7 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
+import { readDiskMtime } from "./read-document";
 import {
   modeOnLoad, rememberedViewMode, setsDocumentMode, withEditor, withEditorFor, withPdf, type RememberedViewModes,
 } from "./document-view-modes";
@@ -50,16 +51,6 @@ function publishDeferredEdits(flush: (() => boolean) | null): "published" | "ref
     return flush?.() === false ? "refused" : "published";
   } catch (error) {
     return { error };
-  }
-}
-
-/** A file's mtime on disk; null when it is missing or could not be read. */
-async function readDiskMtime(path: string): Promise<number | null> {
-  try {
-    const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path });
-    return stat.exists ? stat.mtimeMs : null;
-  } catch {
-    return null;
   }
 }
 
