@@ -137,6 +137,11 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
         return;
       }
       item.id = id;
+      if (item.session.state.kind !== "starting") {
+        this.update(item, { shell });
+        item.queued.length = 0;
+        return;
+      }
       this.update(item, { shell, state: { kind: "running" } });
       // The size may have changed while the shell started (the panel laid out).
       void this.backend.resize(id, screen.cols(), screen.rows()).catch(() => {});

@@ -137,6 +137,19 @@ describe("terminal sessions", () => {
     expect(sessions.get().sessions[0].state).toEqual({ kind: "exited", code: 127 });
   });
 
+  it("a shell that exited before the host answered stays exited, and gets none of the queued input", async () => {
+    const { sessions, opened, calls } = setup();
+    const session = sessions.open()!;
+    session.screen.type("ls\r");
+    opened[0].onExit(1);
+    opened[0].resolve(5);
+    await settle();
+    expect(sessions.get().sessions[0]).toMatchObject({ shell: "zsh", state: { kind: "exited", code: 1 } });
+    expect(calls).toEqual([]);
+    sessions.close(session.key);
+    expect(calls).toEqual(["close 5"]);
+  });
+
   it("keeps a tab whose shell did not start, with the reason", async () => {
     const { sessions, opened } = setup();
     sessions.open();
