@@ -34,7 +34,7 @@ export function followProject(controller: TrellisController) {
  * Ask before stopping what runs in `keys` (every terminal by default), and
  * say what that is. True when nothing runs or the writer agreed.
  */
-export async function confirmStopping(keys?: readonly number[]): Promise<boolean> {
+async function confirmStopping(keys?: readonly number[]): Promise<boolean> {
   const running = await terminals.running(keys);
   if (!running.length) return true;
   const name = [...new Set(running.filter(Boolean))].join(", ");
