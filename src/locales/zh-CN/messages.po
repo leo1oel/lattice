@@ -7222,8 +7222,7 @@ msgstr "正在加载协作…"
 msgid "Loading Overleaf's history…"
 msgstr "正在加载 Overleaf 历史…"
 
-#: src/canvas/canvas-lazy-editors.tsx
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Loading PDF…"
 msgstr "正在加载 PDF…"
 
@@ -9002,10 +9001,9 @@ msgstr "OpenAlex 搜索"
 msgid "Opened {opened}"
 msgstr "{opened}打开"
 
-#. placeholder {0}: documents.opening
-#: src/App.tsx
-msgid "Opening {0}…"
-msgstr "正在打开{0}…"
+#: src/app/opening-overlay.tsx
+msgid "Opening {name}…"
+msgstr "正在打开{name}…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Opening project…"
@@ -10431,7 +10429,7 @@ msgstr "正在加载改动…"
 msgid "Rendering diff…"
 msgstr "正在对比…"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Rendering first page…"
 msgstr "正在显示第一页…"
 
@@ -13852,7 +13850,7 @@ msgstr "会同步改所有 \\ref"
 msgid "Updates the .bib entry and every \\cite"
 msgstr "会同步改 .bib 和所有 \\cite"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Updating…"
 msgstr "正在更新…"
 

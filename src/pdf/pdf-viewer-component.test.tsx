@@ -579,15 +579,14 @@ describe("PDFSlick viewer integration", () => {
 
     await waitFor(() => expect(pdf.state.pendingLoad).not.toBeNull());
     const pendingLoad = pdf.state.pendingLoad!;
-    expect(view.getByRole("status")).toHaveTextContent("Loading PDF…");
+    await waitFor(() => expect(view.getByRole("status")).toHaveTextContent("Loading PDF…"));
 
     act(() => pendingLoad.onProgress?.({ loaded: 3, total: 10, percent: 30 }));
-    expect(view.getByRole("status")).toHaveTextContent("Loading PDF…30%");
     expect(view.getByRole("progressbar", { name: "PDF loading progress" })).toHaveAttribute("aria-valuenow", "30");
     expect(view.container.querySelector(".pdf-load-progress-fill")).toHaveStyle({ width: "30%" });
 
     act(() => pendingLoad.onProgress?.({ loaded: 10, total: 10, percent: 100 }));
-    expect(view.getByRole("status")).toHaveTextContent("Rendering first page…");
+    await waitFor(() => expect(view.getByRole("status")).toHaveTextContent("Rendering first page…"));
     expect(view.queryByRole("progressbar", { name: "PDF loading progress" })).toBeNull();
 
     await act(async () => pendingLoad.resolve());

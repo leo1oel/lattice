@@ -35,7 +35,7 @@ function postReady(frame: HTMLIFrameElement | null, origin = ORIGIN) {
 /** The shell, while it covers the selected frame; once that has rendered it only fades out. */
 const shell = () => document.querySelector(".git-workspace-shell:not([data-ready])");
 
-it("shows the Git skeleton and a polite status from the first frame, while the runtime is still starting", async () => {
+it("shows the Git skeleton, and a status only assistive technology hears, from the first frame while the runtime is still starting", async () => {
   renderFrames({ frame: null, runtime: EMPTY_SYNARA_RUNTIME });
   expect(shell()).not.toBeNull();
   expect(document.querySelector("iframe")).toBeNull();
@@ -43,7 +43,10 @@ it("shows the Git skeleton and a polite status from the first frame, while the r
   // wait for its words, not just for the region.
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Loading changes…"));
   // The controls' own icons are drawn at once, before any Git data.
-  expect(document.querySelectorAll(".git-workspace-skeleton svg").length).toBeGreaterThanOrEqual(2);
+  expect(document.querySelectorAll(".git-skeleton svg").length).toBeGreaterThanOrEqual(2);
+  // The skeleton is the one indicator: no spinner or visible caption beside it.
+  expect(document.querySelector(".git-workspace-shell .ui-infinity-loader")).toBeNull();
+  expect(screen.getByRole("status")).toHaveClass("loading-announcement");
 });
 
 it("keeps the shell over the frame until that frame says it has rendered", async () => {

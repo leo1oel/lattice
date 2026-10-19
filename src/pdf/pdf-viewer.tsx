@@ -525,11 +525,6 @@ export function PdfPreview({
   const remoteSource = !source.bytes && !source.file;
   const loadPhase = loadFeedback?.phase ?? (remoteSource ? "loading" : "rendering");
   const loadPercent = loadPhase === "loading" ? loadFeedback?.percent ?? null : null;
-  const loadLabel = showBlockingLoader
-    ? loadPhase === "loading"
-      ? t`Loading PDF…`
-      : t`Rendering first page…`
-    : t`Updating…`;
 
   if (!loadKey) {
     return (
@@ -809,7 +804,7 @@ export function PdfPreview({
           )
           : null}
         {showBlockingLoader || showQuietLoader
-          ? <PdfLoading label={loadLabel} percent={loadPercent} quiet={showQuietLoader} />
+          ? <PdfLoading phase={loadPhase} percent={loadPercent} quiet={showQuietLoader} view={{ fitMode, scale }} />
           : null}
       </div>
       <PdfSourceTargets

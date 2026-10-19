@@ -1,0 +1,50 @@
+/* The Git drawer's placeholder (git-workspace-skeleton.tsx). Its boxes sit
+   where the rendered Synara view puts its own, measured in the view: the
+   branch line, the publish card (92px) and the commit composer (120px), then
+   sections of 20px file rows 28px apart. The odd sizes are the view's, not
+   the scale's. Bones are the drawer's subtle border color; icons are the
+   controls' own, drawn at once. */
+.git-skeleton {
+  --loading-sheen-surface: var(--surface-input);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-6);
+  color: var(--text-tertiary);
+}
+.git-skeleton span { display: block; flex: none; height: var(--space-4); border-radius: var(--radius-pill); background: var(--border-subtle); }
+.git-skeleton svg { flex: none; }
+.git-skeleton [data-end] { margin-left: auto; }
+
+.git-skeleton-branchline { display: flex; align-items: center; gap: var(--space-3); height: 26px; }
+.git-skeleton .git-skeleton-chip { display: flex; align-items: center; gap: var(--space-4); width: 94px; height: 26px; padding-inline: 9px; border-radius: var(--radius-control); }
+.git-skeleton .git-skeleton-chip > span { width: 30px; background: var(--border-strong); }
+.git-skeleton .git-skeleton-square { width: var(--space-12); height: var(--space-12); border-radius: var(--radius-control); }
+
+.git-skeleton-card,
+.git-skeleton-composer { display: flex; flex-direction: column; padding: var(--space-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-surface); }
+.git-skeleton-card { justify-content: space-between; height: 92px; margin-top: var(--space-5); }
+.git-skeleton-card-head { display: flex; gap: var(--space-4); }
+.git-skeleton .git-skeleton-tile { width: var(--control-height-compact); height: var(--control-height-compact); border-radius: var(--radius-control); }
+.git-skeleton .git-skeleton-lines { flex: 1; height: auto; display: grid; align-content: start; gap: 11px; padding-top: var(--space-2); background: none; }
+.git-skeleton-card-actions { display: flex; gap: var(--space-3); }
+.git-skeleton .git-skeleton-card-actions > span { flex: 1; height: var(--space-12); border-radius: var(--radius-control); }
+.git-skeleton-composer { height: 120px; margin-top: 14px; }
+.git-skeleton-composer-line { display: flex; align-items: center; justify-content: space-between; height: 18px; padding-right: 5px; }
+.git-skeleton-composer > span:not(.git-skeleton-button) { margin-top: 11px; }
+.git-skeleton .git-skeleton-button { width: 152px; height: var(--control-height-compact); margin-top: auto; border-radius: var(--radius-control); }
+
+.git-skeleton-section { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-8) 0 0; padding: 0 var(--space-2); list-style: none; }
+.git-skeleton-section + .git-skeleton-section { margin-top: 19px; }
+.git-skeleton-section li { display: flex; align-items: center; gap: var(--space-4); }
+.git-skeleton-section-head { height: 18px; margin-bottom: 1px; }
+.git-skeleton .git-skeleton-section-head > span { height: var(--space-3); background: var(--border-strong); }
+.git-skeleton-row { height: 20px; }
+.git-skeleton .git-skeleton-box { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-compact); }
+.git-skeleton .git-skeleton-stat { width: var(--space-16); margin-left: auto; }
+
+/* Pull requests: the search, a section, and two-line cards. */
+.git-skeleton-search { display: flex; align-items: center; gap: var(--space-4); height: var(--control-height-compact); padding: 0 var(--space-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.git-skeleton-card-row { height: auto; padding: var(--space-4) 0; }
+.git-skeleton .git-skeleton-card-row .git-skeleton-lines { gap: var(--space-3); padding-top: 0; }
+.git-skeleton .git-skeleton-card-row .git-skeleton-lines span + span { height: var(--space-3); }

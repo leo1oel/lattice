@@ -8,7 +8,8 @@ import { Button } from "../components/ui/button";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
 import { redactLogText } from "../telemetry/app-log-store";
-import { LoadingAnnouncement } from "../app/tool-loading-shell";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
+import { AgentPanelSkeleton } from "./agent-panel-skeleton";
 
 /** How long the agent panel waits on the Agent before saying so and offering Retry. */
 const SYNARA_SLOW_MS = 20_000;
@@ -19,7 +20,7 @@ export function SynaraLoadingSurface(props: {
   onRetry: () => void;
   /**
    * The agent panel's shape: until the Agent answers, a skeleton of the
-   * thread it is about to show rather than a centred mark, so the thread
+   * panel it is about to show rather than a centred mark, so the panel
    * lands where its shape already was.
    */
   thread?: boolean;
@@ -74,16 +75,12 @@ export function SynaraLoadingSurface(props: {
   );
 }
 
-/** Row widths (%) for the skeleton's lines: the Agent's text, full width, and the writer's bubbles, at the end. */
-const THREAD_ROWS: Array<{ width: number; from?: "writer" }> = [
-  { width: 40 }, { width: 62, from: "writer" }, { width: 92 }, { width: 86 }, { width: 64 }, { width: 48, from: "writer" }, { width: 90 },
-];
-
 /**
  * The panel waiting on the Agent. The surface leaves only on the embed's
  * ready message, and a sidecar that never answers sends none, so after
- * SYNARA_SLOW_MS it says so and offers Retry and the logs; the skeleton
- * stays, since the Agent may yet answer. A retry starts the wait again.
+ * SYNARA_SLOW_MS it says so and offers Retry and the logs, in the room the
+ * suggestions' skeleton held; the rest of the skeleton stays, since the
+ * Agent may yet answer. A retry starts the wait again.
  */
 function SynaraThreadLoading({ message, waiting, onRetry }: { message: string; waiting: boolean; onRetry: () => void }) {
   const { t } = useLingui();
@@ -103,11 +100,7 @@ function SynaraThreadLoading({ message, waiting, onRetry }: { message: string; w
   const seconds = SYNARA_SLOW_MS / 1000;
   return (
     <div className="synara-loading-surface" data-shape="thread" aria-busy={!slow}>
-      <div className="synara-thread-skeleton" aria-hidden="true">
-        {THREAD_ROWS.map((row, index) => (
-          <span key={index} data-from={row.from} style={{ width: `${row.width}%` }} />
-        ))}
-      </div>
+      <AgentPanelSkeleton bodyHidden={slow} />
       {slow ? (
         <div className="synara-slow" role="alert">
           <strong>{t`Taking longer than usual`}</strong>

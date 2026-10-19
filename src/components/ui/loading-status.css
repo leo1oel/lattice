@@ -1,0 +1,24 @@
+/* A loading indicator's reveal (loading-reveal.ts): transparent until the
+   load outlasts the delay, then a quick fade. The delay is the clock's, set
+   inline by useLoadingReveal; this one serves an indicator without a scope.
+   Reduced motion shortens the fade, never the delay, so a quick load still
+   shows nothing. */
+.loading-reveal { animation: loading-reveal var(--motion-fast) both; animation-delay: 150ms; }
+@keyframes loading-reveal { from { opacity: 0; } }
+
+/* A skeleton's sheen: a band crossing it as a transform, so it costs no
+   repaint. `--loading-sheen-surface` is the surface the skeleton sits on. */
+:where(.loading-sheen) { position: relative; }
+.loading-sheen { overflow: hidden; }
+.loading-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--loading-sheen-surface, var(--surface-panel-raised)) 80%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: loading-sheen 1.6s ease-in-out infinite;
+}
+@keyframes loading-sheen { to { transform: translateX(100%); } }
+
+.loading-announcement { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

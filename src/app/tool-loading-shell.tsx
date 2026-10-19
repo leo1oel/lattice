@@ -11,9 +11,10 @@
  * which would then hold the tool back until 300 ms after it, however soon the
  * chunk arrived.
  */
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { PendingModalCard } from "../components/ui/modal-dialog";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 
@@ -74,18 +75,4 @@ export function SettingsLoadingShell({ label, message, backdrop, returnFocus, on
     </>,
     document.body,
   );
-}
-
-/**
- * The shell's message, in a polite live region outside its busy part.
- * The region is in the page a frame before its text: one that arrives
- * already holding it is not reliably announced.
- */
-export function LoadingAnnouncement({ message }: { message: string }) {
-  const [said, setSaid] = useState("");
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setSaid(message));
-    return () => window.cancelAnimationFrame(frame);
-  }, [message]);
-  return <p className="tool-loading-shell-message" role="status" aria-live="polite">{said}</p>;
 }

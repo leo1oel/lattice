@@ -7,7 +7,7 @@
  * sign-in window, loading, empty, error, downloading) carries plain-language
  * guidance about what is happening and what to do next.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, CloudAlert, CloudOff, FileText, Link2, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -36,6 +36,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { notifyError, notifyInfo, notifySuccess } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
+import { ProjectControlsSkeleton, ProjectSkeleton } from "./overleaf-project-skeleton";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
 
@@ -197,20 +198,6 @@ function Glyph(props: { tone?: "accent" | "success" | "warning" | "danger" | "ne
     <span className="overleaf-glyph" data-tone={props.tone ?? "accent"} data-size={props.size ?? "compact"} aria-hidden="true">
       {props.children}
     </span>
-  );
-}
-
-/** Placeholder rows shaped like the project list while it loads. */
-function ProjectSkeleton() {
-  return (
-    <ul className="overleaf-skeleton" aria-hidden="true">
-      {[62, 44, 70, 52, 38].map((width, index) => (
-        <li key={index} style={{ "--overleaf-skeleton-width": `${width}%` } as CSSProperties}>
-          <span className="overleaf-skeleton-tile" />
-          <span className="overleaf-skeleton-lines"><span /><span /></span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -704,17 +691,16 @@ Files that differ are kept side by side. Nothing is overwritten`,
           {project.lastUpdated ? t`updated ${relativeTime(project.lastUpdated)}` : t`last update unknown`}
         </span>
       </button>
-      {selected === project.id && (cloning?.id === project.id
-        ? <InfinityLoader className="overleaf-row-spinner" size={15} />
-        : (
-          <MotionButton
-            className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
-            disabled={working}
-            onClick={() => void clone(project)}
-          >
-            {t`Open`}
-          </MotionButton>
-        ))}
+      {/* A download in progress is said once, by the progress line under the list. */}
+      {selected === project.id && cloning?.id !== project.id && (
+        <MotionButton
+          className={buttonClassName({ variant: "tinted", size: "compact", className: "overleaf-open-button" })}
+          disabled={working}
+          onClick={() => void clone(project)}
+        >
+          {t`Open`}
+        </MotionButton>
+      )}
     </li>
   );
 
@@ -741,10 +727,10 @@ Files that differ are kept side by side. Nothing is overwritten`,
       <div className="overleaf-picker-body">
         {transferError && <InlineMessage level="error" className="overleaf-transfer-error">{transferError}</InlineMessage>}
         {statusLoading && !statusError && (
-          <div className="overleaf-stage">
-            <Progress className="overleaf-stage-caption" text={t`Checking your Overleaf connection…`} />
-            <ProjectSkeleton />
-          </div>
+          <>
+            <ProjectControlsSkeleton />
+            <div className="overleaf-stage"><ProjectSkeleton message={t`Checking your Overleaf connection…`} /></div>
+          </>
         )}
         {statusError && (
           <div className="overleaf-stage">
@@ -799,10 +785,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </StageMessage>
               )}
               {!projectsError && projects === null && (
-                <>
-                  <Progress className="overleaf-stage-caption" text={t`Loading your Overleaf projects…`} />
-                  <ProjectSkeleton />
-                </>
+                <ProjectSkeleton message={t`Loading your Overleaf projects…`} />
               )}
               {!projectsError && projects !== null && visible.length === 0 && (
                 <StageMessage glyph={projects.length === 0 ? <FileText size={20} /> : <SearchX size={20} />} tone="neutral">

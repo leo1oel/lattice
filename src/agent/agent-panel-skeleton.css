@@ -1,0 +1,55 @@
+/* The agent panel's placeholder (agent-panel-skeleton.tsx). Every box sits
+   where the rendered embed puts its own, measured in a new thread: the 28px
+   header row, the suggestions (36px rows 6px apart, or 58px rows 8px apart
+   once the panel is wide enough for their descriptions) centred a little
+   below the middle of the room between header and composer, the 43px
+   composer and the model button under it. The odd sizes are the embed's,
+   not the scale's. */
+.agent-skeleton {
+  --loading-sheen-surface: var(--surface-sidebar);
+  position: absolute;
+  inset: 0;
+  container: agent-skeleton / inline-size;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-6) var(--space-3);
+  background: var(--surface-sidebar);
+}
+.agent-skeleton span { display: block; flex: none; height: var(--space-4); border-radius: var(--radius-pill); background: var(--border-subtle); }
+.agent-skeleton [data-end] { margin-left: auto; }
+
+.agent-skeleton-header { display: flex; align-items: center; gap: var(--space-4); height: var(--control-height-compact); }
+.agent-skeleton .agent-skeleton-thread { width: 71px; height: var(--space-5); margin-left: var(--space-4); background: var(--border-strong); }
+.agent-skeleton .agent-skeleton-chip { width: 65px; height: var(--control-height-compact); border-radius: var(--radius-control); }
+.agent-skeleton .agent-skeleton-square { width: var(--control-height-compact); height: var(--control-height-compact); border-radius: var(--radius-control); }
+
+.agent-skeleton-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--space-3); padding: 13px var(--space-2) 0; }
+.agent-skeleton-body[data-hidden] { visibility: hidden; }
+.agent-skeleton .agent-skeleton-heading { width: 72%; height: 14px; margin-block: var(--space-3); background: var(--border-strong); }
+.agent-skeleton .agent-skeleton-description { height: auto; display: grid; gap: var(--space-5); padding-block: 5px; margin-bottom: var(--space-3); background: none; }
+.agent-skeleton .agent-skeleton-description > span:first-child { width: 92%; }
+.agent-skeleton .agent-skeleton-description > span:last-child { width: 48%; }
+.agent-skeleton-suggestion { display: flex; align-items: center; gap: var(--space-5); height: 36px; padding: 0 var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.agent-skeleton .agent-skeleton-tile { width: var(--space-12); height: var(--space-12); border-radius: var(--radius-control); }
+.agent-skeleton .agent-skeleton-lines { flex: 1; height: auto; display: grid; gap: var(--space-5); background: none; }
+.agent-skeleton .agent-skeleton-lines > span:last-child { display: none; width: 72%; height: var(--space-3); }
+
+.agent-skeleton-composer { display: flex; align-items: center; gap: var(--space-4); height: 43px; flex: none; padding: 0 var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); }
+.agent-skeleton .agent-skeleton-round { width: var(--control-height-compact); height: var(--control-height-compact); border-radius: var(--radius-pill); }
+.agent-skeleton .agent-skeleton-placeholder { width: 44%; }
+.agent-skeleton .agent-skeleton-model { width: 60px; margin: 18px var(--space-10) 12px auto; }
+
+@container agent-skeleton (min-width: 330px) {
+  .agent-skeleton-body { gap: var(--space-4); }
+  .agent-skeleton .agent-skeleton-heading { margin-bottom: var(--space-2); }
+  .agent-skeleton .agent-skeleton-description { padding-block: 5px; margin-bottom: var(--space-4); }
+  .agent-skeleton .agent-skeleton-description > span:last-child { display: none; }
+  .agent-skeleton-suggestion { height: 58px; padding-inline: var(--space-4); gap: var(--space-4); }
+  .agent-skeleton .agent-skeleton-tile { width: var(--space-16); height: var(--space-16); }
+  .agent-skeleton .agent-skeleton-lines > span:last-child { display: block; }
+}
+
+/* A stall's note (synara-loading-surface.tsx) stands over the skeleton, in the
+   room between the header and the composer that the suggestions held. */
+.synara-loading-surface[data-shape="thread"] { align-items: stretch; overflow: hidden; padding: 48px var(--space-6) 96px; text-align: start; }
+.synara-loading-surface[data-shape="thread"] > .synara-slow { position: relative; }

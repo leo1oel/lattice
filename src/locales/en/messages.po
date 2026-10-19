@@ -7222,8 +7222,7 @@ msgstr "Loading Overleaf collaboration…"
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
 
-#: src/canvas/canvas-lazy-editors.tsx
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Loading PDF…"
 msgstr "Loading PDF…"
 
@@ -9002,10 +9001,9 @@ msgstr "OpenAlex search"
 msgid "Opened {opened}"
 msgstr "Opened {opened}"
 
-#. placeholder {0}: documents.opening
-#: src/App.tsx
-msgid "Opening {0}…"
-msgstr "Opening {0}…"
+#: src/app/opening-overlay.tsx
+msgid "Opening {name}…"
+msgstr "Opening {name}…"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Opening project…"
@@ -10431,7 +10429,7 @@ msgstr "Rendering changes…"
 msgid "Rendering diff…"
 msgstr "Rendering diff…"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Rendering first page…"
 msgstr "Rendering first page…"
 
@@ -13852,7 +13850,7 @@ msgstr "Updates every \\ref to it"
 msgid "Updates the .bib entry and every \\cite"
 msgstr "Updates the .bib entry and every \\cite"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-loading.tsx
 msgid "Updating…"
 msgstr "Updating…"
 

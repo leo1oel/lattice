@@ -931,7 +931,6 @@ describe("papers", () => {
     await viewOriginal();
     await expectInvoked("paper_pdf_preview_url", { url: firstUrl });
     expect(screen.getByRole("status")).toHaveTextContent("Loading PDF…");
-    expect(screen.getByRole("status")).toHaveClass("pdf-loading");
     expect(getDocument).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "mirros.ai, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));

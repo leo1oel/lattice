@@ -11,8 +11,8 @@
  * view's frame stays mounted once visited, under the selected one, and
  * switching back to it is a visibility change.
  *
- * Until the selected frame has rendered, a Git-shaped skeleton with a polite
- * status covers it, from the click on: the runtime starting, the frame's
+ * Until the selected frame has rendered, a Git-shaped skeleton (with a polite
+ * status for assistive technology) covers it, from the click on: the runtime starting, the frame's
  * document loading, and the client booting would otherwise be a blank panel
  * for up to a second or more. The frame says it has rendered by posting
  * `synara:embed-ready` (Synara's `docs/lattice-git-embed.md`), after which its
@@ -22,12 +22,12 @@
  */
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { CircleAlert, GitBranch, Search, Sparkles } from "lucide-react";
-import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
+import { CircleAlert } from "lucide-react";
+import { ReloadButton } from "../components/ui/activity-icons";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import type { AgentGitWorkspaceView, SynaraRuntimeInfo } from "../agent/synara-runtime";
 import { synaraSourceControlUrl, synaraTurnReviewUrl, type AgentTurnReview, type SynaraFrameContext } from "./app-synara-embed";
-import { LoadingAnnouncement } from "./tool-loading-shell";
+import { GitWorkspaceSkeleton } from "./git-workspace-skeleton";
 
 export type GitWorkspaceFrameKey = AgentGitWorkspaceView | "agent-turn";
 
@@ -171,69 +171,4 @@ export function GitWorkspaceFrames({ frame, view, turnReview, runtime, onRetryRu
 /** The update recording that the frame of `key` has rendered `src`. */
 function markReady(key: GitWorkspaceFrameKey, src: string) {
   return (current: Partial<Record<GitWorkspaceFrameKey, string>>) => (current[key] === src ? current : { ...current, [key]: src });
-}
-
-/** Row widths (%) for the skeleton's file names, varied so they read as paths. */
-const STAGED_ROWS = [46];
-const CHANGED_ROWS = [34, 52, 41, 60, 28, 47];
-const PULL_REQUEST_ROWS = [64, 48, 72, 56];
-
-/**
- * A placeholder shaped like the view it stands for, so the hand-off to the
- * view's own skeleton rows does not jump: the branch line, the commit
- * composer and two sections of file rows for Changes, the search and a
- * group of rows for Pull requests. Its icons are the controls' own, drawn at once rather than
- * after the view's data arrives. A sheen crosses it as a transform, so it
- * costs no repaint.
- */
-function GitWorkspaceSkeleton({ view, message }: {
-  view: GitWorkspaceFrameKey;
-  /** What the status says; null once the view has rendered and the shell is fading. */
-  message: string | null;
-}) {
-  return (
-    <>
-      <div className="git-workspace-skeleton" aria-hidden="true">
-        {view === "pull-requests" ? (
-          <>
-            <div className="git-workspace-skeleton-control"><Search size={14} /><span style={{ width: "48%" }} /></div>
-            <ul className="git-workspace-skeleton-rows"><li className="git-workspace-skeleton-section"><span style={{ width: "26%" }} /></li></ul>
-            <ul className="git-workspace-skeleton-rows git-workspace-skeleton-cards">
-              {PULL_REQUEST_ROWS.map((width, index) => (
-                <li key={index}><span className="git-workspace-skeleton-tile" /><span className="git-workspace-skeleton-lines"><span style={{ width: `${width}%` }} /><span style={{ width: `${width * 0.55}%` }} /></span></li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <>
-            {view === "changes" ? (
-              <>
-                <div className="git-workspace-skeleton-branchline"><GitBranch size={14} /><span style={{ width: "18%" }} /><span style={{ width: "16%" }} /></div>
-                <div className="git-workspace-skeleton-composer"><div className="git-workspace-skeleton-composer-line"><span style={{ width: "62%" }} /><Sparkles size={13} /></div><span style={{ width: "38%" }} /><span className="git-workspace-skeleton-button" /></div>
-              </>
-            ) : (
-              <div className="git-workspace-skeleton-control"><GitBranch size={14} /><span style={{ width: "22%" }} /></div>
-            )}
-            {[STAGED_ROWS, CHANGED_ROWS].map((rows, section) => (
-              <ul key={section} className="git-workspace-skeleton-rows">
-                <li className="git-workspace-skeleton-section"><span style={{ width: section ? "18%" : "14%" }} /></li>
-                {rows.map((width, index) => (
-                  <li key={index}><span className="git-workspace-skeleton-icon" /><span style={{ width: `${width}%` }} /><span className="git-workspace-skeleton-stat" /></li>
-                ))}
-              </ul>
-            ))}
-          </>
-        )}
-      </div>
-      {message !== null && (
-        <>
-          <div className="git-workspace-loading" aria-busy="true">
-            <InfinityLoader size={14} />
-            <span aria-hidden="true">{message}</span>
-          </div>
-          <LoadingAnnouncement message={message} />
-        </>
-      )}
-    </>
-  );
 }
