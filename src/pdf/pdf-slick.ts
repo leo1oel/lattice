@@ -37,7 +37,7 @@ export type ViewerRecord = {
 type PdfSlickPageView = {
   div?: HTMLDivElement;
   textLayer?: { div?: HTMLDivElement };
-  viewport?: { scale?: number };
+  viewport?: { scale?: number; width?: number; height?: number };
 };
 
 export function pdfPageView(slick: PDFSlick, page: number) {

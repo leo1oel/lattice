@@ -47,6 +47,8 @@ const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
 const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
 const SUBMISSION_TEMPLATES_KEY = "lattice.submission-templates.v1";
+/** Projects (by root) whose LuaLaTeX live preview is on; off unless turned on. */
+const LIVE_PREVIEW_KEY = "lattice.live-preview.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
@@ -299,6 +301,28 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     bibMode: oneOf(candidate.bibMode, DOCUMENT_MODES, "source"),
     paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),
   };
+}
+
+/** Whether the writer turned on the rtex live preview for the project at `root`. */
+export function loadLivePreviewEnabled(root: string): boolean {
+  return safely(() => readProjectMap(LIVE_PREVIEW_KEY)[root] === true, false);
+}
+
+export function persistLivePreviewEnabled(root: string, enabled: boolean) {
+  if (!root) return;
+  safely(() => {
+    const map = readProjectMap(LIVE_PREVIEW_KEY);
+    if (enabled) writeProjectEntry(LIVE_PREVIEW_KEY, root, true, map);
+    else {
+      delete map[root];
+      localStorage.setItem(LIVE_PREVIEW_KEY, JSON.stringify(map));
+    }
+  }, undefined);
+}
+
+/** Turn the live preview off in every project: rtex was removed. */
+export function clearLivePreviewEnabled() {
+  safely(() => localStorage.removeItem(LIVE_PREVIEW_KEY), undefined);
 }
 
 /** The complete editor workspace last used in a project. */

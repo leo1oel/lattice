@@ -67,18 +67,25 @@ pub async fn live_preview_stop(
     Ok(())
 }
 
-/// Send rtex one command line (edit, set_document, request_layout, status or
-/// spans). Lines reach rtex in the order the window sends them.
+/// Send rtex command lines (edit, set_document, request_layout, status or
+/// spans), in order. The window sends its next batch only once this one is
+/// written, so lines reach rtex in the order they were made.
 #[tauri::command]
 pub async fn live_preview_send(
-    state: State<'_, AppState>, window: Window, project_root: String, session: u64, command: String,
+    state: State<'_, AppState>, window: Window, project_root: String, session: u64,
+    commands: Vec<String>,
 ) -> Result<(), String> {
     let root = pinned_root(&state, &window, &project_root, "the live preview could update")?;
-    let line = live_preview::allowed_command(&command)?;
+    let lines = commands
+        .iter()
+        .map(|command| live_preview::allowed_command(command))
+        .collect::<Result<Vec<_>, _>>()?;
     let project = state.project(&root);
     let mut slot = project.live_preview.lock().unwrap_or_else(PoisonError::into_inner);
     match slot.as_mut() {
-        Some(running) if running.id() == session => running.send(&line),
+        Some(running) if running.id() == session => {
+            lines.iter().try_for_each(|line| running.send(line))
+        }
         _ => Err("The live preview has stopped.".into()),
     }
 }

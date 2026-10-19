@@ -39,6 +39,8 @@ import { SettingsSearch } from "./settings-search";
 import { settingsEntryKey, useSettingsSearchIndex, type SettingsSearchEntry } from "./settings-search-index";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { AppLogsSettings } from "../telemetry/app-log";
+import { LivePreviewSettings } from "../live-preview/live-preview-settings";
+import type { LivePreview } from "../live-preview/use-live-preview";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
 
 /** The Settings tabs that embed a Synara settings page, and which one. */
@@ -77,6 +79,8 @@ export type SettingsDialogProps = DoctorSettingsProps & {
   hasProject: boolean;
   project: ProjectSnapshot | null;
   onUpdateManifest: (patch: { engine?: string | null; trusted?: boolean | null; spellingWords?: string[] | null }) => void;
+  /** The LuaLaTeX live preview: its switch shows for a LuaLaTeX project. */
+  livePreview?: LivePreview;
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
@@ -136,7 +140,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const [projectWordDraft, setProjectWordDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const searchEntries = useSettingsSearchIndex(Boolean(props.project), props.knownAuthorName);
+  const searchEntries = useSettingsSearchIndex(Boolean(props.project), props.knownAuthorName, props.livePreview?.available);
   /** The row a search result asked for, revealed once its page has rendered. */
   // A fresh object per opening, so opening the same row again reveals it again.
   const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(() => (props.reveal ? { entry: props.reveal } : null));
@@ -581,6 +585,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
               checked={props.project.manifest.trusted}
               onChange={(trusted) => props.onUpdateManifest({ trusted })}
             />
+            {props.livePreview && <LivePreviewSettings livePreview={props.livePreview} />}
           </>
         )}
       </SettingsGroup>

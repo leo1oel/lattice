@@ -19,6 +19,7 @@ import { clearTimer, restartTimer, subscribeTauriEvent, useRefState } from "./ef
 import { listenInThisWindow } from "./window-events";
 import { showError, showNotice } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
+import type { LivePreviewBuildHooks } from "../live-preview/use-live-preview";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 
 type BuildOptions = {
@@ -168,7 +169,7 @@ async function cleanAuxiliaryFiles(setCleaning: (cleaning: boolean) => void): Pr
 export function useBuildPipeline({
   project, projectRef, setProject, projectGenerationRef,
   activeFileRef, sourceRef, savedSourceRef,
-  agent, openDiagnosticRef, onMissingTex,
+  agent, openDiagnosticRef, onMissingTex, livePreview,
 }: {
   project: ProjectSnapshot | null;
   projectRef: Ref<ProjectSnapshot | null>;
@@ -183,6 +184,11 @@ export function useBuildPipeline({
   };
   openDiagnosticRef: Ref<(diagnostic: CompileDiagnostic) => Promise<void>>;
   onMissingTex: () => void;
+  /**
+   * The LuaLaTeX live preview while it runs: told what each build compiled,
+   * so it stops painting edits once the PDF on screen holds them.
+   */
+  livePreview?: Ref<LivePreviewBuildHooks | null>;
 }) {
   const { t } = useLingui();
   const [build, setBuild] = useState<BuildResult | null>(null);
@@ -208,6 +214,8 @@ export function useBuildPipeline({
   const previewTimerRef = useRef<number | null>(null);
   /** Stable preview payload — debounced so automatic rebuilds do not thrash pdf.js. */
   const pendingPreviewRef = useRef<ArrayBuffer | null>(null);
+  /** The live preview's name for the files the pending payload was built from. */
+  const pendingLiveTokenRef = useRef<number | null>(null);
   /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
   const previewGenerationRef = useRef(0);
 
@@ -231,12 +239,13 @@ export function useBuildPipeline({
   /** A project input changed through the app; `paths` are the files it wrote. */
   const markInputsChanged = useCallback((paths: readonly string[] = []) => {
     inputRevisionRef.current += 1;
+    livePreview?.current?.noteSaved();
     const now = Date.now();
     for (const path of paths) {
       const file = normalizeProjectRelativePath(path);
       if (file) ownWritesRef.current.set(file, now);
     }
-  }, []);
+  }, [livePreview]);
 
   // Everything else that changes an input — the agent, an Overleaf pull, a
   // rename in the tree, another editor — reaches the project through the
@@ -273,25 +282,32 @@ export function useBuildPipeline({
     return nextUrl;
   }), []);
 
-  const showPreview = useCallback((bytes: ArrayBuffer, previewGeneration: number, immediate: boolean) => {
+  const showPreview = useCallback((bytes: ArrayBuffer, previewGeneration: number, immediate: boolean, liveToken: number | null) => {
     // LaTeX rewrites PDF metadata on every compile, so bytes almost always
     // change. Debounce preview updates for autosave compiles so pdf.js is
     // not destroyed mid-load on every keystroke pause.
     pendingPreviewRef.current = bytes;
+    pendingLiveTokenRef.current = liveToken;
     clearTimer(previewTimerRef);
     const applyPreview = () => {
       const pending = pendingPreviewRef.current;
       if (previewGeneration !== previewGenerationRef.current || !pending) return;
       const fingerprint = pdfBytesFingerprint(pending);
       pendingPreviewRef.current = null;
-      if (fingerprint === pdfFingerprintRef.current) return;
+      const liveToken = pendingLiveTokenRef.current;
+      // The same pages as on screen: they hold what this build compiled now.
+      if (fingerprint === pdfFingerprintRef.current) {
+        livePreview?.current?.baseShown(liveToken);
+        return;
+      }
       pdfFingerprintRef.current = fingerprint;
       displayedPdfBytesRef.current = pending;
+      livePreview?.current?.baseLoading(liveToken);
       replacePdfUrl(pdfBytesToObjectUrl(pending));
     };
     if (immediate) applyPreview();
     else restartTimer(previewTimerRef, 1_200, applyPreview);
-  }, [replacePdfUrl]);
+  }, [livePreview, replacePdfUrl]);
 
   /**
    * Drop the outgoing project's build and preview, invalidating any in-flight
@@ -435,6 +451,7 @@ export function useBuildPipeline({
         // leaves the pass's PDF behind it, as it should.
         const revisionAtBuild = inputRevisionRef.current;
         running.revision = revisionAtBuild;
+        const liveTokenAtBuild = livePreview?.current?.buildStarted() ?? null;
         const sourceAtBuild = sourceRef.current;
         const fileAtBuild = activeFileRef.current;
         // The open file rides along so the backend can re-target the build on
@@ -526,7 +543,7 @@ export function useBuildPipeline({
         // The debounce exists so a slow pdf.js load is not torn down by the
         // next rebuild while someone is still typing. Once they have stopped —
         // the buffer matches what is on disk — waiting is just the PDF lagging.
-        if (pdfBytes) showPreview(pdfBytes, previewGeneration, immediatePreview || sourceRef.current === savedSourceRef.current);
+        if (pdfBytes) showPreview(pdfBytes, previewGeneration, immediatePreview || sourceRef.current === savedSourceRef.current, liveTokenAtBuild);
         if (!result.success) {
           const firstError = result.diagnostics.find((item) => missingTexDependencyFile(item.message))
             ?? result.diagnostics.find((item) => item.level === "error")
@@ -587,8 +604,8 @@ export function useBuildPipeline({
       }
     }
   }, [
-    activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef, reportCompiles,
-    savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
+    activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
+    reportCompiles, savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
 
   /**

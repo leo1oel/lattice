@@ -69,17 +69,20 @@ import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
 import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./project-pdf";
-import { pdfSource, usePdfDocument } from "./use-pdf-document";
+import { pdfSource, usePdfDocument, type PdfRenderCount } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useCompositionGuard } from "../project/use-composition-guard";
-import { usePdfLocationHistory, usePdfViewState, type PdfViewerCallbacks } from "./use-pdf-view";
+import { usePdfLocationHistory, usePdfViewState, type ActiveViewerRef, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
 import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
 
 export type { PdfAnnotationMark, PdfSourceQuote, PdfSyncTarget, PdfTextSelection };
+
+/** What a `pageLayer` draws on: the viewer on screen, renewed with each new document, and its page draws. */
+export type PdfPageLayerProps = { recordRef: ActiveViewerRef; generation: number; renderCount: PdfRenderCount };
 
 // Keep import expressions outside the component: React Compiler cannot lower them.
 const PdfAnnotationLayer = lazy(() => import("./pdf-annotations"));
@@ -369,6 +372,8 @@ export function PdfPreview({
   onOpenCitation,
   annotations,
   annotationRounds,
+  pageLayer,
+  status,
   ...callbackProps
 }: PdfCitationProps & PdfViewerCallbacks & {
   url: string | null;
@@ -405,6 +410,10 @@ export function PdfPreview({
   annotations?: readonly EditorComment[];
   /** Annotating the PDF: the Annotate offer on a selection, its note, and the marks' pins. */
   annotationRounds?: AnnotationRounds;
+  /** Drawn on the pages by its own layers, given the viewer on screen (the LuaLaTeX live preview). */
+  pageLayer?: (viewer: PdfPageLayerProps) => ReactNode;
+  /** A short status in the corner of the pages, such as the live preview's. */
+  status?: ReactNode;
 }) {
   const { t } = useLingui();
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -779,6 +788,8 @@ export function PdfPreview({
       <div className="pdf-scroll-area" onMouseUp={annotationRounds && !annotating ? () => setAnnotating(true) : undefined}>
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
+        {pageLayer && hasActiveViewer ? pageLayer({ recordRef, generation, renderCount: doc.renderCount }) : null}
+        {status}
         {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
         {pdfError && !hasActiveViewer
           ? (

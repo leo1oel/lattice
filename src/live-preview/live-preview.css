@@ -1,0 +1,18 @@
+/* The live preview's status pill (live-preview-status.tsx), at the bottom left
+   of the PDF's pages, clear of the centered loader and notices. */
+.live-preview-status-host { position: absolute; left: var(--space-6); bottom: var(--space-6); z-index: 10; max-width: calc(100% - var(--space-12)); pointer-events: none; }
+.live-preview-status { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--space-3); max-width: 100%; min-height: var(--control-height-compact); box-sizing: border-box; margin: 0; padding: var(--space-1) var(--space-5); border: 0; border-radius: var(--radius-pill); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); font: inherit; font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--type-micro-weight); white-space: nowrap; }
+.live-preview-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+button.live-preview-status { cursor: pointer; color: var(--text-primary); }
+button.live-preview-status:hover { background: var(--toolbar-hover-surface); }
+.live-preview-status-dot { flex: none; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-pill); background: var(--text-tertiary); }
+.live-preview-status[data-tone="live"] .live-preview-status-dot { background: var(--status-success); }
+.live-preview-status[data-tone="pending"] .live-preview-status-dot { background: var(--status-warning); }
+.live-preview-status[data-tone="stopped"] .live-preview-status-dot { background: var(--status-danger); }
+.live-preview-status[data-tone="busy"] .live-preview-status-dot { animation: live-preview-status-pulse var(--motion-flourish) ease-in-out infinite alternate; }
+@keyframes live-preview-status-pulse { from { opacity: 1; } to { opacity: 0.35; } }
+.live-preview-status-tip { display: block; max-width: calc(var(--space-16) * 9); white-space: pre-line; }
+
+/* A page the live preview draws on (live-preview-layer.tsx): over pdf.js's
+   canvas, under its text layer, and never in the way of the pointer. */
+.pdf-preview .pdfViewer .page > canvas.live-preview-page-layer { position: absolute; top: 0; left: 0; pointer-events: none; }
