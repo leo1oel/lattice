@@ -8,7 +8,7 @@ import {
 } from "../editor/markdown/markdown-source-format";
 
 /** A Markdown source toolbar edit: an inline format to toggle or a block type to set. */
-export type MarkdownSourceEdit = { format: MarkdownInlineFormat } | { block: MarkdownBlockType };
+type MarkdownSourceEdit = { format: MarkdownInlineFormat } | { block: MarkdownBlockType };
 
 /** What the source editor's selection toolbars ask of the selection. */
 export type SourceSelectionAction = LatexSelectionAction | MarkdownSourceEdit;
