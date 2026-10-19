@@ -8,78 +8,52 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { useLayoutEffect, useState, type ReactNode } from "react";
-import type { MessageDescriptor } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
+import { useLayoutEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { CellSelection } from "@tiptap/pm/tables";
 import { useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import {
-  Bold, Check, ChevronDown, Code, FileCode, Highlighter, Italic, Link, MessageSquarePlus, Radical, Strikethrough, Superscript, Underline,
-} from "lucide-react";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "../../../../components/ui/dropdown-menu";
+import { FileCode, Link, MessageSquarePlus, Radical, Superscript } from "lucide-react";
+import type { MarkdownBlockType } from "../../markdown-source-format";
 import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { requestLinkEditor } from "./link-chrome";
 import { requestComment } from "./review-chrome";
 import { insertFootnote } from "./slash-items";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
+import { BlockTypeMenu, ToolbarButton, ToolbarDivider } from "./selection-toolbar-parts";
+import { TOOLBAR_BLOCK_TYPES, TOOLBAR_MARKS } from "./selection-toolbar-items";
 
-type BlockType = {
-  id: string;
-  label: MessageDescriptor;
-  /** Separator before this entry. */
-  separated?: boolean;
-  active: (editor: Editor) => boolean;
-  apply: (editor: Editor) => void;
-};
+type BlockCommand = { active: (editor: Editor) => boolean; apply: (editor: Editor) => void };
 
-const heading = (level: 1 | 2 | 3 | 4 | 5 | 6, label: MessageDescriptor): BlockType => ({
-  id: `heading-${level}`,
-  label,
-  separated: level === 1,
+const heading = (level: 1 | 2 | 3 | 4 | 5 | 6): BlockCommand => ({
   active: (editor) => editor.isActive("heading", { level }),
   apply: (editor) => {
     editor.chain().focus().setNode("heading", { level }).run();
   },
 });
 
-/** The twelve block types, in three separated groups after Text (R-CHR-2). */
-const BLOCK_TYPES: readonly BlockType[] = [
-  {
-    id: "text",
-    label: msg`Text`,
+/** What each block type of the menu (selection-toolbar-parts.tsx) is in Tiptap (R-CHR-2). */
+const BLOCK_COMMANDS: Record<MarkdownBlockType, BlockCommand> = {
+  text: {
     active: (editor) => editor.isActive("paragraph") && !editor.isActive("bulletList") && !editor.isActive("orderedList") && !editor.isActive("taskList") && !editor.isActive("blockquote"),
     apply: (editor) => {
       editor.chain().focus().clearNodes().run();
     },
   },
-  heading(1, msg`Heading 1`),
-  heading(2, msg`Heading 2`),
-  heading(3, msg`Heading 3`),
-  heading(4, msg`Heading 4`),
-  heading(5, msg`Heading 5`),
-  heading(6, msg`Heading 6`),
-  { id: "bullet-list", label: msg`Bullet List`, separated: true, active: (editor) => editor.isActive("bulletList"), apply: (editor) => { editor.chain().focus().toggleBulletList().run(); } },
-  { id: "ordered-list", label: msg`Ordered List`, active: (editor) => editor.isActive("orderedList"), apply: (editor) => { editor.chain().focus().toggleOrderedList().run(); } },
-  { id: "task-list", label: msg`Task List`, active: (editor) => editor.isActive("taskList"), apply: (editor) => { editor.chain().focus().toggleTaskList().run(); } },
-  { id: "quote", label: msg`Quote`, separated: true, active: (editor) => editor.isActive("blockquote"), apply: (editor) => { editor.chain().focus().toggleBlockquote().run(); } },
-  { id: "code-block", label: msg`Code Block`, active: (editor) => editor.isActive("codeBlock"), apply: (editor) => { editor.chain().focus().setCodeBlock().run(); } },
-];
-
-/** The inline formats, with their marks. */
-const MARKS = [
-  { mark: "bold", label: msg`Bold`, icon: Bold },
-  { mark: "italic", label: msg`Italic`, icon: Italic },
-  { mark: "underline", label: msg`Underline`, icon: Underline },
-  { mark: "strike", label: msg`Strikethrough`, icon: Strikethrough },
-  { mark: "code", label: msg`Inline code`, icon: Code },
-  { mark: "highlight", label: msg`Highlight`, icon: Highlighter },
-] as const;
+  "heading-1": heading(1),
+  "heading-2": heading(2),
+  "heading-3": heading(3),
+  "heading-4": heading(4),
+  "heading-5": heading(5),
+  "heading-6": heading(6),
+  "bullet-list": { active: (editor) => editor.isActive("bulletList"), apply: (editor) => { editor.chain().focus().toggleBulletList().run(); } },
+  "ordered-list": { active: (editor) => editor.isActive("orderedList"), apply: (editor) => { editor.chain().focus().toggleOrderedList().run(); } },
+  "task-list": { active: (editor) => editor.isActive("taskList"), apply: (editor) => { editor.chain().focus().toggleTaskList().run(); } },
+  quote: { active: (editor) => editor.isActive("blockquote"), apply: (editor) => { editor.chain().focus().toggleBlockquote().run(); } },
+  "code-block": { active: (editor) => editor.isActive("codeBlock"), apply: (editor) => { editor.chain().focus().setCodeBlock().run(); } },
+};
 
 /** Replace the selection with an inline formula of its text (R-FMT-1). */
 function convertToMath(editor: Editor) {
@@ -132,12 +106,11 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => ({
-      marks: MARKS.map(({ mark }) => current.isActive(mark)),
-      block: BLOCK_TYPES.find((type) => type.active(current))?.id ?? "text",
+      marks: TOOLBAR_MARKS.map(({ mark }) => current.isActive(mark)),
+      block: TOOLBAR_BLOCK_TYPES.find((type) => BLOCK_COMMANDS[type.id].active(current))?.id ?? "text",
       link: current.isActive("link"),
     }),
   });
-  const block = BLOCK_TYPES.find((type) => type.id === state.block) ?? BLOCK_TYPES[0]!;
   // The toolbar floats in a layer of its own (outside the scrolling article so
   // it is never clipped). The menu decides it lost focus by whether focus left
   // that layer, so the block type menu mounts inside it too.
@@ -164,28 +137,14 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
       options={{ placement: "top", offset: 8, flip: true }}
       data-side="top"
     >
-      {editable && <><DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button type="button" className="lx-md-toolbar-block" aria-label={t`Block type`} onMouseDown={(event) => event.preventDefault()}>
-            <span>{i18n._(block.label)}</span>
-            <ChevronDown aria-hidden="true" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent container={layer} align="start" onCloseAutoFocus={(event) => event.preventDefault()}>
-          {BLOCK_TYPES.map((type) => (
-            <BlockTypeItem key={type.id} separated={type.separated} active={type.id === block.id} onSelect={() => type.apply(editor)}>
-              {i18n._(type.label)}
-            </BlockTypeItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <span className="lx-md-toolbar-divider" aria-hidden="true" />
-      {MARKS.map(({ mark, label, icon: Icon }, index) => (
+      {editable && <><BlockTypeMenu active={state.block} container={layer} onSelect={(type) => BLOCK_COMMANDS[type].apply(editor)} />
+      <ToolbarDivider />
+      {TOOLBAR_MARKS.map(({ mark, label, icon: Icon }, index) => (
         <ToolbarButton key={mark} label={i18n._(label)} pressed={state.marks[index]} onPress={() => editor.chain().focus().toggleMark(mark).run()}>
           <Icon aria-hidden="true" />
         </ToolbarButton>
       ))}
-      <span className="lx-md-toolbar-divider" aria-hidden="true" />
+      <ToolbarDivider />
       <ToolbarButton label={t`Insert link`} pressed={state.link} onPress={() => requestLinkEditor(editor, host)}>
         <Link aria-hidden="true" />
       </ToolbarButton>
@@ -195,7 +154,7 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
       <ToolbarButton label={t`Convert selection to inline math`} onPress={() => convertToMath(editor)}>
         <Radical aria-hidden="true" />
       </ToolbarButton></>}
-      {editable && (onCreateComment || onViewInSource) && <span className="lx-md-toolbar-divider" aria-hidden="true" />}
+      {editable && (onCreateComment || onViewInSource) && <ToolbarDivider />}
       {onCreateComment && (
         <ToolbarButton label={t`Comment`} onPress={() => requestComment(host)}>
           <MessageSquarePlus aria-hidden="true" />
@@ -207,26 +166,5 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
         </ToolbarButton>
       )}
     </BubbleMenu>
-  );
-}
-
-/** A toolbar action; pressing it never takes focus or the selection from the editor. */
-function ToolbarButton({ label, pressed, onPress, children }: { label: string; pressed?: boolean; onPress: () => void; children: ReactNode }) {
-  return (
-    <button type="button" className="lx-md-toolbar-button" aria-label={label} title={label} aria-pressed={pressed} onMouseDown={(event) => event.preventDefault()} onClick={onPress}>
-      {children}
-    </button>
-  );
-}
-
-function BlockTypeItem({ separated, active, onSelect, children }: { separated?: boolean; active: boolean; onSelect: () => void; children: ReactNode }) {
-  return (
-    <>
-      {separated && <DropdownMenuSeparator />}
-      <DropdownMenuItem data-active={active || undefined} onSelect={onSelect}>
-        <span className="lx-md-toolbar-check" aria-hidden="true">{active && <Check />}</span>
-        {children}
-      </DropdownMenuItem>
-    </>
   );
 }

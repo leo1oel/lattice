@@ -1,0 +1,55 @@
+/*
+ * The selection toolbar's look, shared by the visual editor's toolbar
+ * (selection-toolbar.tsx) and the Markdown source editor's
+ * (canvas/markdown-source-toolbar.tsx). Apart from lattice-visual-chrome.css,
+ * which loads with the visual editor: the source editor's toolbar shows
+ * without it.
+ */
+
+.lx-md-toolbar {
+  z-index: var(--z-selection-toolbar);
+  box-sizing: border-box;
+  border-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-primary);
+  font: var(--type-body-weight) var(--type-body-size) / var(--type-body-line-height) var(--ui-font);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-hairline);
+  padding: var(--space-1);
+}
+body:has(.modal-backdrop, .drawer-backdrop) .lx-md-toolbar { display: none; }
+.lx-md-toolbar-divider { width: 1px; height: var(--space-8); margin: 0 var(--space-1); background: var(--border-subtle); }
+.lx-md-toolbar-button,
+.lx-md-toolbar-block {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--control-size-icon);
+  min-width: var(--control-size-icon);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-icon);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+.lx-md-toolbar-block { padding: 0 var(--space-3) 0 var(--space-4); color: var(--text-primary); font-weight: var(--weight-medium); }
+.lx-md-toolbar-button:hover,
+.lx-md-toolbar-block:hover,
+.lx-md-toolbar-block[data-state="open"] { background: var(--control-hover-surface); color: var(--text-primary); }
+.lx-md-toolbar-button[aria-pressed="true"] { background: var(--toolbar-active-surface); color: var(--text-primary); }
+.lx-md-toolbar-button svg { width: 15px; height: 15px; stroke-width: 1.9; }
+.lx-md-toolbar-block svg { width: 12px; height: 12px; opacity: 0.7; }
+.lx-md-toolbar-check { display: inline-grid; width: 14px; place-items: center; }
+.lx-md-toolbar-check svg { width: 13px; height: 13px; }
+
+/* The source editor's toolbar sits in a placed anchor (editor-workspace.css's
+   .latex-selection-toolbar-anchor) as wide as its buttons, up to the editor's
+   width; a narrower editor wraps the buttons onto a second row. */
+.lx-md-toolbar-anchor { width: max-content; }
+.lx-md-toolbar.is-source { max-width: 100%; flex-wrap: wrap; pointer-events: auto; }

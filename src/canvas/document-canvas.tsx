@@ -8,19 +8,20 @@ import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
 import { takeResumed } from "../editor/parked-editors";
 import { closeCompletion } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
-import type { TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
 import { restoreViewportAround } from "./viewport-restore";
-import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
+import { wrapEnvironment } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
-import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
-import { selectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
-import { highlightAround, highlightOpening, latexHighlights, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
+import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES } from "../editor/latex/latex-selection-toolbar";
+import { selectionToolbarPlacement, type SelectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
+import { latexHighlights } from "../editor/latex/latex-highlights";
+import { applySourceSelectionEdit, editAndFocus, type SourceSelectionAction } from "./source-selection-edits";
+import { MarkdownSourceToolbar } from "./markdown-source-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
@@ -77,25 +78,7 @@ import { usePaperPdf } from "./use-paper-pdf";
 import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-split-layout";
 
 
-/** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
-
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "unhighlight">, (value?: string) => [string, string] | null> = {
-  bold: () => ["\\textbf{", "}"],
-  italic: () => ["\\textit{", "}"],
-  underline: () => ["\\underline{", "}"],
-  strikethrough: () => ["\\sout{", "}"],
-  highlight: (value) => [highlightOpening(value ?? ""), "}"],
-  heading: (value) => [`\\${value || "section"}{`, "}"],
-  quote: () => ["\\begin{quote}\n", "\n\\end{quote}"],
-  link: (value) => {
-    const url = value?.trim();
-    if (!url) return null;
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- percent-encodings
-    const safeUrl = url.replace(/\\/g, "%5C").replace(/\{/g, "%7B").replace(/\}/g, "%7D");
-    return [`\\href{${safeUrl}}{`, "}"];
-  },
-};
 
 type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
 
@@ -115,12 +98,6 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
   } catch {
     return null;
   }
-}
-
-/** Apply `spec` to `view`, scrolling the result into view, and hand the editor focus back. */
-function editAndFocus(view: EditorView, spec: TransactionSpec) {
-  view.dispatch({ ...spec, scrollIntoView: true });
-  view.focus();
 }
 
 /** How long a jump waits for its source view to be ready before landing as best it can. */
@@ -185,7 +162,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   // rebuild for them; current before the editor's own commit reads them.
   const latestRef = useCommittedRef(props);
   const [proofread] = useState(createProofreadBridge);
-  const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition; highlight: string | null } | null>(null);
+  const [selectionToolbar, setSelectionToolbar] = useState<SelectionToolbarPlacement | null>(null);
   const selectionToolbarOwnerRef = useRef<{ path: string; from: number; to: number } | null>(null);
   const dismissSelectionToolbar = useCallback(() => {
     selectionToolbarOwnerRef.current = null;
@@ -432,7 +409,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     else onRequestHandled(id);
   }, [onCommentFocusHandled, onRequestHandled, visualRevealRef]);
 
-  const applySelectionAction = useCallback((action: LatexSelectionAction, value?: string) => {
+  const applySelectionAction = useCallback((action: SourceSelectionAction, value?: string) => {
     const owner = selectionToolbarOwnerRef.current;
     if (!owner) return;
     const view = primaryViewRef.current;
@@ -461,28 +438,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       dismissSelectionToolbar();
       return;
     }
-    // Remove takes off the highlight around the selection; a colour chosen for
-    // a whole highlight recolours it rather than nesting another inside.
-    if (action === "highlight" || action === "unhighlight") {
-      const around = highlightAround(view.state.doc, range.from, range.to);
-      const whole = around && ((around.contentFrom === range.from && around.contentTo === range.to)
-        || (around.from === range.from && around.to === range.to));
-      const target = action === "unhighlight" || whole ? around : null;
-      if (target) {
-        const changes = view.state.changes(action === "unhighlight" ? removeHighlight(target) : [recolorHighlight(target, value ?? "")]);
-        editAndFocus(view, {
-          changes,
-          selection: { anchor: changes.mapPos(target.contentFrom, 1), head: changes.mapPos(target.contentTo, -1) },
-        });
-        updateSelectionToolbar(view, owner.path);
-        return;
-      }
-      if (action === "unhighlight") return;
-    }
-    const wrap = SELECTION_WRAPS[action](value);
-    if (!wrap) return;
-    const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
-    editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+    applySourceSelectionEdit(view, action, value);
     updateSelectionToolbar(view, owner.path);
   }, [activeFile, dismissSelectionToolbar, latestRef, openCommentComposer, primaryViewRef, proofread, props.document.editorEditable, updateSelectionToolbar]);
 
@@ -1250,7 +1206,15 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
         onClose={() => setFigureInsertPending(null)}
         onInsert={confirmFigureInsert}
       />
-      {selectionToolbar && selectedText.trim() && !commentComposer && (
+      {selectionToolbar && selectedText.trim() && !commentComposer && (selectionToolbar.format ? (
+        <MarkdownSourceToolbar
+          position={selectionToolbar.position}
+          format={selectionToolbar.format}
+          editable={props.document.editorEditable}
+          onAction={applySelectionAction}
+          onDismiss={dismissSelectionToolbar}
+        />
+      ) : (
         <LatexSelectionToolbar
           position={selectionToolbar.position}
           canComment
@@ -1258,11 +1222,11 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
           highlight={selectionToolbar.highlight}
           sample={selectedText}
           documentColors={documentColors}
-          commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.document.editorEditable}
+          commentOnly={!props.document.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}
         />
-      )}
+      ))}
     </div>
   );
   const preview = props.document.activeAsset ? assetPreview(props.document.activeAsset)

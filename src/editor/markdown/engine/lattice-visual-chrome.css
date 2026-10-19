@@ -9,7 +9,7 @@
 
 /* --- Floating surfaces -------------------------------------------------------- */
 
-:is(.lx-md-menu, .lx-md-toolbar, .lx-md-link-editor, .lx-md-link-card, .lx-md-emoji-picker, .lx-md-change-popover, .lx-md-comment-composer) {
+:is(.lx-md-menu, .lx-md-link-editor, .lx-md-link-card, .lx-md-emoji-picker, .lx-md-change-popover, .lx-md-comment-composer) {
   z-index: var(--z-editor-popover);
   box-sizing: border-box;
   border-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
@@ -100,43 +100,7 @@
 .lx-md-menu-preview-text { color: var(--text-secondary); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); }
 .lx-md-menu-empty { padding: var(--space-4) var(--space-6); color: var(--text-tertiary); }
 
-/* --- Selection toolbar -------------------------------------------------------- */
-
-.lx-md-toolbar {
-  z-index: var(--z-selection-toolbar);
-  display: flex;
-  align-items: center;
-  gap: var(--gap-hairline);
-  padding: var(--space-1);
-}
-body:has(.modal-backdrop, .drawer-backdrop) :is(.lx-md-toolbar, .lx-md-emoji-picker) { display: none; }
-.lx-md-toolbar-divider { width: 1px; height: var(--space-8); margin: 0 var(--space-1); background: var(--border-subtle); }
-.lx-md-toolbar-button,
-.lx-md-toolbar-block {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  height: var(--control-size-icon);
-  min-width: var(--control-size-icon);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-icon);
-  background: none;
-  color: var(--text-secondary);
-  font: inherit;
-  cursor: pointer;
-  transition: background-color var(--motion-fast), color var(--motion-fast);
-}
-.lx-md-toolbar-block { padding: 0 var(--space-3) 0 var(--space-4); color: var(--text-primary); font-weight: var(--weight-medium); }
-.lx-md-toolbar-button:hover,
-.lx-md-toolbar-block:hover,
-.lx-md-toolbar-block[data-state="open"] { background: var(--control-hover-surface); color: var(--text-primary); }
-.lx-md-toolbar-button[aria-pressed="true"] { background: var(--toolbar-active-surface); color: var(--text-primary); }
-.lx-md-toolbar-button svg { width: 15px; height: 15px; stroke-width: 1.9; }
-.lx-md-toolbar-block svg { width: 12px; height: 12px; opacity: 0.7; }
-.lx-md-toolbar-check { display: inline-grid; width: 14px; place-items: center; }
-.lx-md-toolbar-check svg { width: 13px; height: 13px; }
+body:has(.modal-backdrop, .drawer-backdrop) .lx-md-emoji-picker { display: none; }
 
 /* --- Links ------------------------------------------------------------------------ */
 
