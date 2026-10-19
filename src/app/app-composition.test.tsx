@@ -1567,12 +1567,12 @@ describe("project tree and projects", () => {
       expect(invokeCalls("write_project_file")).toHaveLength(1);
     });
 
-    describe("when the project changes while its save is pending", () => {
+    describe("when a project switch is asked for while its save is pending", () => {
       const NEXT_ROOT = "/tmp/next-project";
-      const storedLayout = () => localStorage.getItem(`lattice.trellis-layout.v1:${ROOT}`);
-      // Reset in the first project with an edit to save first, holding that
-      // save's answer, then switch to the next project in this window (the
-      // tutorial still does so) and put it in the Writing layout.
+      const storedLayout = () => JSON.parse(localStorage.getItem(`lattice.trellis-layout.v1:${ROOT}`) ?? "null") as { document: LayoutDocument } | null;
+      // Reset with an edit to save first, holding that save's answer, then ask
+      // for the next project in this window (the tutorial still does so). The
+      // switch's own save queues behind it, so the reset settles where asked.
       async function resetThenSwitch(written: Promise<void>) {
         persistLayoutWithoutAgent();
         let first = true;
@@ -1590,36 +1590,33 @@ describe("project tree and projects", () => {
         await resetLayout();
         await waitFor(() => expect(invokeCalls("write_project_file")).toHaveLength(1));
         await chooseProjectMenuItem("Guided tutorial");
+        await pause(100);
+        expect(invokeCalls("open_tutorial_project")).toHaveLength(0);
+      }
+      async function expectNextProject() {
         await expectInvoked("open_tutorial_project");
         await waitFor(() => expect(screen.getByRole("button", { name: "Switch project" })).toHaveTextContent("Next project"));
         await findEditorView();
-        await chooseLayoutPreset("Writing");
-        await waitFor(() => expect(writingLayout()).not.toBeNull());
-        // What the first project left saved, which its late reset must not clear.
-        const outgoing = storedLayout();
-        expect(outgoing).not.toBeNull();
-        return outgoing;
+        await pause(100);
+        expect(resetToast()).toBeUndefined();
       }
 
-      it("does not reset either project or offer Undo once the save lands", async () => {
+      it("resets the first project once the save lands, then switches", async () => {
         const written = deferred();
-        const outgoing = await resetThenSwitch(written.promise);
+        await resetThenSwitch(written.promise);
         await act(async () => { written.resolve(); });
-        await pause(100);
-        expect(resetToast()).toBeUndefined();
-        expect(writingLayout()).not.toBeNull();
-        expect(storedLayout()).toBe(outgoing);
+        await expectNextProject();
+        // The default layout, with the Agent the writer had closed.
+        expect(storedLayout()?.document.views.agent).toBeDefined();
       });
 
-      it("does not report the reset as failed in the next project when the save fails", async () => {
+      it("reports the failed reset in the first project, then switches", async () => {
         const written = deferred();
-        const outgoing = await resetThenSwitch(written.promise);
+        await resetThenSwitch(written.promise);
         await act(async () => { written.reject(new Error("disk full")); });
-        await pause(100);
-        expect(formatAppLogs()).not.toMatch(/the layout was not reset/);
-        expect(resetToast()).toBeUndefined();
-        expect(writingLayout()).not.toBeNull();
-        expect(storedLayout()).toBe(outgoing);
+        await expectNotification(/Save failed, so the layout was not reset/);
+        await expectNextProject();
+        expect(storedLayout()?.document.views.agent).toBeUndefined();
       });
     });
   });
