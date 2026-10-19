@@ -1166,10 +1166,10 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     const resetAfterSave = async (handle: WorkspaceHandle) => {
       const generation = resetGeneration.current;
       const saved = !controller.bridge || await controller.bridge.save();
-      // The save can outlast this workspace: a project switch (or the window
-      // closing) unmounts it and attaches the next project's. Its reset, or
-      // its failure, is no longer anything to clear, rearrange or announce
-      // there: the Undo it would offer could restore nothing.
+      // The save can outlast this workspace if the window closes (a project
+      // switch or another surface taking over saves first, waiting for it).
+      // Its reset, or failure, is then nothing to clear, rearrange or
+      // announce: the Undo it would offer could restore nothing.
       if (controller.ws !== handle || resetGeneration.current !== generation) return;
       if (!saved) {
         controller.bridge?.notify(resetFailed);

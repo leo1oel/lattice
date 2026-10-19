@@ -7,6 +7,7 @@ import { loadWorkspaceLayout, persistWorkspaceLayout, type WorkspaceLayout } fro
 import { useCanvasRequests } from "./use-canvas-requests";
 import { paperDocumentPath, useOpenDocuments, type OpenDocumentsDeps } from "./use-open-documents";
 import { useProjectState } from "./use-project-state";
+import { invokeCalls } from "../platform/tauri-test-mocks";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => {
@@ -41,15 +42,28 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/** Each line from whichever side changed it; the tests keep both sides' edits on separate lines. */
+/**
+ * Each line from whichever side changed it, and a line both sides changed
+ * differently behind conflict markers, as the backend's merge writes them.
+ * Line counts stay equal in these tests.
+ */
 function mergeLines(base: string, ours: string, theirs: string) {
   const [baseLines, ourLines, theirLines] = [base, ours, theirs].map((text) => text.split("\n"));
-  return theirLines.map((line, index) => (ourLines[index] !== baseLines[index] ? ourLines[index] : line)).join("\n");
+  let hadConflicts = false;
+  const content = theirLines.map((line, index) => {
+    const [mine, original] = [ourLines[index], baseLines[index]];
+    if (mine === original || mine === line) return line;
+    if (line === original) return mine;
+    hadConflicts = true;
+    return `<<<<<<< ours\n${mine}\n||||||| original\n${original}\n=======\n${line}\n>>>>>>> theirs`;
+  }).join("\n");
+  return { content, hadConflicts };
 }
 
 /**
  * The open documents of one project over an in-memory disk. `hold(command, path)` parks the next such call
- * until the test settles the returned deferred; everything else answers at once.
+ * until the test settles the returned deferred; everything else answers at once. With `"answer"`, the call
+ * does its work at once and only its answer is parked, as when a write reaches disk before the app hears so.
  */
 function renderDocuments(disk: Record<string, string>, {
   paths = Object.keys(disk), papers = [] as PaperSummary[], layout = null as WorkspaceLayout | null,
@@ -57,30 +71,37 @@ function renderDocuments(disk: Record<string, string>, {
 } = {}) {
   const files = new Map(Object.entries(disk));
   const mtimes = new Map<string, number>();
-  const held = new Map<string, ReturnType<typeof deferred<unknown>>>();
+  const held = new Map<string, { parked: ReturnType<typeof deferred<unknown>>; stage: "call" | "answer" }>();
   let snapshot = snapshotOf(paths);
   vi.mocked(invoke).mockImplementation(async (command, args) => {
-    const { path, content, baseContent } = (args ?? {}) as { path?: string; content?: string; baseContent?: string };
-    const parked = held.get(`${command}:${path ?? ""}`);
-    if (parked) {
-      held.delete(`${command}:${path ?? ""}`);
-      const value = await parked.promise;
-      if (value !== undefined) return value;
+    const { path } = (args ?? {}) as { path?: string };
+    const hold = held.get(`${command}:${path ?? ""}`);
+    if (!hold) return answer(command, args);
+    held.delete(`${command}:${path ?? ""}`);
+    if (hold.stage === "answer") {
+      const result = await answer(command, args);
+      await hold.parked.promise;
+      return result;
     }
+    const value = await hold.parked.promise;
+    return value !== undefined ? value : answer(command, args);
+  });
+  const answer = async (command: string, args: unknown) => {
+    const { path, content, baseContent } = (args ?? {}) as { path?: string; content?: string; baseContent?: string };
     switch (command) {
       case "read_project_file":
         if (!files.has(path!)) throw new Error(`No such file: ${path}`);
         return files.get(path!);
       case "write_project_file": {
         // Like the backend, merge with a disk that moved on since `baseContent`
-        // (line by line here: the tests only edit separate lines).
+        // (line by line here; see `mergeLines`).
         const disk = files.get(path!);
         const written = baseContent === undefined || disk === undefined || disk === baseContent
-          ? content!
+          ? { content: content!, hadConflicts: false }
           : mergeLines(baseContent, content!, disk);
-        files.set(path!, written);
+        files.set(path!, written.content);
         mtimes.set(path!, (mtimes.get(path!) ?? 1) + 1);
-        return { content: written, hadConflicts: false };
+        return written;
       }
       case "stat_project_file":
         return { exists: files.has(path!), mtimeMs: mtimes.get(path!) ?? 1 };
@@ -95,7 +116,7 @@ function renderDocuments(disk: Record<string, string>, {
       default:
         throw new Error(`unexpected ${command}`);
     }
-  });
+  };
   if (layout) persistWorkspaceLayout(ROOT, layout);
   const deps = {
     onSaved: vi.fn(), onDiskEdit: vi.fn(),
@@ -134,9 +155,9 @@ function renderDocuments(disk: Record<string, string>, {
   const type = (text: string) => act(() => { current().canvas.setText(text); });
   return {
     view, deps, current, enter, type, files,
-    hold: (command: string, path: string) => {
+    hold: (command: string, path: string, stage: "call" | "answer" = "call") => {
       const parked = deferred<unknown>();
-      held.set(`${command}:${path}`, parked);
+      held.set(`${command}:${path}`, { parked, stage });
       return parked;
     },
     setSnapshot: (paths: string[]) => { snapshot = snapshotOf(paths); },
@@ -362,6 +383,47 @@ describe("durable text and disk", () => {
     expect(docs.current().text).toBe("a\nB\nC");
     await act(async () => { await docs.current().save(); });
     expect(docs.files.get("main.tex")).toBe("A\nB\nC");
+  });
+
+  it("never merges a save against the writer's own save still under way: type, undo and retype saves cleanly", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
+    const original = "\\begin{abstract}\nBriefly summarize.\n\\end{abstract}";
+    const junk = "\\begin{abstract}\nBriefly summarize. hhhhhh\n\\end{abstract}";
+    const retyped = "\\begin{abstract}\nBriefly summarize. what is this\n\\end{abstract}";
+    const docs = renderDocuments({ "main.tex": original });
+    await docs.enter();
+    docs.type(junk);
+    // The autosave of the junk reaches disk, but its answer is slow to come back.
+    const answer = docs.hold("write_project_file", "main.tex", "answer");
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(docs.files.get("main.tex")).toBe(junk);
+    // ⌘Z, retype, pause: the next autosave comes due while the first is unanswered.
+    docs.type(original);
+    docs.type(retyped);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    answer.resolve(undefined);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(docs.files.get("main.tex")).toBe(retyped);
+    expect(docs.current()).toMatchObject({ text: retyped, dirty: false });
+    // The second write grew from what the first one wrote, so there was nothing to merge.
+    const bases = invokeCalls("write_project_file").map(({ baseContent }) => baseContent);
+    expect(bases).toEqual([original, junk]);
+  });
+
+  it("still merges a real outside edit into the save queued behind another", async () => {
+    const docs = renderDocuments({ "main.tex": "a\nb\nc" });
+    await docs.enter();
+    docs.type("a\nB\nc");
+    const write = docs.hold("write_project_file", "main.tex");
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => { first = docs.current().save(); });
+    docs.type("a\nB\nmine");
+    act(() => { second = docs.current().save(); });
+    // An agent rewrites the same line before either write lands.
+    docs.files.set("main.tex", "a\nb\nagent");
+    await act(async () => { write.resolve(undefined); await first; await second; });
+    expect(docs.files.get("main.tex")).toBe("a\nB\n<<<<<<< ours\nmine\n||||||| original\nc\n=======\nagent\n>>>>>>> theirs");
   });
 
   it("saves after a pause in typing, and builds after the save when builds are automatic", async () => {
