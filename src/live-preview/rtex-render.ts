@@ -6,6 +6,7 @@
 /* eslint-disable lingui/no-unlocalized-strings -- canvas colors, font specs and display-list item tags, never shown */
 import * as opentype from "opentype.js";
 import type { DisplayList, FontDesc, ImageInfo, Item, Line } from "./rtex-protocol";
+import type { VirtualFont } from "./tex-virtual-font";
 
 // The key of the font *resource* (outline data) a display-list font descriptor needs. Font ids
 // are per process; sizes and transforms come from the descriptor, so one resource serves every
@@ -19,6 +20,8 @@ export function fontKey(desc: FontDesc): string {
 export type FontResource =
   | { kind: "sfnt"; data: Uint8Array }
   | { kind: "type1"; upem: number; glyphs: Record<number, string>; slant?: number; extend?: number }
+  /** A TeX virtual font: its characters are drawn from the base fonts in `fonts` (tex-virtual-font.ts). */
+  | { kind: "virtual"; vf: VirtualFont; fonts: FontResource[] }
   | { kind: "missing"; reason: string };
 
 export type ImageResource = { kind: "bitmap" | "pdf"; mime: string; data: Uint8Array } | { kind: "missing"; reason: string };
@@ -72,7 +75,23 @@ function rgb(r: number, g: number, b: number): string | undefined {
 type LoadedFont =
   | { kind: "sfnt"; upem: number; font: opentype.Font; paths: Map<number, Path2D | null> }
   | { kind: "type1"; upem: number; src: Record<number, string>; paths: Map<number, Path2D | null>; slant?: number; extend?: number }
+  | { kind: "virtual"; vf: VirtualFont; fonts: LoadedFont[] }
   | { kind: "missing"; reason: string };
+
+function load(res: FontResource): LoadedFont {
+  if (res.kind === "sfnt") {
+    try {
+      const data = res.data;
+      const font = opentype.parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
+      return { kind: "sfnt", upem: font.unitsPerEm || 1000, font, paths: new Map() };
+    } catch (e) {
+      return { kind: "missing", reason: `cannot parse font: ${(e as Error).message}` };
+    }
+  }
+  if (res.kind === "type1") return { kind: "type1", upem: res.upem, src: res.glyphs, paths: new Map(), slant: res.slant, extend: res.extend };
+  if (res.kind === "virtual") return { kind: "virtual", vf: res.vf, fonts: res.fonts.map(load) };
+  return res;
+}
 
 export class FontStore {
   private fonts = new Map<string, LoadedFont>();
@@ -82,28 +101,33 @@ export class FontStore {
   }
 
   add(key: string, res: FontResource): void {
-    if (res.kind === "sfnt") {
-      try {
-        const data = res.data;
-        const font = opentype.parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
-        this.fonts.set(key, { kind: "sfnt", upem: font.unitsPerEm || 1000, font, paths: new Map() });
-      } catch (e) {
-        this.fonts.set(key, { kind: "missing", reason: `cannot parse font: ${(e as Error).message}` });
-      }
-    } else if (res.kind === "type1") {
-      this.fonts.set(key, { kind: "type1", upem: res.upem, src: res.glyphs, paths: new Map(), slant: res.slant, extend: res.extend });
-    } else {
-      this.fonts.set(key, res);
-    }
+    this.fonts.set(key, load(res));
+  }
+
+  /** Fonts that could not be loaded, and why: for diagnostics. */
+  missing(): [string, string][] {
+    return [...this.fonts].flatMap(([key, font]) => (font.kind === "missing" ? [[key, font.reason] as [string, string]] : []));
   }
 
   get(desc: FontDesc): LoadedFont | undefined {
     return this.fonts.get(fontKey(desc));
   }
 
+  /** Whether the font can draw this glyph exactly: a virtual one, every part of it. */
+  drawable(f: LoadedFont, index: number | null, char: number): boolean {
+    if (f.kind !== "virtual") return this.glyph(f, index, char) !== null;
+    const parts = f.vf.chars.get(char);
+    if (!parts) return false;
+    return parts.every((part) => {
+      if ("rule" in part) return true;
+      const sub = f.fonts[part.font];
+      return sub !== undefined && sub.kind !== "missing" && this.drawable(sub, null, part.char);
+    });
+  }
+
   /** Outline of a glyph in font units (y up), or null when the font lacks it. */
   glyph(f: LoadedFont, index: number | null, char: number): Path2D | null {
-    if (f.kind === "missing") return null;
+    if (f.kind === "missing" || f.kind === "virtual") return null;
     const id = f.kind === "sfnt" ? index : char;
     if (id === null || id === undefined) return null;
     let p = f.paths.get(id);
@@ -192,7 +216,7 @@ export function inexactReason(dl: DisplayList, fonts: FontStore, images: ImageSt
         const f = desc && fonts.get(desc);
         if (!f) return "fonts are loading";
         if (f.kind === "missing") return f.reason;
-        if (!fonts.glyph(f, it[3] as number | null, it[2] as number)) return `a glyph is missing from ${desc.psname ?? desc.name ?? "a font"}`;
+        if (!fonts.drawable(f, it[3] as number | null, it[2] as number)) return `a glyph is missing from ${desc.psname ?? desc.name ?? "a font"}`;
       } else if (it[0] === "i") {
         const info = imageInfo(dl, it[1] as number);
         const im = info && images.get(info.file);
@@ -239,9 +263,8 @@ export class Painter {
           if (!desc) break;
           const size = desc.size ?? 655360;
           const f = this.fonts.get(desc);
-          const path = f ? this.fonts.glyph(f, index, char) : null;
           ctx.fillStyle = this.color;
-          if (!f || f.kind === "missing" || !path) {
+          if (!f || !this.fonts.drawable(f, index, char)) {
             // approximate: the character in a generic font
             if (char > 32) {
               const m = mul(mul(this.base, this.cur), [size / 100, 0, 0, size / 100, x + dx, y + dy]);
@@ -251,17 +274,9 @@ export class Painter {
             }
             break;
           }
-          const s = size / f.upem;
           const extendRaw = desc.extend ?? 0;
-          let hx = (1 + (ef ?? 0) / 1_000_000) * (extendRaw ? extendRaw / 1000 : 1);
-          let slant = (desc.slant ?? 0) / 1000;
-          if (f.kind === "type1") {
-            if (f.extend) hx *= f.extend;
-            if (f.slant && !slant) slant = f.slant;
-          }
-          const m = mul(mul(this.base, this.cur), [s * hx, 0, s * slant, -s, x + dx, y + dy]);
-          ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
-          ctx.fill(path);
+          const hx = (1 + (ef ?? 0) / 1_000_000) * (extendRaw ? extendRaw / 1000 : 1);
+          this.glyph(f, index, char, size, x + dx, y + dy, hx, (desc.slant ?? 0) / 1000);
           break;
         }
         case "r": {
@@ -315,14 +330,44 @@ export class Painter {
     }
   }
 
-  /** Paint the boxes of `lines` (translated) with `fill`, enlarged by `pad` sp vertically (and
-   * at least 1 pt horizontally). */
-  clearLines(rows: { line: Line; dx: number; dy: number }[], fill: string, pad = 65536): void {
+  /** One glyph of `f` at `size` sp with its baseline origin at (x, y); a virtual font's parts in turn. */
+  private glyph(f: LoadedFont, index: number | null, char: number, size: number, x: number, y: number, hx: number, slant: number): void {
+    const ctx = this.ctx;
+    if (f.kind === "virtual") {
+      for (const part of f.vf.chars.get(char) ?? []) {
+        if ("rule" in part) {
+          const m = mul(this.base, this.cur);
+          ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+          ctx.fillRect(x + part.h * size * hx, y + (part.v - part.height) * size, part.width * size * hx, part.height * size);
+          continue;
+        }
+        const sub = f.fonts[part.font];
+        const scale = f.vf.fonts[part.font]?.scale ?? 1;
+        if (sub) this.glyph(sub, null, part.char, size * scale, x + part.h * size * hx, y + part.v * size, hx, slant);
+      }
+      return;
+    }
+    const path = this.fonts.glyph(f, index, char);
+    if (!path || f.kind === "missing") return;
+    const s = size / f.upem;
+    let stretch = hx;
+    let shear = slant;
+    if (f.kind === "type1") {
+      if (f.extend) stretch *= f.extend;
+      if (f.slant && !shear) shear = f.slant;
+    }
+    const m = mul(mul(this.base, this.cur), [s * stretch, 0, s * shear, -s, x, y]);
+    ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+    ctx.fill(path);
+  }
+
+  /** Paint the boxes of `lines` (translated) with `fill`, enlarged by `pad` sp vertically and
+   * `hpad` (at least 1 pt) horizontally. */
+  clearLines(rows: { line: Line; dx: number; dy: number }[], fill: string, pad = 65536, hpad = Math.max(pad, 65536)): void {
     const ctx = this.ctx;
     const m = this.base;
     ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
     ctx.fillStyle = fill;
-    const hpad = Math.max(pad, 65536);
     for (const { line, dx, dy } of rows) {
       ctx.fillRect(line.x + dx - hpad, line.y + dy - line.h - pad, line.w + 2 * hpad, line.h + line.d + 2 * pad);
     }

@@ -23,6 +23,12 @@ import type { LivePreviewSession } from "./live-preview-session";
 import { LivePreviewSessionContext } from "./live-preview-context";
 
 const PT = 65536;
+/**
+ * How far past a row's box its clearing reaches sideways: glyphs a line
+ * hangs into the margin (microtype's protrusion, a hyphen) sit outside the
+ * box, and were left behind at 1 pt. Columns stand farther apart than this.
+ */
+const ROW_SIDE = 4 * PT;
 /** pdf.js's own canvas cap (pdf-slick.ts): the overlay drops resolution beyond it. */
 const MAX_CANVAS_PIXELS = 2 ** 24;
 const LAYER_CLASS = "live-preview-page-layer";
@@ -127,8 +133,17 @@ class PagePainter {
     if (!ctx) return;
     const base: Mat = [k * dpr, 0, 0, k * dpr, 0, 0];
     const source = model.pageSource(page);
-    const hidden = model.hiddenLines(page);
-    const overlays = model.overlaysOn(page);
+    // A live paragraph is drawn only when every glyph and image of it can be,
+    // exactly: never approximated over the real page. Until then its old
+    // rows stay as the PDF under it shows them.
+    const overlays = model.overlaysOn(page).filter(({ overlay, rows }) => {
+      const reason = inexactReason(overlay.dl, fonts, images, rows.map((row) => row.line));
+      // Not loading but missing: only the next layout or build shows this edit.
+      if (reason && !reason.endsWith("are loading")) this.session.waitForLayout();
+      return !reason;
+    });
+    const hidden = new Set<number>();
+    for (const { overlay } of overlays) for (const line of model.ownLines(page, overlay.parId)) hidden.add(line);
     const pageList = source.kind === "base" ? model.pages.get(page) : source.page;
     let pictureSnaps: { img: ImageData; dst: Rect }[] = [];
 
@@ -165,6 +180,8 @@ class PagePainter {
       new Painter(ctx, base, fonts, images).clearLines(
         source.page.dl.lines.filter((_, i) => hidden.has(i)).map((line) => ({ line, dx: 0, dy: 0 })),
         PAPER,
+        PT,
+        ROW_SIDE,
       );
     } else if (pageList) {
       // The base PDF's page is rtex's page as of the base: clear the rows the
@@ -172,6 +189,8 @@ class PagePainter {
       new Painter(ctx, base, fonts, images).clearLines(
         pageList.dl.lines.filter((_, i) => hidden.has(i)).map((line) => ({ line, dx: 0, dy: 0 })),
         PAPER,
+        PT,
+        ROW_SIDE,
       );
     }
     // Live units: clear the bands their rows occupy now (they may reach into
@@ -236,7 +255,7 @@ function rowBands(rows: { line: { x: number; y: number; w: number; h: number; d:
     const ownTop = baseline - line.h - PT;
     const top = prevBottom !== undefined && baseline > prevBase && baseline - prevBase < 4 * (line.h + line.d + 2 * PT) ? Math.min(ownTop, prevBottom) : ownTop;
     const bottom = baseline + Math.max(line.d, 3 * PT);
-    out.push([line.x + dx - PT, top, line.x + dx + line.w + PT, bottom]);
+    out.push([line.x + dx - ROW_SIDE, top, line.x + dx + line.w + ROW_SIDE, bottom]);
     prevBottom = bottom;
     prevBase = baseline;
   }

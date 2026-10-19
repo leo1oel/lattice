@@ -31,10 +31,12 @@ pub(crate) fn allowed_command(line: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
-/// rtex's build folder for `root`: outside the project, so neither latexmk's
-/// artifacts, the file watcher nor an Overleaf sync ever sees it.
-pub(super) fn build_dir(root: &Path) -> Option<PathBuf> {
-    let key = crate::util::sha256_hex(root.to_string_lossy().as_bytes());
+/// rtex's build folder for `main` in `root`: outside the project, so neither
+/// latexmk's artifacts, the file watcher nor an Overleaf sync ever sees it.
+/// Another main document, or another project at the same path, gets a folder
+/// of its own rather than the passes of the last one.
+pub(super) fn build_dir(root: &Path, main: &Path) -> Option<PathBuf> {
+    let key = crate::util::sha256_hex(root.join(main).to_string_lossy().as_bytes());
     home().map(|home| home.join("builds").join(&key[..16]))
 }
 
@@ -58,7 +60,7 @@ impl Session {
         let main = safe_relative(main_file)
             .filter(|main| root.join(main).is_file())
             .ok_or_else(|| format!("The main file {main_file:?} is not in the project."))?;
-        let build_dir = build_dir(root).ok_or("Could not locate the live preview folder.")?;
+        let build_dir = build_dir(root, &main).ok_or("Could not locate the live preview folder.")?;
         std::fs::create_dir_all(&build_dir)
             .map_err(|error| format!("Could not create the live preview folder: {error}"))?;
         let id = NEXT_SESSION.fetch_add(1, Ordering::Relaxed);
@@ -260,14 +262,18 @@ mod tests {
 
     #[test]
     fn each_project_gets_its_own_build_folder_outside_it() {
-        let (Some(a), Some(b)) =
-            (build_dir(Path::new("/projects/a")), build_dir(Path::new("/projects/b")))
-        else {
+        let main = Path::new("main.tex");
+        let (Some(a), Some(b), Some(other_main)) = (
+            build_dir(Path::new("/projects/a"), main),
+            build_dir(Path::new("/projects/b"), main),
+            build_dir(Path::new("/projects/a"), Path::new("thesis.tex")),
+        ) else {
             return;
         };
         assert_ne!(a, b);
+        assert_ne!(a, other_main);
         assert!(!a.starts_with("/projects/a"));
-        assert_eq!(build_dir(Path::new("/projects/a")), Some(a));
+        assert_eq!(build_dir(Path::new("/projects/a"), main), Some(a));
     }
 
     #[test]

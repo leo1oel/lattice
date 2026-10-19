@@ -89,8 +89,10 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
       if (cancelled) return;
       session = new LivePreviewSession(root, mainFile);
       buildHooks.current = session;
+      // The perf lab's harness reads the session (src/platform/perf-lab-harness.ts).
+      if (import.meta.env.VITE_PERF_LAB) Object.assign(window, { __latticeLiveSession: session });
       setState({ kind: "running", session });
-      await session.start();
+      await session.start(flattenProjectPaths(projectRef.current?.files ?? []));
     })().catch((reason: unknown) => {
       session?.dispose();
       buildHooks.current = null;
@@ -101,7 +103,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
       buildHooks.current = null;
       session?.dispose();
     };
-  }, [mainFile, root, runKey, t]);
+  }, [mainFile, projectRef, root, runKey, t]);
 
   const session = state.kind === "running" ? state.session : null;
   // The open file as it is typed, and as it is on disk.

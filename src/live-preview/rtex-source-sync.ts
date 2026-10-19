@@ -184,6 +184,11 @@ export class SourceSync {
     return shadow.apply([change]).map((edit) => ({ cmd: "edit", path, start: edit.start, end: edit.end, text: edit.text }));
   }
 
+  /** Record what rtex read of `path` from disk, unless its copy is already known. */
+  seed(path: string, text: string): void {
+    if (!this.shadows.has(path)) this.shadows.set(path, new ShadowText(text));
+  }
+
   /** The command that replaces rtex's `path` with `text`, unless it already reads that. */
   replace(path: string, text: string): Command | null {
     const shadow = this.shadows.get(path);

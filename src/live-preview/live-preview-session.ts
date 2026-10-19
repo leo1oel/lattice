@@ -49,6 +49,8 @@ const EVENT_CMDS = new Set(["edit", "set_document"]);
 
 export class LivePreviewSession {
   readonly model = new PreviewModel();
+  /** How many of each event and reply rtex sent: what the perf lab reports beside its timings. */
+  readonly received = new Map<string, number>();
   readonly fonts = new FontStore();
   readonly images: ImageStore;
   private readonly resources: ResourceLoader;
@@ -103,7 +105,12 @@ export class LivePreviewSession {
 
   // ---- Lifecycle ---------------------------------------------------------------------------------
 
-  async start(): Promise<void> {
+  /**
+   * Start rtex. `texFiles` are the project's .tex files: what rtex reads of
+   * them now is recorded, so a watcher report that names files without
+   * changing them (or names none) sends rtex nothing.
+   */
+  async start(texFiles: readonly string[] = []): Promise<void> {
     const events = new Channel<RtexEvent | Reply>();
     events.onmessage = (message) => {
       if (!this.disposed) this.receive(message);
@@ -117,6 +124,12 @@ export class LivePreviewSession {
     }
     this.session = session;
     void this.flush();
+    for (const path of texFiles.filter(isTexPath)) {
+      const generation = this.fileGeneration.get(path) ?? 0;
+      void invoke<string>("read_project_file", { path, projectRoot: this.projectRoot }).then((text) => {
+        if (!this.disposed && (this.fileGeneration.get(path) ?? 0) === generation) this.sync.seed(path, text);
+      }).catch(() => undefined);
+    }
   }
 
   dispose(): void {
@@ -228,6 +241,11 @@ export class LivePreviewSession {
     return this.fallback && this.fallback.layoutVersion >= layoutVersion ? this.fallback.document : null;
   }
 
+  /** A live paragraph cannot be drawn exactly: say the layout is catching up with it. */
+  waitForLayout(): void {
+    this.updateSnapshot({ layoutPending: true });
+  }
+
   /** The overlay painted page `page`: record how long the edits on it took to show. */
   painted(page: number): void {
     const now = performance.now();
@@ -288,6 +306,8 @@ export class LivePreviewSession {
   }
 
   private receive(message: RtexEvent | Reply): void {
+    const kind = "reply" in message ? `reply:${message.reply}` : message.event;
+    this.received.set(kind, (this.received.get(kind) ?? 0) + 1);
     if ("reply" in message) this.onReply(message);
     else this.onEvent(message);
   }

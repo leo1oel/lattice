@@ -10,6 +10,12 @@
 import { fontKey, type FontResource, type ImageResource } from "./rtex-render";
 import type { DisplayList, FontDesc } from "./rtex-protocol";
 import { parseEncFile, parseMapFile, type1Outlines, type MapEntry } from "./rtex-type1";
+import { parseTfm, parseVirtualFont } from "./tex-virtual-font";
+
+/** The base fonts a .vf file names, in order, without running its characters. */
+function readVirtualFontNames(vf: Uint8Array): string[] {
+  return parseVirtualFont(vf, () => undefined).fonts.map((font) => font.name);
+}
 
 /** Reads a file through the host: `kind` is "font" or "image". */
 export type ReadFile = (kind: "font" | "image", path: string) => Promise<Uint8Array>;
@@ -74,11 +80,23 @@ export class ResourceLoader {
       }
       return { kind: "missing", reason: `unsupported font format: ${desc.filename}` };
     }
-    const name = desc.name ?? "";
+    return this.loadTfmFont(desc.name ?? "", 0);
+  }
+
+  /** A font TeX knows by its TFM name: an outline pdftex.map names, else a virtual font over such fonts. */
+  private async loadTfmFont(name: string, depth: number): Promise<FontResource> {
     const entry = (await this.map()).get(name);
-    if (!entry?.fontFile) return { kind: "missing", reason: `no outline font for ${name} in pdftex.map` };
-    if (/\.(otf|ttf)$/i.test(entry.fontFile)) return { kind: "missing", reason: `TFM font mapped to OpenType (${entry.fontFile})` };
-    return this.loadType1(entry.fontFile, entry);
+    if (entry?.fontFile) {
+      if (/\.(otf|ttf)$/i.test(entry.fontFile)) return { kind: "missing", reason: `TFM font mapped to OpenType (${entry.fontFile})` };
+      return this.loadType1(entry.fontFile, entry);
+    }
+    const vf = depth < 3 ? await this.read("font", `${name}.vf`).catch(() => null) : null;
+    if (!vf) return { kind: "missing", reason: `no outline font for ${name} in pdftex.map` };
+    const vfFonts = readVirtualFontNames(vf);
+    const widths = await Promise.all(vfFonts.map((font) => this.read("font", `${font}.tfm`).then(parseTfm).catch(() => undefined)));
+    const virtual = parseVirtualFont(vf, (font) => widths[font]);
+    const fonts = await Promise.all(virtual.fonts.map((font) => this.loadTfmFont(font.name, depth + 1)));
+    return { kind: "virtual", vf: virtual, fonts };
   }
 
   private async loadType1(file: string, entry: MapEntry | undefined): Promise<FontResource> {

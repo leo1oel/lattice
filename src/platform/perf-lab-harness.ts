@@ -888,6 +888,24 @@ async function liveEdit() {
  * keystroke the time from its keydown to the next frame after the live
  * preview painted it over the PDF.
  */
+/** The PDF page holding the live preview's canvas, pdf.js's drawing with the overlay on top, written as a base64 PNG. */
+async function capturePage(name) {
+  const overlay = document.querySelector("canvas.live-preview-page-layer");
+  const page = (overlay ?? document.querySelector(".pdfViewer .page canvas"))?.closest(".page");
+  const base = page?.querySelector(".canvasWrapper canvas");
+  if (!page || !base) return null;
+  const out = document.createElement("canvas");
+  out.width = base.width;
+  out.height = base.height;
+  const context = out.getContext("2d");
+  context.drawImage(base, 0, 0);
+  if (overlay) context.drawImage(overlay, 0, 0, out.width, out.height);
+  const label = `livepreview-${name}-${config?.plan ? JSON.parse(config.plan).run : "x"}`;
+  await invoke("perf_write", { name: `${label}.png.b64`, content: out.toDataURL("image/png").split(",")[1] });
+  if (overlay) await invoke("perf_write", { name: `${label}-overlay.png.b64`, content: overlay.toDataURL("image/png").split(",")[1] });
+  return { page: page.dataset.pageNumber, overlay: Boolean(overlay) };
+}
+
 async function livePreview() {
   const status = () => document.querySelector(".live-preview-status");
   window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: ",", metaKey: true }));
@@ -902,8 +920,8 @@ async function livePreview() {
   syntheticKey("Escape");
   const phases = [];
   await waitFor(() => {
-    const label = status()?.textContent?.trim() ?? "";
-    if (label && phases.at(-1)?.label !== label) phases.push({ label: label.replace(/\d+%/, "%"), ms: Math.round(performance.now() - enabledAt) });
+    const label = (status()?.textContent?.trim() ?? "").replace(/\d+%/, "%");
+    if (label && phases.at(-1)?.label !== label) phases.push({ label, ms: Math.round(performance.now() - enabledAt) });
     return status()?.getAttribute("data-tone") === "live";
   }, "the live preview to go live", 240_000);
   const liveMs = Math.round(performance.now() - enabledAt);
@@ -951,6 +969,8 @@ async function livePreview() {
     await sleep(160);
   }
   window.removeEventListener("keydown", onKeydown, { capture: true });
+  // What the page looks like with the live rows painted over it, before a build replaces it.
+  const captured = await capturePage("typed");
   await sleep(1500);
   const typedUntilLive = performance.now();
   await waitFor(() => status()?.getAttribute("data-tone") === "live", "the layout to catch up", 30_000).catch(() => null);
@@ -968,7 +988,17 @@ async function livePreview() {
     const frame = shown.find((time) => time >= painted);
     if (frame !== undefined) toVisible.push(frame - keydown);
   }
+  await sleep(4000);
+  await capturePage("built");
+  const session = window.__latticeLiveSession;
   return {
+    target: { line: target.number, text: target.text.slice(0, 80) },
+    received: session ? Object.fromEntries(session.received) : null,
+    model: session ? { base: session.model.baseRevision, layout: session.model.layoutRevision, pages: session.model.pagesTotal, overlays: session.model.overlays.size } : null,
+    snapshot: session?.getSnapshot(),
+    missingFonts: session?.fonts.missing(),
+    fontDescs: session ? [...session.model.overlays.values(), ...[...session.model.pages.values()].slice(0, 1)].flatMap((entry) => Object.values(entry.dl.fonts)).slice(0, 12) : null,
+    captured,
     phases,
     liveMs,
     keysSent: text.length,
