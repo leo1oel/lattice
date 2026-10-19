@@ -30,9 +30,14 @@ export function exportTree(ref, { prefix, install = false }) {
     throw new Error(`${ref} differs from this checkout in patches/, package.json or the lockfile, so the installed packages are not its`);
   }
   const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-before-`));
-  execFileSync("sh", ["-c", `git archive ${JSON.stringify(ref)} | tar -x -C ${JSON.stringify(root)}`], { cwd: repo });
-  if (differs) execFileSync("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--ignore-scripts"], { cwd: root, stdio: ["ignore", "ignore", "inherit"] });
-  else symlinkSync(path.join(repo, "node_modules"), path.join(root, "node_modules"), "dir");
+  try {
+    execFileSync("sh", ["-c", `git archive ${JSON.stringify(ref)} | tar -x -C ${JSON.stringify(root)}`], { cwd: repo });
+    if (differs) execFileSync("pnpm", ["install", "--frozen-lockfile", "--prefer-offline", "--ignore-scripts"], { cwd: root, stdio: ["ignore", "ignore", "inherit"] });
+    else symlinkSync(path.join(repo, "node_modules"), path.join(root, "node_modules"), "dir");
+  } catch (error) {
+    rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
   return root;
 }
 
