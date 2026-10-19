@@ -19,17 +19,24 @@ export const QUIET_BUILD_MAX_WAIT_MS = 30_000;
 
 type Ref<T> = { readonly current: T };
 
-export function createQuietBuilds({ livePreview, activeFileRef, sourceRef, savedSourceRef }: {
+/** What the build pipeline lends the schedule: the live preview, the open file, and how to build. */
+type PipelineSide = {
   livePreview: Ref<LivePreviewBuildHooks | null> | undefined;
   activeFileRef: Ref<string>;
   sourceRef: Ref<string>;
   savedSourceRef: Ref<string>;
-}) {
+  /** Starts the build that waited, quietly if the live preview is still live. */
+  run: (quiet: boolean) => void;
+};
+
+export function createQuietBuilds() {
+  let pipeline: PipelineSide | null = null;
   let timer: number | null = null;
   /** When the oldest save no build has compiled yet was made. */
   let since: number | null = null;
   // rtex draws .tex files only: a .bib or a figure the writer saves is seen in the next build alone.
-  const live = () => livePreview?.current?.getSnapshot().phase === "live" && activeFileRef.current.toLowerCase().endsWith(".tex");
+  const live = () => Boolean(pipeline?.livePreview?.current?.getSnapshot().phase === "live"
+    && pipeline.activeFileRef.current.toLowerCase().endsWith(".tex"));
   const cancel = () => {
     if (timer !== null) window.clearTimeout(timer);
     timer = null;
@@ -37,12 +44,14 @@ export function createQuietBuilds({ livePreview, activeFileRef, sourceRef, saved
   };
   const due = () => since !== null && Date.now() - since >= QUIET_BUILD_MAX_WAIT_MS;
   return {
+    connect(side: PipelineSide): void {
+      pipeline = side;
+    },
     /**
      * An autosave asks for a build. False when it should run now, as it does
-     * without a live preview; otherwise `run` builds once typing has paused,
-     * quietly if the live preview is still live then.
+     * without a live preview; otherwise `run` builds once typing has paused.
      */
-    defer(run: (quiet: boolean) => void): boolean {
+    defer(): boolean {
       if (!live()) {
         cancel();
         return false;
@@ -50,7 +59,7 @@ export function createQuietBuilds({ livePreview, activeFileRef, sourceRef, saved
       since ??= Date.now();
       const fire = () => {
         cancel();
-        run(live());
+        pipeline?.run(live());
       };
       if (due()) {
         fire();
@@ -62,7 +71,8 @@ export function createQuietBuilds({ livePreview, activeFileRef, sourceRef, saved
           timer = null;
           // Typed since the save: another save restarts the wait when they pause.
           // Re-check anyway, as a completion menu holds the save off.
-          if (sourceRef.current !== savedSourceRef.current && live() && !due()) wait();
+          const typing = pipeline && pipeline.sourceRef.current !== pipeline.savedSourceRef.current;
+          if (typing && live() && !due()) wait();
           else fire();
         }, QUIET_BUILD_IDLE_MS);
       };

@@ -33,16 +33,15 @@ function liveHooks(phase: "live" | "paused" = "live") {
 describe("autosave builds while the live preview is live", () => {
   function schedule(hooks: LivePreviewBuildHooks | null, file = "main.tex") {
     const source = ref("saved");
-    const quiet = createQuietBuilds({
-      livePreview: ref(hooks), activeFileRef: ref(file), sourceRef: source, savedSourceRef: ref("saved"),
-    });
     const run = vi.fn<(quiet: boolean) => void>();
+    const quiet = createQuietBuilds();
+    quiet.connect({ livePreview: ref(hooks), activeFileRef: ref(file), sourceRef: source, savedSourceRef: ref("saved"), run });
     return { quiet, run, source };
   }
 
   it("build at once without a live preview, or for a file rtex does not draw", () => {
     for (const { quiet, run } of [schedule(null), schedule(liveHooks("paused")), schedule(liveHooks(), "refs.bib")]) {
-      expect(quiet.defer(run)).toBe(false);
+      expect(quiet.defer()).toBe(false);
       vi.runAllTimers();
       expect(run).not.toHaveBeenCalled();
     }
@@ -50,9 +49,9 @@ describe("autosave builds while the live preview is live", () => {
 
   it("wait for a pause in typing, then build quietly once for every save made meanwhile", () => {
     const { quiet, run } = schedule(liveHooks());
-    expect(quiet.defer(run)).toBe(true);
+    expect(quiet.defer()).toBe(true);
     vi.advanceTimersByTime(QUIET_BUILD_IDLE_MS - 1);
-    expect(quiet.defer(run)).toBe(true);
+    expect(quiet.defer()).toBe(true);
     vi.advanceTimersByTime(QUIET_BUILD_IDLE_MS - 1);
     expect(run).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
@@ -61,7 +60,7 @@ describe("autosave builds while the live preview is live", () => {
 
   it("keep waiting while the writer types on, but never past the longest wait", () => {
     const { quiet, run, source } = schedule(liveHooks());
-    quiet.defer(run);
+    quiet.defer();
     source.current = "typed since the save";
     vi.advanceTimersByTime(QUIET_BUILD_MAX_WAIT_MS - 1);
     expect(run).not.toHaveBeenCalled();
@@ -71,17 +70,17 @@ describe("autosave builds while the live preview is live", () => {
 
   it("build at a save once the longest wait has passed, even with no pause", () => {
     const { quiet, run } = schedule(liveHooks());
-    quiet.defer(run);
+    quiet.defer();
     for (let elapsed = 0; elapsed < QUIET_BUILD_MAX_WAIT_MS; elapsed += QUIET_BUILD_IDLE_MS / 2) {
       vi.advanceTimersByTime(QUIET_BUILD_IDLE_MS / 2);
-      quiet.defer(run);
+      quiet.defer();
     }
     expect(run).toHaveBeenCalledExactlyOnceWith(true);
   });
 
   it("drop the waiting build when another build takes its place", () => {
     const { quiet, run } = schedule(liveHooks());
-    quiet.defer(run);
+    quiet.defer();
     quiet.cancel();
     vi.runAllTimers();
     expect(run).not.toHaveBeenCalled();

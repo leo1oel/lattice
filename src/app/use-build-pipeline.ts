@@ -104,7 +104,7 @@ export function useBuildPipeline({
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
   const [building, , buildingRef, setBuilding] = useRefState(false);
   const [quiet, , quietRef, setQuiet] = useRefState(false);
-  const [quietBuilds] = useState(() => createQuietBuilds({ livePreview, activeFileRef, sourceRef, savedSourceRef }));
+  const [quietBuilds] = useState(createQuietBuilds);
   useEffect(() => quietBuilds.cancel, [quietBuilds]);
   const [progress] = useState(createProgressStore);
   /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
@@ -285,7 +285,7 @@ export function useBuildPipeline({
 
   const { takePendingCompiles, reportCompiles } = agent;
   const runBuild = useCallback(async function runBuild(force = false, options?: BuildOptions) {
-    if (options?.automatic && quietBuilds.defer((quiet) => void runBuild(false, { quiet }))) return;
+    if (options?.automatic && quietBuilds.defer()) return;
     const queue = queueRef.current;
     // A project with no LaTeX document has nothing to compile. Autosave, a
     // synctex jump and opening the project all reach here, and each of them
@@ -512,6 +512,9 @@ export function useBuildPipeline({
     quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
     takePendingCompiles,
   ]);
+  useEffect(() => quietBuilds.connect({
+    livePreview, activeFileRef, sourceRef, savedSourceRef, run: (quiet) => void runBuild(false, { quiet }),
+  }), [activeFileRef, livePreview, quietBuilds, runBuild, savedSourceRef, sourceRef]);
 
   /**
    * Make the compiled PDF, and the SyncTeX map beside it, those of the
