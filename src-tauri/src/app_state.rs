@@ -1,7 +1,7 @@
 //! Which project each window shows, and the resources an open project owns.
 
 use crate::ipc::overleaf_realtime::OverleafRealtimeState;
-use crate::{fs_watch, git, latex, live_preview, project, texlab, MAIN_WINDOW_LABEL};
+use crate::{fs_watch, git, latex, live_preview, project, terminal, texlab, MAIN_WINDOW_LABEL};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -27,6 +27,9 @@ pub(crate) struct AppState {
     /// Full-text downloads under way, by window and request id: several papers
     /// can download at once, and each Cancel stops only its own.
     pub(crate) paper_fetches: Mutex<HashMap<(String, String), Arc<AtomicBool>>>,
+    /// The Terminal panel's shells. Each belongs to a window and the project
+    /// it showed: they end with that binding (see `retire_unused_projects`).
+    pub(crate) terminals: terminal::Terminals,
 }
 
 /// State that belongs to one project, not the process: with two windows open,
@@ -90,6 +93,7 @@ impl AppState {
             overleaf_sync_started: tokio::sync::Mutex::new(None),
             paper_imports: Mutex::default(),
             paper_fetches: Mutex::default(),
+            terminals: terminal::Terminals::default(),
         }
     }
 
@@ -133,10 +137,13 @@ impl AppState {
     /// per-project memos in the domain modules go too; a project opened again
     /// rebuilds them.
     pub(crate) fn retire_unused_projects(&self) {
-        let live: HashSet<PathBuf> = match self.roots.lock() {
-            Ok(roots) => roots.values().cloned().collect(),
+        let (live, bound): (HashSet<PathBuf>, HashMap<String, PathBuf>) = match self.roots.lock() {
+            Ok(roots) => (roots.values().cloned().collect(), roots.clone()),
             Err(_) => return,
         };
+        // A terminal ends with its window's project: a switch, or the window
+        // closing. Its shell would otherwise keep running in the old folder.
+        self.terminals.retain(|window, root| bound.get(window).is_some_and(|open| open == root));
         project::retain_open_history(&live);
         project::retain_open_annotation_saves(&live);
         git::retain_open_remotes(&live);
