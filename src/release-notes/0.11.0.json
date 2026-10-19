@@ -1,0 +1,75 @@
+{
+  "version": "0.11.0",
+  "date": "2026-10-19",
+  "highlights": [
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "A built-in terminal",
+        "zh": "内置终端"
+      },
+      "body": {
+        "en": "Open a Terminal panel across the foot of the workspace with ⌃` (or from the Panels menu): each tab is your login shell, started in the project folder, and it follows Lattice's light and dark theme and your code theme.",
+        "zh": "按 ⌃`（或从“面板”菜单）在工作区底部打开终端面板：每个标签页都是你的登录 shell，从项目文件夹启动，并跟随 Lattice 的浅色和深色主题以及你的代码主题。"
+      }
+    },
+    {
+      "icon": "gauge",
+      "title": {
+        "en": "Faster, calmer loading",
+        "zh": "加载更快、更安静"
+      },
+      "body": {
+        "en": "Each load shows one placeholder shaped like what it is loading instead of a spinner stacked on a skeleton, and a rebuilt PDF appears sooner. pdfLaTeX builds reuse a cached preamble, and a refresh redraws only the pages that changed.",
+        "zh": "每次加载只显示一个与待加载内容形状一致的占位，不再在骨架屏上叠加加载动画，重新构建的 PDF 也会更快出现。pdfLaTeX 构建会复用缓存的导言区，刷新时只重绘发生变化的页面。"
+      }
+    },
+    {
+      "icon": "menu",
+      "title": {
+        "en": "Preview tabs and pinning",
+        "zh": "预览标签页和固定标签页"
+      },
+      "body": {
+        "en": "A quick look from the Project tree, Quick open or project search opens in an italic preview tab that the next quick look replaces; edit it or double-click its tab to keep it. Pin tabs to keep them, and when a panel runs out of room Lattice closes its least recently used tab.",
+        "zh": "从项目树、快速打开或项目搜索中快速查看的文件会在斜体的预览标签页中打开，下一次快速查看会替换它；编辑它或双击其标签即可保留。固定的标签页会一直保留，当面板放不下更多标签页时，Lattice 会关闭最久未使用的那个。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Live preview for LuaLaTeX",
+        "zh": "LuaLaTeX 实时预览"
+      },
+      "body": {
+        "en": "The paragraph you are typing appears in the PDF as you type, while the full build waits for a pause and runs quietly. It is on by default in LuaLaTeX projects, new blank projects now use LuaLaTeX, and it can be turned off per project.",
+        "zh": "你正在输入的段落会随着输入出现在 PDF 中，而完整构建会等你停顿后再安静地运行。LuaLaTeX 项目默认开启实时预览，新建的空白项目现在使用 LuaLaTeX，也可以按项目关闭。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "Synara 1.0.7 in the Agent panel",
+        "zh": "Agent 面板升级到 Synara 1.0.7"
+      },
+      "body": {
+        "en": "The bundled agent runtime moves to Synara 1.0.7, and startup no longer opens Cursor's sign-in page.",
+        "zh": "内置的智能体运行时升级到 Synara 1.0.7，启动时也不再打开 Cursor 的登录页面。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "A save no longer conflicts with your own earlier save when you type, undo and retype quickly.",
+      "zh": "快速输入、撤销再重新输入时，保存不会再与你自己之前的保存冲突。"
+    },
+    {
+      "en": "The selection toolbar stays hidden while an input method is composing.",
+      "zh": "输入法正在组字时，选区工具栏会保持隐藏。"
+    },
+    {
+      "en": "Panel tabs have a little more room from the panel's edges.",
+      "zh": "面板标签页与面板边缘之间留出了更多空间。"
+    }
+  ]
+}
