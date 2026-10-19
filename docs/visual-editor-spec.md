@@ -1389,8 +1389,14 @@ Definitions, including continuation paragraphs, are directly editable and write 
 back-link and other trailing footnote chrome are not natively selectable, while the note text is.
 The slash menu and the selection toolbar both offer footnote creation: a reference plus a
 definition stub, or the selection converted to a footnote.
+A note takes the block controls like any block: they sit on its first line (not on the rule that
+opens a run of notes), Add block below works on a note that ends the document, and the grip
+selects and drags it. A click below the last note or between two notes puts the caret at the end
+of the note above, never a gap cursor; a press on a note's number or the space under its rule
+puts the caret in that note's text, not the next note's.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2075`, `:2463`, `:275 "excludes trailing %s controls from native selection without excluding its content"`, `:1639`,
-`:1710 "offers the complete set of Markdown-native insertions and unmounts the open menu cleanly"` (the slash menu offers Footnote).
+`:1710 "offers the complete set of Markdown-native insertions and unmounts the open menu cleanly"` (the slash menu offers Footnote);
+`src/editor/markdown/engine/footnote-block-controls.test.tsx`.
 
 **R-BLK-7: Code blocks `[KEEP]`.**
 - Enter inserts a newline, and repeated Enter at the end keeps adding lines: there is no
