@@ -10,7 +10,8 @@
   // and serves bench-page.ts from its own tools/perf-bench/index.html;
   // perf-fixture.d.mts types perf-fixture.mjs for the bench page's import, and
   // perf-bench/selectors.d.mts types selectors.mjs for a component test's.
-  // perf-bench/pdf-window-timing.mjs and divider-drag-timing.mjs are run by hand
+  // perf-bench/pdf-window-timing.mjs, divider-drag-timing.mjs and
+  // tab-drag-timing.mjs are run by hand
   // (docs/performance-history.md). check-perf-evidence.mjs imports the
   // `readFigure` of the *-figures.mjs file a manifest entry names, by path.
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
@@ -25,6 +26,7 @@
         "scripts/perf-bench/selectors.d.mts",
         "scripts/perf-bench/pdf-window-timing.mjs",
         "scripts/perf-bench/divider-drag-timing.mjs",
+        "scripts/perf-bench/tab-drag-timing.mjs",
         "scripts/perf-bench/*-figures.mjs",
         "tools/perf-bench/bench-page.ts"
       ],
