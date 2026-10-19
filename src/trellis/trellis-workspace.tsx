@@ -1472,8 +1472,8 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
         if (slot) return slot.panelId;
         return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
       };
-      // App's explicit open of the active document: a quick look, or one that keeps its tab (see trellis-tab-policy.ts).
-      const opened = tabsReady && revealRequest !== lastReveal ? (controller.tabs.takePreview(activeKey) ? "preview" : "open") : null;
+      // The writer's open of the active document: a quick look, or another (see trellis-tab-policy.ts).
+      const opened = controller.tabs.opening(controller.app.get(), { lastActive, lastReveal, lastTabsReady });
       const open = (key: string) => {
         const panelId = anchorPanel(key);
         let info: ViewInfo | undefined;
@@ -1507,7 +1507,6 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
       lastTabsReady = tabsReady;
       lastReveal = revealRequest;
       if (!activeKey || !activeChanged) return;
-      if (opened === "open") controller.tabs.keep(activeKey);
       const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
       if (!info) return;
       if (info.placement === "hidden") ws.focus(info.id);

@@ -64,10 +64,16 @@ async function openProject(openTabs: string[]) {
   const view = render(<TrellisWorkspace controller={controller} projectRoot="/p" dark={false} focusMode={false} />);
   await waitFor(() => expect(controller.ws?.views({ type: "file" })).toHaveLength(openTabs.length));
   const ws = controller.ws!;
+  // As App opens a file: one not in front becomes the active document (its
+  // tab added if new); asking again for the one in front counts its reveal.
   const open = async (key: string, { quick = false } = {}) => {
     if (quick) controller.tabs.preview(key);
-    const { openTabs: tabs, revealRequest } = controller.app.get();
-    act(() => controller.app.set({ openTabs: tabs.includes(key) ? tabs : [...tabs, key], activeKey: key, revealRequest: revealRequest + 1 }));
+    const { openTabs: tabs, activeKey, revealRequest } = controller.app.get();
+    act(() => controller.app.set({
+      openTabs: tabs.includes(key) ? tabs : [...tabs, key],
+      activeKey: key,
+      revealRequest: key === activeKey ? revealRequest + 1 : revealRequest,
+    }));
     // Closes run through Trellis's close guard, a microtask later.
     await act(async () => {});
   };
@@ -109,6 +115,10 @@ describe("a preview tab", () => {
     await open("a.tex", { quick: true });
     await open("main.tex", { quick: true });
     await open("a.tex", { quick: true });
+    expect(viewOf("a.tex")?.params.preview).toBe(true);
+    // Its tab pressed: still a preview.
+    await open("main.tex");
+    await open("a.tex");
     expect(viewOf("a.tex")?.params.preview).toBe(true);
     // An agent, a build problem or a link opens it for work.
     await open("a.tex");

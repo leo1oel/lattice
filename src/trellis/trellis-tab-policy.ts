@@ -59,11 +59,25 @@ export class DocumentTabs {
     this.previewKey = key;
   }
 
-  /** Whether App's explicit open of `key` was a quick look. Each open asks once, which ends the ask. */
-  takePreview(key: string) {
-    const quick = this.previewKey === key;
+  /**
+   * What App's latest state means for the active document's tab, given the
+   * last state the workspace reconciled: the writer opened it, by a quick
+   * look or another way, or nothing did (a restore, a reconcile). App shows
+   * a newly opened file by making it active and an open of one already in a
+   * tab by its reveal, so either counts, but only once the tabs have settled.
+   * A reveal that was no quick look keeps the tab. Each open ends the ask.
+   */
+  opening(
+    now: { activeKey: string; tabsReady: boolean; revealRequest: number },
+    last: { lastActive: string; lastReveal: number; lastTabsReady: boolean },
+  ): "preview" | "open" | null {
+    const revealed = now.revealRequest !== last.lastReveal;
+    if (!now.tabsReady || !last.lastTabsReady || (!revealed && now.activeKey === last.lastActive)) return null;
+    const quick = this.previewKey === now.activeKey;
     this.previewKey = null;
-    return quick;
+    if (quick) return "preview";
+    if (revealed) this.keep(now.activeKey);
+    return "open";
   }
 
   /** The document became the active one: the most recently used. */
