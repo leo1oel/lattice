@@ -269,6 +269,9 @@ importers:
       motion:
         specifier: ^12.42.2
         version: 12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      opentype.js:
+        specifier: 2.0.0
+        version: 2.0.0
       pdfjs-dist:
         specifier: 6.4.299
         version: 6.4.299(patch_hash=85e5881e6ab584354017326408383321861931e99f27eb4d15ea48c4daae8d92)

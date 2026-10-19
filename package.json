@@ -113,6 +113,7 @@
     "micromark-util-decode-numeric-character-reference": "^2.0.2",
     "micromark-util-types": "^2.0.2",
     "motion": "^12.42.2",
+    "opentype.js": "2.0.0",
     "pdfjs-dist": "6.4.299",
     "pele": "^1.6.0",
     "radix-ui": "^1.6.5",

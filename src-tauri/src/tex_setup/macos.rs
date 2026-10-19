@@ -163,7 +163,7 @@ fn privileged_root(prefix: &str) -> PathBuf {
 
 /// Stream `pinned` into a new private file at `path`, checking its SHA-256.
 /// `on_bytes(downloaded, total)` follows along when the size is known.
-fn download(
+pub(crate) fn download(
     pinned: &PinnedDownload, path: &Path, mut on_bytes: impl FnMut(u64, u64),
 ) -> Result<(), String> {
     let name = pinned.name;

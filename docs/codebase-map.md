@@ -111,6 +111,7 @@ files, and a root you can read in one screen does not.
 | `src/editor/spreadsheet/` | The Univer-backed `.lattice-sheet` editor, its Univer setup, format types, operations, local Y.Doc model and XLSX import/export. |
 | `src/app/` | App orchestration: the hooks extracted from `App.tsx` (project state, lifecycle and library, the open documents, the project tree, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, SyncTeX navigation and the LaTeX structure, …), the `app-*.tsx` surfaces App renders (title bar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. Also the App integration suites, one per area (`app-documents.test.tsx`, `app-agent.test.tsx`, `app-project.test.tsx`, `app-builds.test.tsx`, `app-overleaf.test.tsx`, `app-papers.test.tsx`, `app-welcome.test.tsx`, the Settings focus suites), which render the real App through the inert mocks and helpers in `app-test-utils.tsx` and `appHarness` in `app-test-mount.tsx`, with the real surface their area needs (`app-test-canvas.ts`, `app-test-pdf-panel.ts`, `app-test-settings.ts`) and doubles for the rest; `app-composition.test.tsx` mounts every production surface for what crosses them. |
 | `src/settings/` | The settings dialog, its panes and its search, the localStorage-backed preference store, appearance and fixed fonts. |
+| `src/live-preview/` | The LuaLaTeX live preview (opt-in per project, Settings › Builds): `use-live-preview.ts` is the only part that loads with the app; the session that feeds rtex the project's edits (`live-preview-session.ts`), the layer that paints its paragraphs and pages over the compiled PDF (`live-preview-layer.tsx`) and the `rtex-*` renderer adapted from the Realtime TeX VS Code plugin load once it is on. The host side is `src-tauri/src/live_preview.rs`. |
 | `src/pdf/` | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus the range-read transport for project PDFs. |
 | `src/platform/` | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, the build flavor (`flavor.ts`, Lattice Beta), `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
 | `src/editor/` | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops and the drop caret that shows where they land, the go-to-line dialog, and `dom-utils.ts` (the `element()` helper for hand-built editor chrome). |
@@ -183,6 +184,7 @@ rather than a fact:
 | `harper.rs` | Harper grammar and spell linting, on the Rust side because its WASM Worker never starts under WKWebView. |
 | `doctor.rs` | The TeX doctor: which tools a build needs are present, and whether the project's own requirements are met. |
 | `tex_setup.rs` + `tex_setup/` | One-click TeX and required-tool installs, including the privileged installer scripts. |
+| `live_preview.rs` + `live_preview/` | The LuaLaTeX live preview's host: downloading the pinned rtex release on demand, one supervised `rtex serve` per project, and the font, image and fallback-PDF files its renderer reads. |
 | `pdf_fonts.rs` | Inspecting embedded PDF fonts without poppler. |
 | `pdf_pages.rs` | Per-page signatures of a PDF, so the preview redraws only the pages a rebuild changed. |
 | `export.rs` | Saving an exported file (the compiled PDF, a workbook, an Agent visual) to the path the writer chose. |
@@ -222,7 +224,7 @@ the sidecar as its bundled skills directory.
 
 No source tree under `src/` is vendored from another project. Files adapted
 from permissively licensed projects (a few UI primitives, icons, fonts, the
-Open Slide theme skill) keep their attribution headers, and each is recorded in
+Open Slide theme skill, the live preview's display-list renderer) keep their attribution headers, and each is recorded in
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). The visual Markdown
 editor was once built on vendored Open Knowledge code; it is now Lattice's own
 engine (§2), and a repository guard test keeps that code from coming back.

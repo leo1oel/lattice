@@ -25,6 +25,7 @@ import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { annotationRounds, revisable } from "./app/annotation-rounds";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
+import { useLivePreview } from "./live-preview/use-live-preview";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { isMissingPaperToolsError } from "./build/tex-setup";
@@ -446,6 +447,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     postMessage: synara.postMessage,
   });
   const texSetup = useTexSetup(() => void compileRef.current(true, true));
+  const livePreview = useLivePreview({ project, activeFile, source, savedSource });
   const buildPipeline = useBuildPipeline({
     project,
     projectRef,
@@ -457,7 +459,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     agent: agentCheckpoints,
     openDiagnosticRef: openCompileDiagnosticRef,
     onMissingTex: texSetup.openForMissingTex,
+    livePreview: livePreview.buildHooks,
   });
+  // The live preview compares the base PDF's page count with its own layout's.
+  const { buildHooks: livePreviewHooks, state: livePreviewState } = livePreview;
+  useEffect(() => {
+    livePreviewHooks.current?.basePageCount(pdfPageCount);
+  }, [livePreviewHooks, livePreviewState, pdfPageCount]);
   const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
   const { resetQueue: resetBuildQueue, cycleDiagnostic, setDiagnosticsExpanded } = buildPipeline;
@@ -1088,6 +1096,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         setBuildPreferences={setBuildPreferences}
         hasProject={Boolean(project)}
         project={project}
+        livePreview={livePreview}
         onUpdateManifest={(patch) => showingErrors(async () => {
           const manifest = patch.spellingWords != null
             ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
@@ -1815,6 +1824,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       host={pdfLive ? trellis.hosts.pdf : null}
       projectRoot={project.root}
       activeFile={documents.canvas.path}
+      livePreview={livePreview}
       pdf={{
         pdfUrl,
         pdfBytes: buildPipeline.displayedPdfBytesRef.current,

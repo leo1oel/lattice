@@ -14,6 +14,9 @@ import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
 import { DocumentOutline } from "./document-outline";
 import { SavedViewState } from "./saved-view-state";
+import { LivePreviewSessionContext } from "../live-preview/live-preview-context";
+import { LivePreviewStatus } from "../live-preview/live-preview-status";
+import { loadLivePreviewModule, type LivePreview } from "../live-preview/use-live-preview";
 
 /** The compiled project PDF: its build, SyncTeX in both directions and its pages. */
 type ProjectPdf = Readonly<{
@@ -85,6 +88,8 @@ export type ProjectPdfPanelProps = Readonly<{
    * editor is left (saved, built when automatic builds are on).
    */
   onLeaveEditor: () => void;
+  /** The LuaLaTeX live preview, drawn over the pages while it runs. */
+  livePreview?: LivePreview;
 }>;
 
 /**
@@ -95,7 +100,7 @@ export type ProjectPdfPanelProps = Readonly<{
  * nothing), so the document it files its place under survives that too.
  */
 export function ProjectPdfPanel({
-  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor,
+  host, projectRoot, activeFile, pdf, citations, outline, review, selection, viewState, onLeaveEditor, livePreview,
 }: ProjectPdfPanelProps) {
   const { t } = useLingui();
   // Saved-view ownership for the PDF. Files without a preview of their own
@@ -111,6 +116,9 @@ export function ProjectPdfPanel({
   }
   if (!host) return null;
   const previewPath = previewOwner ?? previewIdentity.path;
+  const liveSession = livePreview?.state.kind === "running" ? livePreview.state.session : null;
+  // The session exists only once its chunk has loaded, so the layer is here.
+  const LiveLayer = liveSession ? loadLivePreviewModule.loaded()?.LivePreviewLayer : undefined;
   const activatePdf = () => {
     selection.onContextSurfaceActivate("pdf");
     onLeaveEditor();
@@ -125,6 +133,7 @@ export function ProjectPdfPanel({
       onWheelCapture={onLeaveEditor}
     >
       {pdf.pdfTop}
+      <LivePreviewSessionContext value={liveSession}>
       <ChunkGate chunk={loadPdfPreviewModule} fallback={<PdfPreviewLoading />}><Suspense fallback={<PdfPreviewLoading />}>
         {/* One viewer per project, across its TeX files: it restores the place it mounts with. */}
         <SavedViewState<FileViewState["pdf"] | undefined>
@@ -152,6 +161,8 @@ export function ProjectPdfPanel({
               annotations={review.annotations}
               annotationRounds={review.annotationRounds}
               onNumPages={pdf.onPdfPageCount}
+              pageLayer={liveSession ? LiveLayer : undefined}
+              status={livePreview ? <LivePreviewStatus state={livePreview.state} onRetry={livePreview.retry} /> : null}
               onPageChange={pdf.onPdfPageChange}
               initialViewState={initialViewState}
               onViewState={(state) => viewState.onFileViewState?.(previewPath, { pdf: state })}
@@ -169,6 +180,7 @@ export function ProjectPdfPanel({
           )}
         </SavedViewState>
       </Suspense></ChunkGate>
+      </LivePreviewSessionContext>
     </div>,
     host,
   );

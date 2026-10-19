@@ -6,7 +6,7 @@ use std::path::Path;
 use std::time::Duration;
 
 /// A download pinned by URL and SHA-256, with the words its errors use.
-pub(super) struct PinnedDownload {
+pub(crate) struct PinnedDownload {
     pub url: &'static str,
     pub sha256: &'static str,
     pub timeout: Duration,
@@ -255,7 +255,7 @@ pub(super) fn valid_tex_dependency_name(missing_file: &str) -> bool {
             .any(|extension| missing_file.ends_with(&format!(".{extension}")))
 }
 
-pub(super) fn create_private_file(path: &Path) -> Result<std::fs::File, String> {
+pub(crate) fn create_private_file(path: &Path) -> Result<std::fs::File, String> {
     use std::os::unix::fs::OpenOptionsExt;
     std::fs::OpenOptions::new()
         .write(true)

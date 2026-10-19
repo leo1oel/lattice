@@ -27,7 +27,7 @@ export type SettingsSearchEntry = {
  * Synara's embedded settings, which the host neither reads nor restyles, so
  * they are found by their page name alone and open as they always do.
  */
-export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null): SettingsSearchEntry[] {
+export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null, livePreview = false): SettingsSearchEntry[] {
   const { t } = useLingui();
   const appearance = t`Appearance`;
   const editor = t`Editor & builds`;
@@ -60,6 +60,10 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     ...(hasProject ? [
       { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },
       { tab: "editor", place: editor, id: "shell-escape", label: t`Allow external commands`, terms: `${builds} shell-escape`, description: t`Shell escape during builds` },
+    ] satisfies SettingsSearchEntry[] : []),
+    // Offered only to a LuaLaTeX project.
+    ...(hasProject && livePreview ? [
+      { tab: "editor", place: editor, id: "live-preview", label: t`Live preview`, terms: `${builds} LuaLaTeX rtex ${t({ message: "realtime instant", comment: "Search words for the Live preview setting, space-separated" })}` },
     ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },

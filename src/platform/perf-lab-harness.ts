@@ -881,6 +881,137 @@ async function liveEdit() {
   return { ...typing, remoteApplied: applied, remoteDelivery: stats(delivered) };
 }
 
+/**
+ * The LuaLaTeX live preview, from switching it on in Settings to typing in a
+ * paragraph of the open document. Needs a LuaLaTeX fixture (`% !TEX program
+ * = lualatex`). Reports when each status showed after the switch, and per
+ * keystroke the time from its keydown to the next frame after the live
+ * preview painted it over the PDF.
+ */
+/** The PDF page holding the live preview's canvas, pdf.js's drawing with the overlay on top, written as a base64 PNG. */
+async function capturePage(name) {
+  const overlay = document.querySelector("canvas.live-preview-page-layer");
+  const page = (overlay ?? document.querySelector(".pdfViewer .page canvas"))?.closest(".page");
+  const base = page?.querySelector(".canvasWrapper canvas");
+  if (!page || !base) return null;
+  const out = document.createElement("canvas");
+  out.width = base.width;
+  out.height = base.height;
+  const context = out.getContext("2d");
+  context.drawImage(base, 0, 0);
+  if (overlay) context.drawImage(overlay, 0, 0, out.width, out.height);
+  const label = `livepreview-${name}-${config?.plan ? JSON.parse(config.plan).run : "x"}`;
+  await invoke("perf_write", { name: `${label}.png.b64`, content: out.toDataURL("image/png").split(",")[1] });
+  if (overlay) await invoke("perf_write", { name: `${label}-overlay.png.b64`, content: overlay.toDataURL("image/png").split(",")[1] });
+  return { page: page.dataset.pageNumber, overlay: Boolean(overlay) };
+}
+
+async function livePreview() {
+  const status = () => document.querySelector(".live-preview-status");
+  window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: ",", metaKey: true }));
+  await waitFor(() => document.querySelector('[role="dialog"]'), "Settings");
+  const tab = await waitFor(() => [...document.querySelectorAll('[role="dialog"] button, [role="dialog"] [role="tab"]')]
+    .find((element) => element.textContent?.trim().startsWith("Editor")), "the Editor & builds tab");
+  tab.click();
+  const toggle = await waitFor(() => document.querySelector('[data-setting="live-preview"] [role="switch"]'), "the Live preview switch");
+  // `--flags liveoff` types the same text with the preview off, for a baseline.
+  const wanted = !(window.__latticeLabFlags ?? []).includes("liveoff");
+  if ((toggle.getAttribute("aria-checked") === "true") !== wanted) toggle.click();
+  const enabledAt = performance.now();
+  await sleep(300);
+  syntheticKey("Escape");
+  const phases = [];
+  if (wanted) await waitFor(() => {
+    const label = (status()?.textContent?.trim() ?? "").replace(/\d+%/, "%");
+    if (label && phases.at(-1)?.label !== label) phases.push({ label, ms: Math.round(performance.now() - enabledAt) });
+    return status()?.getAttribute("data-tone") === "live";
+  }, "the live preview to go live", 240_000);
+  const liveMs = Math.round(performance.now() - enabledAt);
+  await settle(1000, 20_000);
+
+  // A prose line of the document's body, the caret in its middle.
+  const view = await waitFor(() => visibleCodeEditor(), "code editor");
+  const doc = view.state.doc;
+  let body = 1;
+  for (let line = 1; line <= doc.lines; line += 1) if (doc.line(line).text.includes("\\begin{document}")) body = line;
+  let target = null;
+  for (let line = body + 1; line <= doc.lines && !target; line += 1) {
+    const text = doc.line(line).text;
+    if (text.length > 60 && /^[A-Z]/.test(text) && !text.includes("\\")) target = doc.line(line);
+  }
+  if (!target) throw Error("no prose line to type in");
+  const at = target.from + target.text.indexOf(" ", Math.floor(target.text.length / 2));
+  view.dispatch({ selection: { anchor: at }, scrollIntoView: true });
+  view.focus();
+  await settle(800);
+
+  // Every layer canvas the live preview swaps in, and the frame after it.
+  const shown = [];
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof HTMLCanvasElement && node.classList.contains("live-preview-page-layer")) {
+          requestAnimationFrame(() => setTimeout(() => shown.push(performance.now()), 0));
+        }
+      }
+    }
+  });
+  observer.observe(document.querySelector(".pdf-preview") ?? document.body, { childList: true, subtree: true });
+  performance.clearMeasures("lattice-live-preview-paint");
+  const keydowns = [];
+  const onKeydown = (event) => {
+    if (event.key.length === 1) keydowns.push(performance.now());
+  };
+  window.addEventListener("keydown", onKeydown, { capture: true });
+  const text = " live preview typing check";
+  for (const character of text) {
+    const before = keydowns.length;
+    await input.keys(character);
+    await waitFor(() => keydowns.length > before, "keydown", 2000).catch(() => null);
+    await sleep(160);
+  }
+  window.removeEventListener("keydown", onKeydown, { capture: true });
+  // What the page looks like with the live rows painted over it, before a build replaces it.
+  const captured = await capturePage("typed");
+  await sleep(1500);
+  const typedUntilLive = performance.now();
+  await waitFor(() => status()?.getAttribute("data-tone") === "live", "the layout to catch up", 30_000).catch(() => null);
+  const layoutCatchUpMs = Math.round(performance.now() - typedUntilLive);
+  observer.disconnect();
+  const paints = performance.getEntriesByName("lattice-live-preview-paint");
+  // For each keystroke, the first paint of a change made after it, and the frame that showed it.
+  const toVisible = [];
+  const toPainted = [];
+  for (const keydown of keydowns) {
+    const paint = paints.find((entry) => entry.startTime >= keydown);
+    if (!paint) continue;
+    const painted = paint.startTime + paint.duration;
+    toPainted.push(painted - keydown);
+    const frame = shown.find((time) => time >= painted);
+    if (frame !== undefined) toVisible.push(frame - keydown);
+  }
+  await sleep(4000);
+  await capturePage("built");
+  const session = window.__latticeLiveSession;
+  return {
+    target: { line: target.number, text: target.text.slice(0, 80) },
+    received: session ? Object.fromEntries(session.received) : null,
+    model: session ? { base: session.model.baseRevision, layout: session.model.layoutRevision, pages: session.model.pagesTotal, overlays: session.model.overlays.size } : null,
+    snapshot: session?.getSnapshot(),
+    missingFonts: session?.fonts.missing(),
+    fontDescs: session ? [...session.model.overlays.values(), ...[...session.model.pages.values()].slice(0, 1)].flatMap((entry) => Object.values(entry.dl.fonts)).slice(0, 12) : null,
+    captured,
+    phases,
+    liveMs,
+    keysSent: text.length,
+    keydownsSeen: keydowns.length,
+    paints: paints.length,
+    keydownToOverlayPainted: stats(toPainted),
+    keydownToVisible: stats(toVisible),
+    layoutCatchUpMs,
+  };
+}
+
 let clockOffset = 0;
 async function calibrateClock() {
   const samples = [];
@@ -1778,6 +1909,7 @@ const SCENARIOS = {
   dialogs,
   ipc,
   liveEdit,
+  livePreview,
 };
 
 export async function startLabHarness() {
