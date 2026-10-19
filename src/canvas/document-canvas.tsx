@@ -19,6 +19,7 @@ import { lineTarget, revealInEditor } from "../editor/editor-reveal";
 import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
+import { selectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
 import { highlightAround, highlightOpening, latexHighlights, recolorHighlight, removeHighlight } from "../editor/latex/latex-highlights";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -191,36 +192,10 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     setSelectionToolbar(null);
   }, []);
   const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
-    const range = view.state.selection.main;
-    // A tab behind another one stays laid out (inert, hidden), so its
-    // coordinates look valid; the toolbar is portaled and would not hide.
-    const wrappable = !range.empty && (path.endsWith(".tex") || path.toLocaleLowerCase().endsWith(".md"))
-      && !view.dom.closest("[inert]");
-    const visibleRange = wrappable
-      ? view.visibleRanges.find(({ from, to }) => range.from <= to && range.to >= from)
-      : undefined;
-    const editorBounds = visibleRange && view.dom.closest(".source-editor")?.getBoundingClientRect();
-    const visibleFrom = Math.max(range.from, visibleRange?.from ?? 0);
-    const start = visibleRange && view.coordsAtPos(visibleFrom);
-    const end = visibleRange && view.coordsAtPos(Math.min(range.to, visibleRange.to, view.state.doc.lineAt(visibleFrom).to));
-    if (!editorBounds || !start || !end) {
-      dismissSelectionToolbar();
-      return;
-    }
-    const halfWidth = Math.min(350, Math.max(0, editorBounds.width - 16)) / 2;
-    const selectionCenter = start.top === end.top
-      ? (start.left + end.right) / 2
-      : start.left + Math.min(72, Math.max(20, editorBounds.width / 5));
-    const left = clamp(selectionCenter, editorBounds.left + halfWidth + 8, editorBounds.right - halfWidth - 8);
-    const selectionTop = Math.min(start.top, end.top);
-    const below = selectionTop - editorBounds.top < 52;
-    selectionToolbarOwnerRef.current = { path, from: range.from, to: range.to };
-    // A highlight around the selection: the palette ticks its colour and offers Remove.
-    const highlight = path.endsWith(".tex") ? highlightAround(view.state.doc, range.from, range.to) : null;
-    setSelectionToolbar({
-      position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
-      highlight: highlight ? highlight.color ?? "" : null,
-    });
+    const placement = selectionToolbarPlacement(view, path);
+    if (!placement) return dismissSelectionToolbar();
+    selectionToolbarOwnerRef.current = { path, from: placement.from, to: placement.to };
+    setSelectionToolbar(placement);
   }, [dismissSelectionToolbar]);
   // Filled by the split scroll coordinator; the source editor's updates poke
   // it so cursor motion reveals the matching preview block.
