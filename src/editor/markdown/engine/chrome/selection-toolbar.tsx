@@ -28,6 +28,7 @@ import { requestLinkEditor } from "./link-chrome";
 import { requestComment } from "./review-chrome";
 import { insertFootnote } from "./slash-items";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
+import { selectionToolbarMenuClassName } from "../../../../components/ui/menu-surface";
 
 type BlockType = {
   id: string;
@@ -171,7 +172,7 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
             <ChevronDown aria-hidden="true" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent container={layer} align="start" onCloseAutoFocus={(event) => event.preventDefault()}>
+        <DropdownMenuContent container={layer} align="start" sideOffset={8} className={selectionToolbarMenuClassName} onCloseAutoFocus={(event) => event.preventDefault()}>
           {BLOCK_TYPES.map((type) => (
             <BlockTypeItem key={type.id} separated={type.separated} active={type.id === block.id} onSelect={() => type.apply(editor)}>
               {i18n._(type.label)}

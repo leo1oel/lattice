@@ -29,6 +29,13 @@ export const floatingSurfaceClassName =
 // labels do not jump when the thumb appears. The fluid hover fill takes the
 // items' own `focus:bg-accent`, so a row the pointer lights and one the arrow
 // keys reach are the same colour under every accent.
+/**
+ * A menu a selection toolbar opens: the toolbar sits above the app's popovers
+ * (`--z-selection-toolbar`), so at the popovers' own z-50 its menus slid under
+ * it and the toolbar's shadow and edge crossed their top.
+ */
+export const selectionToolbarMenuClassName = "z-(--z-selection-toolbar-menu)";
+
 export const menuViewportClassName =
   "overflow-x-hidden overflow-y-auto p-[var(--surface-inset)] [--fluid-hover-fill:var(--control-active-soft)]";
 

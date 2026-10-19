@@ -451,7 +451,9 @@
   --z-popup-shield: 49;
   --z-radix-popper: 50;
   --z-selection-toolbar: 80;
-  --z-tooltip: 81;
+  /* A menu a selection toolbar opens floats over the toolbar, its shadow on top. */
+  --z-selection-toolbar-menu: 81;
+  --z-tooltip: 82;
   /* Local to the spreadsheet's isolated stack, but on the ladder anyway: it has
      to clear Univer's own right-sidebar layer at 100, and a three-digit number
      left in a component stylesheet reads like an app-level claim. */

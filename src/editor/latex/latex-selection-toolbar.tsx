@@ -25,6 +25,7 @@ import { highlighterOf, rememberHighlight, useHighlightPrefs } from "./highlight
 import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
+import { selectionToolbarMenuClassName } from "../../components/ui/menu-surface";
 
 export type LatexSelectionAction =
   | "bold"
@@ -150,7 +151,7 @@ export function LatexSelectionToolbar(props: {
             <Tip label={t`Link`} side="top">
               <PopoverTrigger asChild><button type="button" aria-label={t`Link`}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu link-menu">
+            <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu link-menu ${selectionToolbarMenuClassName}`}>
               <label>{t`Link URL`}<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
                 if (event.key === "Enter" && linkUrl.trim()) applyLink();
               }} /></label>
@@ -163,7 +164,7 @@ export function LatexSelectionToolbar(props: {
             <Tip label={t`Heading level`} side="top">
               <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
-            <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu fluid-hover-surface">
+            <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu heading-menu fluid-hover-surface ${selectionToolbarMenuClassName}`}>
               <FluidHoverSurface selector=".heading-menu > button" follow={null} />
               {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
             </PopoverContent>
@@ -187,7 +188,7 @@ export function LatexSelectionToolbar(props: {
             <PopoverContent
               side="top"
               sideOffset={8}
-              className="latex-highlight-picker"
+              className={`latex-highlight-picker ${selectionToolbarMenuClassName}`}
               onOpenAutoFocus={(event) => event.preventDefault()}
               // Esc in a meaning being renamed reverts the name; the next one closes.
               onEscapeKeyDown={(event) => {
