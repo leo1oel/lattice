@@ -460,13 +460,20 @@ const counts = new Map<string, number>();
  * A successful build with a handful of warnings, the fixture's log and PDF.
  * `?build=clean` drops the warnings, `?build=failed` fails it and
  * `?build=typo` fails it on a mistyped command (stageTypo), for looking at
- * the other results.
+ * the other results. `?build=preamble` first makes the preamble format, as a
+ * build after a preamble edit does (src-tauri/src/latex/preamble_format.rs).
  */
 /** The passes a build of the fixture runs, as latexmk announces them: pdflatex, bibtex, pdflatex again. */
 const BUILD_STEPS = [
   { tool: "pdflatex", run: 1, draft: false, startedMs: 0, durationMs: 612 },
   { tool: "bibtex", run: 1, draft: false, startedMs: 612, durationMs: 96 },
   { tool: "pdflatex", run: 2, draft: false, startedMs: 708, durationMs: 431 },
+];
+const PREAMBLE_BUILD_STEPS = [
+  { tool: "pdflatex -ini", run: 1, draft: false, startedMs: 0, durationMs: 251 },
+  { tool: "pdflatex", run: 1, draft: false, startedMs: 251, durationMs: 402 },
+  { tool: "bibtex", run: 1, draft: false, startedMs: 653, durationMs: 96 },
+  { tool: "pdflatex", run: 2, draft: false, startedMs: 749, durationMs: 288 },
 ];
 
 /**
@@ -504,7 +511,7 @@ function buildResult() {
         : typo ? typo.diagnostics : warnings,
     rootDocument: "main.tex",
     // The failed build stops in its first pass.
-    steps: failed ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : BUILD_STEPS,
+    steps: failed ? [{ ...BUILD_STEPS[0], durationMs: 388 }] : outcome === "preamble" ? PREAMBLE_BUILD_STEPS : BUILD_STEPS,
     pages: failed ? null : sizes.pdfPages ?? PLAYBOOK_FIXTURE.pdfPages,
     synctex: true,
   };
