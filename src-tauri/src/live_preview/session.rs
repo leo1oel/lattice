@@ -60,7 +60,8 @@ impl Session {
         let main = safe_relative(main_file)
             .filter(|main| root.join(main).is_file())
             .ok_or_else(|| format!("The main file {main_file:?} is not in the project."))?;
-        let build_dir = build_dir(root, &main).ok_or("Could not locate the live preview folder.")?;
+        let build_dir =
+            build_dir(root, &main).ok_or("Could not locate the live preview folder.")?;
         std::fs::create_dir_all(&build_dir)
             .map_err(|error| format!("Could not create the live preview folder: {error}"))?;
         let id = NEXT_SESSION.fetch_add(1, Ordering::Relaxed);

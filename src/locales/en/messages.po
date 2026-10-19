@@ -7135,6 +7135,7 @@ msgstr "Live preview"
 msgid "Live preview engine"
 msgstr "Live preview engine"
 
+#: src/live-preview/live-preview-settings.tsx
 #: src/live-preview/use-live-preview.ts
 msgid "Live preview needs a Mac with Apple silicon."
 msgstr "Live preview needs a Mac with Apple silicon."

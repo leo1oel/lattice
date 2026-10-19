@@ -10,7 +10,8 @@ use std::sync::{Mutex, OnceLock};
 /// Fonts and what the renderer needs to read TeX's own: Type 1 encodings, the
 /// map file that ties TFM names to outlines, and virtual fonts with the
 /// metrics of the fonts they draw from.
-const FONT_EXTENSIONS: [&str; 10] = ["otf", "ttf", "ttc", "otc", "pfb", "pfa", "enc", "map", "vf", "tfm"];
+const FONT_EXTENSIONS: [&str; 10] =
+    ["otf", "ttf", "ttc", "otc", "pfb", "pfa", "enc", "map", "vf", "tfm"];
 const IMAGE_EXTENSIONS: [&str; 4] = ["png", "jpg", "jpeg", "pdf"];
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 
