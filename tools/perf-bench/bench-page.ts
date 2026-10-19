@@ -16,6 +16,7 @@ import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scri
 import { arxivAnswer } from "./bench-arxiv";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
+import { terminalAnswer } from "./bench-terminal";
 import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
@@ -856,6 +857,8 @@ function answer(command: string, args: Args): unknown {
   // `?linkedBib=ready` (or `unlinked`, `missing`, `long`) stages the linked library (bench-linked-library.ts).
   const linked = linkedLibraryAnswer(command, args, { params });
   if (linked !== NOT_HANDLED) return linked;
+  const shell = terminalAnswer(command, args, () => current);
+  if (shell !== NOT_HANDLED) return shell;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "list_local_templates":
@@ -1156,7 +1159,7 @@ function choiceParam<T extends string>(name: string, allowed: readonly T[]): T |
   return null;
 }
 
-// `?theme=` and `?lang=` are for screenshots and QA (pnpm perf:bench --serve).
+// `?theme=` and `?lang=` serve screenshots and QA (perf:bench --serve).
 // The benchmark passes neither: it runs in the browser's own appearance
 // ("system", light in headless Chrome) and in English, because scenarios find
 // controls by their English names whatever the machine's locale.
@@ -1166,9 +1169,8 @@ const lang = choiceParam<InterfaceLanguage>("lang", ["en", "zh-CN", "system"]);
 // `?glass=subtle|strong` show the theme choices in Settings → Appearance. A
 // browser has no vibrancy, so `?glass=` also answers set_window_material as a
 // translucent macOS window would and paints a stand-in desktop behind the
-// page: a wallpaper under a frosted wash, roughly what the under-window
-// material looks like. Without it the page shows the opaque fallback a
-// browser-hosted Lattice really gets.
+// page. Without it the page shows the opaque fallback a browser-hosted
+// Lattice really gets.
 const tint = choiceParam<ThemeTint>("tint", THEME_TINTS);
 const accentParam = params.get("accent");
 const accent = accentParam ? normalizeAccent(/^[0-9a-f]{6}$/i.test(accentParam) ? `#${accentParam}` : accentParam) : undefined;
@@ -1200,7 +1202,7 @@ if (!params.has("keepStorage")) {
   try {
     stored = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null");
   } catch {
-    // A corrupt entry is replaced, as the app itself would treat it as absent.
+    // A corrupt entry is replaced, as in the app.
   }
   const appearance = stored && typeof stored === "object" ? stored : {};
   localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang, ...themeChoices }));
@@ -1228,8 +1230,8 @@ if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);
 
 await import("../../src/main.tsx");
 
-// The notification API, for raising toasts from a driver (screenshots and QA of
-// the toast stack): `window.__latticeBench.notify.notifyError("Build", "…")`.
+// The notification API, for a driver's toasts (screenshots, QA):
+// `window.__latticeBench.notify.notifyError("Build", "…")`.
 // main.tsx already loaded it, so this adds nothing to what the page runs.
 Object.assign((window as unknown as { __latticeBench: object }).__latticeBench, {
   notify: await import("../../src/telemetry/app-notify"),

@@ -36,7 +36,7 @@ export function TerminalView({ controller }: { controller: TrellisController }) 
 export function TerminalActions() {
   const { t } = useLingui();
   return (
-    <span className="trellis-accessory-host">
+    <span className="trellis-accessory-host terminal-actions">
       <Tip label={t`New terminal`}>
         <button type="button" aria-label={t`New terminal`} onClick={withTerminals((module) => module.openTerminal())}>
           <Plus size={14} />

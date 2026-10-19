@@ -108,9 +108,11 @@ export function createXtermScreen(): XtermScreen {
     activeMatchColorOverviewRuler: theme.cursor ?? "",
   });
   const findOptions = (): ISearchOptions => ({ caseSensitive: false, decorations: decorations() });
+  // Which renderer draws now, for checking the GPU path in the real window.
   const releaseGpu = () => {
     webgl?.dispose();
     webgl = null;
+    element.dataset.renderer = "dom";
   };
   return {
     element,
@@ -150,6 +152,7 @@ export function createXtermScreen(): XtermScreen {
         });
         term.loadAddon(addon);
         webgl = addon;
+        element.dataset.renderer = "webgl";
       } catch {
         webglFailed = true;
       }
