@@ -22,12 +22,14 @@ import type { XtermScreen } from "./terminal-screen";
 import { terminalFontFamily, terminalTheme } from "./terminal-theme";
 import { closeTerminal, findRequests, followProject, openTerminal, terminals } from "./terminal-window";
 import { TERMINAL_ICON } from "./terminal-icon";
+import { ScreenSlot } from "./terminal-slot";
 import "./terminal.css";
 
 /** What re-themes the terminal: the root's appearance attributes (use-appearance.ts). */
 const APPEARANCE_ATTRIBUTES = ["data-theme", "data-tint", "data-accent", "data-code-theme", "data-code-theme-kind", "style"];
 
 type Session = TerminalSession<XtermScreen>;
+
 
 /** Hand every screen the colours and font the panel's cascade resolves to, now and on each appearance change. */
 function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readonly Session[]) {
@@ -56,49 +58,6 @@ function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readon
       themed.current.add(screen);
     }
   }, [panel, sessions, revision]);
-}
-
-/**
- * The slot a session's screen stands in: shown only for the tab in front.
- * While a panel is dragged (`moving`) the grid keeps its size: Trellis shrinks
- * the panel being dragged to a strip a row high, and a grid fitted to that
- * pushes all but the cursor's line into the scrollback, where the shell's
- * redraw cannot reach, so its prompt came back twice after the drop.
- */
-function ScreenSlot({ session, shown, focused, moving }: { session: Session; shown: boolean; focused: boolean; moving: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { screen } = session;
-  useLayoutEffect(() => {
-    const slot = ref.current;
-    if (!slot) return;
-    screen.attach(slot);
-    return () => {
-      if (screen.element.parentElement === slot) slot.removeChild(screen.element);
-    };
-  }, [screen]);
-  useLayoutEffect(() => {
-    screen.setShown(shown);
-    if (!shown || moving) return;
-    screen.fit();
-    const slot = ref.current;
-    if (!slot) return;
-    // Every change of the slot's size (the divider dragged, the window
-    // resized) refits the grid, once per frame.
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => screen.fit());
-    });
-    observer.observe(slot);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [screen, shown, moving]);
-  useEffect(() => {
-    if (shown && focused) screen.focus();
-  }, [screen, shown, focused]);
-  return <div ref={ref} className="terminal-slot" hidden={!shown} />;
 }
 
 function TerminalTab({ session, selected, label }: { session: Session; selected: boolean; label: string }) {
@@ -270,7 +229,7 @@ export function TerminalPanel({ controller, shown, focused, moving }: { controll
       )}
       <div className="terminal-stage">
         {sessions.map((session) => (
-          <ScreenSlot key={session.key} session={session} shown={shown && session.key === active} focused={focused && !finding} moving={moving} />
+          <ScreenSlot key={session.key} screen={session.screen} shown={shown && session.key === active} focused={focused && !finding} moving={moving} />
         ))}
         {finding && <FindField screen={current.screen} onClose={() => setFindingIn(null)} />}
         {!sessions.length && (

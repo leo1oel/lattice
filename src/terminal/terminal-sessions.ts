@@ -65,24 +65,8 @@ type Snapshot<S extends TerminalScreen> = { sessions: readonly TerminalSession<S
 
 /** Output the window draws before it tells the host (see `ack`). */
 const ACK_EVERY = 64 * 1024;
-/**
- * How long the screen's size must hold before the shell hears of it. Each
- * size the shell hears makes it redraw its prompt where it thinks the prompt
- * is, and a panel that animates (dropped after a drag, opened, its divider
- * dragged) passes through a size a frame: a redraw against a grid that has
- * since reflowed again leaves a copy of a multi-line prompt behind. The grid
- * itself still follows every frame; only the shell waits for the last size.
- */
-export const RESIZE_SETTLE_MS = 150;
 
-type Internal<S extends TerminalScreen> = {
-  session: TerminalSession<S>;
-  id: number | null;
-  queued: string[];
-  drawn: number;
-  closed: boolean;
-  resizing: ReturnType<typeof setTimeout> | undefined;
-};
+type Internal<S extends TerminalScreen> = { session: TerminalSession<S>; id: number | null; queued: string[]; drawn: number; closed: boolean };
 
 export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
   private items: Internal<S>[] = [];
@@ -122,7 +106,7 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
     while (used.has(number)) number += 1;
     const screen = this.createScreen();
     const session: TerminalSession<S> = { key: this.nextKey++, number, name: null, shell: "", screen, state: { kind: "starting" } };
-    const item: Internal<S> = { session, id: null, queued: [], drawn: 0, closed: false, resizing: undefined };
+    const item: Internal<S> = { session, id: null, queued: [], drawn: 0, closed: false };
     this.items.push(item);
     this.publish(session.key);
     const root = this.root;
@@ -130,11 +114,8 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
       if (item.id === null) item.queued.push(data);
       else void this.backend.write(item.id, data).catch(() => {});
     });
-    screen.onResize(() => {
-      clearTimeout(item.resizing);
-      item.resizing = setTimeout(() => {
-        if (item.id !== null && !item.closed) void this.backend.resize(item.id, screen.cols(), screen.rows()).catch(() => {});
-      }, RESIZE_SETTLE_MS);
+    screen.onResize((cols, rows) => {
+      if (item.id !== null) void this.backend.resize(item.id, cols, rows).catch(() => {});
     });
     void this.backend.open({
       projectRoot: root,
@@ -163,7 +144,6 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
       }
       this.update(item, { shell, state: { kind: "running" } });
       // The size may have changed while the shell started (the panel laid out).
-      clearTimeout(item.resizing);
       void this.backend.resize(id, screen.cols(), screen.rows()).catch(() => {});
       for (const data of item.queued.splice(0)) void this.backend.write(id, data).catch(() => {});
     }, (reason: unknown) => {
@@ -211,7 +191,6 @@ export class TerminalSessions<S extends TerminalScreen = TerminalScreen> {
 
   private end(item: Internal<S>) {
     item.closed = true;
-    clearTimeout(item.resizing);
     if (item.id !== null) void this.backend.close(item.id).catch(() => {});
     item.session.screen.dispose();
   }
