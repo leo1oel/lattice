@@ -89,6 +89,42 @@ git unions their entries and only stops when both sides translated the same
 message differently. Run `pnpm i18n:check` after such a merge: it re-extracts
 from the merged source, so a wrong union fails there rather than in CI.
 
+### The pre-commit file-size check
+
+`pnpm install` also installs a pre-commit hook: its `prepare` script runs
+[husky](https://typicode.github.io/husky/), which points this clone's
+`core.hooksPath` at `.husky/_`. A clone that has not run `pnpm install` has no
+hook. The hook runs lint-staged, which passes every staged file to
+[`scripts/check-file-size.mjs`](scripts/check-file-size.mjs).
+
+That check keeps each source file small enough for an agent to read in one
+pass: at most **8,000 tokens**, counted as bytes / 4. Tests count too. A commit
+fails when it stages a source file over the budget, unless the file was already
+over the budget at `HEAD` and did not grow. The files that were over the budget
+when the check arrived may stay that size, but they cannot gain a byte, so
+split one before adding to it; the error message lists the split rules.
+`node scripts/check-file-size.mjs --all` prints every file over the budget,
+largest first.
+
+Generated and vendored files are skipped through `linguist-generated` and
+`linguist-vendored` in [`.gitattributes`](.gitattributes), so mark a new one
+there rather than adding a skip list. A file whose every split would cost more
+than it saves, such as one table that only reads whole, can opt out with
+`@ratchet-files-ignore` in a comment within its first 10 lines, followed by the
+reason:
+
+```js
+// @ratchet-files-ignore: one opcode table; split, each half reads without the other.
+```
+
+The check then ignores the file entirely, so use this only after looking for a
+seam, never to get past a refusal.
+
+The local `core.hooksPath` that husky sets takes precedence over a global
+`git config --global core.hooksPath`, so the check runs whether or not you have
+one. The flip side is that hooks in your global directory stop running in this
+repository.
+
 ### You probably do not need to build the bundled runtimes
 
 **This is the part that trips up most new contributors.**
