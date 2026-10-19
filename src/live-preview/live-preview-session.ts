@@ -307,6 +307,10 @@ export class LivePreviewSession {
   private applyBase(revision: number): void {
     this.pendingBase = null;
     this.model.setBase(revision);
+    // rtex lays out again only when pagination moved, so its last layout can
+    // be older than the PDF now on screen; the rows a live paragraph clears
+    // come from that layout, so ask for one that matches the PDF.
+    if (this.model.layoutRevision !== null && this.model.layoutRevision < revision) this.enqueue([{ cmd: "request_layout" }]);
     // The build laid out what the layout was awaited for.
     if (this.awaitingSince !== null && revision >= this.awaitingSince) this.awaitingSince = null;
     this.refreshPending();
