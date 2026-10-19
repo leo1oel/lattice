@@ -46,15 +46,26 @@ type SwappableFindController = {
   setDocument(document: PDFDocumentProxy): void;
 };
 
-/** What the backend signs; null when it cannot (not a PDF it can parse, or no backend). */
+const signed = new WeakMap<ArrayBuffer, Promise<PdfPageSignatures | null>>();
+
+/**
+ * What the backend signs, once per buffer: a build's bytes are signed as they
+ * arrive, so the comparison is ready when the preview's debounce ends. Null
+ * when it cannot (not a PDF it can parse, or no backend).
+ */
 export function pdfPageSignatures(bytes: ArrayBuffer): Promise<PdfPageSignatures | null> {
-  // The raw IPC body is the PDF itself. A copy: the caller's buffer may be
-  // transferred to PDF.js while this is in flight.
-  const copy = bytes.slice(0);
-  return Promise.resolve()
-    .then(() => invoke<PdfPageSignatures | undefined>("pdf_page_signatures", copy))
-    .then((signatures) => signatures && Array.isArray(signatures.pages) ? signatures : null)
-    .catch(() => null);
+  let signatures = signed.get(bytes);
+  if (!signatures) {
+    // The raw IPC body is the PDF itself. A copy: the caller's buffer may be
+    // transferred to PDF.js while this is in flight.
+    const copy = bytes.slice(0);
+    signatures = Promise.resolve()
+      .then(() => invoke<PdfPageSignatures | undefined>("pdf_page_signatures", copy))
+      .then((answer) => answer && Array.isArray(answer.pages) ? answer : null)
+      .catch(() => null);
+    signed.set(bytes, signatures);
+  }
+  return signatures;
 }
 
 /** The pages (from 1) whose signatures differ, or null when the document as a whole changed. */

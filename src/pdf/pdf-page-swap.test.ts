@@ -90,15 +90,18 @@ describe("pdfPageSignatures", () => {
   it("sends the PDF as the raw body and reads nothing into a failure", async () => {
     invoke.mockResolvedValueOnce({ document: "d", pages: ["a"] });
     await expect(pdfPageSignatures(BYTES)).resolves.toEqual({ document: "d", pages: ["a"] });
+    // Once per buffer.
+    await expect(pdfPageSignatures(BYTES)).resolves.toEqual({ document: "d", pages: ["a"] });
+    expect(invoke).toHaveBeenCalledTimes(1);
     const [command, sent] = invoke.mock.calls[0];
     expect(command).toBe("pdf_page_signatures");
     // A copy, since the caller may hand its own buffer to PDF.js meanwhile.
     expect(sent).not.toBe(BYTES);
     expect(new Uint8Array(sent as ArrayBuffer)).toEqual(new Uint8Array(BYTES));
     invoke.mockRejectedValueOnce(new Error("not a PDF"));
-    await expect(pdfPageSignatures(BYTES)).resolves.toBeNull();
+    await expect(pdfPageSignatures(BYTES.slice(0))).resolves.toBeNull();
     invoke.mockResolvedValueOnce(undefined);
-    await expect(pdfPageSignatures(BYTES)).resolves.toBeNull();
+    await expect(pdfPageSignatures(BYTES.slice(0))).resolves.toBeNull();
   });
 });
 

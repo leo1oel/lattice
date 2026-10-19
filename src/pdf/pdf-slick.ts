@@ -15,7 +15,6 @@ import {
   type PdfFitMode,
 } from "./pdf-viewer-utils";
 import { clearParkedPdfTextSelection } from "./pdf-text-layer-selection";
-import type { PdfPageSignatures } from "./pdf-page-swap";
 import type { PDFDataRangeTransport } from "./pdfjs-runtime";
 import "./pdfjs-runtime";
 
@@ -34,12 +33,10 @@ export type ViewerRecord = {
   cleanup: Array<() => void>;
   destroyed: boolean;
   /**
-   * The bytes on screen when they came as bytes (a project build), and their
-   * page signatures once a rebuild asked for them: what pdf-page-swap.ts
-   * compares the rebuild with.
+   * The bytes on screen when they came as bytes (a project build): what
+   * pdf-page-swap.ts compares a rebuild with.
    */
   bytes?: ArrayBuffer;
-  signatures?: Promise<PdfPageSignatures | null>;
 };
 
 type PdfSlickPageView = {

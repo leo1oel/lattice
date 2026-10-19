@@ -125,6 +125,10 @@ export function usePdfDocument({
   // stays readable until the replacement finishes initial scaling.
   useEffect(() => {
     if (source.key === stableLoadKey) return;
+    // Signed now, so a rebuild can be compared with the build on screen as
+    // soon as the wait below ends.
+    const { bytes } = sourceRef.current;
+    if (rebuilds && bytes) void pdfPageSignatures(bytes);
     if (!source.key || !stableLoadKey) {
       // eslint-disable-next-line react-hooks-js/set-state-in-effect -- removal cancels a debounced replacement, and an opened source has none to wait for.
       setStableLoadKey(source.key);
@@ -132,7 +136,7 @@ export function usePdfDocument({
     }
     const timer = window.setTimeout(() => setStableLoadKey(source.key), recordRef.current ? 900 : 120);
     return () => window.clearTimeout(timer);
-  }, [recordRef, source.key, stableLoadKey]);
+  }, [rebuilds, recordRef, source.key, sourceRef, stableLoadKey]);
 
   // A rebuild of the bytes on screen is shown in the open viewer, redrawing
   // only the pages it changed (pdf-page-swap.ts). Anything else, a swap that
@@ -152,15 +156,12 @@ export function usePdfDocument({
     const key = stableLoadKey;
     let current = true;
     const isCurrent = () => current && recordRef.current === active && !active.destroyed;
-    const before = active.signatures ??= pdfPageSignatures(active.bytes);
-    const after = pdfPageSignatures(bytes);
-    void Promise.all([before, after])
+    void Promise.all([pdfPageSignatures(active.bytes), pdfPageSignatures(bytes)])
       .then(async ([previous, next]) => {
         const changed = previous && next && changedPages(previous, next);
         if (!changed || !isCurrent() || !await swapPdfPages(active, bytes, changed, isCurrent)) return false;
         active.key = key;
         active.bytes = bytes;
-        active.signatures = after;
         return true;
       })
       .catch(() => false)
