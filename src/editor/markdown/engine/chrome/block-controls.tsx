@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type Editor } from "@tiptap/core";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
 import { GripVertical, Plus } from "lucide-react";
 import { moveBlockDown, moveBlockTo, moveBlockUp } from "../block-moves";
 import { ENGINE_SHORTCUTS } from "../engine-shortcuts";
@@ -139,6 +139,22 @@ function resolveTopLevel(editor: Editor, position: number): number | null {
   return $at.before(1);
 }
 
+/**
+ * Blocks whose text starts below the top of their box: the first note of a
+ * run opens under a rule (lattice-visual-blocks.css), so the controls follow
+ * the note's first line instead of its border.
+ */
+const FIRST_LINE_BLOCKS = new Set(["latticeFootnote"]);
+
+/** The viewport top and height of a first-line block's first line of text, else null. */
+function firstLineOf(editor: Editor, target: Target): { top: number; height: number } | null {
+  if (target.kind !== "block" || !FIRST_LINE_BLOCKS.has(editor.state.doc.nodeAt(target.position)?.type.name ?? "")) return null;
+  const start = Selection.findFrom(editor.state.doc.resolve(target.position + 1), 1, true);
+  if (!start) return null;
+  const caret = editor.view.coordsAtPos(start.from);
+  return caret.bottom > caret.top ? { top: caret.top, height: caret.bottom - caret.top } : null;
+}
+
 type Drag = { target: Target; startY: number; ghost: HTMLElement | null; line: HTMLElement; drop: { position: number; after: boolean } | null };
 
 export function BlockControls({ editor, layer, host }: { editor: Editor; layer: HTMLElement | null; host: ChromeHost }) {
@@ -194,8 +210,9 @@ export function BlockControls({ editor, layer, host }: { editor: Editor; layer: 
   if (!target || !layer || !target.element.isConnected) return null;
   const origin = layer.getBoundingClientRect();
   const rect = target.element.getBoundingClientRect();
+  const line = firstLineOf(editor, target);
   const firstLine = Math.min(rect.height, parseFloat(getComputedStyle(target.element).lineHeight) || 24);
-  const top = rect.top - origin.top + Math.max(0, (firstLine - 24) / 2);
+  const top = line ? line.top - origin.top + (line.height - 24) / 2 : rect.top - origin.top + Math.max(0, (firstLine - 24) / 2);
   // Controls sit before the block: on its left, or its right in right-to-left text.
   const rtl = isRtl(target.element);
   const left = (rtl ? rect.right : rect.left) - origin.left;

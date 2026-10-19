@@ -50,4 +50,18 @@ describe("footnote block controls (R-BLK-6, R-CHR-5)", () => {
     expect(editor.state.doc.lastChild?.textContent).toBe("/");
     expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
   });
+
+  it("sits on a note's first line, below the rule that opens the run", async () => {
+    const { editor } = renderEditor(NOTES);
+    const blocks = [...surface().children];
+    blocks.forEach((block, index) => setRect(block, new DOMRect(100, 100 + index * 60, 400, 50)));
+    // The first note's text starts 24px into its box, under the rule's padding.
+    vi.spyOn(editor.view, "coordsAtPos").mockImplementation(() => ({ left: 130, right: 131, top: 184, bottom: 204 }));
+    fireEvent.mouseMove(blocks[1]!, { clientX: 150, clientY: 190 });
+    const controls = (await screen.findByRole("button", { name: "Add block below" })).parentElement!;
+    expect(controls.style.top).toBe("182px");
+    // Other blocks keep their box's top.
+    fireEvent.mouseMove(blocks[0]!, { clientX: 150, clientY: 110 });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add block below" }).parentElement!.style.top).toBe("100px"));
+  });
 });
