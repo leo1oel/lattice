@@ -27,27 +27,9 @@ import { useFileViewStates } from "./use-file-view-states";
 import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
+import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
 
-export { paperDocumentPath, readPaperDocuments, type PaperView };
-
-/**
- * What the status bar's save slot reports: the last write to disk, as the
- * save promise resolved it. Autosave writes a moment after typing stops, so
- * "saving" is only shown for a write still running after SAVING_SHOWN_AFTER_MS;
- * a quick one goes straight from saved to saved, with no flicker.
- */
-export type SaveStatus = {
-  phase: "saved" | "saving" | "failed";
-  /** When the last write landed or failed; null until this session writes. */
-  at: number | null;
-  /** The file that write was for. */
-  path: string | null;
-  /** Why it failed, in the system's words. */
-  error?: string;
-};
-
-const SAVING_SHOWN_AFTER_MS = 400;
-const NOTHING_SAVED: SaveStatus = { phase: "saved", at: null, path: null };
+export { paperDocumentPath, readPaperDocuments, type PaperView, type SaveStatus };
 
 /** Which reader a tab key opens through: a Paper's, an asset preview's, or the text editor's. */
 export function documentKind(key: string, assetPaths: ReadonlySet<string>): "paper" | "asset" | "file" {
@@ -281,7 +263,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   // ---- Disk: the open file's last-seen mtime (-1: inspect the next version),
   // saves in flight, and a PDF removed from the project while it is open.
   const diskMtimeRef = useRef<number | null>(null);
-  const saveActivityRef = useRef({ pending: 0, generation: 0 });
+  const saveActivityRef = useRef(createSaveActivity());
   // Kept with the project it describes: another project starts from nothing saved.
   const [saveRecord, setSaveStatus] = useState<SaveStatus & { root?: string }>(NOTHING_SAVED);
   const saveStatus: SaveStatus = saveRecord.root === projectRoot ? saveRecord : NOTHING_SAVED;
@@ -517,20 +499,10 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     depsRef, fileRef, paperBlogRef, paperMarkdownRef, renderedRef, savedPaperBlogRef, savedPaperMarkdownRef, savedRef,
     setSavedLive, setSavedPaperBlog, setSavedPaperMarkdown, setTextLive, t, textRef,
   ]);
-  // Keep activity tracking outside the save body: React Compiler cannot lower
-  // try/finally, while Promise.finally still covers every early return/error.
-  const save = useCallback((): Promise<boolean> => {
-    saveActivityRef.current.pending += 1;
-    saveActivityRef.current.generation += 1;
-    const root = renderedRef.current.project?.root;
-    const slow = window.setTimeout(() => setSaveStatus((status) => ({ ...(status.root === root ? status : NOTHING_SAVED), phase: "saving", root })), SAVING_SHOWN_AFTER_MS);
-    return saveContents().finally(() => {
-      saveActivityRef.current.pending -= 1;
-      window.clearTimeout(slow);
-      // A slow save that wrote nothing (another save had already written it) leaves the last word standing.
-      setSaveStatus((status) => (status.phase === "saving" ? { ...status, phase: "saved" } : status));
-    });
-  }, [renderedRef, saveContents]);
+  const save = useCallback(
+    () => trackSave(saveActivityRef.current, renderedRef.current.project?.root, setSaveStatus, saveContents),
+    [renderedRef, saveContents],
+  );
 
   /**
    * Durable text for `path` reached disk: show it if `path` is the open file.
