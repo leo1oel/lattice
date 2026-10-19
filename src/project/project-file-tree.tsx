@@ -31,6 +31,7 @@ import {
   afterNextPaint, clearDropTarget, followTreeMotion, paintDropTarget, selectionIncluding, useProjectTreePointerDrag,
 } from "./project-tree-pointer-drag";
 import { notifyCopied } from "../telemetry/app-notify";
+import { useTrellisController } from "../trellis/trellis-controller";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
 // design-system `--row-height-tree` (28px, the compact control height).
@@ -95,6 +96,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
   const propsRef = useLatestRef(props);
   const treeRef = useLatestRef(tree);
+  const trellisRef = useLatestRef(useTrellisController());
   const syncingSelectionRef = useRef(false);
   const lastLikelyFileRef = useRef<string | null>(null);
   // Pierre and the gesture hooks call these only after mount, so they may
@@ -133,6 +135,9 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
       if (syncingSelectionRef.current) return;
       const node = treeRef.current.nodes.get(selectedPaths.at(-1) ?? "");
       if (!node || isDirectoryNode(node)) return;
+      // A press or an arrow key here is a quick look: the file opens as its
+      // panel's preview tab, which the next one replaces (trellis-tab-policy.ts).
+      trellisRef.current?.tabs.preview(node.path);
       if (node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink") propsRef.current.onAsset(node.path);
       else propsRef.current.onFile(node.path);
     },
@@ -429,6 +434,11 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
                   }
                 }}
                 onDragStartCapture={pointerDrag.onDragStartCapture}
+                // A double-click keeps the file's tab, opened as a preview by the first press.
+                onDoubleClick={(event) => {
+                  const node = tree.nodes.get(rowPathFromPointer(event) ?? "");
+                  if (node && !isDirectoryNode(node)) trellisRef.current?.tabs.keep(node.path);
+                }}
                 onClickCapture={pointerDrag.onClickCapture}
               />
               <ExternalScrollbar getViewport={getTreeScrollViewport} />

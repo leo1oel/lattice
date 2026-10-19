@@ -12,7 +12,6 @@
  * own live host (see DeckSlot).
  */
 import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
   Workspace, ViewType, useCloseGuard, useView, useViewBadge,
@@ -57,6 +56,8 @@ import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./tre
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { PanelMenu } from "./trellis-panel-menu";
+import { openDocumentTab, useDocumentTabs, useFileTab, withTabItems } from "./trellis-document-tabs";
+import type { FileParams } from "./trellis-tab-policy";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { AfterSwitch } from "../canvas/after-switch";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
@@ -108,8 +109,6 @@ function measuredMinSize(base: { width: number; height: number }, measured: () =
   };
 }
 
-
-type FileParams = { key: string };
 
 function findPanel(node: LayoutNode, id: string): PanelNode | null {
   if (node.kind === "panel") return node.id === id ? node : null;
@@ -628,7 +627,7 @@ function FileView({ controller }: { controller: TrellisController }) {
   useEffect(() => {
     if (active) controller.ui.set({ editorVisible: view.visible });
   }, [active, controller, view.visible]);
-  const surfaceIcon = useFileTabIcon(controller, view.id, key);
+  const surfaceIcon = useFileTab(controller, view, dirty);
   if (isOpenSlideDeckPath(key)) {
     return (
       <>
@@ -696,18 +695,6 @@ function DeckSlot({ controller, fileKey, view }: { controller: TrellisController
     return controller.decks.watchFocus(fileKey);
   }, [active, controller, fileKey]);
   return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
-}
-
-/** Per-file tab icons: a type's `icon` is shared by all its views, so file panels portal their own. */
-function useFileTabIcon(controller: TrellisController, viewId: string, key: string) {
-  const ws = controller.ws;
-  // Read during render, not set from an effect: the tab's icon slot usually
-  // exists by the time the view renders, and an effect would cost every file
-  // panel an extra commit on mount.
-  const subscribe = useCallback((listener: () => void) => ws?.on("surfaces", listener) ?? (() => {}), [ws]);
-  const iconHost = useSyncExternalStore(subscribe, () => ws?.surfaces().find((surface) => surface.view.id === viewId)?.icon ?? null);
-  const kind = controller.bridge?.tabKind(key) ?? "file";
-  return iconHost ? createPortal(fileIcon(key, kind), iconHost) : null;
 }
 
 /** Quick open's keys beside its button, from the command table rather than typed out. */
@@ -867,6 +854,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
 
   useTabSync(controller, ws, quietCloses);
   useHibernation(controller);
+  useDocumentTabs(controller, ws);
 
   // The window's minimum follows the layout's: its panels' minimums plus
   // whatever sits beside the workspace. Measured only when the layout's own
@@ -1425,7 +1413,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           tabbar={focusMode ? "never" : undefined}
           title={(view) => controller.bridge?.tabLabel(String(view.params.key ?? "")) ?? String(view.params.key ?? "")}
           accessory={<FileHeaderTools controller={controller} />}
-          menu={fileMenu}
+          menu={(view) => withTabItems(controller, view, fileMenu(view))}
         >
           <FileView controller={controller} />
         </ViewType>
@@ -1484,17 +1472,13 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
         if (slot) return slot.panelId;
         return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
       };
+      // App's explicit open of the active document: a quick look, or one that keeps its tab (see trellis-tab-policy.ts).
+      const opened = tabsReady && revealRequest !== lastReveal ? (controller.tabs.takePreview(activeKey) ? "preview" : "open") : null;
       const open = (key: string) => {
         const panelId = anchorPanel(key);
         let info: ViewInfo | undefined;
-        if (panelId) {
-          info = ws.open("file", {
-            params: { key },
-            reuse: (view) => view.type === "file" && view.params.key === key,
-            focus: false,
-            placement: { into: panelId },
-          });
-        } else {
+        if (panelId) info = openDocumentTab(controller, ws, key, panelId, key === activeKey ? opened : null);
+        else {
           const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
           const navigators = NAVIGATORS.flatMap((kind) => ws.view(kind)?.panelId ?? []);
           // Not animated: this is how the first document appears at startup,
@@ -1523,6 +1507,7 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
       lastTabsReady = tabsReady;
       lastReveal = revealRequest;
       if (!activeKey || !activeChanged) return;
+      if (opened === "open") controller.tabs.keep(activeKey);
       const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
       if (!info) return;
       if (info.placement === "hidden") ws.focus(info.id);

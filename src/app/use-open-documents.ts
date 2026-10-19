@@ -217,8 +217,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const paperPath = paper ? paperDocumentPath(paper.arxivId, paperView) : null;
   const paperDirty = Boolean(paper) && (paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog);
 
-  // ---- Tabs, in strip order, persisted with the layout; nothing caps or
-  // evicts them. Closed tabs stack up (newest first) for reopening.
+  // ---- Tabs, in strip order, saved with the layout; a full panel closes
+  // some (trellis-tab-policy.ts). Closed ones stack for reopening.
   const [tabs, setTabs] = useState<string[]>([]);
   const tabsRef = useRef<string[]>([]);
   useLayoutEffect(() => { tabsRef.current = tabs; }, [tabs]);

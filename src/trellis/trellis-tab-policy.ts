@@ -1,0 +1,93 @@
+/**
+ * Which document tabs a panel keeps.
+ *
+ * A quick look (a press or arrow key in the Project tree, Quick open, a
+ * project search hit) opens its document as its panel's preview tab, its
+ * title in italics, which the next quick look in that panel replaces instead
+ * of adding a tab beside it. Working with the document keeps its tab: an
+ * edit, a double-click on the tab or the tree row, dragging the tab, Keep
+ * open or Pin in its menu, or opening it any other way (an agent, a build
+ * problem, a link followed, a file just made).
+ *
+ * A panel whose strip has no room for another tab at the tabs' minimum width
+ * closes its least recently used tab for the one coming in, as the writer's
+ * own close would (see trellis-document-tabs.tsx). Never a pinned tab, a
+ * preview, the active document or one with unsaved changes; with none of its
+ * tabs free to go, the strip squeezes and scrolls as before.
+ *
+ * Both marks are params of the file view, so they are saved and restored
+ * with the layout. Eager, as the controller that holds it: nothing from
+ * Trellis at runtime.
+ */
+import type { WorkspaceHandle } from "@danfessler/trellis";
+
+/** A file view's params: its document, and whether its tab is a preview or pinned. */
+export type FileParams = { key: string; preview?: boolean; pinned?: boolean };
+
+/** A document tab as eviction weighs it, in strip order. */
+export type TabCandidate = { id: string; key: string; preview: boolean; pinned: boolean };
+
+/**
+ * The `count` tabs to close for room: the least recently used of those that
+ * may go (strip order among tabs never used this session), never a preview,
+ * a pinned tab or one `held`.
+ */
+export function chooseEvictions(
+  tabs: readonly TabCandidate[],
+  count: number,
+  { held, lastUsed }: { held: (key: string) => boolean; lastUsed: (key: string) => number },
+): string[] {
+  if (count <= 0) return [];
+  return tabs
+    .map((tab, index) => ({ tab, index }))
+    .filter(({ tab }) => !tab.preview && !tab.pinned && !held(tab.key))
+    .sort((a, b) => lastUsed(a.tab.key) - lastUsed(b.tab.key) || a.index - b.index)
+    .slice(0, count)
+    .map(({ tab }) => tab.id);
+}
+
+export class DocumentTabs {
+  /** The document the last quick look asked for, until App's open of it lands. */
+  private previewKey: string | null = null;
+  private readonly used = new Map<string, number>();
+  private clock = 0;
+
+  constructor(private readonly workspace: () => WorkspaceHandle | null) {}
+
+  /** The next open of `key` is a quick look: its tab opens as its panel's preview. */
+  preview(key: string) {
+    this.previewKey = key;
+  }
+
+  /** Whether App's explicit open of `key` was a quick look. Each open asks once, which ends the ask. */
+  takePreview(key: string) {
+    const quick = this.previewKey === key;
+    this.previewKey = null;
+    return quick;
+  }
+
+  /** The document became the active one: the most recently used. */
+  touch(key: string) {
+    this.used.set(key, ++this.clock);
+  }
+
+  lastUsed = (key: string) => this.used.get(key) ?? 0;
+
+  /**
+   * Keep `key`'s tab: no longer a preview. A quick look still on its way
+   * (the second press of a double-click lands before the file has read)
+   * opens as a kept tab.
+   */
+  keep(key: string) {
+    if (this.previewKey === key) this.previewKey = null;
+    const ws = this.workspace();
+    for (const view of ws?.views({ type: "file" }) ?? []) {
+      if (view.params.key === key && view.params.preview) ws?.setParams(view.id, { preview: false });
+    }
+  }
+
+  /** Pin or unpin a document tab; a pinned tab is kept too. */
+  setPinned(viewId: string, pinned: boolean) {
+    this.workspace()?.setParams(viewId, pinned ? { pinned, preview: false } : { pinned });
+  }
+}

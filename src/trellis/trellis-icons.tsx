@@ -4,9 +4,9 @@
  */
 import type { ReactNode } from "react";
 import {
-  ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2,
+  ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCheck, FileCode2,
   FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
-  Minimize2, PenLine, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
+  Minimize2, PenLine, PictureInPicture2, Pin, PinOff, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
 import { isOpenSlideDeckPath } from "../app-utils";
@@ -66,6 +66,9 @@ export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
   hide: <EyeOff />,
   close: <X />,
   "close-others": <XCircle />,
+  "keep-open": <FileCheck />,
+  pin: <Pin />,
+  unpin: <PinOff />,
   build: <Hammer />,
   "clean-build": <RefreshCw />,
   "stop-build": <Square />,

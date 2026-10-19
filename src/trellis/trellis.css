@@ -196,6 +196,46 @@
 .lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); border-radius: calc(var(--trellis-tab-radius) * var(--corner-smoothing)); corner-shape: squircle; }
 
+/* Document tabs' marks (trellis-tab-policy.ts), drawn from the spans each
+   carries in its icon slot for screen readers (trellis-document-tabs.tsx).
+   A preview names its document in italics: the next quick look in its panel
+   takes its place. */
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-icon"] > [data-tab-preview]) > [data-trellis-part="tab-title"] { font-style: italic; }
+/* Unsaved changes mark the document's icon: a dot on its top corner, cut out
+   of the glyph so it reads on every fill. The trailing slot keeps to the
+   close button (or a pin), so no title trails a stray dot, and the dot never
+   trades places with the close button under the pointer. Lattice saves after
+   a pause in typing, so the mark is brief. */
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] > [data-trellis-part="tab-badge"] { display: none; }
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] > [data-trellis-part="tab-close"] { display: inline-grid; }
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] > [data-trellis-part="tab-icon"] { position: relative; }
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] > [data-trellis-part="tab-icon"] svg {
+  mask-image: radial-gradient(circle at calc(100% - 2px) 2px, transparent 4.5px, #000 5px);
+}
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] > [data-trellis-part="tab-icon"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--tab-dirty-dot-size);
+  height: var(--tab-dirty-dot-size);
+  translate: 1.5px calc(-7px - 1.5px);
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+.lattice-trellis [data-trellis-part="tab"][data-selected][data-badge="dot"] > [data-trellis-part="tab-icon"]::after { background: var(--text-primary); }
+/* A pinned tab holds a pin in its trailing slot; under the pointer that slot
+   is its close button again, as on every tab. */
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-icon"] > [data-tab-pinned]):not(:hover) > [data-trellis-part="tab-close"] { opacity: 1; }
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-icon"] > [data-tab-pinned]):not(:hover) > [data-trellis-part="tab-close"] > svg { display: none; }
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-icon"] > [data-tab-pinned]):not(:hover) > [data-trellis-part="tab-close"]::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 17v5'/%3E%3Cpath d='M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* Tabs use the space left after the action row and compress together to 100px,
    which the Trellis patch (planHeader) keeps free as the panel's minimum, up
    to a 480px cap. A panel held under that (more tabs than the cap, or a window

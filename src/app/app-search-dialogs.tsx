@@ -18,6 +18,7 @@ import { ProjectReplaceDialog } from "../project/project-replace-dialog";
 import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath } from "../app-utils";
 import { collectFilePaths } from "./workspace-restore";
+import { useTrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, FileNode, OpenProjectFile } from "../app-types";
 
 /** The navigation dialogs; at most one is open at a time. */
@@ -46,6 +47,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
   recentPaths: () => string[];
 }) {
   const { t } = useLingui();
+  const trellis = useTrellisController();
   const close = () => setOpen(null);
   /** Every pick closes the dialog on screen before acting on it. */
   const closeThen = <A extends unknown[]>(act: (...args: A) => void) => (...args: A) => {
@@ -113,6 +115,8 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         onClose={close}
         onIntent={props.prewarmLikelyProjectFile}
         onOpen={closeThen((path: string, line?: number) => {
+          // A quick look: its panel's preview tab (trellis-tab-policy.ts).
+          trellis?.tabs.preview(path);
           if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
           else void openProjectFile(path, line ? { line } : undefined);
         })}
@@ -156,6 +160,7 @@ export function AppProjectSearchDialogs({ search, ...props }: {
   openProjectFile: OpenProjectFile;
 }) {
   const { find, replace } = search;
+  const trellis = useTrellisController();
   return (
     <>
       <ProjectFindDialog
@@ -168,7 +173,11 @@ export function AppProjectSearchDialogs({ search, ...props }: {
         onSearch={search.search}
         onOpenHit={(path, line) => {
           if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
-          else void props.openProjectFile(path, { line });
+          else {
+            // Each hit looked at takes the place of the last one's preview tab.
+            trellis?.tabs.preview(path);
+            void props.openProjectFile(path, { line });
+          }
         }}
       />
       <ProjectReplaceDialog
