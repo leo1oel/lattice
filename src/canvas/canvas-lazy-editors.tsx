@@ -1,9 +1,8 @@
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { FileCode2 } from "lucide-react";
-import { InfinityLoader } from "../components/ui/activity-icons";
 import { lazyChunk } from "../lib/lazy-chunk";
 import { PdfLoading } from "../pdf/pdf-loading";
+import { DocumentSkeleton } from "./document-skeleton";
 import {
   isVisualMarkdownEditorWarmed, loadBibVisualEditorModule, loadBoardEditorModule, loadOpenSlideWorkspaceModule,
   loadPdfPreviewModule, loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule,
@@ -30,7 +29,7 @@ export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof Visual
     return () => window.cancelAnimationFrame(frame);
   }, [ready]);
   if (!ready) {
-    return <div className="visual-markdown-preparing" aria-busy="true" aria-label={t`Preparing Markdown editor`} />;
+    return <DocumentSkeleton shape="page" label={t`Preparing Markdown editor`} />;
   }
   return <VisualMarkdownEditor {...props} />;
 }
@@ -49,24 +48,18 @@ export function PdfPreviewLoading({ toolbar, children }: { toolbar?: ReactNode; 
   );
 }
 
+/** A rendered page (a Markdown file's, a bibliography's reference list) whose editor's chunk is on its way. */
 export function MarkdownPreviewLoading() {
   const { t } = useLingui();
-  return (
-    <div className="markdown-preview-loading" role="status" aria-live="polite">
-      <InfinityLoader size={20} />
-      <span>{t`Preparing preview…`}</span>
-    </div>
-  );
+  return <DocumentSkeleton shape="page" label={t`Preparing preview…`} />;
 }
 
+/** An HTML file's page before its preview may run (see DocumentCanvas's interactivePreviewsEnabled). */
 export function HtmlPreviewLoading() {
   const { t } = useLingui();
   return (
     <div className="html-preview">
-      <div className="pdf-placeholder">
-        <FileCode2 size={28} />
-        <p>{t`Preparing HTML preview…`}</p>
-      </div>
+      <DocumentSkeleton shape="page" label={t`Preparing HTML preview…`} />
     </div>
   );
 }

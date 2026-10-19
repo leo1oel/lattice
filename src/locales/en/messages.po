@@ -7258,6 +7258,10 @@ msgstr "Loading figure preview…"
 msgid "Loading files…"
 msgstr "Loading files…"
 
+#: src/canvas/html-preview.tsx
+msgid "Loading HTML preview…"
+msgstr "Loading HTML preview…"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading Overleaf collaboration…"
 msgstr "Loading Overleaf collaboration…"

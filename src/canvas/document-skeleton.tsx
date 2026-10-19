@@ -30,17 +30,18 @@ const PAGE_BLOCKS: ({ heading: number } | number[])[] = [
  * A document on its way, drawn where it will be and at its size: the source
  * editor's gutter, lines and status bar, or the rendered page's column at
  * the reading measure, or both at the split the canvas keeps. Every document
- * loader shows this one shape, on the "document" reveal clock, so a load
- * that passes from one to the next (a tab on its way to becoming active, the
+ * loader shows this one shape, on the reveal clock of the "Opening…" overlay
+ * (opening-overlay.tsx), so an open that passes from one to the next (the
+ * overlay over the old document, a tab on its way to becoming active, the
  * visual editor's chunk, an HTML page's first load) is one indicator that
- * waits once, and a quick load shows nothing.
+ * waits once, and a quick open shows nothing.
  */
 export function DocumentSkeleton({ shape, label }: {
   shape: DocumentSkeletonShape;
   /** What is loading, for assistive technology. */
   label: string;
 }) {
-  const reveal = useLoadingReveal("document");
+  const reveal = useLoadingReveal("opening");
   const split = shape === "split"
     ? { gridTemplateColumns: splitGridTemplate(SPLIT_MINIMUMS), "--split-ratio": loadSplitRatio() } as CSSProperties
     : undefined;
