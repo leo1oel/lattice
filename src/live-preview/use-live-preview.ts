@@ -2,29 +2,32 @@
  * The rtex live preview of a LuaLaTeX project: whether it runs, and the
  * session while it does.
  *
- * It is opt-in per project (Settings › Builds), offered only to projects whose
- * engine is LuaLaTeX, and costs nothing until turned on: this hook is all that
- * loads with the app. Turning it on downloads the pinned rtex once (the host
- * verifies it), then loads the renderer's chunk and starts rtex on the
- * project's main document. Leaving the project, switching its engine or
- * turning it off stops rtex.
+ * It is offered only to projects whose engine is LuaLaTeX, and is on there
+ * unless the writer turns it off (Settings › Builds; see
+ * loadLivePreviewEnabled). This hook is all that loads with the app. The
+ * first LuaLaTeX project opened downloads the pinned rtex in the background
+ * once the window is idle (the host verifies it), then loads the renderer's
+ * chunk and starts rtex on the project's main document. A Mac that cannot run
+ * it downloads nothing, and a failed download leaves the normal build alone:
+ * neither shows over the PDF, only in Settings. Leaving the project,
+ * switching its engine or turning it off stops rtex.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLingui } from "@lingui/react/macro";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
+import { whenIdle } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { chunk } from "../lib/lazy-chunk";
 import { onProjectFilesChanged } from "../project/project-files-changed";
-import { clearLivePreviewEnabled, loadLivePreviewEnabled, persistLivePreviewEnabled } from "../settings/app-settings";
+import { disableLivePreviewEverywhere, loadLivePreviewEnabled, persistLivePreviewEnabled } from "../settings/app-settings";
 import type { LivePreviewSession } from "./live-preview-session";
 
 /** The renderer and its session: loaded only once live preview is on. */
 export const loadLivePreviewModule = chunk(() => import("./live-preview-chunk"));
 
-export type LivePreviewInstall = { supported: boolean; installed: boolean; version: string };
+export type LivePreviewInstall = { supported: boolean; lualatex: boolean; installed: boolean; version: string };
 type InstallProgress = { stage: "downloading" | "verifying" | "complete"; progress: number };
 
 export type LivePreviewState =
@@ -32,7 +35,11 @@ export type LivePreviewState =
   | { kind: "downloading"; progress: number }
   | { kind: "starting" }
   | { kind: "running"; session: LivePreviewSession }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; message: string }
+  /** This Mac has no Apple silicon or no working LuaLaTeX: nothing downloaded. */
+  | { kind: "unavailable" }
+  /** rtex could not be downloaded (offline, say); builds go on as usual. */
+  | { kind: "download-failed"; message: string };
 
 /** What the build pipeline tells the session (see LivePreviewSession). */
 export type LivePreviewBuildHooks = Pick<LivePreviewSession, "noteSaved" | "buildStarted" | "baseLoading" | "baseShown" | "basePageCount">;
@@ -46,7 +53,6 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   source: string;
   savedSource: string;
 }) {
-  const { t } = useLingui();
   const root = project?.root ?? null;
   const available = project?.manifest.engine === "lualatex";
   const rootDocuments = project?.manifest.rootDocuments;
@@ -71,17 +77,31 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
     if (!runKey || !root || !mainFile) return;
     const setState = (next: LivePreviewState) => setRun({ key: runKey, state: next });
     let cancelled = false;
+    let cancelIdle = () => {};
     let session: LivePreviewSession | null = null;
     void (async () => {
       const install = await invoke<LivePreviewInstall>("live_preview_status");
-      if (!install.supported) throw new Error(t`Live preview needs a Mac with Apple silicon.`);
+      if (cancelled) return;
+      if (!install.supported || !install.lualatex) {
+        setState({ kind: "unavailable" });
+        return;
+      }
       if (!install.installed) {
+        // Not while the project is still opening: its first build, the file
+        // tree and the agent come first.
+        await new Promise<void>((resolve) => { cancelIdle = whenIdle(resolve, 5_000, 2_000); });
+        if (cancelled) return;
         setState({ kind: "downloading", progress: 0 });
         const onProgress = new Channel<InstallProgress>();
         onProgress.onmessage = (progress) => {
           if (!cancelled && progress.stage === "downloading") setState({ kind: "downloading", progress: progress.progress });
         };
-        await invoke("live_preview_install", { onProgress });
+        try {
+          await invoke("live_preview_install", { onProgress });
+        } catch (reason) {
+          if (!cancelled) setState({ kind: "download-failed", message: toMessage(reason) });
+          return;
+        }
       }
       if (cancelled) return;
       setState({ kind: "starting" });
@@ -100,10 +120,11 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
     });
     return () => {
       cancelled = true;
+      cancelIdle();
       buildHooks.current = null;
       session?.dispose();
     };
-  }, [mainFile, projectRef, root, runKey, t]);
+  }, [mainFile, projectRef, root, runKey]);
 
   const session = state.kind === "running" ? state.session : null;
   // The open file as it is typed, and as it is on disk.
@@ -127,7 +148,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   const retry = useCallback(() => setAttempt((count) => count + 1), []);
   /** Turn live preview off everywhere and delete rtex and its build folders. */
   const remove = useCallback(async () => {
-    clearLivePreviewEnabled();
+    disableLivePreviewEverywhere();
     setEnabledFor({ root, enabled: false });
     return invoke<LivePreviewInstall>("live_preview_remove");
   }, [root]);

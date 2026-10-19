@@ -601,6 +601,10 @@ msgstr "{meaning}, {color}"
 msgid "{meaning}, {color}, the pen's colour"
 msgstr "{meaning}, {color}, the pen's colour"
 
+#: src/live-preview/live-preview-settings.tsx
+msgid "{message} Builds work as usual."
+msgstr "{message} Builds work as usual."
+
 #: src/project/deadline-card.tsx
 msgid "{minutes} minutes"
 msgstr "{minutes} minutes"
@@ -1083,10 +1087,6 @@ msgstr "A local edit has not settled on Overleaf yet, so this document cannot be
 #: src/onboarding/guided-tour-steps.ts
 msgid "A one-minute tour of this sample paper. Seven stops, each with something to try."
 msgstr "A one-minute tour of this sample paper. Seven stops, each with something to try."
-
-#: src/live-preview/live-preview-status.tsx
-msgid "A one-time download of about 4 MB. Builds work as usual meanwhile."
-msgstr "A one-time download of about 4 MB. Builds work as usual meanwhile."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
@@ -1620,8 +1620,8 @@ msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment.
 msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 
 #: src/project/project-dialogs.tsx
-msgid "An empty article with no venue style or page limit"
-msgstr "An empty article with no venue style or page limit"
+msgid "An empty LuaLaTeX article with no venue style or page limit"
+msgstr "An empty LuaLaTeX article with no venue style or page limit"
 
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
@@ -4435,8 +4435,11 @@ msgstr "Downloading BasicTeX…"
 msgid "Downloading full text and figures…"
 msgstr "Downloading full text and figures…"
 
-#: src/live-preview/live-preview-settings.tsx
 #: src/live-preview/live-preview-status.tsx
+msgid "Downloading rtex once, about 4 MB. Builds work as usual meanwhile. You can turn it off in Settings › Editor & builds."
+msgstr "Downloading rtex once, about 4 MB. Builds work as usual meanwhile. You can turn it off in Settings › Editor & builds."
+
+#: src/live-preview/live-preview-settings.tsx
 msgid "Downloading rtex… {percent}%"
 msgstr "Downloading rtex… {percent}%"
 
@@ -7136,9 +7139,12 @@ msgid "Live preview engine"
 msgstr "Live preview engine"
 
 #: src/live-preview/live-preview-settings.tsx
-#: src/live-preview/use-live-preview.ts
-msgid "Live preview needs a Mac with Apple silicon."
-msgstr "Live preview needs a Mac with Apple silicon."
+msgid "Live preview needs a Mac with Apple silicon. Builds work as usual."
+msgstr "Live preview needs a Mac with Apple silicon. Builds work as usual."
+
+#: src/live-preview/live-preview-settings.tsx
+msgid "Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again."
+msgstr "Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again."
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Live preview redraws the paragraph you are typing within milliseconds, with rtex and your own LuaLaTeX. Page breaks, references, the exported PDF and jumps to the source still come from the normal build."
@@ -10887,6 +10893,7 @@ msgstr "Retrieved record information"
 
 #: src/agent/synara-loading-surface.tsx
 #: src/app/git-workspace-frames.tsx
+#: src/live-preview/live-preview-settings.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/telemetry/app-log.tsx
 msgid "Retry"
@@ -11661,6 +11668,10 @@ msgstr "Services"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
 msgstr "Set minus"
+
+#: src/live-preview/live-preview-status.tsx
+msgid "Setting up live preview… {percent}%"
+msgstr "Setting up live preview… {percent}%"
 
 #: src/App.tsx
 #: src/app/command-palette.tsx

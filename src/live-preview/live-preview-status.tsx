@@ -2,7 +2,9 @@
  * The live preview's state, as a small pill over the PDF: downloading rtex,
  * starting, the first layout, live, a layout catching up, or stopped. It
  * floats over the pages rather than joining the PDF toolbar, so it costs the
- * toolbar no width in a narrow panel.
+ * toolbar no width in a narrow panel. Live preview is on by default, so a Mac
+ * that cannot run it or a download that failed shows nothing here: the PDF
+ * just updates with each build, and Settings says why.
  */
 import { useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -15,7 +17,7 @@ import "./live-preview.css";
 type Tone = "busy" | "live" | "pending" | "stopped";
 
 export function LivePreviewStatus({ state, onRetry }: { state: LivePreviewState; onRetry: () => void }) {
-  if (state.kind === "off") return null;
+  if (state.kind === "off" || state.kind === "unavailable" || state.kind === "download-failed") return null;
   if (state.kind === "running") return <RunningStatus session={state.session} onRetry={onRetry} />;
   return <StatusPill state={state} snapshot={null} onRetry={onRetry} />;
 }
@@ -37,8 +39,8 @@ function StatusPill({ state, snapshot, onRetry }: {
   let detail: string | null = null;
   if (state.kind === "downloading") {
     const percent = Math.round(state.progress * 100);
-    label = t`Downloading rtex… ${percent}%`;
-    detail = t`A one-time download of about 4 MB. Builds work as usual meanwhile.`;
+    label = t`Setting up live preview… ${percent}%`;
+    detail = t`Downloading rtex once, about 4 MB. Builds work as usual meanwhile. You can turn it off in Settings › Editor & builds.`;
   } else if (state.kind === "starting" || snapshot?.phase === "starting") {
     label = t`Starting live preview…`;
     detail = t`Loading your preamble into LuaLaTeX.`;
