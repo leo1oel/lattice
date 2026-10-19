@@ -420,9 +420,15 @@ mod tests {
         let manifest = manifest::read_manifest(&root).unwrap();
         assert_eq!(manifest.venue, "blank");
         assert!(manifest.page_budget.is_none());
-        assert!(fs::read_to_string(root.join("main.tex"))
-            .unwrap()
-            .contains("\\documentclass{article}"));
+        assert_eq!(manifest.engine, "lualatex");
+        // Still free to fall back to pdfLaTeX if the writer adds pdfTeX-only code.
+        assert!(!manifest.keep_engine);
+        // Nothing LuaLaTeX warns about or rejects: no inputenc/fontenc, no \\pdfoutput.
+        let main = fs::read_to_string(root.join("main.tex")).unwrap();
+        assert!(main.contains("\\documentclass{article}"));
+        for pdftex_only in ["inputenc", "fontenc", "\\pdfoutput"] {
+            assert!(!main.contains(pdftex_only), "{pdftex_only}");
+        }
         assert!(!root.join("neurips_2026.sty").exists());
     }
 }
