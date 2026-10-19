@@ -1668,6 +1668,7 @@ msgid "Animated interface icons, redrawn from Phosphor glyphs"
 msgstr "动画界面图标，依 Phosphor 字形重绘"
 
 #: src/canvas/annotation-composer.tsx
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/pdf/pdf-annotations.tsx
 msgid "Annotate"
@@ -2192,7 +2193,7 @@ msgstr "独立一行的公式"
 msgid "Block quotation"
 msgstr "独立成段的引文"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-parts.tsx
 msgid "Block type"
 msgstr "段落样式"
 
@@ -2221,7 +2222,7 @@ msgid "Body words"
 msgstr "正文词数"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bold"
 msgstr "加粗"
@@ -2432,7 +2433,7 @@ msgstr "编译成功，有 {issues}"
 msgid "Bullet"
 msgstr "实心圆点"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Bullet List"
 msgstr "圆点列表"
@@ -3220,7 +3221,7 @@ msgstr "你输入时，合作者就能看到你的修改"
 msgid "Code block"
 msgstr "代码块"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Code Block"
 msgstr "代码块"
@@ -3564,6 +3565,7 @@ msgstr "控制字符"
 msgid "Convert selection to footnote"
 msgstr "改成脚注"
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Convert selection to inline math"
 msgstr "改成公式"
@@ -5481,6 +5483,7 @@ msgstr "格式"
 msgid "Formatted with latexindent."
 msgstr "已整理排版"
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Formatting"
 msgstr "格式"
@@ -5774,7 +5777,7 @@ msgstr "h-bar / 约化普朗克常数"
 msgid "Hand-written bibliography"
 msgstr "手写参考文献列表"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 1"
 msgstr "一级标题"
@@ -5783,27 +5786,27 @@ msgstr "一级标题"
 msgid "Heading 1 to 6"
 msgstr "一到六级标题"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 2"
 msgstr "二级标题"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 3"
 msgstr "三级标题"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 4"
 msgstr "四级标题"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 5"
 msgstr "五级标题"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 6"
 msgstr "六级标题"
@@ -5881,7 +5884,7 @@ msgid "Hide the PDF"
 msgstr "隐藏 PDF"
 
 #: src/editor/latex/highlight-palette.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 msgid "Highlight"
 msgstr "高亮"
 
@@ -6235,7 +6238,7 @@ msgstr "开启版本记录"
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Inline code"
 msgstr "代码"
@@ -6318,6 +6321,7 @@ msgstr "右插一列"
 msgid "Insert figure"
 msgstr "插入图片"
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Insert link"
 msgstr "插入链接"
@@ -6490,7 +6494,7 @@ msgid "It is still cited in the manuscript ({cited})."
 msgstr "稿件中仍有引用（{cited} 处）。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Italic"
 msgstr "斜体"
@@ -9088,7 +9092,7 @@ msgstr "或"
 msgid "Orange"
 msgstr "橙色"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Ordered List"
 msgstr "编号列表"
@@ -10065,7 +10069,7 @@ msgid "Quit {name}"
 msgstr "退出 {name}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Quote"
@@ -12325,7 +12329,7 @@ msgid "Stopping…"
 msgstr "正在停止…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Strikethrough"
 msgstr "删除线"
@@ -12582,7 +12586,7 @@ msgstr "比平时慢"
 msgid "Task list"
 msgstr "待办清单"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Task List"
 msgstr "待办清单"
@@ -12657,7 +12661,7 @@ msgstr "TeXcount 正文词数统计（可选，显示在状态栏）"
 msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/history/versions-timeline.tsx
 msgid "Text"
 msgstr "正文"
@@ -13697,7 +13701,7 @@ msgid "Under arXiv’s size limit"
 msgstr "未超出 arXiv 的大小限制"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Underline"
 msgstr "下划线"

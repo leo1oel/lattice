@@ -42,7 +42,7 @@ export type LatexSelectionAction =
   | "polish";
 
 /** The toolbar and the menus it opens: pointer or focus there keeps it open. */
-export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker";
+export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker, .lx-md-toolbar-layer";
 
 export type LatexSelectionToolbarPosition = {
   left: number;

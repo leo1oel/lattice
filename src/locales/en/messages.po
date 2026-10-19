@@ -1668,6 +1668,7 @@ msgid "Animated interface icons, redrawn from Phosphor glyphs"
 msgstr "Animated interface icons, redrawn from Phosphor glyphs"
 
 #: src/canvas/annotation-composer.tsx
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/pdf/pdf-annotations.tsx
 msgid "Annotate"
@@ -2192,7 +2193,7 @@ msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 msgid "Block quotation"
 msgstr "Block quotation"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-parts.tsx
 msgid "Block type"
 msgstr "Block type"
 
@@ -2221,7 +2222,7 @@ msgid "Body words"
 msgstr "Body words"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bold"
 msgstr "Bold"
@@ -2432,7 +2433,7 @@ msgstr "Built with {issues}"
 msgid "Bullet"
 msgstr "Bullet"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Bullet List"
 msgstr "Bullet List"
@@ -3220,7 +3221,7 @@ msgstr "Co-authors see your edits as you type"
 msgid "Code block"
 msgstr "Code block"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Code Block"
 msgstr "Code Block"
@@ -3564,6 +3565,7 @@ msgstr "Control character"
 msgid "Convert selection to footnote"
 msgstr "Convert selection to footnote"
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
@@ -5481,6 +5483,7 @@ msgstr "Format selected LaTeX"
 msgid "Formatted with latexindent."
 msgstr "Formatted with latexindent."
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Formatting"
 msgstr "Formatting"
@@ -5774,7 +5777,7 @@ msgstr "H-bar / reduced Planck"
 msgid "Hand-written bibliography"
 msgstr "Hand-written bibliography"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 1"
 msgstr "Heading 1"
@@ -5783,27 +5786,27 @@ msgstr "Heading 1"
 msgid "Heading 1 to 6"
 msgstr "Heading 1 to 6"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 2"
 msgstr "Heading 2"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 3"
 msgstr "Heading 3"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 4"
 msgstr "Heading 4"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 5"
 msgstr "Heading 5"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 6"
 msgstr "Heading 6"
@@ -5881,7 +5884,7 @@ msgid "Hide the PDF"
 msgstr "Hide the PDF"
 
 #: src/editor/latex/highlight-palette.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 msgid "Highlight"
 msgstr "Highlight"
 
@@ -6235,7 +6238,7 @@ msgstr "Initialize version tracking"
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Inline code"
 msgstr "Inline code"
@@ -6318,6 +6321,7 @@ msgstr "Insert column right"
 msgid "Insert figure"
 msgstr "Insert figure"
 
+#: src/canvas/markdown-source-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Insert link"
 msgstr "Insert link"
@@ -6490,7 +6494,7 @@ msgid "It is still cited in the manuscript ({cited})."
 msgstr "It is still cited in the manuscript ({cited})."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Italic"
 msgstr "Italic"
@@ -9088,7 +9092,7 @@ msgstr "or"
 msgid "Orange"
 msgstr "Orange"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Ordered List"
 msgstr "Ordered List"
@@ -10065,7 +10069,7 @@ msgid "Quit {name}"
 msgstr "Quit {name}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Quote"
@@ -12325,7 +12329,7 @@ msgid "Stopping…"
 msgstr "Stopping…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Strikethrough"
 msgstr "Strikethrough"
@@ -12582,7 +12586,7 @@ msgstr "Taking longer than usual"
 msgid "Task list"
 msgstr "Task list"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Task List"
 msgstr "Task List"
@@ -12657,7 +12661,7 @@ msgstr "TeXcount body word counts (optional status bar)"
 msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab language server (optional editor diagnostics)"
 
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/history/versions-timeline.tsx
 msgid "Text"
 msgstr "Text"
@@ -13697,7 +13701,7 @@ msgid "Under arXiv’s size limit"
 msgstr "Under arXiv’s size limit"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Underline"
 msgstr "Underline"

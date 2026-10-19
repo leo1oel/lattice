@@ -27,6 +27,7 @@ export type MarkdownSelectionFormat = {
 };
 
 const WRAPS: Record<Exclude<MarkdownInlineFormat, "bold" | "italic" | "link">, readonly [string, string]> = {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown syntax
   underline: ["<u>", "</u>"],
   strike: ["~~", "~~"],
   code: ["`", "`"],

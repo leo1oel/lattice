@@ -2,11 +2,14 @@ import { EditorView } from "@codemirror/view";
 import { clamp } from "../../settings/app-settings";
 import { highlightAround } from "./latex-highlights";
 import type { LatexSelectionToolbarPosition } from "./latex-selection-toolbar";
+import { markdownSelectionFormat, type MarkdownSelectionFormat } from "../markdown/markdown-source-format";
 
 export type SelectionToolbarPlacement = {
   position: LatexSelectionToolbarPosition;
   /** The colour of the highlight around the selection, "" for an uncoloured one, null outside one. */
   highlight: string | null;
+  /** What a Markdown selection already is, for the Markdown toolbar's pressed buttons; null for LaTeX. */
+  format: MarkdownSelectionFormat | null;
   from: number;
   to: number;
 };
@@ -41,8 +44,8 @@ export function selectionToolbarPlacement(view: EditorView, path: string): Selec
   const range = view.state.selection.main;
   // A tab behind another one stays laid out (inert, hidden), so its
   // coordinates look valid; the toolbar is portaled and would not hide.
-  const wrappable = !range.empty && !composingOrCommitting(view)
-    && (path.endsWith(".tex") || path.toLocaleLowerCase().endsWith(".md"))
+  const markdown = path.toLocaleLowerCase().endsWith(".md");
+  const wrappable = !range.empty && !composingOrCommitting(view) && (path.endsWith(".tex") || markdown)
     && !view.dom.closest("[inert]");
   const visibleRange = wrappable
     ? view.visibleRanges.find(({ from, to }) => range.from <= to && range.to >= from)
@@ -52,7 +55,8 @@ export function selectionToolbarPlacement(view: EditorView, path: string): Selec
   const start = visibleRange && view.coordsAtPos(visibleFrom);
   const end = visibleRange && view.coordsAtPos(Math.min(range.to, visibleRange.to, view.state.doc.lineAt(visibleFrom).to));
   if (!editorBounds || !start || !end) return null;
-  const halfWidth = Math.min(350, Math.max(0, editorBounds.width - 16)) / 2;
+  // About the toolbar's width: the Markdown one carries the block type menu too.
+  const halfWidth = Math.min(markdown ? 420 : 350, Math.max(0, editorBounds.width - 16)) / 2;
   const selectionCenter = start.top === end.top
     ? (start.left + end.right) / 2
     : start.left + Math.min(72, Math.max(20, editorBounds.width / 5));
@@ -64,6 +68,7 @@ export function selectionToolbarPlacement(view: EditorView, path: string): Selec
   return {
     position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
     highlight: highlight ? highlight.color ?? "" : null,
+    format: markdown ? markdownSelectionFormat(view.state) : null,
     from: range.from,
     to: range.to,
   };
