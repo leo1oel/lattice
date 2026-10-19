@@ -94,8 +94,8 @@ export type TrellisBridge = {
   readAsset: (path: string) => Promise<AssetPreview>;
   /** Text selected in a project PDF beside the active document (empty once cleared), as Agent context. */
   pdfTextSelect: (text: string, place: AgentPdfDocumentPlace) => void;
-  /** The view a Markdown file opens in (the one last chosen for Markdown), which its snapshot draws. */
-  documentMode: () => TrellisViewMode;
+  /** The view `key` opens in (last chosen for its kind), which its snapshot draws. */
+  documentMode: (key: string) => TrellisViewMode;
   /** Where the reader was in a file (its scroll, a PDF's page), shared by its live view and its snapshot. */
   viewState: (path: string) => FileViewState | undefined;
   rememberViewState: (path: string, update: Partial<FileViewState>) => void;

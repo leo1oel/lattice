@@ -3104,7 +3104,7 @@ msgstr "点一处修改可保留原文"
 msgid "Click the edit to keep the original"
 msgstr "点这处修改可保留原文"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Click to edit"
 msgstr "点击编辑"
 
@@ -9058,6 +9058,7 @@ msgid "Opened {opened}"
 msgstr "{opened}打开"
 
 #: src/app/opening-overlay.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Opening {name}…"
 msgstr "正在打开{name}…"
 
@@ -10090,7 +10091,7 @@ msgstr "请求太频繁，请稍后再试"
 msgid "Raw build log"
 msgstr "完整日志"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Read-only preview · click to edit"
 msgstr "只读 · 点击编辑"
 

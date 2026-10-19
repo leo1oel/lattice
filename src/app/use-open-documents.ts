@@ -8,7 +8,7 @@ import type {
   RefreshProject,
 } from "../app-types";
 import {
-  arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, isPreviewableSourceFilePath, isProjectSourceFilePath, paperTabKey,
+  arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, isProjectSourceFilePath, paperTabKey,
   remapProjectPath, stripFrontmatter, toMessage, type ProjectPathChange,
 } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
@@ -28,6 +28,7 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
+import { modeOnLoad, rememberedViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView, type SaveStatus };
 
@@ -230,17 +231,12 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const documentModeRef = useRef<DocumentViewMode>("split");
   // A bibliography opens as its source until the writer picks its reference list (Preview) or Split.
   const bibModeRef = useRef<DocumentViewMode>("source");
+  const viewModes = useCallback((): RememberedViewModes => ({
+    html: htmlModesRef.current, bib: bibModeRef.current, document: documentModeRef.current,
+  }), []);
+  const viewModeFor = useCallback((path: string) => rememberedViewMode(path, viewModes()), [viewModes]);
   useEffect(() => {
-    if (
-      !paper
-      && !asset
-      && file
-      && isPreviewableSourceFilePath(file)
-      && !isHtmlFilePath(file)
-      && (mode === "source" || mode === "split" || mode === "pdf")
-    ) {
-      documentModeRef.current = mode;
-    }
+    if (!paper && !asset && file && setsDocumentMode(file, mode)) documentModeRef.current = mode;
   }, [asset, file, paper, mode]);
 
   // ---- Intents. Every open reserves the next generation; a read that lands
@@ -377,15 +373,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       addTab(path);
       closePaper();
       setAssetLive(null);
-      setMode((current) => {
-        if (isHtmlFilePath(path)) return htmlModesRef.current.get(path) ?? "pdf";
-        if (isBibFilePath(path)) return bibModeRef.current;
-        if (isPreviewableSourceFilePath(path)) return documentModeRef.current;
-        if (options?.revealSource) return "source";
-        if (isHtmlFilePath(previousPath) || isBibFilePath(previousPath)) return documentModeRef.current;
-        if (current === "asset") return "split";
-        return current;
-      });
+      setMode((current) => modeOnLoad(path, previousPath, current, options?.revealSource, viewModes()));
       if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine);
     };
     const commitLoaded = ([content, gateOk]: [string, boolean]) => {
@@ -416,7 +404,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     });
   }, [
     addTab, closePaper, depsRef, fileRef, markDiskMtime, projectOperationGenerationRef, projectRef, requestLine,
-    setAssetLive, showFileText, viewStateRef,
+    setAssetLive, showFileText, viewModes, viewStateRef,
   ]);
 
   // ---- Save ------------------------------------------------------------------------------------------------------
@@ -1295,7 +1283,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       registerCompletionClose,
     },
     /** Ref twins for async work that must compare against the latest buffers. */
-    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef, documentMode: documentModeRef },
+    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef },
+    viewModeFor,
     viewStates,
     // Intents.
     open, openFile, openAsset, openPaper, close, reopenClosed, go, chooseMode, choosePaperView, reveal, leavePaper,

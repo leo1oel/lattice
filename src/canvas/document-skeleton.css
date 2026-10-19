@@ -1,0 +1,53 @@
+/* A document on its way (document-skeleton.tsx): laid over the place the
+   document takes, each part at the live part's size. The source's numbers
+   are the source editor's (gutter, line pitch, outline rail margin, status
+   bar); the page's are the visual Markdown editor's (lattice-visual-editor.css:
+   its column, padding and line pitch). */
+.document-skeleton { position: absolute; inset: 0; z-index: 1; display: flex; overflow: hidden; pointer-events: none; }
+.document-skeleton[data-shape="split"] { display: grid; grid-template-rows: minmax(0, 1fr); }
+.document-skeleton[data-shape="split"] > * { min-width: 0; }
+
+.document-skeleton-source { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--code-ground); }
+.document-skeleton-lines {
+  --document-skeleton-pitch: calc(var(--editor-font-size) * 1.6);
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  /* The gutter's width, then the line's own inset; the outline rail's margin on the right. */
+  padding: var(--space-2) 36px 0 76px;
+}
+.document-skeleton-lines > div { --loading-sheen-surface: var(--code-ground); }
+.document-skeleton-lines span {
+  display: block;
+  height: var(--document-skeleton-pitch);
+  border-block: calc((var(--document-skeleton-pitch) - 7px) / 2) solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong) padding-box;
+}
+.document-skeleton-lines span[data-gap] { visibility: hidden; }
+
+.document-skeleton-divider { background: var(--border-subtle); }
+
+.document-skeleton-page { flex: 1 1 0; min-width: 0; overflow: hidden; background: var(--editor-bg); }
+.html-preview > .document-skeleton .document-skeleton-page { --document-skeleton-ink: rgb(0 0 0 / 9%); background: white; }
+.document-skeleton-column {
+  --loading-sheen-surface: var(--editor-bg);
+  --document-skeleton-pitch: calc(var(--type-typeset-size) * 1.7);
+  box-sizing: border-box;
+  max-width: calc(760px + 2 * var(--space-12));
+  margin: 0 auto;
+  padding: calc(2 * var(--space-16)) var(--space-12) 0;
+  font-size: var(--type-typeset-size);
+}
+.html-preview > .document-skeleton .document-skeleton-column { --loading-sheen-surface: white; }
+.document-skeleton-column p { margin: 0 0 0.85em; }
+.document-skeleton-column p span, .document-skeleton-heading {
+  display: block;
+  border-radius: var(--radius-pill);
+  background: var(--document-skeleton-ink, var(--border-strong)) padding-box;
+}
+.document-skeleton-column p span { height: var(--document-skeleton-pitch); border-block: calc((var(--document-skeleton-pitch) - 8px) / 2) solid transparent; }
+/* A second-level heading's box: 1.4em at a 1.3 line, 1.6em above it and 0.45em below. */
+.document-skeleton-heading { height: calc(1.4em * 1.3); margin: calc(1.4em * 1.6) 0 calc(1.4em * 0.45); border-block: calc(1.4em * 0.3) solid transparent; }
+/* The first is the title: 1.8em at a 1.2 line, at the top of the column. */
+.document-skeleton-heading:first-child { height: calc(1.8em * 1.2); margin: 0 0 calc(1.8em * 0.45); border-block-width: calc(1.8em * 0.3); }

@@ -15,8 +15,9 @@ import { latex } from "../editor/latex/latex-language";
 import { resumeParkedEditor } from "../editor/parked-editors";
 import { sourceGutter } from "../editor/source-gutter";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
+import { DocumentSkeleton } from "../canvas/document-skeleton";
 import { capturePreviewViewport, restorePreviewViewport } from "../canvas/markdown-preview-sync";
-import { useTrellisApp, type TrellisController } from "./trellis-controller";
+import { useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import { useBesideActive } from "./use-beside-active";
 
 // The live source editor parses LaTeX with Lattice's own `latex()`, not the
@@ -32,18 +33,27 @@ const refuseEdit = () => false;
  * opens: a CodeMirror of its source, and a Markdown file's rendered page
  * beside it (Split) or instead of it (Preview), so a document beside the one
  * being worked on keeps its look. Click to edit there.
+ *
+ * A tab on its way to becoming active (see useBesideActive) is the live
+ * document a moment later, so it draws the skeleton of the view it opens in
+ * instead: its source where the page will be, or a source without the live
+ * editor's rail and decorations, would be seen turning into something else.
  */
 export function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
   const { t } = useLingui();
-  const parentRef = useRef<HTMLDivElement>(null);
-  // Markdown opens in the view last chosen for Markdown, which the active
-  // document's switch changes. A tab on its way to becoming active (see
-  // useBesideActive) shows only its source until the live editor takes over.
   const besideActive = useBesideActive(controller, panelId);
-  const chosen = useSyncExternalStore(controller.docTools.subscribe, () => (
-    isMarkdownSnapshot(fileKey) ? controller.bridge?.documentMode() ?? "source" : "source"
-  ));
-  const mode = besideActive ? chosen : "source";
+  // The active document's view switch changes the view each kind opens in.
+  const opening = useSyncExternalStore(controller.docTools.subscribe, () => controller.bridge?.documentMode(fileKey) ?? "source");
+  if (!besideActive) {
+    const name = controller.bridge?.tabLabel(fileKey) ?? fileKey;
+    return <DocumentSkeleton shape={opening === "pdf" ? "page" : opening} label={t`Opening ${name}…`} />;
+  }
+  return <SnapshotContent controller={controller} fileKey={fileKey} mode={isMarkdownSnapshot(fileKey) ? opening : "source"} />;
+}
+
+function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisController; fileKey: string; mode: TrellisViewMode }) {
+  const { t } = useLingui();
+  const parentRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
   const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
