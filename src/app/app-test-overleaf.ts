@@ -1,4 +1,5 @@
 /** Overleaf responses for a linked, connected project, for the App suites; tests override what they exercise. */
+/* eslint-disable lingui/no-unlocalized-strings -- test-only code: Overleaf fixtures, not interface copy */
 import type { Commands } from "./app-test-utils";
 
 export const overleafLink = (link: object = {}) => ({

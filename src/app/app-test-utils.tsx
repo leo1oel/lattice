@@ -336,9 +336,8 @@ export function attentionPaper<T extends object>(paper: T = {} as T) {
 }
 
 // Overleaf responses and commands live in app-test-overleaf.ts; tests import them from here.
-export {
-  OVERLEAF_EMPTY_FEEDS, overleafCommands, overleafLink, overleafProbe, overleafSession, overleafStatus, overleafSyncResult,
-} from "./app-test-overleaf";
+// eslint-disable-next-line react-refresh/only-export-components -- test helpers; nothing here is hot-reloaded
+export * from "./app-test-overleaf";
 
 /** Root of the standard test project. */
 export const ROOT = "/tmp/lattice-paper";

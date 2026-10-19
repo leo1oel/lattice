@@ -1,6 +1,6 @@
+import { findProjectTreeItem, fileNodes, projectCommands, projectSnapshot, waitForSelectedTab } from "./app-test-utils";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { findProjectTreeItem, fileNodes, projectCommands, projectSnapshot, waitForSelectedTab } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 
