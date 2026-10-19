@@ -10,7 +10,8 @@ use tauri::{State, Window};
 
 #[tauri::command]
 pub async fn live_preview_status() -> Result<live_preview::InstallStatus, String> {
-    Ok(live_preview::status())
+    // It may run `lualatex --version`.
+    run_blocking("Live preview status", || Ok(live_preview::status())).await
 }
 
 #[tauri::command]

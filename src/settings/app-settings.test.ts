@@ -6,15 +6,18 @@ import {
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
   forgetRecentProject,
+  disableLivePreviewEverywhere,
   hasSeenTutorial,
   loadAppearance,
   loadFileViewStates,
+  loadLivePreviewEnabled,
   loadRecentCommands,
   loadRecentProjects,
   loadSettingsTab,
   loadWorkspaceLayout,
   markTutorialSeen,
   persistFileViewStates,
+  persistLivePreviewEnabled,
   persistSettingsTab,
   persistWorkspaceLayout,
   rememberRecentCommand,
@@ -272,5 +275,26 @@ describe("recent commands", () => {
   it.each(["{", "{}", "[1, null, \"find\"]"])("reads only the ids out of %s", (stored) => {
     localStorage.setItem("lattice.recent-commands.v1", stored);
     expect(loadRecentCommands()).toEqual(stored.includes("find") ? ["find"] : []);
+  });
+});
+
+describe("live preview choice", () => {
+  it("is on unless the writer turned the project off, however many projects follow", () => {
+    expect(loadLivePreviewEnabled("/papers/new")).toBe(true);
+    persistLivePreviewEnabled("/papers/off", false);
+    for (let index = 0; index < 100; index += 1) persistLivePreviewEnabled(`/papers/${index}`, index % 2 === 0);
+    expect(loadLivePreviewEnabled("/papers/off")).toBe(false);
+    expect(loadLivePreviewEnabled("/papers/2")).toBe(true);
+    expect(loadLivePreviewEnabled("/papers/3")).toBe(false);
+  });
+
+  it("is off everywhere once rtex is removed, until a project turns it back on", () => {
+    persistLivePreviewEnabled("/papers/on", true);
+    disableLivePreviewEverywhere();
+    expect(loadLivePreviewEnabled("/papers/on")).toBe(false);
+    expect(loadLivePreviewEnabled("/papers/new")).toBe(false);
+    persistLivePreviewEnabled("/papers/on", true);
+    expect(loadLivePreviewEnabled("/papers/on")).toBe(true);
+    expect(loadLivePreviewEnabled("/papers/new")).toBe(false);
   });
 });

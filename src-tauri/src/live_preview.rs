@@ -2,7 +2,8 @@
 //!
 //! rtex keeps a LuaLaTeX process with the preamble loaded and re-typesets only
 //! the paragraph being edited, then runs whole-document passes in the
-//! background. It is opt-in per project and never bundled: `install`
+//! background. It is on by default in LuaLaTeX projects, which a writer can
+//! turn off, and never bundled: the first time such a project opens, `install`
 //! downloads one pinned release into Application Support, verified by
 //! SHA-256, and it runs on the user's own TeX Live.
 //!

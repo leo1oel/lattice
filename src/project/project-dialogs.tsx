@@ -180,7 +180,7 @@ export function CreateProjectDialog(props: {
             </SelectContent>
           </Select>
           <small className="venue-picker-detail">
-            {props.projectVenue === "blank" ? t`An empty article with no venue style or page limit`
+            {props.projectVenue === "blank" ? t`An empty LuaLaTeX article with no venue style or page limit`
               : props.projectVenue.startsWith("local:") ? t`Your saved template is selected below`
               : venue.id === "iclr"
               ? t`Official 2026 style`

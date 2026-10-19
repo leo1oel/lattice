@@ -1,6 +1,8 @@
 /**
  * Settings › Builds: the LuaLaTeX live preview switch, for a LuaLaTeX project
- * only, and removing the rtex it downloaded.
+ * only, and removing the rtex it downloaded. It is on by default, so this is
+ * also where a Mac that cannot run it, or a download that failed, is
+ * explained: the PDF panel shows neither.
  */
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -29,12 +31,15 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
 
   const about = t`Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build.`;
   const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
-  const message = state.kind === "failed" ? state.message : "";
-  const description = install?.supported === false
-    ? t`Live preview needs a Mac with Apple silicon.`
-    : state.kind === "downloading"
-      ? t`Downloading rtex… ${percent}%`
-      : state.kind === "failed" ? t`Could not start: ${message}` : about;
+  const message = state.kind === "failed" || state.kind === "download-failed" ? state.message : "";
+  const unavailable = install?.supported === false
+    ? t`Live preview needs a Mac with Apple silicon. Builds work as usual.`
+    : install?.lualatex === false
+      ? t`Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again.`
+      : null;
+  const description = unavailable ?? (state.kind === "downloading"
+    ? t`Downloading rtex… ${percent}%`
+    : state.kind === "failed" ? t`Could not start: ${message}` : about);
   const version = install?.version ?? "";
   const remove = () => {
     setRemoving(true);
@@ -50,10 +55,19 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
           data-setting="live-preview"
           label={t`Live preview`}
           description={description}
-          checked={enabled}
-          disabled={install?.supported === false}
+          checked={enabled && !unavailable}
+          disabled={Boolean(unavailable)}
           onChange={livePreview.setEnabled}
         />
+      )}
+      {available && state.kind === "download-failed" && (
+        <SettingsRow
+          data-setting="live-preview-engine"
+          label={t`Live preview engine`}
+          description={t`${message} Builds work as usual.`}
+        >
+          <Button size="compact" onClick={livePreview.retry}>{t`Retry`}</Button>
+        </SettingsRow>
       )}
       {install?.installed && (
         <SettingsRow

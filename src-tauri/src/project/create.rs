@@ -93,6 +93,18 @@ impl Venue {
         }
     }
 
+    /// The engine a new project builds with. The venue styles are written for
+    /// pdfLaTeX (and arXiv compiles submissions with it), so they keep it. A
+    /// blank article has no such constraint and gets LuaLaTeX: Unicode source
+    /// without inputenc/fontenc, and the rtex live preview, which only runs on
+    /// LuaLaTeX. Only new projects: an existing project keeps its manifest.
+    fn engine(self) -> &'static str {
+        match self {
+            Self::Neurips | Self::Icml | Self::Iclr => "pdf",
+            Self::Blank => "lualatex",
+        }
+    }
+
     fn template(self) -> &'static [(&'static str, &'static str)] {
         match self {
             Self::Neurips => NEURIPS_TEMPLATE,
@@ -119,7 +131,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         }],
         primary_bibliography: "references.bib".to_string(),
         trusted: false,
-        engine: "pdf".to_string(),
+        engine: venue.engine().to_string(),
         keep_engine: false,
         venue: venue.as_str().to_string(),
         word_budget: None,
@@ -347,7 +359,10 @@ mod tests {
             (Venue::Iclr, "iclr-paper", "\\usepackage{iclr2026_conference,times}"),
         ] {
             let root = create_with_venue(&parent.root, name, venue).unwrap();
-            assert_eq!(read_manifest(&root).unwrap().venue, venue.as_str());
+            let manifest = read_manifest(&root).unwrap();
+            assert_eq!(manifest.venue, venue.as_str());
+            // Venue styles and arXiv expect pdfLaTeX.
+            assert_eq!(manifest.engine, "pdf", "{name}");
             assert!(read(&root, "main.tex").contains(usepackage), "{name}");
             for (file, contents) in &venue.template()[1..] {
                 assert_eq!(read(&root, file), *contents, "{file}");

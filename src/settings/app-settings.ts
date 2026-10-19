@@ -48,7 +48,10 @@ const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
 const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
 const SUBMISSION_TEMPLATES_KEY = "lattice.submission-templates.v1";
 /** Projects (by root) whose LuaLaTeX live preview is on; off unless turned on. */
+/** Each project's own live preview choice: root → true or false. */
 const LIVE_PREVIEW_KEY = "lattice.live-preview.v1";
+/** Set once the writer removes rtex: live preview is then off unless chosen. */
+const LIVE_PREVIEW_REMOVED_KEY = "lattice.live-preview-removed.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
@@ -303,26 +306,37 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   };
 }
 
-/** Whether the writer turned on the rtex live preview for the project at `root`. */
+/**
+ * Whether the rtex live preview runs in the LuaLaTeX project at `root`: the
+ * writer's choice for it, else on, unless they have removed rtex.
+ */
 export function loadLivePreviewEnabled(root: string): boolean {
-  return safely(() => readProjectMap(LIVE_PREVIEW_KEY)[root] === true, false);
+  return safely(() => {
+    const choice = readProjectMap(LIVE_PREVIEW_KEY)[root];
+    return typeof choice === "boolean" ? choice : localStorage.getItem(LIVE_PREVIEW_REMOVED_KEY) === null;
+  }, false);
 }
 
+/**
+ * Remember the writer's choice for one project. Unlike the other per-project
+ * maps this one is never trimmed: a project they turned off would otherwise
+ * come back on, by default, once it aged out.
+ */
 export function persistLivePreviewEnabled(root: string, enabled: boolean) {
   if (!root) return;
   safely(() => {
     const map = readProjectMap(LIVE_PREVIEW_KEY);
-    if (enabled) writeProjectEntry(LIVE_PREVIEW_KEY, root, true, map);
-    else {
-      delete map[root];
-      localStorage.setItem(LIVE_PREVIEW_KEY, JSON.stringify(map));
-    }
+    map[root] = enabled;
+    localStorage.setItem(LIVE_PREVIEW_KEY, JSON.stringify(map));
   }, undefined);
 }
 
-/** Turn the live preview off in every project: rtex was removed. */
-export function clearLivePreviewEnabled() {
-  safely(() => localStorage.removeItem(LIVE_PREVIEW_KEY), undefined);
+/** rtex was removed: off in every project, and no longer on by default. */
+export function disableLivePreviewEverywhere() {
+  safely(() => {
+    localStorage.removeItem(LIVE_PREVIEW_KEY);
+    localStorage.setItem(LIVE_PREVIEW_REMOVED_KEY, "1");
+  }, undefined);
 }
 
 /** The complete editor workspace last used in a project. */

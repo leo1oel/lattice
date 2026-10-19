@@ -8,7 +8,9 @@ use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
+use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, PoisonError, TryLockError};
 use std::time::Duration;
 use tauri::ipc::Channel;
 
@@ -53,13 +55,19 @@ fn is_complete(dir: &Path) -> bool {
 pub(crate) struct InstallStatus {
     /// This Mac can run the pinned release.
     supported: bool,
+    /// The user's `lualatex` runs; rtex has nothing to drive without it. Not
+    /// checked where the release cannot run.
+    lualatex: bool,
     installed: bool,
     version: &'static str,
 }
 
+/// Runs a `lualatex --version` until one succeeds: call it off the main thread.
 pub(crate) fn status() -> InstallStatus {
+    let supported = platform_supported();
     InstallStatus {
-        supported: platform_supported(),
+        supported,
+        lualatex: supported && lualatex_runs(),
         installed: installed_executable().is_some(),
         version: RTEX_VERSION,
     }
@@ -67,6 +75,35 @@ pub(crate) fn status() -> InstallStatus {
 
 fn platform_supported() -> bool {
     cfg!(target_os = "macos") && std::env::consts::ARCH == "aarch64"
+}
+
+/// A `lualatex` on the search path builds use that answers `--version`. Only
+/// a yes is remembered, so TeX installed while Lattice runs is found the next
+/// time a LuaLaTeX project opens.
+fn lualatex_runs() -> bool {
+    static RUNS: AtomicBool = AtomicBool::new(false);
+    if RUNS.load(Ordering::Relaxed) {
+        return true;
+    }
+    let runs = crate::commands::command("lualatex")
+        .arg("--version")
+        .stdin(Stdio::null())
+        .output()
+        .is_ok_and(|output| output.status.success());
+    RUNS.fetch_or(runs, Ordering::Relaxed);
+    runs
+}
+
+/// Why this Mac does not download rtex, if it does not: the window offers
+/// live preview by default, so the host refuses rather than trusting it to ask.
+fn refusal(supported: bool, lualatex: bool) -> Option<&'static str> {
+    if !supported {
+        Some("Live preview needs a Mac with Apple silicon.")
+    } else if !lualatex {
+        Some("Live preview needs LuaLaTeX, and Lattice could not run it.")
+    } else {
+        None
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -78,34 +115,20 @@ pub(crate) struct InstallProgress {
     progress: f64,
 }
 
-static INSTALL_RUNNING: AtomicBool = AtomicBool::new(false);
-
-/// One download at a time across every window: two windows enabling the
-/// preview together would otherwise race to swap the same folder in.
-struct InstallGuard;
-
-impl InstallGuard {
-    fn acquire() -> Result<Self, String> {
-        INSTALL_RUNNING
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .map(|_| Self)
-            .map_err(|_| "rtex is already being downloaded in another Lattice window.".into())
-    }
-}
-
-impl Drop for InstallGuard {
-    fn drop(&mut self) {
-        INSTALL_RUNNING.store(false, Ordering::Release);
-    }
-}
+/// One download or removal at a time across every window: two would race to
+/// swap the same folder in. Live preview is on by default, so two windows
+/// opening LuaLaTeX projects at once is ordinary: the second install waits
+/// for the first and then finds rtex in place.
+static INSTALL_LOCK: Mutex<()> = Mutex::new(());
 
 /// Download, verify and unpack the pinned release unless it is already in
 /// place.
 pub(crate) fn install(on_progress: &Channel<InstallProgress>) -> Result<InstallStatus, String> {
-    if !platform_supported() {
-        return Err("Live preview needs a Mac with Apple silicon.".into());
+    let supported = platform_supported();
+    if let Some(reason) = refusal(supported, supported && lualatex_runs()) {
+        return Err(reason.into());
     }
-    let _guard = InstallGuard::acquire()?;
+    let _guard = INSTALL_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let send = |stage, progress| {
         let _ = on_progress.send(InstallProgress { stage, progress });
     };
@@ -177,7 +200,14 @@ fn activate(staged: &Path, destination: &Path) -> Result<(), String> {
 
 /// Delete the release and every build folder. Sessions must be stopped first.
 pub(crate) fn remove() -> Result<InstallStatus, String> {
-    let _guard = InstallGuard::acquire()?;
+    // Not behind a download that can take minutes: say so instead.
+    let _guard = match INSTALL_LOCK.try_lock() {
+        Ok(guard) => guard,
+        Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+        Err(TryLockError::WouldBlock) => {
+            return Err("rtex is still downloading. Remove it once the download finishes.".into())
+        }
+    };
     if let Some(home) = home() {
         match fs::remove_dir_all(&home) {
             Ok(()) => {}
@@ -278,6 +308,14 @@ mod tests {
         assert!(ARCHIVE_ROOT.starts_with(&format!("rtex-{RTEX_VERSION}-")));
         assert_eq!(RTEX.sha256.len(), 64);
         assert!(RTEX.sha256.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn downloads_only_where_rtex_can_drive_lualatex() {
+        assert!(refusal(false, false).unwrap().contains("Apple silicon"));
+        assert!(refusal(false, true).unwrap().contains("Apple silicon"));
+        assert!(refusal(true, false).unwrap().contains("LuaLaTeX"));
+        assert_eq!(refusal(true, true), None);
     }
 
     #[test]
