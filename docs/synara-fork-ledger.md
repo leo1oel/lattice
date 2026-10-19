@@ -8,18 +8,18 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-10-16 against upstream
-`v1.0.6` (`7cfd65d77a3ffc14259bf3c0fe29d32e28d0d749`), the current integration changes
-**753 files, +84,450 / −8,429 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-19 against upstream
+`v1.0.7` (`b8cf9382d36ac1120b3fe16241cfd96189a9a71e`), the current integration changes
+**753 files, +84,558 / −8,451 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.6 HEAD
+git diff --shortstat v1.0.7 HEAD
 ```
 
-The current pin is the upstream **1.0.6 stable release**, merged with the complete previous
-`amp/lattice-v1.0.5-sync` history (which carries the earlier `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.7 stable release**, merged with the complete previous
+`amp/lattice-v1.0.6-sync` history (which carries the earlier `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -126,3 +126,13 @@ Codex moderation metadata no longer becomes chat activity, and Antigravity quota
 The ASCII landing fading around the composer belongs to the standalone empty landing, which the embed replaces with its own empty thread.
 Upstream turned the /, @ and + menus into opaque popovers and dropped the `chat-composer-menu-surface` class; the fork keeps that class as a style-free hook, so the embed still gives them the host-themed composer surface (`#fafafa` in the light theme) instead of the popover white.
 1.0.6 adds no strings that render in the panel, and removing the server-busy popup retires its zh-CN entries.
+
+## Synara 1.0.7 compatibility
+
+1.0.7 is a performance and recovery patch, and none of it adds an embedded surface or a string that renders in the panel, so the zh-CN catalog is unchanged.
+Long turns bound their repeated Git, event-history and checkpoint work: Claude keeps turn identifiers instead of every SDK message body, usage reads cache unchanged files and parse appended records (the fork's `/usage` fallback for a wrapped Claude login sits on top of that read), and live file-change captures share a three-second per-thread throttle with a trailing capture, so the panel's live-changes count updates at most about every three seconds during an edit burst.
+Streaming Markdown splits an answer into settled top-level blocks and reuses them as it grows; upstream shifts each block's source positions so find offsets and task-list line numbers match a single parse, and the fork's transcript keeps the follow-up chips on the last reply by passing the last message id through the timeline's row context.
+Read-only tools no longer refresh Git, and pull-request status refreshes at turn end, branch changes, focus and on a regular poll; the embedded Changes and Pull requests views keep reading Git's own file list.
+Devin and Grok model switches start a fresh native session instead of resuming an incompatible one, Droid avoids a duplicated transcript bootstrap, stopped-but-retained OpenCode sessions no longer trap later turns, and a moved or missing project folder is reported as such before executable resolution instead of as a missing Claude installation.
+A message edit that restores an earlier Git workspace first keeps a hidden recovery checkpoint, and refuses the edit if it cannot capture one, retained under a hidden Git ref (never shown in the chat or in Changes).
+Desktop frame capture and browser-console quiescing, Windows process observers and Beta connector token reuse are standalone or Beta-only surfaces that Lattice does not embed.
