@@ -9,8 +9,8 @@
  * open or Pin in its menu, or opening it any other way (an agent, a build
  * problem, a link followed, a file just made).
  *
- * A panel whose strip has no room for another tab at the tabs' minimum width
- * closes its least recently used tab for the one coming in, as the writer's
+ * A panel whose strip has no room for another tab with its whole title
+ * closes its least recently used tabs for the one coming in, as the writer's
  * own close would (see trellis-document-tabs.tsx). Never a pinned tab, a
  * preview, the active document or one with unsaved changes; with none of its
  * tabs free to go, the strip squeezes and scrolls as before.
@@ -24,26 +24,32 @@ import type { WorkspaceHandle } from "@danfessler/trellis";
 /** A file view's params: its document, and whether its tab is a preview or pinned. */
 export type FileParams = { key: string; preview?: boolean; pinned?: boolean };
 
-/** A document tab as eviction weighs it, in strip order. */
-export type TabCandidate = { id: string; key: string; preview: boolean; pinned: boolean };
+/** A document tab as eviction weighs it, in strip order, with the room it takes in the strip. */
+export type TabCandidate = { id: string; key: string; preview: boolean; pinned: boolean; width: number };
 
 /**
- * The `count` tabs to close for room: the least recently used of those that
- * may go (strip order among tabs never used this session), never a preview,
- * a pinned tab or one `held`.
+ * The tabs to close to free `short` px of strip: the least recently used of
+ * those that may go first (strip order among tabs never used this session),
+ * never a preview, a pinned tab or one `held`. With too few free to go, all
+ * of those: the strip is then as roomy as it can be.
  */
 export function chooseEvictions(
   tabs: readonly TabCandidate[],
-  count: number,
+  short: number,
   { held, lastUsed }: { held: (key: string) => boolean; lastUsed: (key: string) => number },
 ): string[] {
-  if (count <= 0) return [];
-  return tabs
+  const order = tabs
     .map((tab, index) => ({ tab, index }))
     .filter(({ tab }) => !tab.preview && !tab.pinned && !held(tab.key))
-    .sort((a, b) => lastUsed(a.tab.key) - lastUsed(b.tab.key) || a.index - b.index)
-    .slice(0, count)
-    .map(({ tab }) => tab.id);
+    .sort((a, b) => lastUsed(a.tab.key) - lastUsed(b.tab.key) || a.index - b.index);
+  const chosen: string[] = [];
+  let freed = 0;
+  for (const { tab } of order) {
+    if (freed >= short) break;
+    chosen.push(tab.id);
+    freed += tab.width;
+  }
+  return chosen;
 }
 
 export class DocumentTabs {

@@ -10,26 +10,35 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("chooseEvictions", () => {
-  const tab = (key: string, marks: Partial<TabCandidate> = {}): TabCandidate => ({ id: `v-${key}`, key, preview: false, pinned: false, ...marks });
+  const tab = (key: string, marks: Partial<TabCandidate> = {}): TabCandidate => ({
+    id: `v-${key}`, key, preview: false, pinned: false, width: 120, ...marks,
+  });
   const used: Record<string, number> = { "a.tex": 3, "b.tex": 1, "c.tex": 2 };
   const lastUsed = (key: string) => used[key] ?? 0;
   const none = () => false;
 
-  it("closes the least recently used tabs first, those never used in strip order before them", () => {
+  it("closes the least recently used tabs first, those never used in strip order before them, until the room is free", () => {
     const tabs = [tab("a.tex"), tab("b.tex"), tab("c.tex"), tab("x.tex"), tab("y.tex")];
     expect(chooseEvictions(tabs, 1, { held: none, lastUsed })).toEqual(["v-x.tex"]);
-    expect(chooseEvictions(tabs, 4, { held: none, lastUsed })).toEqual(["v-x.tex", "v-y.tex", "v-b.tex", "v-c.tex"]);
+    expect(chooseEvictions(tabs, 120, { held: none, lastUsed })).toEqual(["v-x.tex"]);
+    expect(chooseEvictions(tabs, 121, { held: none, lastUsed })).toEqual(["v-x.tex", "v-y.tex"]);
+    expect(chooseEvictions(tabs, 400, { held: none, lastUsed })).toEqual(["v-x.tex", "v-y.tex", "v-b.tex", "v-c.tex"]);
+  });
+
+  it("weighs each tab by the room it takes", () => {
+    const tabs = [tab("x.tex", { width: 60 }), tab("y.tex", { width: 200 })];
+    expect(chooseEvictions(tabs, 100, { held: none, lastUsed })).toEqual(["v-x.tex", "v-y.tex"]);
   });
 
   it("never closes a pinned tab, a preview or a held one (the active document, the one coming in)", () => {
     const tabs = [tab("a.tex"), tab("b.tex", { pinned: true }), tab("c.tex", { preview: true }), tab("x.tex")];
-    expect(chooseEvictions(tabs, 3, { held: (key) => key === "x.tex", lastUsed })).toEqual(["v-a.tex"]);
+    expect(chooseEvictions(tabs, 1000, { held: (key) => key === "x.tex", lastUsed })).toEqual(["v-a.tex"]);
     expect(chooseEvictions(tabs, 1, { held: (key) => key === "a.tex" || key === "x.tex", lastUsed })).toEqual([]);
   });
 
   it("closes nothing when the strip has room", () => {
     expect(chooseEvictions([tab("a.tex")], 0, { held: none, lastUsed })).toEqual([]);
-    expect(chooseEvictions([tab("a.tex")], -Infinity, { held: none, lastUsed })).toEqual([]);
+    expect(chooseEvictions([tab("a.tex")], -50, { held: none, lastUsed })).toEqual([]);
   });
 });
 
@@ -174,7 +183,7 @@ describe("a preview tab", () => {
 });
 
 describe("a panel out of room", () => {
-  // jsdom lays nothing out: give the tab strips room for three tabs at their 100px minimum.
+  // jsdom lays nothing out: give the tab strips room for three tabs, each counted at the 100px minimum.
   const natives = {
     clientWidth: Object.getOwnPropertyDescriptor(Element.prototype, "clientWidth")!,
     getClientRects: Element.prototype.getClientRects,

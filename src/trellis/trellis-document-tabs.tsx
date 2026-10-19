@@ -14,7 +14,7 @@ import type { TrellisController } from "./trellis-controller";
 import { fileIcon } from "./trellis-icons";
 import { chooseEvictions, type FileParams } from "./trellis-tab-policy";
 
-/** A document tab's minimum width: trellis.css's --trellis-tab-min, under which tabs start to squeeze. */
+/** A document tab's minimum width: trellis.css's --trellis-tab-min. */
 const TAB_MIN_WIDTH = 100;
 /** How far a press on a preview tab moves before it is a drag of the tab, which keeps it. */
 const DRAG_START = 4;
@@ -37,31 +37,62 @@ function panelOf(doc: LayoutDocument, id: string): PanelNode | null {
     ?? null;
 }
 
+/** A tab's width with its whole title (up to Trellis's tab maximum), unsqueezed. */
+function naturalWidth(tab: HTMLElement) {
+  const shrink = tab.style.flexShrink;
+  tab.style.flexShrink = "0";
+  const width = tab.getBoundingClientRect().width;
+  tab.style.flexShrink = shrink;
+  return Math.max(TAB_MIN_WIDTH, width);
+}
+
 /**
- * How many more document tabs fit in `panel`'s strip at their minimum width,
- * as it is laid out now (negative when it is already short); Infinity when its
- * strip is not on screen (hidden, or focus mode's bare page).
+ * How many px `panel`'s strip, as it is laid out now, lacks for every tab and
+ * one more titled `label` to show their whole titles, and what each tab takes
+ * (its gap included); null when the strip is not on screen (hidden, or focus
+ * mode's bare page). The new tab is measured as a hidden copy of a document
+ * tab carrying its title.
  */
-export function roomInStrip(ws: WorkspaceHandle, panel: PanelNode): number {
+export function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
   const first = panel.views[0];
   const strip = first ? ws.element.querySelector(`[data-trellis-part="tab"][data-view="${CSS.escape(first)}"]`)?.parentElement : null;
-  if (!strip || !strip.getClientRects().length) return Infinity;
+  if (!strip || !strip.getClientRects().length) return null;
   const style = getComputedStyle(strip);
   const gap = parseFloat(style.columnGap) || 0;
   const width = strip.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
-  const tabs = [...strip.children].filter((tab) => tab instanceof HTMLElement && tab.dataset.trellisPart === "tab");
-  // A named panel's tab (a tool beside the documents) keeps its own width.
-  const used = tabs.reduce((sum, tab) => sum + (tab.hasAttribute("data-atomic") ? tab.getBoundingClientRect().width : TAB_MIN_WIDTH), 0)
-    + gap * Math.max(0, tabs.length - 1);
-  return Math.floor((width - used + (tabs.length ? 0 : gap)) / (TAB_MIN_WIDTH + gap));
+  // An empty document slot leaves once a document is in its panel.
+  const tabs = [...strip.children].filter((tab): tab is HTMLElement => (
+    tab instanceof HTMLElement && tab.dataset.trellisPart === "tab" && tab.dataset.type !== "slot"
+  ));
+  const widths = new Map<string, number>();
+  for (const tab of tabs) {
+    // A named panel's tab (a tool beside the documents) keeps the width it has.
+    const taken = tab.hasAttribute("data-atomic") ? tab.getBoundingClientRect().width : naturalWidth(tab);
+    widths.set(tab.dataset.view ?? "", taken + gap);
+  }
+  let incoming = TAB_MIN_WIDTH;
+  const model = tabs.find((tab) => tab.dataset.type === "file");
+  if (model) {
+    const probe = model.cloneNode(true) as HTMLElement;
+    probe.removeAttribute("id");
+    const title = probe.querySelector('[data-trellis-part="tab-title"]');
+    if (title) title.textContent = label;
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    strip.append(probe);
+    incoming = naturalWidth(probe);
+    probe.remove();
+  }
+  const used = [...widths.values()].reduce((sum, taken) => sum + taken, 0);
+  return { short: used + incoming - width, widths };
 }
 
 /**
  * Open `key`'s tab in panel `panelId`. `opened` is App's explicit open of the
  * active document (a quick look, or any other open); reconciling restored
  * tabs passes null, which neither replaces nor closes anything. A quick look
- * takes the place of the panel's preview; otherwise the tab used least
- * recently goes when the strip has no room. Both close through Trellis as the
+ * takes the place of the panel's preview; otherwise the tabs used least
+ * recently go when the strip has no room for its whole title. Both close through Trellis as the
  * tab's own close button does, so App saves, forgets and offers to reopen
  * them exactly as it does then.
  */
@@ -80,11 +111,14 @@ export function openDocumentTab(
     void ws.close(replaced.id);
     return info;
   }
-  const short = panel ? 1 - roomInStrip(ws, panel) : 0;
+  const room = panel ? stripShortfall(ws, panel, controller.bridge?.tabLabel(key) ?? key) : null;
   const { activeKey } = controller.app.get();
-  const evicted = chooseEvictions(
-    files.map((view) => ({ id: view.id, key: String(view.params.key ?? ""), preview: Boolean(view.params.preview), pinned: Boolean(view.params.pinned) })),
-    short,
+  const evicted = !room || room.short <= 0 ? [] : chooseEvictions(
+    files.map((view) => ({
+      id: view.id, key: String(view.params.key ?? ""), preview: Boolean(view.params.preview), pinned: Boolean(view.params.pinned),
+      width: room.widths.get(view.id) ?? 0,
+    })),
+    room.short,
     // Only the active document can hold unsaved changes: App saves each one it leaves.
     { held: (tab) => tab === key || tab === activeKey || controller.pendingDrops.has(tab), lastUsed: controller.tabs.lastUsed },
   );
