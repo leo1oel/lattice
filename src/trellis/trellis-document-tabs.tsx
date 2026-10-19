@@ -53,7 +53,7 @@ function naturalWidth(tab: HTMLElement) {
  * mode's bare page). The new tab is measured as a hidden copy of a document
  * tab carrying its title.
  */
-export function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
+function stripShortfall(ws: WorkspaceHandle, panel: PanelNode, label: string) {
   const first = panel.views[0];
   const strip = first ? ws.element.querySelector(`[data-trellis-part="tab"][data-view="${CSS.escape(first)}"]`)?.parentElement : null;
   if (!strip || !strip.getClientRects().length) return null;
