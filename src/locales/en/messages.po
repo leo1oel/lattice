@@ -9560,6 +9560,10 @@ msgstr "Powers presentations"
 msgid "pp. {pages}"
 msgstr "pp. {pages}"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "preamble, kept for later builds"
+msgstr "preamble, kept for later builds"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "Precedes"

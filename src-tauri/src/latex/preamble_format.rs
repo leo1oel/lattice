@@ -35,6 +35,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const VERSION: u32 = 1;
 /// The format's job name, so its files are `preamble.fmt`, `.log`, `.fls`.
 const JOB: &str = "preamble";
+/// The build step that makes the format, as the Build card names it.
+pub(super) const STEP: &str = "pdflatex -ini";
 /// A project not built for this long has its format removed.
 const UNUSED_FOR: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 /// Extensions of the project-folder files a package lookup in the preamble
@@ -353,7 +355,7 @@ fn prepare_in(
         .arg(format!("-output-directory={}", directory.display()))
         .arg(format!("-jobname={JOB}"))
         .args(["&pdflatex", "mylatexformat.ltx", document_path]);
-    steps.begin("preamble", false);
+    steps.begin(STEP, false);
     let ran = run_tracked(
         pdflatex,
         active,
@@ -528,7 +530,7 @@ mod tests {
         let (main, steps) = (project.join("main.tex"), BuildSteps::silent());
         let active = ActiveBuild::default();
         let prepared = prepare_in(&project.join(".format"), &project, "main.tex", &main, &active, &steps);
-        let made = steps.take().iter().any(|step| step.tool == "preamble");
+        let made = steps.take().iter().any(|step| step.tool == STEP);
         match prepared {
             Prepared::Ready(format) => (Some(format), made),
             Prepared::Plain => (None, made),

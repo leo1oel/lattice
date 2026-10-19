@@ -4,8 +4,9 @@
  * Every row is a pass latexmk really ran, in its order and with its own time
  * (`src-tauri/src/latex/build_steps.rs` reads them off latexmk's output): a
  * second pdflatex for references, biber in place of bibtex, xdvipdfmx after
- * XeLaTeX, the prewarm's draft passes on a cold build, or none at all when the
- * PDF was already up to date. SyncTeX is not a pass of its own (the engine
+ * XeLaTeX, the prewarm's draft passes on a cold build, the run that saves the
+ * preamble as a format when it changed, or none at all when the PDF was
+ * already up to date. SyncTeX is not a pass of its own (the engine
  * writes it during its last run), so its row says whether the map came with
  * the PDF rather than timing it. While a build runs the card fills in as each
  * pass starts, and the pass still running counts its own time.
@@ -28,6 +29,8 @@ const ENGINES = new Set(["pdflatex", "xelatex", "lualatex", "latex", "platex", "
 const BIBLIOGRAPHY = new Set(["bibtex", "bibtex8", "bibtexu", "pbibtex", "upbibtex", "biber"]);
 const INDEX = new Set(["makeindex", "mendex", "upmendex", "xindy", "texindy"]);
 const PDF_OUTPUT = new Set(["xdvipdfmx", "dvipdfmx", "dvipdfm", "dvipdf", "ps2pdf"]);
+/** `preamble_format.rs`'s step: loads the preamble once so later passes skip it. */
+const PREAMBLE_FORMAT = "pdflatex -ini";
 
 /** "0.6 s"; a pass too quick to show a tenth still took some time. */
 function seconds(ms: number): string {
@@ -105,6 +108,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   /** What a pass did, beside its program's name. */
   const role = ({ tool, run, draft }: BuildStep): string | null => {
     if (draft) return t`draft pass ${run}`;
+    if (tool === PREAMBLE_FORMAT) return t`preamble, kept for later builds`;
     if (ENGINES.has(tool)) return t`pass ${run}`;
     if (BIBLIOGRAPHY.has(tool)) return t`bibliography`;
     if (INDEX.has(tool)) return t`index`;

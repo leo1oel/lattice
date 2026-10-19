@@ -574,7 +574,7 @@ mod tests {
         let (plain, _, plain_format) = build(false);
         let (formatted, steps, from_format) = build(true);
         assert!(!plain_format && from_format, "only the second build ran from the format");
-        assert_eq!(steps[0].tool, "preamble");
+        assert_eq!(steps[0].tool, preamble_format::STEP);
         assert!(plain.success && formatted.success, "{}", formatted.log);
         assert_eq!(formatted.venue, Some("ICLR"));
         assert_eq!((formatted.venue, formatted.pages), (plain.venue, plain.pages));

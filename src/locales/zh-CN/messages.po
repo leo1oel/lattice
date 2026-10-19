@@ -9560,6 +9560,10 @@ msgstr "驱动演示文稿"
 msgid "pp. {pages}"
 msgstr "第 {pages} 页"
 
+#: src/trellis/trellis-build-sequence.tsx
+msgid "preamble, kept for later builds"
+msgstr "导言区，留给后续构建复用"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "先于"
