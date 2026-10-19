@@ -164,14 +164,11 @@ export class PreviewModel {
   }
 
   /**
-   * Whether the pages shown can be trusted for where things are: false while
-   * rtex has a live paragraph whose rows moved what follows, has not laid out
-   * the newest edit, or disagrees with the base on the page count.
+   * Whether rtex's newer layout and the PDF on screen disagree on the page
+   * count: pages the PDF lacks cannot be shown until the next build.
    */
-  paginationSettled(latestRevision: number, basePages: number | null): boolean {
-    if (this.layoutRevision === null) return false;
-    if (latestRevision > this.layoutRevision) return false;
-    return basePages === null || basePages === this.pagesTotal || this.layoutRevision <= this.baseRevision;
+  pagesDisagree(basePages: number | null): boolean {
+    return basePages !== null && this.layoutRevision !== null && this.layoutRevision > this.baseRevision && this.pagesTotal !== basePages;
   }
 
   clear(): void {

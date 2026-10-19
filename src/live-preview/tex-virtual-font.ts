@@ -93,7 +93,8 @@ const LONG_CHAR = 242;
 export function parseVirtualFont(bytes: Uint8Array, widths: (font: number) => TfmWidths | undefined): VirtualFont {
   const r = new Reader(bytes);
   if (r.u(1) !== PRE || r.u(1) !== 202) throw new Error("not a virtual font");
-  r.offset += r.u(1); // comment
+  const comment = r.u(1);
+  r.offset += comment;
   r.u(4); // checksum
   r.u(4); // design size
   const fonts: VirtualFontRef[] = [];

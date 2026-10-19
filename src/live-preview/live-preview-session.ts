@@ -79,6 +79,8 @@ export class LivePreviewSession {
   private diskIndex = 0;
   /** A base PDF on screen whose revision is still in the queue. */
   private pendingBase: number | null = null;
+  /** The newest revision whose pagination no layout or build has caught up with yet. */
+  private awaitingSince: number | null = null;
   /** A base PDF the viewer is still loading. */
   private nextBase: number | null = null;
 
@@ -218,7 +220,7 @@ export class LivePreviewSession {
   basePageCount(pages: number | null): void {
     if (this.basePages === pages) return;
     this.basePages = pages;
-    if (this.model.hasLayout) this.updateSnapshot({ layoutPending: !this.model.paginationSettled(this.latestRevision, pages) });
+    this.refreshPending();
   }
 
   // ---- What the overlay reads --------------------------------------------------------------------
@@ -243,18 +245,20 @@ export class LivePreviewSession {
 
   /** A live paragraph cannot be drawn exactly: say the layout is catching up with it. */
   waitForLayout(): void {
-    this.updateSnapshot({ layoutPending: true });
+    this.awaitLayout();
   }
 
   /** The overlay painted page `page`: record how long the edits on it took to show. */
   painted(page: number): void {
     const now = performance.now();
-    for (const overlay of this.model.overlaysOn(page)) {
-      const typed = this.typedAt.get(overlay.overlay.revision);
-      if (typed === undefined) continue;
-      this.typedAt.delete(overlay.overlay.revision);
-      // Read in the lab (docs/driving-the-app.md): keystroke to painted overlay.
-      performance.measure("lattice-live-preview-paint", { start: typed, end: now, detail: { revision: overlay.overlay.revision, page } });
+    // The newest change this page shows: a live paragraph's, or the layout's it was drawn from.
+    let shown = this.model.pageSource(page).kind === "base" ? -1 : this.model.layoutRevision ?? -1;
+    for (const { overlay } of this.model.overlaysOn(page)) shown = Math.max(shown, overlay.revision);
+    for (const [revision, typed] of [...this.typedAt]) {
+      if (revision > shown) continue;
+      this.typedAt.delete(revision);
+      // Read in the lab (perf-lab-harness.ts livePreview): keystroke to painted page.
+      performance.measure("lattice-live-preview-paint", { start: typed, end: now, detail: { revision, page } });
     }
   }
 
@@ -303,6 +307,23 @@ export class LivePreviewSession {
   private applyBase(revision: number): void {
     this.pendingBase = null;
     this.model.setBase(revision);
+    // The build laid out what the layout was awaited for.
+    if (this.awaitingSince !== null && revision >= this.awaitingSince) this.awaitingSince = null;
+    this.refreshPending();
+  }
+
+  /**
+   * Pagination is behind the text as of `revision` (the newest change when
+   * unknown): until a layout or a build includes it, what follows an edit
+   * may sit where it was.
+   */
+  private awaitLayout(revision = this.latestRevision): void {
+    this.awaitingSince = Math.max(this.awaitingSince ?? revision, revision);
+    this.refreshPending();
+  }
+
+  private refreshPending(): void {
+    this.updateSnapshot({ layoutPending: this.awaitingSince !== null || this.model.pagesDisagree(this.basePages) });
   }
 
   private receive(message: RtexEvent | Reply): void {
@@ -332,7 +353,7 @@ export class LivePreviewSession {
     const { result } = reply;
     if (sent?.index != null) this.recordRevision(sent.index, result.source_revision);
     if (result.outcome.removed.length) this.markPages(this.model.dropOverlays(result.outcome.removed));
-    if (result.routed !== "fast") this.updateSnapshot({ layoutPending: true });
+    if (result.routed !== "fast") this.awaitLayout(result.source_revision);
   }
 
   private recordRevision(index: number, revision: number): void {
@@ -356,7 +377,7 @@ export class LivePreviewSession {
         this.generation = event.engine_generation;
         if (event.state === "Failed") this.updateSnapshot({ phase: "paused", detail: event.reason });
         else if (event.state === "Ready") this.updateSnapshot({ phase: this.model.hasLayout ? "live" : "first-layout", detail: null });
-        else if (event.state === "Starting" && this.model.hasLayout) this.updateSnapshot({ layoutPending: true });
+        else if (event.state === "Starting" && this.model.hasLayout) this.awaitLayout();
         break;
       case "LayoutUpdate":
         this.onLayout(event);
@@ -365,7 +386,7 @@ export class LivePreviewSession {
         this.onParagraph(event);
         break;
       case "BackgroundScheduled":
-        this.updateSnapshot({ layoutPending: true });
+        this.awaitLayout();
         break;
       case "SessionExited":
         this.updateSnapshot({ phase: "error", detail: event.stderr || null });
@@ -395,8 +416,10 @@ export class LivePreviewSession {
     const settled = event.convergence.state === "Converged" || event.convergence.state === "PassLimitReached";
     this.updateSnapshot({
       phase: this.snapshot.phase === "paused" ? "paused" : "live",
-      layoutPending: !settled || !this.model.paginationSettled(this.latestRevision, this.basePages),
     });
+    if (settled && this.awaitingSince !== null && event.versions.source_revision >= this.awaitingSince) this.awaitingSince = null;
+    if (!settled) this.awaitLayout(event.versions.source_revision);
+    this.refreshPending();
     this.markPages(dirty);
   }
 
@@ -409,13 +432,13 @@ export class LivePreviewSession {
     // Something in it cannot be drawn exactly, or TeX stopped on an error:
     // the next whole-document pass shows it.
     if (event.status !== "ok") {
-      this.updateSnapshot({ layoutPending: true });
+      this.awaitLayout(revision);
       return;
     }
     if (revision <= this.model.baseRevision) return;
     this.markPages(this.model.applyParagraph(event.par_id, event.dl, event.fragments, revision));
     this.loadResources([event.dl]);
-    if (event.pagination_stale) this.updateSnapshot({ layoutPending: true });
+    if (event.pagination_stale) this.awaitLayout(revision);
   }
 
   private loadResources(dls: DisplayList[]): void {

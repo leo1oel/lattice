@@ -88,16 +88,14 @@ describe("the live preview model", () => {
     expect(model.overlays.size).toBe(0);
   });
 
-  it("knows when pagination has caught up with the text and the PDF", () => {
+  it("knows when rtex's newer layout has pages the PDF on screen lacks", () => {
     const model = setup();
-    expect(model.paginationSettled(1, 2)).toBe(true);
-    // An edit rtex has not laid out yet.
-    expect(model.paginationSettled(2, 2)).toBe(false);
+    expect(model.pagesDisagree(2)).toBe(false);
     model.applyLayout({ pages: [page(3, [line(10, 100)])], pagesTotal: 3, placements, revision: 2, layoutVersion: 2, hasFallback: false });
-    // The PDF on screen has two pages; rtex's newer layout has three.
-    expect(model.paginationSettled(2, 2)).toBe(false);
+    expect(model.pagesDisagree(2)).toBe(true);
+    // A build of the same text is on screen: its page count is the one to trust.
     model.setBase(2);
-    expect(model.paginationSettled(2, 3)).toBe(true);
+    expect(model.pagesDisagree(2)).toBe(false);
   });
 
   it("extends rows past the placement on its last page", () => {
