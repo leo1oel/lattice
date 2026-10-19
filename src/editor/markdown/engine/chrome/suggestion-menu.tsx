@@ -17,6 +17,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { createPortal } from "react-dom";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { Extension, type Editor, type Range } from "@tiptap/core";
+import type { Node as PmNode } from "@tiptap/pm/model";
 import { PluginKey } from "@tiptap/pm/state";
 import Suggestion, { exitSuggestion } from "@tiptap/suggestion";
 import { ScrollArea } from "../../../../components/ui/scroll-area";
@@ -72,7 +73,13 @@ export type SuggestionConfig<T> = {
   startOfLine?: boolean;
   /** Characters that may sit right before the trigger (default: start of text or whitespace). */
   allowedPrefixes?: string[] | null;
-  allow?: (editor: Editor, range: Range) => boolean;
+  /**
+   * Whether the menu may open over `range` in `doc`: the document the
+   * transaction being applied produces. The editor still holds the one before
+   * it, where a range past its old end (a block added below the last one)
+   * cannot even be resolved.
+   */
+  allow?: (doc: PmNode, range: Range) => boolean;
 };
 
 /** An editor extension that runs one typeahead menu through `store`. */
@@ -94,7 +101,7 @@ export function suggestionExtension<T>(config: SuggestionConfig<T>) {
         allowSpaces: config.allowSpaces ?? false,
         startOfLine: config.startOfLine ?? false,
         allowedPrefixes: config.allowedPrefixes === undefined ? [" "] : config.allowedPrefixes,
-        allow: ({ editor: current, range }) => current.isEditable && (config.allow?.(current, range) ?? true),
+        allow: ({ editor: current, state, range }) => current.isEditable && (config.allow?.(state.doc, range) ?? true),
         items: ({ query, editor: current }) => config.items(query, current),
         command: ({ editor: current, range, props }) => config.onSelect(current, range, props),
         render: () => {

@@ -22,10 +22,7 @@ export function slashExtension(store: MenuStore<SlashItem>, host: ChromeHost) {
     items: (query) => matchSlashItems(query, (item) => i18n._(item.label)),
     onSelect: (editor, range, item) => item.run(editor, range, host),
     // Not inside code, formulas or source kept verbatim.
-    allow: (editor, range) => {
-      const parent = editor.state.doc.resolve(range.from).parent;
-      return !parent.type.spec.code;
-    },
+    allow: (doc, range) => !doc.resolve(range.from).parent.type.spec.code,
   });
 }
 
