@@ -535,7 +535,7 @@
 .lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"], [data-dragging]) { cursor: inherit; user-select: inherit; -webkit-user-select: inherit; }
 .lattice-trellis .trellis:is([data-busy]:not([data-resizing="float"]), [data-dragging]) [data-trellis-part="content"] { pointer-events: inherit; user-select: inherit; -webkit-user-select: inherit; }
 .lattice-trellis .trellis:is([data-resizing="x"], [data-resizing="y"])::after { content: ""; position: absolute; inset: 0; z-index: 15; user-select: none; -webkit-user-select: none; }
-.lattice-trellis .trellis[data-dragging]::after { content: ""; position: absolute; inset: 0; z-index: 4000; cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.lattice-trellis .trellis[data-dragging]::after { content: ""; position: absolute; inset: 0; z-index: var(--z-trellis-drag-shield); cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .lattice-trellis .trellis[data-resizing="x"]::after { cursor: col-resize; }
 .lattice-trellis .trellis[data-resizing="y"]::after { cursor: row-resize; }
 

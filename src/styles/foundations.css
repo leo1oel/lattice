@@ -458,6 +458,9 @@
      to clear Univer's own right-sidebar layer at 100, and a three-digit number
      left in a component stylesheet reads like an app-level claim. */
   --z-spreadsheet-scrollbar: 101;
+  /* Local to the Trellis workspace's stack: a tab drag's shield has to clear
+     the lifted panel (3100) and the drop preview (3000) Trellis sets inline. */
+  --z-trellis-drag-shield: 4000;
   --z-drag-ghost: 120;
   --z-toast: 10000;
 
