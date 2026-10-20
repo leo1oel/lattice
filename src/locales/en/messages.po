@@ -3104,7 +3104,7 @@ msgstr "Click an edit to keep the original"
 msgid "Click the edit to keep the original"
 msgstr "Click the edit to keep the original"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Click to edit"
 msgstr "Click to edit"
 
@@ -7258,6 +7258,10 @@ msgstr "Loading figure preview…"
 msgid "Loading files…"
 msgstr "Loading files…"
 
+#: src/canvas/html-preview.tsx
+msgid "Loading HTML preview…"
+msgstr "Loading HTML preview…"
+
 #: src/app/app-editor-panels.tsx
 msgid "Loading Overleaf collaboration…"
 msgstr "Loading Overleaf collaboration…"
@@ -9058,6 +9062,7 @@ msgid "Opened {opened}"
 msgstr "Opened {opened}"
 
 #: src/app/opening-overlay.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Opening {name}…"
 msgstr "Opening {name}…"
 
@@ -10090,7 +10095,7 @@ msgstr "Rate-limited. Try again later"
 msgid "Raw build log"
 msgstr "Raw build log"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-text-snapshot.tsx
 msgid "Read-only preview · click to edit"
 msgstr "Read-only preview · click to edit"
 

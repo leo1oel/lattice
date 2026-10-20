@@ -99,7 +99,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       },
       readAsset: (path) => invoke<AssetPreview>("read_project_asset", { path }),
       pdfTextSelect: reportPdfSelection,
-      documentMode: () => documents.live.documentMode.current,
+      documentMode: (key) => documents.viewModeFor(key),
       viewState: (path) => documents.viewStates.get(path),
       rememberViewState: (path, update) => documents.viewStates.remember(path, update),
       // A panel asking for a drawer that is already open only comes forward:

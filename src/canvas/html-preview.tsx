@@ -11,6 +11,7 @@ import type { HtmlFileViewState } from "../app-types";
 import { scrollRange } from "./markdown-preview-sync";
 import { useZoomScale } from "./use-zoom-scale";
 import { ZoomControls } from "./zoom-controls";
+import { DocumentSkeleton } from "./document-skeleton";
 
 const HTML_PREVIEW_OPEN_EXTERNAL = "lattice:html-preview-open-external";
 const HTML_PREVIEW_SCROLL = "lattice:html-preview-scroll";
@@ -140,6 +141,9 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   const scrollMetricsRef = useRef(scrollMetrics);
   const [scrollbarHovering, setScrollbarHovering] = useState(false);
   const [scrolling, setScrolling] = useState(false);
+  // The frame is blank until its page has loaded once: it stays hidden, its
+  // skeleton showing instead, so the page's first frame is the loaded one.
+  const [pageLoaded, setPageLoaded] = useState(false);
   const [scale, updateScale] = useZoomScale(initialViewState?.scale ?? 1, HTML_PREVIEW_MIN_SCALE, HTML_PREVIEW_MAX_SCALE);
   const scaleRef = useRef(scale);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -270,11 +274,14 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         srcDoc={html}
+        style={pageLoaded ? undefined : { visibility: "hidden" }}
         onLoad={() => {
+          setPageLoaded(true);
           postToFrame({ type: HTML_PREVIEW_SET_ZOOM, scale: scaleRef.current });
           if (restoreScrollTopRef.current > 0) setScrollTop(restoreScrollTopRef.current);
         }}
       />
+      {!pageLoaded && <DocumentSkeleton shape="page" page="html" label={t`Loading HTML preview…`} />}
       <ZoomControls
         className="asset-preview-zoom-controls html-preview-zoom-controls"
         groupLabel={t`HTML zoom controls`}

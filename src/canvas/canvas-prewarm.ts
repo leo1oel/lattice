@@ -12,6 +12,7 @@ import {
 } from "./canvas-lazy-modules";
 import { loadTextLanguageExtensions } from "../editor/editor-languages";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
+import { documentFontsReady } from "../lib/document-fonts";
 
 /** Download project-relevant editor and preview chunks without mounting UI. */
 export async function prewarmProjectPreviewModules(paths: readonly string[]): Promise<void> {
@@ -24,6 +25,8 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
     if (!representativeLanguages.has(extension)) representativeLanguages.set(extension, path);
   }
   const work: Promise<unknown>[] = [...representativeLanguages.values()].map(loadTextLanguageExtensions);
+  // The faces documents are drawn in, so the first open does not wait for them.
+  work.push(documentFontsReady());
   if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) {
     work.push(loadVisualMarkdownEditorModule());
   }

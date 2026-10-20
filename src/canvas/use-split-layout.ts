@@ -9,7 +9,7 @@ import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";
  * resizer gestures that change it.
  */
 export type SplitMinimums = { source: number; preview: number };
-const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
+export const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
 /**
  * The pane minimums a split of `tracksWidth` (its width less the 1 px

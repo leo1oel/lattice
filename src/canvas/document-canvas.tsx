@@ -35,9 +35,6 @@ import { sectionBreadcrumbNodes } from "../editor/latex/latex-outline";
 import { LatexOutlineRail } from "../editor/latex/latex-outline-rail";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
-import {
-  SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH,
-} from "../app/window-layout";
 import type { FileViewState, AssetPreview } from "../app-types";
 import {
   isBibFilePath, isHtmlFilePath, isOpenSlideDeckPath,
@@ -75,10 +72,7 @@ import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { useSourceSession } from "./use-source-session";
 import { usePaperPdf } from "./use-paper-pdf";
-import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-split-layout";
-
-
-const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
+import { SPLIT_MINIMUMS, splitGridTemplate, useSplitLayout } from "./use-split-layout";
 
 type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
 

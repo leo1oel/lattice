@@ -8,7 +8,7 @@ import type {
   RefreshProject,
 } from "../app-types";
 import {
-  arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, isPreviewableSourceFilePath, isProjectSourceFilePath, paperTabKey,
+  arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, isProjectSourceFilePath, paperTabKey,
   remapProjectPath, stripFrontmatter, toMessage, type ProjectPathChange,
 } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
@@ -28,6 +28,10 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths, planWorkspaceRestore } from "./workspace-restore";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
+import { readDiskMtime, readDocumentText } from "./read-document";
+import {
+  modeOnLoad, panelViewMode, setsDocumentMode, withEditor, withEditorFor, withPdf, type RememberedViewModes,
+} from "./document-view-modes";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView, type SaveStatus };
 
@@ -41,31 +45,12 @@ const DISK_POLL_MS = 2500;
 const RECENTLY_CLOSED_LIMIT = 20;
 const NAVIGATION_HISTORY_LIMIT = 80;
 
-/** A canvas mode that brings an editor on screen, widening a preview-only or asset surface to split. */
-const withEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
-/** The canvas mode a jump into `path` needs: Markdown's Preview is its visual editor, which takes the jump itself. */
-const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
-  mode === "pdf" && /\.md$/i.test(path) ? mode : withEditor(mode)
-);
-/** A canvas mode that brings the PDF on screen beside an editor-only view. */
-const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);
-
 /** Run the canvas's deferred-edit flush: published, refused (a text composition is open), or what it threw. */
 function publishDeferredEdits(flush: (() => boolean) | null): "published" | "refused" | { error: unknown } {
   try {
     return flush?.() === false ? "refused" : "published";
   } catch (error) {
     return { error };
-  }
-}
-
-/** A file's mtime on disk; null when it is missing or could not be read. */
-async function readDiskMtime(path: string): Promise<number | null> {
-  try {
-    const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path });
-    return stat.exists ? stat.mtimeMs : null;
-  } catch {
-    return null;
   }
 }
 
@@ -230,17 +215,12 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const documentModeRef = useRef<DocumentViewMode>("split");
   // A bibliography opens as its source until the writer picks its reference list (Preview) or Split.
   const bibModeRef = useRef<DocumentViewMode>("source");
+  const viewModes = useCallback((): RememberedViewModes => ({
+    html: htmlModesRef.current, bib: bibModeRef.current, document: documentModeRef.current,
+  }), []);
+  const viewModeFor = useCallback((path: string) => panelViewMode(path, viewModes()), [viewModes]);
   useEffect(() => {
-    if (
-      !paper
-      && !asset
-      && file
-      && isPreviewableSourceFilePath(file)
-      && !isHtmlFilePath(file)
-      && (mode === "source" || mode === "split" || mode === "pdf")
-    ) {
-      documentModeRef.current = mode;
-    }
+    if (!paper && !asset && file && setsDocumentMode(file, mode)) documentModeRef.current = mode;
   }, [asset, file, paper, mode]);
 
   // ---- Intents. Every open reserves the next generation; a read that lands
@@ -377,15 +357,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       addTab(path);
       closePaper();
       setAssetLive(null);
-      setMode((current) => {
-        if (isHtmlFilePath(path)) return htmlModesRef.current.get(path) ?? "pdf";
-        if (isBibFilePath(path)) return bibModeRef.current;
-        if (isPreviewableSourceFilePath(path)) return documentModeRef.current;
-        if (options?.revealSource) return "source";
-        if (isHtmlFilePath(previousPath) || isBibFilePath(previousPath)) return documentModeRef.current;
-        if (current === "asset") return "split";
-        return current;
-      });
+      setMode((current) => modeOnLoad(path, previousPath, current, options?.revealSource, viewModes()));
       if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine);
     };
     const commitLoaded = ([content, gateOk]: [string, boolean]) => {
@@ -408,7 +380,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       return true;
     };
     return Promise.all([
-      invoke<string>("read_project_file", { path, projectRoot: expectedRoot }),
+      readDocumentText(path, expectedRoot),
       options?.gate ?? Promise.resolve(true),
     ]).then(commitLoaded).catch((reason: unknown) => {
       if (isLatestLoad()) showError(toMessage(reason));
@@ -416,7 +388,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     });
   }, [
     addTab, closePaper, depsRef, fileRef, markDiskMtime, projectOperationGenerationRef, projectRef, requestLine,
-    setAssetLive, showFileText, viewStateRef,
+    setAssetLive, showFileText, viewModes, viewStateRef,
   ]);
 
   // ---- Save ------------------------------------------------------------------------------------------------------
@@ -1295,7 +1267,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       registerCompletionClose,
     },
     /** Ref twins for async work that must compare against the latest buffers. */
-    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef, documentMode: documentModeRef },
+    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef },
+    viewModeFor,
     viewStates,
     // Intents.
     open, openFile, openAsset, openPaper, close, reopenClosed, go, chooseMode, choosePaperView, reveal, leavePaper,

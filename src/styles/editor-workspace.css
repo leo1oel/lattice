@@ -1017,8 +1017,6 @@ body.resizing-split::after { content: ""; position: fixed; inset: 0; z-index: va
 /* A .bib file's reference list (papers/bib-visual-editor.css draws its inside). */
 .bib-preview { height: 100%; min-width: 0; min-height: 0; background: var(--editor-bg); }
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
-.markdown-preview-content:has(> .markdown-preview-loading) { display: grid; place-items: center; }
-.markdown-preview-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); }
 /* The visual editor centers its own measure, so a paper's editor spans the
    full pane and the preview-content 760px inline padding is dropped for it. */
 .markdown-preview-content:has(> .paper-visual-header) { padding-inline: 0; }
