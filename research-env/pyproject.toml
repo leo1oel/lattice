@@ -1,0 +1,20 @@
+[project]
+name = "lattice-env"
+version = "0.1.0"
+description = "Verifiable LaTeX tasks for training and evaluating paper-writing agents, from Lattice"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+lattice-env = "lattice_env.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lattice_env*"]
+
+[tool.setuptools.package-data]
+lattice_env = ["harbor_templates/**/*"]
