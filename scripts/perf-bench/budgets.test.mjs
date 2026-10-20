@@ -86,7 +86,7 @@ describe("perf bench budgets", () => {
     // run with the smallest total need not be the one with the fewest commits.
     const fewerCommits = { ...counts(1), commits: 27, hooks: 12_227, mutations: 2_134, recalcs: 180 };
     const fewerHooks = { ...counts(1), commits: 28, hooks: 12_211, mutations: 2_114, recalcs: 170 };
-    const result = bestOf("startup", [fewerCommits, fewerHooks]);
+    const result = bestOf("file-switch", [fewerCommits, fewerHooks]);
     expect(result).toMatchObject({ commits: 27, hooks: 12_211, mutations: 2_114 });
     // Report-only counts and details stay the kept run's.
     expect(result.recalcs).toBe(170);

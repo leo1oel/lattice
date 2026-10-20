@@ -3,8 +3,7 @@
     "startup": {
       "commits": 25,
       "renders": 2024,
-      "hooks": 12910,
-      "mutations": 1006
+      "hooks": 12910
     },
     "latex-typing": {
       "renders": 4858,

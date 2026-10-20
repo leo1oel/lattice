@@ -75,13 +75,14 @@ pub async fn open_tutorial_project(
     app: AppHandle, state: State<'_, AppState>, window: Window,
 ) -> Result<ProjectSnapshot, String> {
     let parent = documents_folder(&app, "Lattice Tutorials", "Lattice Tutorials folder")?;
-    let (root, snapshot) = run_blocking("Tutorial project creation", move || {
-        let root = project::create_tutorial(&parent)?;
-        let snapshot = project::open(&root)?;
-        Ok((root, snapshot))
+    let snapshot = run_blocking("Tutorial project creation", move || {
+        project::open(&project::create_tutorial(&parent)?)
     })
     .await?;
-    state.set_root(window.label(), root).await?;
+    // The snapshot's root, canonical as `open_project` binds it: Documents
+    // reached through a symlink would otherwise bind a root that neither
+    // SyncTeX's paths nor the frontend's pinned root share.
+    state.set_root(window.label(), PathBuf::from(&snapshot.root)).await?;
     Ok(snapshot)
 }
 

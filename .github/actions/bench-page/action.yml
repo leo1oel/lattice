@@ -11,7 +11,9 @@ runs:
     # did not cover. `filter=latest` reads each job's latest attempt, so a
     # shard re-run on its own takes the build its run already has, and a full
     # re-run waits for the new one. A build that failed or was cancelled fails
-    # the shard at once rather than at the deadline.
+    # the shard at once rather than at the deadline. A poll the API fails
+    # (a 502 failed all four shards of a run on 2026-10-19) says nothing
+    # about the build: the loop polls again, and the deadline still holds.
     - name: Wait for the bench page build
       shell: bash
       env:
@@ -19,7 +21,7 @@ runs:
       run: |
         for _ in $(seq 90); do
           state=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
-            --jq '.jobs[] | select(.name == "bench-page") | "\(.status) \(.conclusion)"')
+            --jq '.jobs[] | select(.name == "bench-page") | "\(.status) \(.conclusion)"') || state=unknown
           case "$state" in
             "completed success") exit 0 ;;
             completed*)

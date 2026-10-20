@@ -930,7 +930,7 @@ describe("papers", () => {
     await openPaper("First PDF");
     await viewOriginal();
     await expectInvoked("paper_pdf_preview_url", { url: firstUrl });
-    expect(screen.getByRole("status")).toHaveTextContent("Loading PDF…");
+    await screen.findByText("Loading PDF…", { selector: "[aria-live]" });
     expect(getDocument).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "mirros.ai, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));

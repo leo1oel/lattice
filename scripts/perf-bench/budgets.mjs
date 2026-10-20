@@ -29,6 +29,12 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  * - `markdown-preview-scroll` commits, renders and hooks: Base UI's scroll
  *   area re-renders when a scroll burst starts and 500 ms after it ends, and
  *   how many bursts 40 notches make depends on stalls (139–259 renders).
+ * - `startup` mutations: Trellis measures a panel's header by writing each
+ *   state of its action row to the DOM, again whenever the row changes size.
+ *   On a busy machine the Project and Papers panels' actions arrive a frame
+ *   after their headers were first measured, and the second measurement adds
+ *   about 95 attribute writes (WebKit: 721–738 at rest, 818–864 for about a
+ *   run in four under load; CI once read 832 against a ceiling of 774).
  */
 const REPORT_ONLY = ["recalcs", "layouts"];
 const REPORT_ONLY_BY_SCENARIO = {
@@ -39,6 +45,7 @@ const REPORT_ONLY_BY_SCENARIO = {
   "pdf-scroll": ["mutations"],
   "source-scroll": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
+  startup: ["mutations"],
 };
 
 /** The counts a scenario's ceilings gate; they repeat from run to run. */
