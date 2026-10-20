@@ -1,0 +1,8 @@
+{
+  "name": "curriculum-signals",
+  "root": "main.tex",
+  "licence": "Apache-2.0",
+  "notes": ["Synthetic seed paper written for the Lattice environment; its numbers are illustrative."],
+  "styles": {"iclr2026_conference.sty": "iclr-2026/iclr2026_conference.sty", "iclr2026_conference.bst": "iclr-2026/iclr2026_conference.bst"},
+  "placeholders": {"figures/curriculum.png": [600, 280]}
+}

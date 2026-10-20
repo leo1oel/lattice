@@ -1,0 +1,34 @@
+\section{Experiments}
+\label{sec:experiments}
+
+We compare the balanced router with a dense feed-forward layer of equal cost and with unconstrained top-$k$ routing.\footnote{All numbers in this seed paper are illustrative and were not measured.}
+Both tasks are synthetic: copying a sequence with long gaps, and predicting the parity of a sliding window.
+Every model has four layers and model width $d = 256$; the mixture models use $n = 16$ experts with $k = 2$.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/routing.png}
+  \caption{Expert load over training for unconstrained and balanced routing. The balanced router stays near the uniform load.}
+  \label{fig:load}
+\end{figure}
+
+\Cref{fig:load} shows the load of the busiest expert during training.
+Without a capacity limit, two experts receive most tokens within the first thousand steps; with $c = 1.25$ the busiest expert stays within the bound of \cref{prop:load}.
+\Cref{tab:results} reports accuracy at the end of training.
+
+\begin{table}[t]
+  \centering
+  \caption{Accuracy (\%) on the two synthetic tasks, mean of three runs (illustrative).}
+  \label{tab:results}
+  \begin{tabular}{@{}llcc@{}}
+    \toprule
+    \multicolumn{2}{@{}l}{Model} & Copy & Parity \\
+    \midrule
+    Dense & $d_\mathrm{ff} = 1024$ & 91.2 & 74.5 \\
+    \multirow{2}{*}{Top-$k$} & unconstrained & 93.8 & 77.1 \\
+     & balanced, $c = 1.25$ & 95.4 & 79.6 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The balanced router improves on both baselines, and the gain is largest on the parity task, where unconstrained routing leaves most experts idle.

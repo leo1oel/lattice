@@ -1,0 +1,36 @@
+\section{Loss-based curriculum}
+\label{sec:method}
+
+Let $f_\theta$ be an encoder and $\vect{z}_i = f_\theta(\vect{x}_i)$ the representation of image $\vect{x}_i$.
+For two views $\vect{z}_i, \vect{z}_i'$ of the same image and a batch of $N$ images, the contrastive loss is
+\begin{equation}
+  \loss_i \coloneqq -\log \frac{\exp(\vect{z}_i^\top \vect{z}_i' / \tau)}{\sum_{j=1}^{N} \exp(\vect{z}_i^\top \vect{z}_j' / \tau)},
+  \label{eq:contrastive}
+\end{equation}
+with temperature $\tau$.
+We use the running mean of $\loss_i$ over the last epoch as the difficulty $d_i$ of image $i$.
+
+\paragraph{Schedule.}
+At epoch $e$ of $E$, the sampler draws from the easiest fraction $\lambda(e)$ of images, where
+\begin{equation}
+  \lambda(e) = \min\!\left(1, \lambda_0 + (1 - \lambda_0)\frac{e}{E_\mathrm{warm}}\right),
+  \label{eq:pacing}
+\end{equation}
+so that every image is eligible after $E_\mathrm{warm}$ epochs.
+Difficulties are recomputed once per epoch, which adds one forward pass per image (Equation~\ref{eq:contrastive} needs no labels).
+Table~\ref{tab:scores} lists the difficulty scores we compare.
+
+\begin{table}[t]
+  \centering
+  \caption{Difficulty scores compared in Section~\ref{sec:experiments}.}
+  \label{tab:scores}
+  \begin{tabularx}{\linewidth}{@{}lX@{}}
+    \toprule
+    Score & Definition \\
+    \midrule
+    Random & no ordering; the standard baseline \\
+    Entropy & Shannon entropy of the grey-level histogram, a hand-designed proxy \\
+    Loss & running mean of $\loss_i$ from Equation~\ref{eq:contrastive} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

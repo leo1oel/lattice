@@ -159,7 +159,21 @@ shuffle keyed by the salt, the seed's content and the operator.
 
 `python3 -m lattice_env seeds` lists them. The bundled seeds are Lattice's
 own templates (the tutorial paper and the NeurIPS, ICML and ICLR
-skeletons), written the way project creation writes them. Conference style
+skeletons), written the way project creation writes them. `seeds/` adds
+four papers written for this environment, Apache-2.0, each a few pages
+long and chosen to cover what the templates do not:
+
+| Seed | Style | What it exercises |
+| --- | --- | --- |
+| `sparse-routing` | NeurIPS 2026 | `\input` sections and an appendix, `algorithm`/`algpseudocode`, `amsthm`, `cleveref`, `multirow`, `\DeclareMathOperator` |
+| `tabular-calibration` | ICML 2026 | two-column layout, `subcaption`, `siunitx`, `enumitem`, `description`, `\[...\]`, `\autoref` |
+| `curriculum-signals` | ICLR 2026 | `\input` sections, `mathtools`, `bm`, `tabularx`, `\pageref`, footnotes |
+| `plain-notes` | `article` | `thebibliography` with no BibTeX, `listings`, theorems; every file Apache-2.0 |
+
+Their numbers are illustrative and say so in the papers; their
+bibliographies cite real papers. Figures are plain placeholders generated
+at load time (`seed.json` → `placeholders`), and conference styles are
+borrowed from `src-tauri/templates/` (`styles`) rather than copied. Conference style
 files ship unmodified and carry no licence grant of their own (see each
 template's `UPSTREAM.md`), so seeds that need them are marked
 `redistributable: false`; a dataset release should filter on that. The

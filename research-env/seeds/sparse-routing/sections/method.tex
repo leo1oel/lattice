@@ -1,0 +1,53 @@
+\section{Balanced top-$k$ routing}
+\label{sec:method}
+
+Let $x_t \in \R^d$ be the representation of token $t$ and let $W_r \in \R^{d \times n}$ be the router's weights for $n$ experts.
+The router scores the experts with
+\begin{equation}
+  s_t = \operatorname{softmax}(W_r^\top x_t),
+  \label{eq:scores}
+\end{equation}
+and the layer's output is the weighted sum of the selected experts,
+\begin{align}
+  y_t &= \sum_{i \in S_t} s_{t,i}\, \expert{i}(x_t), \label{eq:output}\\
+  S_t &= \topk_{i \le n} \, s_{t,i}. \nonumber
+\end{align}
+Each expert $\expert{i}$ is a two-layer feed-forward network, as in the Transformer block.
+
+\paragraph{Capacity.}
+A batch of $T$ tokens gives every expert a capacity of $C = \lceil c\,kT/n \rceil$ slots for a capacity factor $c \ge 1$.
+Tokens are assigned in order of their score; once an expert is full, a token falls back to its next-best expert, and a token with no free expert in its top $k$ is passed through the residual connection unchanged.
+\Cref{alg:router} lists the procedure.
+
+\begin{algorithm}[t]
+  \caption{Balanced top-$k$ routing for one batch.}
+  \label{alg:router}
+  \begin{algorithmic}[1]
+    \Require scores $s_t$ from \cref{eq:scores}, capacity $C$
+    \State $\mathrm{load}_i \gets 0$ for every expert $i$
+    \For{each token $t$ in decreasing order of $\max_i s_{t,i}$}
+      \For{each expert $i$ in $\topk_i s_{t,i}$}
+        \If{$\mathrm{load}_i < C$}
+          \State assign $t$ to $i$ and set $\mathrm{load}_i \gets \mathrm{load}_i + 1$
+        \EndIf
+      \EndFor
+    \EndFor
+  \end{algorithmic}
+\end{algorithm}
+
+\begin{proposition}
+\label{prop:load}
+Under balanced top-$k$ routing with capacity factor $c$, no expert receives more than $c\,kT/n + 1$ tokens in a batch of $T$ tokens.
+\end{proposition}
+
+\begin{proof}
+An expert accepts a token only while its load is below $C$, so its final load is at most $C \le c\,kT/n + 1$.
+\end{proof}
+
+The bound holds for any input, which is what lets the router drop the auxiliary loss used by \citet{fedus2022switch}.
+\Cref{lem:dropped} bounds the share of tokens that pass through unrouted.
+
+\begin{lemma}
+\label{lem:dropped}
+If every token's top $k$ experts are drawn uniformly at random, the expected share of unrouted tokens decreases monotonically in $c$.
+\end{lemma}

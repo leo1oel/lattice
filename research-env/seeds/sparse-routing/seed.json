@@ -1,0 +1,8 @@
+{
+  "name": "sparse-routing",
+  "root": "main.tex",
+  "licence": "Apache-2.0",
+  "notes": ["Synthetic seed paper written for the Lattice environment; its numbers are illustrative."],
+  "styles": {"neurips_2026.sty": "neurips-2026/neurips_2026.sty"},
+  "placeholders": {"figures/routing.png": [640, 300]}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "tabular-calibration",
+  "root": "main.tex",
+  "licence": "Apache-2.0",
+  "notes": ["Synthetic seed paper written for the Lattice environment; its numbers are illustrative."],
+  "styles": {"icml2026.sty": "icml-2026/icml2026.sty", "icml2026.bst": "icml-2026/icml2026.bst"},
+  "placeholders": {"figures/reliability-mlp.png": [400, 400], "figures/reliability-ensemble.png": [400, 400]}
+}
