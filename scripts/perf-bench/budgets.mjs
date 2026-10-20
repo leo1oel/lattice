@@ -35,6 +35,9 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  *   after their headers were first measured, and the second measurement adds
  *   about 95 attribute writes (WebKit: 721–738 at rest, 818–864 for about a
  *   run in four under load; CI once read 832 against a ceiling of 774).
+ * - `tab-drag` mutations: Trellis moves the lifted panel and the panels
+ *   making room for a drop on every frame, and how many frames a drag spans
+ *   depends on the machine (10,909–11,356 across runs of one build).
  */
 const REPORT_ONLY = ["recalcs", "layouts"];
 const REPORT_ONLY_BY_SCENARIO = {
@@ -46,6 +49,7 @@ const REPORT_ONLY_BY_SCENARIO = {
   "source-scroll": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
   startup: ["mutations"],
+  "tab-drag": ["mutations"],
 };
 
 /** The counts a scenario's ceilings gate; they repeat from run to run. */

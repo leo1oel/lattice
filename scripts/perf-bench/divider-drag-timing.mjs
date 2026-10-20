@@ -33,20 +33,17 @@
  * The browser is Playwright's (`pnpm exec playwright-core install webkit`).
  */
 /* global document, getComputedStyle, MessageChannel, performance, requestAnimationFrame, window -- the callbacks passed to evaluate() run in the page. */
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer as createNetServer } from "node:net";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath, URLSearchParams } from "node:url";
+import { rmSync, writeFileSync } from "node:fs";
+import { URLSearchParams } from "node:url";
 import { webkit } from "playwright-core";
+import { exportTree, repo, servePage } from "./ab-pages.mjs";
 import { FIGURES, median } from "./divider-drag-figures.mjs";
 import { APP_READY } from "./selectors.mjs";
 
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 /** perf-bench.mjs's fixture, with a library large enough to window its rows. */
 const FIXTURE = { largeMarkdownBytes: 400_000, chapterBytes: 60_000, longTexBytes: 3_200_000, notes: 40, codeBlocks: 150, pdfPages: 200, logLines: 4_000, paperCount: 600 };
 const SCENES = ["tex", "split"];
+const PREFIX = "lattice-divider-drag";
 
 function parseArgs(argv) {
   const options = { beforeRef: null, runs: 3, json: null };
@@ -59,65 +56,6 @@ function parseArgs(argv) {
   }
   if (!options.beforeRef) throw new Error("--before-ref names the commit to compare against");
   return options;
-}
-
-const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8", maxBuffer: 256 * 2 ** 20 });
-
-/**
- * REF's tree, exported beside the checkout with the checkout's installed
- * packages linked in. A plugin swapping src/ files at load cannot stand in for
- * it: the stylesheets App.css imports are read from disk, not loaded.
- */
-function exportTree(ref) {
-  if (git("diff", "--name-only", ref, "--", "patches", "package.json", "pnpm-lock.yaml").trim()) {
-    throw new Error(`${ref} differs from this checkout in patches/, package.json or the lockfile, so the installed packages are not its`);
-  }
-  const root = mkdtempSync(path.join(os.tmpdir(), "lattice-divider-drag-before-"));
-  execFileSync("sh", ["-c", `git archive ${JSON.stringify(ref)} | tar -x -C ${JSON.stringify(root)}`], { cwd: repo });
-  symlinkSync(path.join(repo, "node_modules"), path.join(root, "node_modules"), "dir");
-  return root;
-}
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createNetServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
-  });
-}
-
-/** A production build of the bench page from the tree at `root`, served. */
-async function servePage(root) {
-  const { build, preview } = await import("vite");
-  const outDir = mkdtempSync(path.join(os.tmpdir(), "lattice-divider-drag-dist-"));
-  const shared = { root, configFile: path.join(root, "vite.config.ts"), logLevel: "warn", clearScreen: false };
-  // Lingui finds its config, and the catalogs it allows, from the working directory.
-  const cwd = process.cwd();
-  process.chdir(root);
-  try {
-    await build({
-      ...shared,
-      build: {
-        outDir,
-        emptyOutDir: true,
-        rolldownOptions: { input: { bench: path.join(root, "tools/perf-bench/index.html") }, output: { strictExecutionOrder: true } },
-      },
-    });
-  } finally {
-    process.chdir(cwd);
-  }
-  const port = await freePort();
-  const server = await preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } });
-  return {
-    origin: `http://127.0.0.1:${port}`,
-    close: async () => {
-      await server.close();
-      rmSync(outDir, { recursive: true, force: true });
-    },
-  };
 }
 
 /** Mark the scene's boundaries `data-drag-divider="<name>"`; return them in drag order. */
@@ -210,8 +148,8 @@ async function measureScene(browser, origin, scene) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const beforeRoot = exportTree(options.beforeRef);
-const pagesBy = { before: await servePage(beforeRoot), after: await servePage(repo) };
+const beforeRoot = exportTree(options.beforeRef, { prefix: PREFIX });
+const pagesBy = { before: await servePage(beforeRoot, { prefix: PREFIX }), after: await servePage(repo, { prefix: PREFIX }) };
 const browser = await webkit.launch({ headless: true });
 const results = [];
 try {

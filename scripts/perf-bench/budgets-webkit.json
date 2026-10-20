@@ -70,6 +70,11 @@
       "renders": 711,
       "hooks": 6591,
       "mutations": 137
+    },
+    "tab-drag": {
+      "commits": 69,
+      "renders": 2171,
+      "hooks": 15422
     }
   }
 }

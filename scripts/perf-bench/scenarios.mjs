@@ -21,6 +21,14 @@ const KEY_PAUSE_MS = 120;
  */
 const PUBLISH_PAUSE_MS = 400;
 const WHEEL_PAUSE_MS = 60;
+/** A dragged pointer's step per frame: a brisk hand moving a tab. */
+const DRAG_STEP_PX = 12;
+/**
+ * A pointer held still over a drop target: past Trellis's 150 ms settle, its
+ * 460 ms layout tween and the moment the workspace waits for the pointer to
+ * rest before laying the preview's views out (the Trellis patch).
+ */
+const DRAG_REST_MS = 900;
 /** After a zoom gesture: past the PDF zoom's commit delay (use-pdf-zoom.ts) and its re-render. */
 const ZOOM_PAUSE_MS = 600;
 /** Between a zoom gesture's notches: one 60 Hz frame, well inside the PDF zoom's commit delay. */
@@ -291,6 +299,27 @@ export class BenchDriver {
     await this.waitFor(`document.querySelector('[data-bench-view]')?.getAttribute("aria-selected") === "true"`, { what: `the ${view} view` });
   }
 
+  /**
+   * Presses at the first point and drags through the rest, one step of at
+   * most DRAG_STEP_PX a frame, as a hand moves a tab; a point with `restMs`
+   * holds the pointer still there that long. Releases at the last point.
+   */
+  async drag(points) {
+    let [at] = points;
+    await this.mouse("mouseMoved", at.x, at.y, { button: "none" });
+    await this.mouse("mousePressed", at.x, at.y);
+    for (const point of points.slice(1)) {
+      const steps = Math.max(1, Math.ceil(Math.hypot(point.x - at.x, point.y - at.y) / DRAG_STEP_PX));
+      for (let step = 1; step <= steps; step += 1) {
+        await this.mouse("mouseMoved", at.x + ((point.x - at.x) * step) / steps, at.y + ((point.y - at.y) * step) / steps, { buttons: 1 });
+        await this.nextFrame();
+      }
+      at = point;
+      if (point.restMs) await sleep(point.restMs);
+    }
+    await this.mouse("mouseReleased", at.x, at.y);
+  }
+
   /** Tags the element among `selector` whose text is `text`, so it can be clicked by attribute. */
   async markByText(selector, text, tag) {
     await this.waitFor(`(() => {
@@ -332,6 +361,24 @@ const treeItem = (path) => `file-tree-container.lattice-file-tree >>> [data-item
 
 const EDITOR = ".cm-editor .cm-content";
 const VISUAL = ".ProseMirror";
+
+/** The middle of the workspace tab titled `title`. */
+async function tabCenter(driver, title) {
+  return driver.waitFor(`(() => {
+    const title = [...document.querySelectorAll(${JSON.stringify(TAB_TITLE)})].find((element) => element.textContent.trim() === ${JSON.stringify(title)});
+    const rect = title?.closest('[data-trellis-part="tab"]').getBoundingClientRect();
+    return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
+  })()`, { what: `the ${title} tab` });
+}
+
+/** The box of the workspace panel holding a tab titled `title`. */
+async function panelRect(driver, title) {
+  return driver.waitFor(`(() => {
+    const title = [...document.querySelectorAll(${JSON.stringify(TAB_TITLE)})].find((element) => element.textContent.trim() === ${JSON.stringify(title)});
+    const rect = title?.closest('[data-trellis-part="panel"]').getBoundingClientRect();
+    return rect ? { left: rect.left, top: rect.top, right: rect.right, width: rect.width, height: rect.height } : null;
+  })()`, { what: `the panel holding ${title}` });
+}
 
 /** Places the caret at the start of the `line`-th visible source line. */
 async function caretInSourceLine(driver, line) {
@@ -527,6 +574,40 @@ export const SCENARIOS = [
         await driver.nextFrame();
         await driver.settle({ quietMs: 300 });
       }
+    },
+  },
+  {
+    name: "tab-drag",
+    // Each frame of a drag used to lay out every view whose panel moved (a
+    // 460 ms layout tween is ~28 frames) and restyle the whole workspace on
+    // pickup and release; the commits and renders here multiply if either
+    // comes back. Every target is rested on, so the previews' views lay out
+    // at their new sizes as a writer looking at them would see them.
+    description: "Drag a document's tab past the PDF's split and tab targets and the terminal's edge, resting on each, drop it beside the PDF, then drag that panel back into the documents' tab strip; the long Markdown document in the visual editor, the PDF and the terminal on screen.",
+    unit: "drag",
+    steps: 2,
+    async setup(driver) {
+      for (const path of ["long.tex", "code.md", "large.md"]) await driver.openFile(path);
+      await driver.selectView("Preview");
+      await driver.rect(VISUAL);
+      // ⌃` as a synthetic keydown: headless Chrome never answers a CDP key event that carries Ctrl.
+      await driver.evaluate('document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "`", code: "Backquote", ctrlKey: true, bubbles: true, cancelable: true }))');
+      await driver.rect(".terminal-slot");
+    },
+    async run(driver) {
+      const pdf = await panelRect(driver, "PDF");
+      const terminal = await panelRect(driver, "Terminal");
+      const besidePdf = { x: pdf.right - 24, y: pdf.top + pdf.height / 2, restMs: DRAG_REST_MS };
+      await driver.drag([
+        await tabCenter(driver, "code.md"),
+        besidePdf,
+        { x: pdf.left + pdf.width / 2, y: pdf.top + 18, restMs: DRAG_REST_MS },
+        { x: terminal.left + terminal.width / 2, y: terminal.top - 3, restMs: DRAG_REST_MS },
+        besidePdf,
+      ]);
+      await driver.settle({ quietMs: 600 });
+      const documents = await panelRect(driver, "large.md");
+      await driver.drag([await tabCenter(driver, "code.md"), { x: documents.right - 40, y: documents.top + 18, restMs: DRAG_REST_MS }]);
     },
   },
   {
