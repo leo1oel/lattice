@@ -10294,6 +10294,10 @@ msgstr "文献"
 msgid "Refresh"
 msgstr "刷新"
 
+#: src/project/project-new-entries.ts
+msgid "Refresh file tree"
+msgstr "刷新文件树"
+
 #: src/history/versions-timeline.tsx
 msgid "Refresh history"
 msgstr "刷新历史"
@@ -10337,6 +10341,11 @@ msgstr "松开即可放大"
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus {title} · Esc to cancel"
 msgstr "松开放大{title} · Esc 取消"
+
+#. Search words for the Refresh file tree command, space-separated
+#: src/app/project-panel-commands.ts
+msgid "reload files folders sync disk"
+msgstr "刷新 重新载入 文件 文件夹 同步 磁盘 reload files folders sync disk"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts

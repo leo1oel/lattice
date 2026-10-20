@@ -12,6 +12,9 @@ export type NewEntryRequest = { type: NewEntryType; serial: number };
  * brought in beside them, then, past a separator, the other canvases a
  * project can hold.
  */
+/** The panel's ⋯ menu, the tree's context menus and the palette all offer it. */
+export const REFRESH_FILE_TREE = msg`Refresh file tree`;
+
 export const NEW_ENTRIES: readonly { type: NewEntryType; label: MessageDescriptor; separated?: boolean }[] = [
   { type: "latex", label: msg`New LaTeX file` },
   { type: "markdown", label: msg`New Markdown file` },

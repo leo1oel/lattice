@@ -39,6 +39,19 @@ struct FsChangedPayload {
     paths: Option<Vec<String>>,
 }
 
+#[derive(Clone, Serialize)]
+struct ReopenedPayload {
+    root: String,
+}
+
+/// Tell the window already showing `root` that it was asked to open the
+/// project again, which a writer does after changing the folder elsewhere.
+pub fn announce_reopened<R: tauri::Runtime>(app: &tauri::AppHandle<R>, root: &Path) {
+    // Broadcast like `project-fs-changed`; each window filters by its root.
+    let _ =
+        app.emit("project-reopened", ReopenedPayload { root: root.to_string_lossy().to_string() });
+}
+
 /// Keeps the underlying watcher alive; dropping it stops the event stream,
 /// which in turn ends the debounce thread once its channel disconnects.
 pub struct ProjectWatcher {
@@ -80,7 +93,9 @@ fn payload_paths(root: &Path, paths: &[PathBuf], reconcile: bool) -> Option<Vec<
     (!relative_paths.is_empty()).then(|| relative_paths.into_iter().collect())
 }
 
-pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, String> {
+pub fn spawn<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>, root: PathBuf,
+) -> Result<ProjectWatcher, String> {
     let (sender, receiver) = mpsc::channel::<WatchBatch>();
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
@@ -162,6 +177,58 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Folders that arrive from outside the project, copied the way Finder
+    /// or `cp -R` copies them and moved in whole, each reach the windows as a
+    /// coalesced report naming the new folder.
+    #[test]
+    fn reports_folders_copied_or_moved_in_from_outside() {
+        use tauri::Listener;
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let project = crate::test_support::TempDir::new("watch-arrivals");
+        let outside = crate::test_support::TempDir::new("watch-arrivals-outside");
+        project.write("main.tex", "\\documentclass{article}");
+        let root = project.canonicalize().unwrap();
+        let (sender, reports) = mpsc::channel::<serde_json::Value>();
+        app.handle().listen("project-fs-changed", move |event| {
+            let _ = sender.send(serde_json::from_str(event.payload()).unwrap());
+        });
+        let _watcher = spawn(app.handle().clone(), root.clone()).unwrap();
+        // Let the stream attach and anything from creating the fixture pass.
+        std::thread::sleep(Duration::from_millis(500));
+        while reports.recv_timeout(DEBOUNCE * 2).is_ok() {}
+        let reported = |path: &str| {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while let Ok(report) =
+                reports.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            {
+                assert_eq!(report["root"], root.to_string_lossy().as_ref());
+                // No paths (FSEvents asked for a rescan) covers every one.
+                let Some(names) = report["paths"].as_array() else { return true };
+                if names.iter().any(|name| name == path) {
+                    return true;
+                }
+            }
+            false
+        };
+
+        outside.write("figures/plots/loss.png", b"\x89PNG");
+        outside.write("figures/table.tex", "\\begin{tabular}");
+        let copied = std::process::Command::new("cp")
+            .arg("-R")
+            .arg(outside.join("figures"))
+            .arg(root.join("figures"))
+            .status()
+            .unwrap();
+        assert!(copied.success());
+        assert!(reported("figures/plots/loss.png"), "a copied folder went unreported");
+
+        outside.write("appendix/proofs.tex", "proof");
+        std::fs::rename(outside.join("appendix"), root.join("appendix")).unwrap();
+        assert!(reported("appendix"), "a moved-in folder went unreported");
+    }
 
     fn event_for(paths: Vec<PathBuf>) -> Event {
         let mut event = Event::new(notify::EventKind::Modify(notify::event::ModifyKind::Any));

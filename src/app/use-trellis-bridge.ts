@@ -5,7 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { arxivIdFromTabKey, isBibFilePath, isHtmlFilePath, isPaperTabKey, stripFrontmatter } from "../app-utils";
 import type { MenuEntry } from "@danfessler/trellis";
-import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
+import { NEW_ENTRIES, REFRESH_FILE_TREE, type NewEntryType } from "../project/project-new-entries";
+import { requestProjectTreeRefresh } from "../project/project-files-changed";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
@@ -115,7 +116,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       notify: (message) => showNotice(message),
       panelMenu: (kind) => {
         if (kind === "project") {
-          // The + menu's entries, then the header's other action.
+          // The + menu's entries, then the header's other actions.
           return [
             ...NEW_ENTRIES.flatMap((entry): MenuEntry[] => [
               ...(entry.separated ? ["separator" as const] : []),
@@ -123,6 +124,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
             ]),
             "separator",
             { id: "find", label: t`Find in project`, run: () => { setProjectSearchOpen(false); projectSearch.openFind(); } },
+            { id: "refresh-tree", label: i18n._(REFRESH_FILE_TREE), run: requestProjectTreeRefresh },
           ];
         }
         if (kind === "papers") {
