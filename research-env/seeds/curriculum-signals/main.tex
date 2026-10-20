@@ -1,0 +1,59 @@
+\documentclass{article}
+
+% A synthetic seed paper for Lattice's research environment. Its numbers are
+% illustrative, not measured results.
+\usepackage{iclr2026_conference,times}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{xcolor}
+
+\newcommand{\loss}{\mathcal{L}}
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
+
+\title{Curriculum Signals in Self-Supervised Vision}
+\author{
+Seed Author \\
+Lattice Research Environment \\
+\texttt{seed@lattice.example}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Self-supervised vision models see their training images in random order.
+We ask whether ordering images from easy to hard, with difficulty measured by the model's own contrastive loss, speeds up representation learning.
+On a small benchmark, a loss-based curriculum reaches the final linear-probe accuracy of random ordering in fewer epochs, while hand-designed difficulty scores do not help.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+Curriculum learning presents training examples in a meaningful order, typically from easy to hard \citep{bengio2009curriculum}.
+Contrastive self-supervised methods such as SimCLR \citep{chen2020simple} and MoCo \citep{he2020momentum} learn by pulling together two augmented views of an image while pushing apart views of different images, and they usually sample images uniformly.
+Section~\ref{sec:method} defines a curriculum driven by the contrastive loss itself, Section~\ref{sec:experiments} evaluates it, and Section~\ref{sec:discussion} discusses when ordering helps.
+
+\input{sections/method}
+\input{sections/experiments}
+
+\section{Discussion}
+\label{sec:discussion}
+
+The loss-based curriculum helps most early in training, when the model's notion of difficulty is still changing quickly (see the curve on page~\pageref{fig:curriculum}).
+Hand-designed scores such as image entropy do not track what the model finds hard, which is consistent with the mixed results reported for fixed curricula in supervised learning \citep{wu2021curricula}.
+A limitation of this study is its scale: we did not test whether the effect survives the much longer schedules used in practice.
+
+\bibliography{references}
+\bibliographystyle{iclr2026_conference}
+
+\end{document}

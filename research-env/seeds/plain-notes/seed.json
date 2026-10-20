@@ -1,0 +1,6 @@
+{
+  "name": "plain-notes",
+  "root": "main.tex",
+  "licence": "Apache-2.0",
+  "notes": ["Synthetic seed paper written for the Lattice environment, with no conference style, so every file is Apache-2.0."]
+}

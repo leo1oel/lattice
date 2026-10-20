@@ -1,0 +1,124 @@
+\documentclass[11pt]{article}
+
+% A synthetic seed paper for Lattice's research environment: plain article
+% class, a hand-written bibliography, and code listings.
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{url}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
+\newcommand{\Oh}{\mathcal{O}}
+
+\lstset{basicstyle=\ttfamily\small, columns=fullflexible, frame=single}
+
+\title{Notes on Reservoir Sampling}
+\author{Seed Author\thanks{Lattice Research Environment, \texttt{seed@lattice.example}.}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+These notes derive reservoir sampling, which keeps a uniform random sample of $k$ items from a stream of unknown length in one pass and $\Oh(k)$ memory.
+We state the invariant that makes it correct, give a short implementation, and compare it with two alternatives.
+\end{abstract}
+
+\section{The problem}
+\label{sec:problem}
+
+A stream delivers items $x_1, x_2, \ldots$ one at a time, and its length $n$ is not known in advance.
+We want, at every point, a sample of $k$ items such that every subset of size $k$ of the items seen so far is equally likely.
+Storing the whole stream would solve the problem but needs $\Oh(n)$ memory; the algorithm below needs only the sample itself \cite{vitter1985random}.
+
+\begin{definition}
+\label{def:uniform}
+A sample $R$ of size $k$ drawn from the first $t \ge k$ items is \emph{uniform} if $\Pr[x_i \in R] = k/t$ for every $i \le t$.
+\end{definition}
+
+\section{The algorithm}
+\label{sec:algorithm}
+
+Keep the first $k$ items.
+When item $t > k$ arrives, draw $j$ uniformly from $\{1, \ldots, t\}$; if $j \le k$, replace the $j$-th item of the reservoir with $x_t$.
+Listing~\ref{lst:reservoir} gives an implementation.
+
+\begin{lstlisting}[language=Python, caption={Reservoir sampling in Python.}, label={lst:reservoir}]
+import random
+
+def reservoir(stream, k):
+    sample = []
+    for t, item in enumerate(stream, start=1):
+        if t <= k:
+            sample.append(item)
+        else:
+            j = random.randint(1, t)
+            if j <= k:
+                sample[j - 1] = item
+    return sample
+\end{lstlisting}
+
+\begin{theorem}
+\label{thm:uniform}
+After $t \ge k$ items, the reservoir is a uniform sample in the sense of Definition~\ref{def:uniform}.
+\end{theorem}
+
+\begin{proof}
+By induction on $t$. For $t = k$ every item is kept, so $\Pr[x_i \in R] = 1 = k/t$.
+Suppose the claim holds after $t - 1$ items. Item $x_t$ enters with probability $k/t$.
+An earlier item stays if it was in the reservoir and is not the one replaced, which happens with probability
+\[
+  \frac{k}{t-1}\left(1 - \frac{k}{t}\cdot\frac{1}{k}\right) = \frac{k}{t-1}\cdot\frac{t-1}{t} = \frac{k}{t}. \qedhere
+\]
+\end{proof}
+
+\section{Alternatives}
+\label{sec:alternatives}
+
+Table~\ref{tab:alternatives} compares the algorithm with two other ways to sample.
+Theorem~\ref{thm:uniform} is what the first row relies on.
+
+\begin{table}[h]
+  \centering
+  \caption{Three ways to keep a uniform sample of $k$ items from $n$.}
+  \label{tab:alternatives}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Method & Memory & Needs $n$ in advance \\
+    \midrule
+    Reservoir sampling & $\Oh(k)$ & no \\
+    Store everything, then sample & $\Oh(n)$ & no \\
+    Selection sampling \cite{knuth1997art} & $\Oh(k)$ & yes \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two refinements are worth knowing:
+\begin{enumerate}
+  \item skipping ahead by a random number of items, so random numbers are drawn only when an item enters \cite{vitter1985random};
+  \item weighted sampling, where item $i$ enters with probability proportional to a weight $w_i$ \cite{efraimidis2006weighted}.
+\end{enumerate}
+The first is item~1 above and keeps the guarantee of Section~\ref{sec:algorithm}.
+
+\begin{thebibliography}{9}
+\bibitem{vitter1985random}
+J.~S. Vitter.
+\newblock Random sampling with a reservoir.
+\newblock \emph{ACM Transactions on Mathematical Software}, 11(1):37--57, 1985.
+
+\bibitem{knuth1997art}
+D.~E. Knuth.
+\newblock \emph{The Art of Computer Programming, Volume 2: Seminumerical Algorithms}.
+\newblock Addison-Wesley, 3rd edition, 1997.
+
+\bibitem{efraimidis2006weighted}
+P.~S. Efraimidis and P.~G. Spirakis.
+\newblock Weighted random sampling with a reservoir.
+\newblock \emph{Information Processing Letters}, 97(5):181--185, 2006.
+\end{thebibliography}
+
+\end{document}

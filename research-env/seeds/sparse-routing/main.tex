@@ -1,0 +1,78 @@
+\documentclass{article}
+
+% A synthetic seed paper for Lattice's research environment. Its numbers are
+% illustrative, not measured results.
+\usepackage[preprint]{neurips_2026}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\topk}{top\text{-}k}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\expert}[1]{E_{#1}}
+
+\title{Sparse Routing for Efficient Sequence Models}
+\author{Seed Author \\
+Lattice Research Environment \\
+\texttt{seed@lattice.example}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Mixture-of-experts layers route each token to a small subset of expert networks, so model capacity can grow without a matching growth in computation per token.
+This note studies a simple balanced router that combines top-$k$ selection with a capacity limit per expert.
+We describe the router, prove that its load stays within a constant factor of the uniform load, and compare it with dense layers of equal cost on two synthetic sequence tasks.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Conditional computation activates only part of a network for each input.
+Sparsely gated mixture-of-experts layers made this practical at scale by learning a gate that picks a few experts per token \citep{shazeer2017outrageously}.
+Later systems simplified routing to a single expert per token \citep{fedus2022switch} or sharded experts across many accelerators \citep{lepikhin2021gshard}.
+In each case the router must avoid sending most tokens to a few popular experts, a failure that wastes capacity and stalls training.
+
+Our contributions are:
+\begin{itemize}
+  \item a router that pairs top-$k$ selection with a hard capacity per expert (\cref{sec:method});
+  \item a bound on the maximum expert load under that router (\cref{prop:load});
+  \item a comparison with dense layers of equal floating-point cost (\cref{sec:experiments}).
+\end{itemize}
+
+\input{sections/method}
+\input{sections/experiments}
+
+\section{Related work}
+\label{sec:related}
+
+The idea of combining specialised experts with a learned gate predates deep learning \citep{jacobs1991adaptive}.
+Transformer-based mixture models inherit the attention layer of \citet{vaswani2017attention} and replace its feed-forward block with experts.
+Load balancing has been handled with auxiliary losses \citep{shazeer2017outrageously,fedus2022switch}, with capacity factors \citep{lepikhin2021gshard}, and with routing formulated as an assignment problem \citep{lewis2021base}.
+Our router follows the capacity approach but analyses its worst-case load directly.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+A capacity limit turns top-$k$ routing into a procedure whose load is bounded by construction, which removes the need to tune an auxiliary balancing loss.
+The bound in \cref{prop:load} is loose for skewed inputs, and tightening it is left to future work.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

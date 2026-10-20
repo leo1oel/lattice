@@ -1,0 +1,139 @@
+\documentclass{article}
+
+% A synthetic seed paper for Lattice's research environment. Its numbers are
+% illustrative, not measured results.
+\usepackage[preprint]{icml2026}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{nicefrac}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{xcolor}
+
+\newcommand{\ece}{\mathrm{ECE}}
+\newcommand{\prob}[1]{\Pr\left[#1\right]}
+
+\icmltitlerunning{Calibrated Uncertainty for Tabular Benchmarks}
+
+\begin{document}
+
+\twocolumn[
+  \icmltitle{Calibrated Uncertainty for Tabular Benchmarks}
+
+  \begin{icmlauthorlist}
+    \icmlauthor{Seed Author}{lattice}
+  \end{icmlauthorlist}
+
+  \icmlaffiliation{lattice}{Lattice Research Environment}
+  \icmlcorrespondingauthor{Seed Author}{seed@lattice.example}
+  \icmlkeywords{Calibration, Tabular Data, Ensembles}
+
+  \vskip 0.3in
+]
+
+\printAffiliationsAndNotice{}
+
+\begin{abstract}
+Deep networks trained on tabular data are often overconfident, and benchmarks that report only accuracy hide the problem.
+We measure calibration on a suite of tabular classification tasks, compare temperature scaling with deep ensembles, and find that a short list of evaluation practices changes which method looks best.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+A classifier is calibrated when its confidence matches its accuracy: among the inputs it labels with confidence $0.8$, about $80\%$ should be correct.
+Modern deep networks are frequently miscalibrated \citep{guo2017calibration}, and on tabular data they are not always more accurate than tree ensembles either \citep{grinsztajn2022tree}.
+This note asks how much the choice of calibration metric and evaluation protocol matters when comparing uncertainty methods on such data.
+\autoref{sec:setup} describes the protocol, \autoref{sec:results} the results, and \autoref{sec:practices} the practices we recommend.
+
+\section{Setup}
+\label{sec:setup}
+
+We use the expected calibration error with $B$ equal-width bins \citep{naeini2015obtaining},
+\[
+  \ece = \sum_{b=1}^{B} \frac{|S_b|}{N} \left| \mathrm{acc}(S_b) - \mathrm{conf}(S_b) \right|,
+\]
+where $S_b$ is the set of test points whose confidence falls into bin $b$.
+A perfectly calibrated model satisfies $\prob{Y = \hat{Y} \mid \hat{P} = p} = p$ for every $p$.
+We compare three methods:
+\begin{enumerate}[label=(\alph*)]
+  \item a single multilayer perceptron (MLP);
+  \item the same MLP after temperature scaling on a held-out split \citep{guo2017calibration};
+  \item a deep ensemble of five MLPs \citep{lakshminarayanan2017simple}.
+\end{enumerate}
+Each dataset is split into \num{60}/\num{20}/\num{20} percent for training, calibration and testing.
+Training one MLP takes about \SI{3}{\minute} on a single CPU core.
+
+\section{Results}
+\label{sec:results}
+
+\autoref{tab:ece} reports test accuracy and $\ece$ with $B = 15$.\footnote{All numbers in this seed paper are illustrative and were not measured.}
+Temperature scaling leaves accuracy unchanged by construction and removes most of the single model's calibration error.
+The ensemble is both more accurate and better calibrated, at five times the training cost.
+
+\begin{table}[t]
+  \centering
+  \caption{Accuracy and calibration error on the tabular suite (illustrative).}
+  \label{tab:ece}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Method & Accuracy (\%) & $\ece$ (\%) \\
+    \midrule
+    MLP & 84.1 & 7.9 \\
+    MLP + temperature & 84.1 & 2.6 \\
+    Ensemble of five & 85.7 & 1.9 \\
+    \midrule
+    \multicolumn{3}{@{}l}{\emph{Gradient-boosted trees, for reference}} \\
+    Boosted trees & 86.3 & 3.4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/reliability-mlp.png}
+    \caption{Single MLP.}
+    \label{fig:reliability-mlp}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/reliability-ensemble.png}
+    \caption{Ensemble of five.}
+    \label{fig:reliability-ensemble}
+  \end{subfigure}
+  \caption{Reliability diagrams on the largest dataset. Bars below the diagonal mean overconfidence.}
+  \label{fig:reliability}
+\end{figure}
+
+\autoref{fig:reliability} shows reliability diagrams for the largest dataset.
+The single model is overconfident in its top bins (\autoref{fig:reliability-mlp}), while the ensemble tracks the diagonal closely (\autoref{fig:reliability-ensemble}).
+Reducing the bin count to $B = 5$ lowers every method's $\ece$ by roughly $\nicefrac{1}{3}$, so results reported with different $B$ are not comparable.
+
+\section{Recommended practices}
+\label{sec:practices}
+
+\begin{description}[style=nextline]
+  \item[Report the bin count.] The value of $\ece$ depends on $B$; state it, and prefer a fixed $B$ across a paper.
+  \item[Calibrate on held-out data.] Fitting the temperature on the test split overstates its benefit.
+  \item[Compare at equal cost.] An ensemble of five should be compared with a single model trained five times longer, or with five calibrated single models.
+\end{description}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+On the tabular suite, temperature scaling closes most of the calibration gap at no cost to accuracy, and ensembles close the rest at a higher training cost.
+Which method looks best depends on the bin count and on whether costs are matched, so both belong in every comparison.
+
+\bibliography{references}
+\bibliographystyle{icml2026}
+
+\end{document}

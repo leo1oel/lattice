@@ -1,0 +1,31 @@
+\section{Experiments}
+\label{sec:experiments}
+
+We pretrain a ResNet-18 encoder \citep{he2016deep} for 200 epochs on a 100-class subset of images and evaluate it with a linear probe.\footnote{All numbers in this seed paper are illustrative and were not measured. The pacing parameters are $\lambda_0 = 0.3$ and $E_\mathrm{warm} = 60$, see Equation~\ref{eq:pacing}.}
+Every configuration is run with three seeds.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/curriculum.png}
+  \caption{Linear-probe accuracy during pretraining for random, entropy and loss ordering.}
+  \label{fig:curriculum}
+\end{figure}
+
+Figure~\ref{fig:curriculum} shows that loss ordering reaches the random baseline's final accuracy after about 140 epochs.
+Entropy ordering is slower than random throughout, which suggests that a poor difficulty signal is worse than none.
+Table~\ref{tab:probe} summarises the final accuracies.
+
+\begin{table}[t]
+  \centering
+  \caption{Final linear-probe accuracy (\%), mean $\pm$ standard deviation over three seeds (illustrative).}
+  \label{tab:probe}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Ordering & 100 epochs & 200 epochs \\
+    \midrule
+    Random & $61.4 \pm 0.3$ & $68.2 \pm 0.2$ \\
+    Entropy & $59.8 \pm 0.5$ & $67.5 \pm 0.4$ \\
+    Loss & $\mathbf{64.0} \pm 0.4$ & $\mathbf{68.9} \pm 0.3$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
