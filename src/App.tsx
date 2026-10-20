@@ -64,6 +64,7 @@ import type { SettingsSearchEntry } from "./settings/settings-search-index";
 import { collectFilePaths } from "./app/workspace-restore";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
+import { projectPanelCommands } from "./app/project-panel-commands";
 import { writeOpenSlideMutation } from "./app/open-slide-writes";
 import { AppOverleafCollabDrawer, AppOverleafMarginReview } from "./app/app-overleaf-drawer";
 import { requestMarginReviewHere, setMarginReviewMode } from "./overleaf/margin-review-mode";
@@ -128,7 +129,7 @@ import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
 import { welcomeDeskProjects } from "./project/first-pages";
-import { NEW_ENTRIES, type NewEntryRequest, type NewEntryType } from "./project/project-new-entries";
+import type { NewEntryRequest, NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
@@ -1383,18 +1384,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     },
     { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: "edit", run: () => void tree.pasteClipboardImage() },
     { id: "format", when: latexSource, label: t`Format document`, detail: "latexindent", group: "edit", run: formatFocusedDocument },
-    // The Project panel's + menu, which the tree answers with an inline field.
-    // A panel already on screen keeps focus out of the way; one brought back
-    // takes focus a frame later, so the field opens after that.
-    ...NEW_ENTRIES.map(({ type, label }): AppCommand => ({
-      id: `new-${type}`, when: inProject, label: i18n._(label), group: "project",
-      run: () => {
-        const shown = trellis.panelState("project") === "shown";
-        trellis.showPanel("project", { focus: false });
-        if (shown) requestNewEntry(type);
-        else requestAnimationFrame(() => requestAnimationFrame(() => requestNewEntry(type)));
-      },
-    })),
+    ...projectPanelCommands({ inProject, i18n, trellis, requestNewEntry }),
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
     { id: "export-zip", when: inProject, label: t`Export project ZIP`, detail: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
     { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, detail: t`Checked, comments removed, builds alone`, group: "project", run: () => setArxivExportOpen(true) },
