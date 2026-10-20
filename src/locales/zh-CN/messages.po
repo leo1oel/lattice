@@ -7202,6 +7202,10 @@ msgstr "实时预览借助 rtex 和你本机的 LuaLaTeX，在几毫秒内重绘
 msgid "Live preview stopped"
 msgstr "实时预览已停止"
 
+#: src/live-preview/live-preview-settings.tsx
+msgid "Live preview typesets only documents at the top of the project folder: rtex would typeset {subfolder} from there, not from its own folder as the build does, and lay it out differently. The PDF updates with each build."
+msgstr "实时预览只排版位于项目文件夹顶层的文档：rtex 会从项目文件夹而不是像构建那样从 {subfolder} 所在的文件夹排版它，版面也会不同。PDF 会随每次构建更新。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
 msgstr "实时同步"

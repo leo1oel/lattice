@@ -1,8 +1,8 @@
 /**
  * Settings › Builds: the LuaLaTeX live preview switch, for a LuaLaTeX project
  * only, and removing the rtex it downloaded. It is on by default, so this is
- * also where a Mac that cannot run it, or a download that failed, is
- * explained: the PDF panel shows neither.
+ * also where a Mac that cannot run it, a download that failed, or a main
+ * document in a subfolder is explained: the PDF panel shows none of them.
  */
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
@@ -32,11 +32,14 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
   const about = t`Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build.`;
   const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
   const message = state.kind === "failed" || state.kind === "download-failed" ? state.message : "";
+  const subfolder = livePreview.subfolderDocument;
   const unavailable = install?.supported === false
     ? t`Live preview needs a Mac with Apple silicon. Builds work as usual.`
     : install?.lualatex === false
       ? t`Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again.`
-      : null;
+      : subfolder
+        ? t`Live preview typesets only documents at the top of the project folder: rtex would typeset ${subfolder} from there, not from its own folder as the build does, and lay it out differently. The PDF updates with each build.`
+        : null;
   const description = unavailable ?? (state.kind === "downloading"
     ? t`Downloading rtex… ${percent}%`
     : state.kind === "failed" ? t`Could not start: ${message}` : about);
