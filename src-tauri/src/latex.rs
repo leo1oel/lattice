@@ -10,6 +10,8 @@
 //! - `synctex` maps positions between the compiled PDF and its sources.
 //! - `venue` reads which conference template a document's preamble loads.
 //! - `arxiv` makes and checks the source pack an arXiv submission needs.
+//! - `pinned` is the research environment's build: root, engine, rc files
+//!   and clock fixed so an agent cannot change what is graded.
 //!
 //! This file holds what they share: which document is built, and the PDF.
 
@@ -26,6 +28,7 @@ mod build_log;
 mod build_steps;
 mod changes;
 mod engine_mismatch;
+mod pinned;
 mod preamble_format;
 mod prewarm;
 mod synctex;
@@ -43,6 +46,7 @@ pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
 pub use changes::{export_changes_pdf, ChangesPdf, ChangesPdfOptions};
+pub use pinned::{build_pinned, PinnedBuild};
 pub use synctex::{
     body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
 };

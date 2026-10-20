@@ -174,6 +174,49 @@ differs from the original's.
 | LAT-BIB-KEY | 2 | UndefinedCitation | a cited entry's key renamed in the `.bib` |
 | LAT-BIB-DRP | 1 | UndefinedCitation | the `\bibliography` line deleted |
 
+## Lattice's own tools: `research-writer env`
+
+The same task packages run inside Lattice's binary on macOS, where the
+agent works through the app's domain code instead of a shell: its build
+diagnostics, history-backed edits, SyncTeX and symbol checks. It speaks
+JSON lines on stdin and stdout and runs before Tauri starts, like the
+`literature` mode the agent sidecar uses.
+
+```bash
+research-writer env --episodes /tmp/episodes          # then one JSON request per line:
+{"op":"reset","task":"/tmp/tasks/<task>","agent":{"name":"my-agent","model":"m"},"budget":{"steps":60,"compileSeconds":300}}
+{"op":"step","action":{"type":"compile"}}
+{"op":"step","action":{"type":"read","path":"main.tex","from_line":50,"to_line":80}}
+{"op":"step","action":{"type":"edit","path":"main.tex","old":"\\citte{","new":"\\citet{"}}
+{"op":"step","action":{"type":"submit","claim":"solved"}}
+{"op":"close"}
+research-writer env --replay /tmp/episodes/<episode>/transcript.jsonl   # rerun and compare observations
+```
+
+- **Replies** are Gymnasium's (`obs`, `reward`, `terminated`, `truncated`)
+  with the reward on the reply as OpenEnv puts it, `info` for timings and
+  the verdict (`status`, `components`, `gates`, `redLines`, `claimMatches`),
+  and Collaborative Gym's multi-party fields: each step names its `role`
+  (`agent`, `human`, `simulator`, `system`), observations split into
+  `public` and `private`, and `events` tell the agent what another party
+  changed since it last acted. Only the agent's steps count against the
+  budget; running out scores the workspace as it stands (`truncated`).
+- **Actions:** `list_files`, `read`, `search`, `edit` (one unique
+  occurrence), `write`, `compile`, `pdf_text`, `synctex`,
+  `synctex_inverse`, `check` (unused labels and citations, word count),
+  `submit` (with an optional `claim`: `solved`, `partial`, `unsolved`) and
+  `defer` (give up with a reason). There is no shell.
+- **Isolation:** each episode copies the task's `environment/workspace/`
+  into `<episodes>/<id>/workspace` with its own HOME, so nothing reaches the
+  real app's caches. The build is `latex::build_pinned`: Lattice's latexmk
+  run with the root, engine and clock from the task, `-norc`, no shell
+  escape and no preamble-format cache. `submit` runs the package's own
+  `tests/verify.py`, as Harbor does.
+- **Records:** `<id>/trajectory.json` in Harbor's trajectory format
+  (ATIF-v1.7, Lattice's fields under `extra`), `<id>/transcript.jsonl`
+  (every request and reply, which `--replay` reruns), and one line per
+  episode in `<episodes>/episodes.jsonl` for `calibrate`.
+
 ## Difficulty calibration
 
 Run a baseline several times per task, then label the tasks from the job

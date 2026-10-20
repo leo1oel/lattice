@@ -40,6 +40,9 @@ DEFAULT_TIMEOUT_SEC = 120
 # Directories that are never part of a submission's sources: version control,
 # Lattice's own state, and Python caches the verifier might leave behind.
 SKIP_DIRS = frozenset({".git", ".research", "__pycache__", ".texlive-home"})
+# Files no TeX run reads that tools drop into a project: Lattice writes a
+# `.gitignore` when it opens one (as the in-binary environment does).
+SKIP_FILES = frozenset({".gitignore", ".DS_Store"})
 
 # What a build of `<stem>.tex` writes beside it. Removed before every build so
 # the pass starts from the sources alone; `.aux` goes everywhere, because each
@@ -129,6 +132,8 @@ def source_files(directory: Path, root: str, keep: frozenset[str] = frozenset())
     for current, dirs, files in os.walk(directory):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for name in files:
+            if name in SKIP_FILES:
+                continue
             path = Path(current) / name
             if path.is_symlink() or not path.is_file():
                 continue
