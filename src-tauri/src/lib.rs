@@ -50,6 +50,7 @@ mod presentation;
 mod process_inspector;
 mod project;
 mod project_fs;
+mod research_env;
 mod review_pdf;
 mod sidecar;
 mod synara;
@@ -287,7 +288,7 @@ pub fn run() {
     process_inspector::run_if_requested();
     app_identity::init(&context.config().identifier);
     http::install_tls_provider();
-    if agent_literature::run_cli() {
+    if agent_literature::run_cli() || research_env::run_cli() {
         return;
     }
     // Panics after the log plugin installs its logger land in the log file;
