@@ -443,17 +443,22 @@ jobs:
         run: docker build --target toolchain -t lattice-env-toolchain research-env/lattice_env/harbor_templates/environment
       - name: Unit tests against the pinned toolchain
         run: docker run --rm -v "$PWD:/repo" -w /repo/research-env lattice-env-toolchain python3 -m unittest discover -s tests -v
+      # Three seeds cover both families' operators in a few minutes; every
+      # seed is still built twice by the unit tests above. The folders are
+      # made here first, so the root-owned container writes into folders
+      # the steps after it can still use.
       - name: Generate a sample library and admit it through its self-tests
         run: |
+          mkdir -p .tmp/tasks .tmp/sample .tmp/jobs
           docker run --rm -v "$PWD:/repo" -w /repo/research-env lattice-env-toolchain \
-            python3 -m lattice_env generate --out /repo/.tmp/tasks --per-operator 1 --jobs 4 --strict
+            python3 -m lattice_env generate --out /repo/.tmp/tasks --per-operator 1 --jobs 4 --strict \
+              --seed tutorial --seed sparse-routing --seed plain-notes
       # Harbor itself, on two tasks of each family: its oracle agent (the
       # reference repair) must score 1 and its nop agent (the untouched
       # paper) 0, read back from the job folders by the calibration tool.
       # The task images reuse the toolchain layers built above.
       - name: Run a sample through Harbor's oracle and nop agents
         run: |
-          mkdir -p .tmp/sample
           for family in build-repair reference-hygiene; do
             ls -d .tmp/tasks/${family}__* | head -2 | xargs -I{} cp -R {} .tmp/sample/
           done
