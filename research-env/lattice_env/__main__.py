@@ -89,6 +89,14 @@ def cmd_split_check(args: argparse.Namespace) -> int:
     return 1 if found or not private else 0
 
 
+def cmd_export_preferences(args: argparse.Namespace) -> int:
+    from .preferences import export
+
+    manifest = export(args.project, args.out, args.level, args.salt, args.writer)
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    return 0
+
+
 def cmd_seeds(args: argparse.Namespace) -> int:
     for seed in seed_registry.load(None, args.seeds_dir):
         print(json.dumps({"name": seed.name, "root": seed.root, "files": len(seed.files),
@@ -145,6 +153,15 @@ def main(argv: list[str] | None = None) -> int:
     split.add_argument("--public-seeds-dir", type=Path, action="append", help="more public seeds besides the bundled")
     split.add_argument("--threshold", type=float)
     split.set_defaults(run=cmd_split_check)
+
+    export = sub.add_parser("export-preferences", help="export a project's annotation rounds as preference data")
+    export.add_argument("project", type=Path, help="a Lattice project folder")
+    export.add_argument("--out", type=Path, required=True)
+    export.add_argument("--level", type=int, choices=[0, 1, 2], default=1,
+                        help="consent level: 0 labels only, 1 touched spans, 2 full text")
+    export.add_argument("--salt", help="salt for the id hashes (random, and not exported, by default)")
+    export.add_argument("--writer", help="export only this author id's annotations")
+    export.set_defaults(run=cmd_export_preferences)
 
     seeds = sub.add_parser("seeds", help="list the seed papers and their licences")
     seeds.add_argument("--seeds-dir", type=Path, action="append")
