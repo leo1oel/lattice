@@ -59,7 +59,7 @@ const probes = new WeakMap<HTMLElement, { key: string; measure: number; gutter: 
  * `face` stands for the font: the probes are taken again when it changes,
  * never per keystroke.
  */
-export function sourceColumns(within: HTMLElement, face: string): { measure: number; gutter: number } {
+function sourceColumns(within: HTMLElement, face: string): { measure: number; gutter: number } {
   const cached = probes.get(within);
   if (cached?.key === face) return cached;
   const probe = (part: string) => {
