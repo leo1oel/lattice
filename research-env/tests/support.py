@@ -46,12 +46,13 @@ class TaskCase(unittest.TestCase):
     new = "\\citpe{bahdanau2015neural}"
     family = "build-repair"
     track = HARD
+    path = None
 
     @classmethod
     def setUpClass(cls):
         cls.scratch = Path(tempfile.mkdtemp(prefix="lattice-env-test-"))
         cls.seed = next(s for s in seeds.bundled() if s.name == cls.seed_name)
-        cls.mutation = mutate(cls.seed, cls.old, cls.new, family=cls.family, track=cls.track)
+        cls.mutation = mutate(cls.seed, cls.old, cls.new, family=cls.family, track=cls.track, path=cls.path)
         cls.task_dir = cls.scratch / "task"
         foreign = next(s for s in seeds.bundled() if s.name != cls.seed_name)
         cls.task = build_task(cls.task_dir, cls.seed, cls.mutation, 1, foreign_root=foreign.text(foreign.root))
