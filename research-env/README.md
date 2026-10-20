@@ -265,6 +265,47 @@ smaller side's 4-grams also occur in a public one. Mined real faults
 (TeXFix-Bench's under-20-line fix commits) belong in this split; importing
 them is not built yet.
 
+## Preference data from annotation rounds
+
+Every Lattice project that used annotation rounds already holds preference
+data: the writer's note and intent on a passage, the agent's proposal and
+reason, the decision (accepted whole or in part, or rejected), and each
+round's files before and after (`.research/annotations.json`,
+`.research/annotation-rounds/`). The exporter turns them into training
+files, locally; nothing is uploaded.
+
+```bash
+python3 -m lattice_env export-preferences ~/papers/my-paper --out /tmp/prefs --level 1 [--writer <author id>]
+```
+
+| File | What |
+| --- | --- |
+| `dpo.jsonl` | TRL preference pairs: chosen = what the writer kept (their edit of a proposal, or their own passage when they rejected it), rejected = the proposal |
+| `kto.jsonl` | TRL unpaired labels, for the clear decisions: accepted unchanged (`true`) or rejected (`false`) |
+| `edits.jsonl` | (prompt, proposal, final, edit cost) for every decision: learning from the writer's edits, not only pairs |
+| `hunks.jsonl` | the proposal's word-level hunks, each kept or dropped by what the writer applied |
+| `writer-turns.jsonl` | the writer's side (note, answer to the agent's question, decision, final text), for training a simulated writer |
+| `labels.jsonl`, `manifest.json`, `datasheet.md` | at every level: decisions, intents, lengths, edit costs, round durations, and a datasheet |
+
+Decisions are `accept`, `accept-partial` (some hunks applied),
+`accept-edited` (changed by the writer before the round settled) and
+`reject`. Prompts reproduce the shipping agent's request
+(`src/agent/agent-annotations.ts`). Consent levels: **0** labels and
+counts only; **1** adds the passages the agent touched, its proposals and
+the writer's notes, with `%` comments removed (they hold discarded drafts)
+and emails and URLs scrubbed; **2** adds the context around each passage and
+each round's whole files. Ids are salted hashes, paths are hashed below
+level 2, known author names are replaced in free text, and replies by
+anyone but an annotation's author are dropped, since co-authors did not
+consent. A rejected proposal's text survives only for an annotation's
+latest round; earlier rounds export their outcome without text. Studies
+with recruited writers run under the lab's IRB protocol; this tool only
+reads what the app already keeps.
+
+The fixture in `tests/fixtures/annotated-paper/` is also read by the app's
+own parser in a Rust test, so a change to Lattice's annotation schema fails
+there before the exporter misreads it.
+
 ## Seeds and licences
 
 `python3 -m lattice_env seeds` lists them. The bundled seeds are Lattice's

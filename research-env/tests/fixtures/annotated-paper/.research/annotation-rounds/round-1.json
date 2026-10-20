@@ -1,0 +1,10 @@
+{
+  "number": 1,
+  "files": [
+    {
+      "path": "main.tex",
+      "before": "\\documentclass{article}\n\\begin{document}\n\\section{Introduction}\nLarge language models are increasingly used to help researchers write papers, and this trend has accelerated considerably over the last several years in many fields.\nWe study how writers accept or reject the edits an agent proposes. % TODO: cite the CoAuthor study\nOur results show that writers keep most short edits.\nContact the authors for the data.\nFuture work will extend the study to other languages.\n\\end{document}\n",
+      "after": "\\documentclass{article}\n\\begin{document}\n\\section{Introduction}\nResearchers increasingly write papers with language models.\nWe measure how writers accept or reject an agent's edits. % TODO: cite the CoAuthor study\nOur results show that writers keep most short edits.\nContact the authors for the data.\nFuture work will extend the study to other languages.\n\\end{document}\n"
+    }
+  ]
+}

@@ -242,6 +242,26 @@ mod tests {
         task
     }
 
+    /// The preference exporter (`research-env/lattice_env/preferences.py`)
+    /// is tested on this fixture; reading it with the app's own parser keeps
+    /// the two in step when the annotation schema changes.
+    #[test]
+    fn the_preference_exporters_fixture_is_what_lattice_reads() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../research-env/tests/fixtures/annotated-paper");
+        let annotations = crate::project::read_annotations(&root).unwrap();
+        assert_eq!(annotations.annotations.len(), 5);
+        assert_eq!(annotations.rounds.len(), 2);
+        let accepted = &annotations.annotations[0];
+        let revision = accepted.revision.as_ref().unwrap();
+        assert_eq!((revision.round, revision.state.as_str()), (1, "accepted"));
+        assert_eq!(accepted.intent.as_deref(), Some("shorten"));
+        let files = crate::project::read_annotation_round(&root, 1).unwrap();
+        assert_eq!(files[0].path, "main.tex");
+        assert!(files[0].before.as_deref().unwrap().contains("Large language models"));
+        assert!(files[0].after.as_deref().unwrap().contains("Researchers increasingly"));
+    }
+
     #[test]
     fn protocol_errors_are_answers_not_crashes() {
         let dir = TempDir::new("env");

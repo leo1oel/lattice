@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 2,
+  "annotations": [
+    {
+      "id": "a1",
+      "number": 1,
+      "path": "main.tex",
+      "from": 0,
+      "to": 59,
+      "quote": "Researchers increasingly write papers with language models.",
+      "prefix": "\\section{Introduction}\n",
+      "suffix": "\nWe measure",
+      "body": "Too long; cut it to one plain sentence.",
+      "intent": "shorten",
+      "revision": {
+        "round": 1,
+        "state": "accepted",
+        "original": "Large language models are increasingly used to help researchers write papers, and this trend has accelerated considerably over the last several years in many fields.",
+        "text": "Researchers increasingly write papers with language models.",
+        "reason": "Removes hedging and the time frame."
+      },
+      "authorId": "u-jane",
+      "authorName": "Jane Doe",
+      "resolved": true,
+      "replies": [
+        {
+          "id": "r1",
+          "authorId": "u-carol",
+          "authorName": "Carol Lee",
+          "body": "Agree, Jane.",
+          "createdAt": "2026-10-01T09:55:00Z"
+        },
+        {
+          "id": "r2",
+          "authorId": "u-jane",
+          "authorName": "Jane Doe",
+          "body": "Thanks, will do.",
+          "createdAt": "2026-10-01T09:56:00Z"
+        }
+      ],
+      "createdAt": "2026-10-01T09:50:00Z",
+      "updatedAt": "2026-10-01T10:05:00Z"
+    },
+    {
+      "id": "a2",
+      "number": 2,
+      "path": "main.tex",
+      "from": 0,
+      "to": 68,
+      "quote": "We measure how writers accept or reject the edits an agent proposes.",
+      "prefix": "Researchers increasingly write papers with language models.\n",
+      "suffix": " % TODO",
+      "body": "Say what we measure. Ask Jane Doe (jane.doe@example.org) or see https://example.org/notes.",
+      "intent": "clarify",
+      "revision": {
+        "round": 1,
+        "state": "accepted",
+        "original": "We study how writers accept or reject the edits an agent proposes.",
+        "text": "We measure which of an agent's proposed edits writers accept.",
+        "reason": "Names the measurement."
+      },
+      "authorId": "u-jane",
+      "authorName": "Jane Doe",
+      "resolved": true,
+      "replies": [],
+      "createdAt": "2026-10-01T09:50:00Z",
+      "updatedAt": "2026-10-01T10:05:00Z"
+    },
+    {
+      "id": "a3",
+      "number": 3,
+      "path": "main.tex",
+      "from": 0,
+      "to": 52,
+      "quote": "Our results show that writers keep most short edits.",
+      "prefix": "CoAuthor study\n",
+      "suffix": "\nContact the",
+      "body": "Make this sound less tentative.",
+      "intent": "rewrite",
+      "revision": {
+        "round": 2,
+        "state": "rejected",
+        "original": "Our results show that writers keep most short edits.",
+        "text": "In our study, writers kept most of the short edits.",
+        "reason": "Puts the setting first."
+      },
+      "authorId": "u-jane",
+      "authorName": "Jane Doe",
+      "resolved": false,
+      "replies": [],
+      "createdAt": "2026-10-01T09:50:00Z",
+      "updatedAt": "2026-10-01T10:05:00Z"
+    },
+    {
+      "id": "a4",
+      "number": 4,
+      "path": "main.tex",
+      "from": 0,
+      "to": 33,
+      "quote": "Contact the authors for the data.",
+      "prefix": "Our results show that writers keep most short edits.\n",
+      "suffix": "\nFuture work",
+      "body": "Which address should readers use?",
+      "intent": "fix",
+      "revision": {
+        "round": 1,
+        "state": "asked",
+        "original": "Contact the authors for the data.",
+        "question": "Should readers contact the corresponding author?",
+        "answer": "Yes, use the lab's address."
+      },
+      "authorId": "u-jane",
+      "authorName": "Jane Doe",
+      "resolved": false,
+      "replies": [],
+      "createdAt": "2026-10-01T09:50:00Z",
+      "updatedAt": "2026-10-01T10:05:00Z"
+    },
+    {
+      "id": "a5",
+      "number": 5,
+      "path": "main.tex",
+      "from": 0,
+      "to": 53,
+      "quote": "Future work will extend the study to other languages.",
+      "prefix": "Contact the authors for the data.\n",
+      "suffix": "\n\\end{document}",
+      "body": "Tighten.",
+      "intent": "shorten",
+      "revision": {
+        "round": 1,
+        "state": "proposed",
+        "original": "Future work will extend the study to other languages.",
+        "text": "We plan to extend the study to other languages.",
+        "reason": "Shorter."
+      },
+      "authorId": "u-bob",
+      "authorName": "Bob Smith",
+      "resolved": false,
+      "replies": [],
+      "createdAt": "2026-10-01T09:50:00Z",
+      "updatedAt": "2026-10-01T10:05:00Z"
+    }
+  ],
+  "rounds": [
+    {
+      "number": 1,
+      "startedAt": "2026-10-01T10:00:00Z",
+      "settledAt": "2026-10-01T10:05:30Z",
+      "outcomes": {
+        "a1": "accepted",
+        "a2": "accepted",
+        "a3": "rejected",
+        "a4": "asked",
+        "a5": "proposed"
+      },
+      "historyId": "h1"
+    },
+    {
+      "number": 2,
+      "startedAt": "2026-10-01T10:10:00Z",
+      "settledAt": "2026-10-01T10:11:00Z",
+      "outcomes": {
+        "a3": "rejected"
+      }
+    }
+  ]
+}
