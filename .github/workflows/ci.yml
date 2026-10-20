@@ -446,4 +446,21 @@ jobs:
       - name: Generate a sample library and admit it through its self-tests
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo/research-env lattice-env-toolchain \
-            python3 -m lattice_env generate --out /tmp/tasks --per-operator 1 --jobs 4 --strict
+            python3 -m lattice_env generate --out /repo/.tmp/tasks --per-operator 1 --jobs 4 --strict
+      # Harbor itself, on two tasks of each family: its oracle agent (the
+      # reference repair) must score 1 and its nop agent (the untouched
+      # paper) 0, read back from the job folders by the calibration tool.
+      # The task images reuse the toolchain layers built above.
+      - name: Run a sample through Harbor's oracle and nop agents
+        run: |
+          mkdir -p .tmp/sample
+          for family in build-repair reference-hygiene; do
+            ls -d .tmp/tasks/${family}__* | head -2 | xargs -I{} cp -R {} .tmp/sample/
+          done
+          for agent in oracle nop; do
+            pipx run --spec harbor==0.24.0 harbor run -p .tmp/sample -a "$agent" \
+              -o .tmp/jobs --job-name "$agent" -n 4 -y -q
+          done
+          cd research-env
+          python3 -m lattice_env calibrate ../.tmp/jobs/oracle --expect-reward 1
+          python3 -m lattice_env calibrate ../.tmp/jobs/nop --expect-reward 0
