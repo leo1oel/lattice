@@ -1,21 +1,8 @@
 /* Margin review (overleaf-margin-review.tsx): Overleaf's comments and
    suggestions beside their lines in the source, in width the text does not
    need. The layer sits in CodeMirror's scroller, outside .cm-content, and is
-   placed from the editor's geometry; nothing here reserves width except the
-   wide layout, which keeps the text at focus mode's reading measure. */
-
-/* Wide: the text keeps the 88-column measure (and the line's own padding),
-   never less; the cards stand in the width beyond it. */
-.source-editor[data-margin-review="wide"] .cm-content {
-  flex: 0 1 calc(var(--focus-mode-measure) + var(--space-4));
-  max-width: calc(var(--focus-mode-measure) + var(--space-4));
-}
-/* Markers stand in the outline rail's gutter. A document without the rail
-   keeps that gutter for them all the same, so a pip never covers text. */
-.source-editor[data-margin-review="markers"] .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
-.focus-mode .trellis-editor-host .source-editor[data-margin-review="markers"] .cm-scroller {
-  padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--focus-mode-measure)) / 2));
-}
+   placed from the editor's geometry; the width the text gives up for it is
+   margin-review-layout.css's, which loads with the editor. */
 
 /* A zero-size origin at the scroller's top left: everything in it is placed
    by `translate` in the scroller's own coordinates, so it scrolls with the

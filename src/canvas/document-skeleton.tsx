@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useLoadingReveal } from "../components/ui/loading-reveal";
+import { skeletonMarginLayout } from "../overleaf/margin-review-layout";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { loadSplitRatio } from "../settings/app-settings";
 import { SPLIT_MINIMUMS, splitGridTemplate } from "./use-split-layout";
@@ -36,12 +37,18 @@ const PAGE_BLOCKS: ({ heading: number } | number[])[] = [
  * visual editor's chunk, an HTML page's first load) is one indicator that
  * waits once, and a quick open shows nothing.
  */
-export function DocumentSkeleton({ shape, page = "markdown", label }: {
+export function DocumentSkeleton({ shape, page = "markdown", label, marginReview = false }: {
   shape: DocumentSkeletonShape;
   /** Whose page: Markdown's visual editor, or an HTML file's own (white, and no heading rail). */
   page?: "markdown" | "html";
   /** What is loading, for assistive technology. */
   label: string;
+  /**
+   * The source opens with Overleaf's margin review beside it, cards allowed
+   * (margin-review-files.ts): its lines keep the reading measure wherever
+   * the editor's will.
+   */
+  marginReview?: boolean;
 }) {
   const reveal = useLoadingReveal("opening");
   const split = shape === "split"
@@ -49,7 +56,7 @@ export function DocumentSkeleton({ shape, page = "markdown", label }: {
     : undefined;
   return (
     <div className="document-skeleton" data-shape={shape} data-page={page} style={split}>
-      {shape !== "page" && <SourceSkeleton reveal={reveal} />}
+      {shape !== "page" && <SourceSkeleton reveal={reveal} marginReview={marginReview} />}
       {shape === "split" && <span className="document-skeleton-divider" />}
       {shape !== "source" && <PageSkeleton reveal={reveal} />}
       <LoadingAnnouncement message={label} />
@@ -57,9 +64,17 @@ export function DocumentSkeleton({ shape, page = "markdown", label }: {
   );
 }
 
-function SourceSkeleton({ reveal }: { reveal: CSSProperties }) {
+function SourceSkeleton({ reveal, marginReview }: { reveal: CSSProperties; marginReview: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  // From the skeleton's own width, as the editor will decide (margin-review-layout.ts), before it paints.
+  useLayoutEffect(() => {
+    const source = ref.current;
+    if (!source || !marginReview) return;
+    setWide(skeletonMarginLayout(source, !source.closest(".focus-mode")).kind === "wide");
+  }, [marginReview]);
   return (
-    <div className="document-skeleton-source">
+    <div ref={ref} className="document-skeleton-source" data-margin={marginReview && wide ? "wide" : undefined}>
       <div className="document-skeleton-lines loading-reveal" style={reveal} aria-hidden="true">
         <div className="loading-sheen">
           {Array.from({ length: 4 }, (_, round) => SOURCE_LINES.map((width, index) => (

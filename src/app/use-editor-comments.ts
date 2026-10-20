@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { OpenProjectFile, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
@@ -10,6 +10,7 @@ import {
   type AnnotationRound,
   type EditorComment,
 } from "../editor/comments/editor-comment-data";
+import { publishMarginReviewComments } from "../overleaf/margin-review-files";
 import { showError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
@@ -260,6 +261,13 @@ export function useEditorComments({
 
   /** Both kinds of comment, as the editor and the panel want them. */
   const all = useMemo(() => [...comments, ...overleafEditorComments], [comments, overleafEditorComments]);
+
+  // The files that open with Overleaf's threads beside their source, which
+  // their skeleton is drawn for before they are read (margin-review-files.ts).
+  const overleafProject = overleafLink?.projectId ?? "";
+  useEffect(() => {
+    publishMarginReviewComments(overleafProject, overleafEditorComments.flatMap((comment) => comment.resolved ? [] : [comment.path]));
+  }, [overleafEditorComments, overleafProject]);
 
   useLayoutEffect(() => {
     agentOptionsRef.current = () => {

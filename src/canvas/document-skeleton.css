@@ -7,7 +7,8 @@
 .document-skeleton[data-shape="split"] { display: grid; grid-template-rows: minmax(0, 1fr); }
 .document-skeleton[data-shape="split"] > * { min-width: 0; }
 
-.document-skeleton-source { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--code-ground); }
+/* In the editor's face, so `ch` below is the editor's. */
+.document-skeleton-source { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--code-ground); font-family: var(--editor-font); font-size: var(--editor-font-size); }
 .document-skeleton-lines {
   --document-skeleton-pitch: calc(var(--editor-font-size) * 1.6);
   flex: 1 1 0;
@@ -25,6 +26,10 @@
   background: var(--border-strong) padding-box;
 }
 .document-skeleton-lines span[data-gap] { visibility: hidden; }
+/* Beside Overleaf's margin review (margin-review-layout.css) the text keeps
+   the reading measure: the lines end where the editor's will, the 76px
+   start above already counting 16px of it beyond the gutter. */
+.document-skeleton-source[data-margin="wide"] .document-skeleton-lines > div { max-width: calc(var(--focus-mode-measure) + var(--space-4) - 16px); }
 
 .document-skeleton-divider { background: var(--border-subtle); }
 
