@@ -38,6 +38,7 @@ jobs:
     outputs:
       code: ${{ steps.classify.outputs.code }}
       synara-pin: ${{ steps.classify.outputs.synara-pin }}
+      research-env: ${{ steps.classify.outputs.research-env }}
     steps:
       # A pull_request run checks out the PR merged into its base, so the merge
       # commit's first parent is the base and the diff between them is exactly
@@ -53,6 +54,7 @@ jobs:
           if [ "$EVENT" != pull_request ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "synara-pin=true" >> "$GITHUB_OUTPUT"
+            echo "research-env=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # --no-renames lists a rename as its deletion plus its addition, so
@@ -60,10 +62,15 @@ jobs:
           changed=$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD)
           code=false
           synara_pin=false
+          research_env=false
           [ -n "$changed" ] || code=true
           while IFS= read -r path; do
             [ -n "$path" ] || continue
             [ "$path" != scripts/synara-runtime.json ] || synara_pin=true
+            # The environment's seeds include the bundled templates.
+            case "$path" in
+              research-env/* | src-tauri/templates/* | .github/workflows/ci.yml) research_env=true ;;
+            esac
             case "$path" in
               THIRD_PARTY_NOTICES.md) ;;
               docs/* | .github/ISSUE_TEMPLATE/*) continue ;;
@@ -77,6 +84,7 @@ jobs:
           done <<< "$changed"
           echo "code=$code" | tee -a "$GITHUB_OUTPUT"
           echo "synara-pin=$synara_pin" | tee -a "$GITHUB_OUTPUT"
+          echo "research-env=$research_env" | tee -a "$GITHUB_OUTPUT"
 
   # A Synara pin move must keep the fork's history linear: the pin reachable
   # from its declared branch, and the previous pin its ancestor, so a pin cut
@@ -417,3 +425,25 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+  # The research environment's verifier, run in the pinned TeX Live image its
+  # Harbor tasks use, since its scores depend on that exact toolchain: unit
+  # tests (the TeX ones build real papers), every seed built twice in
+  # different folders to prove the PDF is reproducible there, and a sample
+  # library admitted through its self-tests with --strict, so a cheat that
+  # gets past a verifier fails the check. The 2.6 GB image is only pulled
+  # when the environment, its seeds or this workflow change.
+  research-env:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.research-env != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the verifier's toolchain image
+        run: docker build --target toolchain -t lattice-env-toolchain research-env/lattice_env/harbor_templates/environment
+      - name: Unit tests against the pinned toolchain
+        run: docker run --rm -v "$PWD:/repo" -w /repo/research-env lattice-env-toolchain python3 -m unittest discover -s tests -v
+      - name: Generate a sample library and admit it through its self-tests
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo/research-env lattice-env-toolchain \
+            python3 -m lattice_env generate --out /tmp/tasks --per-operator 1 --jobs 4 --strict
