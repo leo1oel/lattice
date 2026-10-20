@@ -60,7 +60,7 @@ Gates first. A submission scores 0 unless every gate holds:
 | --- | --- |
 | `noRedLines` | the submission crosses a red line (below) |
 | `withinBudget` | it changed more characters than the task's budget: `max(64, 4 × the reference repair + 32)` |
-| `preserved` | the original paper's labels, citations, sections, figures, environments or list items are gone |
+| `preserved` | the original paper's labels, citations, `\ref`s (to the same keys), sections, figures, environments or list items are gone |
 | `builds` | the pinned build fails or times out |
 | `referencesResolved` | a label prints a different number than in the original, a citation resolves differently, a `\ref` or `\cite` is undefined, or the PDF prints `??` or `[?]` |
 
@@ -79,7 +79,7 @@ Red lines, each a way to pass without repairing the paper:
 | `silenced_warnings` | reconfiguring LaTeX's warnings or error reporting (`\@latex@warning`, `silence`, `\nofiles`, …) |
 | `redefinition` | `\renewcommand`, `\def`, `\let`, `\makeatletter`, … that the original paper did not have |
 | `fault_alias`, `fault_kept` | defining the broken name instead of repairing it (`\providecommand{\citpe}`), or a paper that builds with it still in place |
-| `new_label`, `new_bib_key` | a label or bibliography key the original never had: how an undefined `\ref` gets "resolved" |
+| `new_label`, `new_bib_key` | a label or bibliography key neither the original nor the broken paper had: how an undefined `\ref` gets "resolved" |
 | `content_hidden` | the paper's own text commented out, or wrapped in `\iffalse` or a `comment` environment |
 | `protected_file_changed`/`_deleted` | a style file, figure or any other non-editable file changed |
 | `new_tex_input`, `latexmkrc` | a package, class or style file that would shadow TeX's own, or an rc file |
@@ -154,6 +154,25 @@ shuffle keyed by the salt, the seed's content and the operator.
 | LAT-TAB-AMP | 3 | TableAlignmentFault | an unescaped `&` in running text |
 | LAT-ARG-PAR | 3 | BraceGroupFault | a blank line inside an argument |
 | LAT-DOC-BEG | 3 | DocumentBoundaryFault | `\begin{document}` deleted |
+
+## Reference hygiene
+
+The paper builds, but a reference or citation is wrong, which a
+compile-only reward never sees. The verifier reads the build's `.aux`:
+every label must print the number it printed in the original, every
+citation must resolve as it did, and every `\ref` must point at the key it
+pointed at. The guard keeps a mutant only if it builds into a PDF that
+differs from the original's.
+
+| Code | Tier | Category | Fault |
+| --- | --- | --- | --- |
+| TEX-REF-UDF | 2 | UndefinedReference | a `\ref`/`\cref`/`\eqref` key mistyped (DocMut uses `key__ghost`; this is an author's typo) |
+| LAT-CIT-UDF | 2 | UndefinedCitation | a `\cite` key mistyped |
+| LAT-LBL-DRP | 2 | UndefinedReference | a referenced `\label` deleted |
+| TEX-LBL-DUP | 2 | MultiplyDefinedLabel | a label defined again in the next float or section, so references print the wrong number |
+| LAT-LBL-CAP | 3 | WrongReferenceTarget | a float's `\label` moved before its `\caption`: no warning, the section's number |
+| LAT-BIB-KEY | 2 | UndefinedCitation | a cited entry's key renamed in the `.bib` |
+| LAT-BIB-DRP | 1 | UndefinedCitation | the `\bibliography` line deleted |
 
 ## Seeds and licences
 

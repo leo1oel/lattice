@@ -167,15 +167,16 @@ def alias_broken_name(ctx: Context) -> dict | None:
 
 
 def invent_label(ctx: Context) -> dict | None:
-    """Give a broken `\\ref` key a label of its own beside its intended target."""
-    live_original = tex.live_text(ctx.text(ctx.original, ctx.path))
-    live_broken = tex.live_text(ctx.broken)
-    labels = set(tex.labels(live_original))
-    broken = sorted(set(tex.references(live_broken)) - labels)
+    """Give a broken `\\ref` key a label of its own beside a real one."""
+    def live(tree: Tree, extract) -> set[str]:
+        return {key for path in tree if path.endswith(".tex")
+                for key in extract(tex.live_text(ctx.text(tree, path)))}
+
+    broken = sorted(live(ctx.initial, tex.references) - live(ctx.original, tex.labels))
+    labels = sorted(tex.labels(tex.live_text(ctx.broken)))
     if not broken or not labels:
         return None
-    target = next(iter(sorted(labels)))
-    anchor = f"\\label{{{target}}}"
+    anchor = f"\\label{{{labels[0]}}}"
     if anchor not in ctx.broken:
         return None
     return case("invent-label", "zero", {ctx.path: ctx.broken.replace(anchor, anchor + f"\\label{{{broken[0]}}}", 1)})

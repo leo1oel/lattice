@@ -124,6 +124,10 @@ def preservation_losses(original: Inventory, submission: Inventory) -> list[str]
         lost.append("labels")
     if any(submission.citations[k] < n for k, n in original.citations.items()):
         lost.append("citations")
+    # Every \ref the original made, to the same key: a reference repaired by
+    # pointing it at some other label resolves, and is still wrong.
+    if any(submission.references[k] < n for k, n in original.references.items()):
+        lost.append("references")
     if any(submission.sections[k] < n for k, n in original.sections.items()):
         lost.append("sections")
     if any(submission.graphics[k] < n for k, n in original.graphics.items()):
