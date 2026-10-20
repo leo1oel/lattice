@@ -1,0 +1,54 @@
+{
+  "version": "0.11.1",
+  "date": "2026-10-20",
+  "highlights": [
+    {
+      "title": {
+        "en": "No more flashes when opening files",
+        "zh": "打开文件不再闪烁"
+      },
+      "body": {
+        "en": "A file now opens straight into the view it will stay in. Markdown and HTML previews show a page-shaped placeholder instead of their source, text no longer rewraps once the fonts arrive, and a LaTeX file with comments shows its comment margin from the first frame.",
+        "zh": "文件现在会直接以最终视图打开。Markdown 和 HTML 预览显示页面形状的占位，而不是先显示源码；字体加载后文字不再重新换行；带批注的 LaTeX 文件从第一帧起就显示批注边栏。"
+      }
+    },
+    {
+      "title": {
+        "en": "Smoother tab dragging",
+        "zh": "标签拖动更流畅"
+      },
+      "body": {
+        "en": "Dragging a tab to another panel follows the pointer smoothly, and panels lay out once when they come to rest.",
+        "zh": "把标签拖到另一个面板时会流畅地跟随指针，面板在停稳后只重新布局一次。"
+      }
+    },
+    {
+      "title": {
+        "en": "A formatting toolbar in Markdown source mode",
+        "zh": "Markdown 源码模式中的格式工具栏"
+      },
+      "body": {
+        "en": "Selecting text in the Markdown source editor shows the same toolbar as the visual editor: block type, bold, italic, links, inline math and more, written as Markdown.",
+        "zh": "在 Markdown 源码编辑器中选中文字时，会显示与可视化编辑器相同的工具栏：块类型、粗体、斜体、链接、行内公式等，并以 Markdown 语法写入。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Footnote controls line up with the note's first line, + adds a block below the last block, and clicking beside a footnote puts the cursor in its text.",
+      "zh": "脚注的控件与注释首行对齐，+ 可以在最后一个块下方添加块，点击脚注旁边会把光标放进脚注文字中。"
+    },
+    {
+      "en": "Menus opened from the selection toolbar appear above the toolbar instead of under it.",
+      "zh": "从选区工具栏打开的菜单显示在工具栏上方，不再被工具栏遮住。"
+    },
+    {
+      "en": "The Terminal panel no longer opens with a hint line, and moving it no longer prints the prompt twice.",
+      "zh": "终端面板打开时不再显示提示行，移动面板也不再重复打印提示符。"
+    },
+    {
+      "en": "Jumping from the source to the PDF works for projects inside a symlinked folder.",
+      "zh": "位于符号链接文件夹中的项目也能从源码跳转到 PDF。"
+    }
+  ]
+}
