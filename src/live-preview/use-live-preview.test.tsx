@@ -27,18 +27,18 @@ const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: 
 let install: LivePreviewInstall;
 let download: () => Promise<unknown>;
 
-function project(root: string, engine = "lualatex") {
+function project(root: string, engine = "lualatex", main = "main.tex") {
   return {
     root,
     files: [],
-    manifest: { engine, rootDocuments: [{ path: "main.tex", name: "Main paper", isDefault: true }] },
+    manifest: { engine, rootDocuments: [{ path: main, name: "Main paper", isDefault: true }] },
   } as unknown as ProjectSnapshot;
 }
 
-function open(root: string, engine?: string) {
+function open(root: string, engine?: string, main?: string) {
   return renderHook(
-    ({ snapshot }) => useLivePreview({ project: snapshot, activeFile: "main.tex", source: "", savedSource: "" }),
-    { initialProps: { snapshot: project(root, engine) } },
+    ({ snapshot }) => useLivePreview({ project: snapshot, activeFile: main ?? "main.tex", source: "", savedSource: "" }),
+    { initialProps: { snapshot: project(root, engine, main) } },
   );
 }
 
@@ -87,6 +87,21 @@ it.each([
   const { result } = open("/papers/lua");
   await waitFor(() => expect(result.current.state.kind).toBe("unavailable"));
   expect(commands()).toEqual(["live_preview_status"]);
+  expect(started).toEqual([]);
+});
+
+it("leaves a main document in a subfolder to the build: rtex would typeset it from the project folder", async () => {
+  // A LuaLaTeX statement in cv/sop with \bibliography{../../references}: rtex's
+  // layout of it had [?] for every citation and no reference list, painted
+  // over the build's cv/sop/sop.pdf.
+  install = { ...READY, installed: true };
+  const { result } = open("/papers/personal", "lualatex", "cv/sop/sop.tex");
+  await act(async () => {});
+  expect(result.current.available).toBe(true);
+  expect(result.current.enabled).toBe(true);
+  expect(result.current.subfolderDocument).toBe("cv/sop/sop.tex");
+  expect(result.current.state.kind).toBe("off");
+  expect(commands()).toEqual([]);
   expect(started).toEqual([]);
 });
 

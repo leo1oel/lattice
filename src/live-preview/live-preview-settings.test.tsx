@@ -12,7 +12,7 @@ beforeEach(() => { vi.mocked(invoke).mockReset().mockResolvedValue(READY); });
 
 function settings(state: LivePreviewState, overrides: Partial<LivePreview> = {}) {
   const livePreview = {
-    available: true, enabled: true, state, setEnabled: vi.fn(), retry: vi.fn(), remove: vi.fn(), buildHooks: { current: null },
+    available: true, enabled: true, subfolderDocument: null, state, setEnabled: vi.fn(), retry: vi.fn(), remove: vi.fn(), buildHooks: { current: null },
     ...overrides,
   } as LivePreview;
   render(<LivePreviewSettings livePreview={livePreview} />);
@@ -26,6 +26,14 @@ it.each([
   vi.mocked(invoke).mockResolvedValue({ ...READY, ...host });
   settings({ kind: "unavailable" });
   expect(await screen.findByText(reason)).toBeInTheDocument();
+  const toggle = screen.getByRole("switch", { name: "Live preview" });
+  expect(toggle).not.toBeChecked();
+  expect(toggle).toBeDisabled();
+});
+
+it("says why a main document in a subfolder has no live preview", async () => {
+  settings({ kind: "off" }, { subfolderDocument: "cv/sop/sop.tex" });
+  expect(await screen.findByText(/rtex would typeset cv\/sop\/sop\.tex from there, not from its own folder as the build does/)).toBeInTheDocument();
   const toggle = screen.getByRole("switch", { name: "Live preview" });
   expect(toggle).not.toBeChecked();
   expect(toggle).toBeDisabled();

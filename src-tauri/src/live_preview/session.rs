@@ -60,26 +60,15 @@ impl Session {
         let main = safe_relative(main_file)
             .filter(|main| root.join(main).is_file())
             .ok_or_else(|| format!("The main file {main_file:?} is not in the project."))?;
+        if !at_top_level(&main) {
+            return Err(SUBFOLDER_MAIN.to_string());
+        }
         let build_dir =
             build_dir(root, &main).ok_or("Could not locate the live preview folder.")?;
         std::fs::create_dir_all(&build_dir)
             .map_err(|error| format!("Could not create the live preview folder: {error}"))?;
         let id = NEXT_SESSION.fetch_add(1, Ordering::Relaxed);
-        // The TeX locations a GUI launch would not inherit, so rtex finds
-        // the user's own lualatex and kpsewhich.
-        let mut command = with_child_path(Command::new(&executable));
-        command
-            .arg("serve")
-            .arg("--project")
-            .arg(root)
-            .arg("--main")
-            .arg(main.to_string_lossy().as_ref())
-            .arg("--build")
-            .arg(&build_dir)
-            .current_dir(&build_dir)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        let mut command = serve_command(&executable, root, &main, &build_dir);
         let mut child = in_new_process_group(&mut command)
             .spawn()
             .map_err(|error| format!("Could not start the live preview engine: {error}"))?;
@@ -160,12 +149,58 @@ impl Drop for Session {
     }
 }
 
+/// `rtex serve` on `main` in `root`, working in `build_dir`.
+fn serve_command(executable: &Path, root: &Path, main: &Path, build_dir: &Path) -> Command {
+    // The TeX locations a GUI launch would not inherit, so rtex finds the
+    // user's own lualatex and kpsewhich.
+    let mut command = with_child_path(Command::new(executable));
+    command
+        .arg("serve")
+        .arg("--project")
+        .arg(root)
+        .arg("--main")
+        .arg(main.to_string_lossy().as_ref())
+        .arg("--build")
+        .arg(build_dir)
+        .current_dir(build_dir)
+        .env("BSTINPUTS", bst_inputs(root, std::env::var_os("BSTINPUTS")))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    command
+}
+
 /// `path` when it is relative and stays inside the folder it is joined to.
 fn safe_relative(path: &str) -> Option<PathBuf> {
     let path = Path::new(path);
     (!path.as_os_str().is_empty()
         && path.components().all(|part| matches!(part, Component::Normal(_))))
     .then(|| path.to_path_buf())
+}
+
+/// Why a main document in a subfolder gets no session. latexmk typesets it
+/// in its own folder (`-cd`), but rtex 0.0.4 typesets from the project
+/// folder, where the paths the document names relative to itself (its
+/// bibliography, its `.bst`, an `\input`) miss: rtex's pages, with `[?]` for
+/// each citation and no reference list, would be drawn over the build's.
+const SUBFOLDER_MAIN: &str =
+    "Live preview typesets only documents at the top of the project folder.";
+
+/// Whether rtex lays `main` out where latexmk does: in the project folder.
+fn at_top_level(main: &Path) -> bool {
+    main.parent().is_some_and(|parent| parent.as_os_str().is_empty())
+}
+
+/// BibTeX's style search path for rtex's passes. latexmk runs BibTeX beside
+/// the document, which finds a project's own `.bst` there; rtex runs it in a
+/// pass folder of its own and sets only `BIBINPUTS`, so without this every
+/// citation came out undefined. The project folder first, then whatever was
+/// set, ending in `:` so TeX's own styles still follow.
+fn bst_inputs(root: &Path, inherited: Option<std::ffi::OsString>) -> std::ffi::OsString {
+    let mut value = root.as_os_str().to_os_string();
+    value.push(":");
+    value.push(inherited.unwrap_or_default());
+    value
 }
 
 /// The last lines rtex wrote to stderr, for the error the window shows when
@@ -259,6 +294,67 @@ mod tests {
         for refused in ["", "/etc/passwd", "../x.tex", "a/../../x.tex", "./main.tex"] {
             assert_eq!(safe_relative(refused), None, "{refused}");
         }
+    }
+
+    #[test]
+    fn only_documents_latexmk_typesets_in_the_project_folder_start() {
+        assert!(at_top_level(Path::new("main.tex")));
+        for refused in ["cv/sop/sop.tex", "paper/ms.tex"] {
+            assert!(!at_top_level(Path::new(refused)), "{refused}");
+        }
+    }
+
+    #[test]
+    fn bibtex_finds_the_projects_own_styles_then_texs() {
+        let root = Path::new("/projects/a");
+        assert_eq!(bst_inputs(root, None), "/projects/a:");
+        assert_eq!(bst_inputs(root, Some("/styles:".into())), "/projects/a:/styles:");
+    }
+
+    /// The reproduction of a project's own `.bst` that rtex's BibTeX never
+    /// found: every citation `[?]` and no reference list in its layout, while
+    /// the build's PDF had both.
+    #[test]
+    #[ignore = "requires rtex (set LATTICE_RTEX to its executable) and TeX Live"]
+    fn rtex_typesets_a_bibliography_in_the_projects_own_style() {
+        let executable = PathBuf::from(std::env::var("LATTICE_RTEX").expect("LATTICE_RTEX"));
+        let project = crate::test_support::TempDir::new("live-preview-bst");
+        let build = crate::test_support::TempDir::new("live-preview-build");
+        let plain = Command::new("kpsewhich").arg("plain.bst").output().unwrap();
+        let plain = String::from_utf8(plain.stdout).unwrap();
+        project.write("local.bst", std::fs::read(plain.trim()).unwrap());
+        project.write("refs.bib", "@book{knuth, author={Donald Knuth}, title={The TeXbook}, publisher={AW}, year={1984}}\n");
+        project.write(
+            "main.tex",
+            "\\documentclass{article}\\begin{document}See \\cite{knuth}.\n\\bibliographystyle{local}\\bibliography{refs}\\end{document}\n",
+        );
+        let mut command = serve_command(&executable, &project, Path::new("main.tex"), &build);
+        let mut child = in_new_process_group(command.stderr(Stdio::null())).spawn().unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(b"{\"cmd\":\"status\"}\n").unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let (layouts, settled) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+                let state = event.pointer("/convergence/state").and_then(serde_json::Value::as_str);
+                if matches!(state, Some("Converged" | "PassLimitReached")) {
+                    let _ = layouts.send(());
+                    return;
+                }
+            }
+        });
+        let finished = settled.recv_timeout(Duration::from_secs(120));
+        crate::sidecar::terminate_process_group(&mut child);
+        finished.expect("rtex laid the document out");
+        let bibliographies = std::fs::read_dir(build.join("bg"))
+            .unwrap()
+            .filter_map(|pass| std::fs::read_to_string(pass.ok()?.path().join("main.bbl")).ok())
+            .collect::<Vec<_>>();
+        assert!(
+            bibliographies.iter().any(|bbl| bbl.contains("\\bibitem{knuth}")),
+            "{bibliographies:?}"
+        );
     }
 
     #[test]
