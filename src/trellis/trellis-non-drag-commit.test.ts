@@ -41,14 +41,25 @@ describe("non-drag layout commits", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (id: number) => void frames.delete(id));
     vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(SIZE.w);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.dataset.trellisPart === "tabs" ? 100 : SIZE.w;
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.dataset.trellisPart === "tabs" ? 2000 : 0;
+    });
+    vi.spyOn(Element.prototype, "getClientRects").mockReturnValue([{}] as unknown as DOMRectList);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const part = (this as HTMLElement).dataset?.trellisPart;
+      const rect = part === "tab" ? { left: 500, width: 80 } : part === "tab-title" ? { left: 0, width: 60 } : { left: 0, width: 0 };
+      return { x: rect.left, y: 0, top: 0, bottom: 0, right: rect.left + rect.width, height: 0, ...rect, toJSON() {} } as DOMRect;
+    });
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(SIZE.h);
     host = document.createElement("div");
     document.body.append(host);
     ws = createWorkspace(host, {
       motion: "full",
       navigation: false,
-      types: { note: { title: "Note", mount: () => () => {} } },
+      types: { note: { title: "Note", singleton: true, mount: () => () => {} } },
       defaultLayout: {
         kind: "split",
         axis: "x",
@@ -90,5 +101,12 @@ describe("non-drag layout commits", () => {
       }
     }
     expect(seen.size).toBeGreaterThan(3);
+    const lists = [...host.querySelectorAll<HTMLElement>("[data-trellis-part=tabs]")];
+    expect(lists.length).toBeGreaterThan(0);
+    for (const list of lists) {
+      expect(list.scrollLeft).toBeGreaterThan(0);
+      for (const tab of list.querySelectorAll<HTMLElement>("[data-trellis-part=tab]"))
+        expect(tab.style.getPropertyValue("--trellis-tab-label")).toBe("60px");
+    }
   });
 });
