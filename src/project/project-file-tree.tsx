@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
-import { Check, ClipboardPaste, Copy, Eye, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil } from "lucide-react";
+import { Check, ClipboardPaste, Copy, Eye, FilePlus, FolderInput, FolderOpen, FolderPlus, ImagePlus, Pencil, RotateCw } from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ExternalScrollbar } from "../components/ui/external-scrollbar";
 import { absoluteProjectPath } from "../app-utils";
@@ -25,7 +25,8 @@ import {
 } from "./project-tree-files";
 import { ProjectTreeHover } from "./project-tree-hover";
 import { settleTreePath, useInlineCreation, useNewEntryRequest, type EntryKind } from "./project-tree-inline-create";
-import type { NewEntryRequest } from "./project-new-entries";
+import { REFRESH_FILE_TREE, type NewEntryRequest } from "./project-new-entries";
+import { requestProjectTreeRefresh } from "./project-files-changed";
 import { useProjectTreeMotion } from "./project-tree-motion";
 import {
   afterNextPaint, clearDropTarget, followTreeMotion, paintDropTarget, selectionIncluding, useProjectTreePointerDrag,
@@ -90,7 +91,7 @@ function rowPathFromPointer(event: { nativeEvent: Event }): string | null {
 }
 
 export function ProjectFileTree(props: ProjectFileTreeProps) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { showHidden, toggleHidden, tree } = useProjectTreeFiles(props.projectKey, props.files, props.onError);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
@@ -193,6 +194,11 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   }, [expansionStorageKey, model, props.projectKey, tree.paths, treeSignature]);
 
   const activePath = props.activeAssetPath || props.activeFile;
+  // The open file is focused and brought into view once, when it opens or
+  // first appears in the tree. The sync below reruns on every tree change to
+  // restore the selection a reset may drop; scrolling there too yanked the
+  // list back to the open file each time a file arrived from disk.
+  const scrolledToPathRef = useRef("");
   useEffect(() => {
     syncingSelectionRef.current = true;
     try {
@@ -208,9 +214,14 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         const item = activePath ? model.getItem(activePath) : null;
         if (item && !item.isSelected()) item.select();
       }
-      if (activePath) {
-        model.focusPath(activePath);
-        model.scrollToPath(activePath, { focus: false, offset: "nearest" });
+      // resetPaths keeps the focused row itself; focusing it again scrolls it
+      // into view as surely as scrollToPath does.
+      if (activePath !== scrolledToPathRef.current && (!activePath || model.getItem(activePath))) {
+        scrolledToPathRef.current = activePath;
+        if (activePath) {
+          model.focusPath(activePath);
+          model.scrollToPath(activePath, { focus: false, offset: "nearest" });
+        }
       }
     } finally {
       syncingSelectionRef.current = false;
@@ -328,6 +339,8 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     checked: showHidden,
     run: toggleHidden,
   };
+  // For a change the watcher could not see; the panel's ⋯ menu has it too.
+  const refreshAction: MenuAction = { icon: RotateCw, label: i18n._(REFRESH_FILE_TREE), run: requestProjectTreeRefresh };
 
   const renderContextMenu = (item: PierreContextMenuItem, context: ContextMenuOpenContext) => {
     const path = fromPierrePath(item.path);
@@ -351,6 +364,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
       },
       { icon: FolderOpen, label: t`Show in Finder`, run: () => props.onReveal(path) },
       { ...hiddenFilesAction, group: true },
+      refreshAction,
     ];
     const destructive = protectedEntry ? null : {
       label: creation.isPending(path) && deletionPaths.length === 1 ? t`Cancel creation` : t`Delete`,
@@ -445,7 +459,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
               <ProjectTreeHover getViewport={getTreeScrollViewport} />
             </div>
           </ContextMenuTrigger>
-          <ProjectTreeBackgroundMenu actions={[...creationActions(""), hiddenFilesAction]} />
+          <ProjectTreeBackgroundMenu actions={[...creationActions(""), hiddenFilesAction, refreshAction]} />
         </ContextMenu>
       </div>
     </aside>

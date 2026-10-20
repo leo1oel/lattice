@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import {
   ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCheck, FileCode2,
   FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
-  Minimize2, PenLine, PictureInPicture2, Pin, PinOff, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
+  Minimize2, PenLine, PictureInPicture2, Pin, PinOff, Presentation, RefreshCw, RotateCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
 import { isOpenSlideDeckPath } from "../app-utils";
@@ -83,6 +83,7 @@ export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
   "new-board": <Shapes />,
   "new-presentation": <Presentation />,
   find: <Search />,
+  "refresh-tree": <RotateCw />,
   discover: <Sparkles />,
   "bib-entry": <BookPlus />,
   "check-references": <ListChecks />,

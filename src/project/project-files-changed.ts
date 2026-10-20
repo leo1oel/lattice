@@ -18,6 +18,39 @@ export function onProjectFilesChanged(
   });
 }
 
+// A window shows one project, so a refresh request needs no root.
+const treeRefreshRequests = new EventTarget();
+
+/** Ask this window's views of the project tree to read it from disk again: the Refresh action. */
+export function requestProjectTreeRefresh(): void {
+  treeRefreshRequests.dispatchEvent(new Event("refresh"));
+}
+
+/**
+ * Call `onStale` whenever the tree of the project at `root` may no longer
+ * match the disk: the watcher reported a burst, someone asked for a Refresh,
+ * the project was opened again, or the window came back to the front. The
+ * last two are when a change made in Finder or another app shows, and the
+ * backstop for whatever the watcher missed (an FSEvents overflow, a volume it
+ * does not cover). Each is only a prompt to rescan; it does not say, as a
+ * watcher burst with no paths does, that every project file may have changed.
+ */
+export function onProjectTreeStale(root: string, onStale: () => void): () => void {
+  const stopWatching = onProjectFilesChanged(root, onStale);
+  // Opening the project again raises the window that already shows it.
+  const stopReopened = subscribeTauriEvent<{ root: string }>("project-reopened", (payload) => {
+    if (payload.root === root) onStale();
+  });
+  treeRefreshRequests.addEventListener("refresh", onStale);
+  window.addEventListener("focus", onStale);
+  return () => {
+    stopWatching();
+    stopReopened();
+    treeRefreshRequests.removeEventListener("refresh", onStale);
+    window.removeEventListener("focus", onStale);
+  };
+}
+
 /** `path` as a clean project-relative path, or null when it is empty or climbs out of the project. */
 export function normalizeProjectRelativePath(path: string): string | null {
   const parts: string[] = [];

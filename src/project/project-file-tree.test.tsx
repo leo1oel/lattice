@@ -4,7 +4,9 @@ import type { ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { FileNode } from "../app-types";
+import { FileTree } from "@pierre/trees";
 import { ProjectFileTree } from "./project-file-tree";
+import { requestProjectTreeRefresh } from "./project-files-changed";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(), readText: vi.fn() }));
@@ -168,6 +170,59 @@ describe("ProjectFileTree", () => {
 
     await waitFor(() => expect(treeItem("sections/intro.tex")).toBeNull());
     expect(treeItem("sections/")).not.toBeNull();
+  });
+
+  it("keeps open folders and the selection when a refresh brings files from disk", async () => {
+    expandSections();
+    const { rerenderWith } = renderTree({ activeFile: "sections/intro.tex" });
+    await waitFor(() => expect(treeItem("sections/intro.tex")).toHaveAttribute("data-item-selected", "true"));
+
+    rerenderWith({ files: [
+      { name: "figures", path: "figures", kind: "directory", children: [
+        { name: "a.png", path: "figures/a.png", kind: "figure", children: [] },
+        { name: "b.png", path: "figures/b.png", kind: "figure", children: [] },
+      ] },
+      { ...files[0], children: [...files[0].children, { name: "method.tex", path: "sections/method.tex", kind: "tex", children: [] }] },
+      ...files.slice(1),
+    ] });
+
+    await findTreeItem("sections/method.tex");
+    expect(treeItem("figures/")).not.toBeNull();
+    expect(treeItem("figures/a.png")).toBeNull();
+    expect(treeItem("sections/intro.tex")).toHaveAttribute("data-item-selected", "true");
+  });
+
+  it("leaves the list where the writer scrolled it when a refresh brings files", async () => {
+    const data = { name: "data", path: "data", kind: "directory", children: Array.from({ length: 80 }, (_, index) => (
+      textFile(`data/run-${String(index).padStart(2, "0")}.csv`)
+    )) };
+    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["data", "sections"]));
+    const { rerenderWith } = renderTree({ files: [data, ...files], activeFile: "main.tex" });
+    await findTreeItem("data/run-00.csv");
+    // The open file comes into view once, when it opens; a refresh is no reason to move the list.
+    // Focusing a row scrolls it into view too.
+    const scrolls = vi.spyOn(FileTree.prototype, "scrollToPath");
+    const focuses = vi.spyOn(FileTree.prototype, "focusPath");
+    rerenderWith({ files: [data, ...files, textFile("notes.md")] });
+    await findTreeItem("notes.md");
+    expect(scrolls).not.toHaveBeenCalled();
+    expect(focuses).not.toHaveBeenCalled();
+    rerenderWith({ activeFile: "sections/intro.tex" });
+    await waitFor(() => expect(scrolls).toHaveBeenCalledWith("sections/intro.tex", expect.anything()));
+  });
+
+  it("reads the hidden-files listing again on Refresh and when the window comes to the front", async () => {
+    localStorage.setItem("lattice:show-hidden-files", "true");
+    vi.mocked(invoke).mockResolvedValue(files);
+    renderTree();
+    await findTreeItem("main.tex");
+    vi.mocked(invoke).mockResolvedValue([...files, textFile(".latexmkrc")]);
+    act(() => requestProjectTreeRefresh());
+    await findTreeItem(".latexmkrc");
+
+    vi.mocked(invoke).mockResolvedValue([...files, textFile(".latexmkrc"), textFile(".env")]);
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await findTreeItem(".env");
   });
 
   it("survives expansion state that is not a list of paths", async () => {

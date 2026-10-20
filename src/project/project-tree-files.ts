@@ -8,7 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { GitStatusEntry } from "@pierre/trees";
 import type { FileNode, GitFileStatus } from "../app-types";
 import { fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
-import { onProjectFilesChanged } from "./project-files-changed";
+import { onProjectTreeStale } from "./project-files-changed";
 
 /**
  * The Rust scanner only emits "directory"; "folder" survives because the App
@@ -117,13 +117,18 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
       const request = ++generation;
       try {
         const files = await invoke<FileNode[]>("list_project_tree_with_hidden", { projectRoot: projectKey });
-        if (!disposed && request === generation) setExpandedTree({ root: projectKey, files });
+        // Most rescans (each window focus) find nothing new: keep the tree as it is.
+        if (!disposed && request === generation) setExpandedTree((current) => (
+          current?.root === projectKey && JSON.stringify(current.files) === JSON.stringify(files)
+            ? current
+            : { root: projectKey, files }
+        ));
       } catch (error) {
         if (!disposed && request === generation) onErrorRef.current(String(error));
       }
     };
     void refresh();
-    const stopListening = onProjectFilesChanged(projectKey, () => void refresh());
+    const stopListening = onProjectTreeStale(projectKey, () => void refresh());
     // The fallback poll also supports watcher-less hosts.
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { disposed = true; stopListening(); window.clearInterval(timer); };

@@ -3,7 +3,7 @@
 use super::run_blocking;
 use crate::app_state::AppState;
 use crate::browser_host;
-use crate::{macos_window, native_locale, project};
+use crate::{fs_watch, macos_window, native_locale, project};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State, WebviewWindow, Window};
 use tauri_plugin_opener::OpenerExt;
@@ -65,13 +65,20 @@ pub async fn open_project_window(
     let root = PathBuf::from(&snapshot.root);
 
     if let Some(label) = state.window_showing(&root) {
-        if label.starts_with("browser-") {
-            if browser.reopen_window(&app, &label)? {
-                return Ok(OpenedProjectWindow { label, focused_existing: true });
-            }
+        // That window has shown the project all along, so it is told to
+        // rescan: opening a project shows the folder as it is now, even when
+        // its watcher missed a change.
+        let raised = if label.starts_with("browser-") {
+            browser.reopen_window(&app, &label)?
         } else if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.unminimize();
             let _ = existing.set_focus();
+            true
+        } else {
+            false
+        };
+        if raised {
+            fs_watch::announce_reopened(&app, &root);
             return Ok(OpenedProjectWindow { label, focused_existing: true });
         }
         // The binding outlived its window. Drop it and open a fresh one.

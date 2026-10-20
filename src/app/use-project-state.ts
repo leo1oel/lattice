@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitFileStatus, GitStatus, ProjectSnapshot } from "../app-types";
-import { onProjectFilesChanged } from "../project/project-files-changed";
+import { onProjectTreeStale } from "../project/project-files-changed";
 
 /**
  * The open project's snapshot and its imperative identity. `projectRef`, what
@@ -81,8 +81,9 @@ type ProjectGitStatus = { projectRoot: string; files: GitFileStatus[]; remoteUrl
 /**
  * Keep the tree and git status fresh while the Project sidebar shows them.
  * The Rust watcher coalesces filesystem bursts into one project-fs-changed
- * broadcast carrying the root; the interval is only a safety net for what a
- * watcher can miss (network volumes, overflow).
+ * broadcast carrying the root; a Refresh and the window coming to the front
+ * rescan too (onProjectTreeStale), and the interval is only a safety net for
+ * what a watcher can miss (network volumes, overflow).
  */
 export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
   const { project, setProject, projectRef, projectRefreshGenerationRef, projectTreeMutationCountRef } = state;
@@ -92,9 +93,17 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
     if (!initialProject || !enabled) return;
     let stopped = false;
     let checking = false;
+    // A prompt that lands while a scan is out may describe what that scan
+    // already missed (a copy still landing), so it runs one more after it.
+    let stale = false;
     const refresh = async () => {
-      if (checking || projectTreeMutationCountRef.current > 0) return;
+      if (projectTreeMutationCountRef.current > 0) return;
+      if (checking) {
+        stale = true;
+        return;
+      }
       checking = true;
+      stale = false;
       const refreshGeneration = ++projectRefreshGenerationRef.current;
       try {
         const [snapshotResult, gitStatusResult] = await Promise.allSettled([
@@ -129,12 +138,13 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
         // The next poll retries after transient filesystem races.
       } finally {
         checking = false;
+        if (stale && !stopped) void refresh();
       }
     };
     void refresh();
     // Watcher-less operation degrades to the fallback poll below.
     void invoke("watch_project").catch(() => {});
-    const stopListening = onProjectFilesChanged(initialProject.root, () => void refresh());
+    const stopListening = onProjectTreeStale(initialProject.root, () => void refresh());
     const timer = window.setInterval(() => { void refresh(); }, 30_000);
     return () => {
       stopped = true;
