@@ -424,3 +424,99 @@ fn searches_both_ways_in_a_project_reached_through_a_symlink() {
             .unwrap();
     assert_eq!((back.path.as_str(), back.line), ("main.tex", 5));
 }
+
+/// A project whose default root document sits in a subfolder beside a PDF
+/// compiled there by hand, with no SyncTeX map — the shape of a CV folder
+/// next to a paper. It reads one file beside it and one in a sibling folder.
+fn subfolder_project(engine: &str) -> (TempDir, Vec<u8>) {
+    let root = TempDir::new("synctex-subfolder");
+    let mut manifest = project::default_manifest("Subfolder");
+    manifest.engine = engine.to_string();
+    for document in &mut manifest.root_documents {
+        document.is_default = false;
+    }
+    manifest.root_documents.push(crate::models::RootDocument {
+        path: "cv/sop/sop.tex".to_string(),
+        name: "sop".to_string(),
+        is_default: true,
+    });
+    project::write_manifest(&root, &manifest).unwrap();
+    root.write(
+        "main.tex",
+        "\\documentclass{article}\n\\begin{document}\nPaper.\n\\end{document}\n",
+    );
+    root.write("cv/sop/intro.tex", "An introduction beside the statement.\\par\n");
+    root.write("cv/shared/closing.tex", "A closing shared with the CV.\\par\n");
+    root.write(
+        "cv/sop/sop.tex",
+        "\\documentclass{article}\n\\begin{document}\nStale outside build.\n\\end{document}\n",
+    );
+    let outside = crate::commands::command("latexmk")
+        .current_dir(root.join("cv/sop"))
+        .args([project::latexmk_engine_arg(engine), "-interaction=nonstopmode", "sop.tex"])
+        .output()
+        .unwrap();
+    assert!(outside.status.success(), "{}", crate::commands::combined_output(&outside));
+    let stale = fs::read(root.join("cv/sop/sop.pdf")).unwrap();
+    assert!(!root.join("cv/sop/sop.synctex.gz").exists());
+    root.write(
+        "cv/sop/sop.tex",
+        "\\documentclass{article}\n\
+         \\begin{document}\n\
+         \\section{Purpose}\n\
+         A statement of purpose.\\par\n\
+         \n\
+         \\input{intro}\n\
+         \n\
+         \\input{../shared/closing}\n\
+         \\end{document}\n",
+    );
+    (root, stale)
+}
+
+#[test]
+#[ignore = "requires a local latexmk, pdfLaTeX and LuaLaTeX installation"]
+fn a_root_document_in_a_subfolder_previews_and_syncs_its_own_fresh_build() {
+    for engine in ["pdf", "lualatex"] {
+        let (root, stale) = subfolder_project(engine);
+        let result = super::super::build(
+            &root,
+            false,
+            &Default::default(),
+            None,
+            &super::super::BuildSteps::silent(),
+        )
+        .unwrap();
+        assert!(result.success && result.has_pdf, "{engine}: {}", result.log);
+        assert_eq!(result.root_document, "cv/sop/sop.tex");
+        assert_eq!(result.synctex, Some(true), "{engine}: the fresh PDF has its map");
+        // The preview reads this build, not the PDF compiled there by hand,
+        // and nothing is written beside the project's own paper.
+        let preview = super::super::read_compiled_pdf(&root).unwrap();
+        assert_ne!(preview, stale, "{engine}: the preview shows the stale PDF");
+        assert!(!root.join("sop.pdf").exists(), "{engine}: output went to the project root");
+
+        for (path, line) in
+            [("cv/sop/sop.tex", 4), ("cv/sop/intro.tex", 1), ("cv/shared/closing.tex", 1)]
+        {
+            let target = forward_search(&root, path, line, 0)
+                .unwrap()
+                .unwrap_or_else(|| panic!("{engine}: {path}:{line} has no PDF position"));
+            let back = inverse_search(
+                &root,
+                target.page,
+                target.x + target.width / 2.0,
+                target.y + target.height / 2.0,
+            )
+            .unwrap();
+            assert_eq!((back.path.as_str(), back.line), (path, line), "{engine}");
+        }
+        let span = BodySpan { path: "cv/sop/sop.tex".to_string(), before: None };
+        assert_eq!(body_pages(&root, &[span]).unwrap(), Some(1), "{engine}");
+        let heading = SourceLine { path: "cv/sop/sop.tex".to_string(), line: 3 };
+        assert_eq!(heading_pages(&root, &[heading]).unwrap(), vec![Some(1)], "{engine}");
+
+        super::super::clean(&root).unwrap();
+        assert!(!root.join("cv/sop/sop.aux").exists(), "{engine}: clean left the build's aux");
+    }
+}

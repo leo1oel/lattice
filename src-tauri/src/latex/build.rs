@@ -6,7 +6,7 @@ use super::build_log::{
 };
 use super::build_steps::BuildSteps;
 use super::preamble_format::{self, Prepared};
-use super::{default_root_document, engine_mismatch, prewarm, synctex_missing};
+use super::{default_root_document, engine_mismatch, latexmk, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::{Diagnostic, ProjectManifest};
@@ -126,12 +126,10 @@ fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
 pub fn clean(root: &Path) -> Result<String, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
-    let output = commands::command("latexmk")
-        .current_dir(root)
-        .arg("-c")
-        .arg(&document.path)
-        .output()
-        .map_err(|error| format!("Could not start latexmk. Install MacTeX or TeX Live. {error}"))?;
+    let output =
+        latexmk(root).arg("-c").arg(&document.path).output().map_err(|error| {
+            format!("Could not start latexmk. Install MacTeX or TeX Live. {error}")
+        })?;
     let log = trim_log(&commands::combined_output(&output));
     if !output.status.success() {
         return Err(format!("latexmk could not clean the project.\n{log}"));
@@ -305,13 +303,8 @@ fn run_latexmk_with(
         }
     };
 
-    let mut command = commands::command("latexmk");
-    command.current_dir(root).args([
-        "-interaction=nonstopmode",
-        "-synctex=1",
-        "-file-line-error",
-        "-halt-on-error",
-    ]);
+    let mut command = latexmk(root);
+    command.args(["-interaction=nonstopmode", "-synctex=1", "-file-line-error", "-halt-on-error"]);
     command.args(engine_args(root, &manifest));
     if let Some(format) = &format {
         command.arg(format.latexmk_arg());

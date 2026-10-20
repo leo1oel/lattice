@@ -14,10 +14,11 @@
 //! This file holds what they share: which document is built, and the PDF.
 
 use crate::models::{Diagnostic, ProjectManifest, RootDocument};
-use crate::project;
+use crate::{commands, project};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 mod arxiv;
 mod build;
@@ -60,6 +61,19 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
         "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
             .to_string()
     })
+}
+
+/// latexmk for a root document named relative to `root`, which holds the
+/// project's rc file. `-cd` typesets in the document's own folder, as
+/// Overleaf, TeXShop and LaTeX Workshop do: its `\input`s resolve from there,
+/// and its PDF, SyncTeX map, .aux and .log land beside it, where everything
+/// here reads them. From `root` instead, a document in a subfolder left its
+/// fresh PDF at the top while the preview showed whatever stale one sat
+/// beside it. latexmk still reads `root`'s rc file before it changes folder.
+fn latexmk(root: &Path) -> Command {
+    let mut command = commands::command("latexmk");
+    command.current_dir(root).arg("-cd");
+    command
 }
 
 fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {

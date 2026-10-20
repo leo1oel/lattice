@@ -18,7 +18,7 @@ mod source;
 
 use super::build::{abort, run_tracked, ActiveBuild};
 use super::build_log::{pages_written, parse_diagnostics, trim_log};
-use super::{default_root_document, BuildSteps};
+use super::{default_root_document, latexmk, BuildSteps};
 use crate::{commands, project};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -533,8 +533,8 @@ fn test_build(pack: &Staged, checks: &ArxivChecks, check: u64) -> Result<Compile
         }
         fs::write(&target, bytes).map_err(|error| error.to_string())?;
     }
-    let mut command = commands::command("latexmk");
-    command.current_dir(&scratch.0).args([
+    let mut command = latexmk(&scratch.0);
+    command.args([
         "-interaction=nonstopmode",
         "-file-line-error",
         "-halt-on-error",
