@@ -39,7 +39,10 @@ SEEDS_DIR = ENV_ROOT / "seeds"
 
 APACHE = "Apache-2.0"
 NO_GRANT = "LicenseRef-no-grant"
-LPPL = "LPPL-1.3c"
+# The natbib-derived .bst files: "LaTeX Project Public License, version 1 or later".
+LPPL = "LPPL-1.0+"
+# Licences a public dataset can pass on, attribution aside.
+REDISTRIBUTABLE = (APACHE, LPPL, "MIT", "CC-BY-4.0", "CC0-1.0")
 
 
 @dataclass
@@ -57,7 +60,7 @@ class Seed:
 
     @property
     def redistributable(self) -> bool:
-        return all(licence in (APACHE, LPPL, "MIT", "CC-BY-4.0", "CC0-1.0") for licence in self.licences.values())
+        return all(licence in REDISTRIBUTABLE for licence in self.licences.values())
 
 
 def placeholder_png(width: int, height: int, shade: int = 0xD8) -> bytes:
@@ -127,7 +130,7 @@ def skeleton(name: str) -> Seed:
             data = data.decode("utf-8").replace("LATTICE_PROJECT_TITLE", SKELETON_TITLES[name]).encode("utf-8")
             licences[path.name] = APACHE
         elif path.suffix == ".bst":
-            licences[path.name] = "LPPL-1.0+"
+            licences[path.name] = LPPL
         else:
             licences[path.name] = NO_GRANT
         files[path.name] = data
