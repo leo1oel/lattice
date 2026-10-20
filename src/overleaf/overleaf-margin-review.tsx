@@ -2,7 +2,9 @@
  * Margin review: Overleaf's comments and suggestions in the source's right
  * margin, each beside its line, using only width the text does not need.
  *
- * One rule, from the editor's width, decides how review shows:
+ * One rule, from the editor's width, decides how review shows
+ * (margin-review-layout.ts, outside this chunk, so the pane is laid out for
+ * it from the editor's first frame):
  *
  * - **Wide** (Auto, and room for the 88-column reading measure focus mode
  *   reads at plus a card): the text keeps that measure and the cards stand in
@@ -48,22 +50,17 @@ import { OverleafThreadCard, type OverleafThreadActions } from "./overleaf-comme
 import type { PeopleHues } from "./overleaf-collab-people";
 import { onMarginGeometry, setMarginLinkedEffect } from "./overleaf-editor-extensions";
 import { marginReviewMode, onMarginReviewRequest, subscribeMarginReview } from "./margin-review-mode";
+import { CARD_GAP, CARD_WIDTH, measureMarginLayout, sameMarginLayout, type MarginLayout } from "./margin-review-layout";
 import type { TrackedChange } from "./overleaf-realtime-model";
 import type { OverleafCommentAnchor } from "./use-overleaf-comments";
 import "./overleaf-collab.css";
 import "./overleaf-margin-review.css";
 
-/** A card's width, the gap between the text and the cards, and between stacked cards. */
-const CARD_WIDTH = 268;
-const CARD_GAP = 24;
+/** The gap between stacked cards. */
 const STACK_GAP = 8;
-/** The outline rail's gutter (`--outline-rail-clearance`, editor-workspace.css). */
-const RAIL_CLEARANCE = 36;
 /** A pip, and how far from the scroller's right edge it stands: just short of the outline rail's marks. */
 const PIP = 14;
 const PIP_INSET = 46;
-/** Below this much text width a card beside the line would cover most of it, so the rail opens instead. */
-const NARROW_TEXT = 480;
 /** As the outline rail: a pointer passing over a pip does not open it, and may stray briefly. */
 const OPEN_DELAY_MS = 120;
 const CLOSE_DELAY_MS = 200;
@@ -80,8 +77,6 @@ export type MarginComment = {
 type Item =
   | { key: string; kind: "comment"; from: number; to: number; color: string; comment: MarginComment }
   | { key: string; kind: "change"; from: number; to: number; color: string; change: TrackedChange };
-
-type Layout = { kind: "wide" | "markers"; narrow: boolean };
 
 /** Where the review is open: a pip's card over the text, or the rail. */
 type Opened = { key: string; via: "hover" | "click" | "rail" } | null;
@@ -110,11 +105,13 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   hues: PeopleHues;
   /** The open file, as the cards' "show this" wants it. */
   path: string;
+  /** How review shows, which the pane is laid out for (app-overleaf-drawer.tsx); the layer reports a change of geometry. */
+  layout: MarginLayout;
+  onLayout: (layout: MarginLayout) => void;
 }) {
   const { i18n, t } = useLingui();
-  const { view } = props;
+  const { view, layout, onLayout } = props;
   const setting = useSyncExternalStore(subscribeMarginReview, marginReviewMode);
-  const [layout, setLayout] = useState<Layout>({ kind: "markers", narrow: false });
   const [opened, setOpened] = useState<Opened>(null);
   const [linked, setLinked] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -139,14 +136,6 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
   const off = setting === "off" || items.length === 0;
   const wantWide = setting === "auto" && !props.focusMode;
 
-  // The pane says how review shows, and the text gives up its width only in wide mode.
-  const pane = view.dom.closest<HTMLElement>(".source-editor");
-  useLayoutEffect(() => {
-    if (!pane || off) return;
-    pane.setAttribute("data-margin-review", layout.kind);
-    return () => pane.removeAttribute("data-margin-review");
-  }, [layout.kind, off, pane]);
-
   // Place everything from the editor's geometry: read in CodeMirror's measure
   // phase, written straight to the elements, so nothing renders for it.
   useLayoutEffect(() => {
@@ -158,12 +147,8 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
         const box = scroller.getBoundingClientRect();
         const base = box.top - scroller.scrollTop;
         const content = view.contentDOM.getBoundingClientRect();
-        const gutters = view.dom.querySelector(".cm-gutters")?.getBoundingClientRect().width ?? 0;
-        const columns = Number.parseFloat(getComputedStyle(view.contentDOM).getPropertyValue("--focus-mode-measure")) || 88;
-        // The text's measure, with the line's own padding either side.
-        const measurePx = columns * view.defaultCharacterWidth + 8;
+        const next = measureMarginLayout(view, wantWide);
         const width = scroller.clientWidth;
-        const wide = wantWide && width >= gutters + measurePx + CARD_GAP + CARD_WIDTH + RAIL_CLEARANCE;
         const length = view.state.doc.length;
         const lines = latest.current.items.map((item) => {
           const pos = Math.max(0, Math.min(item.from, length));
@@ -175,16 +160,14 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
         const heights = latest.current.items.map((item) => elements.current.get(item.key)?.offsetHeight ?? 0);
         const popoverHeight = popoverRef.current?.offsetHeight ?? 0;
         return {
-          wide, lines, heights, popoverHeight, width,
+          next, lines, heights, popoverHeight, width,
           contentLeft: content.left - box.left, contentRight: content.right - box.left,
-          textWidth: content.width,
           visible: [scroller.scrollTop, scroller.scrollTop + scroller.clientHeight] as const,
         };
       },
       write: (geometry) => {
         const { items: current, layout: shown, opened: open } = latest.current;
-        const next: Layout = { kind: geometry.wide ? "wide" : "markers", narrow: !geometry.wide && geometry.textWidth < NARROW_TEXT };
-        if (next.kind !== shown.kind || next.narrow !== shown.narrow) setLayout(next);
+        if (!sameMarginLayout(geometry.next, shown)) onLayout(geometry.next);
         if (shown.kind === "wide") {
           // Beside its line, or under the card above it when they crowd.
           let floor = 0;
@@ -237,7 +220,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
       resize.disconnect();
       view.scrollDOM.removeEventListener("scroll", measure);
     };
-  }, [itemsKey, latest, layout.kind, layout.narrow, off, opened, replyingTo, view, wantWide]);
+  }, [itemsKey, latest, layout.kind, layout.narrow, off, onLayout, opened, replyingTo, view, wantWide]);
 
   // A card's line stays tinted while the card (or its pip) is pointed at or focused.
   const active = opened?.key ?? linked;

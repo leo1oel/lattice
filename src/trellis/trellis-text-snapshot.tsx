@@ -16,6 +16,8 @@ import { resumeParkedEditor } from "../editor/parked-editors";
 import { sourceGutter } from "../editor/source-gutter";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import { DocumentSkeleton } from "../canvas/document-skeleton";
+import { marginReviewFile, subscribeMarginReviewFiles } from "../overleaf/margin-review-files";
+import { marginReviewMode, subscribeMarginReview } from "../overleaf/margin-review-mode";
 import { capturePreviewViewport, restorePreviewViewport } from "../canvas/markdown-preview-sync";
 import { useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import { useBesideActive } from "./use-beside-active";
@@ -44,6 +46,9 @@ export function TextSnapshot({ controller, fileKey, panelId }: { controller: Tre
   const besideActive = useBesideActive(controller, panelId);
   // The active document's view switch changes the view each kind opens in.
   const opening = useSyncExternalStore(controller.docTools.subscribe, () => controller.bridge?.documentMode(fileKey) ?? "source");
+  // Overleaf's comments beside the source narrow its lines from the editor's first frame.
+  const reviewed = useSyncExternalStore(subscribeMarginReviewFiles, () => marginReviewFile(fileKey));
+  const reviewMode = useSyncExternalStore(subscribeMarginReview, marginReviewMode);
   if (!besideActive) {
     const name = controller.bridge?.tabLabel(fileKey) ?? fileKey;
     return (
@@ -51,6 +56,7 @@ export function TextSnapshot({ controller, fileKey, panelId }: { controller: Tre
         shape={opening === "pdf" ? "page" : opening}
         page={isHtmlFilePath(fileKey) ? "html" : "markdown"}
         label={t`Opening ${name}…`}
+        marginReview={reviewed && reviewMode === "auto"}
       />
     );
   }

@@ -1,0 +1,29 @@
+/* Margin review's text width (margin-review-layout.ts), loaded with the
+   editor rather than with the layer, so the pane is laid out the way review
+   shows from its first frame. Nothing here reserves width except the wide
+   layout, which keeps the text at focus mode's reading measure. */
+
+/* Wide: the text keeps the 88-column measure (and the line's own padding),
+   never less; the cards stand in the width beyond it. */
+.source-editor[data-margin-review="wide"] .cm-content {
+  flex: 0 1 calc(var(--focus-mode-measure) + var(--space-4));
+  max-width: calc(var(--focus-mode-measure) + var(--space-4));
+}
+/* Markers stand in the outline rail's gutter. A document without the rail
+   keeps that gutter for them all the same, so a pip never covers text. */
+.source-editor[data-margin-review="markers"] .cm-scroller { padding-inline-end: var(--outline-rail-clearance); }
+.focus-mode .trellis-editor-host .source-editor[data-margin-review="markers"] .cm-scroller {
+  padding-inline-end: max(var(--outline-rail-clearance), calc((100% - var(--focus-mode-measure)) / 2));
+}
+
+/* Probes (sourceColumns), in the face of the element they are put in: the
+   wide text's width, and the line-number gutter's, as editor-workspace.css
+   sizes it (four digits and its padding, then the fold column). */
+.margin-review-measure {
+  position: absolute;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.margin-review-measure[data-part="measure"] { width: calc(var(--focus-mode-measure) + var(--space-4)); }
+.margin-review-measure[data-part="gutter"] { width: calc(4ch + var(--space-5) + var(--space-1) + 16px); }
