@@ -174,6 +174,54 @@ differs from the original's.
 | LAT-BIB-KEY | 2 | UndefinedCitation | a cited entry's key renamed in the `.bib` |
 | LAT-BIB-DRP | 1 | UndefinedCitation | the `\bibliography` line deleted |
 
+## Difficulty calibration
+
+Run a baseline several times per task, then label the tasks from the job
+folders:
+
+```bash
+harbor run -p /tmp/tasks -a claude-code -m anthropic/<model> -k 4 -o jobs --job-name claude
+python3 -m lattice_env calibrate jobs/claude --tasks /tmp/tasks --out calibration.json
+python3 -m lattice_env select calibration.json --label KEEP --tasks /tmp/tasks --copy-to /tmp/keep
+```
+
+A task is TRIVIAL (mean reward of its scored attempts at least 0.999),
+UNSOLVABLE (at most 0.001) or KEEP, CoworkEnv's teacher-difficulty labels;
+RL batches should come from KEEP. With fewer than `--min-attempts` (3)
+scored attempts it is UNDERSAMPLED. The report also gives, per run:
+
+- the share of **informative groups**: a task's attempts that did not all
+  get the same reward. A group with no variance gives a GRPO-style learner
+  nothing to compare, even with a KEEP mean;
+- **unscored trials**, by reason (an image that failed to build, a
+  verifier that could not judge), counted apart and never averaged in as 0;
+  Harbor still verifies after an agent timeout, so those count as scored;
+- the **hack rate** (scored trials that crossed a red line, by code) and the
+  share that touched the decoy, to read beside each agent's score.
+
+`calibrate` also reads JSON-lines episode records (`task`, `agent`,
+`model`, `reward`, `status`, `redLines`), the format Lattice's in-binary
+environment writes. `--expect-reward 1` (or `0`) instead fails unless every
+trial scored exactly that, which is how CI checks Harbor's `oracle` and
+`nop` agents on a sample.
+
+## The held-out split
+
+Tasks from one seed share almost all their text, so the held-out split is
+by seed: private seed folders, never committed, generated with a private
+salt, and rotated by drawing again with new seeds and a new salt.
+
+```bash
+python3 -m lattice_env split-check --private-seeds-dir ~/lab/heldout-seeds   # leakage scan; exit 1 on a leak
+python3 -m lattice_env generate --seeds-dir ~/lab/heldout-seeds --seed <name> --salt "$(cat ~/lab/salt-2026q4)" --out ~/lab/heldout
+```
+
+`split-check` is CoworkEnv's near-duplicate test: word 4-grams of each
+seed's live LaTeX, flagging a private seed when more than half of the
+smaller side's 4-grams also occur in a public one. Mined real faults
+(TeXFix-Bench's under-20-line fix commits) belong in this split; importing
+them is not built yet.
+
 ## Seeds and licences
 
 `python3 -m lattice_env seeds` lists them. The bundled seeds are Lattice's

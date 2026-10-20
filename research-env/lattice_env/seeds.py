@@ -160,17 +160,22 @@ def from_folder(folder: Path) -> Seed:
                 str(folder), meta.get("notes", []))
 
 
+def from_directory(directory: Path) -> list[Seed]:
+    """Every seed folder (one with a `seed.json`) directly inside `directory`."""
+    return [from_folder(path) for path in sorted(directory.iterdir()) if (path / "seed.json").is_file()]
+
+
 def bundled() -> list[Seed]:
     seeds = [tutorial(), *(skeleton(name) for name in SKELETON_TITLES)]
     if SEEDS_DIR.is_dir():
-        seeds.extend(from_folder(path) for path in sorted(SEEDS_DIR.iterdir()) if (path / "seed.json").is_file())
+        seeds.extend(from_directory(SEEDS_DIR))
     return seeds
 
 
 def load(names: list[str] | None = None, extra_dirs: list[Path] | None = None) -> list[Seed]:
     seeds = bundled()
     for directory in extra_dirs or []:
-        seeds.extend(from_folder(path) for path in sorted(directory.iterdir()) if (path / "seed.json").is_file())
+        seeds.extend(from_directory(directory))
     if names:
         wanted = set(names)
         seeds = [seed for seed in seeds if seed.name in wanted]
