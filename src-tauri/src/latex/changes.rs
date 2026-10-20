@@ -13,7 +13,7 @@
 
 use super::build::engine_args;
 use super::build_log::parse_diagnostics;
-use super::default_root_document;
+use super::{default_root_document, latexmk};
 use crate::{commands, git, project};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -196,8 +196,7 @@ fn markup_definitions(options: ChangesPdfOptions) -> String {
 fn build_marked(
     newer: &Path, marked: &str, manifest: &crate::models::ProjectManifest,
 ) -> Result<PathBuf, String> {
-    let output = commands::command("latexmk")
-        .current_dir(newer)
+    let output = latexmk(newer)
         .args(["-interaction=nonstopmode", "-file-line-error", "-halt-on-error"])
         .args(engine_args(newer, manifest))
         .arg(marked)

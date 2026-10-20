@@ -29,14 +29,15 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
     // On a clipped graphic pdfTeX's SyncTeX answers `Line:0` (see
     // `records::source_at`); the records around the point still name the line
     // that placed it, or failing that the nearest one that has a line.
+    let pdf = root.join(&pdf);
     let (input, line) = parse_synctex_edit(&output)
         .or_else(|| {
-            records::read(&root.join(&pdf))
-                .and_then(|synctex| records::source_at(&synctex, page, (x, y)))
+            records::read(&pdf).and_then(|synctex| records::source_at(&synctex, page, (x, y)))
         })
         .ok_or_else(|| "No LaTeX source was found for this PDF position.".to_string())?;
     let canonical_root = root.canonicalize().map_err(|error| error.to_string())?;
-    let canonical_input = root.join(&input).canonicalize().map_err(|error| error.to_string())?;
+    let canonical_input =
+        build_folder(&pdf).join(&input).canonicalize().map_err(|error| error.to_string())?;
     let relative = canonical_input
         .strip_prefix(&canonical_root)
         .map_err(|_| "SyncTeX returned a source file outside this project.".to_string())?;
@@ -65,6 +66,7 @@ pub fn forward_search(
         .to_string_lossy()
         .replace('\\', "/");
     let (document, pdf) = synced_pdf(root, "Build the project before locating source in the PDF.")?;
+    let synctex = records::read(&root.join(&pdf));
     // A .bib entry reaches the PDF through the generated .bbl, so look that up.
     let (lookup_path, lookup_line, lookup_column) =
         if Path::new(&relative).extension().and_then(|value| value.to_str()) == Some("bib") {
@@ -77,6 +79,10 @@ pub fn forward_search(
         } else {
             (relative, line, column.saturating_sub(1))
         };
+    let lookup_path = synctex
+        .as_deref()
+        .and_then(|synctex| recorded_name(synctex, &root.join(&pdf), &root.join(&lookup_path)))
+        .unwrap_or(lookup_path);
     let output = run_synctex(
         root,
         &[
@@ -88,10 +94,29 @@ pub fn forward_search(
         ],
         "SyncTeX could not locate this source line.",
     )?;
-    let pdf = root.join(&pdf);
     first_synctex_view_target(&output, |page| {
-        records::read(&pdf).map(|synctex| records::corrections(&synctex, page)).unwrap_or_default()
+        synctex.map(|synctex| records::corrections(&synctex, page)).unwrap_or_default()
     })
+}
+
+/// The folder TeX ran in, which SyncTeX's relative input names start from:
+/// the one holding the PDF, as latexmk `-cd` typesets beside the document.
+fn build_folder(pdf: &Path) -> &Path {
+    pdf.parent().unwrap_or(pdf)
+}
+
+/// The name SyncTeX recorded `source` under. `synctex view` matches the
+/// name it is given by its text, and a file the document reached through
+/// `..` (`\input{../shared/closing}`) is recorded with the `..` in it, so no
+/// project-relative name finds it.
+fn recorded_name(synctex: &str, pdf: &Path, source: &Path) -> Option<String> {
+    let source = source.canonicalize().ok()?;
+    synctex
+        .lines()
+        .filter_map(|record| record.strip_prefix("Input:")?.split_once(':').map(|(_, name)| name))
+        .filter(|name| Path::new(name).file_name() == source.file_name())
+        .find(|name| build_folder(pdf).join(name).canonicalize().is_ok_and(|name| name == source))
+        .map(str::to_string)
 }
 
 /// Source the manuscript's body is read from: all of `path`, or its lines
@@ -110,7 +135,8 @@ pub struct BodySpan {
 /// not. `None` when nothing from `spans` is on any page.
 pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String> {
     let (_, pdf) = synced_pdf(root, "Build the project before counting its pages.")?;
-    let Some(synctex) = records::read(&root.join(&pdf)) else { return Ok(None) };
+    let pdf = root.join(&pdf);
+    let Some(synctex) = records::read(&pdf) else { return Ok(None) };
     let spans: Vec<(PathBuf, u32)> = spans
         .iter()
         .filter_map(|span| {
@@ -119,9 +145,9 @@ pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String
         })
         .collect();
     // SyncTeX names its inputs as TeX opened them, absolute or from the
-    // build's directory: the project root.
+    // build's folder.
     Ok(records::last_page_before(&synctex, |input| {
-        let input = root.join(input);
+        let input = build_folder(&pdf).join(input);
         // Most inputs are the TeX installation's: only a name a span has is resolved.
         if !spans.iter().any(|(path, _)| path.file_name() == input.file_name()) {
             return None;
@@ -144,7 +170,8 @@ pub struct SourceLine {
 pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<u32>>, String> {
     let (_, pdf) = synced_pdf(root, "Build the project before locating its sections.")?;
     let count = headings.len();
-    let Some(synctex) = records::read(&root.join(&pdf)) else { return Ok(vec![None; count]) };
+    let pdf = root.join(&pdf);
+    let Some(synctex) = records::read(&pdf) else { return Ok(vec![None; count]) };
     let headings: Vec<(PathBuf, usize, u32)> = headings
         .iter()
         .enumerate()
@@ -155,8 +182,8 @@ pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<
         .collect();
     Ok(records::heading_pages(&synctex, count, |input| {
         // SyncTeX names its inputs as TeX opened them, absolute or from the
-        // project root; most are the TeX installation's.
-        let input = root.join(input);
+        // build's folder; most are the TeX installation's.
+        let input = build_folder(&pdf).join(input);
         if !headings.iter().any(|(path, ..)| path.file_name() == input.file_name()) {
             return Vec::new();
         }
