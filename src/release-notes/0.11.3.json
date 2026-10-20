@@ -1,0 +1,11 @@
+{
+  "version": "0.11.3",
+  "date": "2026-10-20",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "Live preview now matches the real build: citations and the bibliography no longer turn into [?] in the preview, and a root document inside a subfolder shows the real build output instead of differently laid-out pages.",
+      "zh": "实时预览现在与真实构建一致：预览中的引用和参考文献不再显示为 [?]，位于子文件夹中的主文档也会显示真实的构建结果，而不是排版不同的页面。"
+    }
+  ]
+}
