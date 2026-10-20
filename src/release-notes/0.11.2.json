@@ -1,0 +1,15 @@
+{
+  "version": "0.11.2",
+  "date": "2026-10-20",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "The file tree keeps up with the disk: files added, renamed or deleted outside Lattice appear without reopening the project, and Refresh file tree (in the tree's context menu, the Project panel's ⋯ menu and the command palette) rescans on demand without scrolling the list back to the open file.",
+      "zh": "文件树与磁盘保持同步：在 Lattice 之外新增、重命名或删除的文件无需重新打开项目即可显示；「刷新文件树」（位于文件树右键菜单、项目面板的 ⋯ 菜单和命令面板）可随时重新扫描，且不会把列表滚回当前打开的文件。"
+    },
+    {
+      "en": "A main document inside a subfolder now builds beside itself, so the PDF preview shows its fresh output and jumping between source and PDF works.",
+      "zh": "子文件夹中的主文档现在会在其所在位置编译，PDF 预览会显示最新输出，源码与 PDF 之间的跳转也能正常工作。"
+    }
+  ]
+}
