@@ -211,6 +211,36 @@ describe("ProjectFileTree", () => {
     await waitFor(() => expect(scrolls).toHaveBeenCalledWith("sections/intro.tex", expect.anything()));
   });
 
+  it("scrolls each row with the list in its own element, so the selection never fades between rows", async () => {
+    const data = { name: "data", path: "data", kind: "directory", children: Array.from({ length: 80 }, (_, index) => (
+      textFile(`data/run-${String(index).padStart(2, "0")}.csv`)
+    )) };
+    localStorage.setItem(expansionKey("/tmp/paper"), JSON.stringify(["data"]));
+    renderTree({ files: [data, ...files], activeFile: "data/run-05.csv" });
+    const selected = await findTreeItem("data/run-05.csv");
+    await waitFor(() => expect(selected).toHaveAttribute("data-item-selected", "true"));
+    const rows = () => new Map(Array.from(
+      treeRoot()!.querySelectorAll<HTMLElement>('[data-file-tree-virtualized-sticky="true"] > button[data-item-path]'),
+      (row) => [row.dataset.itemPath!, row],
+    ));
+    const before = rows();
+
+    // Pierre's rows lost their keys (Preact reads a key only from jsx()'s third
+    // argument), so each row scrolled moved every path into its neighbour's
+    // button, and the selected background faded out of one and into the next.
+    const scroller = treeRoot()!.querySelector<HTMLElement>('[data-file-tree-virtualized-scroll="true"]')!;
+    for (let rowsScrolled = 1; rowsScrolled <= 4; rowsScrolled += 1) {
+      scroller.scrollTop = rowsScrolled * 28;
+      fireEvent.scroll(scroller);
+    }
+    await waitFor(() => expect([...rows().keys()].filter((path) => !before.has(path))).toHaveLength(4));
+    const after = rows();
+    const kept = [...before.keys()].filter((path) => after.has(path));
+    expect(kept).toContain("data/run-05.csv");
+    for (const path of kept) expect(after.get(path)).toBe(before.get(path));
+    expect(after.get("data/run-05.csv")).toHaveAttribute("data-item-selected", "true");
+  });
+
   it("reads the hidden-files listing again on Refresh and when the window comes to the front", async () => {
     localStorage.setItem("lattice:show-hidden-files", "true");
     vi.mocked(invoke).mockResolvedValue(files);
