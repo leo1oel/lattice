@@ -7202,10 +7202,6 @@ msgstr "Live preview redraws the paragraph you are typing within milliseconds, w
 msgid "Live preview stopped"
 msgstr "Live preview stopped"
 
-#: src/live-preview/live-preview-settings.tsx
-msgid "Live preview typesets only documents at the top of the project folder: rtex would typeset {subfolder} from there, not from its own folder as the build does, and lay it out differently. The PDF updates with each build."
-msgstr "Live preview typesets only documents at the top of the project folder: rtex would typeset {subfolder} from there, not from its own folder as the build does, and lay it out differently. The PDF updates with each build."
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
 msgstr "Live sync"

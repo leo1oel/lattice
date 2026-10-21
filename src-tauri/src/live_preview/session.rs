@@ -60,9 +60,6 @@ impl Session {
         let main = safe_relative(main_file)
             .filter(|main| root.join(main).is_file())
             .ok_or_else(|| format!("The main file {main_file:?} is not in the project."))?;
-        if !at_top_level(&main) {
-            return Err(SUBFOLDER_MAIN.to_string());
-        }
         let build_dir =
             build_dir(root, &main).ok_or("Could not locate the live preview folder.")?;
         std::fs::create_dir_all(&build_dir)
@@ -163,7 +160,6 @@ fn serve_command(executable: &Path, root: &Path, main: &Path, build_dir: &Path) 
         .arg("--build")
         .arg(build_dir)
         .current_dir(build_dir)
-        .env("BSTINPUTS", bst_inputs(root, std::env::var_os("BSTINPUTS")))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -176,31 +172,6 @@ fn safe_relative(path: &str) -> Option<PathBuf> {
     (!path.as_os_str().is_empty()
         && path.components().all(|part| matches!(part, Component::Normal(_))))
     .then(|| path.to_path_buf())
-}
-
-/// Why a main document in a subfolder gets no session. latexmk typesets it
-/// in its own folder (`-cd`), but rtex 0.0.4 typesets from the project
-/// folder, where the paths the document names relative to itself (its
-/// bibliography, its `.bst`, an `\input`) miss: rtex's pages, with `[?]` for
-/// each citation and no reference list, would be drawn over the build's.
-const SUBFOLDER_MAIN: &str =
-    "Live preview typesets only documents at the top of the project folder.";
-
-/// Whether rtex lays `main` out where latexmk does: in the project folder.
-fn at_top_level(main: &Path) -> bool {
-    main.parent().is_some_and(|parent| parent.as_os_str().is_empty())
-}
-
-/// BibTeX's style search path for rtex's passes. latexmk runs BibTeX beside
-/// the document, which finds a project's own `.bst` there; rtex runs it in a
-/// pass folder of its own and sets only `BIBINPUTS`, so without this every
-/// citation came out undefined. The project folder first, then whatever was
-/// set, ending in `:` so TeX's own styles still follow.
-fn bst_inputs(root: &Path, inherited: Option<std::ffi::OsString>) -> std::ffi::OsString {
-    let mut value = root.as_os_str().to_os_string();
-    value.push(":");
-    value.push(inherited.unwrap_or_default());
-    value
 }
 
 /// The last lines rtex wrote to stderr, for the error the window shows when
@@ -296,39 +267,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn only_documents_latexmk_typesets_in_the_project_folder_start() {
-        assert!(at_top_level(Path::new("main.tex")));
-        for refused in ["cv/sop/sop.tex", "paper/ms.tex"] {
-            assert!(!at_top_level(Path::new(refused)), "{refused}");
-        }
-    }
-
-    #[test]
-    fn bibtex_finds_the_projects_own_styles_then_texs() {
-        let root = Path::new("/projects/a");
-        assert_eq!(bst_inputs(root, None), "/projects/a:");
-        assert_eq!(bst_inputs(root, Some("/styles:".into())), "/projects/a:/styles:");
-    }
-
-    /// The reproduction of a project's own `.bst` that rtex's BibTeX never
-    /// found: every citation `[?]` and no reference list in its layout, while
-    /// the build's PDF had both.
-    #[test]
-    #[ignore = "requires rtex (set LATTICE_RTEX to its executable) and TeX Live"]
-    fn rtex_typesets_a_bibliography_in_the_projects_own_style() {
+    /// rtex's bibliographies once it settles on `main` in `project`: the
+    /// `.bbl` of each background pass.
+    fn rtex_bibliographies(project: &Path, main: &str) -> Vec<String> {
         let executable = PathBuf::from(std::env::var("LATTICE_RTEX").expect("LATTICE_RTEX"));
-        let project = crate::test_support::TempDir::new("live-preview-bst");
         let build = crate::test_support::TempDir::new("live-preview-build");
-        let plain = Command::new("kpsewhich").arg("plain.bst").output().unwrap();
-        let plain = String::from_utf8(plain.stdout).unwrap();
-        project.write("local.bst", std::fs::read(plain.trim()).unwrap());
-        project.write("refs.bib", "@book{knuth, author={Donald Knuth}, title={The TeXbook}, publisher={AW}, year={1984}}\n");
-        project.write(
-            "main.tex",
-            "\\documentclass{article}\\begin{document}See \\cite{knuth}.\n\\bibliographystyle{local}\\bibliography{refs}\\end{document}\n",
-        );
-        let mut command = serve_command(&executable, &project, Path::new("main.tex"), &build);
+        let mut command = serve_command(&executable, project, Path::new(main), &build);
         let mut child = in_new_process_group(command.stderr(Stdio::null())).spawn().unwrap();
         let mut stdin = child.stdin.take().unwrap();
         stdin.write_all(b"{\"cmd\":\"status\"}\n").unwrap();
@@ -347,10 +291,55 @@ mod tests {
         let finished = settled.recv_timeout(Duration::from_secs(120));
         crate::sidecar::terminate_process_group(&mut child);
         finished.expect("rtex laid the document out");
-        let bibliographies = std::fs::read_dir(build.join("bg"))
+        let stem = Path::new(main).file_stem().unwrap().to_string_lossy().into_owned();
+        std::fs::read_dir(build.join("bg"))
             .unwrap()
-            .filter_map(|pass| std::fs::read_to_string(pass.ok()?.path().join("main.bbl")).ok())
-            .collect::<Vec<_>>();
+            .filter_map(|pass| {
+                std::fs::read_to_string(pass.ok()?.path().join(format!("{stem}.bbl"))).ok()
+            })
+            .collect()
+    }
+
+    const KNUTH: &str =
+        "@book{knuth, author={Donald Knuth}, title={The TeXbook}, publisher={AW}, year={1984}}\n";
+
+    /// The reproduction of a project's own `.bst` that rtex's BibTeX never
+    /// found: every citation `[?]` and no reference list in its layout, while
+    /// the build's PDF had both.
+    #[test]
+    #[ignore = "requires rtex (set LATTICE_RTEX to its executable) and TeX Live"]
+    fn rtex_typesets_a_bibliography_in_the_projects_own_style() {
+        let project = crate::test_support::TempDir::new("live-preview-bst");
+        let plain = Command::new("kpsewhich").arg("plain.bst").output().unwrap();
+        let plain = String::from_utf8(plain.stdout).unwrap();
+        project.write("local.bst", std::fs::read(plain.trim()).unwrap());
+        project.write("refs.bib", KNUTH);
+        project.write(
+            "main.tex",
+            "\\documentclass{article}\\begin{document}See \\cite{knuth}.\n\\bibliographystyle{local}\\bibliography{refs}\\end{document}\n",
+        );
+        let bibliographies = rtex_bibliographies(&project, "main.tex");
+        assert!(
+            bibliographies.iter().any(|bbl| bbl.contains("\\bibitem{knuth}")),
+            "{bibliographies:?}"
+        );
+    }
+
+    /// A main document in a subfolder, which latexmk typesets in its own
+    /// folder (`-cd`): rtex 0.0.4 ran its BibTeX elsewhere, so
+    /// `\bibliography{../../references}` missed and the layout had `[?]` for
+    /// every citation and no reference list.
+    #[test]
+    #[ignore = "requires rtex (set LATTICE_RTEX to its executable) and TeX Live"]
+    fn rtex_typesets_a_subfolder_document_from_its_own_folder() {
+        let project = crate::test_support::TempDir::new("live-preview-subfolder");
+        project.write("references.bib", KNUTH);
+        project.write("cv/sop/body.tex", "See \\cite{knuth}.\n");
+        project.write(
+            "cv/sop/sop.tex",
+            "\\documentclass{article}\\begin{document}\\input{body}\n\\bibliographystyle{plain}\\bibliography{../../references}\\end{document}\n",
+        );
+        let bibliographies = rtex_bibliographies(&project, "cv/sop/sop.tex");
         assert!(
             bibliographies.iter().any(|bbl| bbl.contains("\\bibitem{knuth}")),
             "{bibliographies:?}"

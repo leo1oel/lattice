@@ -27,8 +27,9 @@ pub(crate) use session::{allowed_command, Session};
 
 /// The rtex release Lattice downloads. The display-list format and the
 /// `rtex serve` protocol change together before 0.1, so the renderer in
-/// `src/live-preview/` is written against exactly this version.
-pub(crate) const RTEX_VERSION: &str = "0.0.4";
+/// `src/live-preview/` is written against exactly this version. It names the
+/// install folder too, so the fork's build never passes for an upstream 0.0.5.
+pub(crate) const RTEX_VERSION: &str = "0.0.5-cd.1";
 
 /// `Application Support/<identifier>/live-preview`: the installed release and
 /// rtex's build folders, all removed together by [`remove`].
