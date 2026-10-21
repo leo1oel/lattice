@@ -38,10 +38,51 @@ index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..ce3f101fc8401dd89c5c77b3335c959a
  		const expandedPaths = this.#searchMode === "expand-matches" ? new Set(this.#searchPreviousExpandedPaths ?? []) : /* @__PURE__ */ new Set();
  		for (const matchingPath of matchingPaths) {
 diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
-index 7d3b818c43a7621ab9170da32b180232ed3c9472..947012a2c49e93d10fcec98e86fd691de63d04a4 100644
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..752d3f675127d0b34b3fb07418376d8606554fbf 100644
 --- a/dist/render/FileTreeView.js
 +++ b/dist/render/FileTreeView.js
-@@ -527,6 +527,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -462,7 +462,6 @@ function renderStyledRow(frame, row, key, options = {}) {
+ 			},
+ 			targetPath
+ 		}),
+-		key,
+ 		onContextMenu: contextMenuEnabled || dragAndDropEnabled ? (event) => {
+ 			if (shouldSuppressContextMenu()) {
+ 				event.preventDefault();
+@@ -485,10 +484,15 @@ function renderStyledRow(frame, row, key, options = {}) {
+ 			registerButton(targetPath, element);
+ 		}
+ 	};
++	// Lattice patch: Preact's automatic JSX runtime reads a key only from
++	// jsx()'s third argument; spread into the props it was dropped, so every
++	// row was matched by position. One scrolled row then moved each path into
++	// its neighbour's button, and a selected row's background faded between
++	// buttons on every step.
+ 	if (!isSticky && isRenamingRow) return /* @__PURE__ */ jsx("div", {
+ 		...commonProps,
+ 		children: rowContent
+-	});
++	}, key);
+ 	return /* @__PURE__ */ jsx("button", {
+ 		...commonProps,
+ 		type: "button",
+@@ -511,11 +515,13 @@ function renderStyledRow(frame, row, key, options = {}) {
+ 			onRowClick(event, row, targetPath, mode);
+ 		},
+ 		children: rowContent
+-	});
++	}, key);
+ }
+ function renderRangeChildren(frame, range, hiddenRowPaths) {
+ 	if (range.end < range.start) return [];
+-	return frame.controller.getVisibleRows(range.start, range.end).filter((row) => !hiddenRowPaths.has(getFileTreeRowPath(row))).map((row, slotIndex) => renderStyledRow(frame, row, range.start + slotIndex));
++	// Lattice patch: keyed by path, not by slot index, so a sticky folder
++	// leaving the window does not shift every row below it to a new button.
++	return frame.controller.getVisibleRows(range.start, range.end).filter((row) => !hiddenRowPaths.has(getFileTreeRowPath(row))).map((row) => renderStyledRow(frame, row, getFileTreeRowPath(row)));
+ }
+ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDirectories, directoriesWithGitChanges, icons, instanceId, itemHeight = FILE_TREE_DEFAULT_ITEM_HEIGHT, overscan = 10, renamingEnabled = false, renderRowDecoration, searchBlurBehavior = "close", searchEnabled = false, searchFakeFocus = false, slotHost, stickyFolders = false, initialViewportHeight = 420 }) {
+ 	"use no memo";
+@@ -527,6 +533,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  	const rootRef = useRef(null);
  	const scrollRef = useRef(null);
  	const searchInputRef = useRef(null);
@@ -50,7 +91,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..947012a2c49e93d10fcec98e86fd691d
  	const rowButtonRefs = useRef(/* @__PURE__ */ new Map());
  	const stickyRowButtonRefs = useRef(/* @__PURE__ */ new Map());
  	const updateViewportRef = useRef(() => {});
-@@ -603,6 +605,21 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -603,6 +611,21 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  		searchInputUserInteractedRef.current = true;
  		setFakeSearchFocusActive((previous) => previous ? false : previous);
  	}, []);
@@ -72,7 +113,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..947012a2c49e93d10fcec98e86fd691d
  	const [layoutState, setLayoutState] = useState(() => computeFileTreeViewLayoutState({
  		controller,
  		itemHeight,
-@@ -1062,6 +1079,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1062,6 +1085,7 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  			return;
  		}
  		if (isSearchOpen) {
@@ -80,7 +121,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..947012a2c49e93d10fcec98e86fd691d
  			if (event.key === "Escape") {
  				restoreTreeFocusAfterSearchCloseRef.current = false;
  				restoreTreeFocusViewportOffsetRef.current = null;
-@@ -1807,6 +1825,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1807,6 +1831,8 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  					"data-file-tree-search-input": true,
  					"data-file-tree-search-input-fake-focus": fakeSearchFocusActive ? "true" : void 0,
  					value: searchValue,

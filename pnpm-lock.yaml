@@ -25,7 +25,7 @@ patchedDependencies:
     hash: 0740691c589802b800572e1b564fcd5c050ff8792b099bddefc53a6dcc2e701d
     path: patches/@pdfslick__core@4.0.2.patch
   '@pierre/trees@1.0.0-beta.6':
-    hash: 4e98784e52043a339e3256ec6bb41adc06e2e71dc5cab8712c2f21960561bb6c
+    hash: 80aa304b68aa9afef1d1b21ead9594bce23e96a5ed4dea5005da8af15e7c4537
     path: patches/@pierre__trees@1.0.0-beta.6.patch
   '@tiptap/react@3.32.0':
     hash: 7dd0cc3594d4022de2127f891d30f6ddecab40160684e7a8ad2bb7e78eee8f09
@@ -112,7 +112,7 @@ importers:
         version: 1.5.2(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@pierre/trees':
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(patch_hash=4e98784e52043a339e3256ec6bb41adc06e2e71dc5cab8712c2f21960561bb6c)(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
+        version: 1.0.0-beta.6(patch_hash=80aa304b68aa9afef1d1b21ead9594bce23e96a5ed4dea5005da8af15e7c4537)(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
       '@radix-ui/react-focus-scope':
         specifier: ^1.1.14
         version: 1.1.14(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -6646,7 +6646,7 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
       shiki: 4.3.1
 
-  '@pierre/trees@1.0.0-beta.6(patch_hash=4e98784e52043a339e3256ec6bb41adc06e2e71dc5cab8712c2f21960561bb6c)(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)':
+  '@pierre/trees@1.0.0-beta.6(patch_hash=80aa304b68aa9afef1d1b21ead9594bce23e96a5ed4dea5005da8af15e7c4537)(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)':
     dependencies:
       '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(shiki@4.3.1)
       preact: 11.0.0-beta.0
