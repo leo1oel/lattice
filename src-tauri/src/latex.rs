@@ -129,6 +129,11 @@ pub struct BuildResult {
     pub pages: Option<u32>,
     /// Whether the PDF has its SyncTeX map beside it; absent with no PDF.
     pub synctex: Option<bool>,
+    /// The project files TeX wrote, by the root document's `.fls` recorder.
+    /// The project watcher reports them like any change, and an automatic
+    /// build must not take a package's unfamiliar output for an edit and
+    /// compile again, and again.
+    pub outputs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -6,7 +6,7 @@ use super::build_log::{
 };
 use super::build_steps::BuildSteps;
 use super::preamble_format::{self, Prepared};
-use super::{default_root_document, engine_mismatch, latexmk, prewarm, synctex_missing};
+use super::{arxiv, default_root_document, engine_mismatch, latexmk, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::{Diagnostic, ProjectManifest};
@@ -167,6 +167,7 @@ pub fn build(
     let mut result = build_passes(root, force, active, open_document, steps)?;
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
+    result.outputs = arxiv::written_by_build(root, &result.root_document);
     record_result(&result);
     Ok(result)
 }
@@ -382,6 +383,7 @@ fn run_latexmk_with(
         steps: Vec::new(),
         pages: pages_written(&tex_log),
         synctex: None,
+        outputs: Vec::new(),
     })
 }
 
@@ -440,6 +442,7 @@ pub(super) fn cancelled_build(
         steps: Vec::new(),
         pages: None,
         synctex: None,
+        outputs: Vec::new(),
     }
 }
 

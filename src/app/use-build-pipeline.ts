@@ -4,11 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { diagnosticsFingerprint, missingTexDependencyFile, sortDiagnostics, type CompileDiagnostic } from "../build/compile-diagnostics";
-import { isBuildOutput } from "../build/build-inputs";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { scheduleFirstPage } from "../project/first-pages";
-import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/project-files-changed";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
@@ -23,6 +21,8 @@ import { buildOutcome, rejectedBuildOutcome, type BuildOutcome } from "./build-o
 import { BUILD_PROGRESS_EVENT, createProgressStore, type BuildProgressEvent } from "./build-progress";
 import { NO_COMPILED_SOURCES, readCompiledSources, type CompiledSources } from "./compiled-sources";
 import { createQuietBuilds } from "../live-preview/quiet-builds";
+import type { BuildPreferences } from "../settings/app-settings";
+import { createWatchedBuilds } from "./watched-builds";
 
 export type { BuildOutcome } from "./build-outcome";
 export type { BuildProgressStore } from "./build-progress";
@@ -43,9 +43,6 @@ type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociat
 const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
 
 type Ref<T> = { readonly current: T };
-
-/** How long after the app writes a file the watcher's next report of that file is its echo, not a new change. */
-const OWN_WRITE_ECHO_MS = 3_000;
 
 /** The live preview's name for the files a build read, and whether it ran quietly. */
 type LiveBase = { token: number | null; quiet: boolean };
@@ -78,7 +75,7 @@ async function cleanAuxiliaryFiles(setCleaning: (cleaning: boolean) => void): Pr
 export function useBuildPipeline({
   project, projectRef, setProject, projectGenerationRef,
   activeFileRef, sourceRef, savedSourceRef,
-  agent, openDiagnosticRef, onMissingTex, livePreview,
+  agent, openDiagnosticRef, onMissingTex, livePreview, autoBuildModeRef,
 }: {
   project: ProjectSnapshot | null;
   projectRef: Ref<ProjectSnapshot | null>;
@@ -98,6 +95,7 @@ export function useBuildPipeline({
    * so it stops painting edits once the PDF on screen holds them.
    */
   livePreview?: Ref<LivePreviewBuildHooks | null>;
+  autoBuildModeRef: Ref<BuildPreferences["autoBuildMode"]>;
 }) {
   const { t } = useLingui();
   const [build, setBuild] = useState<BuildResult | null>(null);
@@ -106,6 +104,7 @@ export function useBuildPipeline({
   const [quiet, , quietRef, setQuiet] = useRefState(false);
   const [quietBuilds] = useState(createQuietBuilds);
   useEffect(() => quietBuilds.cancel, [quietBuilds]);
+  const [watchedBuilds] = useState(createWatchedBuilds);
   const [progress] = useState(createProgressStore);
   /** Names each pass to the backend, which tags its progress with it; a late report from an earlier pass is not this one's. */
   const progressIdRef = useRef(0);
@@ -144,42 +143,14 @@ export function useBuildPipeline({
   const compiledRef = useRef<{ revision: number; rootDocument: string | null } | null>(null);
   /** The last compiled PDF read from disk, so a failed pass can tell whether it wrote a new one. */
   const readPdfFingerprintRef = useRef<string | null>(null);
-  /** When the app last wrote each project path itself; see OWN_WRITE_ECHO_MS. */
-  const ownWritesRef = useRef(new Map<string, number>());
   const runningBuildRef = useRef<RunningBuild | null>(null);
 
   /** A project input changed through the app; `paths` are the files it wrote. */
   const markInputsChanged = useCallback((paths: readonly string[] = []) => {
     inputRevisionRef.current += 1;
     livePreview?.current?.noteSaved();
-    const now = Date.now();
-    for (const path of paths) {
-      const file = normalizeProjectRelativePath(path);
-      if (file) ownWritesRef.current.set(file, now);
-    }
-  }, [livePreview]);
-
-  // Everything else that changes an input — the agent, an Overleaf pull, a
-  // rename in the tree, another editor — reaches the project through the
-  // watcher. Its reports include each build's own output and the echo of
-  // every save, neither of which makes the PDF any older.
-  const projectRoot = project?.root;
-  useEffect(() => {
-    if (!projectRoot) return;
-    return onProjectFilesChanged(projectRoot, (paths) => {
-      const ownWrites = ownWritesRef.current;
-      const now = Date.now();
-      for (const [path, writtenAt] of ownWrites) if (now - writtenAt > OWN_WRITE_ECHO_MS) ownWrites.delete(path);
-      const rootDocuments = projectRef.current?.manifest.rootDocuments.map((document) => document.path) ?? [];
-      let changesInputs = !paths;
-      for (const path of paths ?? []) {
-        const file = normalizeProjectRelativePath(path);
-        if (file && ownWrites.delete(file)) continue;
-        if (!file || !isBuildOutput(file, rootDocuments)) changesInputs = true;
-      }
-      if (changesInputs) inputRevisionRef.current += 1;
-    });
-  }, [projectRef, projectRoot]);
+    watchedBuilds.saved(paths);
+  }, [livePreview, watchedBuilds]);
 
   /** Whether the compiled PDF is of the project's current inputs and root document. */
   const compiledIsCurrent = useCallback(() => {
@@ -234,7 +205,7 @@ export function useBuildPipeline({
     // A PDF already on disk was compiled from inputs this session never saw.
     compiledRef.current = null;
     inputRevisionRef.current += 1;
-    ownWritesRef.current.clear();
+    watchedBuilds.reset();
     quietBuilds.cancel();
     readPdfFingerprintRef.current = null;
     const generation = ++previewGenerationRef.current;
@@ -267,7 +238,7 @@ export function useBuildPipeline({
         // A new or cleaned project has no cached PDF; the initial build
         // remains the source of its first preview.
       });
-  }, [projectRef, quietBuilds, replacePdfUrl]);
+  }, [projectRef, quietBuilds, replacePdfUrl, watchedBuilds]);
 
   /** Forget queued work; `cancelQueuedBuild` also drops a queued pass itself. */
   const resetQueue = useCallback((cancelQueuedBuild: boolean) => {
@@ -368,6 +339,7 @@ export function useBuildPipeline({
         // leaves the pass's PDF behind it, as it should.
         const revisionAtBuild = inputRevisionRef.current;
         running.revision = revisionAtBuild;
+        watchedBuilds.passStarted();
         const liveAtBuild = { token: livePreview?.current?.buildStarted(quietRef.current) ?? null, quiet: quietRef.current };
         const sourceAtBuild = sourceRef.current;
         const fileAtBuild = activeFileRef.current;
@@ -405,6 +377,7 @@ export function useBuildPipeline({
         ]);
         if (!scopeIsCurrent()) continue;
         setBuild(result);
+        watchedBuilds.passWrote(result.outputs);
         // A stopped build comes back as a failed result carrying the
         // build-cancelled advice. The writer asked for that; it is not an error.
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
@@ -499,6 +472,7 @@ export function useBuildPipeline({
       progress.set(null);
       runningBuildRef.current = null;
       settle();
+      watchedBuilds.idle();
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) playInterfaceSound(completionSound);
       // A backend rejection skips the loop's takeQueuedBuild() condition. Start
       // the captured pass only after releasing the in-flight lock, and only if
@@ -510,8 +484,19 @@ export function useBuildPipeline({
   }, [
     activeFileRef, buildingRef, livePreview, onMissingTex, openDiagnosticRef, progress, projectGenerationRef, projectRef,
     quietBuilds, quietRef, reportCompiles, savedSourceRef, setBuilding, setProject, setQuiet, showPreview, sourceRef, t,
-    takePendingCompiles,
+    takePendingCompiles, watchedBuilds,
   ]);
+  // Everything else that changes an input — the agent, a terminal, an
+  // Overleaf pull, a rename in the tree, another editor — reaches the project
+  // through the watcher, and builds on its own like an autosave (watched-builds.ts).
+  const projectRoot = project?.root;
+  useEffect(() => projectRoot ? watchedBuilds.watch(projectRoot, {
+    rootDocuments: () => projectRef.current?.manifest.rootDocuments.map((document) => document.path) ?? [],
+    inputsChanged: () => { inputRevisionRef.current += 1; },
+    automatic: () => autoBuildModeRef.current === "automatic",
+    building: () => buildingRef.current,
+    build: () => void runBuild(false, { automatic: true }),
+  }) : undefined, [autoBuildModeRef, buildingRef, projectRef, projectRoot, runBuild, watchedBuilds]);
   useEffect(() => quietBuilds.connect({
     livePreview, activeFileRef, sourceRef, savedSourceRef, run: (quiet) => void runBuild(false, { quiet }),
   }), [activeFileRef, livePreview, quietBuilds, runBuild, savedSourceRef, sourceRef]);

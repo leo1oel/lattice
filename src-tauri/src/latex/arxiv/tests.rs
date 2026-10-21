@@ -169,6 +169,20 @@ fn everything_the_build_wrote_stays_off_the_left_out_list() {
 }
 
 #[test]
+fn the_build_reports_every_project_file_tex_wrote_and_nothing_it_only_read() {
+    let fixture = built_project("arxiv-build-outputs");
+    // The comment package rewrites its scratch file on every run, under a
+    // name no list of LaTeX extensions knows.
+    let recorder = fixture.read("main.fls") + "OUTPUT comment.cut\nOUTPUT /tmp/elsewhere.log\n";
+    fixture.write("main.fls", recorder);
+    assert_eq!(
+        written_by_build(&fixture.root, "main.tex"),
+        ["comment.cut", "main.aux", "main.log", "main.pdf"]
+    );
+    assert!(written_by_build(&fixture.root, "unbuilt.tex").is_empty());
+}
+
+#[test]
 fn a_bibliography_without_a_bbl_is_missing_and_an_unbuilt_paper_has_no_pack() {
     let fixture = built_project("arxiv-bbl");
     let recorder = fixture.read("main.fls").replace("INPUT main.bbl\n", "");

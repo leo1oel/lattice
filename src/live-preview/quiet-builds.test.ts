@@ -112,6 +112,7 @@ describe("a quiet build in the build pipeline", () => {
       activeFileRef: ref("main.tex"), sourceRef: ref("text"), savedSourceRef: ref("text"),
       agent: { takePendingCompiles: () => [], reportCompiles: vi.fn() },
       openDiagnosticRef: ref(async () => {}), onMissingTex: vi.fn(), livePreview: ref(hooks),
+      autoBuildModeRef: ref("automatic" as const),
     }));
     const finish = (pass: number, value = result()) => act(async () => { passes[pass](value); });
     return { view, passes, finish };

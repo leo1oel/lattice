@@ -248,6 +248,8 @@ export type BuildResult = {
   pages: number | null;
   /** Whether the PDF has its SyncTeX map beside it; null without a PDF. */
   synctex: boolean | null;
+  /** The project files the compile wrote, by its `.fls` recorder (watched-builds.ts). */
+  outputs?: string[];
 };
 
 export type PaperSummary = {

@@ -403,6 +403,17 @@ fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
     Recorded { read, missing, written: outputs }
 }
 
+/// The project files the root document's last compile wrote, by its
+/// recorder; none before the first one.
+pub(super) fn written_by_build(root: &Path, document: &str) -> Vec<String> {
+    let Ok(root) = root.canonicalize() else { return Vec::new() };
+    let Ok(document) = project::safe_path(&root, document) else { return Vec::new() };
+    let Ok(recorder) = fs::read_to_string(document.with_extension("fls")) else {
+        return Vec::new();
+    };
+    recorded_inputs(&root, &recorder).written.into_iter().collect()
+}
+
 /// `path` from the recorder as a `/`-separated path inside `root`, if it is one.
 fn project_relative(root: &Path, cwd: &Path, path: &str) -> Option<String> {
     let path = cwd.join(path);

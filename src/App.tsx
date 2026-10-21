@@ -140,6 +140,7 @@ import type {
   InsertSymbolCommand,
   ViewRestoreRequest,
   OverleafStatus,
+  CompileProject,
 } from "./app-types";
 import {
   isOpenSlideDeckPath,
@@ -247,11 +248,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     for (const path of paths) savedPathsRef.current.add(path);
     setSaveGeneration((generation) => generation + 1);
   }, []);
-  const compileRef = useRef<(
-    force?: boolean,
-    sound?: boolean,
-    options?: { consumeAgentAssociations?: boolean },
-  ) => Promise<void>>(async () => undefined);
+  const compileRef = useRef<CompileProject>(async () => undefined);
   const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const canvasRequests = useCanvasRequests();
   const { update: updateCanvasRequest, settle: settleRequest } = canvasRequests;
@@ -459,6 +456,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     openDiagnosticRef: openCompileDiagnosticRef,
     onMissingTex: texSetup.openForMissingTex,
     livePreview: livePreview.buildHooks,
+    autoBuildModeRef,
   });
   // The live preview compares the base PDF's page count with its own layout's.
   const { buildHooks: livePreviewHooks, state: livePreviewState } = livePreview;
