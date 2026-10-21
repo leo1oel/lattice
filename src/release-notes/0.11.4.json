@@ -1,0 +1,11 @@
+{
+  "version": "0.11.4",
+  "date": "2026-10-21",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "The PDF now rebuilds automatically after the Agent, a terminal agent, or any other program edits your project files: about 1.5 s after the edits settle, with one build per burst of changes. Manual auto-build still never builds on its own.",
+      "zh": "现在，当 Agent、终端中的 Agent 或任何其他程序修改项目文件后，PDF 会自动重新编译：在修改停止约 1.5 秒后开始，同一批连续修改只编译一次。“手动”自动编译模式仍然不会自行编译。"
+    }
+  ]
+}
