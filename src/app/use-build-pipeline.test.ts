@@ -52,7 +52,7 @@ function renderPipeline(
     project: PROJECT, projectRef: ref(PROJECT), setProject: vi.fn(), projectGenerationRef: ref(1),
     activeFileRef: ref(activeFile), sourceRef: ref("\\documentclass{article}"), savedSourceRef: ref("\\documentclass{article}"),
     agent: { takePendingCompiles: () => [], reportCompiles: vi.fn() },
-    openDiagnosticRef: ref(openDiagnostic), onMissingTex: vi.fn(),
+    openDiagnosticRef: ref(openDiagnostic), onMissingTex: vi.fn(), autoBuildModeRef: ref("automatic" as const),
   }));
 }
 
