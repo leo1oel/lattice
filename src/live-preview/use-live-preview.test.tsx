@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) })
 const started = vi.hoisted(() => [] as string[]);
 vi.mock("./live-preview-chunk", () => ({
   LivePreviewSession: class {
-    constructor(root: string) { started.push(root); }
+    constructor(root: string, main: string) { started.push(main === "main.tex" ? root : `${root}:${main}`); }
     start = vi.fn(async () => {});
     dispose = vi.fn();
     noteText = vi.fn();
@@ -23,7 +23,7 @@ vi.mock("./live-preview-chunk", () => ({
   },
 }));
 
-const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.4" };
+const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.5-cd.1" };
 let install: LivePreviewInstall;
 let download: () => Promise<unknown>;
 
@@ -90,19 +90,12 @@ it.each([
   expect(started).toEqual([]);
 });
 
-it("leaves a main document in a subfolder to the build: rtex would typeset it from the project folder", async () => {
-  // A LuaLaTeX statement in cv/sop with \bibliography{../../references}: rtex's
-  // layout of it had [?] for every citation and no reference list, painted
-  // over the build's cv/sop/sop.pdf.
+it("starts on a main document in a subfolder: rtex typesets it from its own folder, as the build does", async () => {
+  // A LuaLaTeX statement in cv/sop with \bibliography{../../references}.
   install = { ...READY, installed: true };
   const { result } = open("/papers/personal", "lualatex", "cv/sop/sop.tex");
-  await act(async () => {});
-  expect(result.current.available).toBe(true);
-  expect(result.current.enabled).toBe(true);
-  expect(result.current.subfolderDocument).toBe("cv/sop/sop.tex");
-  expect(result.current.state.kind).toBe("off");
-  expect(commands()).toEqual([]);
-  expect(started).toEqual([]);
+  await waitFor(() => expect(result.current.state.kind).toBe("running"));
+  expect(started).toEqual(["/papers/personal:cv/sop/sop.tex"]);
 });
 
 it("falls back quietly when the download fails, and retries on request", async () => {

@@ -9,8 +9,7 @@
  * once the window is idle (the host verifies it), then loads the renderer's
  * chunk and starts rtex on the project's main document. A Mac that cannot run
  * it downloads nothing, and a failed download leaves the normal build alone:
- * neither shows over the PDF, only in Settings; nor does a main document in a
- * subfolder, which rtex cannot typeset as the build does. Leaving the project,
+ * neither shows over the PDF, only in Settings. Leaving the project,
  * switching its engine or turning it off stops rtex.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,13 +58,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   const root = project?.root ?? null;
   const available = project?.manifest.engine === "lualatex";
   const rootDocuments = project?.manifest.rootDocuments;
-  const rootDocument = (rootDocuments?.find((document) => document.isDefault) ?? rootDocuments?.[0])?.path ?? null;
-  // rtex typesets from the project folder, latexmk from the document's own
-  // (-cd): a document in a subfolder would come out with its bibliography and
-  // other relative paths missing, drawn over the build's pages. Its PDF is
-  // the build's alone, and Settings says why.
-  const subfolderDocument = rootDocument?.includes("/") ? rootDocument : null;
-  const mainFile = subfolderDocument ? null : rootDocument;
+  const mainFile = (rootDocuments?.find((document) => document.isDefault) ?? rootDocuments?.[0])?.path ?? null;
   const [enabledFor, setEnabledFor] = useState<{ root: string | null; enabled: boolean }>({ root: null, enabled: false });
   const enabled = enabledFor.root === root ? enabledFor.enabled : Boolean(root && loadLivePreviewEnabled(root));
   if (enabledFor.root !== root) setEnabledFor({ root, enabled });
@@ -165,8 +158,8 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
   // One identity while nothing here changes: the PDF panel and Settings take
   // it, and typing re-renders App on every keystroke.
   return useMemo(
-    () => ({ available, enabled, subfolderDocument, state, setEnabled, retry, remove, buildHooks }),
-    [available, enabled, remove, retry, setEnabled, state, subfolderDocument],
+    () => ({ available, enabled, state, setEnabled, retry, remove, buildHooks }),
+    [available, enabled, remove, retry, setEnabled, state],
   );
 }
 
