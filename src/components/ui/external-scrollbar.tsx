@@ -32,8 +32,13 @@ function applyThumb(track: HTMLElement | null, axis: ScrollAxisGeometry) {
  * The native scrollbar must be hidden by the owner-specific stylesheet.
  * React renders it only when the track's box or which ends have more to show
  * change; a scroll moves the thumb and reveals the bar in the DOM.
+ * `getHoverArea` widens where a pointer reveals the bar past the viewport,
+ * for content drawn over it from outside, such as the file tree's pinned folders.
  */
-export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElement | null }) {
+export function ExternalScrollbar({ getViewport, getHoverArea }: {
+  getViewport: () => HTMLElement | null;
+  getHoverArea?: (viewport: HTMLElement) => HTMLElement | null;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState(EMPTY_BOX);
   const [flags, setFlags] = useState(NO_OVERFLOW);
@@ -64,8 +69,9 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
   const watch = useCallback((viewport: HTMLElement, scheduleMeasure: () => void) => {
     const markHovering = () => setHovering(true);
     const clearHovering = () => setHovering(false);
-    viewport.addEventListener("pointerenter", markHovering);
-    viewport.addEventListener("pointerleave", clearHovering);
+    const hoverArea = getHoverArea?.(viewport) ?? viewport;
+    hoverArea.addEventListener("pointerenter", markHovering);
+    hoverArea.addEventListener("pointerleave", clearHovering);
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
     const observed = [
       viewport,
@@ -80,12 +86,12 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
     const mutationObserver = root instanceof ShadowRoot ? new MutationObserver(scheduleMeasure) : null;
     mutationObserver?.observe(root, { attributes: true, attributeFilter: ["style"], childList: true, subtree: true });
     return () => {
-      viewport.removeEventListener("pointerenter", markHovering);
-      viewport.removeEventListener("pointerleave", clearHovering);
+      hoverArea.removeEventListener("pointerenter", markHovering);
+      hoverArea.removeEventListener("pointerleave", clearHovering);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
     };
-  }, []);
+  }, [getHoverArea]);
 
   const setScrolling = useCallback((scrolling: boolean) => {
     trackRef.current?.toggleAttribute("data-scrolling", scrolling);

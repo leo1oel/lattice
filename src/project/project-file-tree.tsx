@@ -72,6 +72,9 @@ export type ProjectFileTreeProps = {
   assetImporting: boolean;
 };
 
+/** The patched Pierre draws the pinned folders over the scroller from its parent. */
+const treeScrollFrame = (viewport: HTMLElement) => viewport.parentElement;
+
 function findPierreItemPath(event: { nativeEvent: Event }): string | null {
   for (const target of event.nativeEvent.composedPath()) {
     if (target instanceof HTMLElement && target.dataset.itemPath) return target.dataset.itemPath;
@@ -455,7 +458,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
                 }}
                 onClickCapture={pointerDrag.onClickCapture}
               />
-              <ExternalScrollbar getViewport={getTreeScrollViewport} />
+              <ExternalScrollbar getViewport={getTreeScrollViewport} getHoverArea={treeScrollFrame} />
               <ProjectTreeHover getViewport={getTreeScrollViewport} />
             </div>
           </ContextMenuTrigger>

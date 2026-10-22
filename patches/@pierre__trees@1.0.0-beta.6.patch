@@ -38,7 +38,7 @@ index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..ce3f101fc8401dd89c5c77b3335c959a
  		const expandedPaths = this.#searchMode === "expand-matches" ? new Set(this.#searchPreviousExpandedPaths ?? []) : /* @__PURE__ */ new Set();
  		for (const matchingPath of matchingPaths) {
 diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
-index 7d3b818c43a7621ab9170da32b180232ed3c9472..38ee8d3eb29ede34eecf57bd59cedd5b35c9e9ac 100644
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..0500fbec658fe4754221c561de01e40f71eebbc6 100644
 --- a/dist/render/FileTreeView.js
 +++ b/dist/render/FileTreeView.js
 @@ -462,7 +462,6 @@ function renderStyledRow(frame, row, key, options = {}) {
@@ -130,7 +130,106 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..38ee8d3eb29ede34eecf57bd59cedd5b
  					onBlur: () => {
  						if (searchBlurBehavior === "retain" && !searchInputUserInteractedRef.current) return;
  						controller.closeSearch();
-@@ -1836,14 +1862,26 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+@@ -1821,14 +1847,94 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 				})
+ 			}) : null,
+ 			/* @__PURE__ */ jsxs("div", {
+-				ref: scrollRef,
+-				"data-file-tree-virtualized-scroll": "true",
+-				children: [stickyFolders && hasStickyUiMount && stickyRows.length > 0 ? /* @__PURE__ */ jsx("div", {
++				// Lattice patch: the pinned folders sit in this frame over the
++				// scroller instead of sticking inside it, and the scroller is
++				// clipped where they end (--trees-sticky-overlay-height, which the
++				// host's stylesheet applies). A clip on the scroller's own box
++				// stays put while WebKit's scrolling thread moves the rows;
++				// one in the list's coordinates, set as each scroll renders,
++				// trails a fast scroll by a frame and let rows draw through
++				// the pinned folders of a translucent panel. Inside the scroller
++				// the folders would be clipped with the rows.
++				"data-file-tree-virtualized-scroll-frame": "true",
++				style: {
++					display: "flex",
++					flex: "1 1 0",
++					flexDirection: "column",
++					minHeight: "0",
++					position: "relative",
++					"--trees-sticky-overlay-height": `${stickyFolders && hasStickyUiMount && stickyRows.length > 0 ? overlayRowsHeight : 0}px`
++				},
++				children: [/* @__PURE__ */ jsx("div", {
++					ref: scrollRef,
++					"data-file-tree-virtualized-scroll": "true",
++					children: /* @__PURE__ */ jsxs("div", {
++						ref: listRef,
++						"data-file-tree-virtualized-list": "true",
++						style: { height: `${totalScrollableHeight}px` },
++						children: [/* @__PURE__ */ jsx("div", {
++							"data-file-tree-virtualized-sticky-offset": "true",
++							"aria-hidden": "true",
++							style: { height: `${windowOffsetTop}px` }
++						}), /* @__PURE__ */ jsxs("div", {
++							"data-file-tree-virtualized-sticky": "true",
++							style: {
++								height: `${windowHeight}px`,
++								top: `${windowStickyTopInset}px`,
++								bottom: `${windowStickyBottomInset}px`
++							},
++							children: [
++								renderRangeChildren(flowRowFrame, range, stickyRowPathSet),
++								parkedFocusedRow != null && parkedFocusedRowOffset != null ? renderStyledRow(flowRowFrame, parkedFocusedRow, `parked:${parkedFocusedRow.path}`, {
++									isParked: true,
++									style: {
++										left: "0",
++										opacity: "0",
++										pointerEvents: draggedPrimaryPath === parkedFocusedRow.path ? "none" : void 0,
++										position: "absolute",
++										right: "0",
++										top: `${parkedFocusedRowOffset}px`
++									}
++								}) : null,
++								parkedDraggedRow != null && parkedDraggedRowOffset != null ? renderStyledRow(flowRowFrame, parkedDraggedRow, `parked-drag:${parkedDraggedRow.path}`, {
++									isParked: true,
++									style: {
++										left: "0",
++										opacity: "0",
++										pointerEvents: "none",
++										position: "absolute",
++										right: "0",
++										top: `${parkedDraggedRowOffset}px`
++									}
++								}) : null
++							]
++						})]
++					})
++				}), stickyFolders && hasStickyUiMount && stickyRows.length > 0 ? /* @__PURE__ */ jsx("div", {
+ 					"aria-hidden": "true",
+ 					"data-file-tree-sticky-overlay": "true",
++					// Lattice patch: outside the scroller, a wheel here would scroll
++					// nothing, so it scrolls the tree as the external scrollbar's
++					// does. The content takes it even while Pierre stops the pinned
++					// rows hit-testing mid-scroll, so a second fling over them lands.
++					onWheel: (event) => {
++						const scrollElement = scrollRef.current;
++						if (scrollElement == null || event.ctrlKey) return;
++						event.preventDefault();
++						scrollElement.scrollTop += event.deltaY;
++					},
++					style: {
++						left: "0",
++						position: "absolute",
++						right: "0",
++						top: "0"
++					},
+ 					children: /* @__PURE__ */ jsx("div", {
+ 						"data-file-tree-sticky-overlay-content": "true",
+-						style: { height: `${overlayRowsHeight}px` },
++						style: {
++							height: `${overlayRowsHeight}px`,
++							pointerEvents: "auto"
++						},
+ 						children: stickyRows.map((entry, index) => renderStyledRow(stickyRowFrame, entry.row, `sticky:${getFileTreeRowPath(entry.row)}`, {
+ 							mode: "sticky",
+ 							style: {
+@@ -1836,52 +1942,15 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
  								position: "absolute",
  								right: "0",
  								top: `${entry.top}px`,
@@ -143,19 +242,49 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..38ee8d3eb29ede34eecf57bd59cedd5b
  							}
  						}))
  					})
- 				}) : null, /* @__PURE__ */ jsxs("div", {
- 					ref: listRef,
- 					"data-file-tree-virtualized-list": "true",
+-				}) : null, /* @__PURE__ */ jsxs("div", {
+-					ref: listRef,
+-					"data-file-tree-virtualized-list": "true",
 -					style: { height: `${totalScrollableHeight}px` },
-+					// Lattice patch: where the pinned folders end, in the list's own
-+					// coordinates, so the host can clip the rows scrolling beneath them
-+					// rather than only cover them with the overlay's background, which
-+					// a translucent panel leaves see-through. Set in the same render as
-+					// the overlay, so the edge follows a pinned folder pushed up.
-+					style: {
-+						height: `${totalScrollableHeight}px`,
-+						"--trees-sticky-overlay-bottom": `${layoutSnapshot.physical.scrollTop + (stickyFolders && hasStickyUiMount && stickyRows.length > 0 ? overlayRowsHeight : 0)}px`
-+					},
- 					children: [/* @__PURE__ */ jsx("div", {
- 						"data-file-tree-virtualized-sticky-offset": "true",
- 						"aria-hidden": "true",
+-					children: [/* @__PURE__ */ jsx("div", {
+-						"data-file-tree-virtualized-sticky-offset": "true",
+-						"aria-hidden": "true",
+-						style: { height: `${windowOffsetTop}px` }
+-					}), /* @__PURE__ */ jsxs("div", {
+-						"data-file-tree-virtualized-sticky": "true",
+-						style: {
+-							height: `${windowHeight}px`,
+-							top: `${windowStickyTopInset}px`,
+-							bottom: `${windowStickyBottomInset}px`
+-						},
+-						children: [
+-							renderRangeChildren(flowRowFrame, range, stickyRowPathSet),
+-							parkedFocusedRow != null && parkedFocusedRowOffset != null ? renderStyledRow(flowRowFrame, parkedFocusedRow, `parked:${parkedFocusedRow.path}`, {
+-								isParked: true,
+-								style: {
+-									left: "0",
+-									opacity: "0",
+-									pointerEvents: draggedPrimaryPath === parkedFocusedRow.path ? "none" : void 0,
+-									position: "absolute",
+-									right: "0",
+-									top: `${parkedFocusedRowOffset}px`
+-								}
+-							}) : null,
+-							parkedDraggedRow != null && parkedDraggedRowOffset != null ? renderStyledRow(flowRowFrame, parkedDraggedRow, `parked-drag:${parkedDraggedRow.path}`, {
+-								isParked: true,
+-								style: {
+-									left: "0",
+-									opacity: "0",
+-									pointerEvents: "none",
+-									position: "absolute",
+-									right: "0",
+-									top: `${parkedDraggedRowOffset}px`
+-								}
+-							}) : null
+-						]
+-					})]
+-				})]
++				}) : null]
+ 			}),
+ 			contextMenuEnabled ? /* @__PURE__ */ jsxs("div", {
+ 				ref: contextMenuAnchorRef,

@@ -127,13 +127,43 @@ const treeHitsAt = async (driver, top, heights) => {
   await driver.nextFrame();
   await driver.waitFor(`!${TREE_ROOT}.querySelector("[data-is-scrolling]")`, { timeout: 5_000, what: "the tree to settle" });
   await driver.nextFrame();
-  return driver.evaluate(`(() => {
-    const root = ${TREE_ROOT};
-    const view = ${TREE_SCROLLER}.getBoundingClientRect();
-    return ${JSON.stringify(heights)}.map((y) => [...new Set(root.elementsFromPoint(view.left + view.width * 0.6, view.top + y)
-      .map((node) => node.closest('[data-type="item"]')).filter(Boolean))]
-      .map((row) => (row.dataset.fileTreeStickyRow === "true" ? "pinned:" : "") + row.dataset.itemPath));
+  return treeHits(driver, heights);
+};
+
+const treeHits = (driver, heights) => driver.evaluate(`(() => {
+  const root = ${TREE_ROOT};
+  const view = ${TREE_SCROLLER}.getBoundingClientRect();
+  return ${JSON.stringify(heights)}.map((y) => [...new Set(root.elementsFromPoint(view.left + view.width * 0.6, view.top + y)
+    .map((node) => node.closest('[data-type="item"]')).filter(Boolean))]
+    .map((row) => (row.dataset.fileTreeStickyRow === "true" ? "pinned:" : "") + row.dataset.itemPath));
+})()`);
+
+/**
+ * A fling as WebKit runs it: its scrolling thread moves the rows each frame
+ * before the tree has rendered for the scroll, which a browser without that
+ * thread never shows. Holding back the tree's scroll listener stands in for
+ * it. Moves the rows `step` px a frame and lists, per frame, the rows hit at
+ * each height as treeHitsAt does.
+ */
+const treeFlingHits = async (driver, step, frames, heights) => {
+  await driver.evaluate(`(() => {
+    const scroller = ${TREE_SCROLLER};
+    window.__benchHoldTreeScroll = (event) => {
+      if (event.target === scroller) event.stopImmediatePropagation();
+    };
+    scroller.parentElement.addEventListener("scroll", window.__benchHoldTreeScroll, true);
   })()`);
+  const samples = [];
+  try {
+    for (let frame = 0; frame < frames; frame += 1) {
+      await driver.evaluate(`${TREE_SCROLLER}.scrollTop += ${step}`);
+      await driver.nextFrame();
+      samples.push(await treeHits(driver, heights));
+    }
+  } finally {
+    await driver.evaluate(`${TREE_SCROLLER}.parentElement.removeEventListener("scroll", window.__benchHoldTreeScroll, true)`);
+  }
+  return samples;
 };
 
 /** Where a row of the tree's list starts, in the list's own coordinates. */
@@ -361,10 +391,10 @@ export const LAYOUT_CHECKS = [
       if (copied !== parked) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${parked.length}`);
     },
   },
-  ...["light", "dark"].map((theme) => ({
-    name: `tree-pinned-folders-${theme}`,
-    description: `A translucent window in ${theme}, the Project tree scrolled four folders deep: the rows scrolling beneath the pinned folders never show through them, and the next folder slides the last pinned one under its parent.`,
-    query: { tree: "nested", glass: "subtle", theme },
+  ...[["light", "subtle"], ["dark", "subtle"], ["light", null]].map(([theme, glass]) => ({
+    name: `tree-pinned-folders-${glass ? theme : "opaque"}`,
+    description: `${glass ? "A translucent" : "An opaque"} window in ${theme}, the Project tree scrolled four folders deep: the rows scrolling beneath the pinned folders never show through them, not even on a fling's frames before the tree renders for them, the next folder slides the last pinned one under its parent, and a wheel over the pinned folders scrolls the tree.`,
+    query: { tree: "nested", theme, ...(glass && { glass }) },
     width: 1280,
     height: 800,
     async run(driver) {
@@ -372,7 +402,7 @@ export const LAYOUT_CHECKS = [
       // web first: once drive is open, web is far below the fold.
       for (const folder of [cv, sop, samples, web, drive]) await driver.click(treeFolder(folder));
       // A translucent window clears --trees-bg, the pinned folders' only fill.
-      if (!(await driver.evaluate("document.documentElement.dataset.glass"))) throw new Error("the window is not translucent");
+      if (!(await driver.evaluate("document.documentElement.dataset.glass")) !== !glass) throw new Error(`the window is ${glass ? "not " : ""}translucent`);
       const row = await driver.evaluate(`${TREE_ROOT}.querySelector('[data-item-path="cv/"]').offsetHeight`);
       await treeHitsAt(driver, 0, []);
       const driveTop = await treeRowTop(driver, drive);
@@ -400,6 +430,20 @@ export const LAYOUT_CHECKS = [
       expect(pushed[0], 2.75 * row, "pinned:" + samples, `drive pushed up, scrolled ${pushedAt}px`);
       expect(pushed[1], 3.25 * row, "pinned:" + drive, `drive pushed up, scrolled ${pushedAt}px`);
       if (pushed[2][0] !== web) throw new Error(`below the pushed drive the pointer finds ${pushed[2][0] ?? "nothing"}, not web`);
+
+      // A fling down through drive, sampled each frame: the rows run more than
+      // the whole stack's height ahead of the render that would move the clip.
+      await treeHitsAt(driver, pinnedAt, []);
+      const flung = await treeFlingHits(driver, row * 0.75, 8, [0.5, 1.5, 2.5, 3.5].map((slot) => slot * row));
+      flung.forEach((frame, index) => [cv, sop, samples, drive].forEach((path, slot) => {
+        expect(frame[slot], (slot + 0.5) * row, "pinned:" + path, `frame ${index + 1} of a fling, before the tree renders for it`);
+      }));
+
+      // The pinned folders sit outside the scroller, which forwards their wheel.
+      const before = await treeHitsAt(driver, pinnedAt, []).then(() => driver.evaluate(`${TREE_SCROLLER}.scrollTop`));
+      await driver.wheel(`file-tree-container.lattice-file-tree >>> [data-file-tree-sticky-row="true"][data-item-path="${sop}"]`, row * 2, 1);
+      const after = await driver.evaluate(`${TREE_SCROLLER}.scrollTop`);
+      if (after <= before) throw new Error(`a wheel over the pinned sop left the tree at ${after}px, not below ${before}px`);
     },
   })),
 ];
