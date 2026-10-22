@@ -29,6 +29,9 @@ const change = (overrides: Partial<TrackedChange> = {}): TrackedChange => ({
   id: "c1", position: 6, text: "world", deletion: false, userId: "user-1", timestamp: "2026-07-01T10:00:00.000Z", hue: 200, ...overrides,
 });
 
+/** "quick " suggested away from "The quick brown fox", which now reads "The brown fox". */
+const removedQuick = change({ id: "del", position: 4, text: "quick ", deletion: true });
+
 const actions = (overrides: Partial<TrackedChangeTooltipActions> = {}): TrackedChangeTooltipActions => ({
   authorName: () => "Ada Lovelace", canAct: () => true, onAccept: vi.fn(), onReject: vi.fn(), ...overrides,
 });
@@ -101,32 +104,59 @@ describe("suggestion spans", () => {
     expect(trackedChangeContext("the quick brown fox jumps", change({ position: 4, text: "quick" }), 3))
       .toEqual({ prefix: "he ", quote: "quick", suffix: " br" });
   });
+
+  // Overleaf's model: a suggested deletion's text has left the document. It
+  // is a point, and treating it as a span struck through and quoted whatever
+  // came after it ("brown " below) instead of the removed "quick ".
+  it("give a deletion the empty span at its point, hit only there, and quote the removed text", () => {
+    const after = docOf("The brown fox");
+    expect(trackedChangeRange(after, removedQuick)).toEqual({ from: 4, to: 4 });
+    expect([3, 4, 5].map((pos) => trackedChangesAtPosition(after, [removedQuick], pos).length)).toEqual([0, 1, 0]);
+    expect(trackedChangeContext("The brown fox", removedQuick, 4)).toEqual({ prefix: "The ", quote: "quick ", suffix: "brow" });
+    // A deletion at the very end of the text still has a point to stand on.
+    expect(trackedChangeRange(docOf("The "), removedQuick)).toEqual({ from: 4, to: 4 });
+  });
 });
 
 describe("buildTrackedChangeDecorations", () => {
-  const doc = docOf("hello world, goodbye now");
+  const doc = docOf("hello world, now");
 
-  it("marks an insertion and a deletion differently, each in its author's hue, skipping one the text is too short for", () => {
-    const seen = new Map<string, { className: string; style: string }>();
+  it("marks an insertion and draws a deletion's removed text at its point, each in its author's hue, skipping one the text is too short for", () => {
+    const marks = new Map<string, { from: number; to: number; className: string; style: string }>();
+    const widgets: { from: number; to: number; dom: HTMLElement }[] = [];
     buildTrackedChangeDecorations(doc, [
       change({ id: "ins", position: 6, text: "world", hue: 120 }),
-      change({ id: "del", position: 13, text: "goodbye", deletion: true, hue: 0 }),
+      change({ id: "del", position: 13, text: "goodbye ", deletion: true, hue: 0 }),
       change({ id: "stale", position: 999 }),
-    ]).between(0, doc.length, (_from, _to, deco) => {
-      const spec = deco.spec as { class: string; attributes: Record<string, string> };
-      seen.set(spec.attributes["data-change-id"]!, { className: spec.class, style: spec.attributes.style! });
+    ]).between(0, doc.length, (from, to, deco) => {
+      const spec = deco.spec as { class?: string; attributes?: Record<string, string>; widget?: { toDOM: () => HTMLElement } };
+      if (spec.widget) widgets.push({ from, to, dom: spec.widget.toDOM() });
+      else marks.set(spec.attributes!["data-change-id"]!, { from, to, className: spec.class!, style: spec.attributes!.style! });
     });
-    expect([...seen.keys()]).toEqual(["ins", "del"]);
-    const insertion = seen.get("ins")!;
-    const deletion = seen.get("del")!;
-    expect(insertion.className).toBe("cm-tracked-change-insert");
+    expect([...marks.keys()]).toEqual(["ins"]);
+    const insertion = marks.get("ins")!;
+    expect(insertion).toMatchObject({ from: 6, to: 11, className: "cm-tracked-change-insert" });
     expect(insertion.style).toContain("border-bottom");
     expect(insertion.style).not.toContain("line-through");
     expect(insertion.style).toContain("hsl(120");
-    expect(deletion.className).toBe("cm-tracked-change-delete");
-    expect(deletion.style).toContain("line-through");
-    expect(deletion.style).not.toContain("border-bottom");
-    expect(deletion.style).toContain("hsl(0");
+    // The deletion covers none of the document's text ("now" stays plain).
+    expect(widgets).toHaveLength(1);
+    const [{ from, to, dom }] = widgets as [typeof widgets[number]];
+    expect([from, to]).toEqual([13, 13]);
+    expect(dom.className).toBe("cm-tracked-change-delete");
+    expect(dom.textContent).toBe("goodbye ");
+    expect(dom.dataset.changeId).toBe("del");
+    expect(dom.getAttribute("style")).toContain("line-through");
+    expect(dom.getAttribute("style")).toContain("hsl(0");
+  });
+
+  it("strikes through the removed words in the editor, not the words that follow them", () => {
+    const view = mountView("The brown fox", overleafTrackChangesExtension({ ...actions(), getChanges: () => [removedQuick] }));
+    expect(view.dom.querySelector(".cm-tracked-change-delete")?.textContent).toBe("quick ");
+    expect(view.dom.querySelector(".cm-tracked-change-insert")).toBeNull();
+    expect(view.state.doc.toString()).toBe("The brown fox");
+    expect(view.contentDOM.textContent).toBe("The quick brown fox");
+    view.destroy();
   });
 });
 

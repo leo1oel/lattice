@@ -7,13 +7,20 @@
  */
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { transformSpan, type OtDocument, type OtOp } from "./ot";
+import { changesAfter, type Suggester } from "./overleaf-suggestions";
 
 export type DocEntry = { id: string; path: string };
 /** One entity in the project, with the id Overleaf's own endpoints take. */
 export type EntityEntry = { id: string; path: string; kind: "doc" | "file" | "folder" };
 /** What this account may do to the project, as Overleaf reports it. */
 export type OverleafPermission = "owner" | "readAndWrite" | "review" | "readOnly" | "unknown";
-export type JoinedProject = { publicId: string | null; docs: DocEntry[]; entities: EntityEntry[]; permission: OverleafPermission };
+export type JoinedProject = {
+  publicId: string | null; docs: DocEntry[]; entities: EntityEntry[]; permission: OverleafPermission;
+  /** Overleaf's track-changes setting for this account: whether our edits go out as suggestions. */
+  trackChanges?: boolean;
+  /** Our account, and the colour our suggestions are drawn in. */
+  userId?: string | null; ownHue?: number;
+};
 /** Where a comment thread is anchored in the open document. */
 export type CommentRange = { threadId: string; position: number; quote: string };
 export type OverleafCommentTarget = { projectRoot: string; docId: string; path: string };
@@ -45,7 +52,8 @@ export type JoinedDoc = {
   resumed: boolean;
 };
 
-export type DocUpdateEvent = { type: "docUpdate"; docId: string } & ReplayedUpdate;
+/** `suggestedBy` is set when the update was sent as a suggestion. */
+export type DocUpdateEvent = { type: "docUpdate"; docId: string; suggestedBy?: Suggester } & ReplayedUpdate;
 export type OverleafRemoteTextContext = {
   projectRoot: string;
   path: string;
@@ -80,6 +88,8 @@ export const OVERLEAF_NOT_CONNECTED = "Not connected to Overleaf";
 export const PROJECT_CHANGED = "project changed";
 export const PROJECT_NOT_LINKED = "not linked";
 export const NEWER_OVERLEAF_CONNECTION = "newer Overleaf connection";
+/** overleaf_rt.rs's PROJECT_ACCESS_LOST: removed from the project, or it was deleted. */
+export const OVERLEAF_PROJECT_ACCESS_LOST = "can no longer open the project";
 /* eslint-enable lingui/no-unlocalized-strings */
 export const isOverleafProjectRefusal = (reason: string) => mentionsAny(reason, [OVERLEAF_SESSION_STILL_VALID]);
 
@@ -87,8 +97,10 @@ export const isOverleafProjectRefusal = (reason: string) => mentionsAny(reason, 
 export function shouldRetryConnection(reason: string): boolean {
   // The regex's words also catch what Overleaf's servers and the realtime
   // handshake say in their own words, so no Rust source pins them.
-  return !mentionsAny(reason, [OVERLEAF_NOT_CONNECTED, PROJECT_CHANGED, PROJECT_NOT_LINKED, NEWER_OVERLEAF_CONNECTION])
-    && !/session expired|cookie|sign.?in|authentication|unauthorized|forbidden|permission|invalid project/i.test(reason);
+  // "not authorized" and "project not found" are how the realtime server
+  // turns away an account removed from the project, or a deleted project.
+  return !mentionsAny(reason, [OVERLEAF_NOT_CONNECTED, PROJECT_CHANGED, PROJECT_NOT_LINKED, NEWER_OVERLEAF_CONNECTION, OVERLEAF_PROJECT_ACCESS_LOST])
+    && !/session expired|cookie|sign.?in|authentication|unauthori[sz]ed|not authori[sz]ed|forbidden|permission|invalid project|project not found/i.test(reason);
 }
 
 /**
@@ -119,22 +131,16 @@ export function promoteShared(doc: OtDocument, proof: DocumentProof | undefined)
  * the operations that move the text. Without this they drift, and a drifted
  * suggestion is worse than a misplaced highlight: accepting or rejecting one
  * applies to a range, so it would rewrite text nobody proposed touching.
- * Applies to our own typing as much as to anyone else's.
+ * Applies to our own typing as much as to anyone else's; `by` names who sent
+ * `ops` as suggestions, when they were (see ./overleaf-suggestions).
  */
-export function anchorsAfter(current: OpenDoc, ops: OtOp[]): Pick<OpenDoc, "comments" | "changes"> {
+export function anchorsAfter(current: OpenDoc, ops: OtOp[], by: Suggester | null = null): Pick<OpenDoc, "comments" | "changes"> {
   return {
     comments: current.comments.map((comment) => {
       const from = transformSpan({ from: comment.position, length: comment.quote.length }, ops).from;
       return from === comment.position ? comment : { ...comment, position: from };
     }),
-    // A suggestion whose text was deleted outright has nothing left to accept
-    // or reject; dropping it is better than offering a button that would act
-    // on whatever moved into its place.
-    changes: current.changes.flatMap((change) => {
-      const moved = transformSpan({ from: change.position, length: change.text.length }, ops);
-      if (moved.length <= 0) return [];
-      return [moved.from === change.position ? change : { ...change, position: moved.from }];
-    }),
+    changes: changesAfter(current.changes, ops, by),
   };
 }
 

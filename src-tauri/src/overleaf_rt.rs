@@ -51,12 +51,14 @@ mod client;
 mod codec;
 mod events;
 #[cfg(test)]
+mod suggestion_tests;
+#[cfg(test)]
 pub(crate) mod tests;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
 pub use codec::Submission;
-pub(crate) use events::parse_comment_ranges;
+pub(crate) use events::{parse_comment_ranges, presence_hue};
 pub use events::{
     EntityEntry, JoinedDoc, OtOp, Permission, PresenceUser, RealtimeEvent, TrackedChange,
 };
@@ -71,3 +73,7 @@ pub(crate) const NOT_CONNECTED: &str = "Not connected to Overleaf. Connect in Se
 /// session: retried a few times, then reported as this project's access.
 pub(crate) const SESSION_STILL_VALID: &str =
     "Overleaf turned this request away, though the session is still valid.";
+/// The realtime server refused the project itself: this account was removed
+/// from it, or it was deleted. Not worth retrying.
+pub(crate) const PROJECT_ACCESS_LOST: &str =
+    "This Overleaf account can no longer open the project. It may have been removed from the project, or the project deleted.";

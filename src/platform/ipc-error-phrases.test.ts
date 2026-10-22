@@ -20,6 +20,7 @@ import {
 import {
   NEWER_OVERLEAF_CONNECTION,
   OVERLEAF_NOT_CONNECTED,
+  OVERLEAF_PROJECT_ACCESS_LOST,
   OVERLEAF_SESSION_EXPIRED,
   OVERLEAF_SESSION_STILL_VALID,
   PROJECT_CHANGED,
@@ -37,6 +38,7 @@ const PHRASES: [phrase: string, rustSource: string][] = [
   [OVERLEAF_SESSION_EXPIRED, "overleaf_rt.rs"],
   [OVERLEAF_NOT_CONNECTED, "overleaf_rt.rs"],
   [OVERLEAF_SESSION_STILL_VALID, "overleaf_rt.rs"],
+  [OVERLEAF_PROJECT_ACCESS_LOST, "overleaf_rt.rs"],
   [PROJECT_CHANGED, "ipc.rs"],
   [PROJECT_NOT_LINKED, "overleaf/link.rs"],
   [NEWER_OVERLEAF_CONNECTION, "ipc/overleaf_realtime.rs"],

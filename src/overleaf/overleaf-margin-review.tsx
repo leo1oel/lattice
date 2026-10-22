@@ -127,7 +127,7 @@ export function OverleafMarginReview(props: OverleafThreadActions & {
       key: `comment:${comment.thread.id}`, kind: "comment", from: comment.from, to: comment.to, color: comment.color, comment,
     })),
     ...props.changes.map((change): Item => ({
-      key: `change:${change.id}`, kind: "change", from: change.position, to: change.position + change.text.length,
+      key: `change:${change.id}`, kind: "change", from: change.position, to: change.position + (change.deletion ? 0 : change.text.length),
       color: `hsl(${change.hue}, 70%, 50%)`, change,
     })),
   ].sort((a, b) => a.from - b.from || a.key.localeCompare(b.key));

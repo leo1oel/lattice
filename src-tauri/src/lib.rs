@@ -550,6 +550,7 @@ pub fn run() {
             ipc::overleaf_realtime::overleaf_rt_connected_users,
             ipc::overleaf_realtime::overleaf_rt_update_position,
             ipc::overleaf_realtime::overleaf_rt_send_ops,
+            ipc::overleaf_realtime::overleaf_rt_doc_ranges,
             ipc::overleaf_realtime::overleaf_rt_send_comment,
             ipc::overleaf_realtime::overleaf_reject_changes,
             link_preview::link_preview,

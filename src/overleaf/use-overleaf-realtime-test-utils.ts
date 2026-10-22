@@ -14,11 +14,16 @@ import { useOverleafRealtime } from "./use-overleaf-realtime";
 export const DOC_A = "doc-a";
 export const DOC_B = "doc-b";
 export const DOC_MD = "doc-md";
+/** Our own account, and the colour Overleaf gives it. */
+export const OWN_USER_ID = "me-user";
+export const OWN_HUE = 210;
 
 /** What the mocked backend answers; reset before each test, varied by the tests that need to. */
 export const freshBackend = () => ({
   /** What Overleaf says this account may do. */
   permission: "readAndWrite",
+  /** Overleaf's track-changes setting for this account when we connect. */
+  trackChanges: false,
   /** The public connection id returned by the connect call, when known. */
   publicId: "me" as string | null,
   /** Simulate a server commit whose acknowledgement never reaches the command. */
@@ -81,11 +86,17 @@ export function resetRealtimeBackend() {
         backend.connectFailures -= 1;
         throw new Error(backend.connectError);
       }
-      return { publicId: backend.publicId, docs: [{ id: DOC_A, path: "a.tex" }, { id: DOC_B, path: "b.tex" }], entities: [], permission: backend.permission };
+      return {
+        publicId: backend.publicId, docs: [{ id: DOC_A, path: "a.tex" }, { id: DOC_B, path: "b.tex" }], entities: [],
+        permission: backend.permission, trackChanges: backend.trackChanges, userId: OWN_USER_ID, ownHue: OWN_HUE,
+      };
     },
     overleaf_rt_join_doc: ({ docId, fromVersion }: { docId: string; fromVersion: number | null }) =>
       backend.deferredJoin?.docId === docId ? backend.deferredJoin.promise : joinAnswer(docId, fromVersion ?? null),
     overleaf_rt_send_ops: () => { if (backend.loseSendAck) throw new Error("ack lost"); },
+    // Reading a document's ranges back: what the server holds now, at the version asked about.
+    overleaf_rt_doc_ranges: ({ version }: { version: number }) =>
+      ({ text: "", version, ...backend.anchors, caughtUp: [], resumed: true }),
     overleaf_rt_leave_doc: () => backend.holdLeaves
       ? new Promise((_, reject) => { backend.heldLeaves.push(reject); })
       : undefined,

@@ -250,7 +250,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | `src-tauri/src/papers.rs` + `papers/` | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
 | `src/editor/latex/latex-editor.ts` | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, by `useOptionalKeymapExtensions` in `src/canvas/editor-extensions.ts`.) |
 | `src/editor/spreadsheet/spreadsheet-editor.tsx` | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
-| `src/overleaf/use-overleaf-realtime.ts` | The frontend half of the Overleaf realtime bridge: op queue, versions, tracked changes. |
+| `src/overleaf/use-overleaf-realtime.ts` | The frontend half of the Overleaf realtime bridge: op queue, versions. The open document's comment anchors and tracked changes are `use-open-doc-review.ts`, the rules that move them `overleaf-suggestions.ts`. |
 | `src/app/use-overleaf-workspace.ts` | The Overleaf workspace state extracted from `App.tsx`. |
 
 Honourable mention: `src-tauri/src/git.rs` with `git/parse.rs`. The PDF viewer, the project

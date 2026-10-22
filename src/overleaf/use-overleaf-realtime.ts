@@ -19,10 +19,12 @@ import { toMessage } from "../app-utils";
 import { i18n } from "../i18n";
 import { OtDocument, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
+import type { Suggester } from "./overleaf-suggestions";
+import { useOpenDocReview } from "./use-open-doc-review";
 import {
-  anchorsAfter, isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
+  isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
-  type JoinedProject, type OpenDoc, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
+  type JoinedProject, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
   type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
 } from "./overleaf-realtime-model";
 
@@ -68,7 +70,6 @@ export function useOverleafRealtime(options: {
   const [liveFile, setLiveFile] = useState(false);
   // See `publishUnacknowledged`.
   const [unacknowledged, setUnacknowledged] = useState(false);
-  const [openDoc, setOpenDoc] = useState<OpenDoc | null>(null);
   // Bumped to re-join the open document, which is how the suggestion list is
   // re-read: accepting one is an endpoint, not an operation, so nothing on the
   // channel would otherwise tell us the ranges moved.
@@ -174,13 +175,13 @@ export function useOverleafRealtime(options: {
     if (send) void flushRef.current(id, send, send.dupIfSource);
   };
   const deliveryPending = (doc: OtDocument | null | undefined) => Boolean(doc && remoteDeliveries.current.get(doc)?.pending);
-  const patchOpenDoc = useCallback((id: string, patch: (current: OpenDoc) => Partial<OpenDoc> | null) => {
-    setOpenDoc((current) => {
-      if (!current || current.id !== id) return current;
-      const next = patch(current);
-      return next ? { ...current, ...next } : current;
-    });
-  }, []);
+  const { openDoc, setOpenDoc, patchOpenDoc, shiftAnchors, onReviewEvent, noteProject, suggester } = useOpenDocReview((id) => {
+    const doc = documents.current.get(id);
+    const projectRoot = connectionRoot.current;
+    const typing = sendTimer.current !== null || unsentText.current !== null;
+    return doc && projectRoot && docId.current === id && doc.settled && !typing && !deliveryPending(doc)
+      && !uncertain.current.has(id) && !leaving.current.has(id) ? { doc, projectRoot } : null;
+  });
   const clearSendTimer = () => {
     if (sendTimer.current) clearTimeout(sendTimer.current);
     sendTimer.current = null;
@@ -334,7 +335,7 @@ export function useOverleafRealtime(options: {
       if (!held || held.settled) release(previous);
       else markOutcomeUnknown(previous, i18n._(msg`the acknowledgement did not arrive in time`));
     }, DRAIN_TIMEOUT_MS));
-  }, [markOutcomeUnknown, publishUnacknowledged, release]);
+  }, [markOutcomeUnknown, publishUnacknowledged, release, setOpenDoc]);
 
   /** Every document goes, on the way to shutting the connection down. */
   const stopEverything = useCallback(() => {
@@ -407,7 +408,7 @@ export function useOverleafRealtime(options: {
       publishUnacknowledged();
     }
     release(id);
-  }, [publishUnacknowledged, release]);
+  }, [publishUnacknowledged, release, setOpenDoc]);
 
   // OT advances synchronously, but checking/writing the disk crosses IPC. Keep
   // deliveries ordered and never send an intermediate editor snapshot back
@@ -461,11 +462,6 @@ export function useOverleafRealtime(options: {
       if (!delivery.pending && isCurrent()) setLiveFile(true);
     });
   }, [suspendPaths]);
-
-  /** Move the open document's anchors along with `ops`; see `anchorsAfter`. */
-  const shiftAnchors = useCallback((id: string, ops: OtOp[]) => {
-    if (ops.length) patchOpenDoc(id, (current) => anchorsAfter(current, ops));
-  }, [patchOpenDoc]);
 
   /**
    * Ask the server to replay from the last version we trust after a send's
@@ -552,8 +548,10 @@ export function useOverleafRealtime(options: {
     if (hashDue) lastHashed.current.set(doc!, now);
     try {
       const hash = hashDue ? await overleafDocHash(sentText) : null;
+      // Tracked as of sending, as Overleaf's own editor does: typing queued
+      // behind an answer goes out under the setting the answer finds.
       await invoke("overleaf_rt_send_ops", {
-        projectRoot, docId: id, version: send.version, ops: send.ops,
+        projectRoot, docId: id, version: send.version, ops: send.ops, tracked: suggester() !== null,
         ...(dupIfSource.length ? { dupIfSource } : {}), ...(hash ? { hash } : {}),
       });
     } catch (reason) {
@@ -563,7 +561,7 @@ export function useOverleafRealtime(options: {
       // overwrite it. Keep ownership and reconcile by replaying history.
       if (connectionRoot.current === projectRoot) markOutcomeUnknown(id, reason);
     }
-  }, [markOutcomeUnknown]);
+  }, [markOutcomeUnknown, suggester]);
   useEffect(() => {
     flushRef.current = flush;
   }, [flush]);
@@ -575,6 +573,7 @@ export function useOverleafRealtime(options: {
   // reconnect, the next one's channel.
 
   useEffect(() => onOverleafEvent(() => (callbacks.current.enabled ? callbacks.current.projectRoot : null), (payload) => {
+    if (onReviewEvent(payload)) return;
     switch (payload.type) {
       case "connected":
         publicId.current = payload.publicId;
@@ -626,22 +625,6 @@ export function useOverleafRealtime(options: {
         }
         return;
       }
-      case "changesAccepted":
-        // Accepted suggestions become ordinary text without an operation, so
-        // the only way to learn the new ranges is to ask again.
-        patchOpenDoc(payload.docId, (current) => ({
-          changes: current.changes.filter((change) => !payload.changeIds.includes(change.id)),
-        }));
-        return;
-      case "commentAnchored":
-        // Someone commented on the file we have open; show the marker without
-        // making them re-open it.
-        patchOpenDoc(payload.docId, (current) => (
-          current.comments.some((item) => item.threadId === payload.range.threadId)
-            ? null
-            : { comments: [...current.comments, payload.range] }
-        ));
-        return;
       case "docUpdate": {
         const doc = documents.current.get(payload.docId);
         if (!doc) {
@@ -655,7 +638,7 @@ export function useOverleafRealtime(options: {
           const onScreen = payload.docId === docId.current;
           const baseContent = doc.text;
           const { text, applied } = doc.remote(payload.ops, payload.version);
-          shiftAnchors(payload.docId, applied);
+          shiftAnchors(payload.docId, applied, payload.suggestedBy ?? null);
           // A document being drained still has to apply this, or its own
           // outstanding operation is transformed against the wrong history.
           // Nobody is looking at it, so nothing is drawn.
@@ -666,7 +649,7 @@ export function useOverleafRealtime(options: {
         }
       }
     }
-  }), [deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors, stopAfterDisconnect]);
+  }), [deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, onReviewEvent, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors, stopAfterDisconnect]);
 
   // ---- connection ---------------------------------------------------------
 
@@ -732,6 +715,7 @@ export function useOverleafRealtime(options: {
         connectionRoot.current = connectingRoot;
         noteDocumentTree(joined.docs, joined.entities);
         setProjectPermission({ projectRoot: connectingRoot, permission: joined.permission });
+        noteProject(joined);
         setStatus("live");
         setDetail(null);
         const recovered = needsReconnect;
@@ -788,7 +772,7 @@ export function useOverleafRealtime(options: {
       if (connectionRoot.current === connectingRoot) connectionRoot.current = null;
       void invoke("overleaf_rt_disconnect", { projectRoot: connectingRoot }).catch(() => {});
     };
-  }, [noteDocumentTree, options.enabled, options.projectRoot, stopEverything]);
+  }, [noteDocumentTree, noteProject, options.enabled, options.projectRoot, stopEverything]);
 
   // The ZIP synchronizer also enforces this permission from its durable
   // SyncState. Keep it in step with the live channel, but never persist
@@ -911,14 +895,14 @@ export function useOverleafRealtime(options: {
       const buffered = ownsBuffer ? pendingUpdates.splice(0) : [];
       if (ownsBuffer) pendingByDocument.delete(id);
       const joinedDocument = documents.current.get(id);
-      const bufferedApplied: OtOp[][] = [];
+      const bufferedApplied: [OtOp[], Suggester | null][] = [];
       if (joinedDocument) {
         buffered.sort((left, right) => left.version - right.version);
         try {
           for (const update of buffered) {
             const result = joinedDocument.remote(update.ops, update.version);
             text = result.text;
-            if (result.applied.length) bufferedApplied.push(result.applied);
+            if (result.applied.length) bufferedApplied.push([result.applied, update.suggestedBy ?? null]);
           }
         } catch (reason) {
           const message = toMessage(reason);
@@ -933,7 +917,7 @@ export function useOverleafRealtime(options: {
       docId.current = id;
       publishUnacknowledged();
       setOpenDoc({ id, comments: joined.comments ?? [], changes: joined.changes ?? [] });
-      for (const applied of bufferedApplied) shiftAnchors(id, applied);
+      for (const [applied, by] of bufferedApplied) shiftAnchors(id, applied, by);
       setDetail(null);
       // A full/reconnected snapshot has no trusted relationship to local
       // disk edits. Only start OT when it agrees; otherwise regular sync
@@ -948,7 +932,7 @@ export function useOverleafRealtime(options: {
     };
   }, [
     options.activeFile, options.documents, options.projectRoot, activeDocId, status, reloadNonce,
-    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, publishUnacknowledged, shiftAnchors,
+    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, publishUnacknowledged, setOpenDoc, shiftAnchors,
   ]);
 
   // ---- local edits and out-of-band operations -------------------------------
@@ -970,10 +954,11 @@ export function useOverleafRealtime(options: {
       // another file in the meantime, and this text belongs to the old one.
       const current = docId.current === id ? documents.current.get(id) : null;
       if (!current) return;
-      const { send, replaced } = current.local(text);
+      const { send, replaced, ops } = current.local(text);
       const proof = proofs.current.get(current);
       if (proof) proof.locallyAppliedText = text;
-      if (send) shiftAnchors(id, send.ops);
+      // Queued behind an answer or not, the text has moved: so have anchors.
+      shiftAnchors(id, ops, suggester());
       // Typing that changed nothing settles here; anything else waits on its ack.
       publishUnacknowledged();
       void flush(id, send);
@@ -986,7 +971,7 @@ export function useOverleafRealtime(options: {
       }
     }, SEND_DEBOUNCE_MS);
     publishUnacknowledged();
-  }, [deliverRemoteText, flush, publishUnacknowledged, shiftAnchors]);
+  }, [deliverRemoteText, flush, publishUnacknowledged, shiftAnchors, suggester]);
 
   /**
    * Anchor a new comment thread to a span of the open document. Resolves once

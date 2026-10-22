@@ -259,8 +259,9 @@ describe("OtDocument", () => {
     const doc = new OtDocument("a", 1);
     expect(doc.local("ab").send).toEqual({ version: 1, ops: [{ p: 1, i: "b" }] });
     expect(doc.waiting).toBe(true);
-    // Two more keystrokes while waiting: they must not go out separately.
-    expect(doc.local("abc").send).toBeNull();
+    // Two more keystrokes while waiting: they must not go out separately, but
+    // each is reported, so what is anchored to the text moves with it.
+    expect(doc.local("abc")).toMatchObject({ send: null, ops: [{ p: 2, i: "c" }] });
     expect(doc.local("abcd").send).toBeNull();
 
     expect(doc.acknowledge().send).toEqual({ version: 2, ops: [{ p: 2, i: "cd" }] });
@@ -351,11 +352,12 @@ describe("OtDocument", () => {
   it("keeps what Overleaf will store, not the emoji it cannot, and says so", () => {
     const doc = new OtDocument("note: ", 3);
     const typed = doc.local("note: \u{1F535} done");
-    expect(typed).toEqual({ send: { version: 3, ops: [{ p: 6, i: "\uFFFD\uFFFD done" }] }, replaced: true });
+    const stored = [{ p: 6, i: "\uFFFD\uFFFD done" }];
+    expect(typed).toEqual({ send: { version: 3, ops: stored }, replaced: true, ops: stored });
     expect(doc.text).toBe("note: \uFFFD\uFFFD done");
     // Text that already holds the replacement is ordinary text from then on.
     doc.acknowledge(3);
-    expect(doc.local("note: \uFFFD\uFFFD done!")).toEqual({ send: { version: 4, ops: [{ p: 13, i: "!" }] }, replaced: false });
+    expect(doc.local("note: \uFFFD\uFFFD done!")).toEqual({ send: { version: 4, ops: [{ p: 13, i: "!" }] }, replaced: false, ops: [{ p: 13, i: "!" }] });
   });
 
   it("drops unsent work when reset to the server's copy", () => {
