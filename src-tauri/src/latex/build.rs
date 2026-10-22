@@ -6,7 +6,10 @@ use super::build_log::{
 };
 use super::build_steps::BuildSteps;
 use super::preamble_format::{self, Prepared};
-use super::{arxiv, default_root_document, engine_mismatch, latexmk, prewarm, synctex_missing};
+use super::{
+    arxiv, bib_log, default_root_document, diagnostic_paths, engine_mismatch, latexmk, prewarm,
+    synctex_missing,
+};
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::{Diagnostic, ProjectManifest};
@@ -360,6 +363,8 @@ fn run_latexmk_with(
         Some(format) => parse_format_diagnostics(&format.output, &log),
         None => parse_diagnostics(&log),
     };
+    diagnostics.extend(bib_log::bibliography_diagnostics(&root_document));
+    diagnostic_paths::locate_in_project(root, &document.path, &mut diagnostics);
     // latexmk's output is TeX's terminal, which leaves out what fontspec
     // notes only in the log file.
     let mut tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
@@ -447,6 +452,9 @@ pub(super) fn cancelled_build(
 }
 
 #[cfg(test)]
+mod diagnostics_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::TempDir;
@@ -462,6 +470,15 @@ mod tests {
         assert_eq!(kind("Root document not found: main.tex"), "root_document_missing");
         assert_eq!(kind("The project changed before its build could start."), "project_changed");
         assert_eq!(kind("latexmk exited unexpectedly: signal"), "build_error");
+    }
+
+    #[test]
+    fn every_latexmk_run_writes_its_log_unwrapped() {
+        let command = latexmk(Path::new("."));
+        let wide = command.get_envs().any(|(name, value)| {
+            name == "max_print_line" && value.is_some_and(|value| value == "10000")
+        });
+        assert!(wide);
     }
 
     #[test]

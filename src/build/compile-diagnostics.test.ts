@@ -45,6 +45,8 @@ describe("compile diagnostics helpers", () => {
     ]);
     expect(resolveDiagnosticPath("/tmp/paper/./chapters/intro.tex", files, "main.tex")).toBe("chapters/intro.tex");
     expect(resolveDiagnosticPath(undefined, files, "main.tex")).toBe("main.tex");
+    expect(resolveDiagnosticPath("intro.tex", ["preintro.tex", "paper/intro.tex"])).toBe("paper/intro.tex");
+    expect(resolveDiagnosticPath("intro.tex", ["preintro.tex"])).toBe("intro.tex");
   });
 
   it("recognizes installable missing TeX dependencies without treating project templates as packages", () => {

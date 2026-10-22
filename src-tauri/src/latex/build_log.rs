@@ -117,10 +117,12 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     // Latexmk concatenates every pass; first-pass "undefined citation/ref" noise
     // should not inflate the warning count after a successful final run.
     let log = last_typeset_pass(log);
-    let file_line = Regex::new(r"(?m)^([^\n:]+\.(?:tex|sty|cls)):(\d+):\s*(.+)$").unwrap();
-    let warning_on_line = Regex::new(
-        r"(?m)^([^\n:]+\.(?:tex|sty|cls)):(\d+):\s*(?:Package|LaTeX|Class) .+? Warning:\s*(.+)$",
-    )
+    // Any file TeX reads can be where it stopped: a `.bbl` holding an
+    // unescaped `&` from the `.bib`, a `.tikz`, a `.def`.
+    let file_line = Regex::new(&format!(r"(?m)^{LOG_FILE}:(\d+):\s*(.+)$")).unwrap();
+    let warning_on_line = Regex::new(&format!(
+        r"(?m)^{LOG_FILE}:(\d+):\s*(?:Package|LaTeX|Class) .+? Warning:\s*(.+)$"
+    ))
     .unwrap();
     let warning = Regex::new(r"(?m)^(?:LaTeX|Package .+?) Warning:\s*(.+)$").unwrap();
     let missing_command =
@@ -144,6 +146,11 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         .collect();
     for capture in warning_on_line.captures_iter(log).take(40) {
         push_unique(&mut diagnostics, located(&capture, "warning"));
+    }
+    for error in prompt_errors(log) {
+        if !missing_dependency.is_match(&error.message) {
+            push_unique(&mut diagnostics, error);
+        }
     }
     let missing_tool = missing_command.captures(log).map(|capture| {
         let tool = &capture[1];
@@ -182,6 +189,27 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
     });
     super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
+}
+
+/// A file TeX names in its log, `./main.tex` or `../shared/macros.tex`.
+const LOG_FILE: &str = r"([^\n:]+\.[A-Za-z0-9]+)";
+
+/// Errors TeX raises at its own prompt, such as an `\input` file that does not
+/// exist: `! LaTeX Error: File `intro.tex' not found.` has no location even
+/// under `-file-line-error`, so it was dropped, and with it the only error a
+/// failed build had. Nonstop mode ends the run there, with an
+/// `./main.tex:4: Emergency stop.` that names where it happened.
+fn prompt_errors(log: &str) -> Vec<Diagnostic> {
+    let prompt = Regex::new(r"(?m)^! (.+)$").unwrap();
+    let stop = Regex::new(&format!(r"(?m)^{LOG_FILE}:(\d+): Emergency stop\.$")).unwrap();
+    let errors = prompt.captures_iter(log).filter_map(|capture| {
+        let after = &log[capture.get(0)?.end()..];
+        let before_next = prompt.find(after).map_or(after.len(), |next| next.start());
+        let place = stop.captures(&after[..before_next])?;
+        let file = Some(normalize_log_path(&place[1]));
+        Some(diagnostic(file, place[2].parse().ok(), "error", capture[1].trim().to_string()))
+    });
+    errors.collect()
 }
 
 fn missing_dependency_advice(missing_file: &str) -> Diagnostic {
@@ -464,6 +492,80 @@ mod tests {
         assert_eq!(diagnostics[1].file.as_deref(), Some("main.tex"));
         assert_eq!(diagnostics[1].level, "warning");
         assert!(diagnostics.iter().any(|item| item.file.is_none() && item.level == "warning"));
+    }
+
+    fn located(diagnostics: &[Diagnostic]) -> Vec<(&str, Option<&str>, Option<u32>, &str)> {
+        diagnostics
+            .iter()
+            .map(|item| {
+                (item.level.as_str(), item.file.as_deref(), item.line, item.message.as_str())
+            })
+            .collect()
+    }
+
+    /// pdfLaTeX's terminal (TeX Live 2026, the build's own flags) for
+    /// `\input{nosuchfile}` on line 4 of main.tex.
+    const MISSING_INPUT: &str = "(./main.tex
+LaTeX2e <2025-11-01>
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/size10.clo)) (./main.aux)
+! LaTeX Error: File `nosuchfile.tex' not found.
+
+Type X to quit or <RETURN> to proceed,
+or enter new name. (Default extension: tex)
+
+Enter file name: 
+./main.tex:4: Emergency stop.
+<read *> 
+         
+l.4 \\input{nosuchfile}
+                      ^^M
+./main.tex:4:  ==> Fatal error occurred, no output PDF file produced!
+Transcript written on main.log.
+Latexmk: Missing input file 'nosuchfile.tex' message in .log file:
+  ! LaTeX Error: File `nosuchfile.tex' not found.
+";
+
+    #[test]
+    fn a_missing_input_file_is_an_error_where_it_was_input() {
+        // The build failed with nothing in the problem list.
+        assert_eq!(
+            located(&parse_diagnostics(&pass(MISSING_INPUT))),
+            [("error", Some("main.tex"), Some(4), "LaTeX Error: File `nosuchfile.tex' not found.")]
+        );
+        // A missing package keeps its install advice, and is not reported twice.
+        let package = MISSING_INPUT.replace("nosuchfile.tex", "algorithm.sty");
+        let diagnostics = parse_diagnostics(&pass(&package));
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].code, Some("tex-dependency-missing"));
+    }
+
+    #[test]
+    fn an_error_in_any_file_tex_reads_is_reported_where_it_is() {
+        // `title={Cats & Dogs}` in the .bib reaches TeX through the .bbl, and
+        // was reported only as "Citation undefined".
+        let log = pass(
+            "LaTeX Warning: Citation `cats' on page 1 undefined on input line 3.\n\
+             (./main.bbl\n\
+             ./main.bbl:5: Misplaced alignment tab character &.\n\
+             l.5 \\newblock Cats &\n\
+             ./main.bbl:5:  ==> Fatal error occurred, no output PDF file produced!\n\
+             ./figures/plot.tikz:12: Package pgf Error: No shape named `a' is known.\n",
+        );
+        let diagnostics = parse_diagnostics(&log);
+        let errors: Vec<_> =
+            located(&diagnostics).into_iter().filter(|item| item.0 == "error").collect();
+        assert_eq!(
+            errors,
+            [
+                ("error", Some("main.bbl"), Some(5), "Misplaced alignment tab character &."),
+                (
+                    "error",
+                    Some("figures/plot.tikz"),
+                    Some(12),
+                    "Package pgf Error: No shape named `a' is known."
+                ),
+            ]
+        );
     }
 
     /// A latexmk pdfLaTeX pass that printed `body`.

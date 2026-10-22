@@ -23,10 +23,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod arxiv;
+mod bib_log;
 mod build;
 mod build_log;
 mod build_steps;
 mod changes;
+mod diagnostic_paths;
 mod engine_mismatch;
 mod pinned;
 mod preamble_format;
@@ -77,7 +79,16 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
 fn latexmk(root: &Path) -> Command {
     let mut command = commands::command("latexmk");
     command.current_dir(root).arg("-cd");
+    unwrapped_log(&mut command);
     command
+}
+
+/// TeX breaks its terminal output and log at `max_print_line`, 79 characters
+/// by default, mid-path and mid-message: a long file name reached the
+/// diagnostics cut short (`e_here/deep.tex`, which cannot be opened), and so
+/// did the message. Every run whose output is read is told never to wrap.
+fn unwrapped_log(command: &mut Command) -> &mut Command {
+    command.env("max_print_line", "10000")
 }
 
 fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
