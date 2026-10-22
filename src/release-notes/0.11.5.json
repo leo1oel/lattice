@@ -1,0 +1,15 @@
+{
+  "version": "0.11.5",
+  "date": "2026-10-21",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "Live preview now works for a main document in a subfolder, such as cv/sop/sop.tex, and lays it out the same as the real build: its bibliography, \\input files and figures resolve from the document's own folder.",
+      "zh": "实时预览现在支持位于子文件夹中的主文档（例如 cv/sop/sop.tex），排版与正式编译一致：参考文献、\\input 文件和图片都从文档所在的文件夹解析。"
+    },
+    {
+      "en": "The selected file in the file tree no longer flickers while you scroll.",
+      "zh": "文件树中选中的文件在滚动时不再闪烁。"
+    }
+  ]
+}
