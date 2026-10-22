@@ -381,7 +381,7 @@ describe("an inactive document on screen", () => {
     act(() => ws.view(viewOf("main.tex").id)!.hide());
     await waitFor(() => expect(ws.view(viewOf("main.tex").id)!.placement).toBe("hidden"));
     expect(document.querySelector(".trellis-pdf-snapshot")).toBeInTheDocument();
-    expect(screen.queryByText("Sleeping · click to open")).toBeNull();
+    expect(document.querySelector(".trellis-empty-activatable")).toBeNull();
     expect(readAsset).toHaveBeenCalledWith("figure.png");
   });
 
@@ -389,7 +389,7 @@ describe("an inactive document on screen", () => {
     const { ws, readAsset, viewOf } = await openBeside("figure.png");
     act(() => ws.dock(viewOf("figure.png").id, { into: viewOf("main.tex").panelId }));
     act(() => ws.select(viewOf("figure.png").id));
-    await waitFor(() => expect(screen.getByText("Sleeping · click to open")).toBeInTheDocument());
+    await waitFor(() => expect(document.querySelector(".trellis-empty-activatable")).toBeInTheDocument());
     readAsset.mockClear();
     expect(document.querySelector(".trellis-pdf-snapshot")).toBeNull();
     expect(readAsset).not.toHaveBeenCalled();

@@ -359,7 +359,6 @@ export function OpenSlideWorkspace({
     // really open elsewhere reaches this.
     return status("alert", <>
       <strong>{t`A deck from another project is open in another window`}</strong>
-      <span>{t`Close it there to open this deck here, or switch to that window.`}</span>
       <span className="open-slide-status-actions">
         <Button
           variant="primary"

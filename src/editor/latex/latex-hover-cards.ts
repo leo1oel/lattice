@@ -269,13 +269,16 @@ function figurePreview(
   const mediaClassName = "reference-hover-media loading";
   const media = element("div", mediaClassName);
   media.setAttribute("role", "status");
+  // The loader stands alone; its words are the status's name, not a caption.
+  media.setAttribute("aria-label", i18n._(msg`Loading figure preview…`));
   const loader = element("img", "reference-hover-loader");
   loader.src = infinityLoaderUrl;
   loader.alt = "";
-  media.append(loader, element("span", "", i18n._(msg`Loading figure preview…`)));
+  media.append(loader);
   const settle = (content: string | Node) => {
     if (destroyed()) return;
     media.classList.remove("loading");
+    media.removeAttribute("aria-label");
     media.replaceChildren(content);
   };
   void loadImage(imagePath).then((source) => {

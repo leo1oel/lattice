@@ -63,8 +63,8 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   const overleafLabel = () => {
     if (!props.overleafLinked) return t`Open a project from Overleaf`;
     if (props.overleafSyncing) return t`Syncing with Overleaf…`;
-    if (props.overleafPending) return t`New changes on Overleaf · click to pull`;
-    if (props.overleafLiveEditing) return t`Live with Overleaf · click to sync`;
+    if (props.overleafPending) return t`New changes on Overleaf`;
+    if (props.overleafLiveEditing) return t`Live with Overleaf`;
     // When this file is not live, say why: silently falling back to syncing
     // looks exactly like the feature being broken.
     const detail = props.overleafChannelDetail;
@@ -73,7 +73,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
       case "error": return detail
         ? t({ message: `Live editing unavailable (${detail}) · syncing instead` })
         : t`Live editing unavailable · syncing instead`;
-      case "live": return detail ? `${detail} · ${t`click to sync`}` : t`Live · click to sync`;
+      case "live": return detail || t`Live`;
       default: return t`Sync with Overleaf`;
     }
   };

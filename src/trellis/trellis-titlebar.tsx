@@ -321,7 +321,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
             onClick={onSearch}
           >
             <Search size={14} aria-hidden="true" />
-            <span className="trellis-titlebar-search-label">{t`Search files, papers and commands…`}</span>
+            <span className="trellis-titlebar-search-label">{t`Search`}</span>
             {searchShortcut && <Keycaps keys={[searchShortcut]} className="trellis-titlebar-search-keys" />}
           </button>
         </Tip>

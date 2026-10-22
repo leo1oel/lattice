@@ -33,7 +33,7 @@ function firstQuestion(message: string): { title: string | null; description: st
 
 type CopyDefaults = Record<
   | "deleteTitle" | "continueTitle" | "deleteLabel" | "removeLabel" | "restoreLabel"
-  | "continueLabel" | "destructiveDescription" | "continueDescription",
+  | "continueLabel",
   string
 >;
 
@@ -52,10 +52,11 @@ function confirmationCopy(options: ConfirmActionOptions, defaults: CopyDefaults)
         : /^restore\b/i.test(title)
           ? defaults.restoreLabel
           : defaults.continueLabel);
+  // No caller detail means no body line: the title and the answers carry it,
+  // and a generic "cannot be undone" would be false for undoable removals.
   const description = (
     split.description
     || (options.message !== title ? options.message : "")
-    || (destructive ? defaults.destructiveDescription : defaults.continueDescription)
   ).replace(/[.。]$/, "");
   return { title, description, confirmLabel, destructive };
 }
@@ -88,8 +89,6 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
     removeLabel: t`Remove`,
     restoreLabel: t`Restore`,
     continueLabel: t`Continue`,
-    destructiveDescription: t`This action cannot be undone.`,
-    continueDescription: t`Please confirm that you want to continue.`,
   });
   // The destructive confirmation leads its row, tinted; a destructive
   // alternative beside a safe one ("Don't save" beside Save) stays quiet.
@@ -109,7 +108,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
       {current && copy && (
         <ModalDialog
           label={copy.title}
-          describedBy={descriptionId}
+          describedBy={copy.description ? descriptionId : undefined}
           onClose={() => settle("cancel")}
           backdropClassName="confirm-action-backdrop"
         >
@@ -122,7 +121,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
               <div className="modal-icon" data-tone="danger" aria-hidden="true"><Trash2 size={18} /></div>
             )}
             <h2>{copy.title}</h2>
-            <p id={descriptionId}>{copy.description}</p>
+            {copy.description && <p id={descriptionId}>{copy.description}</p>}
             <div className="modal-actions">
               <Button autoFocus variant="ghost" onClick={() => settle("cancel")}>
                 {current.options.cancelLabel ?? t`Cancel`}

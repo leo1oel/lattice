@@ -69,14 +69,13 @@ function StepMark({ state }: { state: StepState }) {
 const noSubscription = () => () => {};
 const noProgress = () => null;
 
-export function BuildSequence({ building, progress: progressStore, outcome, place, idle, hint, onProblem }: {
+export function BuildSequence({ building, progress: progressStore, outcome, place, hint, onProblem }: {
   building: boolean;
   progress: BuildProgressStore | null;
   outcome: BuildOutcome | null;
   /** The document it compiled and how long ago, when it has finished. */
   place: string | null;
-  /** What the button does, said before there is any build to show. */
-  idle: string;
+  /** How to build again; before any build, all the card says. */
   hint: string;
   onProblem: () => void;
 }) {
@@ -87,7 +86,6 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   if (!building && !outcome) {
     return (
       <div className="build-sequence" data-idle="">
-        <strong className="build-sequence-idle">{idle}</strong>
         <div className="build-sequence-hint">{hint}</div>
       </div>
     );
@@ -109,7 +107,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   /** What a pass did, beside its program's name. */
   const role = ({ tool, run, draft }: BuildStep): string | null => {
     if (draft) return t`draft pass ${run}`;
-    if (tool === PREAMBLE_FORMAT) return t`preamble, kept for later builds`;
+    if (tool === PREAMBLE_FORMAT) return t`preamble`;
     if (ENGINES.has(tool)) return t`pass ${run}`;
     if (BIBLIOGRAPHY.has(tool)) return t`bibliography`;
     if (INDEX.has(tool)) return t`index`;
@@ -172,7 +170,6 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
             <StepMark state="none" />
             <span className="build-sequence-step">
               <span className="build-sequence-tool">{t`Nothing to rerun`}</span>
-              <span className="build-sequence-role">{t`the PDF was already up to date`}</span>
             </span>
           </li>
         )}
@@ -183,7 +180,7 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
             <span className="build-sequence-step">
               {/* eslint-disable-next-line lingui/no-unlocalized-strings -- a product name */}
               <span className="build-sequence-tool">SyncTeX</span>
-              <span className="build-sequence-role">{outcome.synctex ? t`source ↔ PDF` : t`not written`}</span>
+              {!outcome.synctex && <span className="build-sequence-role">{t`not written`}</span>}
             </span>
           </li>
         )}

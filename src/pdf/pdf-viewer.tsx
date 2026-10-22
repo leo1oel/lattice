@@ -549,8 +549,7 @@ export function PdfPreview({
         <div className="pdf-placeholder">
           <EmptyState
             icon={<ResearchArt drawing={PROOF_TRAY} />}
-            title={t`Your first PDF starts here`}
-            description={t`Build your LaTeX project to see the typeset paper`}
+            title={t`No PDF yet`}
             actions={onBuild && (
               // Busy rather than queueing another build (the header's Build
               // button is the one that queues a fresh build), and still
@@ -634,7 +633,7 @@ export function PdfPreview({
             <div className="pdf-page-controls">
               <ToolbarButton label={t`Previous page`} icon={<ChevronLeft size={14} />}
                 disabled={pageNumber <= 1} onClick={() => stepPage(-1)} />
-              <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`} title={t`Enter a page number`}>
+              <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`}>
                 <input
                   aria-label={t`PDF page number`}
                   inputMode="numeric"
@@ -710,11 +709,7 @@ export function PdfPreview({
           <div className="pdf-zoom-controls">
             <ToolbarButton label={t`Zoom out`} icon={<ZoomOut size={14} />} className="pdf-overflow"
               disabled={scale <= PDF_MIN_SCALE} onClick={() => stepZoom(-1)} />
-            <label
-              ref={zoomLabelRef}
-              className="pdf-zoom-value pdf-overflow"
-              title={t`Enter a zoom percentage or scroll to zoom`}
-            >
+            <label ref={zoomLabelRef} className="pdf-zoom-value pdf-overflow">
               <input
                 aria-label={t`PDF zoom percentage`}
                 inputMode="decimal"

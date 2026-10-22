@@ -410,11 +410,10 @@
    the keys. Rows share the checklist's marks (a tick, a cross, an
    exclamation or a dash on a soft disc), so colour never carries a result
    alone; names stay in ink and times in the secondary ink. Before any
-   build it says only what the button does, at a tooltip's size. */
+   build it holds only the keys, at a tooltip's size. */
 .trellis-build-card { width: 320px; padding: var(--space-2); }
 .trellis-build-card:has([data-idle]) { width: auto; }
-.build-sequence-idle { padding: var(--space-3) var(--space-5) 0; font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-semibold); }
-.build-sequence[data-idle] .build-sequence-hint { margin-top: 0; padding-top: var(--space-1); border-top: 0; }
+.build-sequence[data-idle] .build-sequence-hint { margin-top: 0; padding-top: var(--space-3); border-top: 0; }
 .build-sequence { display: grid; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
 .build-sequence-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-4); min-width: 0; padding: var(--space-3) var(--space-5) 0; }
 .build-sequence-verdict { font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); }
@@ -619,8 +618,11 @@
   font: var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
   text-align: center;
 }
+/* A sleeping document reads as the button it is, with no caption saying so:
+   the pointer, its icon's plate filling on hover, and a focus ring. */
 .trellis-empty-activatable { cursor: pointer; }
 .trellis-empty-activatable:hover .trellis-empty-icon { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.trellis-empty-activatable:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(var(--focus-ring-width) * -1); }
 .trellis-empty-icon {
   display: grid; place-items: center;
   width: var(--control-height-default); height: var(--control-height-default);
@@ -635,14 +637,10 @@
 .trellis-empty-art .research-art { width: 100%; }
 @container (max-height: 240px) { .trellis-empty-art { display: none; } }
 .trellis-empty strong { color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
 /* With every panel closed the empty is the whole window, so it speaks as a
-   page does: the desk drawing larger and the title in the serif. How to get
-   the panels back sits under it as a short, even block rather than one long
-   line across the window. */
+   page does: the desk drawing larger and the title in the serif. */
 .trellis-workspace-empty .trellis-empty-art { width: min(136px, 50cqw); margin-bottom: var(--space-4); }
 .trellis-workspace-empty strong { font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); }
-.trellis-workspace-empty .trellis-empty-detail { max-width: 34ch; text-wrap: balance; }
 .trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .trellis-empty-button {
   display: inline-flex; align-items: center; gap: var(--space-3);
@@ -668,10 +666,10 @@
 .trellis-snapshot > .markdown-preview { background: var(--editor-bg); }
 .trellis-snapshot-badge {
   position: absolute; right: var(--space-4); bottom: var(--space-3);
-  padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill);
+  display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: var(--radius-pill);
   background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle);
   color: var(--text-secondary);
-  font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
   pointer-events: none; opacity: 0; transition: opacity var(--motion-fast);
 }
 .trellis-snapshot:hover .trellis-snapshot-badge { opacity: 1; }

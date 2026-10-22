@@ -38,7 +38,6 @@ export function MathPreview(props: {
   if (!rendered) return null;
   return (
     <div className="math-preview" aria-label={t`Math preview`}>
-      <small>{t`Math preview`}</small>
       {rendered.error
         ? <InlineMessage level="error">{rendered.error}</InlineMessage>
         : <div className="math-preview-body" dangerouslySetInnerHTML={{ __html: rendered.html }} />}

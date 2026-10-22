@@ -51,8 +51,6 @@ export function AnnotationForm(props: {
   body: string;
   intent?: AnnotationIntent;
   error: string | null;
-  /** Where the location came from, said beside the actions (the PDF's SyncTeX mapping). */
-  footnote?: string;
   /** False while there is nowhere to save to yet (the PDF selection is still being mapped). */
   ready?: boolean;
   /** The agent can be asked now; otherwise only Save is offered. */
@@ -115,7 +113,6 @@ export function AnnotationForm(props: {
             {t`Save and revise now`} <kbd>{REVISE_KEYS}</kbd>
           </Button>
         )}
-        {props.footnote && <span className="annotation-form-hint">{props.footnote}</span>}
       </div>
     </div>
   );

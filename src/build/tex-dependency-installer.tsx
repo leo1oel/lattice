@@ -24,8 +24,7 @@ export function TexDependencyInstaller(props: {
   return (
     <TexInstallDialog
       label={t`Install missing package`}
-      title={t`Install missing package`}
-      description={t`Installs the TeX Live package that provides ${status.missingFile}`}
+      title={t`Install package for ${status.missingFile}`}
       closeDisabled={status.installing}
       onClose={props.onClose}
       progress={{

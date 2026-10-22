@@ -11,12 +11,13 @@ import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { MessageSquareShare } from "lucide-react";
+import { CircleAlert, Highlighter, MessageSquareShare, StickyNote } from "lucide-react";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { InlineMessage } from "../components/ui/inline-message";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { AnnotationPin } from "../editor/comments/annotation-pin";
@@ -216,30 +217,25 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
     if (placement.kind === "unplaced") return t`Not on this PDF`;
     return placement.kind === "highlight" ? t`Highlight · p. ${placement.page}` : t`Margin note · p. ${placement.page}`;
   };
-  const placementHint = (placement: ReviewPlacement | undefined) => {
-    if (placement?.kind === "note") return t`Its words were not found on the page, so the note goes in the margin beside them.`;
-    if (placement?.kind === "unplaced") return t`SyncTeX does not place this passage on the PDF. Build the project again, then export.`;
-    return undefined;
-  };
+  // Why a row cannot be ticked, and how to fix it: the only hint a row keeps.
+  const placementHint = (placement: ReviewPlacement | undefined) => (placement?.kind === "unplaced"
+    ? t`SyncTeX does not place this passage on the PDF. Build the project again, then export.`
+    : undefined);
   const hasReplies = chosen.some((annotation) => annotation.replies.length > 0);
   const action = chosen.length === 1 ? t`Export 1 note…` : chosen.length ? t`Export ${chosen.length} notes…` : t`Export notes…`;
-  const builtLabel = built ? t`From the build of ${formatDate(built)}` : "";
 
   return (
     <SheetDialog className="add-papers-sheet review-pdf-sheet" label={t`Export review PDF`} onClose={onClose}>
       <PanelHeader className="drawer-header" icon={<MessageSquareShare size={16} />} title={t`Export review PDF`} onClose={onClose} />
       <div className="add-papers-body review-pdf-body">
-        <p className="review-pdf-intro">
-          {t`The notes you tick become comments in a copy of the PDF that Preview, Acrobat and Zotero show: a highlight on the words a note is about, or a note in the margin where those words are not on the page. Unticked notes stay in Lattice, and the plain PDF is not changed.`}
-        </p>
         {!notes.length ? (
-          <p className="review-pdf-empty">{t`No annotations yet. Select text in the editor or the PDF and click Annotate`}</p>
+          <p className="review-pdf-empty">{t`No annotations yet`}</p>
         ) : failure ? (
           <InlineMessage level="error">{failure}</InlineMessage>
         ) : !placements ? (
-          <div className="review-pdf-loading" role="status">
+          <div className="review-pdf-loading">
             <InfinityLoader size={14} />
-            {t`Finding each note on the PDF…`}
+            <LoadingAnnouncement message={t`Finding each note on the PDF…`} />
           </div>
         ) : (
           <div className="review-pdf-list">
@@ -273,9 +269,7 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
                           {annotation.body.trim() || t`No note`}
                         </span>
                       </span>
-                      <span className="review-pdf-place" data-kind={placement?.kind} title={placementHint(placement)}>
-                        {placementLabel(placement)}
-                      </span>
+                      {placement && <PlacementChip kind={placement.kind} label={placementLabel(placement)} hint={placementHint(placement)} />}
                     </label>
                   </li>
                 );
@@ -291,7 +285,6 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
         )}
       </div>
       <div className="table-generator-actions add-papers-footer">
-        <span className="add-papers-summary" title={builtLabel}>{builtLabel}</span>
         <Button variant="ghost" onClick={onClose}>{t`Cancel`}</Button>
         <Button variant="primary" disabled={!chosen.length || busy} onClick={exportReview}>
           {busy && <InfinityLoader size={14} />}
@@ -299,5 +292,21 @@ export default function ReviewPdfSheet({ recordRef, fileName, annotations, round
         </Button>
       </div>
     </SheetDialog>
+  );
+}
+
+const PLACEMENT_ICONS = { highlight: Highlighter, note: StickyNote, unplaced: CircleAlert } as const;
+
+/**
+ * Where a note lands, said by the chip alone: a highlight on its words, a
+ * note in the margin where they are not on the page, or nowhere yet.
+ */
+function PlacementChip({ kind, label, hint }: { kind: ReviewPlacement["kind"]; label: string; hint?: string }) {
+  const Icon = PLACEMENT_ICONS[kind];
+  return (
+    <span className="review-pdf-place" data-kind={kind} title={hint}>
+      <Icon size={11} aria-hidden="true" />
+      {label}
+    </span>
   );
 }

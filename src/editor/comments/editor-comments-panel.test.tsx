@@ -39,11 +39,11 @@ describe("EditorCommentsPanel", () => {
       />
     );
     const { rerender } = render(panel("chapters/intro.tex"));
-    expect(screen.getByText("No annotations yet. Select text in the editor or the PDF and click Annotate")).toBeInTheDocument();
+    expect(screen.getByText("No annotations yet")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Return to intro.tex" }));
     expect(onReturnToEditor).toHaveBeenCalledTimes(1);
     rerender(panel(null));
-    expect(screen.getByText("No annotations yet. Open a file, select text and click Annotate")).toBeInTheDocument();
+    expect(screen.getByText("No annotations yet")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open a file" }));
     expect(onReturnToEditor).toHaveBeenCalledTimes(2);
   });

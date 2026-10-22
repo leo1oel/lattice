@@ -318,11 +318,7 @@ function AnnotationReviewCard(props: {
             />
           ) : <p className="annotation-review-status">{t`The agent suggests leaving the passage as it is.`}</p>}
           {revision?.reason && <p className="annotation-review-reason">{t`Agent: ${revision.reason}`}</p>}
-          {review.held.length > 0 && (
-            <InlineMessage level="warning" className="annotation-review-held">
-              {t`Some changes would alter LaTeX the note did not ask about, so Lattice holds them back.`}
-            </InlineMessage>
-          )}
+          {/* Held changes are drawn inline, locked, with their kind's tag. */}
         </>
       ) : revision?.state === "asked" ? (
         <p className="annotation-review-status">{t`The agent asks: ${revision.question ?? ""}`}</p>

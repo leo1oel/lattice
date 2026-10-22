@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Hand, Shield, ShieldCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
@@ -13,22 +13,13 @@ export default function SynaraPermissionPicker(props: {
   onChange: (value: SynaraPermissionMode) => void;
 }) {
   const { t } = useLingui();
-  const descriptionId = useId();
   const groupRef = useRef<HTMLDivElement>(null);
   const modes = ["full-access", "auto", "approval-required"] as const;
-  const presentations: Record<SynaraPermissionMode, { label: string; description: string }> = {
-    "full-access": {
-      label: t`Full access`,
-      description: t`Run without asking for approval`,
-    },
-    auto: {
-      label: t`Approve for me`,
-      description: t`Ask only for potentially unsafe actions`,
-    },
-    "approval-required": {
-      label: t`Ask for approval`,
-      description: t`Ask before external edits and network access`,
-    },
+  // Each label says the behaviour, so no option needs a description line.
+  const presentations: Record<SynaraPermissionMode, { label: string }> = {
+    "full-access": { label: t`Never ask` },
+    auto: { label: t`Ask for risky actions` },
+    "approval-required": { label: t`Ask before edits and network` },
   };
   const { label } = presentations[props.value];
   const ModeIcon = MODE_ICONS[props.value];
@@ -65,13 +56,11 @@ export default function SynaraPermissionPicker(props: {
                   label={option.label}
                   onSelect={() => { if (!disabled) props.onChange(mode); }}
                   aria-disabled={disabled || undefined}
-                  aria-describedby={`${descriptionId}-${mode}`}
                   // Exclude unavailable modes from the library's arrow-key targets.
                   data-fluid-hover-index={disabled ? undefined : index}
                   tabIndex={!disabled && props.value === mode ? 0 : -1}
                   className="agent-permission-radio"
                 />
-                <small id={`${descriptionId}-${mode}`} className="agent-permission-description">{option.description}</small>
               </div>
             );
           })}

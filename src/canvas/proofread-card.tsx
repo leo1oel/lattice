@@ -73,21 +73,27 @@ export function ProofreadCard(props: {
     verbatim: t`verbatim`,
     paragraph: t`paragraph break`,
   }), [t]);
+  // That an edit is a choice is said in its own tooltip, after its reason,
+  // rather than as a hint line beside the answers.
+  const keepHint = t`Click to keep the original`;
   const edits = useMemo((): InlineEdit[] => ready ? [
-    ...ready.review.edits.map((edit): InlineEdit => ({
-      ...edit,
-      status: ready.rejected.has(edit.id) ? "kept" : "applied",
-      tag: edit.reason?.category ? categories[edit.reason.category] : undefined,
-      detail: edit.reason?.note || undefined,
-    })),
+    ...ready.review.edits.map((edit): InlineEdit => {
+      const status = ready.rejected.has(edit.id) ? "kept" : "applied";
+      const note = edit.reason?.note || undefined;
+      return {
+        ...edit,
+        status,
+        tag: edit.reason?.category ? categories[edit.reason.category] : undefined,
+        detail: status === "applied" ? [note, keepHint].filter(Boolean).join(" · ") : note,
+      };
+    }),
     ...heldRuns(original, ready.review).map((edit): InlineEdit => ({ ...edit, status: "held", tag: heldTags[edit.kind] })),
-  ] : [], [categories, heldTags, original, ready]);
+  ] : [], [categories, heldTags, keepHint, original, ready]);
   const polishing = mode === "polish";
   const summary = state.status === "loading" ? polishing ? t`Polishing…` : t`Proofreading…`
     : state.status === "error" ? polishing ? t`Could not polish` : t`Could not proofread`
       : offered === 0 ? held.length ? t`No safe edits` : t`No changes suggested`
-        : polishing ? offered === 1 ? t`1 edit · clarity and flow` : t`${offered} edits · clarity and flow`
-          : offered === 1 ? t`1 edit · errors only` : t`${offered} edits · errors only`;
+        : offered === 1 ? t`1 edit` : t`${offered} edits`;
   // Focus inside the card (an edit reached with Tab) is out of the editor's
   // keymap, which the card's widget ignores, so the card answers the keys too.
   const onKeyDown = (event: KeyboardEvent) => {
@@ -116,8 +122,8 @@ export function ProofreadCard(props: {
             if (next !== mode) props.onMode(next);
           }}
           items={[
-            { value: "proofread", label: t`Proofread`, title: t`Correct grammar, spelling and punctuation only` },
-            { value: "polish", label: t`Polish`, title: t`Also improve flow and academic clarity` },
+            { value: "proofread", label: t`Proofread` },
+            { value: "polish", label: t`Polish` },
           ]}
           ariaLabel={t`Editing strength`}
           className="proofread-card-mode"
@@ -125,7 +131,7 @@ export function ProofreadCard(props: {
         <span className="proofread-card-summary" role="status">
           {state.status === "loading" && <InfinityLoader size={12} />}
           <span className="proofread-card-summary-text">{summary}</span>
-          {ready?.model && <span className="proofread-card-model" title={t`Model`}>{ready.model}</span>}
+          {ready?.model && <span className="proofread-card-model">{ready.model}</span>}
         </span>
       </div>
       {edits.length > 0 && (
@@ -137,16 +143,6 @@ export function ProofreadCard(props: {
         />
       )}
       {held.length > 0 && <HeldNotice count={held.length} kinds={[...new Set(held.map((edit) => edit.kind))]} />}
-      {state.status === "loading" && (
-        <p className="proofread-card-note">
-          {polishing
-            ? t`The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them.`
-            : t`The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them.`}
-        </p>
-      )}
-      {ready && offered === 0 && !held.length && (
-        <p className="proofread-card-note">{polishing ? t`The selection already reads well.` : t`The selection already reads cleanly.`}</p>
-      )}
       {state.status === "error" && <InlineMessage level="error" className="proofread-card-error">{state.message}</InlineMessage>}
       <div className="proofread-card-actions">
         {offered > 0 ? (
@@ -161,9 +157,6 @@ export function ProofreadCard(props: {
             <Button size="compact" variant="ghost" onClick={props.onDismiss}>
               {t`Discard`} <kbd>{DISMISS_KEYS}</kbd>
             </Button>
-            <span className="proofread-card-hint">
-              {offered === 1 ? t`Click the edit to keep the original` : t`Click an edit to keep the original`}
-            </span>
           </>
         ) : state.status === "error" ? (
           <>
@@ -221,8 +214,8 @@ function HeldNotice(props: { count: number; kinds: ProtectedKind[] }) {
   return (
     <InlineMessage level="warning" className="proofread-card-held">
       {count === 1
-        ? t`Held back 1 edit that would change ${changed}. Lattice only offers edits that leave LaTeX intact.`
-        : t`Held back ${count} edits that would change ${changed}. Lattice only offers edits that leave LaTeX intact.`}
+        ? t`Held back 1 edit that would change ${changed}`
+        : t`Held back ${count} edits that would change ${changed}`}
     </InlineMessage>
   );
 }

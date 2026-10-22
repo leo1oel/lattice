@@ -157,7 +157,6 @@ export function GitWorkspaceFrames({ frame, view, turnReview, runtime, onRetryRu
           <div className="git-workspace-stalled" role="alert">
             <CircleAlert size={17} aria-hidden="true" />
             <strong>{t`Git workspace didn’t load`}</strong>
-            <span>{t`The local Git service hasn’t answered. Try loading it again.`}</span>
             <ReloadButton size="compact" variant="tinted" onClick={retry}>{t`Retry`}</ReloadButton>
           </div>
         ) : (

@@ -144,7 +144,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment, onOpenEditorComments,
     commentFocusRequest, onCommentFocusHandled,
   } = props.review;
-  const { buildDiagnostics } = props.status;
   const settledSource = props.document.settledSource ?? editorSource;
   const {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
@@ -1170,7 +1169,6 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
           breadcrumb={breadcrumb}
           path={activeFile}
           onNavigate={onOutlineNavigate}
-          hasDiagnostics={buildDiagnostics.length > 0}
           comments={commentsForActiveFile}
           onOpenComments={onOpenEditorComments}
           todoCount={props.status.todoCount}

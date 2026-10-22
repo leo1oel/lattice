@@ -4,6 +4,7 @@ import { toMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
 import { useExitPicture } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import type { AnnotationIntent } from "../editor/comments/editor-comment-data";
 import type { PdfTextSelection } from "../pdf/pdf-annotations";
 import { useDismissOnOutsidePointer } from "../hooks/use-dismiss-on-outside-pointer";
@@ -73,7 +74,6 @@ export function PdfAnnotationComposer(props: {
         intent={intent}
         error={error}
         ready={Boolean(mapped)}
-        footnote={mapped ? t`Mapped to the source with SyncTeX` : error ? undefined : t`Finding it in the source…`}
         canRevise
         onBodyChange={setBody}
         onIntentChange={setIntent}
@@ -84,6 +84,9 @@ export function PdfAnnotationComposer(props: {
           else setError(t`The source changed since the PDF was built. Build again, then annotate.`);
         }}
       />
+      {/* While SyncTeX maps the words, the location reads "→ …" and Save
+          waits; the search itself is said only to assistive technology. */}
+      {!mapped && !error && <LoadingAnnouncement message={t`Finding it in the source…`} />}
     </div>
   );
 }

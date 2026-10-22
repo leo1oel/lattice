@@ -58,7 +58,6 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
           type="button"
           className="status-item status-save"
           data-mode={mode}
-          title={t`Save state`}
           aria-label={showAge ? `${label}, ${age}` : label}
         >
           {icon}
@@ -71,7 +70,6 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
           <>
             <strong>{t`Lattice couldn’t write ${file}`}</strong>
             {status.error && <p className="save-state-reason">{status.error}</p>}
-            <p>{t`Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else.`}</p>
             <div className="save-state-actions">
               <Button size="compact" onClick={slot.onRetry}>{t`Try again`}</Button>
               <Button variant="ghost" size="compact" onClick={slot.onSaveCopy}>{t`Save a copy…`}</Button>
@@ -80,7 +78,6 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
         ) : offline ? (
           <>
             <strong>{t`Working offline`}</strong>
-            <p>{t`Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back.`}</p>
             <dl>
               <div><dt>{t`Last synced`}</dt><dd>{synced ?? t`Not yet`}</dd></div>
             </dl>
@@ -94,7 +91,6 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
               <div>
                 <dt>{t`On this Mac`}</dt>
                 <dd>{status.phase === "saving" ? t`Saving…` : age ? t`Saved ${age}` : t`Saved`}</dd>
-                <dd className="word-count-note">{t`${file} · saves a second after you stop typing`}</dd>
               </div>
               {overleaf && (
                 <div>
@@ -105,11 +101,10 @@ export function StatusSaveState({ slot, path }: { slot: SaveSlot; path: string }
                         : overleaf.state === "paused" ? t`Sync paused`
                           : synced ? t`Synced ${synced}` : t`Not synced yet`}
                   </dd>
-                  <dd className="word-count-note">
-                    {overleaf.state === "live" || overleaf.state === "sending" ? t`Co-authors see your edits as you type`
-                      : overleaf.state === "paused" ? t`Resume the link in Overleaf settings to sync again`
-                        : t`Co-authors see your changes once you sync`}
-                  </dd>
+                  {/* Paused has no action here, so it alone says how to resume. */}
+                  {overleaf.state === "paused" && (
+                    <dd className="word-count-note">{t`Resume the link in Overleaf settings to sync again`}</dd>
+                  )}
                 </div>
               )}
             </dl>

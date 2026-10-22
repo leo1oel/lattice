@@ -148,17 +148,17 @@
   line-height: 1;
 }
 
+/* The custom chips under a hairline, unlabelled: the + chip marks the row,
+   and the group keeps its name for assistive technology. */
 .hl-yours {
   min-height: var(--control-height-compact);
   padding: var(--space-2) var(--pad-inline-control-tight) var(--space-2) var(--space-3);
   border-top: 1px solid var(--border-subtle);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  column-gap: var(--space-4);
 }
-.hl-yours-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
-.hl-yours-chips { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.hl-yours-chips { min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .hl-dot {
   width: 20px;
   height: 20px;
@@ -199,11 +199,6 @@
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   transition: background-color var(--motion-fast);
-}
-.hl-paper-meta {
-  margin-top: var(--space-2);
-  color: #6B6B70;
-  font: var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
 }
 .hl-back { grid-template-columns: auto minmax(0, 1fr); }
 

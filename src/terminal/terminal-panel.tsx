@@ -210,7 +210,6 @@ export function TerminalPanel({ controller, shown, focused, moving }: { controll
           density="compact"
           icon={TERMINAL_ICON}
           title={t`The terminal is in the Lattice window`}
-          description={t`A browser tab cannot run commands on this Mac`}
         />
       </div>
     );
@@ -238,7 +237,6 @@ export function TerminalPanel({ controller, shown, focused, moving }: { controll
             density="compact"
             icon={TERMINAL_ICON}
             title={t`No terminal open`}
-            description={t`Run latexmk, git or any command in this project’s folder`}
             actions={<Button size="compact" variant="tinted" onClick={openTerminal}>{t`New terminal`}</Button>}
           />
         )}

@@ -76,7 +76,6 @@ export function HighlightPalette(props: {
           preview={(hex) => (
             <div className="hl-paper">
               <mark style={{ background: hex }}>{sample}</mark>
-              <div className="hl-paper-meta">{t`On paper, as in the PDF`}</div>
             </div>
           )}
           legibility={(hex) => {
@@ -178,7 +177,6 @@ export function HighlightPalette(props: {
         {HIGHLIGHTERS.map(row)}
       </div>
       <div className="hl-yours" role="group" aria-label={t`Your colours`}>
-        <span className="hl-yours-label">{t`Your colours`}</span>
         <span className="hl-yours-chips">
           {prefs.custom.map((hex) => (
             <button
