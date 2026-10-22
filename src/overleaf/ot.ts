@@ -54,7 +54,8 @@ function changeOps(before: string, after: string, at: number, byLine: boolean): 
   const removed = before.slice(prefix, before.length - suffix);
   const inserted = after.slice(prefix, after.length - suffix);
   const [removedLines, insertedLines] = [splitLines(removed), splitLines(inserted)];
-  const runs = byLine && (removedLines.length > 1 || insertedLines.length > 1)
+  // A pure insertion or deletion is one run however many lines it spans.
+  const runs = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
     ? changedRuns(removedLines, insertedLines, MAX_CHANGED_LINES)
     : null;
   if (runs && runs.length > 1) {
