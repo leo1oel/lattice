@@ -43,6 +43,8 @@ Providers, MCP and Skills follow the native Settings layout (a serif page title,
 
 The pin also carries `amp/lattice-cursor-no-autologin`: Cursor's startup model discovery and background text generation use ACP `authPolicy: "never"`, so a signed-out Cursor CLI no longer opens its sign-in page when Lattice starts (discovery falls back to `cursor-agent models`).
 
+On WebKit the composer draws its own caret (`ComposerDrawnCaretPlugin`): WebKit stretches the native caret on every line after a paragraph's first up through the leading above it, so in Lexical's one-paragraph composer it stood a full line pitch tall. The drawn 2px bar takes the glyph height of the text at the caret, hides for range selections, and gives the native caret back during IME composition; Chromium keeps the native caret.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
