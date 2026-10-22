@@ -1,0 +1,43 @@
+{
+  "version": "0.11.6",
+  "date": "2026-10-22",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "Selecting text in the PDF works again: the highlight shows on live-preview pages and in the dark theme.",
+      "zh": "PDF 中的文字选择恢复正常：实时预览页面和深色主题下都会显示选区高亮。"
+    },
+    {
+      "en": "Typing \\includegraphics no longer turns into \\include{graphics}.",
+      "zh": "输入 \\includegraphics 时不再被变成 \\include{graphics}。"
+    },
+    {
+      "en": "Renaming a .tex file no longer deletes PDFs with the same name.",
+      "zh": "重命名 .tex 文件时不再删除同名的 PDF。"
+    },
+    {
+      "en": "Compile errors are no longer lost or pointed at the wrong file.",
+      "zh": "编译错误不再丢失，也不再指向错误的文件。"
+    },
+    {
+      "en": "Overleaf track changes are respected when you edit, and tracked deletions are shown in the right place.",
+      "zh": "编辑时会遵循 Overleaf 的修订跟踪，被跟踪的删除内容也会显示在正确的位置。"
+    },
+    {
+      "en": "Folder rows that stick to the top of the file tree no longer overlap the rows scrolling under them.",
+      "zh": "文件树中吸顶的文件夹行不再与下方滚动的行重叠。"
+    },
+    {
+      "en": "Resolving or deleting a comment now confirms what happened and offers Undo.",
+      "zh": "解决或删除评论后会提示操作结果，并提供撤销。"
+    },
+    {
+      "en": "Comment details: a delete button, a centred reply field, a seamless popover arrow and a better-sized gutter pin.",
+      "zh": "评论细节改进：新增删除按钮，回复框居中，弹出框箭头无缝衔接，侧边栏标记尺寸更合适。"
+    },
+    {
+      "en": "The caret in the agent panel is drawn at text height.",
+      "zh": "智能体面板中的光标高度与文字一致。"
+    }
+  ]
+}
