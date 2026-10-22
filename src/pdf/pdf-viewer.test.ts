@@ -74,3 +74,47 @@ describe("PDF scroll viewport", () => {
     expect(webkitBar?.style.getPropertyValue("display")).toBe("none")
   })
 })
+
+describe("PDF selection highlight", () => {
+  // The page is paper in both themes; the dark theme's graphite accent is
+  // near white, so a highlight in the accent did not show on it.
+  it("draws in a color that shows on the paper page in either theme", () => {
+    const css = String(readFileSync("src/pdf/pdf-viewer.css", "utf8"))
+    const tint = /\.pdf-sel-rect \{[^}]*background: color-mix\(in srgb, var\((--[\w-]+)\)/.exec(css)?.[1]
+    expect(tint).toBe("--editor-selection-tint")
+    expect(String(readFileSync("src/styles/foundations.css", "utf8"))).toMatch(new RegExp(`${tint}: #[0-9a-f]{6};`))
+    expect(String(readFileSync("src/styles/theme.css", "utf8"))).not.toContain(`${tint}:`)
+  })
+
+  it("stays over a live-preview page painted before pdf.js appended the text layer", () => {
+    // The order the stylesheets reach the document in: the eager PDF sheet
+    // (pdf-loading.tsx) and the live preview's before PDFSlick's lazy chunk.
+    // jsdom cannot parse PDFSlick's nested CSS, so its text layer rule stands
+    // in for that sheet.
+    const styles = [
+      readFileSync("src/pdf/pdf-viewer.css", "utf8"),
+      readFileSync("src/live-preview/live-preview.css", "utf8"),
+      ".textLayer { position: absolute; inset: 0; z-index: 0; }",
+    ].map((css) => {
+      const style = document.createElement("style")
+      style.textContent = css
+      return document.head.appendChild(style)
+    })
+    // What the live preview's first draw of a page leaves (live-preview-layer.tsx):
+    // pdf.js inserts the text layer, once its text has streamed in, right
+    // after its own canvas, so the paper canvas appended before then comes
+    // after it in the tree.
+    document.body.innerHTML = `<div class="pdf-preview"><div class="pdfViewer"><div class="page latticeLayered">
+      <div class="canvasWrapper"><canvas></canvas></div>
+      <div class="textLayer pdf-text-layer has-selection"><span>Selected</span><div class="pdf-sel-rect"></div></div>
+      <div class="annotationLayer"></div>
+      <canvas class="live-preview-page-layer"></canvas>
+    </div></div></div>`
+    const zIndex = (selector: string) => Number(getComputedStyle(document.querySelector(selector)!).zIndex)
+    const paper = zIndex("canvas.live-preview-page-layer")
+    // Equal z-indexes paint in tree order, which would put the paper on top.
+    expect(zIndex(".textLayer")).toBeGreaterThan(paper)
+    expect(zIndex(".annotationLayer")).toBeGreaterThan(paper)
+    for (const style of styles) style.remove()
+  })
+})

@@ -222,7 +222,9 @@ class PagePainter {
     // A page not drawn yet is not a positioned box (the PDF.js patch marks
     // only pages with layers): position this one for the canvas.
     live.classList.add("latticeLayered");
-    // Under the text layer, so selection and links stay on top.
+    // Under the text layer, so selection and links stay on top. A page drawn
+    // before pdf.js appends its text layer gets the canvas last instead:
+    // live-preview.css's z-indexes keep it under that layer when it comes.
     const textLayer = live.querySelector(".textLayer");
     if (current?.canvas.parentElement === live) current.canvas.replaceWith(canvas);
     else {
