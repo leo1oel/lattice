@@ -81,8 +81,6 @@ export type PaperLibraryProps = {
   recentImport?: RecentPaperImport | null;
   /** Citation keys or arXiv ids this window just added; their rows say so, with the key to copy. */
   justAdded?: ReadonlySet<string>;
-  /** The project's bibliography file, which an add writes to. */
-  bibliographyName?: string;
   /** Open the Add papers sheet, seeded with what the box holds. */
   onAddPapers: (seed: string) => void;
   onSearchLiterature: (query: string) => void;
@@ -227,7 +225,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
   // happens; a known arXiv id or DOI says where it already is instead. The
   // paper the box just added is its own row, marked so, and is not said twice.
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Web page`, bibtex: "BibTeX", title: t`Title` };
-  const bibliography = props.bibliographyName || "references.bib";
   const duplicateCite = duplicate?.citationKey ? `\\cite{${duplicate.citationKey}}` : null;
   /** The add rows above the list; a title offers a lookup only when nothing in the library matches it. */
   const addRows = (matches: number) => {
@@ -253,13 +250,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
           <strong className="paper-add-title">
             {kind === "title" ? t`Look up and add` : t`Add`} <q>{query}</q>
           </strong>
-          <span className="paper-add-detail">
-            {kind === "title"
-              ? t`Finds the record, then lets you choose`
-              : kind === "arxiv"
-                ? t`Adds it to ${bibliography} and fetches the full text`
-                : t`Adds it to ${bibliography}, with its full text when there is one`}
-          </span>
         </span>
         <span className="paper-add-kind">{kindLabels[kind]}</span>
         {kind !== "title" && <CornerDownLeft size={12} className="paper-add-enter" aria-hidden="true" />}
@@ -288,9 +278,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
             aria-label={t`Search or import papers`}
             aria-busy={fetching}
             readOnly={fetching}
-            // The placeholder is short enough never to truncate at the panel's
-            // narrowest; what can be pasted to add a paper is in the tip.
-            title={fetching ? props.importStage ?? t`Working…` : t`Search or add by title, arXiv ID, DOI, or URL`}
+            // While a paper is fetched, the tip says which step it is on.
+            title={fetching ? props.importStage ?? t`Working…` : undefined}
             aria-describedby={fetching ? "paper-import-status" : undefined}
             containerClassName="import-box"
             controlSize="compact"
@@ -367,8 +356,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 className="papers-empty-state"
                 fill
                 icon={<ResearchArt drawing={CARD_INDEX} />}
-                title={t`Your paper library`}
-                description={t`Keep sources beside your writing`}
+                title={t`No papers yet`}
                 // Only focuses the field: what to add is the writer's to type.
                 actions={<Button size="compact" onClick={() => importInputRef.current?.focus()}>{t`Add your first paper`}</Button>}
               />
@@ -529,7 +517,7 @@ function PaperShelf(props: PaperLibraryProps & {
   };
   const inspectedLink = inspected && paperLinkUrl(inspected);
   const total = props.papers.length;
-  const emptyState = filteredPapers.length || props.hasKind ? null : [t`No matching papers`, t`Try another filter`];
+  const emptyState = filteredPapers.length || props.hasKind ? null : t`No matching papers`;
   const sortLabels: Record<PaperSort, string> = {
     title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
   };
@@ -811,8 +799,7 @@ function PaperShelf(props: PaperLibraryProps & {
             <div className="papers-empty-state">
               <EmptyIllustration kind="search" size="compact" />
               <div className="papers-empty-text">
-                <strong>{emptyState[0]}</strong>
-                <p>{emptyState[1]}</p>
+                <strong>{emptyState}</strong>
               </div>
             </div>
           )}
@@ -1024,14 +1011,9 @@ function PaperRow(props: PaperRowProps) {
         </div>
       </div>
       {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
-      {(health || recent) && (
-        <div className="paper-tags">
-          {recent && <Badge size="compact" tone="success" className="paper-tag">{t`Just added`}</Badge>}
-          {healthNotice}
-        </div>
-      )}
+      {health && <div className="paper-tags">{healthNotice}</div>}
       <span id={factsId} className="sr-only">
-        {[stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
+        {[recent && t`Just added`, stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
           .filter(Boolean).join(". ")}
       </span>
     </div>

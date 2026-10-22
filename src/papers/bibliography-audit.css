@@ -62,7 +62,6 @@
 
 .bibliography-audit-clean { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4) var(--space-8); padding-block: var(--space-4); --art-paper: var(--surface-elevated); }
 .bibliography-audit-clean .research-art { width: 128px; }
-.bibliography-audit-clean p { flex: 1 1 14em; max-width: 36ch; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: balance; }
 
 /* The findings. */
 .bibliography-audit-body { flex: 1; min-height: 0; display: flex; }
@@ -182,13 +181,8 @@
 .bibliography-audit-pane > * { flex-shrink: 0; }
 .bibliography-audit-pane > .bibliography-audit-detail { margin-top: var(--space-6); }
 .bibliography-audit-pane-step { margin-bottom: var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-/* The queue's keys, quiet at the foot of the pane. */
-.bibliography-audit-hints { margin-top: auto; padding-top: var(--space-8); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
-.bibliography-audit-hints > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .bibliography-audit-pane-title { margin: 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-typeset-line-height); font-weight: var(--weight-regular); overflow-wrap: break-word; }
 .bibliography-audit-pane .bibliography-audit-meta { white-space: normal; overflow-wrap: anywhere; }
-/* All the pane shows, either stands centred in the room above its keys, as
-   every empty panel does. */
+/* All the pane shows, either stands centred in it, as every empty panel does. */
 .bibliography-audit-pane .bibliography-audit-clean { flex: 1 0 auto; flex-flow: column nowrap; justify-content: center; padding-block: var(--space-8); text-align: center; }
-.bibliography-audit-pane .bibliography-audit-clean p { flex: none; }
 .bibliography-audit-pane-empty { flex: 1 0 auto; display: grid; place-content: center; padding: var(--space-8) var(--space-8) var(--space-8) 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-align: center; text-wrap: balance; }

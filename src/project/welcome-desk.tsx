@@ -61,7 +61,7 @@ function age(then: number, now: number, locale: string, justNow: string): string
  * The recent projects as the first page of each paper, like drafts on a desk:
  * the page a build last wrote with its venue on it, the name in the title
  * serif, and when it last changed. A project that has not built a PDF yet
- * shows a plain card that says so.
+ * shows a plain card with a page glyph.
  */
 export function WelcomeDesk(props: {
   projects: readonly RecentProject[];
@@ -86,11 +86,7 @@ export function WelcomeDesk(props: {
   const last = props.projects.length;
   return (
     <div className="welcome-desk-frame" style={{ "--desk-count": last } as CSSProperties}>
-      <div className="welcome-desk-head">
-        <h2 className="welcome-recents-title">{t`Recent projects`}</h2>
-        {/* Each card names its own key to assistive technology (aria-keyshortcuts). */}
-        <span className="welcome-desk-keys" aria-hidden="true">{last > 1 ? `⌘1 – ⌘${last}` : "⌘1"}</span>
-      </div>
+      <h2 className="welcome-recents-title">{t`Recent projects`}</h2>
       <ul className="welcome-desk">
         {props.projects.map((item, index) => {
           const page = pages?.get(item.path);
@@ -99,7 +95,9 @@ export function WelcomeDesk(props: {
               <button
                 type="button"
                 className="welcome-desk-card"
-                title={item.path}
+                // Its key shows only here and in the ⌘? sheet; assistive
+                // technology reads it from aria-keyshortcuts.
+                title={`${item.path} · ⌘${index + 1}`}
                 aria-keyshortcuts={`Meta+${index + 1}`}
                 disabled={props.disabled}
                 onClick={() => props.onOpen(item.path)}
@@ -114,12 +112,7 @@ export function WelcomeDesk(props: {
                   </span>
                 ) : (
                   <span className="welcome-desk-sheet" data-kind={pages ? "notes" : "loading"}>
-                    {pages && (
-                      <>
-                        <FileText size={20} strokeWidth={1.5} aria-hidden="true" />
-                        <span>{t`No PDF yet`}</span>
-                      </>
-                    )}
+                    {pages && <FileText size={20} strokeWidth={1.5} aria-hidden="true" />}
                   </span>
                 )}
               </button>

@@ -218,7 +218,7 @@ export function SubmissionItems(props: {
             value={adding}
             maxLength={200}
             aria-label={t`New item`}
-            placeholder={items.length ? t`Add an item` : t`Add an item, e.g. supplementary.pdf checked`}
+            placeholder={t`Add an item`}
             onChange={(event) => setAdding(event.target.value)}
           />
         </form>

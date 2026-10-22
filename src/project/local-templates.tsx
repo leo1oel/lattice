@@ -49,7 +49,6 @@ export function LocalTemplates({ selected, onSelect, currentProject = false }: {
       </Select>}
       {active && <small className="template-details">{[active.version, active.sourceUrl, active.root, active.engine].filter(Boolean).join(" · ")}</small>}
       {active && <details><summary>{t`Files`}</summary><ul className="template-saved-files">{active.files.map((file) => <li key={file}>{file}</li>)}</ul></details>}
-      {!items.length && !error && <small>{t`Save your school, journal or lab files to reuse them in new projects.`}</small>}
       <Button variant="secondary" onClick={() => setEditing(true)}>{t`Save a local template…`}</Button>
       {error && <p className="field-error" role="alert">{error}</p>}
       {editing && <SaveTemplateDialog currentProject={currentProject} onClose={() => setEditing(false)} onSaved={(item) => {
@@ -98,7 +97,7 @@ function SaveTemplateDialog({ currentProject, onClose, onSaved }: {
   return <ModalDialog label={t`Save a local template`} onClose={onClose} closeDisabled={busy} keepOnOutsideClick>
     <div className="modal local-template-modal">
       <h2>{t`Save a local template`}</h2>
-      <p>{t`Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied.`}</p>
+      <p>{t`Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied`}</p>
       <div className="template-source-actions">
         <Button disabled={busy} onClick={() => void choose("folder")}>{t`From folder`}</Button>
         <Button disabled={busy} onClick={() => void choose("zip")}>{t`From ZIP`}</Button>
@@ -106,15 +105,15 @@ function SaveTemplateDialog({ currentProject, onClose, onSaved }: {
       </div>
       {review && <fieldset disabled={busy} className="template-fields">
         <label>{t`Template name`}<Input value={draft.name} onChange={(e) => update({ name: e.target.value })} maxLength={300} /></label>
-        <label>{t`Source URL (optional)`}<Input type="url" value={draft.sourceUrl} onChange={(e) => update({ sourceUrl: e.target.value })} /></label>
-        <label>{t`Version or year (optional)`}<Input value={draft.version} onChange={(e) => update({ version: e.target.value })} maxLength={300} /></label>
+        <label>{t`Source URL`}<Input type="url" value={draft.sourceUrl} onChange={(e) => update({ sourceUrl: e.target.value })} /></label>
+        <label>{t`Version or year`}<Input value={draft.version} onChange={(e) => update({ version: e.target.value })} maxLength={300} /></label>
         <label>{t`Compile root`}<select className="ui-input" value={draft.root} onChange={(e) => update({ root: e.target.value })}>
           {review.files.filter((file) => file.endsWith(".tex")).map((file) => <option key={file} value={file}>{file}</option>)}
         </select></label>
         <label>{t`LaTeX engine`}<select className="ui-input" value={draft.engine} onChange={(e) => update({ engine: e.target.value })}>
           <option value="pdf">pdfLaTeX</option><option value="xelatex">XeLaTeX</option><option value="lualatex">LuaLaTeX</option>
         </select></label>
-        <label>{t`Preview image (optional)`}<select className="ui-input" value={draft.preview ?? ""} onChange={(e) => update({ preview: e.target.value || null })}>
+        <label>{t`Preview image`}<select className="ui-input" value={draft.preview ?? ""} onChange={(e) => update({ preview: e.target.value || null })}>
           <option value="">{t`None`}</option>
           {draft.files.filter((file) => /\.(png|jpe?g|pdf|svg)$/i.test(file)).map((file) => <option key={file} value={file}>{file}</option>)}
         </select></label>

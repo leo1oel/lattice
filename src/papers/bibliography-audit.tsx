@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowDown, ArrowRight, Check, ChevronRight, ClipboardChe
 import type { PaperSummary } from "../app-types";
 import { isMissingPaperToolsError } from "../build/tex-setup";
 import { CopyButton } from "../components/copy-button";
+import { Tip } from "../components/icon-tip";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -488,13 +489,16 @@ export function BibliographyAudit(props: {
     ? result.message === "A published version is available." ? t`A published version is available.`
       : result.message === REFERENCE_CHANGED_MESSAGE ? t`Reference changed since the last check. Check this reference again.`
       : result.message === "No update found." ? t`No update found` : auditResultMessage(result.message)
-    : result.publicationReason === "identity_conflict" ? t`A source returned a possible record, but its identifying metadata conflicts with this reference.`
-      : result.publicationReason === "metadata_unavailable" ? t`No independent metadata was available to verify a possible record. The reference may still be valid.`
+    // The unavailable reasons say only what happened: the group they sit in
+    // ("Inconclusive") already says the reference is not judged wrong.
+    : result.publicationReason === "identity_conflict" ? t`A possible record conflicts with this reference`
+      : result.publicationReason === "metadata_unavailable" ? t`No independent metadata to verify a possible record`
         : result.publicationReason === "missing_identity" ? t`Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference.`
           : result.publicationReason === "no_match" || result.publicationReason === "no_published_version" ? t`No matching publication was found in the sources checked.`
-      : result.publicationReason === "sources_unavailable" ? t`Some sources could not complete the lookup. This does not mean the reference is incorrect.`
-        : result.publicationReason === "official_unavailable" ? t`An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect.`
-        : result.publicationReason === "ambiguous" ? t`The results did not identify a unique matching publication.`
+      // Which sources did not answer is the list right under the note.
+      : result.publicationReason === "sources_unavailable" ? null
+        : result.publicationReason === "official_unavailable" ? t`An index matched, but the official proceedings could not be reached`
+        : result.publicationReason === "ambiguous" ? t`No unique matching publication`
           : t`The publication lookup could not be completed. Try again later.`;
   const sourceNames: Record<string, string> = {
     dblp: t`DBLP`, semanticscholar: t`Semantic Scholar`, googlescholar: t`Google Scholar`,
@@ -540,7 +544,7 @@ export function BibliographyAudit(props: {
     record: t`Record identity`, arxiv: t`arXiv identifier`,
   };
   const bucketNames: Record<Bucket, string> = {
-    fix: t`Fixes to review`, review: t`Need your eyes`, incomplete: t`Couldn't finish`,
+    fix: t`Fixes to review`, review: t`Need your eyes`, incomplete: t`Inconclusive`,
     unchecked: t`Not checked yet`, kept: t`Kept as written`, verified: t`Verified`,
   };
   const coverage = scan?.coverage ?? [];
@@ -553,7 +557,7 @@ export function BibliographyAudit(props: {
     counts.review > 0 && (counts.review === 1 ? t`1 needs your eyes` : t`${counts.review} need your eyes`),
   ].filter(Boolean).join(" · ");
   const leftOver = [
-    counts.incomplete > 0 && t`${counts.incomplete} couldn't finish`,
+    counts.incomplete > 0 && t`${counts.incomplete} inconclusive`,
     counts.unchecked > 0 && t`${counts.unchecked} not checked`,
   ].filter(Boolean).join(" · ");
   const verdict = busy ? scan ? t`Checking ${completed} of ${progressTotal}…` : t`Reading the bibliography…`
@@ -637,7 +641,7 @@ export function BibliographyAudit(props: {
   /** The verdict's reasoning: the sources asked, what they said, and when; `message` unless the finding already says it. */
   const details = (result: AuditResult, message: boolean) => <Disclosure className="bibliography-audit-more" summary={t`Details`}>
     <div className="bibliography-audit-more-body">
-      {message && <p>{publicationMessage(result)}</p>}
+      {message && publicationMessage(result) && <p>{publicationMessage(result)}</p>}
       {sources(result)}
       {!!result.disagreements?.length && <p>{t`The conference's own citation export and Crossref disagree on: ${result.disagreements.map(fieldText).join(", ")}. The conference export is kept.`}</p>}
       {result.health && <p className="bibliography-audit-meta">{t`Health checked at`}: <time dateTime={result.health.checkedAt}>{new Date(result.health.checkedAt).toLocaleString(i18n.locale)}</time>{result.health.stale ? ` · ${t`Stale result`}` : ""}</p>}
@@ -658,9 +662,13 @@ export function BibliographyAudit(props: {
       {t`${position} of ${peers.length}`}<ArrowDown size={11} aria-hidden="true" />
     </button>;
   };
+  // Its key shows in its tip; j/k, which have no control, are in the ⌘? sheet.
+  const skipKey = REFERENCE_CHECK_SHORTCUTS.skip.key;
   const skip = (index: number) => {
     const next = nextAfter(index);
-    return next !== null && <Button size="compact" variant="ghost" onClick={() => openFinding(next, true)}>{t`Skip`}</Button>;
+    return next !== null && <Tip label={i18n._(REFERENCE_CHECK_SHORTCUTS.skip.label)} shortcut={comboKeys(parseKeyName(skipKey)).join("")}>
+      <Button size="compact" variant="ghost" aria-keyshortcuts={skipKey.toUpperCase()} onClick={() => openFinding(next, true)}>{t`Skip`}</Button>
+    </Tip>;
   };
   const goTo = (entry: AuditEntry, label: string, variant: "tinted" | "ghost") => props.onOpenSource && entry.line !== undefined
     && <Button size="compact" variant={variant} onClick={() => props.onOpenSource!(entry.path, entry.line!)}>{label}</Button>;
@@ -682,7 +690,6 @@ export function BibliographyAudit(props: {
     const writtenText = entry.inline ?? currentBibtex;
     const written = <Disclosure className="bibliography-audit-more" summary={writtenLabel}>{bibtex(null, writtenText)}</Disclosure>;
     if (!result) return <div className="bibliography-audit-detail">
-      <p className="bibliography-audit-note">{t`This reference has not been checked against the publication sources yet.`}</p>
       <div className="bibliography-audit-detail-actions">{recheck(index, t`Check this reference`)}</div>
       {written}
     </div>;
@@ -704,7 +711,7 @@ export function BibliographyAudit(props: {
       </>}
       {bucket === "fix" && entry.inline && <>
         {typesetCard(typesetInlineFix(entry.inline, result.changes, fieldText))}
-        <p className="bibliography-audit-note">{t`${entry.path} keeps its own reference list. Lattice compares it with the verified record but never edits it: change the ${BIBITEM} by hand, or copy the corrected one.`}</p>
+        <p className="bibliography-audit-note">{t`${entry.path} keeps its own reference list. Lattice compares it with the verified record but never edits it`}</p>
         <div className="bibliography-audit-detail-actions">
           {goTo(entry, t`Go to ${BIBITEM} in ${entry.path}`, "tinted")}
           <CopyButton className={buttonClassName({ variant: "ghost", size: "compact" })} iconSize={12} text={correctedBibitem(entry.key, entry.inline, result.after!, result.changes)} title={t`Copy corrected ${BIBITEM}`}>
@@ -725,11 +732,9 @@ export function BibliographyAudit(props: {
         </div>
       </Disclosure>}
       {(bucket === "review" || bucket === "kept") && <>
-        <p className="bibliography-audit-note">{!hasCandidate(result)
-          ? bucket === "kept" ? t`You read the publisher's notice and kept citing this paper.` : t`The publisher has issued a notice about this paper. Read it before you keep citing it.`
-          : bucket === "kept"
-            ? t`You kept your entry. The source's record was not verified, and Lattice never applies it.`
-            : t`A source returned a record that differs from yours. It was not verified, so Lattice won't apply it: read both and keep yours, or edit the entry.`}</p>
+        {/* The bucket and the side-by-side say the rest; a notice not yet
+            read is the one thing to warn about. */}
+        {bucket === "review" && !hasCandidate(result) && <p className="bibliography-audit-note">{t`The publisher has issued a notice about this paper. Read it before you keep citing it.`}</p>}
         {!hasCandidate(result) && healthNotice(result)}
         {candidate && candidate.changes.map((change, changeIndex) => {
           const words = wordDifference(change.before || "—", change.after || "—");
@@ -752,7 +757,7 @@ export function BibliographyAudit(props: {
         {candidate?.bibtex && <Disclosure className="bibliography-audit-more" summary={t`Unverified candidate BibTeX`}>{bibtex(null, candidate.bibtex)}</Disclosure>}
       </>}
       {bucket === "incomplete" && <>
-        <p className="bibliography-audit-note">{publicationMessage(result)}</p>
+        {publicationMessage(result) && <p className="bibliography-audit-note">{publicationMessage(result)}</p>}
         {sources(result)}
         <div className="bibliography-audit-detail-actions">{recheck(index, t`Check again`)}</div>
       </>}
@@ -775,16 +780,9 @@ export function BibliographyAudit(props: {
       label: <>{mark(bucket)}{bucketNames[bucket]}<span className="bibliography-audit-tab-count">{counts[bucket]}</span></>,
     })),
   ];
-  const hints = (["next", "previous", "apply", "skip"] as const).map(action => {
-    const { key, label } = REFERENCE_CHECK_SHORTCUTS[action];
-    return <span key={action}>{renderKeycaps(comboKeys(parseKeyName(key)))}{i18n._(label)}</span>;
-  });
   // Nothing left to act on: the research desk's reading glass says the report is done.
   const cleanNote = settled && <div className="bibliography-audit-clean">
     <ResearchArt drawing={REFERENCE_CHECK} />
-    <p>{counts.kept > 0
-      ? t`Nothing left to review. Every other reference matched a verified record.`
-      : t`Every reference matched a verified record. Check again after you edit the bibliography.`}</p>
   </div>;
   // A running check or a selection waiting to be applied must survive a stray click outside.
   const dirty = busy || applying !== null || selected.size > 0;
@@ -806,7 +804,7 @@ export function BibliographyAudit(props: {
         {coverage.map((file, index) => <Fragment key={`${file.kind}:${file.path}`}>
           {index > 0 && " · "}
           <span className="bibliography-audit-file">{file.path}</span> {file.kind === "inline"
-            ? file.entries === 1 ? t`1 ${BIBITEM} in the document, compared, never edited` : t`${file.entries} ${BIBITEM} in the document, compared, never edited`
+            ? file.entries === 1 ? t`1 ${BIBITEM}` : t`${file.entries} ${BIBITEM}`
             : file.entries === 1 ? t`1 entry` : t`${file.entries} entries`}
         </Fragment>)}
         {lastChecked && !busy && <>{coverage.length > 0 && " · "}{t`checked`} <time dateTime={lastChecked}>{new Date(lastChecked).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" })}</time></>}
@@ -901,8 +899,7 @@ export function BibliographyAudit(props: {
         <h3 className="bibliography-audit-pane-title">{scan.entries[current].title || scan.entries[current].key}</h3>
         <p className="bibliography-audit-meta"><code>{scan.entries[current].key}</code> · {scan.entries[current].path}{scan.entries[current].line !== undefined ? `:${scan.entries[current].line}` : ""}</p>
         {detailFor(current)}
-        <p className="bibliography-audit-hints">{hints}</p>
-      </> : cleanNote || (scan && total > 0 && <p className="bibliography-audit-pane-empty">{t`Choose a reference to see what was checked.`}</p>)}
+      </> : cleanNote || (scan && total > 0 && <p className="bibliography-audit-pane-empty">{t`No reference selected`}</p>)}
     </section>}
     </div>
   </SheetDialog>;

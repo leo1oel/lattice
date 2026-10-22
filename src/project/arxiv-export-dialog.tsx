@@ -123,7 +123,6 @@ export default function ArxivExportDialog({ projectRoot, projectName, save, buil
       return;
     }
     notifySuccess(t`Export for arXiv`, t`Exported ${fileName}`, {
-      detail: t`Upload it at arXiv’s Add Files step.`,
       primaryAction: { label: t`Show in Finder`, onClick: () => revealItemInDir(zipPath) },
     });
     onClose();
@@ -158,7 +157,7 @@ export default function ArxivExportDialog({ projectRoot, projectName, save, buil
         {check?.kind === "unbuilt" && (
           <div className="arxiv-export-blocked">
             <InlineMessage level="info">
-              {t`Build the paper first. The package is made from the files the last build of ${rootDocument} used.`}
+              {t`Build the paper first`}
             </InlineMessage>
             <Button variant="secondary" size="compact" disabled={building || running} onClick={() => void buildFirst()}>
               {building ? t`Building…` : t`Build`}
@@ -231,13 +230,11 @@ export default function ArxivExportDialog({ projectRoot, projectName, save, buil
             <div className="arxiv-export-options">
               <SwitchField
                 label={t`Remove % comments`}
-                description={t`Notes to co-authors stay on this Mac`}
                 checked={options.stripComments}
                 onChange={(stripComments) => setOption({ stripComments })}
               />
               <SwitchField
                 label={t`Merge \\input files into ${rootDocument}`}
-                description={t`One source file, as arXiv prefers`}
                 checked={options.mergeInputs}
                 onChange={(mergeInputs) => setOption({ mergeInputs })}
               />

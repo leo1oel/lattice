@@ -79,7 +79,6 @@ export function DeadlineCard(props: {
         <Clock size={14} aria-hidden="true" />
         <span>
           <b>{t`Add the submission deadline`}</b>
-          <small>{t`Counted down in AoE (UTC−12), with your own time beside it`}</small>
         </span>
       </button>
     );
@@ -183,9 +182,8 @@ function DeadlineForm(props: {
           />
         </label>
       </div>
-      <p className="deadline-card-local">
-        {when ? t`${when} your time · ${zone}` : t`Calls for papers give deadlines in AoE; your own time shows here`}
-      </p>
+      {/* Empty until a date is set, its line held so the actions don't jump. */}
+      <p className="deadline-card-local">{when && t`${when} your time · ${zone}`}</p>
       <div className="deadline-form-actions">
         {props.deadline && (
           <Button variant="ghost" size="compact" className="deadline-form-remove" onClick={() => props.onSave(null)}>

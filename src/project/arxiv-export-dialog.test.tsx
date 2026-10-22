@@ -104,7 +104,7 @@ describe("Export for arXiv", () => {
       options: { stripComments: true, mergeInputs: true },
     }));
     expect(screen.getByText("Understanding Attention-arxiv.zip")).toBeTruthy();
-    expect(screen.getByText("Left out: attention-demo.html, notes.md, refs.bib, slides/ and 1 more, which the paper doesn’t use.")).toBeTruthy();
+    expect(screen.getByText("Left out: attention-demo.html, notes.md, refs.bib, slides/ and 1 more")).toBeTruthy();
     expect(row("compile").dataset.state).toBe("running");
     expect(screen.getByRole("status").textContent).toBe("Checking…");
     expect(exportButton()).toHaveProperty("disabled", true);
@@ -181,7 +181,7 @@ describe("Export for arXiv", () => {
   it("offers a build when the paper was never built, then checks again", async () => {
     tauri.invoke.mockResolvedValueOnce({ kind: "unbuilt", rootDocument: "paper.tex" });
     const { props } = renderSheet();
-    expect(await screen.findByText(/The package is made from the files the last build of paper.tex used/)).toBeTruthy();
+    expect(await screen.findByText("Build the paper first")).toBeTruthy();
     expect(exportButton()).toHaveProperty("disabled", true);
     const check = nextCheck();
     fireEvent.click(screen.getByRole("button", { name: "Build" }));

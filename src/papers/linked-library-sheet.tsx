@@ -232,7 +232,7 @@ export function LinkedLibrarySheet(props: {
               <strong title={source}>{fileName(source)}</strong>
               <span title={source}>
                 <ArrowRight size={11} aria-hidden="true" className="linked-library-into" />
-                {updated ? t`Updates ${target} · last updated ${updated}` : t`Will update ${target}`}
+                {updated ? `${target} · ${updated}` : target}
               </span>
             </span>
             <span className="linked-library-source-actions">
@@ -251,7 +251,7 @@ export function LinkedLibrarySheet(props: {
           <div className="add-papers-empty">
             <ResearchArt drawing={CARD_INDEX} />
             <div className="linked-library-intro">
-              <p>{t`Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to ${target}. Your citation keys and your own edits stay.`}</p>
+              <strong>{t`Link a Zotero or Paperpile export`}</strong>
               <Button variant="primary" onClick={() => void choose()}>{t`Choose .bib file…`}</Button>
             </div>
           </div>
@@ -282,11 +282,9 @@ export function LinkedLibrarySheet(props: {
                 </button>
               ))}
             </div>
-            <p className="linked-library-hint">
-              {loaded.base === null
-                ? t`First update from this file: where an entry differs here, your version stays unless you tick it.`
-                : t`What you leave unticked is not offered again.`}
-            </p>
+            {/* On a first update the ticks already show which side wins; from
+                then on, an unticked change is dropped for good, which they don't. */}
+            {loaded.base !== null && <p className="linked-library-hint">{t`What you leave unticked is not offered again.`}</p>}
             <ol className="add-papers-rows linked-library-rows" role="tabpanel">
               {shown.map((change) => {
                 const locked = change.kind === "removed" && change.cited;
@@ -302,10 +300,11 @@ export function LinkedLibrarySheet(props: {
                         <strong title={change.title}>{change.title}</strong>
                         <span>
                           <code>{change.key}</code>
-                          {change.kind === "removed" && (
+                          {/* Only a locked row says why; the others tick to remove. */}
+                          {locked && (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span className="linked-library-note">{locked ? t`Cited in the paper, so it stays` : t`Tick to remove it here too`}</span>
+                              <span className="linked-library-note">{t`Cited in the paper, so it stays`}</span>
                             </>
                           )}
                         </span>

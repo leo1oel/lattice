@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
@@ -136,7 +136,9 @@ describe("BibEntryDialog citation resolution", () => {
     pending.resolve(resolved({ evidence: { source: "crossref", author_match: "matched" } }));
     await screen.findByText("Compatible author names");
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Edited title" } });
-    expect(screen.getByText(/you have edited its fields/)).toBeInTheDocument();
+    const record = screen.getByRole("region", { name: "Retrieved record information" });
+    expect(record).toHaveAttribute("data-edited");
+    expect(within(record).getByText("Edited")).toBeInTheDocument();
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 });

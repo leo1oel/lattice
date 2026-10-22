@@ -96,8 +96,8 @@ export function leftOutLine(leftOut: readonly string[]) {
   const hidden = leftOut.length - LISTED_NAMES;
   const names = leftOut.slice(0, LISTED_NAMES).join(", ");
   return hidden > 0
-    ? i18n._(msg`Left out: ${names} and ${hidden} more, which the paper doesn’t use.`)
-    : i18n._(msg`Left out: ${names}, which the paper doesn’t use.`);
+    ? i18n._(msg`Left out: ${names} and ${hidden} more`)
+    : i18n._(msg`Left out: ${names}`);
 }
 
 export function pendingRows(): CheckRow[] {
@@ -129,7 +129,7 @@ function figuresRow(pack: ArxivPackage): CheckRow {
   const count = pack.figures.length;
   const detail = count === 0
     ? i18n._(msg`The paper has no figures`)
-    : count === 1 ? i18n._(msg`1 figure, as the last build used it`) : i18n._(msg`${count} figures, as the last build used them`);
+    : count === 1 ? i18n._(msg`1 figure`) : i18n._(msg`${count} figures`);
   return { id: "figures", state: "ok", label, detail };
 }
 
@@ -137,12 +137,12 @@ function bibliographyRow(pack: ArxivPackage): CheckRow {
   const { bibliography } = pack;
   if (bibliography.state === "included") {
     const file = bibliography.file;
-    return { id: "bibliography", state: "ok", label: i18n._(msg`Bibliography travels as ${file}`), detail: i18n._(msg`arXiv doesn’t run BibTeX; from your last build`) };
+    return { id: "bibliography", state: "ok", label: i18n._(msg`Bibliography travels as ${file}`), detail: "" };
   }
   if (bibliography.state === "missing") {
     return { id: "bibliography", state: "fail", label: i18n._(msg`The bibliography has no .bbl`), detail: i18n._(msg`Build the paper so it has one; arXiv doesn’t run BibTeX`) };
   }
-  return { id: "bibliography", state: "ok", label: i18n._(msg`No bibliography to include`), detail: i18n._(msg`The paper has no \\bibliography`) };
+  return { id: "bibliography", state: "ok", label: i18n._(msg`No bibliography to include`), detail: "" };
 }
 
 function compileRow(pack: ArxivPackage): CheckRow {
@@ -178,7 +178,7 @@ function compileRow(pack: ArxivPackage): CheckRow {
 function commentsRow(pack: ArxivPackage): CheckRow {
   const { removed, count, todos, lines } = pack.comments;
   if (count === 0) {
-    return { id: "comments", state: "ok", label: i18n._(msg`No comments in the source`), detail: i18n._(msg`Nothing to take out`) };
+    return { id: "comments", state: "ok", label: i18n._(msg`No comments in the source`), detail: "" };
   }
   const counted = count === 1 ? i18n._(msg`1 comment line`) : i18n._(msg`${count} comment lines`);
   const detail = todos === 0 ? counted : todos === 1 ? i18n._(msg`${counted}, 1 of them a TODO`) : i18n._(msg`${counted}, ${todos} of them TODOs`);
