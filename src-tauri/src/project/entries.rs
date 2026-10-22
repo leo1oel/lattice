@@ -156,10 +156,12 @@ fn relocate_entry(
     if safe_path(root, destination_relative)?.exists() {
         return Err("A file or folder already exists with that name.".to_string());
     }
-    let moved_tex_file = source.is_file()
-        && source.extension().is_some_and(|value| value.eq_ignore_ascii_case("tex"));
-
     let original_manifest = read_manifest(root)?;
+    // Only a document Lattice has compiled owns the outputs beside it. Any
+    // other `.tex` may sit next to a same-named file it never wrote, such as
+    // the PDF of a standalone figure or a hand-kept arXiv `.bbl`.
+    let moved_compiled_document = source.is_file()
+        && original_manifest.root_documents.iter().any(|document| document.path == relative);
     let mut updated_manifest = original_manifest.clone();
     let renamed = |path: &str| renamed_relative_path(path, relative, destination_relative);
     for document in &mut updated_manifest.root_documents {
@@ -180,16 +182,14 @@ fn relocate_entry(
         write_manifest(root, &original_manifest)?;
         return Err(error);
     }
-    if moved_tex_file {
+    if moved_compiled_document {
         // A compiled PDF stops looking like a build artifact as soon as its
         // neighboring .tex file moves away, which exposed stale outputs such
-        // as root/main.pdf in the project tree. Outputs at both paths are
-        // invalid after a source move, so force the next build to recreate
-        // them in the correct location.
-        for source_path in [relative, destination_relative] {
-            if let Err(error) = remove_tex_build_artifacts(root, source_path) {
-                eprintln!("Could not remove stale build outputs for {source_path}: {error}");
-            }
+        // as root/main.pdf in the project tree. Only the source path is
+        // cleared: whatever already sits at the destination was never this
+        // document's output, and the next build overwrites it if it is.
+        if let Err(error) = remove_tex_build_artifacts(root, relative) {
+            eprintln!("Could not remove stale build outputs for {relative}: {error}");
         }
     }
     refresh_search_index(root, &[root.join(relative), root.join(destination_relative)]);
@@ -364,15 +364,17 @@ mod tests {
         }
         assert_eq!(move_entry(root, "main.tex", "sections").unwrap(), "sections/main.tex");
         assert_eq!(default_root(), "sections/main.tex");
-        for path in stale.iter().chain(&["sections/main.pdf"]) {
+        for path in stale {
             assert!(!fixture.path(path).exists(), "{path}");
         }
         assert!(fixture.path("main.gz").exists());
+        // The destination's same-named PDF was never this document's output.
+        assert_eq!(fixture.read("sections/main.pdf"), "stale");
         fixture.write("sections/main.pdf", b"compiled nested PDF");
-        fixture.write("main.pdf", b"stale root PDF");
+        fixture.write("main.pdf", b"root PDF");
         assert_eq!(move_entry(root, "sections/main.tex", "").unwrap(), "main.tex");
         assert!(!fixture.path("sections/main.pdf").exists());
-        assert!(!fixture.path("main.pdf").exists());
+        assert_eq!(fixture.read("main.pdf"), "root PDF");
 
         assert_eq!(rename_entry(root, "main.tex", "paper").unwrap(), "paper.tex");
         assert_eq!(default_root(), "paper.tex");
@@ -382,5 +384,33 @@ mod tests {
         create_entry(root, "chapters/nested", "folder").unwrap();
         assert!(move_entry(root, "chapters", "chapters/nested").is_err());
         assert!(move_entry(root, "paper.tex", ".research").is_err());
+    }
+
+    #[test]
+    fn renaming_a_source_that_was_never_compiled_keeps_same_named_files() {
+        let fixture = Fixture::project("relocate-keeps-figure-outputs");
+        let root = &fixture.root;
+        // A standalone TikZ figure and the PDF the main document includes.
+        fixture.write("figures/plot.tex", b"\\documentclass{standalone}");
+        fixture.write("figures/plot.pdf", b"figure");
+        assert_eq!(
+            rename_entry(root, "figures/plot.tex", "plot-src").unwrap(),
+            "figures/plot-src.tex"
+        );
+        assert_eq!(fixture.read("figures/plot.pdf"), "figure");
+
+        fixture.write("figures/diagram.pdf", b"diagram");
+        fixture.write("figures/notes.tex", b"notes");
+        assert_eq!(
+            rename_entry(root, "figures/notes.tex", "diagram").unwrap(),
+            "figures/diagram.tex"
+        );
+        assert_eq!(fixture.read("figures/diagram.pdf"), "diagram");
+
+        // A hand-kept arXiv bibliography beside a draft that was never built.
+        fixture.write("draft.tex", b"draft");
+        fixture.write("draft.bbl", b"\\begin{thebibliography}");
+        assert_eq!(move_entry(root, "draft.tex", "figures").unwrap(), "figures/draft.tex");
+        assert!(fixture.path("draft.bbl").exists());
     }
 }
