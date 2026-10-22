@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, ChevronDown, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
@@ -27,7 +27,9 @@ import { useIntentLabels } from "./use-intent-labels";
 import { formatCount } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
-import { pendingProposals, revisable, roundProgress, type AnnotationRounds } from "../../app/annotation-rounds";
+import type { AnnotationRounds } from "../../app/annotation-rounds";
+import { sectionsOf } from "./annotation-sections";
+import { useRoundsView } from "./annotation-rounds-view";
 import "./annotations.css";
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- a type specimen on a highlighter's tint, not copy
@@ -44,89 +46,6 @@ type Filter = "open" | "resolved" | "all";
 type PlacedHighlight = { from: number; line: number; text: string; color: string | null; kind: string };
 /** The kind of a highlight in none of the six highlighters' colours. */
 const OTHER = "other";
-
-/** What the panel shows and asks of the revision rounds (`app/annotation-rounds.ts`). */
-export type AnnotationRoundsView = {
-  /** Annotations the agent is answering now. */
-  running: ReadonlySet<string>;
-  /** The open round, while one is: how many it asked about and how many are answered. */
-  progress: { round: number; total: number; answered: number; running: number } | null;
-  /** Proposals waiting for the writer. */
-  proposals: readonly EditorComment[];
-  /** How many annotations a round would ask about now. */
-  revisable: number;
-  /** Whether there are rounds to compare. */
-  hasRounds: boolean;
-  onRevise: () => void;
-  onReview: (id: string) => void;
-  onRetry: (id: string) => void;
-  onAnswer: (id: string, answer: string) => void;
-  onOpenRounds: () => void;
-  /** A compiled PDF is on screen to export a review copy of. */
-  reviewPdfReady: boolean;
-  onExportReviewPdf: () => void;
-};
-
-const NO_RUNNING: ReadonlySet<string> = new Set();
-const NO_ROUNDS: readonly AnnotationRound[] = [];
-const noSubscription = () => () => {};
-const noRunning = () => NO_RUNNING;
-const notReady = () => false;
-
-/** The rounds as the panel shows them, read from the rounds while the panel is on screen. */
-function useRoundsView(
-  annotationRounds: AnnotationRounds | undefined,
-  roundsList: readonly AnnotationRound[] = NO_ROUNDS,
-  comments: readonly EditorComment[],
-): AnnotationRoundsView | undefined {
-  const running = useSyncExternalStore(
-    annotationRounds?.subscribe ?? noSubscription,
-    annotationRounds ? () => annotationRounds.getSnapshot().running : noRunning,
-  );
-  const reviewPdfReady = useSyncExternalStore(
-    annotationRounds?.subscribe ?? noSubscription,
-    annotationRounds ? () => annotationRounds.getSnapshot().reviewPdfReady : notReady,
-  );
-  return useMemo(() => annotationRounds && {
-    running,
-    progress: roundProgress(roundsList, comments, running),
-    proposals: pendingProposals(comments),
-    revisable: comments.filter((annotation) => revisable(annotation, running)).length,
-    hasRounds: roundsList.some((round) => round.settledAt),
-    onRevise: () => annotationRounds.revise(),
-    onReview: annotationRounds.openReview,
-    onRetry: (id: string) => annotationRounds.retry(id),
-    onAnswer: annotationRounds.answer,
-    onOpenRounds: annotationRounds.openRounds,
-    reviewPdfReady,
-    onExportReviewPdf: annotationRounds.openReviewPdf,
-  }, [annotationRounds, comments, roundsList, running, reviewPdfReady]);
-}
-
-/** A heading of the source, as the panel groups annotations under it. */
-type Section = { offset: number; label: string };
-
-/**
- * The top-level headings of `source`: chapters when it has them, else
- * sections, numbered as LaTeX numbers them (a starred one has no number);
- * Markdown's top headings for Markdown.
- */
-function sectionsOf(source: string, path: string): Section[] {
-  if (/\.(md|markdown)$/i.test(path)) {
-    const headings = [...source.matchAll(/^(#{1,2})\s+(.+)$/gm)];
-    const top = Math.min(...headings.map((match) => match[1]!.length));
-    return headings.filter((match) => match[1]!.length === top).map((match) => ({ offset: match.index, label: match[2]!.trim() }));
-  }
-  const commands = [...source.matchAll(/\\(chapter|section)(\*?)\{([^{}]*)\}/g)];
-  const level = commands.some((match) => match[1] === "chapter") ? "chapter" : "section";
-  let number = 0;
-  return commands.filter((match) => match[1] === level).map((match) => {
-    const title = match[3]!.replace(/\s+/g, " ").trim();
-    if (match[2]) return { offset: match.index, label: title };
-    number += 1;
-    return { offset: match.index, label: `§${number} ${title}` };
-  });
-}
 
 /**
  * The Annotations panel: the writer's notes on this project, grouped by the
