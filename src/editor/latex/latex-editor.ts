@@ -31,15 +31,13 @@ import {
   citationCardAtCursor, citationTooltips, citationTooltipSpace, graphicsTooltips, referenceTooltips,
 } from "./latex-hover-cards";
 import {
-  CITATION_COMMANDS, citationCompletionRange, definitionTargetAt, shouldInsertCommandBraces, symbolAt,
+  citationCompletionRange, definitionTargetAt, shouldInsertCommandBraces, symbolAt,
 } from "./latex-symbols";
 import type { CitationInfo, DefinitionTarget, LocalMacro, ReferenceInfo, SymbolTarget } from "./latex-text";
 import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
 import { highlightPaint } from "./latex-highlight-paint";
-
-const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 
 export const latexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
@@ -453,11 +451,12 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
         });
         return;
       }
-      if (update.state.sliceDoc(head, head + 1) === "{" || !shouldInsertCommandBraces(before)) return;
-      // `\cite` is a prefix of `\citep`, `\citet`, etc. Adding braces while
-      // typing steals the remaining command letters into the citation query.
-      // Accepted completions still insert braces; typed citations wait for `{`.
-      if (CITATION_COMMAND_END.test(before) && !completed) return;
+      // Only an accepted completion gets braces. Every braced command is a
+      // prefix of a longer one (`\cite` of `\citep`, `\include` of
+      // `\includegraphics`, `\label` of `\labelitemi`), so adding them while
+      // typing stole the remaining letters into the argument. Typed commands
+      // wait for `{`, which bracket closing pairs.
+      if (!completed || update.state.sliceDoc(head, head + 1) === "{" || !shouldInsertCommandBraces(before)) return;
       const braceTransaction = insertBracket(update.state, "{");
       if (braceTransaction) update.view.dispatch(braceTransaction);
     }),

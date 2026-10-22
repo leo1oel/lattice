@@ -6,7 +6,7 @@
 import { LABEL, findProjectPath, resolveTexPath, type DefinitionTarget, type ReferenceInfo, type SymbolTarget } from "./latex-text";
 
 /* eslint-disable lingui/no-unlocalized-strings -- regular-expression alternations of LaTeX command names */
-export const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
+const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
 const REFERENCE_COMMANDS = "ref|eqref|pageref|autoref|cref|Cref";
 /* eslint-enable lingui/no-unlocalized-strings */
 const OPEN_CITATION = new RegExp(`\\\\(?:${CITATION_COMMANDS})\\*?(?:\\[[^\\]]*\\]){0,2}\\{([^}]*)$`);
