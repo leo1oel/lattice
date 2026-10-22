@@ -323,6 +323,48 @@ fn auto_commit_skips_clean_tree_and_records_author() {
     assert_eq!(last_commit(&root, "%an <%ae>"), "Ada Lovelace <ada-lovelace@lattice.local>");
 }
 
+/// A paper at `monorepo/paper/`: a sync's commit takes the paper and nothing
+/// else, whether the rest of the repository's changes are staged or not.
+#[test]
+fn auto_commit_in_a_folder_of_a_larger_repository_commits_only_that_folder() {
+    let Some(repo) = repo("nested") else { return };
+    commit(
+        &repo,
+        &[("paper/main.tex", "one\n"), ("src/lib.rs", "a\n"), ("README", "r\n")],
+        "first",
+    );
+    repo.write("src/lib.rs", "unrelated edit\n");
+    repo.write("README", "staged elsewhere\n");
+    git(&repo, &["add", "README"]);
+    repo.write("paper/main.tex", "two\n");
+    repo.write("paper/figure.tex", "new\n");
+    repo.write("paper/.research/overleaf.json", "{}\n");
+    let paper = repo.join("paper");
+
+    auto_commit(&paper, "Sync with Overleaf", None).unwrap().unwrap();
+    let changed = git(&repo, &["show", "--name-only", "--format=", "HEAD"]);
+    assert_eq!(
+        changed.lines().collect::<Vec<_>>(),
+        ["paper/.gitignore", "paper/figure.tex", "paper/main.tex"]
+    );
+    // The rest of the repository is exactly as the writer left it.
+    assert_eq!(git(&repo, &["status", "--porcelain"]), "M  README\n M src/lib.rs");
+    assert_eq!(git(&repo, &["diff", "--cached", "--name-only"]), "README");
+    assert!(auto_commit(&paper, "noop", None).unwrap().is_none());
+}
+
+/// Before the repository's first commit, the folder's files are all there is.
+#[test]
+fn auto_commit_in_a_folder_of_a_repository_without_commits() {
+    let Some(repo) = repo("nested-empty") else { return };
+    repo.write("src/lib.rs", "a\n");
+    repo.write("paper/main.tex", "one\n");
+    auto_commit(&repo.join("paper"), "Initialize version tracking", None).unwrap().unwrap();
+    let committed = git(&repo, &["ls-tree", "-r", "--name-only", "HEAD"]);
+    assert_eq!(committed.lines().collect::<Vec<_>>(), ["paper/main.tex"]);
+    assert_eq!(git(&repo, &["status", "--porcelain"]), "?? src/");
+}
+
 #[test]
 fn auto_commit_works_without_user_config() {
     if !commands::available("git") {

@@ -209,10 +209,13 @@ pub fn restore_project(root: &Path, rev: &str) -> Result<String, String> {
     }
 }
 
-/// Stage everything and commit it, quietly doing nothing when git is missing,
-/// the folder is not a repository, or the tree is clean. Always supplies a
-/// fallback identity via `-c` so commits succeed on machines with no
-/// `user.email` configured.
+/// Stage everything in the project folder and commit it, quietly doing
+/// nothing when git is missing, the folder is not a repository, or the folder
+/// is clean. Always supplies a fallback identity via `-c` so commits succeed
+/// on machines with no `user.email` configured.
+///
+/// A project can sit inside a larger repository, whose other changes, staged
+/// or not, are not the paper's to commit: every step is limited to the folder.
 pub fn auto_commit(
     root: &Path, message: &str, author_name: Option<&str>,
 ) -> Result<Option<String>, String> {
@@ -224,8 +227,8 @@ pub fn auto_commit(
         return Err("Commit message cannot be empty.".to_string());
     }
     ensure_internal_ignored(root);
-    git_run(root, &["add", "-A"])?;
-    if git_output(root, &["status", "--porcelain"])?.trim().is_empty() {
+    git_run(root, &["add", "-A", "--", "."])?;
+    if git_output(root, &["status", "--porcelain", "--", "."])?.trim().is_empty() {
         return Ok(None);
     }
     let identity = author_name
@@ -234,6 +237,11 @@ pub fn auto_commit(
         .unwrap_or_else(|| "Lattice".to_string());
     let user_name = format!("user.name={identity}");
     let mut command = git_command(root);
+    let prefix = rev_parse(root, &["--show-prefix"])?;
+    let folder_index = (!prefix.is_empty()).then(|| FolderIndex::new(root, &prefix)).transpose()?;
+    if let Some(index) = &folder_index {
+        command.env("GIT_INDEX_FILE", &index.0);
+    }
     command.args(["-c", &user_name, "-c", "user.email=lattice@local", "commit", "-m", message]);
     if author_name.is_some() {
         let email = format!("{}@lattice.local", author_email_slug(&identity));
@@ -248,6 +256,43 @@ pub fn auto_commit(
         return Err(commands::stderr_or(&output, "git commit failed."));
     }
     rev_parse(root, &["HEAD"]).map(Some)
+}
+
+/// What a project inside a larger repository commits: the last commit with
+/// only the project's folder replaced by what is staged for it. `commit --
+/// <folder>` would not do: it takes the folder from the working tree, which
+/// puts back tool state [`ensure_internal_ignored`] has just untracked.
+/// Whatever else is staged in the repository stays staged, and the folder's
+/// staged entries already match the commit this makes.
+struct FolderIndex(PathBuf);
+
+impl FolderIndex {
+    fn new(root: &Path, prefix: &str) -> Result<Self, String> {
+        let prefix = format!("--prefix={prefix}");
+        let folder = git_output(root, &["write-tree", &prefix])?;
+        let path = std::env::temp_dir().join(format!("lattice-index-{}", uuid::Uuid::new_v4()));
+        let index = FolderIndex(path);
+        let run = |args: &[&str]| {
+            let output = git_command(root).env("GIT_INDEX_FILE", &index.0).args(args).output();
+            match output {
+                Ok(output) if output.status.success() => Ok(()),
+                Ok(output) => Err(commands::stderr_or(&output, "git could not stage the project.")),
+                Err(error) => Err(format!("Could not run git: {error}")),
+            }
+        };
+        if has_head(root) {
+            run(&["read-tree", "HEAD"])?;
+            run(&["rm", "-r", "--cached", "--quiet", "--ignore-unmatch", "--", "."])?;
+        }
+        run(&["read-tree", &prefix, folder.trim()])?;
+        Ok(index)
+    }
+}
+
+impl Drop for FolderIndex {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
 }
 
 fn require_git() -> Result<(), String> {
