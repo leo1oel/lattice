@@ -99,7 +99,10 @@
 .pdf-text-layer > :not(.markedContent), .pdf-text-layer .markedContent span:not(.markedContent) { --font-height: 0; --scale-x: 1; --rotate: 0deg; font-size: calc(var(--text-scale-factor) * var(--font-height)); transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); z-index: 1; }
 .pdf-text-layer span.markedContent { top: 0; height: 0; }
 .pdf-text-layer span::selection, .pdf-text-layer br::selection, .pdf-text-layer .endOfContent::selection { color: transparent; background: transparent; }
-.pdf-text-layer .pdf-sel-rect { position: absolute; z-index: 0; pointer-events: none; background: color-mix(in srgb, var(--control-active) 35%, transparent); }
+/* The page is paper in both themes, so its highlight is the editor's
+   selection blue at one strength: the dark theme's graphite accent is near
+   white and its highlight did not show on the page. */
+.pdf-text-layer .pdf-sel-rect { position: absolute; z-index: 0; pointer-events: none; background: color-mix(in srgb, var(--editor-selection-tint) 35%, transparent); }
 .pdf-copy-field { position: fixed; top: 0; left: 0; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
 .pdf-text-layer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }
 .pdf-text-layer.selecting .endOfContent { top: 0; }
