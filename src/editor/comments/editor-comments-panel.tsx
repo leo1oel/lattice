@@ -1,7 +1,6 @@
-import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, ChevronDown, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search, X } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
+import { Check, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search } from "lucide-react";
 import { comboText, parseKeyName } from "../../app/key-combos";
 import { InfinityLoader } from "../../components/ui/activity-icons";
 import { Button } from "../../components/ui/button";
@@ -27,106 +26,20 @@ import { useIntentLabels } from "./use-intent-labels";
 import { formatCount } from "../../i18n";
 import { latexHighlights } from "../latex/latex-highlights";
 import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../latex/highlighters";
-import { pendingProposals, revisable, roundProgress, type AnnotationRounds } from "../../app/annotation-rounds";
+import type { AnnotationRounds } from "../../app/annotation-rounds";
+import { sectionsOf } from "./annotation-sections";
+import { useRoundsView } from "./annotation-rounds-view";
+import { HighlightKindFilter, OTHER } from "./highlight-kind-filter";
+import { useCardOutcomes, type CardOutcome } from "./use-card-outcomes";
 import "./annotations.css";
 
-// eslint-disable-next-line lingui/no-unlocalized-strings -- a type specimen on a highlighter's tint, not copy
-const SPECIMEN = "Aa";
-
-/* eslint-disable lingui/no-unlocalized-strings -- key names, drawn as glyphs */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- key names, drawn as glyphs
 const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
-const STORAGE_PATH = ".research/annotations.json";
-/* eslint-enable lingui/no-unlocalized-strings */
 
 type Filter = "open" | "resolved" | "all";
 
 /** A highlight in the open file, listed by what its highlighter means. */
 type PlacedHighlight = { from: number; line: number; text: string; color: string | null; kind: string };
-/** The kind of a highlight in none of the six highlighters' colours. */
-const OTHER = "other";
-
-/** What the panel shows and asks of the revision rounds (`app/annotation-rounds.ts`). */
-export type AnnotationRoundsView = {
-  /** Annotations the agent is answering now. */
-  running: ReadonlySet<string>;
-  /** The open round, while one is: how many it asked about and how many are answered. */
-  progress: { round: number; total: number; answered: number; running: number } | null;
-  /** Proposals waiting for the writer. */
-  proposals: readonly EditorComment[];
-  /** How many annotations a round would ask about now. */
-  revisable: number;
-  /** Whether there are rounds to compare. */
-  hasRounds: boolean;
-  onRevise: () => void;
-  onReview: (id: string) => void;
-  onRetry: (id: string) => void;
-  onAnswer: (id: string, answer: string) => void;
-  onOpenRounds: () => void;
-  /** A compiled PDF is on screen to export a review copy of. */
-  reviewPdfReady: boolean;
-  onExportReviewPdf: () => void;
-};
-
-const NO_RUNNING: ReadonlySet<string> = new Set();
-const NO_ROUNDS: readonly AnnotationRound[] = [];
-const noSubscription = () => () => {};
-const noRunning = () => NO_RUNNING;
-const notReady = () => false;
-
-/** The rounds as the panel shows them, read from the rounds while the panel is on screen. */
-function useRoundsView(
-  annotationRounds: AnnotationRounds | undefined,
-  roundsList: readonly AnnotationRound[] = NO_ROUNDS,
-  comments: readonly EditorComment[],
-): AnnotationRoundsView | undefined {
-  const running = useSyncExternalStore(
-    annotationRounds?.subscribe ?? noSubscription,
-    annotationRounds ? () => annotationRounds.getSnapshot().running : noRunning,
-  );
-  const reviewPdfReady = useSyncExternalStore(
-    annotationRounds?.subscribe ?? noSubscription,
-    annotationRounds ? () => annotationRounds.getSnapshot().reviewPdfReady : notReady,
-  );
-  return useMemo(() => annotationRounds && {
-    running,
-    progress: roundProgress(roundsList, comments, running),
-    proposals: pendingProposals(comments),
-    revisable: comments.filter((annotation) => revisable(annotation, running)).length,
-    hasRounds: roundsList.some((round) => round.settledAt),
-    onRevise: () => annotationRounds.revise(),
-    onReview: annotationRounds.openReview,
-    onRetry: (id: string) => annotationRounds.retry(id),
-    onAnswer: annotationRounds.answer,
-    onOpenRounds: annotationRounds.openRounds,
-    reviewPdfReady,
-    onExportReviewPdf: annotationRounds.openReviewPdf,
-  }, [annotationRounds, comments, roundsList, running, reviewPdfReady]);
-}
-
-/** A heading of the source, as the panel groups annotations under it. */
-type Section = { offset: number; label: string };
-
-/**
- * The top-level headings of `source`: chapters when it has them, else
- * sections, numbered as LaTeX numbers them (a starred one has no number);
- * Markdown's top headings for Markdown.
- */
-function sectionsOf(source: string, path: string): Section[] {
-  if (/\.(md|markdown)$/i.test(path)) {
-    const headings = [...source.matchAll(/^(#{1,2})\s+(.+)$/gm)];
-    const top = Math.min(...headings.map((match) => match[1]!.length));
-    return headings.filter((match) => match[1]!.length === top).map((match) => ({ offset: match.index, label: match[2]!.trim() }));
-  }
-  const commands = [...source.matchAll(/\\(chapter|section)(\*?)\{([^{}]*)\}/g)];
-  const level = commands.some((match) => match[1] === "chapter") ? "chapter" : "section";
-  let number = 0;
-  return commands.filter((match) => match[1] === level).map((match) => {
-    const title = match[3]!.replace(/\s+/g, " ").trim();
-    if (match[2]) return { offset: match.index, label: title };
-    number += 1;
-    return { offset: match.index, label: `§${number} ${title}` };
-  });
-}
 
 /**
  * The Annotations panel: the writer's notes on this project, grouped by the
@@ -135,6 +48,11 @@ function sectionsOf(source: string, path: string): Section[] {
  * revision round asks the agent about every open one; its proposals are
  * reviewed in the editor, and its questions answered on their cards.
  * Annotations live in `.research/annotations.json`, with the project.
+ *
+ * Every action on a card answers on the card: a note resolved or reopened
+ * out of the filter, or deleted, leaves on the moderate exit before the
+ * change lands (its toast offers it back); one that stays, or one edited or
+ * replied to, tints briefly and says what happened beside its place.
  */
 export function EditorCommentsPanel(props: {
   embedded?: boolean;
@@ -170,12 +88,12 @@ export function EditorCommentsPanel(props: {
   const [highlightKind, setHighlightKind] = useState<string | null>(null);
   /** Notes and the file's highlights are peers; a color filter narrows the highlights. */
   const [chosenMode, setMode] = useState<"notes" | "highlights">("notes");
-  const [kindMenuOpen, setKindMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [replyingId, setReplyingId] = useState<string | null>(props.focusCommentId ?? null);
   const [replyDraft, setReplyDraft] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const { leaving, outcomes, answer, leave } = useCardOutcomes();
   const focusRef = useRef<HTMLElement | null>(null);
   const activeRef = useRef<HTMLElement | null>(null);
   const anonymousAuthor = t`Anonymous`;
@@ -199,6 +117,27 @@ export function EditorCommentsPanel(props: {
     activeRef.current?.scrollIntoView({ block: "nearest" });
   }, [props.activeCommentId]);
 
+  const round = rounds?.progress?.round;
+  /** Whether `filter` lists `comment`. */
+  const shownIn = useCallback((shown: Filter, comment: EditorComment) => {
+    if (shown === "all") return true;
+    // A proposal accepted in the round still under review stays with the open
+    // notes until the round settles, green, so the round reads whole.
+    const open = !comment.resolved
+      || (round !== undefined && comment.revision?.state === "accepted" && comment.revision.round === round);
+    return shown === "open" ? open : comment.resolved;
+  }, [round]);
+
+  const toggleResolved = (comment: EditorComment) => {
+    const after = { ...comment, resolved: !comment.resolved };
+    if (shownIn(filter, after)) {
+      props.onToggleResolved(comment);
+      answer(comment.id, after.resolved ? "resolved" : "reopened");
+    } else {
+      leave(comment.id, () => props.onToggleResolved(comment));
+    }
+  };
+
   const openCount = props.comments.filter((comment) => !comment.resolved).length;
   const resolvedCount = props.comments.length - openCount;
   const visible = useMemo(() => {
@@ -209,14 +148,8 @@ export function EditorCommentsPanel(props: {
       comment.path,
       editorCommentAuthorDisplayName(comment.authorName, anonymousAuthor),
     ].some((text) => text.toLocaleLowerCase().includes(needle));
-    // A proposal accepted in the round still under review stays with the open
-    // notes until the round settles, green, so the round reads whole.
-    const round = rounds?.progress?.round;
-    const open = (comment: EditorComment) => !comment.resolved
-      || (round !== undefined && comment.revision?.state === "accepted" && comment.revision.round === round);
-    const shown = (comment: EditorComment) => filter === "all" || (filter === "open" ? open(comment) : comment.resolved);
-    return props.comments.filter((comment) => shown(comment) && matches(comment));
-  }, [anonymousAuthor, filter, props.comments, query, rounds?.progress?.round]);
+    return props.comments.filter((comment) => shownIn(filter, comment) && matches(comment));
+  }, [anonymousAuthor, filter, props.comments, query, shownIn]);
 
   /** The visible notes in reading order, under the file and section each sits in. */
   const groups = useMemo(() => {
@@ -308,6 +241,12 @@ export function EditorCommentsPanel(props: {
     failed: t`Could not revise`,
     resolved: t`Resolved`,
   };
+  const outcomeLabels: Record<CardOutcome, string> = {
+    resolved: t`Resolved`,
+    reopened: t`Reopened`,
+    saved: t`Saved`,
+    replied: t`Reply sent`,
+  };
   const progress = rounds?.progress ?? null;
   const reviewing = (rounds?.proposals.length ?? 0) > 0;
 
@@ -353,54 +292,13 @@ export function EditorCommentsPanel(props: {
         </div>
       )}
       {mode === "highlights" && (
-        <Popover open={kindMenuOpen} onOpenChange={setKindMenuOpen}>
-          <span className="annotations-kind-filter" data-active={highlightKind ? true : undefined}>
-            <PopoverTrigger asChild>
-              <button type="button" className="annotations-kind-trigger" aria-label={t`Filter highlights by colour`}>
-                {highlightKind ? (
-                  <>
-                    <span className="annotations-kind-chip" style={highlightKind === OTHER ? undefined : { background: highlightKind }} data-kind={highlightKind === OTHER ? OTHER : undefined} aria-hidden>{SPECIMEN}</span>
-                    <span className="annotations-kind-label">{kindLabel(highlightKind)}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="annotations-kind-stack" aria-hidden>
-                      {highlightKinds.slice(0, 4).map(({ kind }) => <i key={kind} style={kind === OTHER ? undefined : { background: kind }} data-kind={kind === OTHER ? OTHER : undefined} />)}
-                    </span>
-                    <span className="annotations-kind-label">{t`All colours`}</span>
-                  </>
-                )}
-                <ChevronDown size={12} strokeWidth={1.8} aria-hidden />
-              </button>
-            </PopoverTrigger>
-            {highlightKind && (
-              <button type="button" className="annotations-kind-clear" aria-label={t`Show all colours`} onClick={() => setHighlightKind(null)}>
-                <X size={12} strokeWidth={1.8} />
-              </button>
-            )}
-          </span>
-          <PopoverContent side="bottom" align="start" sideOffset={6} className="annotations-kind-menu">
-            {[{ kind: null as string | null, count: highlights.length }, ...highlightKinds].map(({ kind, count }) => (
-              <button
-                type="button"
-                key={kind ?? "all"}
-                className="annotations-kind-row"
-                aria-pressed={highlightKind === kind}
-                onClick={() => {
-                  setHighlightKind(kind);
-                  setKindMenuOpen(false);
-                }}
-              >
-                {kind
-                  ? <span className="annotations-kind-chip" style={kind === OTHER ? undefined : { background: kind }} data-kind={kind === OTHER ? OTHER : undefined} aria-hidden>{SPECIMEN}</span>
-                  : <span className="annotations-kind-stack" aria-hidden>{highlightKinds.slice(0, 3).map((item) => <i key={item.kind} style={item.kind === OTHER ? undefined : { background: item.kind }} />)}</span>}
-                <span className="annotations-kind-row-label">{kind ? kindLabel(kind) : t`All highlights`}</span>
-                <span className="annotations-kind-row-count">{formatCount(count, i18n.locale)}</span>
-                {highlightKind === kind ? <Check size={13} strokeWidth={1.8} aria-hidden /> : <span />}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        <HighlightKindFilter
+          kind={highlightKind}
+          kinds={highlightKinds}
+          total={highlights.length}
+          kindLabel={kindLabel}
+          onChange={setHighlightKind}
+        />
       )}
       <span className="annotations-head-actions">
         {hasComments && (
@@ -479,11 +377,16 @@ export function EditorCommentsPanel(props: {
     const revision = comment.revision;
     const asking = status === "asked" && revision?.question;
     const pin = comment.number ?? 0;
+    const gone = leaving.has(comment.id);
+    const outcome = outcomes.get(comment.id);
     return (
       <article
         className="annotation-card"
         data-status={status ?? "running"}
         data-focused={focused || comment.id === props.activeCommentId || undefined}
+        data-leaving={gone || undefined}
+        data-outcome={outcome?.outcome}
+        aria-busy={gone || undefined}
         key={comment.id}
         ref={focused ? focusRef : comment.id === props.activeCommentId ? activeRef : undefined}
       >
@@ -517,8 +420,15 @@ export function EditorCommentsPanel(props: {
               {[pin ? null : author, location, formatCommentTimestamp(comment.createdAt, undefined, i18n.locale, "short")]
                 .filter(Boolean).join(" · ")}
             </span>
+            {outcome && outcome.outcome !== "resolved" && (
+              <span className="annotation-card-outcome" key={outcome.outcome}>
+                <Check size={11} strokeWidth={2} aria-hidden />{outcomeLabels[outcome.outcome]}
+              </span>
+            )}
           </span>
         </button>
+        {/* Says what happened to a screen reader too, where the tint and chip are only seen. */}
+        <span className="sr-only" role="status">{outcome ? outcomeLabels[outcome.outcome] : ""}</span>
         {asking && (
           <div className="annotation-ask">
             <span className="annotation-ask-label">{t`The agent asks`}</span>
@@ -555,8 +465,12 @@ export function EditorCommentsPanel(props: {
 
         {comment.replies.length > 0 && (
           <div className="editor-comment-replies annotation-replies">
-            {comment.replies.map((reply) => (
-              <div className="editor-comment-reply" key={reply.id}>
+            {comment.replies.map((reply, index) => (
+              <div
+                className="editor-comment-reply"
+                key={reply.id}
+                data-new={outcome?.outcome === "replied" && index >= outcome.replies ? "" : undefined}
+              >
                 <div className="editor-comment-reply-meta">
                   <span>{editorCommentAuthorDisplayName(reply.authorName, anonymousAuthor)}</span>
                   <span>{formatCommentTimestamp(reply.createdAt, undefined, i18n.locale)}</span>
@@ -588,6 +502,7 @@ export function EditorCommentsPanel(props: {
                 onClick={() => {
                   props.onUpdateBody(comment, draft);
                   setEditingId(null);
+                  if (draft !== comment.body) answer(comment.id, "saved");
                 }}
               >
                 {t`Save`}
@@ -615,6 +530,7 @@ export function EditorCommentsPanel(props: {
                 onClick={() => {
                   props.onReply(comment, replyDraft);
                   closeReply();
+                  answer(comment.id, "replied", comment.replies.length);
                 }}
               >
                 {t`Reply`}
@@ -626,8 +542,11 @@ export function EditorCommentsPanel(props: {
           <div className="annotation-card-actions">
             <IconButton
               size="compact"
+              className="annotation-card-resolve"
               label={comment.resolved ? t`Reopen` : t`Resolve`}
-              onClick={() => props.onToggleResolved(comment)}
+              data-done={gone && !comment.resolved ? "" : undefined}
+              disabled={gone}
+              onClick={() => toggleResolved(comment)}
             >
               {comment.resolved ? <RotateCcw size={13} /> : <Check size={13} />}
             </IconButton>
@@ -653,7 +572,7 @@ export function EditorCommentsPanel(props: {
                 >
                   <Pencil size={13} />
                 </IconButton>
-                <DestructiveIconButton size="compact" label={t`Delete`} onClick={() => props.onDelete(comment.id)} />
+                <DestructiveIconButton size="compact" label={t`Delete`} disabled={gone} onClick={() => leave(comment.id, () => props.onDelete(comment.id))} />
               </>
             )}
           </div>
@@ -758,11 +677,9 @@ export function EditorCommentsPanel(props: {
           <kbd>{REVISE_KEYS}</kbd>
         </Button>
       )}
-      <small className="annotations-foot-note">
-        {reviewing
-          ? t`Accept or reject each one in the editor; the round is saved as a version`
-          : t`Saved with the project in ${STORAGE_PATH}; no server involved`}
-      </small>
+      {reviewing && (
+        <small className="annotations-foot-note">{t`Accept or reject each one in the editor; the round is saved as a version`}</small>
+      )}
     </div>
   );
 

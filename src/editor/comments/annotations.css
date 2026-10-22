@@ -250,6 +250,32 @@
 .annotation-card[data-focused] { background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
 .annotation-card[data-status="resolved"],
 .annotation-card[data-status="accepted"] { opacity: 0.84; }
+/* What the writer just did, answered on the card (editor-comments-panel.tsx):
+   a card resolved, reopened, edited or replied to tints for a moment and
+   eases back as the tint lifts; one resolved out of its filter, or deleted,
+   leaves on the moderate exit before the list closes over it. */
+.annotation-card[data-outcome] { background: color-mix(in srgb, var(--status-success) 9%, transparent); }
+.annotation-card[data-outcome="reopened"] { background: color-mix(in srgb, var(--annotation-ink) 10%, transparent); }
+.annotation-card[data-leaving] { pointer-events: none; animation: annotation-card-leave var(--motion-moderate-exit) both; }
+.annotation-card-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline-tight);
+  color: var(--status-success);
+  font-weight: var(--type-micro-weight);
+  animation: annotation-card-outcome-in var(--motion-moderate) both;
+}
+.annotation-card[data-outcome="reopened"] .annotation-card-outcome { color: var(--annotation-ink); }
+/* Pressed and answered: the check holds a green plate while the card leaves, as on the document's card. */
+.annotation-card .annotation-card-resolve:hover:not(:disabled) { color: var(--status-success); }
+.annotation-card .annotation-card-resolve[data-done] {
+  background: color-mix(in srgb, var(--status-success) 14%, transparent);
+  color: var(--status-success);
+  opacity: 1;
+}
+.annotation-card[data-leaving] .annotation-card-actions { opacity: 1; }
+/* A reply sent from the panel arrives into the thread. */
+.annotation-replies > .editor-comment-reply[data-new] { animation: annotation-card-outcome-in var(--motion-moderate) both; }
 .annotation-card-body {
   display: grid;
   grid-template-columns: minmax(18px, auto) minmax(0, 1fr);
@@ -388,6 +414,8 @@
   animation: annotation-review-in var(--motion-moderate);
 }
 @keyframes annotation-review-in { from { opacity: 0; translate: 0 -4px; } }
+@keyframes annotation-card-leave { to { opacity: 0; translate: 0 -2px; } }
+@keyframes annotation-card-outcome-in { from { opacity: 0; translate: 0 4px; } }
 .annotation-review-head { display: flex; align-items: flex-start; gap: var(--space-4); min-width: 0; }
 .annotation-review-head > .annotation-pin { margin-top: -1px; }
 .annotation-review-note {
