@@ -328,16 +328,16 @@ pub(super) fn plan_sync(
             (Some(rb), None) => {
                 let remote_hash = sha256_hex(rb);
                 if base_hash == Some(&remote_hash) {
-                    // Deleted locally while remote is unchanged: we never
-                    // delete remote files in v1, but we also stop resurrecting
-                    // the file locally — drop it from state.
+                    // Deleted here, unchanged on Overleaf. The writer's
+                    // setting decides that copy; keeping its hash is what
+                    // stops the next sync pulling the file back as new.
                     plan.skipped_remote_deletes.push(path.clone());
                 } else {
                     // New on remote, or deleted locally while remote moved on
                     // (remote wins): pull it.
                     plan.pull.push((path.clone(), rb.clone()));
-                    plan.files.insert(path.clone(), remote_hash);
                 }
+                plan.files.insert(path.clone(), remote_hash);
             }
             (None, Some(lb)) => {
                 let local_hash = sha256_hex(lb);

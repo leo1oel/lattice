@@ -663,11 +663,11 @@ msgstr "{names} 等 {count} 人"
 msgid "{names} et al."
 msgstr "{names} 等"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} 本地已删，Overleaf 上还在。现在删除，它的历史里也会留着"
 
@@ -3774,7 +3774,7 @@ msgstr "无法保存 Overleaf 的 {scopedPermission} 权限（{detail}）"
 
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Could not remove {0} from Overleaf: {1}"
 msgstr "无法从 Overleaf 删除 {0}：{1}"
 
@@ -4146,7 +4146,7 @@ msgstr "删除公式"
 msgid "Delete message"
 msgstr "删除消息"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Overleaf 上也删"
@@ -10366,7 +10366,7 @@ msgid "Remove “{title}” from the bibliography?"
 msgstr "从文献中删除“{title}”？"
 
 #. placeholder {0}: known.length
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "从 Overleaf 删除 {0} 个文件？"
 
@@ -10398,7 +10398,7 @@ msgstr "移除高亮"
 msgid "Remove key"
 msgstr "删除密钥"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "从 Overleaf 删除 1 个文件？"
 
@@ -10425,7 +10425,7 @@ msgid "removed"
 msgstr "删除"
 
 #. placeholder {0}: known.length
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Removed {0} files from Overleaf"
 msgstr "已从 Overleaf 删除 {0} 个文件"
 
@@ -10437,7 +10437,7 @@ msgstr "文献库已删除"
 msgid "Removed on Overleaf"
 msgstr "Overleaf 上已删"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Removed one file from Overleaf"
 msgstr "已从 Overleaf 删除 1 个文件"
 

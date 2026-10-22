@@ -663,11 +663,11 @@ msgstr "{names} and {count} more"
 msgid "{names} et al."
 msgstr "{names} et al."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 
@@ -3774,7 +3774,7 @@ msgstr "Could not record Overleaf's {scopedPermission} permission locally ({deta
 
 #. placeholder {0}: entry.path
 #. placeholder {1}: toMessage(reason)
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Could not remove {0} from Overleaf: {1}"
 msgstr "Could not remove {0} from Overleaf: {1}"
 
@@ -4146,7 +4146,7 @@ msgstr "Delete equation"
 msgid "Delete message"
 msgstr "Delete message"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 #: src/overleaf/overleaf-connect.tsx
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
@@ -10366,7 +10366,7 @@ msgid "Remove “{title}” from the bibliography?"
 msgstr "Remove “{title}” from the bibliography?"
 
 #. placeholder {0}: known.length
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "Remove {0} files from the Overleaf project?"
 
@@ -10398,7 +10398,7 @@ msgstr "Remove highlight"
 msgid "Remove key"
 msgstr "Remove key"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Remove one file from the Overleaf project?"
 msgstr "Remove one file from the Overleaf project?"
 
@@ -10425,7 +10425,7 @@ msgid "removed"
 msgstr "removed"
 
 #. placeholder {0}: known.length
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Removed {0} files from Overleaf"
 msgstr "Removed {0} files from Overleaf"
 
@@ -10437,7 +10437,7 @@ msgstr "Removed from library"
 msgid "Removed on Overleaf"
 msgstr "Removed on Overleaf"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/use-overleaf-remote-deletes.ts
 msgid "Removed one file from Overleaf"
 msgstr "Removed one file from Overleaf"
 
