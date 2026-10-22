@@ -336,7 +336,7 @@ that header before changing anything under `overleaf_rt/`.
 
 `overleaf` handles the non-realtime side: login/session (`overleaf/account.rs`,
 `overleaf-session.json` in app data), linking and clone (`overleaf/link.rs`),
-the REST API (`overleaf/api.rs`), history and review (`overleaf/review.rs`),
+the REST API (`overleaf/api.rs`, uploads in `overleaf/upload.rs`), history and review (`overleaf/review.rs`),
 and a real three-way merge (`overleaf/sync.rs`). The merge keeps a pristine copy of every text file as of
 the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,

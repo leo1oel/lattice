@@ -45,6 +45,7 @@ mod review;
 mod sync;
 #[cfg(test)]
 mod test_support;
+mod upload;
 
 pub use account::{
     cookie_domain_matches, disconnect, has_session_cookie, is_session_rejection, list_projects,
