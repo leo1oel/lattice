@@ -98,7 +98,7 @@ describe("Overleaf comments panel", () => {
     }));
     fireEvent.click(screen.getByRole("button", { name: /Resolve/ }));
     await waitFor(() => expect(onResolve).toHaveBeenCalledWith("t2", true));
-    const remove = screen.getByRole("button", { name: /^Delete$/ });
+    const remove = screen.getByRole("button", { name: "Delete discussion" });
     // Cancelling the warning deletes nothing.
     vi.mocked(confirm).mockResolvedValueOnce(false);
     fireEvent.click(remove);
@@ -129,10 +129,10 @@ describe("Overleaf comments panel", () => {
       anchors: new Map(),
     }));
     expect(screen.getByText("No longer in the document")).toBeInTheDocument();
-    expect(screen.getByText(/Its text was deleted from the document/)).toBeInTheDocument();
+    expect(screen.getByText("(this comment's text was removed)")).toBeInTheDocument();
     expect(screen.queryByText("state of the art")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resolve/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Delete/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete discussion" })).toBeDisabled();
     // Replying is unaffected — an orphaned thread can still be discussed.
     expect(screen.getByRole("button", { name: "Reply…" })).toBeEnabled();
   });

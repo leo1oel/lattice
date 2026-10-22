@@ -97,7 +97,7 @@
 }
 .history-day-rows { margin: 0; padding: 0; list-style: none; }
 
-/* ---- A row: glyph | head (title, time / meta, source), tools over the time, body under the head. */
+/* ---- A row: glyph | head (title, time / meta), tools over the time, body under the head. */
 .history-row { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: var(--space-3); }
 /* The rail: a hairline through the glyphs, from the day's first to its last. */
 .history-row::before { content: ""; position: absolute; top: 0; bottom: 0; left: 11.5px; width: 1px; background: var(--border-subtle); }
@@ -183,18 +183,6 @@
 .history-row-detail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .history-row-count { flex: none; }
 .history-row-tag { flex: 0 1 auto; min-width: 0; overflow: hidden; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: var(--control-hover-surface); text-overflow: ellipsis; }
-.history-row-source {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-compact);
-  background: var(--control-hover-surface);
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  line-height: var(--type-micro-line-height);
-  white-space: nowrap;
-}
 .history-person { flex: 0 1 auto; min-width: 4.5em; display: inline-flex; align-items: center; gap: var(--space-2); overflow: hidden; }
 .history-person-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Initials on the person's own colour, as the presence avatars draw them. */
@@ -239,11 +227,8 @@
   .history-empty .research-art { width: 96px; }
   .versions-save-label { display: none; }
 }
-/* A narrow panel gives the meta line the whole row: the glyph already says
-   where a row came from, so its source tag goes, and names give way sooner. */
+/* A narrow panel lets names give way sooner. */
 @container history (width < 340px) {
-  .history-row-source { display: none; }
-  .history-row-meta { grid-column: 1 / -1; }
   .history-person { min-width: 2.5em; }
 }
 

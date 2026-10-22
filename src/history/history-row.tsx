@@ -26,8 +26,6 @@ export function HistoryRow(props: {
   meta?: ReactNode;
   time: string;
   timeTitle?: string;
-  /** Where the row came from, named when the timeline shows more than one source. */
-  source?: string;
   expanded: boolean;
   onToggle: () => void;
   /** Icon actions shown on hover and focus in place of the time. */
@@ -48,7 +46,6 @@ export function HistoryRow(props: {
         <span className="history-row-title">{props.title}</span>
         <time className="history-row-time" title={props.timeTitle}>{props.time}</time>
         {props.meta && <span className="history-row-meta">{props.meta}</span>}
-        {props.source && <span className="history-row-source">{props.source}</span>}
       </button>
       {props.tools && <span className="history-row-tools">{props.tools}</span>}
       {props.expanded && props.children && <div className="history-row-body">{props.children}</div>}

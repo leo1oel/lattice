@@ -8,7 +8,7 @@
  */
 import type { CodeViewItem } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
@@ -30,21 +30,28 @@ import {
 } from "../history/pierre-diff";
 import "./overleaf-review.css";
 import { InlineMessage } from "../components/ui/inline-message";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 
-const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb: MessageDescriptor }[] = [
-  { kind: "conflict", Icon: TriangleAlert, title: msg`Needs your decision`, blurb: msg`Edited on both sides in the same place. Applying marks the spots in the file so you can choose` },
+/**
+ * Each group's title carries what happens to its files. Only "Kept here" has
+ * a blurb: it is the one group whose outcome (your copy wins over Overleaf's)
+ * and whose override (delete here, sync again) the title cannot say.
+ */
+const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb?: MessageDescriptor }[] = [
+  { kind: "conflict", Icon: TriangleAlert, title: msg`Edited on both sides` },
   { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again` },
-  { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf`, blurb: msg`Changed there, untouched here` },
-  { kind: "merge", Icon: GitMerge, title: msg`Combines automatically`, blurb: msg`Both sides edited different parts, so the two sets of edits join` },
-  { kind: "outgoing", Icon: ArrowUpFromLine, title: msg`Going to Overleaf`, blurb: msg`Changed here, untouched there` },
-  { kind: "deleteLocal", Icon: Trash2, title: msg`Removed on Overleaf`, blurb: msg`Deleted there and unchanged here, so it goes away locally too` },
-  { kind: "skippedRemoteDelete", Icon: Trash2, title: msg`Left alone`, blurb: msg`Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to` },
+  { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf` },
+  { kind: "merge", Icon: GitMerge, title: msg`Combines automatically` },
+  { kind: "outgoing", Icon: ArrowUpFromLine, title: msg`Going to Overleaf` },
+  { kind: "deleteLocal", Icon: Trash2, title: msg`Deleted here too` },
+  { kind: "skippedRemoteDelete", Icon: Trash2, title: msg`Still on Overleaf` },
 ];
 
 const itemId = (path: string) => `overleaf:${path}`;
 
-function Loading(props: { children: ReactNode }) {
-  return <div className="overleaf-review-loading"><InfinityLoader size={16} /><span>{props.children}</span></div>;
+/** One small status for a load; what it means goes to assistive technology, not beside it. */
+function Loading(props: { message: string }) {
+  return <div className="overleaf-review-loading"><InfinityLoader size={16} /><LoadingAnnouncement message={props.message} /></div>;
 }
 
 export function OverleafReviewDialog(props: {
@@ -159,13 +166,7 @@ export function OverleafReviewDialog(props: {
         <div className="overleaf-review-head">
           <div>
             <h2><Trans>Review changes</Trans></h2>
-            <p>
-              {loading
-                ? t`Comparing this project with Overleaf…`
-                : total === 0
-                  ? t`Everything already matches Overleaf`
-                  : summary}
-            </p>
+            {!loading && <p>{total === 0 ? t`Everything already matches Overleaf` : summary}</p>}
           </div>
           <ReloadButton size="compact" variant="ghost" busy={loading} disabled={loading || applying} onClick={() => void load()}>
             <Trans>Refresh</Trans>
@@ -174,14 +175,13 @@ export function OverleafReviewDialog(props: {
 
         {error && <InlineMessage level="error" className="overleaf-review-inline">{error}</InlineMessage>}
 
-        {loading ? <Loading><Trans>Fetching the Overleaf copy…</Trans></Loading> : (
+        {loading ? <Loading message={t`Fetching the Overleaf copy…`} /> : (
           <div className="overleaf-review-body">
             <div className="overleaf-review-list">
-              {grouped.length === 0 && !error && <p className="overleaf-review-empty"><Trans>No differences. You can close this window</Trans></p>}
               {grouped.map((group) => (
                 <section key={group.kind} className="overleaf-review-group">
                   <h3 data-kind={group.kind}><group.Icon size={13} /> {i18n._(group.title)}</h3>
-                  <p>{i18n._(group.blurb)}</p>
+                  {group.blurb && <p>{i18n._(group.blurb)}</p>}
                   <ul>
                     {group.items.map((change) => (
                       <li key={change.path}>
@@ -190,7 +190,7 @@ export function OverleafReviewDialog(props: {
                           className={change.path === selected ? "active" : ""}
                           aria-current={change.path === selected ? "true" : undefined}
                           disabled={change.binary}
-                          title={change.binary ? t`Binary file — no line-by-line view` : change.path}
+                          title={change.path}
                           onClick={() => reveal(change.path)}
                         >
                           <span className="overleaf-review-path">{change.path}</span>
@@ -207,7 +207,7 @@ export function OverleafReviewDialog(props: {
                 <InlineMessage level="error" className="overleaf-review-inline">
                   <Trans>Could not render these changes: {renderError}</Trans>
                 </InlineMessage>
-              ) : !resources.ready ? <Loading><Trans>Rendering changes…</Trans></Loading> : items.length > 0 ? (
+              ) : !resources.ready ? <Loading message={t`Rendering changes…`} /> : items.length > 0 ? (
                 <CodeView
                   ref={codeViewRef}
                   items={items}
@@ -226,7 +226,7 @@ export function OverleafReviewDialog(props: {
                 />
               ) : (
                 <p className="overleaf-review-empty">
-                  {total === 0 ? t`Nothing to show` : t`Only binary files would change; line-by-line review is unavailable`}
+                  {total === 0 ? t`Nothing to show` : t`Only binary files would change`}
                 </p>
               )}
             </div>

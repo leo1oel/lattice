@@ -84,7 +84,6 @@ export function OverleafCollabDrawer(props: {
       {count > 0 && <span className="overleaf-collab-tab-count">{formatCount(count, i18n.locale)}</span>}
     </>
   );
-  const openCount = formatCount(openThreads, i18n.locale);
   const showLocal = commentSource === "local" && !!props.hasLocalComments;
   const hasResolved = comments.threads.some((thread) => thread.resolved);
   const threadCount = comments.threads.length;
@@ -127,13 +126,8 @@ export function OverleafCollabDrawer(props: {
           <>
             {/* Which comments to list shares one row with the resolved filter,
                 rather than stacking a second full-width switcher under the tabs. */}
-            {(props.hasLocalComments || (!showLocal && (hasResolved || openThreads > 0))) && (
+            {(props.hasLocalComments || (!showLocal && hasResolved)) && (
               <div className="overleaf-collab-toolbar">
-                {!props.hasLocalComments && (
-                  <span className="overleaf-collab-count">
-                    {openThreads === 1 ? t`1 open` : t`${openCount} open`}
-                  </span>
-                )}
                 {props.hasLocalComments && (
                   <SegmentedControl
                     value={commentSource}
@@ -142,7 +136,7 @@ export function OverleafCollabDrawer(props: {
                     className="overleaf-comment-source"
                     items={[
                       { value: "overleaf", label: "Overleaf" },
-                      { value: "local", label: tab(t({ message: "Local", context: "comment source" }), props.localCommentCount ?? 0) },
+                      { value: "local", label: tab(t({ message: "Lattice only", context: "comment source" }), props.localCommentCount ?? 0) },
                     ]}
                   />
                 )}
@@ -157,10 +151,7 @@ export function OverleafCollabDrawer(props: {
               </div>
             )}
             {showLocal ? (
-              <>
-                <p className="overleaf-local-comments-note">{t`These comments stay in Lattice and are not sent to Overleaf.`}</p>
-                {props.localComments}
-              </>
+              props.localComments
             ) : (
               <OverleafCommentsPanel
                 focusThreadId={props.focusThreadId}
@@ -183,21 +174,7 @@ export function OverleafCollabDrawer(props: {
           </>
         ) : (
           <ChatPanel
-            header={(
-              <>
-                {chat.error && <InlineMessage level="error" className="overleaf-chat-inline">{chat.error}</InlineMessage>}
-                {props.peers.length > 0 && (
-                  <p className="overleaf-chat-here">
-                    <span className="overleaf-chat-here-faces" aria-hidden="true">
-                      {props.peers.slice(0, 3).map((peer) => (
-                        <PersonAvatar key={peer.id} name={peer.name || t`Anonymous`} color={personColor(hues, peer).color} size="small" />
-                      ))}
-                    </span>
-                    <span className="overleaf-chat-here-names">{t`In the project now · ${here}`}</span>
-                  </p>
-                )}
-              </>
-            )}
+            header={chat.error ? <InlineMessage level="error" className="overleaf-chat-inline">{chat.error}</InlineMessage> : undefined}
             avatar={(message) => (
               <PersonAvatar
                 name={message.authorName}
@@ -209,7 +186,6 @@ export function OverleafCollabDrawer(props: {
                 className="overleaf-collab-empty"
                 icon={<ResearchArt drawing={LETTER_RACK} />}
                 title={t`No messages yet`}
-                description={t`Everyone in the Overleaf project sees what you write here`}
               />
             )}
             messages={chatMessages}

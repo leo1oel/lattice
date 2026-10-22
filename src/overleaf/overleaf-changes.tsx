@@ -194,39 +194,35 @@ export function OverleafChangesPanel(props: {
   );
 
   const sections = sectionsOf(props.source, sorted, { abstract: t`Abstract`, front: t`Before the first section` });
-  const count = formatCount(sorted.length, i18n.locale);
 
   return (
     <>
       {props.error && <InlineMessage level="error" className="overleaf-change-inline">{props.error}</InlineMessage>}
 
-      {sorted.length > 0 && (
+      {sorted.length > 1 && (
         <div className="overleaf-collab-toolbar">
-          <span className="overleaf-collab-count">{sorted.length === 1 ? t`1 suggestion` : t`${count} suggestions`}</span>
-          {sorted.length > 1 && (
-            <span className="overleaf-change-bulk-actions">
-              <button
-                type="button"
-                className="overleaf-collab-text-button"
-                disabled={!actionable || props.busy !== null}
-                title={disabledTitle}
-                onClick={() => accept(sorted)}
-              >
-                {props.busy === "all" ? <InfinityLoader size={12} /> : <Check size={13} aria-hidden="true" />}
-                {t`Accept all`}
-              </button>
-              <button
-                type="button"
-                className="overleaf-collab-text-button"
-                disabled={!actionable || props.busy !== null}
-                title={disabledTitle}
-                onClick={() => reject(sorted)}
-              >
-                <X size={13} aria-hidden="true" />
-                {t`Reject all`}
-              </button>
-            </span>
-          )}
+          <span className="overleaf-change-bulk-actions">
+            <button
+              type="button"
+              className="overleaf-collab-text-button"
+              disabled={!actionable || props.busy !== null}
+              title={disabledTitle}
+              onClick={() => accept(sorted)}
+            >
+              {props.busy === "all" ? <InfinityLoader size={12} /> : <Check size={13} aria-hidden="true" />}
+              {t`Accept all`}
+            </button>
+            <button
+              type="button"
+              className="overleaf-collab-text-button"
+              disabled={!actionable || props.busy !== null}
+              title={disabledTitle}
+              onClick={() => reject(sorted)}
+            >
+              <X size={13} aria-hidden="true" />
+              {t`Reject all`}
+            </button>
+          </span>
         </div>
       )}
 
@@ -236,9 +232,6 @@ export function OverleafChangesPanel(props: {
             className="overleaf-collab-empty"
             icon={<ResearchArt drawing={PROOF_MARKS} />}
             title={props.documentOpen ? t`No suggestions in this file` : t`Open a file to see its suggestions`}
-            description={props.documentOpen
-              ? t`When a collaborator edits with Track changes on, each edit waits here for you to accept or reject`
-              : t`Overleaf keeps suggestions with each file; they show here for the file in front`}
           />
         )}
         {sections.map((section, index) => (

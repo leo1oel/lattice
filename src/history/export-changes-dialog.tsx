@@ -41,12 +41,6 @@ let lastOptions: ChangesPdfOptions = { colour: true, keepDeleted: true, marginBa
 /** How many changed passages the page preview draws. */
 const PREVIEW_PASSAGES = 3;
 
-/** `main.tex` → `main-changes.pdf`, where the export saves it (and the backend agrees). */
-function changesPdfName(rootDocument: string): string {
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- a file name
-  return `${rootDocument.replace(/\.tex$/i, "")}-changes.pdf`;
-}
-
 /**
  * The first changed passages across the comparison's .tex files, in order.
  * A module helper: the compiler cannot compile `??` inside the loop of a
@@ -93,8 +87,6 @@ export function ExportChangesDialog(props: {
     lastOptions = next;
     setOptions(next);
   };
-  const saved = changesPdfName(props.rootDocument);
-  const pdf = props.rootDocument.replace(/\.tex$/i, ".pdf");
   const preview = useLatestLoad<ProsePassage[]>();
   const loadPreview = preview.revalidate;
   const { changed, from, read, rootDocument, to } = props;
@@ -165,27 +157,21 @@ export function ExportChangesDialog(props: {
           <SwitchField
             className="export-changes-switch"
             label={t`Keep deleted text, struck through`}
-            description={t`Reviewers see what was removed`}
             checked={options.keepDeleted}
             onChange={(keepDeleted) => set({ keepDeleted })}
           />
           <SwitchField
             className="export-changes-switch"
             label={t`Bars in the margin`}
-            description={t`A line beside every change`}
             checked={options.marginBars}
             onChange={(marginBars) => set({ marginBars })}
           />
           <SwitchField
             className="export-changes-switch"
             label={t`Only pages with changes`}
-            description={t`Pages nothing changed on are left out`}
             checked={options.onlyChangedPages}
             onChange={(onlyChangedPages) => set({ onlyChangedPages })}
           />
-          <p className="export-changes-note">
-            {t`Made with latexdiff from your TeX installation, then built like the paper. Saved as ${saved} beside ${pdf}.`}
-          </p>
           {error && <InlineMessage level="error">{error}</InlineMessage>}
           <div className="modal-actions">
             <Button variant="ghost" disabled={running} onClick={props.onClose}>{t`Cancel`}</Button>
@@ -202,7 +188,6 @@ export function ExportChangesDialog(props: {
                 <p key={`${shown[index]!.line}:${index}`}>{parts}</p>
               ))}
             </div>
-            <span className="export-changes-caption">{t`The first changes, marked this way`}</span>
           </div>
         )}
       </div>

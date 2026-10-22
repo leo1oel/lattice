@@ -72,7 +72,7 @@ describe("VersionsTimeline", () => {
   it("shows a graceful note when git is unavailable", async () => {
     mockInvoke({ git_status: { available: false, repository: false, branch: null, files: [] } });
     renderVersions(<VersionsTimeline />);
-    expect(await screen.findByText("Version history needs Git, which isn’t available on this Mac")).toBeInTheDocument();
+    expect(await screen.findByText("Git isn’t available on this Mac")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save version/ })).not.toBeInTheDocument();
   });
 

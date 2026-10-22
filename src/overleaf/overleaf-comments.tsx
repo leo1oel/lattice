@@ -161,7 +161,6 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
               <IconButton
                 size="compact"
                 label={t`Edit message`}
-                tooltip={t`Edit this message`}
                 disabled={working}
                 onClick={() => {
                   setEditing(message.id);
@@ -174,7 +173,7 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
                 className="ui-icon-button overleaf-thread-danger"
                 data-size="compact"
                 aria-label={t`Delete message`}
-                title={t`Delete this message`}
+                title={t`Delete message`}
                 disabled={working}
                 iconSize={13}
                 onClick={() => void run(
@@ -214,8 +213,8 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
     <DestructiveButton
       className="ui-icon-button overleaf-thread-danger"
       data-size="compact"
-      aria-label={t`Delete`}
-      title={threadActionTitle ?? t`Delete this discussion`}
+      aria-label={t`Delete discussion`}
+      title={threadActionTitle ?? t`Delete discussion`}
       disabled={working || !anchor}
       iconSize={13}
       onClick={() => void run(
@@ -265,16 +264,15 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
               type="button"
               className="overleaf-thread-quote"
               style={{ borderLeftColor: opener ? colorOf(opener) : undefined }}
-              title={path ? t`Show this in the editor` : t`Waiting to find out which file this is in`}
+              title={path ? t`Show this in the editor` : undefined}
               disabled={!path}
               onClick={() => path && props.onReveal(path, anchor.position)}
             >
               {quote}
             </button>
           ) : (
-            <p className="overleaf-thread-orphaned">
-              {t`Its text was deleted from the document — Overleaf can no longer say where it was`}
-            </p>
+            // The group heading ("No longer in the document") says why; the card keeps its quote line.
+            <p className="overleaf-thread-orphaned">{quote}</p>
           )}
           <span className="overleaf-thread-tools">
             {remove}
@@ -420,9 +418,6 @@ export function OverleafCommentsPanel(props: OverleafThreadActions & {
             className="overleaf-collab-empty"
             icon={<ResearchArt drawing={MARGIN_NOTES} />}
             title={showResolved || !props.threads.length ? t`No comments yet` : t`No open comments`}
-            description={showResolved || !props.threads.length
-              ? t`Comments from Overleaf sit here beside the words they are about`
-              : t`Every comment is resolved. All shows the resolved ones`}
           />
         )}
 

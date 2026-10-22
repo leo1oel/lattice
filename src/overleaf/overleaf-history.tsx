@@ -44,7 +44,6 @@ type OverleafRowProps = {
   compare: boolean;
   onToggle: () => void;
   onCompare: () => void;
-  source?: string;
   /** Close the whole drawer — jumping to a line from a diff gets out of the way. */
   onClose: () => void;
   /** Put the caret on a line from a rendered diff, the way Activity does. */
@@ -73,7 +72,7 @@ export function OverleafHistoryRow(props: OverleafRowProps) {
     : null;
   /** Rewind Overleaf's whole project to this entry, once the reader confirms what that deletes. */
   const restoreProject = async () => {
-    const warning = t`Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore.`;
+    const warning = t`Restore the whole project to this version on Overleaf? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore.`;
     if (!await confirmAction(warning)) return;
     await props.history.revertProject(update.toVersion)
       .then(() => {
@@ -99,7 +98,6 @@ export function OverleafHistoryRow(props: OverleafRowProps) {
       )}
       time={clockTime(update.endTs, i18n.locale)}
       timeTitle={fullTime(update.endTs, i18n.locale)}
-      source={props.source}
       expanded={props.expanded}
       onToggle={props.onToggle}
       tools={(
@@ -200,7 +198,7 @@ function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () =>
   const renderFile = (file: OverleafFileEntry) => {
     const deleted = file.operation === "removed" && file.deletedAtV != null;
     const operation = fileOpLabel[file.operation ?? "edited"] ?? fileOpLabel.edited;
-    const pathname = file.pathname;
+    const name = file.operation === "renamed" && file.newPathname ? `${file.pathname} → ${file.newPathname}` : file.pathname;
     const open = diff.key === file.pathname || diff.key === file.newPathname;
     return (
       <div className="overleaf-history-file-row" key={file.pathname}>
@@ -208,16 +206,16 @@ function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () =>
           type="button"
           className={`version-file overleaf-history-file${open ? " active" : ""}`}
           aria-pressed={open}
-          title={t`${operation}: ${pathname}`}
+          title={name}
+          aria-description={operation}
           onClick={() => openDiff(file.newPathname ?? file.pathname)}
         >
           <FileKindIcon kind={file.operation ?? "edited"} />
-          <span>{file.operation === "renamed" && file.newPathname ? `${file.pathname} → ${file.newPathname}` : file.pathname}</span>
+          <span>{name}</span>
         </button>
         <button
           type="button"
           className="version-file-restore"
-          title={deleted ? t`Bring back ${file.pathname}` : t`Restore ${file.pathname} to this version`}
           disabled={history.busy}
           onClick={() => void run(t`Restored ${file.pathname}.`, () => (deleted
             ? history.restoreDeletedFile(file.deletedAtV!, file.pathname)
@@ -233,7 +231,7 @@ function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () =>
     <div className="version-body">
       {props.compare && (
         <p className="version-mode-note">
-          {unchanged ? t`Nothing has changed on Overleaf since this version` : t`What has changed on Overleaf since this version`}
+          {unchanged ? t`Nothing has changed on Overleaf since this version` : t`Compared with now`}
           {" · "}
           <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
         </p>
@@ -303,7 +301,6 @@ function OverleafHistoryBody(props: OverleafRowProps & { onRestoreProject: () =>
         <button type="button" className="version-action" disabled={history.busy} onClick={() => void props.onRestoreProject()}>
           <RotateCcw size={12} /> {t`Restore whole project to this version`}
         </button>
-        <span className="version-note">{t`Restoring changes Overleaf’s copy. Sync afterwards to bring it here`}</span>
       </div>
     </div>
   );
@@ -325,7 +322,6 @@ export function OverleafHistoryState(props: { history: OverleafHistory; alone: b
           fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`No Overleaf history yet`}
-          description={t`Every edit made on Overleaf, by anyone, is kept here and can be restored`}
         />
       )}
     </>

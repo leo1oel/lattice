@@ -204,7 +204,6 @@ describe("CompareVersions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Export PDF with changes…" }));
     const sheet = screen.getByRole("dialog", { name: "Export PDF with changes marked" });
-    expect(within(sheet).getByText("Saved as main-changes.pdf beside main.pdf.", { exact: false })).toBeInTheDocument();
     // The preview draws the comparison's own first change.
     await waitFor(() => expect(sheet.querySelector(".export-changes-page ins")?.textContent).toBe("retrieve different"));
     fireEvent.click(within(sheet).getByRole("tab", { name: "Underline only" }));

@@ -112,7 +112,7 @@ describe("Overleaf sync", () => {
     expect(await within(dialog).findByRole("radio", { name: "Keep Overleaf's version" }, { timeout: 10_000 }))
       .toHaveTextContent("Overleaf removed this part.");
     fireEvent.click(within(dialog).getByRole("radio", { name: "Keep this computer's version" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save resolved file" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save and upload" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "references.bib", content: `${after}\n`, projectRoot: snapshot.root,
     }));
@@ -137,7 +137,7 @@ describe("Overleaf sync", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Open another Overleaf project" }));
     expect(await screen.findByLabelText("Open from Overleaf")).toBeInTheDocument();
     expect(screen.queryByText("Upload this project to Overleaf")).not.toBeInTheDocument();
-    expect(await screen.findByText("No projects in this account yet. Create one on Overleaf and it will appear here"))
+    expect(await screen.findByText("No projects in this account yet"))
       .toBeInTheDocument();
   });
 
