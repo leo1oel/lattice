@@ -1,4 +1,4 @@
-import { useCallback, type RefObject } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafRemoteDelete } from "../settings/app-settings";
@@ -17,17 +17,24 @@ export function useOverleafRemoteDeletes(
   projectGuard: (root: string, generation: number) => () => boolean,
 ) {
   const { t } = useLingui();
+  // Files the writer chose to keep on Overleaf when asked. Every sync reports
+  // a file deleted here only, for as long as it stays that way, so without
+  // this the same question came back on each one. Held for the session: the
+  // safe side of forgetting is a file left on Overleaf, never one removed.
+  const declinedRef = useRef(new Set<string>());
   return useCallback(async (paths: string[], projectRoot: string, generation: number, automatic = false) => {
     const stillCurrent = projectGuard(projectRoot, generation);
     if (!stillCurrent()) return;
     const policy = policyRef.current;
     if (!automatic && policy === "never") return;
+    const asking = !automatic && policy === "ask";
+    const key = (path: string) => `${projectRoot}\n${path}`;
     const known = paths.flatMap((path) => {
       const entity = entitiesRef.current.get(path);
-      return entity ? [{ path, entity }] : [];
+      return entity && !(asking && declinedRef.current.has(key(path))) ? [{ path, entity }] : [];
     });
     if (!known.length) return;
-    if (!automatic && policy === "ask") {
+    if (asking) {
       const names = known.map((entry) => entry.path).join(", ");
       const removeThem = await confirmAction({
         title: known.length === 1
@@ -39,7 +46,11 @@ export function useOverleafRemoteDeletes(
         confirmLabel: t`Delete on Overleaf too`,
         destructive: true,
       });
-      if (!removeThem || !stillCurrent()) return;
+      if (!removeThem) {
+        for (const { path } of known) declinedRef.current.add(key(path));
+        return;
+      }
+      if (!stillCurrent()) return;
     }
     for (const entry of known) {
       if (!stillCurrent()) return;
