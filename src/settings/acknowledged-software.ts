@@ -17,9 +17,13 @@ import type { ThirdPartyClosure } from "./third-party-notices";
  */
 export type Credit = {
   name: string;
-  role: MessageDescriptor;
+  /**
+   * Who made it, or how Lattice adapted it: a credit or terms, never what
+   * the work does in the app, which its name already stands for.
+   */
+  role?: MessageDescriptor;
   url?: string;
-  /** Wording the work's license requires, shown verbatim after the role. */
+  /** Wording the work's license requires, shown verbatim after any role. */
   attribution?: string;
   /** The package whose recorded version and license this credit shows. */
   pkg?: { closure: ThirdPartyClosure; name: string };
@@ -30,39 +34,39 @@ export type Credit = {
 
 /* eslint-disable lingui/no-unlocalized-strings -- names of works, their licenses and their sites, kept verbatim */
 export const CORE_SOFTWARE: readonly Credit[] = [
-  { name: "Tauri", role: msg`The desktop app shell`, url: "https://tauri.app", pkg: { closure: "crates", name: "tauri" } },
-  { name: "React", role: msg`The interface framework`, url: "https://react.dev", pkg: { closure: "npm", name: "react" } },
-  { name: "CodeMirror", role: msg`The source editor`, url: "https://codemirror.net", pkg: { closure: "npm", name: "@codemirror/view" } },
-  { name: "Tiptap", role: msg`The rich-text editor`, url: "https://tiptap.dev", pkg: { closure: "npm", name: "@tiptap/core" } },
-  { name: "PDF.js", role: msg`The PDF viewer`, url: "https://mozilla.github.io/pdf.js/", pkg: { closure: "npm", name: "pdfjs-dist" } },
-  { name: "Synara", role: msg`The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro`, url: "https://github.com/Emanuele-web04/synara", license: "MIT" },
-  { name: "Node.js", role: msg`Runs the agent runtime`, url: "https://nodejs.org", license: "MIT", version: nodeVersion },
-  { name: "Open Slide", role: msg`Powers presentations`, url: "https://github.com/open-slide/open-slide", pkg: { closure: "presentation-runtime", name: "@open-slide/core" } },
-  { name: "tldraw", role: msg`The board editor`, url: "https://tldraw.dev", pkg: { closure: "npm", name: "tldraw" }, license: "tldraw license" },
-  { name: "Trellis", role: msg`The dockable panel layout`, attribution: "Uses Trellis by DanFessler - github.com/DanFessler/trellis", url: "https://github.com/DanFessler/trellis", pkg: { closure: "npm", name: "@danfessler/trellis" }, license: "Trellis license" },
-  { name: "Pierre Trees", role: msg`The project file tree`, url: "https://pierre.computer", pkg: { closure: "npm", name: "@pierre/trees" } },
-  { name: "Pierre Diffs", role: msg`Diffs of changes and history`, url: "https://diffs.com", pkg: { closure: "npm", name: "@pierre/diffs" } },
-  { name: "Univer", role: msg`The spreadsheet editor`, url: "https://univer.ai", pkg: { closure: "npm", name: "@univerjs/core" } },
-  { name: "KaTeX", role: msg`Math previews`, url: "https://katex.org", pkg: { closure: "npm", name: "katex" } },
-  { name: "Pele", role: msg`Diagrams in Markdown`, url: "https://pele.run", pkg: { closure: "npm", name: "pele" } },
-  { name: "Shiki", role: msg`Code highlighting`, url: "https://shiki.style", pkg: { closure: "npm", name: "shiki" } },
-  { name: "Harper", role: msg`Grammar checking`, url: "https://writewithharper.com", pkg: { closure: "crates", name: "harper-core" } },
+  { name: "Tauri", url: "https://tauri.app", pkg: { closure: "crates", name: "tauri" } },
+  { name: "React", url: "https://react.dev", pkg: { closure: "npm", name: "react" } },
+  { name: "CodeMirror", url: "https://codemirror.net", pkg: { closure: "npm", name: "@codemirror/view" } },
+  { name: "Tiptap", url: "https://tiptap.dev", pkg: { closure: "npm", name: "@tiptap/core" } },
+  { name: "PDF.js", url: "https://mozilla.github.io/pdf.js/", pkg: { closure: "npm", name: "pdfjs-dist" } },
+  { name: "Synara", role: msg`By T3 Tools Inc. and Emanuele Di Pietro`, url: "https://github.com/Emanuele-web04/synara", license: "MIT" },
+  { name: "Node.js", url: "https://nodejs.org", license: "MIT", version: nodeVersion },
+  { name: "Open Slide", url: "https://github.com/open-slide/open-slide", pkg: { closure: "presentation-runtime", name: "@open-slide/core" } },
+  { name: "tldraw", url: "https://tldraw.dev", pkg: { closure: "npm", name: "tldraw" }, license: "tldraw license" },
+  { name: "Trellis", attribution: "Uses Trellis by DanFessler - github.com/DanFessler/trellis", url: "https://github.com/DanFessler/trellis", pkg: { closure: "npm", name: "@danfessler/trellis" }, license: "Trellis license" },
+  { name: "Pierre Trees", url: "https://pierre.computer", pkg: { closure: "npm", name: "@pierre/trees" } },
+  { name: "Pierre Diffs", url: "https://diffs.com", pkg: { closure: "npm", name: "@pierre/diffs" } },
+  { name: "Univer", url: "https://univer.ai", pkg: { closure: "npm", name: "@univerjs/core" } },
+  { name: "KaTeX", url: "https://katex.org", pkg: { closure: "npm", name: "katex" } },
+  { name: "Pele", url: "https://pele.run", pkg: { closure: "npm", name: "pele" } },
+  { name: "Shiki", url: "https://shiki.style", pkg: { closure: "npm", name: "shiki" } },
+  { name: "Harper", url: "https://writewithharper.com", pkg: { closure: "crates", name: "harper-core" } },
 ];
 
 /** Type, icons and sound. The Timeless family, when embedded, leads this group on its own row. */
 export const DESIGN_CREDITS: readonly Credit[] = [
-  { name: "Inter", role: msg`Interface typeface, by Rasmus Andersson`, url: "https://rsms.me/inter/", pkg: { closure: "npm", name: "@fontsource-variable/inter" } },
-  { name: "Instrument Serif", role: msg`Display typeface`, url: "https://github.com/Instrument/instrument-serif", pkg: { closure: "npm", name: "@fontsource/instrument-serif" } },
-  { name: "Ioskeley Mono", role: msg`Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li`, url: "https://github.com/ahatem/IoskeleyMono", license: "OFL-1.1", version: "2.0.0" },
-  { name: "IBM Plex and Shantell Sans", role: msg`Board typefaces`, url: "https://github.com/IBM/plex", license: "OFL-1.1" },
-  { name: "Lucide", role: msg`Interface icons`, url: "https://lucide.dev", pkg: { closure: "npm", name: "lucide-react" } },
-  { name: "Phosphor Icons", role: msg`Animated interface icons, redrawn from Phosphor glyphs`, url: "https://phosphoricons.com", license: "MIT" },
-  { name: "Cuelume", role: msg`Interface sounds, by Daniel Belyi`, url: "https://github.com/Danilaa1/cuelume", pkg: { closure: "npm", name: "cuelume" } },
+  { name: "Inter", role: msg`By Rasmus Andersson`, url: "https://rsms.me/inter/", pkg: { closure: "npm", name: "@fontsource-variable/inter" } },
+  { name: "Instrument Serif", url: "https://github.com/Instrument/instrument-serif", pkg: { closure: "npm", name: "@fontsource/instrument-serif" } },
+  { name: "Ioskeley Mono", role: msg`By Ahmed Hatem, built on Iosevka by Renzhi Li`, url: "https://github.com/ahatem/IoskeleyMono", license: "OFL-1.1", version: "2.0.0" },
+  { name: "IBM Plex and Shantell Sans", url: "https://github.com/IBM/plex", license: "OFL-1.1" },
+  { name: "Lucide", url: "https://lucide.dev", pkg: { closure: "npm", name: "lucide-react" } },
+  { name: "Phosphor Icons", role: msg`Redrawn from Phosphor glyphs`, url: "https://phosphoricons.com", license: "MIT" },
+  { name: "Cuelume", role: msg`By Daniel Belyi`, url: "https://github.com/Danilaa1/cuelume", pkg: { closure: "npm", name: "cuelume" } },
 ];
 
 /** Work Lattice adapted or began from, which no package list would show. */
 export const ORIGIN_CREDITS: readonly Credit[] = [
-  { name: "Open Knowledge", role: msg`By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful.`, url: "https://github.com/inkeep/open-knowledge" },
+  { name: "Open Knowledge", role: msg`By Inkeep; Lattice's first visual Markdown editor began there`, url: "https://github.com/inkeep/open-knowledge" },
   { name: "Fluid Functionalism and Lina", role: msg`By Micka Touillaud and Sameer Singh; several interface controls are adapted from them`, url: "https://github.com/mickadesign/fluid-functionalism", license: "MIT" },
   { name: "ICLR, ICML and NeurIPS style files", role: msg`From the official conference author kits, bundled unmodified with their authors' credits` },
 ];

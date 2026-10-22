@@ -22,7 +22,7 @@ import {
   type AppLogLevel,
 } from "./app-log-store";
 
-/** The terse level column; the full name is its tooltip. */
+/** The terse level column; an operation's outcome is its tooltip. */
 const LOG_LEVEL = { info: msg`INFO`, success: msg`OK`, warning: msg`WARN`, error: msg`ERROR` };
 const LOG_LEVELS = ["info", "success", "warning", "error"] as const;
 /** Readable names for entry levels and for operation phases and outcomes. */
@@ -44,8 +44,12 @@ function useStatusLabel() {
     Object.hasOwn(STATUS_LABELS, status) ? t(STATUS_LABELS[status as LogStatus]) : fallback;
 }
 
-/** The one-line head shared by a single entry and a whole operation. */
-function LogSummary(props: { entry: AppLogEntry; statusTitle: string; className: string; title: string; fields: string }) {
+/**
+ * The one-line head shared by a single entry and a whole operation. Only an
+ * operation's level column has a tooltip: its outcome, which the column does
+ * not spell; an entry's would only spell out the abbreviation.
+ */
+function LogSummary(props: { entry: AppLogEntry; statusTitle?: string; className: string; title: string; fields: string }) {
   const { t } = useLingui();
   const { timestamp } = props.entry;
   return (
@@ -66,16 +70,15 @@ function LogEntryRow({ entry, onOperationFilter, onExport }: { entry: AppLogEntr
   // Keep the original event and full text in the expanded record and export.
   const summary = /^console\.(warn|error|info|log)$/.test(entry.title) && detail.trim()
     ? detail.trim().split("\n")[0] : entry.title;
-  const level = statusLabel(entry.level);
   return (
     <details className={`app-log-entry ${entry.level}`} data-log-entry="">
       <summary className="app-log-entry-summary" tabIndex={0}>
         {/* eslint-disable-next-line lingui/no-unlocalized-strings -- structured log field name */}
-        <LogSummary entry={entry} statusTitle={level} className="app-log-entry-title" title={summary} fields={` source=${entry.source}`} />
+        <LogSummary entry={entry} className="app-log-entry-title" title={summary} fields={` source=${entry.source}`} />
       </summary>
       <div className="app-log-entry-content">
+        {/* Source, level and time are all in the summary line above. */}
         <div className="app-log-entry-heading">
-          <span>{entry.source} · {level} · {new Date(entry.timestamp).toLocaleString()}</span>
           <Button size="compact" onClick={() => onExport([entry])}><Download size={12} />{t`Export…`}</Button>
         </div>
         <pre className="app-log-message">{[entry.title, detail].filter(Boolean).join("\n\n")}</pre>
@@ -174,7 +177,7 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
             else { request.current += 1; setRuntime({}); }
           }}
           label={t`Include app and Agent runtime logs`}
-          description={t`For Agent failures. Credentials are masked, but paths and document text may remain`}
+          description={t`Credentials are masked, but paths and document text may remain`}
         />
         {includeRuntime && !runtime.logs && (runtime.error ? (
           <div role="alert">
@@ -242,7 +245,7 @@ export function AppLogsSettings() {
   );
   return (
     <div className="settings-section app-logs-settings">
-      <SettingsSectionHeader title={t`Logs`} description={t`The last 300 entries`} />
+      <SettingsSectionHeader title={t`Logs`} />
       <SettingsGroup>
         <div className="app-log-actions">
           <div className="app-log-query-row">
@@ -274,7 +277,7 @@ export function AppLogsSettings() {
           </div>
         </div>
         {visible.length === 0 ? (
-          <EmptyState align="start" density="compact" description={logs.length === 0 ? t`No logs yet` : normalizedQuery ? t`No matching logs` : t`No logs at this level`} />
+          <EmptyState align="start" density="compact" title={logs.length === 0 ? t`No logs yet` : normalizedQuery ? t`No matching logs` : t`No logs at this level`} />
         ) : (
           <ScrollArea className="app-log-scroll" viewportRef={logViewportRef} fadeEdges={false}>
             <div className="app-log-list">

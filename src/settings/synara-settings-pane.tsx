@@ -302,7 +302,7 @@ export function SynaraSettingsPane(props: {
     return (
       <div className="synara-settings-state">
         {runtime.state === "ready"
-          ? <EmptyState fill description={t`Open a project to manage Agent settings`} />
+          ? <EmptyState fill title={t`No project open`} />
           : <SynaraLoadingSurface runtime={runtime} onRetry={props.onRetry} />}
       </div>
     );

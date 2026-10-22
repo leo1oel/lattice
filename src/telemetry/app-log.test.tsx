@@ -75,7 +75,6 @@ describe("AppLogsSettings", () => {
     expect(screen.queryByLabelText("Only slow (over 2000 ms)")).not.toBeInTheDocument();
     expect(filter).toHaveClass("app-log-level-filter");
     expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
-    expect(screen.getByText("The last 300 entries")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
   });
 

@@ -21,15 +21,24 @@ describe("settings search", () => {
     ["xelatex", ["compile-engine"]],
     ["api key", ["literature-openalex", "literature-semanticscholar", "literature-firecrawl"]],
     ["latexmkrc", ["compile-engine"]],
-    ["Source editor only", ["editor-font-size"]],
-    // Either wording a row switches between finds it.
-    ["no name", ["author-name"]],
+    // A cut description's words live on in the row's terms.
+    ["source editor", ["editor-font-size"]],
+    ["desktop", ["translucency"]],
+    [".aux", ["aux-files"]],
+    ["crossref", ["literature-email"]],
+    // A row's earlier label still finds it.
+    ["external commands", ["shell-escape"]],
     ["signed from git", ["author-name"]],
     ["open a project", ["project-dictionary"]],
-    ["accept", ["project-dictionary"]],
     ["harper", ["spellcheck", "project-dictionary"]],
-    // A label match leads one only a description holds.
-    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape", "interface-sounds"]],
+    // Label matches lead the rows only their terms match.
+    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape"]],
+    // Then the rows only a description holds.
+    ["reduce transparency", ["translucency"]],
+    // An option name finds its row.
+    ["live sync", ["overleaf-sync-mode"]],
+    ["ask before deleting", ["overleaf-remote-delete"]],
+    ["history keeps a copy", ["overleaf-remote-delete"]],
     ["  ", []],
   ])("finds %j in English", (query, ids) => {
     expect(search(query)).toEqual(ids);
@@ -38,15 +47,13 @@ describe("settings search", () => {
   it.each([
     ["提示音", ["interface-sounds"]],
     ["声音", ["interface-sounds"]],
-    ["拼写", ["spellcheck", "project-dictionary"]],
+    ["拼写", ["spellcheck"]],
     ["快捷键", ["editor-keymap"]],
     ["词库", ["project-dictionary"]],
     ["latexmkrc", ["compile-engine"]],
-    ["仅源码编辑器", ["editor-font-size"]],
-    ["都没有名字", ["author-name"]],
+    ["外部程序", ["shell-escape"]],
     ["评论署名", ["author-name"]],
     ["可添加", ["project-dictionary"]],
-    ["不标红", ["project-dictionary"]],
   ])("finds %j in Chinese", async (query, ids) => {
     await act(() => activateAppLocale("zh-CN"));
     expect(search(query)).toEqual(ids);

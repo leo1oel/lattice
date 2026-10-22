@@ -20,7 +20,7 @@ function settings(state: LivePreviewState, overrides: Partial<LivePreview> = {})
 }
 
 it.each([
-  [{ supported: false, lualatex: false }, "Live preview needs a Mac with Apple silicon. Builds work as usual."],
+  [{ supported: false, lualatex: false }, "Live preview needs a Mac with Apple silicon"],
   [{ supported: true, lualatex: false }, /Live preview needs LuaLaTeX, and Lattice could not run it/],
 ])("says why a Mac that cannot run it shows the switch off and disabled", async (host, reason) => {
   vi.mocked(invoke).mockResolvedValue({ ...READY, ...host });
@@ -33,7 +33,7 @@ it.each([
 
 it("offers a retry after a failed download", async () => {
   const livePreview = settings({ kind: "download-failed", message: "Could not download the rtex live preview engine: offline" });
-  expect(await screen.findByText("Could not download the rtex live preview engine: offline Builds work as usual.")).toBeInTheDocument();
+  expect(await screen.findByText("Could not download the rtex live preview engine: offline")).toBeInTheDocument();
   expect(screen.getByRole("switch", { name: "Live preview" })).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   expect(livePreview.retry).toHaveBeenCalled();

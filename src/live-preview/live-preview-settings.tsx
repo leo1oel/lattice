@@ -29,17 +29,18 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
     return () => { current = false; };
   }, [state.kind]);
 
-  const about = t`Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build.`;
   const percent = state.kind === "downloading" ? Math.round(state.progress * 100) : 0;
   const message = state.kind === "failed" || state.kind === "download-failed" ? state.message : "";
   const unavailable = install?.supported === false
-    ? t`Live preview needs a Mac with Apple silicon. Builds work as usual.`
+    ? t`Live preview needs a Mac with Apple silicon`
     : install?.lualatex === false
-      ? t`Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again.`
+      ? t`Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again`
       : null;
+  // Only state: why it cannot run, its download, a failure. The first
+  // download's size is told where it starts (the PDF panel's notice).
   const description = unavailable ?? (state.kind === "downloading"
     ? t`Downloading rtex… ${percent}%`
-    : state.kind === "failed" ? t`Could not start: ${message}` : about);
+    : state.kind === "failed" ? t`Could not start: ${message}` : undefined);
   const version = install?.version ?? "";
   const remove = () => {
     setRemoving(true);
@@ -64,7 +65,7 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
         <SettingsRow
           data-setting="live-preview-engine"
           label={t`Live preview engine`}
-          description={t`${message} Builds work as usual.`}
+          description={message}
         >
           <Button size="compact" onClick={livePreview.retry}>{t`Retry`}</Button>
         </SettingsRow>

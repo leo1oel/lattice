@@ -128,9 +128,7 @@ function NoticesDialog({ loaded, pkg, onClose }: { loaded: LoadedNotices; pkg: T
           </p>
         )}
         {pkg && groups.length === 0 && (
-          <InlineMessage level="warning">
-            {t`This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps.`}
-          </InlineMessage>
+          <InlineMessage level="warning">{t`This package ships no license text of its own`}</InlineMessage>
         )}
         {groups.map((group) => (
           <section key={group.title} className="acknowledgements-notices-group">
@@ -141,7 +139,7 @@ function NoticesDialog({ loaded, pkg, onClose }: { loaded: LoadedNotices; pkg: T
                 text in one list, and does not say whose line is whose. */}
             {group.copyrights && (
               <>
-                <h4>{t`Copyright notices of the packages under this text`}</h4>
+                <h4>{t`Copyright notices`}</h4>
                 <pre className="acknowledgements-notices-text">{group.copyrights}</pre>
               </>
             )}
@@ -159,7 +157,7 @@ function CreditRow({ credit, notices }: { credit: Credit; notices: ThirdPartyNot
   const version = credit.version ?? recorded?.version;
   const url = credit.url;
   return (
-    <SettingsRow label={credit.name} description={[i18n._(credit.role), credit.attribution].filter(Boolean).join(". ")}>
+    <SettingsRow label={credit.name} description={[credit.role && i18n._(credit.role), credit.attribution].filter(Boolean).join(". ") || undefined}>
       {(license || version) && (
         <span className="acknowledgements-terms">{[license, version].filter(Boolean).join(" · ")}</span>
       )}
@@ -205,10 +203,7 @@ function DependencyList({ notices, onOpen }: { notices: ThirdPartyNotices; onOpe
   });
 
   return (
-    <SettingsGroup title={t`All third-party software`}>
-      <p className="acknowledgements-lead">
-        {t`Lattice ships ${total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license.`}
-      </p>
+    <SettingsGroup title={t`All third-party software · ${total}`}>
       <SearchField
         aria-label={t`Search third-party software`}
         placeholder={t`Search by name or license`}
@@ -234,7 +229,7 @@ function DependencyList({ notices, onOpen }: { notices: ThirdPartyNotices; onOpe
             );
           })}
           {matches.length > shown.length && (
-            <p className="acknowledgements-lead">{t`Showing ${shown.length} of ${matches.length} matches. Keep typing to narrow them.`}</p>
+            <p className="acknowledgements-lead">{t`Showing ${shown.length} of ${matches.length}`}</p>
           )}
         </div>
       ) : CLOSURE_ORDER.map((closure) => {
@@ -288,7 +283,6 @@ export function AcknowledgementsSettings() {
     <div className="settings-section acknowledgements">
       <SettingsSectionHeader
         title={t`Acknowledgements`}
-        description={t`Lattice stands on the work of many open-source projects. Thank you to everyone who builds them.`}
         actions={(
           <Button variant="secondary" size="compact" disabled={!notices} onClick={() => setNoticesFor(null)}>
             <FileText size={14} /> {t`Third-party notices`}

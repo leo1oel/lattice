@@ -26,7 +26,11 @@ export type TourContext = {
 export type TourStep = {
   id: string;
   title: MessageDescriptor;
-  body: MessageDescriptor;
+  /**
+   * Only what the title, the spotlight and the action cannot say (a
+   * shortcut that is nowhere on screen); most stops have none.
+   */
+  body?: MessageDescriptor;
   /** The action to try, shown with a mark that checks itself once `watch` reports it. */
   action?: MessageDescriptor;
   /** Where the stop points, or null while it is not on screen. Stops without one are centered. */
@@ -97,21 +101,18 @@ function watchShortcut(key: string, done: () => void, { shift = false } = {}) {
 }
 
 /** The welcome for a writer who has walked the tour to its end before. */
-export const TOUR_REPLAY_WELCOME = {
+export const TOUR_REPLAY_WELCOME: Pick<TourStep, "title" | "body"> = {
   title: msg`Welcome back`,
-  body: msg`The same seven stops, for a refresher.`,
-} as const;
+};
 
 export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "welcome",
     title: msg`Welcome to Lattice`,
-    body: msg`A one-minute tour of this sample paper. Seven stops, each with something to try.`,
   },
   {
     id: "project",
     title: msg`Your project`,
-    body: msg`Every file of the paper lives here: LaTeX, notes, figures, slides.`,
     action: msg`Open notes.md`,
     target: ({ controller }) => panelOf(controller, "project"),
     reveal: ({ controller }) => controller.showPanel("project", { focus: false }),
@@ -120,7 +121,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "write",
     title: msg`Write, then build`,
-    body: msg`Edit the LaTeX here. Build typesets it beside you in seconds.`,
     action: msg`Press ⌘S or click Build`,
     target: ({ controller }) => manuscriptPanel(controller),
     reveal: ({ controller, openFile }) => {
@@ -151,7 +151,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "pdf",
     title: msg`Source and PDF, linked`,
-    body: msg`Double-click the PDF to land on its source line. ⌘⇧J jumps back.`,
+    body: msg`⌘⇧J jumps back`,
     action: msg`Double-click a paragraph`,
     target: ({ controller }) => panelOf(controller, "pdf"),
     reveal: ({ controller }) => controller.showPanel("pdf", { focus: false }),
@@ -168,7 +168,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "layouts",
     title: msg`Layouts for each task`,
-    body: msg`Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you.`,
     action: msg`Choose Reading in Panels`,
     // The presets are in the Panels menu, not among the workspaces' tabs.
     target: () => elementRect("[data-trellis-panels-menu]"),
@@ -188,7 +187,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "papers",
     title: msg`Papers`,
-    body: msg`Add papers by arXiv ID, DOI or title, then read them beside your draft.`,
     action: msg`Press ⌘⇧K in the editor to cite one`,
     target: ({ controller }) => panelOf(controller, "papers"),
     reveal: ({ controller }) => controller.showPanel("papers", { focus: false }),
@@ -197,8 +195,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "comments",
     title: msg`Comments`,
-    body: msg`Select text in the editor and choose Comment. Every note gathers here.`,
-    action: msg`Leave a comment`,
+    action: msg`Select text, then choose Comment`,
     target: () => elementRect('[data-tour="comments"], .editor-status-bar .status-comments'),
     reveal: ({ controller, openFile }) => {
       if (controller.bridge?.tabKind(controller.app.get().activeKey) !== "file") openFile(TOUR_MANUSCRIPT);
@@ -214,7 +211,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "agent",
     title: msg`The Agent`,
-    body: msg`Ask it to explain, revise or check the paper. It works inside your project.`,
     action: msg`Ask it anything`,
     target: ({ controller }) => panelOf(controller, "agent"),
     reveal: ({ controller }) => controller.showPanel("agent", { focus: false }),

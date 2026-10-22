@@ -41,7 +41,7 @@ export function SliderRow(props: {
   id: string;
   "data-setting"?: string;
   label: string;
-  description: string;
+  description?: string;
   min: number;
   max: number;
   value: number;

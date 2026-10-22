@@ -53,9 +53,9 @@ function WhatsNewSheet({ onClose, onOpenUrl }: { onClose: () => void; onOpenUrl:
             <button type="button" aria-label={t`Newer release`} title={t`Newer release`} disabled={index === 0} onClick={() => setIndex(index - 1)}>
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
+            {/* The running version is the first page, where Newer is disabled. */}
             <span aria-live="polite">
               <b>{shownVersion}</b>
-              {shownVersion === RUNNING_VERSION && <em>{t`Running now`}</em>}
             </span>
             <button type="button" aria-label={t`Older release`} title={t`Older release`}
               disabled={!releases || index >= releases.length - 1} onClick={() => setIndex(index + 1)}>
@@ -89,7 +89,7 @@ function WhatsNewSheet({ onClose, onOpenUrl }: { onClose: () => void; onOpenUrl:
               )}
             </div>
           </>
-        ) : releases && <p className="whats-new-date">{t`No notes came with this version.`}</p>}
+        ) : releases && <p className="whats-new-date">{t`No notes came with this version`}</p>}
         <div className="modal-actions whats-new-actions">
           <Button variant="ghost" size="compact" className="whats-new-link" onClick={() => onOpenUrl(releaseUrl(shownVersion))}>
             {t`Full release notes`}<ExternalLink size={12} aria-hidden="true" />
