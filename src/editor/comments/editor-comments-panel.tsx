@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, ChevronDown, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search, X } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
+import { Check, CornerDownLeft, FileSearch, History, MessageSquareShare, Pencil, Reply, RotateCcw, Search } from "lucide-react";
 import { comboText, parseKeyName } from "../../app/key-combos";
 import { InfinityLoader } from "../../components/ui/activity-icons";
 import { Button } from "../../components/ui/button";
@@ -30,10 +29,8 @@ import { HIGHLIGHTERS, highlighterOf, readsDarkOn, useHighlightPrefs } from "../
 import type { AnnotationRounds } from "../../app/annotation-rounds";
 import { sectionsOf } from "./annotation-sections";
 import { useRoundsView } from "./annotation-rounds-view";
+import { HighlightKindFilter, OTHER } from "./highlight-kind-filter";
 import "./annotations.css";
-
-// eslint-disable-next-line lingui/no-unlocalized-strings -- a type specimen on a highlighter's tint, not copy
-const SPECIMEN = "Aa";
 
 /* eslint-disable lingui/no-unlocalized-strings -- key names, drawn as glyphs */
 const REVISE_KEYS = comboText(parseKeyName("Mod-Shift-Enter"));
@@ -44,8 +41,6 @@ type Filter = "open" | "resolved" | "all";
 
 /** A highlight in the open file, listed by what its highlighter means. */
 type PlacedHighlight = { from: number; line: number; text: string; color: string | null; kind: string };
-/** The kind of a highlight in none of the six highlighters' colours. */
-const OTHER = "other";
 
 /**
  * The Annotations panel: the writer's notes on this project, grouped by the
@@ -89,7 +84,6 @@ export function EditorCommentsPanel(props: {
   const [highlightKind, setHighlightKind] = useState<string | null>(null);
   /** Notes and the file's highlights are peers; a color filter narrows the highlights. */
   const [chosenMode, setMode] = useState<"notes" | "highlights">("notes");
-  const [kindMenuOpen, setKindMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [replyingId, setReplyingId] = useState<string | null>(props.focusCommentId ?? null);
@@ -272,54 +266,13 @@ export function EditorCommentsPanel(props: {
         </div>
       )}
       {mode === "highlights" && (
-        <Popover open={kindMenuOpen} onOpenChange={setKindMenuOpen}>
-          <span className="annotations-kind-filter" data-active={highlightKind ? true : undefined}>
-            <PopoverTrigger asChild>
-              <button type="button" className="annotations-kind-trigger" aria-label={t`Filter highlights by colour`}>
-                {highlightKind ? (
-                  <>
-                    <span className="annotations-kind-chip" style={highlightKind === OTHER ? undefined : { background: highlightKind }} data-kind={highlightKind === OTHER ? OTHER : undefined} aria-hidden>{SPECIMEN}</span>
-                    <span className="annotations-kind-label">{kindLabel(highlightKind)}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="annotations-kind-stack" aria-hidden>
-                      {highlightKinds.slice(0, 4).map(({ kind }) => <i key={kind} style={kind === OTHER ? undefined : { background: kind }} data-kind={kind === OTHER ? OTHER : undefined} />)}
-                    </span>
-                    <span className="annotations-kind-label">{t`All colours`}</span>
-                  </>
-                )}
-                <ChevronDown size={12} strokeWidth={1.8} aria-hidden />
-              </button>
-            </PopoverTrigger>
-            {highlightKind && (
-              <button type="button" className="annotations-kind-clear" aria-label={t`Show all colours`} onClick={() => setHighlightKind(null)}>
-                <X size={12} strokeWidth={1.8} />
-              </button>
-            )}
-          </span>
-          <PopoverContent side="bottom" align="start" sideOffset={6} className="annotations-kind-menu">
-            {[{ kind: null as string | null, count: highlights.length }, ...highlightKinds].map(({ kind, count }) => (
-              <button
-                type="button"
-                key={kind ?? "all"}
-                className="annotations-kind-row"
-                aria-pressed={highlightKind === kind}
-                onClick={() => {
-                  setHighlightKind(kind);
-                  setKindMenuOpen(false);
-                }}
-              >
-                {kind
-                  ? <span className="annotations-kind-chip" style={kind === OTHER ? undefined : { background: kind }} data-kind={kind === OTHER ? OTHER : undefined} aria-hidden>{SPECIMEN}</span>
-                  : <span className="annotations-kind-stack" aria-hidden>{highlightKinds.slice(0, 3).map((item) => <i key={item.kind} style={item.kind === OTHER ? undefined : { background: item.kind }} />)}</span>}
-                <span className="annotations-kind-row-label">{kind ? kindLabel(kind) : t`All highlights`}</span>
-                <span className="annotations-kind-row-count">{formatCount(count, i18n.locale)}</span>
-                {highlightKind === kind ? <Check size={13} strokeWidth={1.8} aria-hidden /> : <span />}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        <HighlightKindFilter
+          kind={highlightKind}
+          kinds={highlightKinds}
+          total={highlights.length}
+          kindLabel={kindLabel}
+          onChange={setHighlightKind}
+        />
       )}
       <span className="annotations-head-actions">
         {hasComments && (

@@ -1532,7 +1532,7 @@ msgstr "全部（{threadCount}）"
 msgid "All {total} references verified"
 msgstr "全部 {total} 条文献已核实"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "All colours"
 msgstr "全部颜色"
 
@@ -1544,7 +1544,7 @@ msgstr "所有文件"
 msgid "All Functions…"
 msgstr "全部函数…"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "All highlights"
 msgstr "全部高亮"
 
@@ -5218,7 +5218,7 @@ msgstr "筛选批注…"
 msgid "Filter by name or key"
 msgstr "按名称或按键搜索"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "Filter highlights by colour"
 msgstr "按颜色筛选高亮"
 
@@ -11807,7 +11807,7 @@ msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "全部显示"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "Show all colours"
 msgstr "显示全部颜色"
 

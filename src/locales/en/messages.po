@@ -1532,7 +1532,7 @@ msgstr "All ({threadCount})"
 msgid "All {total} references verified"
 msgstr "All {total} references verified"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "All colours"
 msgstr "All colours"
 
@@ -1544,7 +1544,7 @@ msgstr "All files"
 msgid "All Functions…"
 msgstr "All Functions…"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "All highlights"
 msgstr "All highlights"
 
@@ -5218,7 +5218,7 @@ msgstr "Filter annotations…"
 msgid "Filter by name or key"
 msgstr "Filter by name or key"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "Filter highlights by colour"
 msgstr "Filter highlights by colour"
 
@@ -11807,7 +11807,7 @@ msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "Show All"
 
-#: src/editor/comments/editor-comments-panel.tsx
+#: src/editor/comments/highlight-kind-filter.tsx
 msgid "Show all colours"
 msgstr "Show all colours"
 
