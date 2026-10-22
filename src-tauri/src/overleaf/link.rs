@@ -9,7 +9,7 @@ use super::api::{
     sync_host, JSON,
 };
 use super::files::{
-    has_conflict_markers, is_excluded, is_latex_save_error_path, is_transient_pdf_render_path,
+    excluded_in, has_conflict_markers, is_latex_save_error_path, is_transient_pdf_render_path,
     read_local_files, sha256_hex, write_base_copy, write_local_file, LocalFiles,
 };
 use super::review::HistoryFrom;
@@ -398,10 +398,10 @@ pub fn clone_project(
             continue;
         }
         write_local_file(&root, rel, data)?;
-        if !is_excluded(rel) {
+        if !excluded_in(&entries, rel) {
             files.insert(rel.clone(), sha256_hex(data));
             // The freshly cloned state is the first common ancestor, so later
-            // syncs can merge concurrent edits instead of choosing a winner.
+            // syncs can merge concurrent edits, not pick a winner.
             write_base_copy(&root, rel, data)?;
         }
     }
@@ -628,7 +628,7 @@ mod tests {
         for (rel, data) in [
             ("main.tex", "local body"),
             ("figures/plot.pdf", "%PDF figure"),
-            ("paper.pdf", "%PDF build output"),
+            ("main.pdf", "%PDF build output"),
             (".research/private.json", "secret"),
         ] {
             root.write(rel, data);
@@ -650,7 +650,7 @@ mod tests {
         {
             assert!(body.contains(expected), "{expected}");
         }
-        for leaked in ["paper.pdf", "private.json", "secret"] {
+        for leaked in ["main.pdf", "private.json", "secret"] {
             assert!(!body.contains(leaked), "{leaked}");
         }
 

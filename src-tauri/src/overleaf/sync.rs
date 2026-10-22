@@ -382,7 +382,7 @@ pub(super) fn fetch_remote_files(remote: &Remote, client: &Client) -> Result<Rem
         automatic_remote_deletes.push(TRANSIENT_PDF_RENDER_DIRECTORY.to_string());
     }
     automatic_remote_deletes.sort();
-    let files = entries.into_iter().filter(|(path, _)| !is_excluded(path)).collect();
+    let files = syncable(entries);
     Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new() })
 }
 

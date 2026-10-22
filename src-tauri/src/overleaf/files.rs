@@ -89,7 +89,39 @@ pub(super) fn is_latex_save_error_path(path: &str) -> bool {
     build_output_name(path).strip_suffix("-save-error").is_some_and(is_build_artifact)
 }
 
-/// Paths (forward-slash relative) that never participate in sync.
+/// Whether `path`, one of `files`, takes no part in sync: [`is_excluded`]
+/// says so, or it is the compiled PDF beside its source.
+pub(super) fn excluded_in<V>(files: &BTreeMap<String, V>, path: &str) -> bool {
+    is_excluded(path) || is_compiled_pdf(path, |source| files.contains_key(source))
+}
+
+/// The files of a project snapshot that take part in sync.
+pub(super) fn syncable(mut files: BTreeMap<String, Vec<u8>>) -> BTreeMap<String, Vec<u8>> {
+    let left_out: Vec<String> =
+        files.keys().filter(|path| excluded_in(&files, path)).cloned().collect();
+    for path in left_out {
+        files.remove(&path);
+    }
+    files
+}
+
+/// Whether `path` is the PDF a build writes for a document at the project
+/// root, which a `.tex` of the same name beside it (`has` says) gives away.
+/// Any other PDF is a figure or an attachment that must sync: a root
+/// `logo.pdf`, or a standalone figure's `figures/plot.pdf`, which the paper
+/// includes and Overleaf cannot build. Overleaf's download never carries
+/// build output, so its root PDFs are all of that kind.
+fn is_compiled_pdf(path: &str, has: impl Fn(&str) -> bool) -> bool {
+    match path.rsplit_once('.') {
+        Some((stem, extension)) if !path.contains('/') && extension.eq_ignore_ascii_case("pdf") => {
+            has(&format!("{stem}.tex"))
+        }
+        _ => false,
+    }
+}
+
+/// Paths (forward-slash relative) that never participate in sync, whatever
+/// else the project holds.
 pub(super) fn is_excluded(path: &str) -> bool {
     let file_name = path.rsplit('/').next().unwrap_or(path);
     let name = build_output_name(path);
@@ -111,9 +143,6 @@ pub(super) fn is_excluded(path: &str) -> bool {
         // A half-written `(busy)` artifact caught mid-compile would otherwise
         // live on Overleaf and in the project's history forever.
         || is_build_artifact(&name)
-        // The compiled output pdf lives at the project root; figure pdfs live
-        // in subdirectories and must sync.
-        || (!path.contains('/') && name.ends_with(".pdf"))
 }
 
 /// A file this app set aside during a conflict, by the name it gave it.
@@ -200,7 +229,7 @@ pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
         let Some(rel) = relative_slash_path(root, entry.path()) else {
             continue;
         };
-        if is_excluded(&rel) {
+        if is_excluded(&rel) || is_compiled_pdf(&rel, |source| disk_path(root, source).is_file()) {
             continue;
         }
         // Checked from the directory entry, before reading: the whole project
@@ -350,7 +379,6 @@ mod tests {
             ("sub/.DS_Store", true),
             ("main.aux", true),
             ("main.synctex.gz", true),
-            ("main.pdf", true), // compiled output at root
             ("tmp/pdfs/full-appendix/render-1.png", true),
             ("tmp/pdfs", true),
             ("tmp/notes.tex", false),
@@ -375,6 +403,40 @@ mod tests {
         assert!(is_conflict_copy("paper (local conflict 20260101-0900).tex"));
         assert!(!is_conflict_copy("paper.tex"));
         assert!(!is_conflict_copy("local conflict notes.tex"));
+    }
+
+    #[test]
+    fn only_a_root_documents_own_pdf_is_left_out_as_build_output() {
+        let names = ["main.tex", "main.pdf", "Paper.tex", "Paper.PDF", "logo.pdf", "fig1.pdf"];
+        let figure = ["figures/plot.tex", "figures/plot.pdf"];
+        let files: BTreeMap<String, ()> =
+            names.iter().chain(&figure).map(|name| (name.to_string(), ())).collect();
+        let left_out: Vec<&str> =
+            files.keys().map(String::as_str).filter(|path| excluded_in(&files, path)).collect();
+        assert_eq!(left_out, ["Paper.PDF", "main.pdf"]);
+    }
+
+    /// Root figures sync both ways once the project is linked; the paper's
+    /// own PDF beside main.tex still never does.
+    #[test]
+    fn root_level_figure_pdfs_sync_after_the_clone() {
+        let remote: Files = &[("main.tex", b"body"), ("logo.pdf", b"logo v2")];
+        let local: Files = &[
+            ("main.tex", b"body"),
+            ("main.pdf", b"build"),
+            ("logo.pdf", b"logo v1"),
+            ("fig1.pdf", b"fig"),
+        ];
+        let base: Files = &[("main.tex", b"body"), ("logo.pdf", b"logo v1")];
+        let (server, root, result) = run_sync(Mock::project(remote), local, base);
+        assert_eq!(result.pulled, vec!["logo.pdf"]);
+        assert_eq!(read_local(&root, "logo.pdf").unwrap(), b"logo v2");
+        assert_eq!(result.pushed, vec!["fig1.pdf"]);
+        let uploads = server.uploads();
+        assert_eq!(uploads.len(), 1);
+        assert!(uploads[0].body_text().contains("fig1.pdf"));
+        let files = state_files(&root);
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["fig1.pdf", "logo.pdf", "main.tex"]);
     }
 
     #[test]
