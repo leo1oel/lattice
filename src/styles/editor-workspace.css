@@ -285,34 +285,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   box-shadow: none;
   transition: background-color var(--motion-moderate-exit), border-color var(--motion-moderate-exit), box-shadow var(--motion-moderate-exit);
 }
-/* Annotation pins (editor/comments/editor-comments.ts): a zero-width gutter
-   beside the text whose pins lie over the fold column, quiet until the pointer
-   is over the gutter, so a numbered amber mark reads right after the line number. */
-.source-editor .cm-annotation-gutter { width: 0; min-width: 0; overflow: visible; }
-.source-editor .cm-editor[data-annotation-digits="3"] .cm-annotation-gutter { width: 11px; }
-.source-editor .cm-editor[data-annotation-digits="4"] .cm-annotation-gutter { width: 18px; }
-.source-editor .cm-editor[data-annotation-digits="5"] .cm-annotation-gutter { width: 25px; }
-.source-editor .cm-annotation-gutter .cm-gutterElement { position: relative; width: 0; min-width: 0; padding: 0; overflow: visible; }
-.source-editor .cm-annotation-pin-row { position: absolute; z-index: 1; top: 0; right: 0; display: grid; place-items: center; height: 1lh; }
-.source-editor .cm-annotation-pin {
-  --annotation-pin-ink: var(--annotation-ink);
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  min-width: 16px;
-  height: 16px;
-  padding-inline: var(--gap-tight);
-  border-radius: var(--radius-pill);
-  background: var(--annotation-pin-ink);
-  color: var(--annotation-pin-text);
-  font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-.source-editor .cm-annotation-pin[data-annotation-status="proposed"] { --annotation-pin-ink: var(--annotation-proposed-ink); }
-.source-editor .cm-annotation-pin[data-annotation-status="asked"] { --annotation-pin-ink: var(--annotation-asked-ink); }
-/* More than one note starts on the line: a second ring says so. */
-.source-editor .cm-annotation-pin[data-more] { box-shadow: 0 0 0 2px var(--code-ground), 0 0 0 3px var(--annotation-pin-ink); }
+/* Annotation pins in the gutter: editor/comments/annotation-gutter.css. */
 /* The proposal reviewed under its passage (canvas/annotation-review.tsx). */
 .source-editor .cm-annotation-review-source {
   background: color-mix(in srgb, var(--annotation-proposed-ink) 12%, transparent);
@@ -806,8 +779,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   min-height: 0;
   flex: 0 1 auto;
 }
-/* The card's tail leaves with it when its last thread is resolved. */
-.cm-tooltip-hover:has(.comment-card[data-leaving]) .cm-tooltip-arrow { opacity: 0; transition: opacity var(--motion-moderate-exit); }
 /* Above its line, the card rises into place instead of dropping. */
 .cm-tooltip-above .cm-editor-comment-card-host > .popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
 /* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that carries

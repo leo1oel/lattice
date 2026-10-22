@@ -4101,6 +4101,7 @@ msgstr "Definition"
 
 #: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-visual-editor.tsx

@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/pop
 import { comboText, parseKeyName } from "../../app/key-combos";
 import { InfinityLoader } from "../../components/ui/activity-icons";
 import { Button } from "../../components/ui/button";
-import { DestructiveButton } from "../../components/ui/destructive-button";
+import { DestructiveIconButton } from "../../components/ui/destructive-button";
 import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { EmptyState } from "../../components/ui/empty-state";
 import { IconButton } from "../../components/ui/icon-button";
@@ -653,7 +653,7 @@ export function EditorCommentsPanel(props: {
                 >
                   <Pencil size={13} />
                 </IconButton>
-                <DestructiveButton className="annotation-card-delete" iconSize={13} onClick={() => props.onDelete(comment.id)} />
+                <DestructiveIconButton size="compact" label={t`Delete`} onClick={() => props.onDelete(comment.id)} />
               </>
             )}
           </div>
