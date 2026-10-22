@@ -35,7 +35,8 @@ describe("paper reads", () => {
     });
     act(() => editor.commands.insertContentAt(editor.state.doc.content.size, " updated"));
     fireEvent.click(await screen.findByRole("button", { name: /Paper target.*2407\.06438/i }));
-    expect(screen.getByText("Opening Paper target…")).toBeInTheDocument();
+    // Announced, not drawn: the opening overlay shows only its spinner.
+    expect(await screen.findByText("Opening Paper target…", { selector: ".loading-announcement" })).toBeInTheDocument();
     await expectInvoked("read_paper", { arxivId: "2407.06438" });
     // The target Paper read is independent of writing the outgoing notes, so
     // both should be in flight rather than paying write latency first.
@@ -95,7 +96,7 @@ describe("paper reads", () => {
     await waitFor(() => expect(paneContent("primary")).toHaveTextContent("content:main.tex"));
     await openPaper("Delayed paper");
     await expectInvoked("read_paper", { arxivId: "2407.06438" });
-    expect(screen.getByText("Opening Delayed paper…")).toBeInTheDocument();
+    expect(await screen.findByText("Opening Delayed paper…", { selector: ".loading-announcement" })).toBeInTheDocument();
     fireEvent.click(await findProjectTreeItem("notes.md"));
     await waitFor(() => expect(paneContent("primary")).toHaveTextContent("content:notes.md"));
     expect(screen.queryByText("Opening Delayed paper…")).toBeNull();

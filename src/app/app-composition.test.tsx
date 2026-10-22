@@ -1108,7 +1108,7 @@ describe("Overleaf sync", () => {
     await waitFor(() => expect(document.querySelector(".tool-loading-shell")).toBeNull());
     expect(document.querySelectorAll(".overleaf-collab-drawer")).toHaveLength(1);
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Lattice only/ }));
     expect(await screen.findByText("Local review")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
     expect(screen.getByText("Local history")).toBeInTheDocument();
@@ -1120,7 +1120,7 @@ describe("Overleaf sync", () => {
     expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
-    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Lattice only/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Reply" }));
     fireEvent.change(screen.getByPlaceholderText("Reply to Reviewer"), { target: { value: "Local-only reply" } });
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
@@ -1291,7 +1291,7 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(shell).toHaveClass("focus-mode"));
     expect(screen.queryByRole("button", { name: "Switch project" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Exit focus/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show the PDF beside the editor" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Show the PDF" })).toHaveAttribute("aria-pressed", "false");
 
     // The editor's own Escape (collapsing a selection) comes first.
     editor.dispatch({ selection: { anchor: 0, head: 4 } });
@@ -1395,7 +1395,7 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
     fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
 
-    expect(await screen.findByText("Recent projects")).toBeInTheDocument();
+    expect(await screen.findByText("Open another folder")).toBeInTheDocument();
     const projectMenu = document.querySelector('[data-slot="dropdown-menu-content"]');
     expect(projectMenu).toHaveClass("w-52");
     expect(projectMenu).toHaveAttribute("data-align", "center");
@@ -2321,7 +2321,7 @@ describe("welcome screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     fireEvent.change(screen.getByLabelText("Project name"), { target: { value: "New paper" } });
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Venue template" }), { key: "ArrowDown" });
-    fireEvent.click(screen.getByRole("option", { name: "ICML" }));
+    fireEvent.click(screen.getByRole("option", { name: "ICML 2026 · preprint" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
     await expectInvoked("create_project", { parent: "/tmp/research", name: "New paper", venue: "icml" });
     await expectInvoked("build_project", expect.objectContaining({ force: false, projectRoot: "/tmp/research/New paper" }));
@@ -2376,7 +2376,7 @@ describe("welcome screen", () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
     vi.mocked(open).mockResolvedValue(ROOT);
     renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
-    await screen.findByRole("heading", { name: "Research, written with evidence" });
+    await screen.findByRole("heading", { name: "Lattice" });
     for (const key of ["f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
     for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });
 

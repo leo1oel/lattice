@@ -276,7 +276,7 @@ describe("papers", () => {
     // No toast: the row settles as just added, a citation with no full text
     // to open, its key out to copy.
     const row = (await screen.findByText(title, { selector: ".paper-row .paper-title" })).closest<HTMLElement>(".paper-row")!;
-    expect(within(row).getByText("Just added")).toBeInTheDocument();
+    expect(row).toHaveClass("just-added");
     expect(row).toHaveAttribute("data-reading", "citation");
     expect(within(row).getByRole("button", { name: "Copy citation key he2016deep" })).toBeInTheDocument();
     const checkReferences = screen.getByRole("button", { name: "Check references" });
@@ -554,7 +554,7 @@ describe("papers", () => {
     await waitForSelectedTab("notes.md");
     expect(within(reading()).getByRole("tab", { name: /reference\.pdf/ })).toHaveAttribute("aria-selected", "true");
     await findElement(".trellis-pdf-snapshot");
-    expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
+    expect(document.querySelector(".trellis-empty-activatable")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
   });
 
@@ -579,7 +579,7 @@ describe("papers", () => {
     const notes = await findElement(`.trellis-snapshot[data-mode="${mode}"]`);
     await waitFor(() => expect(notes.querySelector(".markdown-preview")).toHaveTextContent("Notes heading"));
     expect(Boolean(notes.querySelector(".cm-content"))).toBe(source);
-    expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
+    expect(document.querySelector(".trellis-empty-activatable")).not.toBeInTheDocument();
   });
 
   it("keeps the notes active while the PDF beside them is paged, zoomed and searched", async () => {
@@ -834,7 +834,7 @@ describe("papers", () => {
     removed = true;
     fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
     await waitForSelectedTab("notes.md");
-    await screen.findByText("Sleeping · click to open");
+    await findElement(".trellis-empty-activatable");
     expect(document.querySelector(".trellis-pdf-snapshot")).not.toBeInTheDocument();
     removed = false;
     emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["reference.pdf"] });
