@@ -422,7 +422,7 @@ mod tests {
     fn a_read_survives_a_gateway_blip_and_a_mutation_is_not_repeated() {
         let hits = Arc::new(Mutex::new(Vec::<String>::new()));
         let seen = Arc::clone(&hits);
-        let base = crate::overleaf_rt::tests::serve_http(move |request| {
+        let base = crate::overleaf_rt::mock_server::serve_http(move |request| {
             let method = request.method().as_str().to_string();
             let first = {
                 let mut seen = seen.lock().unwrap();
@@ -450,7 +450,7 @@ mod tests {
         // The UI retries a sync on this wording (RESPONSE_BODY_UNDECODABLE in
         // use-overleaf-workspace.ts), and it is reqwest's text, not ours: a
         // reqwest upgrade that rewords it must fail here.
-        let base = crate::overleaf_rt::tests::serve_http(|request| {
+        let base = crate::overleaf_rt::mock_server::serve_http(|request| {
             let _ = request.respond(tiny_http::Response::from_string("<html>"));
         });
         let response = send(http_client(10).unwrap().get(format!("{base}/project"))).unwrap();

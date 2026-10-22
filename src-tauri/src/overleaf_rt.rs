@@ -51,6 +51,8 @@ mod client;
 mod codec;
 mod events;
 #[cfg(test)]
+pub(crate) mod mock_server;
+#[cfg(test)]
 mod suggestion_tests;
 #[cfg(test)]
 pub(crate) mod tests;

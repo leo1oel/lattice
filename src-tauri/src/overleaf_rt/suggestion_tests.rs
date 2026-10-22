@@ -5,7 +5,8 @@
 use super::client::{change_id_seed, lock};
 use super::codec::*;
 use super::events::*;
-use super::tests::{connect, mock_config, start_mock};
+use super::mock_server::{mock_config, start_mock};
+use super::tests::connect;
 use super::*;
 use serde_json::{json, Value};
 use tauri::async_runtime as rt;
