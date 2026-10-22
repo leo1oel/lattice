@@ -106,13 +106,18 @@
   transition: border-color var(--motion-fast);
 }
 .comment-card-reply-field:hover:not(:disabled) { border-color: var(--border-strong); }
-/* The field with its send button inside it, as Notion and Figma reply. */
+/* The field with its send button inside it, as Notion and Figma reply. It
+   opens at the field's own height with "Reply…" in the same face and place,
+   so pressing the field does not nudge the text: the box's padding is what
+   the compact control height leaves around the send button, and one line of
+   the note's body type is centred beside it. */
 .comment-card-reply-box {
   min-width: 0;
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+  padding: calc((var(--control-height-compact) - 2 * var(--field-control-border-width) - var(--control-size-icon-compact)) / 2);
+  padding-inline-start: 0;
   border: var(--field-control-border-width) solid var(--field-control-border-color);
   border-radius: var(--field-control-radius);
   background: var(--field-control-background);
@@ -123,12 +128,12 @@
   flex: 1 1 auto;
   min-height: var(--control-size-icon-compact);
   max-height: 120px;
-  padding: var(--space-1) var(--space-4);
+  padding: calc((var(--control-size-icon-compact) - var(--type-body-line-height)) / 2) var(--space-4);
   border: 0;
   background: transparent;
   resize: none;
-  font-size: var(--type-body-compact-size);
-  line-height: var(--type-body-compact-line-height);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
 }
 .comment-card-send { flex: none; }
 .comment-card-send:disabled { background: var(--control-hover-surface); color: var(--text-secondary); }
@@ -141,6 +146,28 @@
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
+
+/* The source editor's card hangs from its line by CodeMirror's arrow, drawn
+   here as one shape with the card instead of CodeMirror's grey-edged triangle
+   tucked behind it, whose join the card's ring crossed: a square in the card's
+   colour and ring turned on its corner, half of it showing, laid over the
+   card's edge. The arrow's box reaches 1px into the card, so the tail covers
+   the ring where they meet and no hairline opens at a fractional zoom. */
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) .cm-tooltip-arrow { z-index: 1; height: 8px; }
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) .cm-tooltip-arrow::before {
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border: 0;
+  background: var(--surface-elevated);
+  box-shadow: 0 0 0 1px var(--elevation-ring);
+  transform: rotate(45deg);
+}
+.source-editor .cm-tooltip-hover:has(.cm-editor-comment-card-host) .cm-tooltip-arrow::after { content: none; }
+.source-editor .cm-tooltip-above:has(.cm-editor-comment-card-host) .cm-tooltip-arrow::before { top: -4px; }
+.source-editor .cm-tooltip-below:has(.cm-editor-comment-card-host) .cm-tooltip-arrow::before { top: 2px; }
+/* The card's tail leaves with it when its last thread is resolved. */
+.cm-tooltip-hover:has(.comment-card[data-leaving]) .cm-tooltip-arrow { opacity: 0; transition: opacity var(--motion-moderate-exit); }
 
 /* The hover preview: the same lines, the note clamped, nothing to press. */
 .comment-preview {

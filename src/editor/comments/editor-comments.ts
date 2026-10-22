@@ -7,6 +7,7 @@ import { peerColorForKey } from "../../components/ui/collab-colors";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import { annotationStatus, resolveCommentAnchor, type EditorComment } from "./editor-comment-data";
+import "./annotation-gutter.css";
 
 export const setEditorCommentsEffect = StateEffect.define<EditorComment[]>();
 

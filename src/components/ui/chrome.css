@@ -45,6 +45,10 @@
   background: var(--control-pressed-surface);
 }
 
+.ui-icon-button[data-tone="danger"]:hover:not(:disabled) {
+  color: var(--status-danger);
+}
+
 .ui-icon-button[data-tone="primary"] {
   background: var(--text-primary);
   color: var(--surface-app);

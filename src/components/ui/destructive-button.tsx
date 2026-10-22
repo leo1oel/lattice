@@ -1,6 +1,8 @@
 import { forwardRef, useState, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
+import { Tip } from "@/components/icon-tip";
+import { cn } from "@/lib/utils";
 import { PRESS_SPRING, springExit } from "./motion-values";
 
 export type DestructiveButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
@@ -64,3 +66,19 @@ export const DestructiveButton = forwardRef<HTMLButtonElement, DestructiveButton
     );
   },
 );
+
+/**
+ * The destructive control as an icon-only action among IconButtons: their
+ * plate, size, tooltip and accessible name, turning to the danger colour on
+ * hover. Without the shared class a bare one draws the browser's own button.
+ */
+export function DestructiveIconButton({ label, size = "default", className, iconSize, ...props }: Omit<DestructiveButtonProps, "aria-label" | "title"> & {
+  label: string;
+  size?: "compact" | "default";
+}) {
+  return (
+    <Tip label={label}>
+      <DestructiveButton data-size={size} data-tone="danger" className={cn("ui-icon-button", className)} aria-label={label} iconSize={iconSize ?? (size === "compact" ? 13 : 16)} {...props} />
+    </Tip>
+  );
+}
