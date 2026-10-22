@@ -327,6 +327,12 @@ purpose.
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
+- The upload endpoint decides what a file becomes from its name alone, not from
+  what is already at the path. Uploading into a document whose name it does not
+  read as text (a `data.csv` made with New file in the browser) turns it into a
+  binary file, and its comments and tracked changes go with it. Such documents
+  take their edit over the live channel instead (`overleaf/doc_push.rs`); only
+  when that channel cannot be reached are they uploaded as before.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

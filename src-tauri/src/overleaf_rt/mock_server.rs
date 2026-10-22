@@ -42,6 +42,31 @@ pub(crate) struct MockState {
     /// Newer Overleaf: join from the handshake query and push the project
     /// down, never answering a `joinProject` ask.
     push_join: bool,
+    /// The project and the lines of every document in it, when not the
+    /// default ones.
+    project: Option<Value>,
+    lines: Option<Value>,
+}
+
+/// A mock serving `project`, where every document reads `lines`.
+pub(crate) fn start_mock_serving(
+    project: Value, lines: &[&str],
+) -> (String, Arc<Mutex<MockState>>) {
+    let (host, state) = start_mock(false);
+    let mut serving = lock(&state);
+    (serving.project, serving.lines) = (Some(project), Some(json!(lines)));
+    drop(serving);
+    (host, state)
+}
+
+/// The updates the mock was sent (`applyOtUpdate`'s payloads), in order.
+pub(crate) fn sent_updates(state: &Arc<Mutex<MockState>>) -> Vec<Value> {
+    let frames = lock(state).frames.clone();
+    (frames.iter())
+        .filter_map(|text| parse_event(&parse_frame(text).ok()?.data).ok())
+        .filter(|(name, _)| name == "applyOtUpdate")
+        .map(|(_, args)| args[1].clone())
+        .collect()
 }
 
 /// The mock's host, and what it has seen.
@@ -92,12 +117,15 @@ fn ack_frame(id: &str, args: Value) -> String {
 }
 
 fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockState>>) {
-    let push_join = lock(&state).push_join;
+    let (push_join, project, lines) = {
+        let state = lock(&state);
+        let project = state.project.clone().unwrap_or_else(project_tree);
+        (state.push_join, project, state.lines.clone().unwrap_or(json!(["line one", "line two"])))
+    };
     let send = |ws: &mut WebSocket<S>, frame: String| ws.send(Message::text(frame));
     let _ = send(&mut ws, encode_frame(FRAME_CONNECT, "", "", ""));
     let _ = if push_join {
-        let join =
-            json!([{"publicId": "pub-1", "project": project_tree(), "permissionsLevel": "owner"}]);
+        let join = json!([{"publicId": "pub-1", "project": project, "permissionsLevel": "owner"}]);
         send(&mut ws, event_frame("joinProjectResponse", join))
     } else {
         send(&mut ws, event_frame("connectionAccepted", json!([null, "pub-1"])))
@@ -119,16 +147,11 @@ fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockS
             // A server that pushed the project ignores the ask entirely,
             // which is exactly the case the client has to survive.
             "joinProject" if push_join => Ok(()),
-            "joinProject" => {
-                send(&mut ws, ack_frame(&id, json!([null, project_tree(), "owner", 2])))
-            }
+            "joinProject" => send(&mut ws, ack_frame(&id, json!([null, project, "owner", 2]))),
             "joinDoc" => {
                 let ranges = json!({"comments": [{"id": "change-1", "op": {"p": 4, "c": "one", "t": "thread-1"}}],
                                     "changes": []});
-                let ack = send(
-                    &mut ws,
-                    ack_frame(&id, json!([null, ["line one", "line two"], 42, [], ranges])),
-                );
+                let ack = send(&mut ws, ack_frame(&id, json!([null, lines, 42, [], ranges])));
                 // Unsolicited update from another collaborator...
                 let update = json!([{"doc": "doc-1", "v": 43, "op": [{"p": 9, "i": "!"}],
                                      "meta": {"source": "someone-else"}}]);

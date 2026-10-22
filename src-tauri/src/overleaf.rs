@@ -39,6 +39,7 @@ mod account;
 mod api;
 #[cfg(test)]
 mod bench;
+mod doc_push;
 mod files;
 mod link;
 mod review;

@@ -2,6 +2,7 @@
 //! `overleaf` for the endpoint and why the root folder id is required).
 
 use super::api::{folders_above, send_as, Remote, JSON};
+use super::doc_push::push_docs;
 use crate::util::err;
 use crate::wide_event;
 use reqwest::blocking::Client;
@@ -34,11 +35,27 @@ impl Uploader<'_> {
     /// Upload every file, a few at a time; the first failure, in path order,
     /// is the error, and nothing new starts once one has failed.
     ///
+    /// A document an upload could turn into a binary file is edited over the
+    /// live channel instead (see `doc_push`).
+    pub fn upload_all(
+        &self, files: &BTreeMap<String, Vec<u8>>, existing: &BTreeSet<String>,
+    ) -> Result<(), String> {
+        let pushed = push_docs(self.remote, files)?;
+        if pushed.is_empty() {
+            return self.upload_each(files, existing);
+        }
+        let rest: BTreeMap<String, Vec<u8>> = (files.iter())
+            .filter(|(rel, _)| !pushed.contains(*rel))
+            .map(|(rel, bytes)| (rel.clone(), bytes.clone()))
+            .collect();
+        self.upload_each(&rest, existing)
+    }
+
     /// Overleaf creates the folders a relative path names, and two uploads
     /// creating the same folder at once can leave two folders of that name. So
     /// a file whose folder `existing` does not list goes up first and alone,
     /// which creates its folders before anything else can race to.
-    pub fn upload_all(
+    fn upload_each(
         &self, files: &BTreeMap<String, Vec<u8>>, existing: &BTreeSet<String>,
     ) -> Result<(), String> {
         let mut folders: BTreeSet<&str> = existing.iter().map(String::as_str).collect();

@@ -2,10 +2,10 @@
 //! holds and the setting that decides whether edits become them, telling a
 //! collaborator's suggestion apart from an ordinary edit, and sending our own.
 
-use super::client::{change_id_seed, lock};
+use super::client::change_id_seed;
 use super::codec::*;
 use super::events::*;
-use super::mock_server::{mock_config, start_mock};
+use super::mock_server::{mock_config, sent_updates, start_mock};
 use super::tests::connect;
 use super::*;
 use serde_json::{json, Value};
@@ -120,13 +120,7 @@ fn our_edits_go_out_as_suggestions_only_when_asked() {
         rt::block_on(client.send_ops("doc-1", 42, edit(1), tracked, Submission::default()))
             .expect("applyOtUpdate");
     }
-    let frames = lock(&state).frames.clone();
-    let updates: Vec<Value> = (frames.iter())
-        .filter_map(|text| parse_frame(text).ok())
-        .filter_map(|frame| parse_event(&frame.data).ok())
-        .filter(|(name, _)| name == "applyOtUpdate")
-        .map(|(_, args)| args[1].clone())
-        .collect();
+    let updates = sent_updates(&state);
     assert_eq!(updates.len(), 2, "{updates:?}");
     // A suggestion carries a fresh seed for the ids of the changes it makes.
     let seed = updates[0]["meta"]["tc"].as_str().expect("a tracked update carries meta.tc");
