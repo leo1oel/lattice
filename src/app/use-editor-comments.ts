@@ -141,31 +141,35 @@ export function useEditorComments({
     void overleafCommentsRef.current.setResolved(threadId, resolved).catch((reason) => showError(toMessage(reason)));
   }, [overleafCommentsRef, update]);
 
+  /**
+   * Resolve or reopen, saying so in a toast that offers it back, in the
+   * project it happened in: a card on the document leaves as it resolves,
+   * and the panel's card leaves its filter, so the toast is what remains.
+   */
+  const changeResolved = useCallback((id: string, resolved: boolean) => {
+    const root = projectRootRef.current;
+    setResolved(id, resolved);
+    notifyInfo(t`Comments`, resolved ? t`Comment resolved` : t`Comment reopened`, {
+      dedupeKey: `editor-comment-resolved:${id}`,
+      primaryAction: {
+        label: t`Undo`,
+        onClick: () => {
+          if (projectRootRef.current === root) setResolved(id, !resolved);
+        },
+      },
+    });
+  }, [projectRootRef, setResolved, t]);
+
   const toggleResolved = useCallback((id: string) => {
     const threadId = overleafThreadOf(id);
     const resolved = threadId
       ? overleafCommentsRef.current.threads.find((item) => item.id === threadId)?.resolved
       : stateRef.current.annotations.find((item) => item.id === id)?.resolved;
-    setResolved(id, !resolved);
-  }, [overleafCommentsRef, setResolved]);
+    changeResolved(id, !resolved);
+  }, [changeResolved, overleafCommentsRef]);
 
-  /**
-   * Resolve from a comment's card on the document, which leaves with it: the
-   * toast says it happened and offers it back, in the project it happened in.
-   */
-  const resolve = useCallback((id: string) => {
-    const root = projectRootRef.current;
-    setResolved(id, true);
-    notifyInfo(t`Comments`, t`Comment resolved`, {
-      dedupeKey: `editor-comment-resolved:${id}`,
-      primaryAction: {
-        label: t`Undo`,
-        onClick: () => {
-          if (projectRootRef.current === root) setResolved(id, false);
-        },
-      },
-    });
-  }, [projectRootRef, setResolved, t]);
+  /** Resolve from a comment's card on the document, which leaves with it. */
+  const resolve = useCallback((id: string) => changeResolved(id, true), [changeResolved]);
 
   const reply = useCallback((commentId: string, body: string) => {
     const threadId = overleafThreadOf(commentId);

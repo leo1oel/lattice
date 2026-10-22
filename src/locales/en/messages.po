@@ -3332,6 +3332,10 @@ msgid "Comment or uncomment lines"
 msgstr "Comment or uncomment lines"
 
 #: src/app/use-editor-comments.ts
+msgid "Comment reopened"
+msgstr "Comment reopened"
+
+#: src/app/use-editor-comments.ts
 msgid "Comment resolved"
 msgstr "Comment resolved"
 
@@ -10515,6 +10519,10 @@ msgstr "Reopen"
 msgid "Reopen the closed tab"
 msgstr "Reopen the closed tab"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Reopened"
+msgstr "Reopened"
+
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
 msgstr "Repair cancelled."
@@ -10669,6 +10677,10 @@ msgstr "Replacing…"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Reply sent"
+msgstr "Reply sent"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {author}"
@@ -11397,6 +11409,7 @@ msgid "Save your school, journal or lab files to reuse them in new projects."
 msgstr "Save your school, journal or lab files to reuse them in new projects."
 
 #: src/canvas/status-save-state.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -11443,10 +11456,6 @@ msgstr "Saved to {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "Saved version"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Saved with the project in {STORAGE_PATH}; no server involved"
-msgstr "Saved with the project in {STORAGE_PATH}; no server involved"
 
 #: src/project/paper-library.tsx
 msgid "Saved-text search unavailable"

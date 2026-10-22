@@ -106,3 +106,27 @@ it("opens a comment's file and asks the editor to focus it, unless a newer comme
   expect(view.result.current.focusRequest?.id).toBe("b");
   expect(view.result.current.activeId).toBe("b");
 });
+
+it("resolves and reopens from the panel with a toast whose undo puts it back", async () => {
+  const { view, projectRootRef } = await renderComments([comment("a")]);
+  act(() => view.result.current.toggleResolved("a"));
+  expect(view.result.current.comments[0]?.resolved).toBe(true);
+  expect(vi.mocked(notifyInfo).mock.calls.at(-1)?.slice(0, 2)).toEqual(["Comments", "Comment resolved"]);
+  act(lastUndo());
+  expect(view.result.current.comments[0]?.resolved).toBe(false);
+
+  act(() => view.result.current.resolve("a"));
+  act(() => view.result.current.toggleResolved("a"));
+  expect(view.result.current.comments[0]?.resolved).toBe(false);
+  expect(vi.mocked(notifyInfo).mock.calls.at(-1)?.[1]).toBe("Comment reopened");
+  const undo = lastUndo();
+  act(undo);
+  expect(view.result.current.comments[0]?.resolved).toBe(true);
+
+  // Undo belongs to the project it happened in.
+  act(() => view.result.current.toggleResolved("a"));
+  const later = lastUndo();
+  projectRootRef.current = "/other";
+  act(later);
+  expect(view.result.current.comments[0]?.resolved).toBe(false);
+});

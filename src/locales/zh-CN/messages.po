@@ -3332,6 +3332,10 @@ msgid "Comment or uncomment lines"
 msgstr "注释开关"
 
 #: src/app/use-editor-comments.ts
+msgid "Comment reopened"
+msgstr "评论已重新打开"
+
+#: src/app/use-editor-comments.ts
 msgid "Comment resolved"
 msgstr "评论已解决"
 
@@ -10515,6 +10519,10 @@ msgstr "重新打开"
 msgid "Reopen the closed tab"
 msgstr "重开标签"
 
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Reopened"
+msgstr "已重新打开"
+
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
 msgstr "已取消修复"
@@ -10669,6 +10677,10 @@ msgstr "正在替换…"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Reply sent"
+msgstr "回复已发送"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reply to {author}"
@@ -11397,6 +11409,7 @@ msgid "Save your school, journal or lab files to reuse them in new projects."
 msgstr "保存学校、期刊或实验室的模板文件，以便在新项目中复用。"
 
 #: src/canvas/status-save-state.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/project/paper-inspector.tsx
 msgid "Saved"
 msgstr "已保存"
@@ -11443,10 +11456,6 @@ msgstr "已保存到 {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "手动保存"
-
-#: src/editor/comments/editor-comments-panel.tsx
-msgid "Saved with the project in {STORAGE_PATH}; no server involved"
-msgstr "随项目保存在 {STORAGE_PATH}，不经过任何服务器"
 
 #: src/project/paper-library.tsx
 msgid "Saved-text search unavailable"
