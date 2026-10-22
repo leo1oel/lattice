@@ -78,8 +78,9 @@ export function resolveDiagnosticPath(diagnosticFile: string | undefined, projec
   const normalized = normalizeDiagnosticPath(diagnosticFile);
   if (!normalized) return fallbackPath;
   const slashed = (path: string) => path.replace(/\\/g, "/");
+  // A suffix only counts at a folder boundary: `intro.tex` is not `preintro.tex`.
   return projectFiles.find((path) => slashed(path) === normalized)
-    ?? projectFiles.find((path) => slashed(path).endsWith(normalized))
+    ?? projectFiles.find((path) => slashed(path).endsWith(`/${normalized}`))
     ?? normalized;
 }
 

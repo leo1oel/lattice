@@ -58,7 +58,7 @@ pub fn build_pinned(root: &Path, options: &PinnedBuild) -> Result<BuildResult, S
         return Err(format!("Root document not found: {}", options.document));
     }
     let mut command = commands::command("latexmk");
-    command.current_dir(root);
+    super::unwrapped_log(&mut command).current_dir(root);
     for variable in TEX_SEARCH_VARIABLES {
         command.env_remove(variable);
     }

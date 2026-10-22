@@ -353,7 +353,7 @@ fn prepare_in(
 
     let step = wide_event::step("preamble_format");
     let mut pdflatex = commands::command("pdflatex");
-    pdflatex.current_dir(project).args([
+    super::unwrapped_log(&mut pdflatex).current_dir(project).args([
         "-ini",
         "-interaction=nonstopmode",
         "-halt-on-error",
