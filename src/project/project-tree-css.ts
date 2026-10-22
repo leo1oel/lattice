@@ -21,12 +21,16 @@ ${fluidHoverCSS}
 }
 
 /* Rows scrolling up beneath the pinned folders are cut off at the last
-   pinned row's bottom edge, the bottom the patched Pierre publishes. Its
+   pinned row's bottom edge, the height the patched Pierre publishes. Its
    overlay covers them only with --trees-bg, which a translucent window
-   (data-glass) makes clear, so rows drew through the pinned folders. Matches
-   the overlay's own visibility: hidden at the top unless a scroll is starting. */
-[data-file-tree-virtualized-root="true"]:is(:not([data-scroll-at-top]), [data-overlay-reveal]) [data-file-tree-virtualized-list="true"] {
-  clip-path: inset(var(--trees-sticky-overlay-bottom, 0px) 0 0 0);
+   (data-glass) makes clear, so rows drew through the pinned folders. The
+   clip is on the scroller, whose box WebKit's scrolling thread does not move,
+   so a fast fling cannot outrun it; the patched Pierre keeps the folders
+   outside the scroller, over it, aligned because the scroller has no inline
+   padding. Matches the overlay's own visibility: hidden at the top unless a
+   scroll is starting. */
+[data-file-tree-virtualized-root="true"]:is(:not([data-scroll-at-top]), [data-overlay-reveal]) [data-file-tree-virtualized-scroll="true"] {
+  clip-path: inset(var(--trees-sticky-overlay-height, 0px) 0 0 0);
 }
 
 /* Wheel/scroll can recycle rows beneath a stationary pointer. Keep selection
