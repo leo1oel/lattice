@@ -119,6 +119,7 @@ describe("LaTeX editor extensions", () => {
     ["waits for a typed citation's opening brace", "\\cit", ["vaswani2017attention"], 4, 4, "e", "input.type", "\\cite"],
     ["keeps an existing brace pair while typing", "\\cit{}", [], 4, 4, "e", "input.type", "\\cite{}"],
     ["adds braces when a citation command is accepted from completion", "\\ci", [], 0, 3, "\\cite", "input.complete", "\\cite{}"],
+    ["adds braces when an include command is accepted from completion", "\\inc", [], 0, 4, "\\include", "input.complete", "\\include{}"],
   ])("%s", (_name, source, citationKeys, from, to, insert, userEvent, expected) => {
     const view = latexView(source, to, { citationKeys });
     view.dispatch({
@@ -127,6 +128,24 @@ describe("LaTeX editor extensions", () => {
       annotations: Transaction.userEvent.of(userEvent),
     });
     expect(doc(view)).toBe(expected);
+  });
+
+  // Each braced command is a prefix of a longer one; braces added on the
+  // shorter match captured the rest of the name (`\include{graphics}`).
+  it.each(["\\includegraphics", "\\labelitemi", "\\inputencoding", "\\refstepcounter", "\\crefname", "\\includeonly", "\\citep"])(
+    "types %s one key at a time without splitting it",
+    (command) => {
+      const view = latexView("", 0);
+      typeText(view, command);
+      expect(doc(view)).toBe(command);
+    },
+  );
+
+  it("closes the brace a typed command's argument opens", () => {
+    const view = latexView("", 0);
+    typeText(view, "\\label");
+    typeBracket(view, "{");
+    expect(doc(view)).toBe("\\label{}");
   });
 
   it("shows citation keys immediately for an empty slot and after a comma", async () => {
