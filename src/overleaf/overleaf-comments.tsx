@@ -179,8 +179,8 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
                 onClick={() => void run(
                   () => props.onDeleteMessage(thread.id, message.id),
                   thread.messages.length === 1
-                    ? t`Delete this message? It's the only one in the thread, so this deletes the whole thread.`
-                    : t`Delete this message?`,
+                    ? t`Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone.`
+                    : t`Delete this message? This cannot be undone.`,
                 )}
               />
             </span>

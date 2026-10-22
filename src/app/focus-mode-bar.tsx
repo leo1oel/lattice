@@ -6,8 +6,8 @@ import { Button } from "../components/ui/button";
 import { Keycaps } from "../components/ui/keycaps";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import type { TrellisController, TrellisViewMode } from "../trellis/trellis-controller";
-import { FOCUS_MODE_EXIT_KEY } from "../trellis/trellis-keymap";
-import { comboKeys, parseKeyName } from "./key-combos";
+import { FOCUS_MODE_EXIT_KEY, FOCUS_MODE_KEY } from "../trellis/trellis-keymap";
+import { comboKeys, comboText, parseKeyName } from "./key-combos";
 import { useFocusModeEscape } from "./use-focus-mode-escape";
 
 /**
@@ -50,11 +50,13 @@ export function FocusModeBar({ controller, title, pdf, onPdfChange, onExit }: {
             <span>{t`PDF`}</span>
           </button>
         </Tip>
-        <Button variant="ghost" size="compact" className="focus-bar-exit" onClick={onExit}>
-          <Minimize2 size={13} aria-hidden="true" />
-          {t`Exit focus`}
-          <Keycaps keys={comboKeys(parseKeyName(FOCUS_MODE_EXIT_KEY))} className="focus-bar-keys" />
-        </Button>
+        <Tip label={t`Exit focus`} shortcut={comboText({ mod: true, ...FOCUS_MODE_KEY })}>
+          <Button variant="ghost" size="compact" className="focus-bar-exit" onClick={onExit}>
+            <Minimize2 size={13} aria-hidden="true" />
+            {t`Exit focus`}
+            <Keycaps keys={comboKeys(parseKeyName(FOCUS_MODE_EXIT_KEY))} className="focus-bar-keys" />
+          </Button>
+        </Tip>
       </div>
     </div>
   );

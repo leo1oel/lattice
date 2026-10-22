@@ -164,11 +164,11 @@ describe("Overleaf comments panel", () => {
   });
 
   it.each([
-    ["deletes a message that is not the only one without warning about the thread", true, "Delete this message?",
+    ["deletes a message that is not the only one without warning about the thread", true, "Delete this message? This cannot be undone.",
       [message({ id: "m0", mine: false, content: "First" }), message({ id: "m1", mine: true, content: "Second, mine" })]],
     // Declining must not call through, whatever the warning said.
     ["warns that deleting the only message deletes the whole thread, and does not delete silently", false,
-      "Delete this message? It's the only one in the thread, so this deletes the whole thread.",
+      "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone.",
       [message({ id: "m1", mine: true, content: "Only message" })]],
   ])("%s", async (_label, confirmed, warning, messages) => {
     const onDeleteMessage = resolves();

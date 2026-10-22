@@ -1759,7 +1759,7 @@ msgid "Ask before deleting"
 msgstr "先问我"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "Ask before edits and network"
+msgid "Ask before outside edits and network"
 msgstr "改外部文件、联网前问我"
 
 #: src/agent/synara-permission-picker.tsx
@@ -3898,12 +3898,12 @@ msgid "Delete this item?"
 msgstr "删除这一项？"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message?"
-msgstr "删除这条消息？"
+msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
+msgstr "删除这条消息？它是唯一一条，整个讨论都会删除，无法恢复"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
-msgstr "删除这条消息？它是唯一一条，整个讨论都会删除"
+msgid "Delete this message? This cannot be undone."
+msgstr "删除这条消息？删了无法恢复"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Delete worksheet?"
@@ -10721,6 +10721,10 @@ msgstr "无法搜索论文全文"
 msgid "Saved, with its overview"
 msgstr "已保存，含概览"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Saves {saved} beside {pdf}"
+msgstr "保存为 {pdf} 旁边的 {saved}"
+
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -12306,6 +12310,10 @@ msgstr "这条文献没有引用名，无法删除"
 #: src/papers/audit-messages.ts
 msgid "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
 msgstr "文献文件有 Overleaf 同步冲突，请先处理"
+
+#: src/agent/synara-confirmations.ts
+msgid "This cannot be undone."
+msgstr "无法撤销"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "This collaborator is not in a file right now."

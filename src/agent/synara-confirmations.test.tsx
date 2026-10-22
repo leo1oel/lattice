@@ -55,4 +55,12 @@ describe("Synara confirmation bridge", () => {
     ));
     unmount();
   });
+
+  it("warns that a bare destructive question cannot be undone", () => {
+    vi.mocked(confirmAction).mockResolvedValue(false);
+    const { frameWindow, unmount } = mountBridge();
+    postFromFrame(frameWindow, { type: SYNARA_CONFIRMATION_REQUEST, id: "delete-thread-2", message: "Delete thread “Draft”?" });
+    expect(confirmAction).toHaveBeenCalledExactlyOnceWith("Delete thread “Draft”?\nThis cannot be undone.");
+    unmount();
+  });
 });

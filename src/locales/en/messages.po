@@ -1759,8 +1759,8 @@ msgid "Ask before deleting"
 msgstr "Ask before deleting"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "Ask before edits and network"
-msgstr "Ask before edits and network"
+msgid "Ask before outside edits and network"
+msgstr "Ask before outside edits and network"
 
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask for risky actions"
@@ -3898,12 +3898,12 @@ msgid "Delete this item?"
 msgstr "Delete this item?"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message?"
-msgstr "Delete this message?"
+msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
+msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
-msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread."
+msgid "Delete this message? This cannot be undone."
+msgstr "Delete this message? This cannot be undone."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Delete worksheet?"
@@ -10721,6 +10721,10 @@ msgstr "Saved-text search unavailable"
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Saves {saved} beside {pdf}"
+msgstr "Saves {saved} beside {pdf}"
+
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -12306,6 +12310,10 @@ msgstr "This bibliography entry has no citation key to remove."
 #: src/papers/audit-messages.ts
 msgid "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
 msgstr "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
+
+#: src/agent/synara-confirmations.ts
+msgid "This cannot be undone."
+msgstr "This cannot be undone."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "This collaborator is not in a file right now."

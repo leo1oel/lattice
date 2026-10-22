@@ -19,7 +19,7 @@ export default function SynaraPermissionPicker(props: {
   const presentations: Record<SynaraPermissionMode, { label: string }> = {
     "full-access": { label: t`Never ask` },
     auto: { label: t`Ask for risky actions` },
-    "approval-required": { label: t`Ask before edits and network` },
+    "approval-required": { label: t`Ask before outside edits and network` },
   };
   const { label } = presentations[props.value];
   const ModeIcon = MODE_ICONS[props.value];

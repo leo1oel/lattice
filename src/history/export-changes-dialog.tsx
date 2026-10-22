@@ -41,6 +41,12 @@ let lastOptions: ChangesPdfOptions = { colour: true, keepDeleted: true, marginBa
 /** How many changed passages the page preview draws. */
 const PREVIEW_PASSAGES = 3;
 
+/** `main.tex` → `main-changes.pdf`, where the export saves it (and the backend agrees). */
+function changesPdfName(rootDocument: string): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a file name
+  return `${rootDocument.replace(/\.tex$/i, "")}-changes.pdf`;
+}
+
 /**
  * The first changed passages across the comparison's .tex files, in order.
  * A module helper: the compiler cannot compile `??` inside the loop of a
@@ -87,6 +93,8 @@ export function ExportChangesDialog(props: {
     lastOptions = next;
     setOptions(next);
   };
+  const saved = changesPdfName(props.rootDocument);
+  const pdf = props.rootDocument.replace(/\.tex$/i, ".pdf");
   const preview = useLatestLoad<ProsePassage[]>();
   const loadPreview = preview.revalidate;
   const { changed, from, read, rootDocument, to } = props;
@@ -172,6 +180,7 @@ export function ExportChangesDialog(props: {
             checked={options.onlyChangedPages}
             onChange={(onlyChangedPages) => set({ onlyChangedPages })}
           />
+          <p className="export-changes-note">{t`Saves ${saved} beside ${pdf}`}</p>
           {error && <InlineMessage level="error">{error}</InlineMessage>}
           <div className="modal-actions">
             <Button variant="ghost" disabled={running} onClick={props.onClose}>{t`Cancel`}</Button>

@@ -1,4 +1,6 @@
 import { useEffect, type RefObject } from "react";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 import { confirmAction, isRecord } from "../app-utils";
 import { boundedString, listenToSynaraFrame } from "./agent-protocol";
 
@@ -41,7 +43,12 @@ export function useSynaraConfirmationBridge(options: {
       sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_ACK, id: request.id }, origin);
       if (pendingIds.has(request.id)) return;
       pendingIds.add(request.id);
-      void confirmAction(request.message)
+      // Synara asks only before destructive actions; a bare question carries
+      // no warning of its own, and the shared dialog no longer adds one.
+      const message = /[?？]\s*$/.test(request.message)
+        ? `${request.message}\n${i18n._(msg`This cannot be undone.`)}`
+        : request.message;
+      void confirmAction(message)
         .catch(() => false)
         .then((confirmed) => {
           sourceWindow.postMessage({ type: LATTICE_CONFIRMATION_RESPONSE, id: request.id, confirmed }, origin);
