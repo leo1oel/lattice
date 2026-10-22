@@ -1,20 +1,17 @@
-use super::client::{change_id_seed, lock, merge_cookies};
+use super::client::{lock, merge_cookies};
 use super::codec::*;
 use super::events::*;
+use super::mock_server::*;
 use super::tree::{parse_project, NodeKind, Tree};
 use super::*;
 use serde_json::{json, Value};
-use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::async_runtime as rt;
 use tiny_http::Response;
-use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
-use tokio_tungstenite::tungstenite::protocol::{Role, WebSocket};
-use tokio_tungstenite::tungstenite::Message;
 
-type Events = Arc<Mutex<Vec<RealtimeEvent>>>;
+pub(super) type Events = Arc<Mutex<Vec<RealtimeEvent>>>;
 
 fn insert(p: usize, text: &str) -> OtOp {
     OtOp { p, i: Some(text.into()), d: None, u: None }
@@ -48,7 +45,7 @@ fn wait_for<T>(
     found
 }
 
-fn connect(config: RealtimeConfig) -> (RealtimeClient, Events) {
+pub(super) fn connect(config: RealtimeConfig) -> (RealtimeClient, Events) {
     let events = Events::default();
     let sink = events.clone();
     let client =
@@ -245,6 +242,7 @@ fn realtime_events_serialize_with_a_type_tag() {
                 version: 43,
                 ops: vec![insert(9, "!"), delete(0, "x")],
                 source: Some("pub-2".into()),
+                suggested_by: None,
             },
             r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"},{"p":0,"d":"x"}],"source":"pub-2"}"#,
         ),
@@ -306,7 +304,7 @@ fn ack_bodies_separate_errors_from_payloads() {
 
 // -- project tree -----------------------------------------------------------
 
-fn project_tree() -> Value {
+pub(super) fn project_tree() -> Value {
     json!({
         "_id": "proj-1",
         "name": "Paper",
@@ -440,64 +438,6 @@ fn document_text_is_unpacked_from_overleafs_transport_encoding() {
 }
 
 #[test]
-fn tracked_changes_are_read_with_their_author_and_direction() {
-    let changes = parse_tracked_changes(&json!({
-        "changes": [
-            {"id": "c1", "op": {"p": 12, "i": "café"},
-             "metadata": {"user_id": "user-1", "ts": "2026-07-01T10:00:00.000Z"}},
-            {"id": "c2", "op": {"p": 40, "d": "cut this"},
-             "metadata": {"user_id": "user-2", "ts": "2026-07-01T11:00:00.000Z"}},
-            {"id": "c3", "op": {"p": 5}},
-        ],
-        "comments": [],
-    }));
-    assert_eq!(changes.len(), 2, "an op that is neither is not a change");
-    assert_eq!(
-        changes[0],
-        TrackedChange {
-            id: "c1".into(),
-            position: 12,
-            text: "café".into(),
-            deletion: false,
-            user_id: Some("user-1".into()),
-            timestamp: Some("2026-07-01T10:00:00.000Z".into()),
-            hue: presence_hue(Some("user-1")),
-        }
-    );
-    assert!(changes[1].deletion);
-    assert_eq!(changes[1].text, "cut this");
-    // Two authors, two colours.
-    assert_ne!(changes[0].hue, changes[1].hue);
-}
-
-#[test]
-fn track_changes_setting_is_read_per_account() {
-    // One project-wide field: a flag for everyone, or a map naming the
-    // accounts it is on for, with anonymous sessions under a literal key.
-    // Absent entirely — the project owner has no such feature — is off.
-    for (state, user, on) in [
-        (Some(json!(true)), Some("user-1"), true),
-        (Some(json!(false)), Some("user-1"), false),
-        (Some(json!({"user-1": true, "user-2": false})), Some("user-1"), true),
-        (Some(json!({"user-1": true})), Some("user-2"), false),
-        (Some(json!({"__guests__": true})), None, true),
-        (None, Some("user-1"), false),
-    ] {
-        assert_eq!(track_changes_for(state.as_ref(), user), on, "{state:?} for {user:?}");
-    }
-}
-
-#[test]
-fn change_id_seeds_are_fresh_and_the_right_shape() {
-    // Eighteen hex characters, and never the same twice: reusing a seed
-    // means minting duplicate change ids.
-    let (first, second) = (change_id_seed(), change_id_seed());
-    assert_eq!(first.len(), 18, "{first}");
-    assert!(first.chars().all(|c| c.is_ascii_hexdigit()), "{first}");
-    assert_ne!(first, second);
-}
-
-#[test]
 fn presence_reads_both_shapes_and_colours_by_account() {
     // The broadcast and the roster describe the same person with different
     // keys; getting either wrong shows a nameless ghost with no cursor.
@@ -586,6 +526,7 @@ fn comment_operations_never_reach_the_text_stream() {
                 version: 44,
                 ops: vec![insert(5, "hello"), delete(20, "gone")],
                 source: Some("pub-2".into()),
+                suggested_by: None,
             },
             RealtimeEvent::CommentAnchored { doc_id: "doc-1".into(), range },
         ]
@@ -609,138 +550,6 @@ fn comment_operations_never_reach_the_text_stream() {
 }
 
 // -- end to end against a mock socket.io 0.9 server -------------------------
-
-/// A local HTTP server handing each request to `handle`, by its base URL.
-pub(crate) fn serve_http(mut handle: impl FnMut(tiny_http::Request) + Send + 'static) -> String {
-    let server = tiny_http::Server::http("127.0.0.1:0").expect("bind the mock server");
-    let port = server.server_addr().to_ip().expect("an IP listener").port();
-    std::thread::spawn(move || server.incoming_requests().for_each(&mut handle));
-    format!("http://127.0.0.1:{port}")
-}
-
-fn header(request: &tiny_http::Request, name: &'static str) -> Option<String> {
-    request.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.to_string())
-}
-
-/// `line` is a whole `Name: value` header line.
-fn with_header<R: Read>(response: Response<R>, line: &str) -> Response<R> {
-    response.with_header(line.parse::<tiny_http::Header>().expect("a header line"))
-}
-
-/// One HTTP request the mock saw: its URL, `Cookie` and `Origin`.
-type Seen = (String, Option<String>, Option<String>);
-
-#[derive(Default)]
-struct MockState {
-    /// The handshake, then the websocket upgrade.
-    requests: Vec<Seen>,
-    frames: Vec<String>,
-    /// Newer Overleaf: join from the handshake query and push the project
-    /// down, never answering a `joinProject` ask.
-    push_join: bool,
-}
-
-/// The mock's host, and what it has seen.
-fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
-    start_mock_with(push_join, 60)
-}
-
-/// A mock that names `heartbeat` seconds as its heartbeat timeout.
-fn start_mock_with(push_join: bool, heartbeat: u64) -> (String, Arc<Mutex<MockState>>) {
-    let state = Arc::new(Mutex::new(MockState { push_join, ..MockState::default() }));
-    let seen = state.clone();
-    let host = serve_http(move |request| {
-        let url = request.url().to_string();
-        let upgrade = url.contains("/socket.io/1/websocket/");
-        let (cookie, origin) = (header(&request, "Cookie"), header(&request, "Origin"));
-        lock(&seen).requests.push((url, cookie, origin));
-        if !upgrade {
-            // Load balancers pin the realtime session with a cookie of their
-            // own; the upgrade has to carry it back or it lands on another
-            // instance.
-            let body = Response::from_string(format!("testsid:{heartbeat}:60:websocket"));
-            let body = with_header(body, "Set-Cookie: ol-affinity=instance-7; Path=/; HttpOnly");
-            let _ = request.respond(with_header(body, "Content-Type: text/plain"));
-            return;
-        }
-        let Some(key) = header(&request, "Sec-WebSocket-Key") else { return };
-        let accept = format!("Sec-WebSocket-Accept: {}", derive_accept_key(key.as_bytes()));
-        let stream = request.upgrade("websocket", with_header(Response::empty(101), &accept));
-        let seen = seen.clone();
-        std::thread::spawn(move || {
-            serve_websocket(WebSocket::from_raw_socket(stream, Role::Server, None), seen)
-        });
-    });
-    (host, state)
-}
-
-fn mock_config(host: &str, cookie: &str) -> RealtimeConfig {
-    let (host, cookie) = (host.to_string(), cookie.to_string());
-    RealtimeConfig { user_id: None, host, cookie, project_id: "proj-1".to_string() }
-}
-
-fn event_frame(name: &str, args: Value) -> String {
-    encode_frame(FRAME_EVENT, "", "", &json!({"name": name, "args": args}).to_string())
-}
-
-fn ack_frame(id: &str, args: Value) -> String {
-    encode_frame(FRAME_ACK, "", "", &format!("{id}+{args}"))
-}
-
-fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockState>>) {
-    let push_join = lock(&state).push_join;
-    let send = |ws: &mut WebSocket<S>, frame: String| ws.send(Message::text(frame));
-    let _ = send(&mut ws, encode_frame(FRAME_CONNECT, "", "", ""));
-    let _ = if push_join {
-        let join =
-            json!([{"publicId": "pub-1", "project": project_tree(), "permissionsLevel": "owner"}]);
-        send(&mut ws, event_frame("joinProjectResponse", join))
-    } else {
-        send(&mut ws, event_frame("connectionAccepted", json!([null, "pub-1"])))
-    };
-    while let Ok(message) = ws.read() {
-        let text = match message {
-            Message::Text(text) => text.as_str().to_string(),
-            Message::Close(_) => break,
-            _ => continue,
-        };
-        lock(&state).frames.push(text.clone());
-        let Ok(frame) = parse_frame(&text) else { continue };
-        if frame.kind != FRAME_EVENT {
-            continue;
-        }
-        let Ok((name, _)) = parse_event(&frame.data) else { continue };
-        let id = frame.id.trim_end_matches('+').to_string();
-        let sent = match name.as_str() {
-            // A server that pushed the project ignores the ask entirely,
-            // which is exactly the case the client has to survive.
-            "joinProject" if push_join => Ok(()),
-            "joinProject" => {
-                send(&mut ws, ack_frame(&id, json!([null, project_tree(), "owner", 2])))
-            }
-            "joinDoc" => {
-                let ranges = json!({"comments": [{"id": "change-1", "op": {"p": 4, "c": "one", "t": "thread-1"}}],
-                                    "changes": []});
-                let ack = send(
-                    &mut ws,
-                    ack_frame(&id, json!([null, ["line one", "line two"], 42, [], ranges])),
-                );
-                // Unsolicited update from another collaborator...
-                let update = json!([{"doc": "doc-1", "v": 43, "op": [{"p": 9, "i": "!"}],
-                                     "meta": {"source": "someone-else"}}]);
-                let _ = send(&mut ws, event_frame("otUpdateApplied", update));
-                // ...and a heartbeat the client has to echo.
-                let _ = send(&mut ws, encode_frame(FRAME_HEARTBEAT, "", "", ""));
-                ack
-            }
-            "applyOtUpdate" | "leaveDoc" => send(&mut ws, ack_frame(&id, json!([null]))),
-            _ => Ok(()),
-        };
-        if sent.is_err() {
-            break;
-        }
-    }
-}
 
 #[test]
 fn a_server_that_goes_quiet_past_its_heartbeat_timeout_is_reported_lost() {
@@ -829,6 +638,7 @@ fn talks_the_whole_protocol_to_a_mock_server() {
         version: 43,
         ops: vec![insert(9, "!")],
         source: Some("someone-else".into()),
+        suggested_by: None,
     };
     assert_eq!(update, Some(expected));
 

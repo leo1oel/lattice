@@ -120,7 +120,7 @@ replace it.
 | --- | --- | --- |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
-| `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes and tracked-change spans through the same ops that move the text, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
+| `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` | React-side document ownership, debounce, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns `overleafSyncMode` and the workspace-level Overleaf state; consumed by `src/App.tsx`, which chooses between Overleaf OT and ordinary Overleaf sync, and excludes live-owned paths from ordinary sync | Lattice safety policy |
 | `scripts/verify-overleaf.mjs` | Explicit opt-in cloud smoke test against a user-selected project and document | Live compatibility check; never a default test |
@@ -254,6 +254,17 @@ purpose.
   [`:671-699`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/Router.js#L671-L699));
   other deployments may leave it unanswered, with every later edit queued
   behind it. A comment anchor is a real nonempty component and is still sent.
+- **Track changes is the sender's choice.** An update is a suggestion when it
+  carries `meta.tc`, a fresh seed for the new changes' ids; the project's
+  `trackChangesState` (on for everyone, or per account) only tells clients when
+  to send one. Lattice sends one while the setting is on for its account, and
+  reads `meta.tc` on a collaborator's update as a suggestion by `meta.user_id`.
+- A tracked deletion's text has left the document: it is a point, not a span.
+  Lattice works out the suggestions an update makes only provisionally
+  (`src/overleaf/overleaf-suggestions.ts`) and reads the document's ranges back
+  once nothing of its own is unanswered (`overleaf_rt_doc_ranges`).
+- `connectionRejected` with "not authorized" or "project not found" means this
+  account lost the project; Lattice reports it and stops reconnecting.
 - Cursor positions (`clientTracking.updatePosition`) go out without an ack.
   That is a client choice matching Overleaf's own editor, not a server limit:
   the verified server accepts an optional callback and calls it
@@ -316,6 +327,12 @@ purpose.
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
+- The upload endpoint decides what a file becomes from its name alone, not from
+  what is already at the path. Uploading into a document whose name it does not
+  read as text (a `data.csv` made with New file in the browser) turns it into a
+  binary file, and its comments and tracked changes go with it. Such documents
+  take their edit over the live channel instead (`overleaf/doc_push.rs`); only
+  when that channel cannot be reached are they uploaded as before.
 - A failure partway through a multi-file sync must not mark unconfirmed files or
   versions as synchronized.
 

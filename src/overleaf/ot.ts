@@ -15,6 +15,7 @@
 
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { changedRuns, splitLines } from "./changed-runs";
 
 /** One OT operation: insert `i` or delete `d`, both at character offset `p`. */
 export type OtOp = { p: number; i?: string; d?: string };
@@ -26,8 +27,17 @@ export type OtOp = { p: number; i?: string; d?: string };
  * deleting a selection — so this narrows to the differing middle by matching
  * the common prefix and suffix. That produces exactly the ops the web editor
  * would send for the same keystroke, and never invents overlapping edits.
+ * When the middle spans lines, the unchanged lines inside it are matched too
+ * (./changed-runs), so changes made far apart in one send stay separate ops.
  */
 export function diffToOps(before: string, after: string): OtOp[] {
+  return changeOps(before, after, 0, true);
+}
+
+/** At most this many lines added or removed are matched up line by line; see `changedRuns`. */
+const MAX_CHANGED_LINES = 400;
+
+function changeOps(before: string, after: string, at: number, byLine: boolean): OtOp[] {
   if (before === after) return [];
   let prefix = 0;
   const maxPrefix = Math.min(before.length, after.length);
@@ -43,11 +53,31 @@ export function diffToOps(before: string, after: string): OtOp[] {
   if (suffix > 0 && isLowSurrogate(before.charCodeAt(before.length - suffix))) suffix -= 1;
   const removed = before.slice(prefix, before.length - suffix);
   const inserted = after.slice(prefix, after.length - suffix);
+  const [removedLines, insertedLines] = [splitLines(removed), splitLines(inserted)];
+  // A pure insertion or deletion is one run however many lines it spans.
+  const runs = byLine && removed && inserted && (removedLines.length > 1 || insertedLines.length > 1)
+    ? changedRuns(removedLines, insertedLines, MAX_CHANGED_LINES)
+    : null;
+  if (runs && runs.length > 1) {
+    // Each run is trimmed on its own, and lands where the runs before it left
+    // the text: ops apply one after another.
+    const starts = [0];
+    for (const line of removedLines) starts.push(starts.at(-1)! + line.length);
+    const ops: OtOp[] = [];
+    let shift = 0;
+    for (const run of runs) {
+      const was = removedLines.slice(run.aFrom, run.aTo).join("");
+      const is = insertedLines.slice(run.bFrom, run.bTo).join("");
+      ops.push(...changeOps(was, is, at + prefix + starts[run.aFrom]! + shift, false));
+      shift += is.length - was.length;
+    }
+    return ops;
+  }
   // Delete first: the insert's position is then expressed against the text
   // that remains, which is what the server expects.
   return [
-    ...(removed ? [{ p: prefix, d: removed }] : []),
-    ...(inserted ? [{ p: prefix, i: inserted }] : []),
+    ...(removed ? [{ p: at + prefix, d: removed }] : []),
+    ...(inserted ? [{ p: at + prefix, i: inserted }] : []),
   ];
 }
 
@@ -343,20 +373,21 @@ export class OtDocument {
    * Record a local edit. Returns what to send, if anything: while an operation
    * is in flight the new work waits, because the server numbers versions and
    * would reject a second operation built on a version it has not confirmed.
+   * `ops` is the edit itself, sent or not, for moving anchors with the text.
    */
-  local(nextText: string): { send: OtSend; replaced: boolean } {
+  local(nextText: string): { send: OtSend; replaced: boolean; ops: OtOp[] } {
     const typed = diffToOps(this.text, nextText);
     // See `asOverleafStores`: when it changes what was typed, `text` takes
     // the stored form and the caller has to show it in place of the original.
     const { ops, replaced } = asOverleafStores(typed);
     this.text = replaced ? applyOps(this.text, ops) ?? nextText : nextText;
-    if (ops.length === 0) return { send: null, replaced };
+    if (ops.length === 0) return { send: null, replaced, ops };
     if (this.inflight) {
       this.pending = this.pending ? composeOps(this.pending, ops) : ops;
-      return { send: null, replaced };
+      return { send: null, replaced, ops };
     }
     this.inflight = ops;
-    return { send: { version: this.version, ops }, replaced };
+    return { send: { version: this.version, ops }, replaced, ops };
   }
 
   /**

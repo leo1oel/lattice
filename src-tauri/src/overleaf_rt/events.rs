@@ -1,5 +1,6 @@
 //! What the channel tells the app, and the parsers that read it off the wire.
 
+use super::{PROJECT_ACCESS_LOST, SESSION_EXPIRED};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -25,6 +26,11 @@ pub enum RealtimeEvent {
         /// app has to tell its own acknowledgement apart from someone else's
         /// edit — applying your own work twice would duplicate what you typed.
         source: Option<String>,
+        /// Who suggested it, when it was sent as a suggestion. Its text moves
+        /// like any edit's, but it also adds to the document's suggestions,
+        /// which Overleaf never restates after the join.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        suggested_by: Option<Suggester>,
     },
     OtError {
         doc_id: String,
@@ -214,6 +220,15 @@ pub struct TrackedChange {
     /// ISO 8601, as Overleaf reports it.
     pub timestamp: Option<String>,
     /// Their colour in Overleaf's own palette.
+    pub hue: u32,
+}
+
+/// The author of an update sent as a suggestion, coloured the way their
+/// suggestions already in the document are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Suggester {
+    pub user_id: Option<String>,
     pub hue: u32,
 }
 
@@ -416,7 +431,7 @@ fn presence_user(value: &Value, id: &str, name: String, cursor: Option<&Value>) 
 ///
 /// Reproducing it exactly is the point — the same collaborator should be the
 /// same colour whether you are looking at Lattice or at the browser.
-pub(super) fn presence_hue(user_id: Option<&str>) -> u32 {
+pub(crate) fn presence_hue(user_id: Option<&str>) -> u32 {
     const ANONYMOUS_HUE: u32 = 100;
     const OWN_HUE: u32 = 200;
     const OWN_HUE_BLOCKED_SIZE: u32 = 20;
@@ -452,6 +467,15 @@ fn text_ops(update: &Value) -> Vec<OtOp> {
 
 fn update_source(update: &Value) -> Option<String> {
     update.get("meta")?.get("source")?.as_str().map(str::to_string)
+}
+
+/// Who suggested an update. What marks one is `meta.tc`, the seed the sender
+/// minted for the new changes' ids; an ordinary edit has none.
+pub(super) fn update_suggester(update: &Value) -> Option<Suggester> {
+    let meta = update.get("meta")?;
+    meta.get("tc").and_then(Value::as_str).filter(|seed| !seed.is_empty())?;
+    let user_id = json_field(meta, &["user_id"]);
+    Some(Suggester { hue: presence_hue(user_id.as_deref()), user_id })
 }
 
 /// The updates the server replayed for a join that resumed from a version.
@@ -499,6 +523,7 @@ pub(super) fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
         version,
         ops: text_ops(value),
         source: update_source(value),
+        suggested_by: update_suggester(value),
     };
     std::iter::once(update).chain(anchors).collect()
 }
@@ -511,6 +536,23 @@ pub(super) fn doc_id_hint(args: &[Value]) -> String {
         .filter(|arg| arg.is_object())
         .find_map(|arg| ["doc", "doc_id", "docId"].iter().find_map(|key| arg.get(*key)?.as_str()));
     keyed.or_else(|| args.iter().skip(1).find_map(Value::as_str)).unwrap_or_default().to_string()
+}
+
+/// Name a `connectionRejected` reason the way the rest of the app reads it.
+///
+/// A dead session is "invalid session", which the command settles with the
+/// dashboard. Losing the project is "not authorized" (removed from it) or
+/// "project not found" (deleted); said as they are, neither reads as final,
+/// and the app would retry them forever.
+pub(super) fn rejection_message(rejected: String) -> String {
+    let lower = rejected.to_lowercase();
+    if lower == "invalid session" {
+        SESSION_EXPIRED.to_string()
+    } else if lower.contains("not authorized") || lower.contains("project not found") {
+        PROJECT_ACCESS_LOST.to_string()
+    } else {
+        rejected
+    }
 }
 
 /// Read the project-wide track-changes setting as it applies to one account.

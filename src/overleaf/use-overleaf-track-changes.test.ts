@@ -50,6 +50,15 @@ describe("accepting tracked changes", () => {
     expect(reload).toHaveBeenCalledOnce();
   });
 
+  it("refuses to accept a suggestion Overleaf has not named yet", async () => {
+    // Worked out locally from our own suggestion: the id is ours, not Overleaf's.
+    const { result } = mount();
+    await act(async () => {
+      await expect(result.current.accept(["provisional:1234"])).rejects.toThrow(/edit is still on its way/i);
+    });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_accept_changes", expect.anything());
+  });
+
   it("does not reload a different document after an accept finishes", async () => {
     let finishAccept!: () => void;
     const reload = vi.fn();

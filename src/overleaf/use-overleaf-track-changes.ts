@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
+import { isProvisional } from "./overleaf-suggestions";
 import type { ReservedOperation, TrackedChange } from "./use-overleaf-realtime";
 
 type ChangeAuthor = { id: string; email: string | null; firstName: string | null; lastName: string | null };
@@ -135,7 +136,9 @@ export function useOverleafTrackChanges(options: {
   const accept = useCallback((changeIds: string[]) => run(changeIds, async ({ docId, projectRoot, settledVersion }) => {
     if (!docId) throw new Error(t`Open the document this suggestion is in first.`);
     if (!projectRoot) throw new Error(t`Open the linked Overleaf project first.`);
-    if (settledVersion() === null) {
+    // Worked out here and not yet read back from Overleaf (./overleaf-suggestions):
+    // Overleaf has no such id to accept.
+    if (settledVersion() === null || changeIds.some((id) => isProvisional({ id }))) {
       throw new Error(t`An edit is still on its way to Overleaf. Try accepting again in a moment.`);
     }
     await invoke("overleaf_accept_changes", { projectRoot, docId, changeIds });

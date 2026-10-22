@@ -194,56 +194,88 @@ export function overleafCursorsExtension(options: { getCursors?: () => PresenceC
 
 // ---- suggestions -------------------------------------------------------------
 
-/** A suggestion's `[position, position + text.length)` span, clamped into a document of `length`. */
+/**
+ * A suggestion's span in a document of `length`, clamped into it. A suggested
+ * deletion's text is no longer in the document, so its span is the empty one
+ * at the point the text was removed from.
+ */
 function clampedSpan(change: TrackedChange, length: number) {
   const from = Math.max(0, Math.min(change.position, length));
-  return { from, to: Math.max(from, Math.min(from + change.text.length, length)) };
+  return { from, to: change.deletion ? from : Math.max(from, Math.min(from + change.text.length, length)) };
 }
 
 /**
- * A suggestion's span in `doc`, or null when the document has since become
- * shorter than the suggestion expects (stale until the next `reload()`) or the
- * suggested text is empty. A suggested deletion's text is still in the
- * document, which is what lets both kinds decorate as ordinary mark ranges.
+ * A suggestion's span in `doc`, or null when there is nothing to show: the
+ * suggested text is empty, or the document has since become shorter than the
+ * suggestion expects (stale until the next `reload()`). Empty for a deletion.
  */
 export function trackedChangeRange(doc: Text, change: TrackedChange): { from: number; to: number } | null {
+  if (!change.text || change.position > doc.length) return null;
   const range = clampedSpan(change, doc.length);
-  return range.to > range.from ? range : null;
+  return change.deletion || range.to > range.from ? range : null;
 }
 
-/** Context around a suggestion, for a panel to quote — mirrors an editor comment's prefix/quote/suffix. */
+/**
+ * Context around a suggestion, for a panel to quote — mirrors an editor
+ * comment's prefix/quote/suffix. A deletion quotes the text it removed, which
+ * the source no longer holds; the context is what now surrounds that point.
+ */
 export function trackedChangeContext(source: string, change: TrackedChange, context = 32) {
   const { from, to } = clampedSpan(change, source.length);
   return {
     prefix: source.slice(Math.max(0, from - context), from),
-    quote: source.slice(from, to),
+    quote: change.deletion ? change.text : source.slice(from, to),
     suffix: source.slice(to, Math.min(source.length, to + context)),
   };
 }
 
-export function buildTrackedChangeDecorations(doc: Text, changes: TrackedChange[]): DecorationSet {
-  const ranges = changes
-    .flatMap((change) => {
-      const range = trackedChangeRange(doc, change);
-      return range ? [{ change, ...range }] : [];
-    })
-    .sort((a, b) => a.from - b.from || a.to - b.to);
-  return Decoration.set(ranges.map(({ change, from, to }) => Decoration.mark({
-    class: change.deletion ? "cm-tracked-change-delete" : "cm-tracked-change-insert",
-    attributes: {
-      "data-change-id": change.id,
-      style: change.deletion
-        ? `text-decoration-line: line-through; text-decoration-color: ${hueColor(change.hue)}; text-decoration-thickness: 2px; background-color: ${hueColor(change.hue, 0.1)}`
-        : `border-bottom: 2px solid ${hueColor(change.hue)}; background-color: ${hueColor(change.hue, 0.14)}`,
-    },
-  }).range(from, to)), true);
+const deletionStyle = (hue: number) =>
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS declaration
+  `text-decoration-line: line-through; text-decoration-color: ${hueColor(hue)}; text-decoration-thickness: 2px; background-color: ${hueColor(hue, 0.1)}`;
+
+/** The removed text, struck through and drawn at the point it was removed from; never part of the document. */
+class DeletedTextWidget extends WidgetType {
+  constructor(readonly change: TrackedChange) {
+    super();
+  }
+
+  eq(other: DeletedTextWidget) {
+    return other.change.id === this.change.id && other.change.text === this.change.text && other.change.hue === this.change.hue;
+  }
+
+  toDOM() {
+    const removed = element("span", "cm-tracked-change-delete", this.change.text);
+    removed.dataset.changeId = this.change.id;
+    removed.setAttribute("style", deletionStyle(this.change.hue));
+    return removed;
+  }
 }
 
-/** Suggestions whose span covers `pos` (inclusive start, exclusive end — matches `commentsAtPosition`). */
+export function buildTrackedChangeDecorations(doc: Text, changes: TrackedChange[]): DecorationSet {
+  return Decoration.set(changes.flatMap((change) => {
+    const range = trackedChangeRange(doc, change);
+    if (!range) return [];
+    // Before the caret at that point, so typing there reads as a replacement.
+    if (change.deletion) return [Decoration.widget({ widget: new DeletedTextWidget(change), side: -1 }).range(range.from)];
+    return [Decoration.mark({
+      class: "cm-tracked-change-insert",
+      attributes: {
+        "data-change-id": change.id,
+        style: `border-bottom: 2px solid ${hueColor(change.hue)}; background-color: ${hueColor(change.hue, 0.14)}`,
+      },
+    }).range(range.from, range.to)];
+  }), true);
+}
+
+/**
+ * Suggestions at `pos`: an insertion whose span covers it (inclusive start,
+ * exclusive end — matches `commentsAtPosition`), or a deletion drawn there.
+ */
 export function trackedChangesAtPosition(doc: Text, changes: TrackedChange[], pos: number): TrackedChange[] {
   return changes.filter((change) => {
     const range = trackedChangeRange(doc, change);
-    return range && pos >= range.from && pos < range.to;
+    if (!range) return false;
+    return change.deletion ? pos === range.from : pos >= range.from && pos < range.to;
   });
 }
 

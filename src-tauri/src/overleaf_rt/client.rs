@@ -366,10 +366,7 @@ fn handle_event(shared: &Arc<Shared>, data: &str) -> Result<(), String> {
             // shows here, as the realtime server failing to look it up. Name
             // it as the REST calls do; the command checks it with the
             // dashboard before anything is marked expired.
-            let message = match error_or("Overleaf rejected the realtime connection.") {
-                rejected if rejected == "invalid session" => SESSION_EXPIRED.to_string(),
-                rejected => rejected,
-            };
+            let message = rejection_message(error_or("Overleaf rejected the realtime connection."));
             // Overleaf accepts the connection (`1::`) before it rejects it, so
             // the connect gate has usually opened already; the join is what is
             // still waiting. Without the reason it would only hear that the

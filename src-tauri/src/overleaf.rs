@@ -39,12 +39,14 @@ mod account;
 mod api;
 #[cfg(test)]
 mod bench;
+mod doc_push;
 mod files;
 mod link;
 mod review;
 mod sync;
 #[cfg(test)]
 mod test_support;
+mod upload;
 
 pub use account::{
     cookie_domain_matches, disconnect, has_session_cookie, is_session_rejection, list_projects,

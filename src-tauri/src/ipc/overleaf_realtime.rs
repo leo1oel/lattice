@@ -206,6 +206,8 @@ pub async fn overleaf_rt_connect(
     let tree = client.project();
     let mut joined = serde_json::to_value(tree).map_err(|error| error.to_string())?;
     joined["publicId"] = client.public_id().into();
+    // The colour our own suggestions are drawn in until Overleaf restates them.
+    joined["ownHue"] = overleaf_rt::presence_hue(tree.user_id.as_deref()).into();
     let mut installed = false;
     if current_root(&state, &window).is_ok_and(|current| current == root) {
         let mut realtime = project.realtime()?;
@@ -357,17 +359,41 @@ pub async fn overleaf_rt_update_position(
 
 // `dupIfSource` and `hash` are Overleaf's own optional update fields, and
 // `window` scopes the call to one window's project, as for comments below.
+// `tracked` sends the ops as a suggestion: the app asks for it while the
+// project's track-changes setting is on for this account, because Overleaf
+// leaves that choice to the client that sends the update.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn overleaf_rt_send_ops(
     state: State<'_, AppState>, window: Window, project_root: String, doc_id: String, version: i64,
     ops: Vec<overleaf_rt::OtOp>, dup_if_source: Option<Vec<String>>, hash: Option<String>,
+    tracked: Option<bool>,
 ) -> Result<(), String> {
     let (client, _lease) = live_client(&state, &window, &project_root).await?;
     let dup_if_source = dup_if_source.unwrap_or_default();
     let submission =
         overleaf_rt::Submission { dup_if_source: &dup_if_source, hash: hash.as_deref() };
-    client.send_ops(&doc_id, version, ops, false, submission).await
+    client.send_ops(&doc_id, version, ops, tracked.unwrap_or(false), submission).await
+}
+
+/// Read a joined document's comments and suggestions back from Overleaf.
+///
+/// The app works out what its own suggestions and a collaborator's do to the
+/// document's suggestions, but only provisionally
+/// (src/overleaf/overleaf-suggestions.ts); this is how it swaps in the
+/// server's own once the document is quiet. It resumes from `version`, so the
+/// answer only describes that version when it replays nothing, which the app
+/// checks. Unlike `overleaf_rt_join_doc` it leaves the join receipt alone: the
+/// room is already the app's, and leaving it later must still be allowed.
+#[tauri::command]
+pub async fn overleaf_rt_doc_ranges(
+    state: State<'_, AppState>, window: Window, project_root: String, doc_id: String, version: i64,
+) -> Result<overleaf_rt::JoinedDoc, String> {
+    let (client, lease) = live_client(&state, &window, &project_root).await?;
+    if !lease.project.realtime()?.joined_paths.contains_key(&doc_id) {
+        return Err("That Overleaf document is no longer open live.".to_string());
+    }
+    client.join_doc(&doc_id, Some(version)).await
 }
 
 /// Anchor a comment thread to a span of the open document.

@@ -5,7 +5,7 @@ use super::account::{save_session, SessionFile};
 use super::files::{disk_path, sha256_hex, write_base_copy};
 use super::link::{load_state, save_state, SyncState};
 use super::sync::{sync, OverleafSyncResult};
-use crate::overleaf_rt::tests::serve_http;
+use crate::overleaf_rt::mock_server::serve_http;
 pub(super) use crate::test_support::TempDir;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
