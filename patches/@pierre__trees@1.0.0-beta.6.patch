@@ -38,7 +38,7 @@ index efa8b6a2fd70e0d1f1dec1d90ee87268c72f56c4..ce3f101fc8401dd89c5c77b3335c959a
  		const expandedPaths = this.#searchMode === "expand-matches" ? new Set(this.#searchPreviousExpandedPaths ?? []) : /* @__PURE__ */ new Set();
  		for (const matchingPath of matchingPaths) {
 diff --git a/dist/render/FileTreeView.js b/dist/render/FileTreeView.js
-index 7d3b818c43a7621ab9170da32b180232ed3c9472..752d3f675127d0b34b3fb07418376d8606554fbf 100644
+index 7d3b818c43a7621ab9170da32b180232ed3c9472..38ee8d3eb29ede34eecf57bd59cedd5b35c9e9ac 100644
 --- a/dist/render/FileTreeView.js
 +++ b/dist/render/FileTreeView.js
 @@ -462,7 +462,6 @@ function renderStyledRow(frame, row, key, options = {}) {
@@ -130,3 +130,32 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..752d3f675127d0b34b3fb07418376d86
  					onBlur: () => {
  						if (searchBlurBehavior === "retain" && !searchInputUserInteractedRef.current) return;
  						controller.closeSearch();
+@@ -1836,14 +1862,26 @@ function FileTreeView({ composition, controller, gitStatusByPath, ignoredGitDire
+ 								position: "absolute",
+ 								right: "0",
+ 								top: `${entry.top}px`,
+-								zIndex: `${stickyRows.length - index}`
++								zIndex: `${stickyRows.length - index}`,
++								// Lattice patch: a folder pushed up by the next one slides
++								// under the folder pinned above it instead of drawing over
++								// it: rows have no fill of their own to hide it.
++								clipPath: entry.top < index * itemHeight ? `inset(${index * itemHeight - entry.top}px 0 0 0)` : void 0
+ 							}
+ 						}))
+ 					})
+ 				}) : null, /* @__PURE__ */ jsxs("div", {
+ 					ref: listRef,
+ 					"data-file-tree-virtualized-list": "true",
+-					style: { height: `${totalScrollableHeight}px` },
++					// Lattice patch: where the pinned folders end, in the list's own
++					// coordinates, so the host can clip the rows scrolling beneath them
++					// rather than only cover them with the overlay's background, which
++					// a translucent panel leaves see-through. Set in the same render as
++					// the overlay, so the edge follows a pinned folder pushed up.
++					style: {
++						height: `${totalScrollableHeight}px`,
++						"--trees-sticky-overlay-bottom": `${layoutSnapshot.physical.scrollTop + (stickyFolders && hasStickyUiMount && stickyRows.length > 0 ? overlayRowsHeight : 0)}px`
++					},
+ 					children: [/* @__PURE__ */ jsx("div", {
+ 						"data-file-tree-virtualized-sticky-offset": "true",
+ 						"aria-hidden": "true",

@@ -112,6 +112,37 @@ const recordClipboard = (driver) => driver.evaluate(`(() => {
   };
 })()`);
 
+const TREE_ROOT = `window.__benchQuery("file-tree-container.lattice-file-tree").shadowRoot`;
+const TREE_SCROLLER = `${TREE_ROOT}.querySelector('[data-file-tree-virtualized-scroll="true"]')`;
+const treeFolder = (path) => `file-tree-container.lattice-file-tree >>> [data-item-path="${path}"]:not([data-file-tree-sticky-row])`;
+
+/**
+ * Scrolls the Project tree to `top` and, once it has settled (Pierre stops
+ * rows taking the pointer while it scrolls), lists the rows a pointer at each
+ * height (px from the tree's top) would find, topmost first: pinned folder
+ * rows marked `pinned:`. A row clipped away is not hit.
+ */
+const treeHitsAt = async (driver, top, heights) => {
+  await driver.evaluate(`${TREE_SCROLLER}.scrollTop = ${top}`);
+  await driver.nextFrame();
+  await driver.waitFor(`!${TREE_ROOT}.querySelector("[data-is-scrolling]")`, { timeout: 5_000, what: "the tree to settle" });
+  await driver.nextFrame();
+  return driver.evaluate(`(() => {
+    const root = ${TREE_ROOT};
+    const view = ${TREE_SCROLLER}.getBoundingClientRect();
+    return ${JSON.stringify(heights)}.map((y) => [...new Set(root.elementsFromPoint(view.left + view.width * 0.6, view.top + y)
+      .map((node) => node.closest('[data-type="item"]')).filter(Boolean))]
+      .map((row) => (row.dataset.fileTreeStickyRow === "true" ? "pinned:" : "") + row.dataset.itemPath));
+  })()`);
+};
+
+/** Where a row of the tree's list starts, in the list's own coordinates. */
+const treeRowTop = (driver, path) => driver.evaluate(`(() => {
+  const scroller = ${TREE_SCROLLER};
+  const row = scroller.querySelector('[data-file-tree-virtualized-sticky="true"] > [data-item-path="${path}"]');
+  return row ? row.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop : null;
+})()`);
+
 export const LAYOUT_CHECKS = [
   {
     name: "paper-header-long-doi",
@@ -330,4 +361,45 @@ export const LAYOUT_CHECKS = [
       if (copied !== parked) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${parked.length}`);
     },
   },
+  ...["light", "dark"].map((theme) => ({
+    name: `tree-pinned-folders-${theme}`,
+    description: `A translucent window in ${theme}, the Project tree scrolled four folders deep: the rows scrolling beneath the pinned folders never show through them, and the next folder slides the last pinned one under its parent.`,
+    query: { tree: "nested", glass: "subtle", theme },
+    width: 1280,
+    height: 800,
+    async run(driver) {
+      const [cv, sop, samples, drive, web] = ["cv/", "cv/sop/", "cv/sop/sop_samples/", "cv/sop/sop_samples/drive/", "cv/sop/sop_samples/web/"];
+      // web first: once drive is open, web is far below the fold.
+      for (const folder of [cv, sop, samples, web, drive]) await driver.click(treeFolder(folder));
+      // A translucent window clears --trees-bg, the pinned folders' only fill.
+      if (!(await driver.evaluate("document.documentElement.dataset.glass"))) throw new Error("the window is not translucent");
+      const row = await driver.evaluate(`${TREE_ROOT}.querySelector('[data-item-path="cv/"]').offsetHeight`);
+      await treeHitsAt(driver, 0, []);
+      const driveTop = await treeRowTop(driver, drive);
+      await treeHitsAt(driver, driveTop + row * 10, []);
+      const webTop = await treeRowTop(driver, web);
+      if (driveTop == null || webTop == null) throw new Error("drive's or web's row is not in the tree");
+      const expect = (hits, at, first, why) => {
+        // A pinned row has no fill of its own: any row beneath it shows through.
+        const [found, ...beneath] = hits;
+        if (found !== first) throw new Error(`${at}px down the tree the pointer finds ${found ?? "nothing"}, not ${first} (${why})`);
+        if (beneath.length) throw new Error(`${at}px down the tree, ${beneath.join(", ")} is drawn beneath ${first} and shows through it (${why})`);
+      };
+
+      // Four folders pinned, drive's first row half under drive.
+      const pinnedAt = driveTop - row * 2.5;
+      const pinned = await treeHitsAt(driver, pinnedAt, [0.75, 1.75, 2.75, 3.75, 4.25].map((slot) => slot * row));
+      [cv, sop, samples, drive].forEach((path, slot) => expect(pinned[slot], (slot + 0.75) * row, "pinned:" + path, `scrolled ${pinnedAt}px`));
+      if (pinned[4][0]?.startsWith("pinned:") || !pinned[4][0]?.startsWith(drive)) {
+        throw new Error(`just below the pinned folders the pointer finds ${pinned[4][0] ?? "nothing"}, not drive's first row: the clip hides too much`);
+      }
+
+      // web pushes drive halfway up, under sop_samples.
+      const pushedAt = webTop - row * 3.5;
+      const pushed = await treeHitsAt(driver, pushedAt, [2.75, 3.25, 3.75].map((slot) => slot * row));
+      expect(pushed[0], 2.75 * row, "pinned:" + samples, `drive pushed up, scrolled ${pushedAt}px`);
+      expect(pushed[1], 3.25 * row, "pinned:" + drive, `drive pushed up, scrolled ${pushedAt}px`);
+      if (pushed[2][0] !== web) throw new Error(`below the pushed drive the pointer finds ${pushed[2][0] ?? "nothing"}, not web`);
+    },
+  })),
 ];

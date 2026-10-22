@@ -20,6 +20,15 @@ ${fluidHoverCSS}
   position: sticky;
 }
 
+/* Rows scrolling up beneath the pinned folders are cut off at the last
+   pinned row's bottom edge, the bottom the patched Pierre publishes. Its
+   overlay covers them only with --trees-bg, which a translucent window
+   (data-glass) makes clear, so rows drew through the pinned folders. Matches
+   the overlay's own visibility: hidden at the top unless a scroll is starting. */
+[data-file-tree-virtualized-root="true"]:is(:not([data-scroll-at-top]), [data-overlay-reveal]) [data-file-tree-virtualized-list="true"] {
+  clip-path: inset(var(--trees-sticky-overlay-bottom, 0px) 0 0 0);
+}
+
 /* Wheel/scroll can recycle rows beneath a stationary pointer. Keep selection
    and context-menu feedback, but suppress both hover paint paths until idle. */
 [data-tree-scrolling] .fluid-hover-highlight {

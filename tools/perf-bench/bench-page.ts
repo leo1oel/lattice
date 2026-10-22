@@ -14,7 +14,9 @@
  */
 import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import { arxivAnswer } from "./bench-arxiv";
+import { paintStandInDesktop } from "./bench-glass";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
+import { addNestedTree } from "./bench-nested-tree";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
 import { terminalAnswer } from "./bench-terminal";
 import type { FileNode, ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
@@ -59,6 +61,7 @@ const scaleTitle = (index: number) => `${SCALE_WORDS[index % 15]} ${SCALE_WORDS[
 const scaleAuthors = (index: number) => [0, 1, 2].slice(0, 1 + (index % 3)).map((offset) => SCALE_NAMES[(index + offset * 3) % 10]).join(" and ");
 const scaleKey = (index: number) => `${SCALE_NAMES[index % 10].split(",")[0].toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")}${2000 + (index % 26)}${SCALE_WORDS[(index * 7 + 3) % 15].toLowerCase().replace(/[^a-z]/g, "")}${index}`;
 
+addNestedTree(params, fixture.files);
 const linkedBibliography = linkedLibraryBibliography(params);
 if (linkedBibliography) fixture.files.set("references.bib", linkedBibliography);
 
@@ -1176,17 +1179,7 @@ const accentParam = params.get("accent");
 const accent = accentParam ? normalizeAccent(/^[0-9a-f]{6}$/i.test(accentParam) ? `#${accentParam}` : accentParam) : undefined;
 const glass = choiceParam<Translucency>("glass", ["subtle", "strong"]);
 const themeChoices = { ...(tint && { tint }), ...(accent && { accent }), ...(glass && { translucency: glass }) };
-if (glass) {
-  const style = document.head.appendChild(document.createElement("style"));
-  style.textContent = `
-    .bench-desktop { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
-    .bench-desktop::before { content: ""; position: absolute; inset: -120px; filter: blur(56px) saturate(1.5);
-      background: radial-gradient(40% 50% at 18% 30%, #ff7a59, transparent), radial-gradient(45% 55% at 70% 20%, #6d5dfc, transparent),
-        radial-gradient(50% 50% at 80% 85%, #00b3a4, transparent), radial-gradient(40% 40% at 25% 85%, #ffc94d, transparent), #3b4b7a; }
-    .bench-desktop::after { content: ""; position: absolute; inset: 0; background: rgb(244 244 246 / 0.64); }
-    :root[data-theme="dark"] .bench-desktop::after { background: rgb(30 30 32 / 0.68); }`;
-  document.body.prepend(Object.assign(document.createElement("div"), { className: "bench-desktop" }));
-}
+if (glass) paintStandInDesktop();
 
 // A first run lands on the onboarding tour and would auto-build; the bench
 // measures a returning writer with manual builds instead.
