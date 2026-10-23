@@ -8,18 +8,18 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-10-19 against upstream
-`v1.0.7` (`b8cf9382d36ac1120b3fe16241cfd96189a9a71e`), the current integration changes
-**753 files, +84,558 / −8,451 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-23 against upstream
+`v1.0.8` (`d7542782fd52a1dedf9634e1765ab62fa60e259f`), the current integration changes
+**760 files, +85,025 / −8,467 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.7 HEAD
+git diff --shortstat v1.0.8 HEAD
 ```
 
-The current pin is the upstream **1.0.7 stable release**, merged with the complete previous
-`amp/lattice-v1.0.6-sync` history (which carries the earlier `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.8 stable release**, merged with the complete previous
+`amp/lattice-v1.0.7-sync` history (which carries the earlier `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover

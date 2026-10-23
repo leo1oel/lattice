@@ -39,8 +39,14 @@ export function pruneServerRuntime(stageRoot, { target, platform }) {
     // embedded client highlights with its own bundled copies under dist/client.
     "node_modules/@shikijs/langs",
     "node_modules/@shikijs/themes",
+    // Only the native code editor's language worker loads the TypeScript
+    // compiler (assertOnlyLanguageWorkerLoadsTypeScript), and the server
+    // refuses that editor outside Synara Beta, while Lattice runs the Stable
+    // feature boundary.
+    "node_modules/typescript",
   ];
   assertServerNeverHighlights(distRoot);
+  assertOnlyLanguageWorkerLoadsTypeScript(distRoot);
   // Keep installed production packages: upstream's externalized imports change
   // between releases (0.8.3 imports top-level pi-ai providers directly).
   // Prune unused artifacts, not packages based on an older bundle's graph.
@@ -93,6 +99,23 @@ function assertServerNeverHighlights(distRoot) {
     throw new Error(
       "The Synara server bundle no longer uses @pierre/diffs for parsePatchFiles alone. "
         + "Re-check the Shiki prune in pruneServerRuntime against the pinned runtime.",
+    );
+  }
+}
+
+/**
+ * Synara 1.0.8 made `typescript` a production dependency for the Beta native
+ * editor's language worker. Pruning it is safe only while that worker is the
+ * one bundle importing it; loud on purpose, like the Shiki check above.
+ */
+function assertOnlyLanguageWorkerLoadsTypeScript(distRoot) {
+  const importers = readdirSync(distRoot).filter((entry) =>
+    entry.endsWith(".mjs")
+    && /(?:from\s*|import\(\s*)"typescript"/.test(readFileSync(join(distRoot, entry), "utf8")));
+  if (importers.some((entry) => entry !== "languageWorker.mjs")) {
+    throw new Error(
+      `The Synara server bundle imports typescript outside the native editor's language worker (${importers.join(", ")}). `
+        + "Re-check the typescript prune in pruneServerRuntime against the pinned runtime.",
     );
   }
 }
