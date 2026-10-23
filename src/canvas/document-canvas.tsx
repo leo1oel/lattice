@@ -63,6 +63,7 @@ import {
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
 import { OpenSlideDeckPool } from "./open-slide-deck-pool";
+import { useSharedDeckProps } from "./use-shared-deck-props";
 import { AfterSwitch } from "./after-switch";
 import type { DocumentCanvasProps } from "./canvas-model";
 import { ProjectAssetPreview } from "./project-asset-preview";
@@ -217,14 +218,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
   const activeDeck = useMemo(() => (
     activeDeckSource === null ? null : { path: activeFile, source: activeDeckSource, editable: props.document.editorEditable }
   ), [activeDeckSource, activeFile, props.document.editorEditable]);
-  const deckSettings = useMemo(() => ({
-    projectRoot: props.preferences.projectRoot,
-    locale: props.preferences.locale,
-    theme: props.preferences.theme,
-    onMutation: props.assets.onOpenSlideMutation,
-    onContext: props.assets.onOpenSlideContext,
-    onError: props.assets.onOpenSlideError,
-  }), [props.preferences.locale, props.assets.onOpenSlideContext, props.assets.onOpenSlideError, props.assets.onOpenSlideMutation, props.preferences.projectRoot, props.preferences.theme]);
+  const deckSettings = useSharedDeckProps(props.preferences, props.assets);
   const markdownDocument = Boolean(props.document.activePaper)
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.document.activePaper && isHtmlFilePath(activeFile);

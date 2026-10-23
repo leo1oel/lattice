@@ -171,14 +171,13 @@ test("centers vertical slide previews with folios in the left gutter", async () 
   await transformTsx(transformed, { loader: "tsx" });
 });
 
-test("surfaces comment deletion failures and removes the manual apply instruction", async () => {
+test("surfaces comment deletion failures and keeps the comment island inside a narrow pane", async () => {
   const [{ source: hookSource, transformed: hook }, { transformed: layer }] = await Promise.all([
     patchCore(transformOpenSlideComments, "src/app/lib/inspector/use-comments.ts"),
     patchCore(transformOpenSlideComments, "src/app/components/inspector/comment-layer.tsx"),
   ]);
   assert.match(hook, /const body = \(await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)\) as \{ error\?: string \}/);
   assert.doesNotMatch(hook, /if \(!res\.ok\) throw new Error\(`DELETE/);
-  assert.doesNotMatch(layer, /apply-comments/);
   assert.match(layer, /@container absolute inset-x-0 bottom-3/);
   assert.match(layer, /w-max max-w-\[calc\(100cqw-2rem-26px\)\] whitespace-normal/);
   assert.equal(layer.match(/absolute w-72 max-w-\[calc\(100%-1rem\)\] origin-top-left/g)?.length, 2);
@@ -315,14 +314,12 @@ test("uses Lattice-specific connection and theme guidance", async () => {
   assert.match(en, /The agent can still edit deck files/);
   assert.match(en, /noThemesHintPrefix: 'Ask Lattice AI to create one, or enter '/);
   assert.match(en, /choose Create Theme from the slash menu/);
-  assert.match(en, /commentsApplyHintPrefix: 'Included automatically with your next Lattice AI message\.'/);
-  assert.match(en, /commentsApplyHintSuffix: ''/);
+  assert.match(en, /openTitle: 'Ask Lattice AI'/);
   assert.match(zh, /agentDisconnected: '页面上下文未同步'/);
   assert.match(zh, /Agent 仍可编辑演示文稿文件/);
   assert.match(zh, /noThemesHintPrefix: '让 Lattice AI 为你创建主题/);
   assert.match(zh, /从斜杠菜单中选择“创建主题”/);
-  assert.match(zh, /commentsApplyHintPrefix: '这些评论会自动包含在你发送给 Lattice AI 的下一条消息中。'/);
-  assert.match(zh, /commentsApplyHintSuffix: ''/);
+  assert.match(zh, /openTitle: '询问 Lattice AI'/);
   assert.equal(transformOpenSlideConnectionCopy(enSource, "/project/locale/en.ts"), null);
   await Promise.all([en, zh].map((source) => transformTsx(source, { loader: "ts" })));
 });

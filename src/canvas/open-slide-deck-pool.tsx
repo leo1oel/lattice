@@ -26,7 +26,7 @@ type DeckProps = ComponentProps<typeof OpenSlideWorkspace>;
 export type ActiveDeck = Pick<DeckProps, "path" | "source" | "editable">;
 
 /** What every deck shares with the app: its settings follow it, and its callbacks act only while it is active. */
-export type SharedDeckProps = Pick<DeckProps, "projectRoot" | "locale" | "theme" | "onMutation" | "onContext" | "onError">;
+export type SharedDeckProps = Pick<DeckProps, "projectRoot" | "locale" | "theme" | "onMutation" | "onContext" | "onError" | "onAgentRequest">;
 
 /** The decks to keep: every still-open one, the active one with its current props. */
 function reconcileDecks(

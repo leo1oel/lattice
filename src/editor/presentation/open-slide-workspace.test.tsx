@@ -409,4 +409,48 @@ describe("OpenSlideWorkspace", () => {
       expect(runtimeEvents.eventRequests()).toHaveLength(1);
     });
   });
+
+  describe("agent requests", () => {
+    const request = (fields: Record<string, unknown> = {}) => ({
+      type: "lattice:agent-request", version: 1, kind: "apply-comments", slideId: "research-update", nonce: "n-1", ...fields,
+    });
+    const post = (data: unknown, { source, origin = runtime.origin }: { source?: MessageEventSource | null; origin?: string } = {}) => {
+      const frame = screen.getByTitle(FRAME_TITLE) as HTMLIFrameElement;
+      window.dispatchEvent(new MessageEvent("message", { data, origin, source: source === undefined ? frame.contentWindow : source }));
+    };
+
+    it("forwards each of the deck's requests once, naming the deck for all but a new draft", async () => {
+      const onAgentRequest = vi.fn();
+      render(workspace({ onAgentRequest }));
+      await screen.findByTitle(FRAME_TITLE);
+
+      post(request());
+      post(request());
+      post(request({ kind: "open", nonce: "n-2" }));
+      post(request({ kind: "draft-deck", slideId: "", nonce: "n-3" }));
+
+      expect(onAgentRequest.mock.calls).toEqual([
+        [{ kind: "apply-comments", deckPath: "slides/research-update/index.tsx" }],
+        [{ kind: "open", deckPath: "slides/research-update/index.tsx" }],
+        [{ kind: "draft-deck", deckPath: null }],
+      ]);
+    });
+
+    it("ignores other frames and origins, other decks, unknown kinds and an inactive deck", async () => {
+      const onAgentRequest = vi.fn();
+      const { rerender } = render(workspace({ onAgentRequest }));
+      await screen.findByTitle(FRAME_TITLE);
+
+      post(request(), { source: window });
+      post(request(), { origin: "http://127.0.0.1:9" });
+      post(request({ slideId: "other-deck" }));
+      post(request({ kind: "delete-deck" }));
+      post(request({ version: 2 }));
+      post(request({ nonce: "" }));
+      rerender(workspace({ onAgentRequest, active: false }));
+      post(request({ nonce: "n-inactive" }));
+
+      expect(onAgentRequest).not.toHaveBeenCalled();
+    });
+  });
 });

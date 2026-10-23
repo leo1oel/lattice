@@ -39,6 +39,16 @@ describe.each([
       "set `meta.theme` to the theme id",
       "does not inherit later theme edits automatically",
     ],
+    "drafts a new deck page by page": [
+      "Write a new deck page by page",
+      "then add each remaining page and its notes with a separate edit",
+    ],
+    "applies Open Slide comments when asked, not with every message": [
+      "Apply them when the message asks you to",
+      "comment island's Apply button",
+      "otherwise leave them pending",
+      "Never tell the user to run `/apply-comments`",
+    ],
   }],
   ["create-theme", {
     "is discoverable as create-theme in the AI command menu": [

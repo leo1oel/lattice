@@ -30,12 +30,16 @@ If themes exist but the user did not specify a visual direction, offer the relev
 When applying a theme, copy its concrete design and components into the deck source and set `meta.theme` to the theme id so Open Slide can link the deck back to the theme.
 Theme files are authoring-time specifications, so an existing deck does not inherit later theme edits automatically.
 
+Write a new deck page by page so the user can follow along on the canvas, which reloads after every write.
+First create the entry file with the imports, `meta`, `design`, and the cover page only, then add each remaining page and its notes with a separate edit, keeping the file compiling after every write.
+
 When the Lattice host context contains `presentation`, treat it as the live Open Slide cursor for the current turn.
 Use `presentation.pagePath`, `pageIndex`, and `pageNumber` to resolve references such as “this slide,” and use `presentation.selection.line` and `column` as the source handle for references such as “this heading.”
 Re-check the current host context on every turn that uses such a reference because the user can navigate or select another element between turns.
 
-Open Slide comments arrive automatically in `presentation.pendingComments` with the next user message.
-Unless that message is clearly unrelated to the deck or asks to leave the comments pending, treat every pending comment as a requested edit: find its `@slide-comment` marker by id in `presentation.pagePath`, apply the note to the enclosing JSX element, and remove only that marker after the edit succeeds while preserving any JSX that shares its source line.
+Open Slide comments arrive automatically in `presentation.pendingComments` with every user message.
+Apply them when the message asks you to, such as the request to apply the pending comments that the comment island's Apply button sends, or when it plainly refers to them; otherwise leave them pending, and mention them only when they bear on the request.
+To apply the pending comments, treat every one as a requested edit: find its `@slide-comment` marker by id in `presentation.pagePath`, apply the note to the enclosing JSX element, and remove only that marker after the edit succeeds while preserving any JSX that shares its source line.
 `page` is the 0-based page the comment was left on.
 A comment with a `rect` covers a region the user dragged across, in pixels on the 1920×1080 page from its top-left corner: apply the note to the children of the enclosing element that fall inside that region, not to the whole element.
 Process multiple markers from the bottom of the file upward, preserve ambiguous markers rather than guessing, and verify that every applied comment disappeared from the source.

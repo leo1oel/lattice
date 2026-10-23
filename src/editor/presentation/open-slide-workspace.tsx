@@ -21,6 +21,7 @@ import {
   type OpenSlideMutation,
   type OpenSlideSyncOperation,
 } from "./open-slide-bridge";
+import { parseOpenSlideAgentRequest, type OpenSlideAgentRequest } from "./open-slide-agent-request";
 import { onProjectFilesChanged } from "../../project/project-files-changed";
 import "./open-slide-workspace.css";
 
@@ -49,6 +50,8 @@ export type OpenSlideWorkspaceProps = {
   onMutation: (mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>;
   onContext?: (context: OpenSlideContext | null) => void;
   onError?: (message: string) => void;
+  /** The editor's Apply comments, Draft a deck and Ask AI, for the active deck only. */
+  onAgentRequest?: (request: OpenSlideAgentRequest) => void;
   initialViewState?: OpenSlideFileViewState;
   onViewState?: (state: OpenSlideFileViewState) => void;
 };
@@ -105,6 +108,7 @@ export function OpenSlideWorkspace({
   onMutation,
   onContext,
   onError,
+  onAgentRequest,
   initialViewState,
   onViewState,
 }: OpenSlideWorkspaceProps) {
@@ -131,14 +135,15 @@ export function OpenSlideWorkspace({
   const latestContextRef = useRef<OpenSlideContext | null>(null);
   const mutationInFlightRef = useRef(0);
   const requestNativeRefreshRef = useRef<() => void>(() => undefined);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   // App rebuilds these callbacks whenever the project or file tree refreshes.
   // No effect below may depend on their identity: re-running the event
   // effect aborted the stream about once a second, and each gap dropped the
   // Open Slide saves broadcast inside it; re-running the sync effects pushed
   // the old project source back over those saves.
-  const latest = useRef({ source, active, onMutation, onContext, onError, onViewState });
+  const latest = useRef({ source, active, onMutation, onContext, onError, onAgentRequest, onViewState });
   useEffect(() => {
-    latest.current = { source, active, onMutation, onContext, onError, onViewState };
+    latest.current = { source, active, onMutation, onContext, onError, onAgentRequest, onViewState };
   });
   useEffect(() => {
     // The event cursor is shared by every deck on this page, so a deck that
@@ -349,6 +354,22 @@ export function OpenSlideWorkspace({
     return () => controller.abort();
   }, [active, detached, path, runtime]);
 
+  useEffect(() => {
+    if (!active || detached || !runtime?.origin || !deckId) return;
+    const { origin } = runtime;
+    // The frame posts each click once, so a nonce seen before is a replay.
+    const seen = new Set<string>();
+    const receive = (event: MessageEvent) => {
+      if (event.source !== frameRef.current?.contentWindow || event.origin !== origin) return;
+      const request = parseOpenSlideAgentRequest(event.data, deckId);
+      if (!request || seen.has(request.nonce)) return;
+      seen.add(request.nonce);
+      latest.current.onAgentRequest?.({ kind: request.kind, deckPath: request.kind === "draft-deck" ? null : path });
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [active, deckId, detached, path, runtime]);
+
   const status = (role: "alert" | "status", children: ReactNode) => (
     <div className="open-slide-status" role={role} data-tour="open-slide-workspace">{children}</div>
   );
@@ -392,6 +413,7 @@ export function OpenSlideWorkspace({
   return (
     <div className="open-slide-workspace" data-tour="open-slide-workspace">
       <iframe
+        ref={frameRef}
         className="open-slide-frame"
         src={`${runtime.sessionUrl}${separator}locale=${encodeURIComponent(locale)}&theme=${encodeURIComponent(theme)}&next=${encodeURIComponent(next)}`}
         title={t({ message: `Open Slide editor for ${deckId}` })}

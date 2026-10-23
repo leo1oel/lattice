@@ -27,6 +27,7 @@ import { annotationRounds, revisable } from "./app/annotation-rounds";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useLivePreview } from "./live-preview/use-live-preview";
+import { openSlideComposerPrompt } from "./agent/agent-composer-prompt";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { isMissingPaperToolsError } from "./build/tex-setup";
@@ -65,7 +66,7 @@ import { collectFilePaths } from "./app/workspace-restore";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { projectPanelCommands } from "./app/project-panel-commands";
-import { writeOpenSlideMutation } from "./app/open-slide-writes";
+import { useApplyOpenSlideMutation } from "./app/use-apply-open-slide-mutation";
 import { AppOverleafCollabDrawer, AppOverleafMarginReview } from "./app/app-overleaf-drawer";
 import { requestMarginReviewHere, setMarginReviewMode } from "./overleaf/margin-review-mode";
 import { AppEditorPanels } from "./app/app-editor-panels";
@@ -90,11 +91,7 @@ import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./app/panel-toggles";
 import { REVEAL_IN_PDF_KEY } from "./pdf/pdf-keys";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
-import type {
-  OpenSlideContext,
-  OpenSlideMutation,
-  OpenSlideSyncOperation,
-} from "./editor/presentation/open-slide-bridge";
+import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
 import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
@@ -144,9 +141,7 @@ import type {
   CompileProject,
 } from "./app-types";
 import {
-  isOpenSlideDeckPath,
   isProjectAssetFilePath,
-  isProjectSourceFilePath,
   isWholeFileEditorPath,
   paperKey,
   resolveKnownWholeFileProjectPath,
@@ -155,7 +150,7 @@ import {
 import { logAction } from "./telemetry/app-notify";
 // setError / setWarning / setNotice are the toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
-import { showError, showWarning, showingErrors } from "./app/notify";
+import { showError, showingErrors } from "./app/notify";
 import "./App.css";
 
 const loadTexlabLanguage = () => import("./build/texlab-language");
@@ -647,36 +642,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     externalOverleafEditsRef.current = overleafRealtime.suspendPaths;
   }, [overleafRealtime.suspendPaths]);
 
-  const applyOpenSlideMutation = useCallback(async (
-    mutation: OpenSlideMutation,
-  ): Promise<OpenSlideSyncOperation[]> => {
-    const projectRoot = projectRef.current?.root;
-    if (!projectRoot) throw new Error(t`The project closed before the Open Slide edit could be saved.`);
-    const written = await writeOpenSlideMutation(mutation, projectRoot, () => projectRef.current?.root === projectRoot);
-    if (written.text !== undefined) accept(mutation.path, written.text);
-    if (written.hadConflicts) {
-      const path = mutation.path;
-      showWarning(t`Open Slide and another editor changed the same lines in ${path}; Lattice kept both with conflict markers.`);
-    }
-    const snapshot = await refreshProject();
-    await refreshHistory();
-    const deckPath = [mutation.path, activeFileRef.current].find(isOpenSlideDeckPath);
-    if (deckPath) recordSavedPaths([deckPath]);
-    if (mutation.kind === "delete" && activeFileRef.current === mutation.path) {
-      const replacement = flattenProjectPaths(snapshot.files).find((candidate) => (
-        candidate !== mutation.path && isProjectSourceFilePath(candidate)
-      ));
-      if (replacement) await loadFile(replacement, { restoreView: false });
-      else clearEditor();
-    }
-    return mutation.kind === "delete"
-      ? [{ path: mutation.path, kind: "delete" }]
-      : [{
-          path: mutation.path,
-          kind: mutation.kind,
-          ...(written.text !== undefined ? { text: written.text } : { base64: written.base64 }),
-        }];
-  }, [accept, activeFileRef, clearEditor, loadFile, projectRef, recordSavedPaths, refreshHistory, refreshProject, t]);
+  const applyOpenSlideMutation = useApplyOpenSlideMutation({
+    projectRef, activeFileRef, accept, recordSavedPaths, refreshProject, refreshHistory, loadFile, clearEditor,
+  });
 
   const openSources = useCallback(() => new Map([
     [activeFileRef.current, sourceRef.current],
@@ -1752,6 +1720,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         onOpenSlideMutation: applyOpenSlideMutation,
         onOpenSlideContext: setOpenSlideContext,
         onOpenSlideError: showError,
+        onOpenSlideAgentRequest: (request) => {
+          const root = projectRef.current?.root;
+          if (!root) return;
+          trellis.showPanel("agent");
+          synara.sendComposerPrompt(openSlideComposerPrompt(request, root));
+        },
         onPrepareFigure: tree.prepareLatexFigure,
         onPasteImageFile: tree.pasteImageFile,
         nativeFigureDropActive: tree.drops.editor,
