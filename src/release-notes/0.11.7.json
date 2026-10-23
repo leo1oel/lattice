@@ -1,0 +1,19 @@
+{
+  "version": "0.11.7",
+  "date": "2026-10-23",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "A calmer interface: taglines, helper text and secondary labels are gone across the app.",
+      "zh": "界面更清爽：全应用移除了标语、辅助说明和次要标签。"
+    },
+    {
+      "en": "Overleaf: documents created in the browser now sync as tracked suggestions when track changes is on.",
+      "zh": "Overleaf：开启修订跟踪时，在浏览器中新建的文档现在会以修订建议的形式同步。"
+    },
+    {
+      "en": "Pinned folders at the top of the file tree stay clean while you scroll fast.",
+      "zh": "快速滚动时，文件树顶部固定的文件夹保持整洁。"
+    }
+  ]
+}
