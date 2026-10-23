@@ -18,7 +18,10 @@ const SEQUENCE = { steps: [], pages: null, synctex: null, issue: null };
 const succeeded = (seconds: number, counts = NO_DIAGNOSTICS) => (
   { status: "succeeded", seconds, counts, rootDocument: "main.tex", finishedAt: Date.now(), ...SEQUENCE } as const
 );
-const failed = () => ({ status: "failed", counts: { ...NO_DIAGNOSTICS, error: 1 }, rootDocument: "main.tex", finishedAt: Date.now(), ...SEQUENCE } as const);
+/** `wrotePdf`: TeX carried on past the error and the PDF on screen is this build's. */
+const failed = (wrotePdf = false) => (
+  { status: "failed", wrotePdf, counts: { ...NO_DIAGNOSTICS, error: 1 }, rootDocument: "main.tex", finishedAt: Date.now(), ...SEQUENCE } as const
+);
 
 /** Every kind of document a document panel can hold, with the tools its header carries. */
 const DOCUMENTS: Array<{ name: string; key: string; kind: TrellisTabKind; tools: ReturnType<typeof documentTools> }> = [
@@ -165,6 +168,11 @@ describe("the Build button's report of the last build", () => {
     cleanup();
     const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
     expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error · main.tex · just now");
+    cleanup();
+    // A failure whose PDF is on screen, errors and all, says it built.
+    const withErrors = renderTools(tex, { active: true }, { lastBuild: failed(true) });
+    expect(shown(withErrors.container)).toMatchObject({ state: "is-failed" });
+    expect(withErrors.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built with 1 error · main.tex · just now");
   });
 
   // Vitest empties CSS imports, so the button's stylesheet and the app's

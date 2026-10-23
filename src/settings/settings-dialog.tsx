@@ -78,7 +78,12 @@ export type SettingsDialogProps = DoctorSettingsProps & {
   setBuildPreferences: (preferences: BuildPreferences) => void;
   hasProject: boolean;
   project: ProjectSnapshot | null;
-  onUpdateManifest: (patch: { engine?: string | null; trusted?: boolean | null; spellingWords?: string[] | null }) => void;
+  onUpdateManifest: (patch: {
+    engine?: string | null;
+    trusted?: boolean | null;
+    stopOnFirstError?: boolean | null;
+    spellingWords?: string[] | null;
+  }) => void;
   /** The LuaLaTeX live preview: its switch shows for a LuaLaTeX project. */
   livePreview?: LivePreview;
   onCleanProject: () => void;
@@ -575,6 +580,14 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
               label={t`Allow shell escape`}
               checked={props.project.manifest.trusted}
               onChange={(trusted) => props.onUpdateManifest({ trusted })}
+            />
+            {/* Off, TeX carries on past errors as Overleaf does: every error
+                is listed and the pages that typeset reach the PDF. */}
+            <SwitchField
+              data-setting="stop-on-first-error"
+              label={t`Stop on first error`}
+              checked={props.project.manifest.stopOnFirstError ?? false}
+              onChange={(stopOnFirstError) => props.onUpdateManifest({ stopOnFirstError })}
             />
             {props.livePreview && <LivePreviewSettings livePreview={props.livePreview} />}
           </>

@@ -7,25 +7,35 @@ use super::paths::{safe_path, stays_inside};
 use crate::models::{ProjectDeadline, ProjectManifest, SubmissionItem};
 use std::path::Path;
 
-/// Apply what the settings dialog, the budget editor and the build panel's
-/// engine actions change; `None` keeps a setting and a `Some(None)` budget
-/// clears it.
+/// What the settings dialog, the budget editor and the build panel's engine
+/// actions change. `None` keeps a setting and a `Some(None)` budget clears it.
+#[derive(Debug, Default)]
+pub struct ManifestSettings {
+    pub engine: Option<String>,
+    pub keep_engine: Option<bool>,
+    pub trusted: Option<bool>,
+    pub stop_on_first_error: Option<bool>,
+    pub word_budget: Option<Option<u32>>,
+    pub page_budget: Option<Option<u32>>,
+}
+
 pub fn update_manifest_settings(
-    root: &Path, engine: Option<String>, keep_engine: Option<bool>, trusted: Option<bool>,
-    word_budget: Option<Option<u32>>, page_budget: Option<Option<u32>>,
+    root: &Path, settings: ManifestSettings,
 ) -> Result<ProjectManifest, String> {
     let mut manifest = read_manifest(root)?;
-    if let Some(engine) = engine {
+    if let Some(engine) = settings.engine {
         let normalized = engine.trim().to_ascii_lowercase();
         if !matches!(normalized.as_str(), "pdf" | "xelatex" | "lualatex") {
             return Err("Choose pdf, xelatex, or lualatex.".to_string());
         }
         manifest.engine = normalized;
     }
-    manifest.keep_engine = keep_engine.unwrap_or(manifest.keep_engine);
-    manifest.trusted = trusted.unwrap_or(manifest.trusted);
-    manifest.word_budget = word_budget.unwrap_or(manifest.word_budget);
-    manifest.page_budget = page_budget.unwrap_or(manifest.page_budget);
+    manifest.keep_engine = settings.keep_engine.unwrap_or(manifest.keep_engine);
+    manifest.trusted = settings.trusted.unwrap_or(manifest.trusted);
+    manifest.stop_on_first_error =
+        settings.stop_on_first_error.unwrap_or(manifest.stop_on_first_error);
+    manifest.word_budget = settings.word_budget.unwrap_or(manifest.word_budget);
+    manifest.page_budget = settings.page_budget.unwrap_or(manifest.page_budget);
     write_manifest(root, &manifest)?;
     Ok(manifest)
 }
@@ -163,18 +173,25 @@ mod tests {
         let root = &fixture.root;
         let updated = update_manifest_settings(
             root,
-            Some("xelatex".into()),
-            None,
-            Some(true),
-            Some(Some(5000)),
-            Some(Some(9)),
+            ManifestSettings {
+                engine: Some("xelatex".into()),
+                trusted: Some(true),
+                stop_on_first_error: Some(true),
+                word_budget: Some(Some(5000)),
+                page_budget: Some(Some(9)),
+                ..ManifestSettings::default()
+            },
         )
         .unwrap();
         assert_eq!(updated.engine, "xelatex");
-        assert!(updated.trusted);
+        assert!(updated.trusted && updated.stop_on_first_error);
         assert_eq!((updated.word_budget, updated.page_budget), (Some(5000), Some(9)));
-        assert!(update_manifest_settings(root, Some("tectonic".into()), None, None, None, None)
-            .is_err());
+        let engine = |engine: &str| ManifestSettings {
+            engine: Some(engine.into()),
+            ..ManifestSettings::default()
+        };
+        assert!(update_manifest_settings(root, engine("tectonic")).is_err());
+        assert!(read_manifest(root).unwrap().stop_on_first_error, "a setting it left alone stays");
         let words = ["TexLab", "VLM", "texlab"].map(String::from).to_vec();
         assert_eq!(set_spelling_words(root, words).unwrap().spelling_words, vec!["TexLab", "VLM"]);
         assert_eq!(read_manifest(root).unwrap().engine, "xelatex");

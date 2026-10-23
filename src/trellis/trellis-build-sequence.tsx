@@ -94,7 +94,8 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   const steps = (building ? progress?.steps : outcome?.steps) ?? [];
   const lasted = (step: BuildStep) => step.durationMs ?? Math.max(0, (elapsed ?? 0) - step.startedMs);
   const failed = !building && outcome?.status === "failed";
-  // latexmk halts on the first error, so a failed build stopped in its last real pass.
+  // A failed build's errors are its last real pass's: latexmk stops there, or
+  // carries on past them to finish there.
   const failedAt = failed ? steps.reduce((at, step, index) => step.draft ? at : index, -1) : -1;
   const stateOf = (step: BuildStep, index: number): StepState =>
     step.durationMs === null ? "running" : index === failedAt ? "failed" : "done";
@@ -123,7 +124,9 @@ export function BuildSequence({ building, progress: progressStore, outcome, plac
   return (
     <div className="build-sequence" data-building={building || undefined}>
       <div className="build-sequence-head">
-        <strong className="build-sequence-verdict">{building ? t`Building…` : failed ? t`Build failed` : t`Built`}</strong>
+        <strong className="build-sequence-verdict">
+          {building ? t`Building…` : !failed ? t`Built` : outcome?.status === "failed" && outcome.wrotePdf ? t`Built with errors` : t`Build failed`}
+        </strong>
         {facts && <span className="build-sequence-facts">{facts}</span>}
         {place && <span className="build-sequence-place">{place}</span>}
       </div>

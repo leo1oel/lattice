@@ -151,6 +151,8 @@ export function CompileDiagnosticsPanel(props: {
   diagnostics: CompileDiagnostic[];
   log: string;
   success: boolean;
+  /** A failed build whose PDF is on screen: TeX carried on past its errors. */
+  wrotePdf?: boolean;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (diagnostic: CompileDiagnostic) => void;
@@ -181,7 +183,7 @@ export function CompileDiagnosticsPanel(props: {
   const [docked, setDocked] = useDockedPreference();
   if (props.success && !diagnostics.length && !props.repair) return null;
   // The same sentence the Build button's tip gives for this build.
-  const title = diagnostics.length || !props.success ? buildHeadline(props.success, summary) : t`Build notes`;
+  const title = diagnostics.length || !props.success ? buildHeadline(props.success, summary, props.wrotePdf) : t`Build notes`;
   const busy = props.repair && !["completed", "failed"].includes(props.repair.status);
   const progress = props.repair?.status === "compiling" ? t`Recompiling…`
     : props.repair?.status === "awaiting-approval" ? t`Needs approval` : t`Repairing…`;

@@ -208,14 +208,28 @@ pub async fn refresh_project(
 #[allow(clippy::too_many_arguments)]
 pub async fn update_project_manifest(
     state: State<'_, AppState>, window: Window, engine: Option<String>, keep_engine: Option<bool>,
-    trusted: Option<bool>, word_budget: Option<u32>, page_budget: Option<u32>,
-    clear_word_budget: Option<bool>, clear_page_budget: Option<bool>,
+    trusted: Option<bool>, stop_on_first_error: Option<bool>, word_budget: Option<u32>,
+    page_budget: Option<u32>, clear_word_budget: Option<bool>, clear_page_budget: Option<bool>,
 ) -> Result<ProjectManifest, String> {
-    let words = if clear_word_budget.unwrap_or(false) { Some(None) } else { word_budget.map(Some) };
-    let pages = if clear_page_budget.unwrap_or(false) { Some(None) } else { page_budget.map(Some) };
+    let settings = project::ManifestSettings {
+        engine,
+        keep_engine,
+        trusted,
+        stop_on_first_error,
+        word_budget: if clear_word_budget.unwrap_or(false) {
+            Some(None)
+        } else {
+            word_budget.map(Some)
+        },
+        page_budget: if clear_page_budget.unwrap_or(false) {
+            Some(None)
+        } else {
+            page_budget.map(Some)
+        },
+    };
     let root = current_root(&state, &window)?;
     run_blocking("Project settings update", move || {
-        project::update_manifest_settings(&root, engine, keep_engine, trusted, words, pages)
+        project::update_manifest_settings(&root, settings)
     })
     .await
 }

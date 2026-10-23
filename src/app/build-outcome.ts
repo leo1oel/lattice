@@ -8,7 +8,11 @@ import { sortDiagnostics, summarizeDiagnostics, type CompileDiagnostic, type Dia
  * null when there is nothing to report (no build yet, a new project, or a
  * build the writer stopped).
  */
-export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status: "failed" }) & {
+export type BuildOutcome = ({ status: "succeeded"; seconds: number } | {
+  status: "failed";
+  /** TeX carried on past the errors and the PDF on screen is this build's, errors and all. */
+  wrotePdf: boolean;
+}) & {
   counts: DiagnosticCounts;
   rootDocument: string | null;
   finishedAt: number;
@@ -23,7 +27,7 @@ export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status:
 };
 
 /** The outcome a finished pass reports; null for one the writer stopped. */
-export function buildOutcome(result: BuildResult, cancelled: boolean, quiet: boolean): BuildOutcome | null {
+export function buildOutcome(result: BuildResult, cancelled: boolean, quiet: boolean, wrotePdf: boolean): BuildOutcome | null {
   const issue = sortDiagnostics(result.diagnostics).find((item) => item.level === "error" || item.level === "warning") ?? null;
   const report = {
     counts: summarizeDiagnostics(result.diagnostics),
@@ -36,13 +40,13 @@ export function buildOutcome(result: BuildResult, cancelled: boolean, quiet: boo
   };
   return result.success
     ? { status: "succeeded", seconds: result.durationMs / 1000, ...report, ...(quiet && { quiet: true as const }) }
-    : cancelled ? null : { status: "failed", ...report };
+    : cancelled ? null : { status: "failed", wrotePdf, ...report };
 }
 
 /** The outcome of a build the backend refused outright: no passes, no diagnostics. */
 export function rejectedBuildOutcome(): BuildOutcome {
   return {
-    status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now(),
+    status: "failed", wrotePdf: false, counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now(),
     steps: [], pages: null, synctex: null, issue: null,
   };
 }

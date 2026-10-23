@@ -143,7 +143,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const warned = lastBuild?.status === "succeeded" && lastBuild.counts.error + lastBuild.counts.warning > 0;
     const headline = building
       ? t`Building…`
-      : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts) : null;
+      : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts, lastBuild.status === "failed" && lastBuild.wrotePdf) : null;
     // What happened is followed by which document, how long the compile took
     // and how long ago it ended.
     const facts = !building && lastBuild

@@ -133,6 +133,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         trusted: false,
         engine: venue.engine().to_string(),
         keep_engine: false,
+        stop_on_first_error: false,
         venue: venue.as_str().to_string(),
         word_budget: None,
         page_budget: (venue != Venue::Blank).then(|| venue.page_budget()),

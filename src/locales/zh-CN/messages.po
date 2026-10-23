@@ -2233,6 +2233,15 @@ msgstr "编译成功"
 msgid "Built with {issues}"
 msgstr "编译成功，有 {issues}"
 
+#: src/build/build-result-text.ts
+msgctxt "a failed build whose PDF was still written"
+msgid "Built with {issues}"
+msgstr "已生成 PDF，有 {issues}"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "Built with errors"
+msgstr "已生成 PDF，有错误"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
 msgstr "实心圆点"
@@ -11547,6 +11556,11 @@ msgstr "停止"
 #: src/App.tsx
 msgid "Stop build"
 msgstr "停止编译"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Stop on first error"
+msgstr "遇到首个错误即停止"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"

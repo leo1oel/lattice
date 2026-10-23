@@ -85,6 +85,7 @@ pub use manifest::{
 };
 pub use manifest_settings::{
     set_deadline, set_spelling_words, set_submission_items, update_manifest_settings,
+    ManifestSettings,
 };
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};

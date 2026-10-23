@@ -37,6 +37,10 @@ pub struct ProjectManifest {
     /// project's engine alone from then on (latex/engine_mismatch.rs).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub keep_engine: bool,
+    /// Builds stop at the first LaTeX error (`-halt-on-error`) instead of
+    /// carrying on past every error, Overleaf's default (latex/build.rs).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stop_on_first_error: bool,
     #[serde(default = "default_venue")]
     pub venue: String,
     #[serde(default)]
