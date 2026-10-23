@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-10-23 against upstream
 `v1.0.8` (`d7542782fd52a1dedf9634e1765ab62fa60e259f`), the current integration changes
-**760 files, +85,025 / −8,467 lines**. It carries embedded-workspace UI, a skills manager,
+**761 files, +85,042 / −8,469 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -138,3 +138,16 @@ Read-only tools no longer refresh Git, and pull-request status refreshes at turn
 Devin and Grok model switches start a fresh native session instead of resuming an incompatible one, Droid avoids a duplicated transcript bootstrap, stopped-but-retained OpenCode sessions no longer trap later turns, and a moved or missing project folder is reported as such before executable resolution instead of as a missing Claude installation.
 A message edit that restores an earlier Git workspace first keeps a hidden recovery checkpoint, and refuses the edit if it cannot capture one, retained under a hidden Git ref (never shown in the chat or in Changes).
 Desktop frame capture and browser-console quiescing, Windows process observers and Beta connector token reuse are standalone or Beta-only surfaces that Lattice does not embed.
+
+## Synara 1.0.8 compatibility
+
+1.0.8 adds a running-subagents capsule above the composer: while any of the chat's subagents works, during the turn or after it settles, it reads "N agents running" and scrolls to the newest one's card when clicked. Its copy is in the zh-CN catalog.
+The turn's diff is complete while the turn still runs: the live-changes capsule opens the captured patch of the running Codex turn instead of a partial one.
+Codex warnings that are not tied to a turn (approval-review and native runtime warnings) show in the chat, and a Codex chat whose resume falls back to a fresh session gets its transcript context back.
+Provider switches from the model picker go through Hand off, so a switch that cannot happen yet is refused with a localized notice that says why.
+At 768px and wider the panel's open-thread tabs gain a trailing + that starts a new chat in the same project (localized).
+Upstream also closes the active tab on Cmd/Ctrl+W, but the fork leaves that chord to Lattice in the embed at every width, so it still reaches Lattice's own Close Window, as it does in a narrow panel.
+The access-mode notices a Lattice permission change can raise are localized too.
+Upstream's Code OSS editor (Monaco with language services and a debugger) is Beta-only: the server refuses its RPCs and the web client keeps the Pierre engine on Stable, so Lattice never loads it. Its web client still ships in the bundle; the TypeScript compiler its language worker needs is pruned from the staged server.
+Hubs keeping requests and follow-ups together, Devin background work, the Environment panel's project actions and the top-bar visibility settings, Safari and Hyprland setup, and the sidebar and Spaces fixes are standalone surfaces that Lattice does not embed.
+Server-side, agent-booted simulators shut down once a turn settles and they are idle, terminals with large process tables are reused, SQLite reclaims deleted pages conservatively, and a retired per-turn MCP write credential is recovered and diagnosed.
