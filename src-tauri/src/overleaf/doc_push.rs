@@ -131,12 +131,13 @@ async fn send_all(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::overleaf::account::SessionFile;
+    use crate::overleaf::account::{load_session, save_session, SessionFile};
     use crate::overleaf::api::http_client;
-    use crate::overleaf::link::SyncState;
+    use crate::overleaf::link::{save_state, SyncState};
     use crate::overleaf_rt::mock_server::{
-        sent_updates as updates, serve_http, start_mock_serving,
+        sent_updates as updates, serve_http, start_mock_serving, MOCK_USER_ID,
     };
+    use crate::test_support::TempDir;
     use serde_json::{json, Value};
     use std::sync::{Arc, Mutex};
 
@@ -241,6 +242,21 @@ mod tests {
         push_docs(&remote(&host), &files(&[("data.csv", "x,z")])).unwrap();
         let updates = updates(&state);
         assert!(updates[0]["meta"]["tc"].is_string(), "{updates:?}");
+    }
+
+    #[test]
+    fn a_session_stored_without_its_account_id_still_suggests_when_tracked() {
+        let (host, state) = start_mock_serving(project(json!({MOCK_USER_ID: true})), &["x,y"]);
+        let (config, root) = (TempDir::new("doc-push-config"), TempDir::new("doc-push-project"));
+        let session = SessionFile { user_id: None, ..remote(&host).session };
+        save_session(&config, &session).unwrap();
+        save_state(&root, &remote(&host).state).unwrap();
+        let linked = Remote::open_for_sync(&config, &root).unwrap();
+        push_docs(&linked, &files(&[("data.csv", "x,z")])).unwrap();
+        let updates = updates(&state);
+        assert!(updates[0]["meta"]["tc"].is_string(), "{updates:?}");
+        // Looked up once: the next sync reads it from the stored session.
+        assert_eq!(load_session(&config).unwrap().user_id.as_deref(), Some(MOCK_USER_ID));
     }
 
     #[test]

@@ -69,6 +69,9 @@ pub(crate) fn sent_updates(state: &Arc<Mutex<MockState>>) -> Vec<Value> {
         .collect()
 }
 
+/// The account the mock's dashboard says is signed in.
+pub(crate) const MOCK_USER_ID: &str = "user-1";
+
 /// The mock's host, and what it has seen.
 pub(crate) fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
     start_mock_with(push_join, 60)
@@ -82,7 +85,16 @@ pub(crate) fn start_mock_with(push_join: bool, heartbeat: u64) -> (String, Arc<M
         let url = request.url().to_string();
         let upgrade = url.contains("/socket.io/1/websocket/");
         let (cookie, origin) = (header(&request, "Cookie"), header(&request, "Origin"));
-        lock(&seen).requests.push((url, cookie, origin));
+        lock(&seen).requests.push((url.clone(), cookie, origin));
+        if url == "/project" {
+            // The dashboard, where a session stored before the account id
+            // was recorded looks it up.
+            let page = Response::from_string(format!(
+                "<meta name=\"ol-user_id\" content=\"{MOCK_USER_ID}\">"
+            ));
+            let _ = request.respond(with_header(page, "Content-Type: text/html"));
+            return;
+        }
         if !upgrade {
             // Load balancers pin the realtime session with a cookie of their
             // own; the upgrade has to carry it back or it lands on another

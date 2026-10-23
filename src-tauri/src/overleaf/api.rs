@@ -3,7 +3,7 @@
 //! project downloads, and [`Remote`], the request context for a linked
 //! project. Uploads are `upload`'s.
 
-use super::account::{load_session, normalize_host, SessionFile};
+use super::account::{ensure_user_id, load_session, normalize_host, SessionFile};
 use super::files::is_excluded;
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
@@ -329,14 +329,21 @@ impl Remote {
     /// The linked project, ready to sync: not paused, and with the file table
     /// reduced to paths that still take part (the rules may have changed since
     /// it was written).
+    ///
+    /// A sync can send a document's edit over the live channel (see
+    /// `doc_push`), which reads the project's track-changes setting for our
+    /// account, so a session stored before the account id was recorded gets
+    /// it here, as the live connection does. Without it the setting reads as
+    /// an anonymous guest's and the edit goes in untracked.
     pub fn open_for_sync(config_dir: &Path, root: &Path) -> Result<Self, String> {
-        let session = load_session(config_dir)?;
+        let mut session = load_session(config_dir)?;
         let mut state = load_state(root)?;
         if state.paused {
             return Err(PAUSED.to_string());
         }
         state.files.retain(|path, _| !is_excluded(path));
         let host = sync_host(&state, &session)?;
+        ensure_user_id(config_dir, &mut session);
         Ok(Remote { session, state, host })
     }
 
