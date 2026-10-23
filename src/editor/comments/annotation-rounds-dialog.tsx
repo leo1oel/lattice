@@ -10,6 +10,7 @@ import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { EmptyState } from "../../components/ui/empty-state";
 import { IconButton } from "../../components/ui/icon-button";
 import { InlineMessage } from "../../components/ui/inline-message";
+import { LoadingAnnouncement } from "../../components/ui/loading-status";
 import { PanelHeader } from "../../components/ui/panel-header";
 import { SheetDialog } from "../../components/ui/sheet-dialog";
 import type { AnnotationRound, EditorComment } from "./editor-comment-data";
@@ -236,7 +237,7 @@ export function AnnotationRoundsDialog(props: {
   const restore = async () => {
     if (newer.kind === "now") return;
     const name = label(newer);
-    if (!await confirmAction(t`Restore the files the rounds touched to ${name}? The restore is added to the project history, so it can be undone there.`)) return;
+    if (!await confirmAction(t`Restore the files the rounds touched to ${name}?`)) return;
     const texts = textAt(newer);
     const files = [...texts].flatMap(([path, text]) => text === null || text === now?.get(path) ? [] : [{ path, text }]);
     if (!files.length) {
@@ -272,16 +273,22 @@ export function AnnotationRoundsDialog(props: {
                 setBase(null);
               }}
             >
-              <span className="annotation-version-name">{label(version)}</span>
-              <span className="annotation-version-detail">
-                {version.kind === "now"
-                  ? nowEdited ? t`Edited since the last round` : t`As the last round left it`
-                  : version.kind === "before"
-                    ? when(settled[0]?.startedAt)
-                    : [when(version.round!.settledAt), Object.keys(version.round!.outcomes).length === 1
-                      ? t`1 annotation`
-                      : t`${Object.keys(version.round!.outcomes).length} annotations`].join(" · ")}
+              <span className="annotation-version-name">
+                {label(version)}
+                {/* Now edited since the last round wears a dot, as a tab with unsaved changes does. */}
+                {version.kind === "now" && nowEdited && <i className="annotation-version-edited" aria-hidden="true" />}
               </span>
+              {version.kind === "now"
+                ? nowEdited && <span className="sr-only">{t`Edited since the last round`}</span>
+                : (
+                  <span className="annotation-version-detail">
+                    {version.kind === "before"
+                      ? when(settled[0]?.startedAt)
+                      : [when(version.round!.settledAt), Object.keys(version.round!.outcomes).length === 1
+                        ? t`1 annotation`
+                        : t`${Object.keys(version.round!.outcomes).length} annotations`].join(" · ")}
+                  </span>
+                )}
               {version.kind === "round" && <span className="annotation-version-tag">{outcome(version.round!)}</span>}
             </button>
           ))}
@@ -318,7 +325,10 @@ export function AnnotationRoundsDialog(props: {
           </div>
           {error && <InlineMessage level="error">{error}</InlineMessage>}
           {!snapshots || !now ? (
-            <p className="annotation-compare-loading"><InfinityLoader size={12} /> {t`Reading the rounds…`}</p>
+            <div className="annotation-compare-loading">
+              <InfinityLoader size={12} />
+              <LoadingAnnouncement message={t`Reading the rounds…`} />
+            </div>
           ) : !older ? (
             <EmptyState icon={<EmptyIllustration kind="history" />} description={t`This is the earliest version`} />
           ) : !changes.length ? (

@@ -7,6 +7,10 @@
 .figure-card { border-top: 1px solid var(--border-subtle); padding-block: var(--space-4); display: grid; gap: var(--space-3); min-width: 0; }
 .figure-use { padding-left: var(--space-3); border-left: 1px solid var(--border-subtle); min-width: 0; }
 .figure-preview { display: grid; gap: var(--space-2); min-width: 0; }
+/* A vector figure's chip stands where a raster one's pixel size would: after
+   the card's name, and in the preview. */
+.figure-inventory h3 > .figure-vector { margin-inline-start: var(--space-3); vertical-align: middle; }
+.figure-preview > .figure-vector { justify-self: start; }
 .figure-preview img { max-width: 100%; max-height: 180px; object-fit: contain; justify-self: start; }
 .figure-inventory select { display: block; width: 100%; min-width: 0; margin-top: var(--space-2); background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-2); }
 .figure-replacement { padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }

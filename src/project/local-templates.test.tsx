@@ -29,7 +29,7 @@ it("requires explicit file selection, saves metadata and selects the new templat
   expect(screen.getByRole("checkbox", { name: "main.tex" })).not.toBeChecked();
   fireEvent.click(screen.getByRole("checkbox", { name: "main.tex" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "figures/图.png" }));
-  fireEvent.change(screen.getByLabelText("Preview image (optional)"), { target: { value: "figures/图.png" } });
+  fireEvent.change(screen.getByLabelText("Preview image"), { target: { value: "figures/图.png" } });
   fireEvent.click(save);
   await waitFor(() => expect(onSelect).toHaveBeenCalledWith("local:new-id"));
   expect(api.invoke).toHaveBeenCalledWith("save_local_template", { source: null, template: expect.objectContaining({
@@ -67,6 +67,6 @@ it("labels saved versions and offers uppercase preview images", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save a local template…" }));
   fireEvent.click(screen.getByRole("button", { name: "From folder" }));
   fireEvent.click(await screen.findByRole("checkbox", { name: "figures/Preview.PNG" }));
-  fireEvent.change(screen.getByLabelText("Preview image (optional)"), { target: { value: "figures/Preview.PNG" } });
-  expect(screen.getByLabelText("Preview image (optional)")).toHaveValue("figures/Preview.PNG");
+  fireEvent.change(screen.getByLabelText("Preview image"), { target: { value: "figures/Preview.PNG" } });
+  expect(screen.getByLabelText("Preview image")).toHaveValue("figures/Preview.PNG");
 });

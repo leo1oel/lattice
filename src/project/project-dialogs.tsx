@@ -75,7 +75,7 @@ export function Welcome(props: {
       <WelcomeLattice />
       <div className="welcome-content">
         <div className="brand-mark"><LatticeMark size={34} motion="weave" /></div>
-        <h1>{t`Research, written with evidence`}</h1>
+        <h1>Lattice</h1>
         <div className="welcome-actions">
           <MotionButton
             className={buttonClassName({ variant: "primary" })}
@@ -154,7 +154,6 @@ export function CreateProjectDialog(props: {
   onClose: () => void;
 }) {
   const { t } = useLingui();
-  const venue = PROJECT_VENUES.find((item) => item.id === props.projectVenue) ?? PROJECT_VENUES[0];
   return (
     <ModalDialog label={t`Create a research project`} onClose={props.onClose}>
       <div className="modal create-project-modal">
@@ -174,18 +173,13 @@ export function CreateProjectDialog(props: {
             </SelectTrigger>
             <SelectContent className="venue-picker-content" position="popper" align="start">
               <SelectItem value="blank">{t`Blank article`}</SelectItem>
-              {PROJECT_VENUES.map((item) => (
-                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+              {PROJECT_VENUES.map(({ id, label: name }) => (
+                // The trigger shows the chosen item, so its edition and draft
+                // mode are part of the name: ICLR's style has no preprint mode.
+                <SelectItem key={id} value={id}>{id === "iclr" ? t`${name} 2026` : t`${name} 2026 · preprint`}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <small className="venue-picker-detail">
-            {props.projectVenue === "blank" ? t`An empty LuaLaTeX article with no venue style or page limit`
-              : props.projectVenue.startsWith("local:") ? t`Your saved template is selected below`
-              : venue.id === "iclr"
-              ? t`Official 2026 style`
-              : t`Official 2026 style · preprint draft`}
-          </small>
         </div>
         <Suspense fallback={null}>
           <ChunkGate chunk={loadLocalTemplates}>
@@ -217,12 +211,14 @@ export function RenameDialog(props: {
           : "equation"
   ));
   const [busy, setBusy] = useState(false);
-  const [title, copy] = {
+  // Only a rename that reaches past the cursor says where else it edits.
+  const presentations: Record<RenameTarget["kind"], [title: string, copy: string | null]> = {
     label: [t`Rename label`, t`Updates every \\ref to it`],
     citation: [t`Rename citation key`, t`Updates the .bib entry and every \\cite`],
-    environment: [t`Rename environment`, t`The \\begin and \\end under the cursor`],
-    "wrap-environment": [t`Wrap in environment`, t`Wraps the selection in \\begin…\\end`],
-  }[target.kind];
+    environment: [t`Rename environment`, null],
+    "wrap-environment": [t`Wrap in environment`, null],
+  };
+  const [title, copy] = presentations[target.kind];
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -233,7 +229,7 @@ export function RenameDialog(props: {
     <ModalDialog label={title} onClose={props.onClose} closeDisabled={busy}>
       <div className="modal rename-modal">
         <h2>{title}</h2>
-        <p>{copy}</p>
+        {copy && <p>{copy}</p>}
         <label>
           {t`Name`}
           <Input
@@ -300,17 +296,19 @@ export function ProjectMenu(props: {
         event.preventDefault();
       }}
     >
-      <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
-      {alternatives.map((item) => (
-        <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
-          <Folder />
-          <span className="truncate font-medium">{item.name}</span>
-        </DropdownMenuItem>
-      ))}
-      {!alternatives.length && (
-        <p className="px-2 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] text-muted-foreground">{t`No other recent projects yet`}</p>
+      {/* With no other project to go back to, the menu starts at its actions. */}
+      {alternatives.length > 0 && (
+        <>
+          <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
+          {alternatives.map((item) => (
+            <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
+              <Folder />
+              <span className="truncate font-medium">{item.name}</span>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+        </>
       )}
-      <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={props.onOpen}>
         <FolderOpen /> {t`Open another folder`}
       </DropdownMenuItem>

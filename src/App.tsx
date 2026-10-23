@@ -1278,7 +1278,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     // ⌘S reaches it through Save, which builds what it saved.
     { id: "build", when: inProject, label: t`Build project`, shortcut: commandCombo(saveCommand) ?? undefined, group: "build", run: () => void compileAndShowPdf(false, true) },
     saveCommand,
-    { id: "rebuild", when: inProject, label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: "build", recent: false, run: () => void cleanAndRebuild() },
+    { id: "rebuild", when: inProject, label: t`Clean rebuild`, keywords: "latexmk", group: "build", recent: false, run: () => void cleanAndRebuild() },
     { id: "clean", when: inProject, label: t`Clean aux files`, group: "build", recent: false, run: () => void cleanProject() },
     // Only ever wanted while a build runs, so never worth remembering.
     { id: "stop-build", when: building, label: t`Stop build`, group: "build", recent: false, run: () => void abortBuild() },
@@ -1313,7 +1313,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       run: () => trellis.switchWorkspaceAt(index),
     })),
     {
-      id: "focus-mode", when: inProject, label: focusMode ? t`Leave focus mode` : t`Focus mode`, detail: focusMode ? undefined : t`only the editor`,
+      id: "focus-mode", when: inProject, label: focusMode ? t`Leave focus mode` : t`Focus mode`,
       group: "layout", ...FOCUS_MODE_KEY, run: () => trellis.setFocus(!focusMode),
     },
     ...(focusMode ? [{
@@ -1351,7 +1351,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         : { source: t`Edit Markdown`, split: t`Edit and preview Markdown`, pdf: t`Preview Markdown` })[mode],
       run: () => documents.chooseMode(mode),
     })) : []),
-    { id: "table", when: latexSource, label: t`Insert table`, detail: t`Grid generator`, group: "edit", run: () => setTableGeneratorOpen(true) },
+    { id: "table", when: latexSource, label: t`Insert table`, group: "edit", run: () => setTableGeneratorOpen(true) },
     { id: "cite", when: latexSource, label: t`Insert citation`, group: "edit", key: "k", shift: true, run: () => setSearchDialog("cite") },
     { id: "ref", when: latexSource, label: t`Insert reference`, group: "edit", key: "l", shift: true, run: () => setSearchDialog("ref") },
     // The editor's own ⌘⌥P proofreads a selection; from here, the one the editor still holds.
@@ -1361,17 +1361,18 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       shortcut: mode === "proofread" ? { key: "p", mod: true, alt: true } : undefined,
       run: () => updateCanvasRequest("proofread", { mode, id: crypto.randomUUID() }),
     })),
-    { id: "bib", when: inProject, label: t`Add papers`, detail: t`DOIs, arXiv IDs, links, titles or BibTeX`, group: "research", run: () => referenceImport.openAddSheet() },
-    { id: "discover", when: inProject, label: t`Discover literature`, detail: t`OpenAlex search`, group: "research", run: () => tools.open("literature") },
+    { id: "bib", when: inProject, label: t`Add papers`, keywords: t`DOIs, arXiv IDs, links, titles or BibTeX`, group: "research", run: () => referenceImport.openAddSheet() },
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- the sources' own names, for search only
+    { id: "discover", when: inProject, label: t`Discover literature`, keywords: "alphaXiv OpenAlex", group: "research", run: () => tools.open("literature") },
     { id: "check-references", when: inProject, label: t`Check references`, group: "research", run: checkReferences },
-    { id: "find", when: inProject, label: t`Find in project`, detail: t`source files and papers`, group: "edit", key: "f", shift: true, run: openProjectFind },
-    { id: "replace", when: inProject, label: t`Replace in project`, detail: t`all source files`, group: "edit", key: "h", shift: true, run: openProjectReplace },
+    { id: "find", when: inProject, label: t`Find in project`, group: "edit", key: "f", shift: true, run: openProjectFind },
+    { id: "replace", when: inProject, label: t`Replace in project`, group: "edit", key: "h", shift: true, run: openProjectReplace },
     {
       id: "todos", when: inProject, label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: "edit",
       run: () => tools.open("todos"),
     },
     {
-      id: "checklist", when: inProject, label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: "edit",
+      id: "checklist", when: inProject, label: t`Submission checklist`, keywords: t`Words / pages / TODOs`, group: "edit",
       run: () => tools.open("checklist"),
     },
     { id: "annotations", when: inProject, label: t`Show annotations`, group: "edit", run: () => tools.open("comments") },
@@ -1381,11 +1382,11 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       run: () => annotationRounds.revise(),
     },
     { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: "edit", run: () => void tree.pasteClipboardImage() },
-    { id: "format", when: latexSource, label: t`Format document`, detail: "latexindent", group: "edit", run: formatFocusedDocument },
+    { id: "format", when: latexSource, label: t`Format document`, keywords: "latexindent", group: "edit", run: formatFocusedDocument },
     ...projectPanelCommands({ inProject, i18n, trellis, requestNewEntry }),
     { id: "history", when: inProject, label: t`Open project history`, group: "project", run: () => tools.open("history") },
-    { id: "export-zip", when: inProject, label: t`Export project ZIP`, detail: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
-    { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, detail: t`Checked, comments removed, builds alone`, group: "project", run: () => setArxivExportOpen(true) },
+    { id: "export-zip", when: inProject, label: t`Export project ZIP`, keywords: t`Overleaf source pack`, group: "project", run: () => void exportProjectZip() },
+    { id: "export-arxiv", when: inProject, label: t`Export for arXiv…`, group: "project", run: () => setArxivExportOpen(true) },
     { id: "new-project", label: t`New project`, group: "project", run: () => updateCreateForm({ open: true }) },
     { id: "open-folder", label: t`Open another folder`, group: "project", key: "o", run: () => void chooseExisting() },
     ...otherRecentProjects.map(({ name, path }, index): AppCommand => ({
@@ -1406,15 +1407,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     { id: "overleaf-sync", when: inProject && overleafLink !== null && !overleafSyncing, label: t`Sync with Overleaf`, group: "overleaf", run: syncOverleaf },
     { id: "overleaf-web", when: inProject && overleafLink !== null, label: t`Open this project on Overleaf`, group: "overleaf", run: () => void openCurrentOverleafProject() },
     // Margin review, as the View menu offers it (overleaf-margin-review.tsx); kept per window.
-    { id: "margin-review-auto", when: inProject && overleafLink !== null, label: t`Margin review: Auto`, detail: t`cards beside the text when there is room`, group: "view", run: () => setMarginReviewMode("auto") },
-    { id: "margin-review-markers", when: inProject && overleafLink !== null, label: t`Margin review: Markers only`, detail: t`full-width text, cards on demand`, group: "view", run: () => setMarginReviewMode("markers") },
+    { id: "margin-review-auto", when: inProject && overleafLink !== null, label: t`Margin review: Auto`, group: "view", run: () => setMarginReviewMode("auto") },
+    { id: "margin-review-markers", when: inProject && overleafLink !== null, label: t`Margin review: Markers only`, group: "view", run: () => setMarginReviewMode("markers") },
     { id: "margin-review-off", when: inProject && overleafLink !== null, label: t`Margin review: Off`, group: "view", run: () => setMarginReviewMode("off") },
     { id: "margin-review-here", when: inProject && overleafLink !== null, label: t`Review here`, detail: t`the comment or suggestion by the caret`, group: "view", run: requestMarginReviewHere },
     { id: "whats-new", label: t`What’s new in Lattice`, detail: RUNNING_VERSION, group: "project", run: () => whatsNew.setOpen(true) },
-    {
-      id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject(),
-      detail: t`Learn Lattice with the Understanding Attention sample project`,
-    },
+    { id: "tutorial", label: t`Open guided tutorial`, group: "project", run: () => void openTutorialProject() },
     { id: "doctor", label: t`Run TeX doctor`, group: "project", run: () => openSettings("doctor") },
     {
       id: "browser", group: "project", run: () => void moveWorkspace(),
@@ -2037,7 +2035,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
               importStageId={referenceImport.stage}
               importLabel={referenceImport.importLabel}
               justAdded={referenceImport.justAdded?.projectRoot === project.root ? referenceImport.justAdded.keys : undefined}
-              bibliographyName={project.manifest.primaryBibliography?.split("/").pop()}
               importing={referenceImport.importing}
               {...paperLibraryHandlers}
             />

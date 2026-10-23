@@ -39,7 +39,7 @@ export function ZoomControls({ scale, min, max, onScale, className, groupLabel, 
           <ZoomOut size={14} aria-hidden="true" />
         </button>
       </Tip>
-      <label ref={labelRef} className="asset-preview-zoom-value" title={t`Enter a zoom percentage or scroll to zoom`}>
+      <label ref={labelRef} className="asset-preview-zoom-value">
         <input
           aria-label={inputLabel}
           inputMode="decimal"

@@ -71,7 +71,8 @@ describe("batch repair controls", () => {
     const { rerender } = render(<CompileDiagnosticsPanel {...props} onFixAll={vi.fn()} fixDisabled />);
     expect(screen.getByRole("button", { name: "Fix all" })).toBeDisabled();
     rerender(<CompileDiagnosticsPanel {...props} repair={{ status: "awaiting-approval", threadId: "task" }} onOpenRepair={vi.fn()} />);
-    expect(screen.getByText("Open the repair task to continue.")).toBeInTheDocument();
+    // The bar's "Needs approval" and the footer's View repair say it; no extra line.
+    expect(document.querySelector(".compile-repair-detail")).toBeNull();
     expect(screen.getByRole("button", { name: "View repair" })).toBeEnabled();
     rerender(<CompileDiagnosticsPanel {...props} repair={{ status: "failed", message: "No diagnostics were submitted." }} />);
     expect(screen.getByRole("status")).toHaveTextContent("No diagnostics were submitted.");
@@ -158,9 +159,9 @@ describe("build output layout", () => {
     render(<CompileDiagnosticsPanel {...props} expanded log={failedLog} />);
     fireEvent.click(screen.getByRole("tab", { name: "Log" }));
     expect(screen.getByRole("textbox", { name: "Raw build log" })).toHaveValue(failedLog);
-    expect(screen.getByRole("button", { name: "Copy the whole build log" })).toHaveTextContent("Copy log");
+    expect(screen.getByRole("button", { name: "Copy log" })).toHaveTextContent("Copy log");
     fireEvent.click(screen.getByRole("tab", { name: "Messages" }));
-    expect(screen.queryByRole("button", { name: "Copy the whole build log" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy log" })).not.toBeInTheDocument();
   });
 
   it("docks below the page and remembers the choice for the next build", () => {
@@ -197,7 +198,9 @@ describe("explained build errors", () => {
     screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" });
     expect(document.querySelector(".compile-excerpt-line[data-failing] mark")?.textContent).toBe("\\cietp");
     screen.getByText("LaTeX doesn’t know \\cietp. It looks like a typo for \\citep, which this paper uses 2 times.");
-    screen.getByText("TeX: Undefined control sequence.");
+    // TeX's own words are the headline's hover, not a second visible line.
+    expect(screen.getByRole("button", { name: "main.tex:3 Unknown command \\cietp" })).toHaveAttribute("title", "TeX: Undefined control sequence.");
+    expect(screen.queryByText("TeX: Undefined control sequence.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Replace with/ }));
     expect(onReplaceToken).toHaveBeenCalledWith(typo, "\\cietp", "\\citep");
     fireEvent.click(screen.getByRole("button", { name: "Ask the agent" }));

@@ -148,7 +148,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
           {hasActions && (
             <div className="app-toast-actions">
               {options?.copyText && (
-                <CopyButton className={buttonClassName({ size: "compact" })} text={options.copyText} title={t`Copy notification command`}>
+                <CopyButton className={buttonClassName({ size: "compact" })} text={options.copyText}>
                   {t`Copy`}
                 </CopyButton>
               )}

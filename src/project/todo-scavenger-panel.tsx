@@ -49,7 +49,6 @@ export function TodoScavengerPanel(props: {
             fill
             icon={<ResearchArt drawing={NOTE_SPIKE} />}
             title={t`No TODO markers found`}
-            description={t`Markers left in any source file of the project are listed here`}
             actions={(
               <ul className="todo-empty-markers">
                 {MARKERS.map((marker) => <li key={marker}><code>{marker}</code></li>)}

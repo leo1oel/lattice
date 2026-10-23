@@ -35,10 +35,11 @@ describe("ConfirmActionProvider", () => {
     fireEvent.click(trigger);
 
     const dialog = await screen.findByRole("dialog", { name: "Delete “notes.tex” from this project?" });
-    expect(dialog).toHaveAccessibleDescription("This action cannot be undone");
+    // No caller detail: no generic body line, so nothing describes the dialog.
+    expect(dialog).not.toHaveAttribute("aria-describedby");
+    expect(dialog.querySelector(".confirm-action-modal > p")).toBeNull();
     expect(document.querySelector(".modal-backdrop"))
       .toHaveClass("confirm-action-backdrop");
-    expect(screen.getByText("This action cannot be undone")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
     expect(confirm).not.toHaveBeenCalled();
 

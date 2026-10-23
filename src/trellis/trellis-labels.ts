@@ -15,14 +15,16 @@ export function installTrellisLabels() {
     addAsTab: () => i18n._(msg`Add as tab`),
     moved: () => i18n._(msg`Moved`),
     releaseToFocus: () => i18n._(msg`Release to focus`),
-    releaseToFocusTarget: ({ title = "" }) => spaceMixedScript(i18n._(msg`Release to focus ${title} · Esc to cancel`)),
+    releaseToFocusTarget: ({ title = "" }) => spaceMixedScript(i18n._(msg`Release to focus ${title}`)),
     unavailable: () => i18n._(msg`Unavailable`),
     workspace: () => i18n._(msg`Workspace`),
     panelMenu: () => i18n._(msg`Panel menu`),
     resizePanels: () => i18n._(msg`Resize panels`),
     closeTab: ({ title = "" }) => spaceMixedScript(i18n._(msg`Close ${title}`)),
     groupPanels: ({ count = 0 }) => i18n._(msg`${count} panels. Double-click to zoom in.`),
-    doubleClickToZoomIn: () => i18n._(msg`Double-click to zoom in`),
+    // The overview's group outline carries no hint tooltip: an empty title
+    // is set as title="", which shows none.
+    doubleClickToZoomIn: () => "",
     restoreSize: () => i18n._(msg`Restore size`),
     maximize: () => i18n._(msg`Maximize`),
     dockBesideStage: () => i18n._(msg`Dock beside documents`),

@@ -131,7 +131,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
       { tab: "logs", label: t`Logs`, icon: "receipt" },
     ] },
-    { label: t`About`, items: [
+    // One item needs no heading over it: it stands apart by the group gap
+    // alone, and keeps the name for assistive technology.
+    { label: t`About`, unlabelled: true, items: [
       { tab: "acknowledgements", label: t`Acknowledgements`, icon: "chat" },
     ] },
   ] as const;
@@ -226,7 +228,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
     setNarrowPage(false);
     focusInModal(from, '.settings-nav-group > button[aria-current="page"]');
   };
-  const themeSummary = { system: t`Match system`, light: t`Light`, dark: t`Dark` }[props.themePreference];
   const openSearchResult = (entry: SettingsSearchEntry) => {
     setNarrowPage(true);
     props.setTab(entry.tab);
@@ -293,8 +294,13 @@ export function SettingsDialog(props: SettingsDialogProps) {
               onOpen={openSearchResult}
             />
             {!searchQuery.trim() && settingsNavGroups.map((group, groupIndex) => (
-              <div key={group.label} className="settings-nav-group" role="group" aria-labelledby={`settings-nav-${groupIndex}`}>
-                <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>
+              <div
+                key={group.label}
+                className="settings-nav-group"
+                role="group"
+                {...("unlabelled" in group ? { "aria-label": group.label } : { "aria-labelledby": `settings-nav-${groupIndex}` })}
+              >
+                {!("unlabelled" in group) && <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>}
                 {group.items.map((item) => (
                   <button
                     key={item.tab}
@@ -305,7 +311,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
                   >
                     <AnimatedProductIcon kind={item.icon} size={15} />
                     <span title={item.label}>{item.label}</span>
-                    {item.tab === "appearance" && <span className="settings-nav-value" aria-hidden="true">{themeSummary}</span>}
                     <ChevronRight className="settings-nav-chevron" size={14} strokeWidth={1.6} aria-hidden="true" />
                   </button>
                 ))}
@@ -387,11 +392,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           options={{ system: t`Match system`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
-        <SettingsRow
-          data-setting="interface-size"
-          label={t`Interface size`}
-          description={t`Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets.`}
-        >
+        <SettingsRow data-setting="interface-size" label={t`Interface size`}>
           <SegmentedControl
             ariaLabel={t`Interface size`}
             className="interface-size-control"
@@ -403,8 +404,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
         <SliderRow
           id="editor-font-size"
           data-setting="editor-font-size"
-          label={t`Editor font size`}
-          description={t`Source editor only`}
+          label={t`Source editor font size`}
           min={10}
           max={24}
           value={props.appearance.editorFontSize}
@@ -414,7 +414,6 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
         <SwitchField
           data-setting="interface-sounds"
           label={t`Interface sounds`}
-          description={t`When a build or a task in progress finishes`}
           checked={props.appearance.interfaceSounds}
           onChange={(interfaceSounds) => patchAppearance(props, { interfaceSounds })}
         />
@@ -488,12 +487,12 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           options={{ default: t`Default`, vim: "Vim", emacs: "Emacs" }}
           onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
         />
+        {/* A Git or Overleaf name signs comments ahead of this one, so the
+            row says whose it is; without one, the field is the signature. */}
         <SettingsRow
           data-setting="author-name"
           label={t`Your name`}
-          description={props.knownAuthorName
-            ? t`Comments are signed ${props.knownAuthorName}, from Git or Overleaf`
-            : t`Signs your comments when Git and Overleaf have no name`}
+          description={props.knownAuthorName ? t`Comments are signed ${props.knownAuthorName}, from Git or Overleaf` : undefined}
         >
           <Input
             aria-label={t`Your name`}
@@ -504,8 +503,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         </SettingsRow>
         <SwitchField
           data-setting="spellcheck"
-          label={t`Check spelling in prose`}
-          description={t`English, with Harper`}
+          label={t`Check English spelling`}
           checked={props.appearance.editorSpellcheck}
           onChange={(editorSpellcheck) => patchAppearance(props, { editorSpellcheck })}
         />
@@ -513,9 +511,8 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           className="settings-project-dictionary-row"
           data-setting="project-dictionary"
           label={t`Project dictionary`}
-          description={props.project
-            ? t`Terms Harper should accept in this project`
-            : t`Open a project to add terms`}
+          // Says why its field and Add are disabled.
+          description={props.project ? undefined : t`Open a project to add terms`}
         >
           <div className="settings-project-dictionary">
             <form className="settings-project-dictionary-form" onSubmit={addProjectSpellingWord}>
@@ -528,7 +525,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
               />
               <Button type="submit" disabled={!props.project || !projectWordDraft.trim()}>{t`Add`}</Button>
             </form>
-            {projectSpellingWords.length > 0 ? (
+            {projectSpellingWords.length > 0 && (
               <div className="settings-project-dictionary-terms" role="list" aria-label={t`Project dictionary terms`}>
                 {projectSpellingWords.map((word) => (
                   <span className="settings-project-dictionary-term" role="listitem" key={word}>
@@ -546,8 +543,6 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
                   </span>
                 ))}
               </div>
-            ) : (
-              <p className="settings-project-dictionary-empty">{t`No project terms added`}</p>
             )}
           </div>
         </SettingsRow>
@@ -556,14 +551,11 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         <SelectRow
           data-setting="auto-build"
           label={t`Automatic build`}
-          description={props.buildPreferences.autoBuildMode === "automatic"
-            ? t`Builds 1.2 s after you stop typing`
-            : t`Build with ⌘S. Edits still save on their own`}
           value={props.buildPreferences.autoBuildMode}
           options={{ manual: t`Manual only`, automatic: t`Automatic` }}
           onChange={(autoBuildMode) => props.setBuildPreferences({ autoBuildMode })}
         />
-        <SettingsRow data-setting="aux-files" label={t`Auxiliary files`} description={t`Removes .aux, .log and other build files`}>
+        <SettingsRow data-setting="aux-files" label={t`Auxiliary files`}>
           <Button size="compact" disabled={!props.hasProject || props.cleaning || props.building} onClick={props.onCleanProject}>
             {props.cleaning ? t`Cleaning…` : t`Clean`}
           </Button>
@@ -580,8 +572,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
             />
             <SwitchField
               data-setting="shell-escape"
-              label={t`Allow external commands`}
-              description={t`Shell escape during builds`}
+              label={t`Allow shell escape`}
               checked={props.project.manifest.trusted}
               onChange={(trusted) => props.onUpdateManifest({ trusted })}
             />
@@ -595,7 +586,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           label={t`Automatic updates`}
           description={updateStatus.detail}
           value={updater.mode}
-          options={{ manual: t`Notify me (manual)`, auto: t`Install automatically` }}
+          options={{ manual: t`Notify me`, auto: t`Install automatically` }}
           onChange={updater.setMode}
         />
         <SettingsRow data-setting="version" label={t`Version`} description={updateStatus.title}>

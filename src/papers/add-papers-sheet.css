@@ -4,8 +4,9 @@
    height), so "Enter manually" swaps the contents and leaves the frame. */
 .modal.sheet-dialog.add-papers-sheet { width: var(--dialog-sheet-width); container: add-papers / inline-size; }
 .add-papers-body { flex: 1; min-height: 0; display: grid; align-content: start; gap: var(--space-6); }
-/* Before anything is pasted the drawing and its words take the room the cards
-   will, centred in it as one group, a little above the middle. */
+/* Before anything is pasted the drawing takes the room the cards will,
+   centred in it, a little above the middle (the placeholder shows what to
+   paste); the linked library's intro stands beside it as one group. */
 .add-papers-body:has(> .add-papers-empty) { align-content: stretch; grid-template-rows: auto auto minmax(0, 1fr); }
 .add-papers-paste { display: grid; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .add-papers-paste textarea { min-height: 92px; resize: vertical; padding: var(--space-5) var(--space-6); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-input, var(--surface-app)); color: var(--text-primary); font: var(--type-caption-size)/20px var(--editor-font); }
@@ -15,9 +16,7 @@
 .add-papers-manual > button:first-child { margin-left: calc(-1 * var(--space-4)); }
 
 .add-papers-empty { --art-paper: var(--surface-panel-raised); display: flex; align-items: center; justify-content: center; gap: var(--space-10); padding: var(--space-6) var(--space-4) var(--space-12); }
-.add-papers-empty .research-art { flex: none; }
-.add-papers-empty .research-art { width: 168px; }
-.add-papers-empty p { margin: 0; max-width: 40ch; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+.add-papers-empty .research-art { flex: none; width: 168px; }
 
 /* Tabs as filters: pills that wrap onto a second line before any label clips. */
 .add-papers-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -61,8 +60,8 @@
 .add-papers-footer > button { flex: none; }
 
 /* A narrow window: the kind chip goes (the line's own text says it), the
-   drawing sits above its words (both still centred), and the summary takes
-   its own line. */
+   drawing sits above the linked library's intro (both still centred), and
+   the summary takes its own line. */
 @container add-papers (width < 520px) {
   .add-papers-row { grid-template-columns: minmax(0, 1fr) auto; }
   .add-papers-kind { display: none; }

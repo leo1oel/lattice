@@ -29,15 +29,9 @@
   font-variant-numeric: tabular-nums;
 }
 .overleaf-collab-drawer .ui-segmented .active .overleaf-collab-tab-count { color: var(--text-primary); }
-.overleaf-local-comments-note {
-  flex: none;
-  margin: 0 var(--space-1) var(--drawer-section-gap);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-}
-
-/* One line under the tabs: what is here on the left, what to do with it on
-   the right. Inset like the lists below, which keep room for focus rings. */
+/* One line under the tabs: the comment source on the left, what to do with
+   the list on the right. Inset like the lists below, which keep room for
+   focus rings. */
 .overleaf-collab-toolbar {
   flex: none;
   min-height: var(--control-height-compact);
@@ -47,13 +41,7 @@
   align-items: center;
   gap: var(--space-2) var(--space-4);
 }
-.overleaf-collab-toolbar > :last-child:not(:first-child) { margin-left: auto; }
-.overleaf-collab-count {
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
+.overleaf-collab-toolbar > :last-child { margin-left: auto; }
 .overleaf-collab-text-button {
   flex: none;
   height: 24px;
@@ -163,10 +151,10 @@
 }
 .overleaf-thread-quote:hover:not(:disabled) { color: var(--text-primary); }
 .overleaf-thread-quote:disabled { cursor: default; }
-/* The note in place of a quote, for a thread whose span was deleted. */
+/* The quote line of a thread whose span was deleted: the fallback, in the tertiary ink. */
 .overleaf-thread-orphaned {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   font-style: italic;
@@ -391,22 +379,6 @@
 .overleaf-change-text del { text-decoration-line: line-through; text-decoration-thickness: 2px; border-radius: 2px; }
 
 /* ---------------------------------------------------------------- chat */
-/* Who is in the project now, above the conversation. */
-.overleaf-chat-here {
-  flex: none;
-  min-width: 0;
-  margin: 0 var(--space-1) var(--space-4);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
-}
-.overleaf-chat-here-faces { flex: none; display: inline-flex; }
-.overleaf-chat-here-faces > * { box-shadow: 0 0 0 1.5px var(--surface-input); }
-.overleaf-chat-here-faces > * + * { margin-left: calc(var(--space-1) * -1); }
-.overleaf-chat-here-names { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Error lines above the lists. Appearance is owned by `.ui-inline-message`;
    the comments and chat line add a tinted plate. */

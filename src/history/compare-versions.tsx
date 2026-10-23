@@ -170,7 +170,6 @@ export function CompareVersions(props: {
       </CompareTop>
       <div className="compare-heading">
         <h2>{t`Compare versions`}</h2>
-        <p>{t`Pick where to start and where to end. The newer version is always on the right.`}</p>
       </div>
       <div className="compare-picker" role="table" aria-label={t`Versions to compare`}>
         <div className="compare-picker-head" role="row">
@@ -187,7 +186,7 @@ export function CompareVersions(props: {
               <div key={side} className="compare-picker-row" role="row" data-in-range={inRange || undefined} data-automatic={(entry && isAutomaticVersion(entry.message)) || undefined}>
                 <span role="cell" className="compare-picker-name" title={entry ? fullTime(new Date(entry.timestamp).getTime(), i18n.locale) : undefined}>
                   <b title={name}>{name}</b>
-                  <em>{entry ? meta(entry) : t`Including changes not saved as a version`}</em>
+                  {entry && <em>{meta(entry)}</em>}
                 </span>
                 <span role="cell">
                   <input type="radio" name="compare-from" aria-label={t`From ${name}`} checked={from === side} disabled={index <= toIndex} onChange={() => setFrom(entry ?? null)} />

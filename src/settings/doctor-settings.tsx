@@ -44,7 +44,9 @@ export function DoctorSettings(props: DoctorSettingsProps) {
                 <li key={check.name} className={check.ok ? "ok" : "bad"}>
                   {check.ok ? <CheckCircle2 aria-hidden="true" /> : <CircleX aria-hidden="true" />}
                   <strong>{doctorCheckLabel(check.name)}</strong>
-                  <span className="doctor-check-result">{check.ok ? t`Ready to compile` : t`Unavailable`}</span>
+                  {/* For assistive technology only: the icon says it on screen.
+                      A check is one tool, so it is "Ready", not ready to compile. */}
+                  <span className="doctor-check-result">{check.ok ? t`Ready` : t`Unavailable`}</span>
                   {!check.ok && <span className="doctor-check-detail">{doctorCheckDetail(check)}</span>}
                 </li>
               ))}
@@ -54,7 +56,7 @@ export function DoctorSettings(props: DoctorSettingsProps) {
         )}
         {!report && !props.doctorBusy && (
           <>
-            <EmptyState align="start" density="compact" description={t`Not checked yet`} />
+            <EmptyState align="start" density="compact" title={t`Not checked yet`} />
             {installAction}
           </>
         )}

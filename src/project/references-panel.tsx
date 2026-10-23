@@ -1,7 +1,6 @@
 import { Link2, Pencil } from "lucide-react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CloseButton } from "../components/ui/icon-button";
-import { EmptyState } from "../components/ui/empty-state";
 
 export type SymbolOccurrence = {
   kind: "label" | "citation" | string;
@@ -58,7 +57,8 @@ export function ReferencesPanel(props: {
           onClick={props.onDismiss}
         />
       </div>
-      {props.occurrences.length ? (
+      {/* With none, the bar's own summary ("No occurrences") is the whole answer. */}
+      {props.occurrences.length > 0 && (
         <ul className="references-panel-list">
           {props.occurrences.map((occurrence, index) => {
             const location = `${occurrence.path}:${occurrence.line}`;
@@ -78,12 +78,6 @@ export function ReferencesPanel(props: {
             );
           })}
         </ul>
-      ) : (
-        <EmptyState
-          align="start"
-          density="compact"
-          description={t`No occurrences found`}
-        />
       )}
     </section>
   );

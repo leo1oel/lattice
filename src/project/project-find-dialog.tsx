@@ -261,7 +261,7 @@ export function ProjectFindDialog(props: {
           setQuery(event.target.value);
         }}
         onClear={clearSearch}
-        placeholder={t`Search…`}
+        placeholder={t`Search files and papers…`}
         {...compositionProps}
         onKeyDown={(event) => {
           if (isComposing(event)) return;
@@ -294,19 +294,16 @@ export function ProjectFindDialog(props: {
       />
       {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
       <div className="project-find-scope">
-        <div className="project-find-filter">
-          <span aria-hidden="true">{t`Show:`}</span>
-          <SegmentedControl
-            value={scope}
-            onChange={changeScope}
-            ariaLabel={t`Show results from`}
-            items={[
-              { value: "all", label: <>{t`All`}{showResults && <em>{fileHits.length + paperCount}</em>}</> },
-              { value: "file", label: <>{t`Files`}{showResults && <em>{fileHits.length}</em>}</> },
-              { value: "paper", label: <>{t`Papers`}{showResults && <em>{paperCount}</em>}</> },
-            ]}
-          />
-        </div>
+        <SegmentedControl
+          value={scope}
+          onChange={changeScope}
+          ariaLabel={t`Show results from`}
+          items={[
+            { value: "all", label: <>{t`All`}{showResults && <em>{fileHits.length + paperCount}</em>}</> },
+            { value: "file", label: <>{t`Files`}{showResults && <em>{fileHits.length}</em>}</> },
+            { value: "paper", label: <>{t`Papers`}{showResults && <em>{paperCount}</em>}</> },
+          ]}
+        />
         {/* The tabs carry the counts; this line speaks them, and shows only
             what they cannot: that a search is running or failed. */}
         <div
@@ -324,7 +321,6 @@ export function ProjectFindDialog(props: {
             density="compact"
             fill
             icon={<EmptyIllustration kind="search" size="compact" />}
-            description={t`Search your files and saved papers.`}
           />
         )}
         {showResults && !selectableHits.length && (
@@ -342,7 +338,6 @@ export function ProjectFindDialog(props: {
               fill
               icon={<EmptyIllustration kind="search" size="compact" />}
               title={t`No results for “${trimmedQuery}”`}
-              description={t`Try a shorter phrase or different terms`}
               actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}
             />
           )

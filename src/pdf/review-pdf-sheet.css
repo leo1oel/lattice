@@ -1,8 +1,8 @@
 /* Export review PDF (review-pdf-sheet.tsx), in the Add papers sheet's frame:
-   what the copy is, then the raised list of annotations, each a ticked row
-   with its pin, the passage in the reading serif, the note, and where on the
-   PDF it lands. */
-.review-pdf-intro, .review-pdf-empty { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
+   the raised list of annotations, each a ticked row with its pin, the
+   passage in the reading serif, the note, and a chip saying where on the
+   PDF it lands (a highlight or a margin note), its icon first. */
+.review-pdf-empty { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
 .review-pdf-loading { display: flex; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-12) 0; color: var(--text-secondary); font-size: var(--type-caption-size); }
 .review-pdf-list { min-width: 0; display: grid; gap: var(--space-4); }
 
@@ -11,12 +11,11 @@
 .modal .review-pdf-row { padding: var(--space-5) var(--space-6); display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: var(--space-5); align-items: center; font-weight: var(--weight-regular); text-align: start; cursor: default; }
 .review-pdf-rows > li[data-resolved] .add-papers-main, .review-pdf-rows > li[data-unplaced] .add-papers-main { opacity: .62; }
 
-.review-pdf-place { justify-self: end; max-width: 160px; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
-.review-pdf-place:empty { display: none; }
+.review-pdf-place { justify-self: end; max-width: 160px; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-compact); display: inline-flex; align-items: center; gap: var(--space-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.review-pdf-place > svg { flex: none; }
 .review-pdf-place[data-kind="unplaced"] { background: var(--status-warning-soft); color: color-mix(in srgb, var(--status-warning) 72%, var(--text-primary)); }
 
-/* A narrow window: the placement chip gives way first, and the summary
-   takes its own line (add-papers-sheet.css). */
+/* A narrow window: the placement chip moves under the note. */
 @container add-papers (width < 520px) {
   .modal .review-pdf-row { grid-template-columns: auto auto minmax(0, 1fr); }
   .review-pdf-place { grid-column: 3; justify-self: start; max-width: 100%; }

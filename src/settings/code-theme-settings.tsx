@@ -74,9 +74,10 @@ export function CodeThemeSettingsGroup(props: CodeThemeSettingsProps) {
       <SettingsRow
         data-setting="code-theme-variant"
         label={t`Light or dark`}
+        // Only a theme with one variant ignores this choice, and says so.
         description={only === "dark"
           ? t`${nameOf(codeTheme)} comes in dark only`
-          : only === "light" ? t`${nameOf(codeTheme)} comes in light only` : t`Themes with both variants follow this; dark-only themes stay dark`}
+          : only === "light" ? t`${nameOf(codeTheme)} comes in light only` : undefined}
       >
         <SegmentedControl<CodeThemeVariant>
           ariaLabel={t`Light or dark`}

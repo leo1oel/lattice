@@ -4,7 +4,6 @@ import { Hash, TextCursorInput } from "lucide-react";
 import { rankMatches, scoreItem, scorePath } from "../components/ui/picker-ranking";
 import { PickerDialog, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { renderKeycaps } from "../components/ui/render-keycaps";
-import { comboKeys } from "../app/key-combos";
 import { isProjectAssetFilePath } from "../app-utils";
 import { fileIcon } from "../trellis/trellis-icons";
 
@@ -188,8 +187,6 @@ function QuickOpenDialogForm({ paths, recent, current, lineTarget, symbols, onOp
             <span>{renderKeycaps(["@"])}{t`Sections and labels`}</span>
             <span>{renderKeycaps([":"])}{t`Line`}</span>
           </span>
-          <span>{renderKeycaps([...comboKeys({ key: "ArrowUp" }), ...comboKeys({ key: "ArrowDown" })])}{t`Move`}</span>
-          <span>{renderKeycaps(comboKeys({ key: "Enter" }))}{t`Open`}</span>
         </div>
       )}
     />

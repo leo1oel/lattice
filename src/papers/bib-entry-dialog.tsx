@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BookMarked, ChevronDown, ChevronRight, ChevronUp, PenLine } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { Input, type InputProps } from "../components/ui/input";
@@ -277,7 +278,6 @@ export function BibEntryDialog(props: {
       <div className="bib-entry-form">
         {!editing && props.onResolve && (
           <label className="bib-resolve-field">
-            {t`Resolve from DOI / arXiv / title`}
             <div className="bib-resolve-row">
               <SearchField
                 autoFocus
@@ -315,11 +315,6 @@ export function BibEntryDialog(props: {
         {!showFields && error && <p className="dialog-error bib-entry-lookup-error" role="alert">{error}</p>}
         {candidates.length > 0 && (
           <section className="bib-candidates">
-            <p className="bib-candidates-lead">
-              {candidates.length === 1
-                ? t`One record matches. Check it is the one you mean.`
-                : t`${candidates.length} records match. Choose the one you mean.`}
-            </p>
             <CitationCandidates
               candidates={candidates}
               chosen={chosen}
@@ -334,9 +329,11 @@ export function BibEntryDialog(props: {
           </section>
         )}
         {evidence && (
-          <section className="bib-citation-records" aria-label={t`Retrieved record information`}>
+          // Once a field differs, the match describes the record, not the
+          // entry: it dims and says so in a chip.
+          <section className="bib-citation-records" aria-label={t`Retrieved record information`} data-edited={retrievedEdited || undefined}>
             <CitationEvidence evidence={evidence} authorsPresent={Boolean(fields.author)} />
-            {retrievedEdited && <p>{t`This match information describes the retrieved record; you have edited its fields.`}</p>}
+            {retrievedEdited && <Badge size="compact">{t`Edited`}</Badge>}
           </section>
         )}
         {/* The entry as a reference list will print it, its key beside it:

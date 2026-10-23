@@ -24,7 +24,7 @@ vi.mock("./pierre-diff", async (importOriginal) => ({
 }));
 vi.mock("./file-diff-view", async (importOriginal) => ({
   ...await importOriginal<object>(),
-  HistoryDiff: () => <div data-testid="single-file-diff" />,
+  HistoryDiff: ({ change }: { change: { path: string } }) => <div data-testid="single-file-diff" data-path={change.path} />,
 }));
 
 function mockBackend(extra: CommandTable = {}) {
@@ -175,7 +175,7 @@ describe("HistoryDrawer", () => {
     expect(screen.queryByText("Edit methods.tex")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Agent: Revise the introduction/ }));
-    expect(screen.getByText("Agent task: Introduction revision")).toBeInTheDocument();
+    expect(screen.getByText("Introduction revision")).toBeInTheDocument();
     expect(screen.getByText("modified · +4 −2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle("Undo this Agent turn's file changes"));
@@ -254,7 +254,6 @@ describe("HistoryDrawer multi-file review", () => {
     expect(await screen.findByTestId("single-file-diff")).toBeInTheDocument();
 
     await act(async () => resolvers.get("tx-a")!(transaction("tx-a", "First transaction", ["a.tex"])));
-    expect(screen.getByTitle("Restore only b.tex")).toBeInTheDocument();
-    expect(screen.queryByTitle("Restore only a.tex")).not.toBeInTheDocument();
+    expect(screen.getByTestId("single-file-diff")).toHaveAttribute("data-path", "b.tex");
   });
 });

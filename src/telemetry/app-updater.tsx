@@ -231,7 +231,8 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         if (modeRef.current === "auto") void install();
         else {
           const { version } = update;
-          showUpdateToast("info", i18n._(msg`New version ${version}`), i18n._(msg`Ready to install`), {
+          // The title and Update now say all there is: no detail line.
+          showUpdateToast("info", i18n._(msg`New version ${version}`), "", {
             timeoutMs: 0,
             // The toast stays to carry the download that this starts.
             primaryAction: { label: i18n._(msg`Update now`), onClick: () => void install(), keepOpen: true },

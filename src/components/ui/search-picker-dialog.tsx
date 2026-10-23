@@ -48,7 +48,7 @@ function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefine
  * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
  * list. Mount it only while open, so each opening starts from an empty query.
  * It has no close button: Escape and a click outside dismiss it, as in every
- * command bar, and the palette's footer says so.
+ * command bar.
  */
 export function PickerDialog<T>(props: {
   label: string;

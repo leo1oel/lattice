@@ -143,7 +143,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const warned = lastBuild?.status === "succeeded" && lastBuild.counts.error + lastBuild.counts.warning > 0;
     const headline = building
       ? t`Building…`
-      : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts) : t`Build and show the PDF`;
+      : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts) : null;
     // What happened is followed by which document, how long the compile took
     // and how long ago it ended.
     const facts = !building && lastBuild
@@ -161,7 +161,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           type="button"
           className={cn("trellis-build-button", state !== "idle" && `is-${state}`, live && warned && "has-warnings", fresh && "is-fresh")}
           aria-label={t`Build`}
-          aria-describedby={live ? resultId : undefined}
+          aria-describedby={live && headline ? resultId : undefined}
           aria-busy={state === "building" || undefined}
           onPointerEnter={live ? reach : undefined}
           onFocus={live ? reach : undefined}
@@ -181,15 +181,15 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             ))}
             <span className="trellis-build-label-off">{formatSeconds(999.9)}</span>
           </span>
-          {live && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
+          {live && headline && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
         </button>
       );
     };
     if (!active) return <Reserve>{button(false)}</Reserve>;
     // The card gives the same result as the description, pass by pass, then
-    // how to build again; before any build, only what the button does. It is
-    // one card in every state, so the first build does not remount the button
-    // under the press that started it.
+    // how to build again (the only place ⇧-click's clean rebuild is told);
+    // before any build, only that. It is one card in every state, so the
+    // first build does not remount the button under the press that started it.
     const place = !building && lastBuild
       ? [lastBuild.rootDocument, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)].filter(Boolean).join(" · ")
       : null;
@@ -202,7 +202,6 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             progress={tools.buildProgress}
             outcome={building ? null : lastBuild}
             place={place}
-            idle={headline}
             hint={t`⌘S · ⇧-click for a clean rebuild`}
             onProblem={() => controller.bridge?.nextBuildProblem()}
           />
@@ -212,10 +211,12 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   }
   if (which === null) return null;
   // Edit, Split and Preview: a Markdown, HTML or .bib file's, and a Paper's beside its Blog/Paper switch.
+  // Each mode's tooltip is its own word: the header folds the switch to
+  // icons when short of room, and the icon then needs its name.
   const modeItems = [
-    { value: "source" as const, label: <><PenLine size={14} /><span className="trellis-mode-name">{t`Edit`}</span></> },
-    { value: "split" as const, label: <><Columns2 size={14} /><span className="trellis-mode-name">{t`Split`}</span></> },
-    { value: "pdf" as const, label: <><Eye size={14} /><span className="trellis-mode-name">{t`Preview`}</span></> },
+    { value: "source" as const, label: <><PenLine size={14} /><span className="trellis-mode-name">{t`Edit`}</span></>, title: t`Edit` },
+    { value: "split" as const, label: <><Columns2 size={14} /><span className="trellis-mode-name">{t`Split`}</span></>, title: t`Split` },
+    { value: "pdf" as const, label: <><Eye size={14} /><span className="trellis-mode-name">{t`Preview`}</span></>, title: t`Preview` },
   ];
   const modes = active && tools.viewModes ? (
     <SegmentedControl<TrellisViewMode>
@@ -223,20 +224,13 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
       onChange={(mode) => controller.bridge?.setViewMode(mode)}
       ariaLabel={t`Document view`}
       className="trellis-view-switcher"
-      items={modeItems.map((item, i) => ({
-        ...item,
-        title: (tools.viewModes === "html"
-          ? [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`]
-          : tools.viewModes === "bib"
-            ? [t`Edit the BibTeX source`, t`BibTeX source beside the reference list`, t`Reference list`]
-            : [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`])[i],
-      }))}
+      items={modeItems}
     />
   ) : <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={modeItems} /></Reserve>;
   if (which === "views") return modes;
   const items = [
-    { value: "blog" as const, label: <><Newspaper size={14} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
-    { value: "fulltext" as const, label: <><FileText size={14} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
+    { value: "blog" as const, label: <><Newspaper size={14} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Blog` },
+    { value: "fulltext" as const, label: <><FileText size={14} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Paper` },
   ];
   // A Paper with only its full text or only its blog has nothing to switch
   // between, but keeps the switch's room like any other Paper. Short of

@@ -44,8 +44,8 @@ describe("GuidedTour", () => {
     expect(card).toHaveAccessibleDescription("A one-minute tour.");
     await waitFor(() => expect(card).toHaveFocus());
     fireEvent.click(screen.getByRole("button", { name: /start tour/i }));
-    expect(await screen.findByRole("dialog", { name: "Your project" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    // The dots show the position; a screen reader hears it with the card's words.
+    expect(await screen.findByRole("dialog", { name: "Your project" })).toHaveAccessibleDescription("1 of 2 Files live here.");
     expect(screen.getByRole("list", { name: "Tour progress" }).querySelector('[aria-current="step"]')).toHaveTextContent("Your project");
 
     fireEvent.keyDown(card, { key: "ArrowRight" });
@@ -96,7 +96,8 @@ describe("GuidedTour", () => {
     const steps: TourStep[] = [
       welcome,
       {
-        id: "try", title: msg`Write, then build`, body: msg`Edit here.`, action: msg`Press ⌘S`, target: target(),
+        // A stop may be its title and action alone.
+        id: "try", title: msg`Write, then build`, action: msg`Press ⌘S`, target: target(),
         watch: (_context, done) => {
           finish = done;
           return () => {};
@@ -106,7 +107,9 @@ describe("GuidedTour", () => {
     ];
     renderTour(steps);
     fireEvent.click(screen.getByRole("button", { name: /start tour/i }));
-    const action = (await screen.findByText("Press ⌘S")).closest(".guided-tour-action")!;
+    expect(await screen.findByRole("dialog", { name: "Write, then build" })).toHaveAccessibleDescription("1 of 1 Press ⌘S");
+    expect(document.querySelector(".guided-tour-body")).toBeNull();
+    const action = screen.getByText("Press ⌘S").closest(".guided-tour-action")!;
     expect(action).not.toHaveAttribute("data-done");
     act(() => finish());
     expect(action).toHaveAttribute("data-done");
@@ -119,7 +122,7 @@ describe("GuidedTour", () => {
 
   it("welcomes back a writer who finished it before", () => {
     renderTour([welcome], { replay: true });
-    expect(screen.getByRole("dialog", { name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Welcome back" })).not.toHaveAttribute("aria-describedby");
   });
 });
 

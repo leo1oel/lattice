@@ -351,7 +351,6 @@ export function LiteratureDiscoveryPanel(props: {
                         type="button"
                         className="literature-add"
                         disabled={busy}
-                        title={t`Add bibliography entry and cache the arXiv paper`}
                         aria-label={t({ message: `Add ${{ title: work.title }} to Papers` })}
                         onClick={addToPapers}
                       >
@@ -361,7 +360,7 @@ export function LiteratureDiscoveryPanel(props: {
                     )}
                     <button
                       type="button"
-                      title={t`Citation only: add the bibliography entry without the paper`}
+                      title={t({ message: "Citation only", context: "add a literature result as a bibliography entry only" })}
                       aria-label={t({ message: `Add a bibliography entry for ${{ title: work.title }}` })}
                       onClick={citationOnly}
                     >
@@ -424,7 +423,6 @@ export function LiteratureDiscoveryPanel(props: {
           fill
           icon={<ResearchArt drawing={READING_FOLIO} />}
           title={t`Find your next source`}
-          description={t`Search alphaXiv and OpenAlex by title or topic`}
         />
       )}
     </ResizableDrawer>

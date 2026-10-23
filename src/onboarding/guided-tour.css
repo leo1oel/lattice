@@ -111,14 +111,6 @@
   margin-bottom: var(--space-6);
 }
 
-.guided-tour-count {
-  margin: 0 0 var(--space-3);
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
-  font-variant-numeric: tabular-nums;
-}
-
 .guided-tour-title {
   margin: 0;
   padding-right: var(--space-16);

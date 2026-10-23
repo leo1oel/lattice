@@ -18,17 +18,18 @@ function useStageCopy(): Record<TexInstallStage, readonly [stage: string, detail
     "installing-tools": [t`Installing required tools…`, ""],
     verifying: [t`Verifying installation…`, ""],
     complete: [t`Finishing setup…`, ""],
-    "searching-packages": [t`Resolving…`, t`Checking…`],
+    "searching-packages": [t`Resolving…`, ""],
     "installing-dependency": [t`Installing LaTeX packages…`, ""],
     "verifying-dependency": [t`Verifying installation…`, ""],
   };
 }
 
-/** Shared layout of the LaTeX install dialogs: copy, native install progress, error, and actions. */
+/** Shared layout of the LaTeX install dialogs: title, native install progress, error, and actions. */
 export function TexInstallDialog({ label, title, description, closeDisabled, onClose, progress, error, errorDetail, children }: {
   label: string;
   title: string;
-  description: ReactNode;
+  /** A line under the title, only when it says what the title does not. */
+  description?: ReactNode;
   closeDisabled: boolean;
   onClose: () => void;
   /** `label` is the accessible name of the progress bar. */
@@ -44,7 +45,7 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
     <ModalDialog label={label} onClose={onClose} closeDisabled={closeDisabled} backdropClassName="tex-setup-backdrop">
       <div className={["modal", "tex-setup-modal"].join(" ")}>
         <h2>{title}</h2>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
         {progress && (
           <div className="tex-setup-progress-block" aria-live="polite">
             <div

@@ -59,16 +59,9 @@ export function SynaraLoadingSurface(props: {
                 : t`Starting Agent`}
           </StateSwap>
         </strong>
-        <span>
-          {/* The runtime's own words go under Details: a startup failure
-              quotes sidecar log lines, which read as noise in a headline
-              and are not a diagnosis this surface can vouch for. */}
-          {failed
-            ? t`The bundled Agent service could not start`
-            : props.preparingWorkspace
-              ? t`Restoring the conversation surface…`
-              : t`Warming the local service…`}
-        </span>
+        {/* The runtime's own words go under Details: a startup failure
+            quotes sidecar log lines, which read as noise in a headline
+            and are not a diagnosis this surface can vouch for. */}
       </div>
       {failed && <SynaraFailureActions runtime={props.runtime} onRetry={props.onRetry} />}
     </div>
@@ -96,15 +89,12 @@ function SynaraThreadLoading({ message, waiting, onRetry }: { message: string; w
     setAttempt((value) => value + 1);
     onRetry();
   };
-  // The unit stays with its number (a no-break space) when the note wraps.
-  const seconds = SYNARA_SLOW_MS / 1000;
   return (
     <div className="synara-loading-surface" data-shape="thread" aria-busy={!slow}>
       <AgentPanelSkeleton bodyHidden={slow} />
       {slow ? (
         <div className="synara-slow" role="alert">
           <strong>{t`Taking longer than usual`}</strong>
-          <span>{t`The Agent started ${seconds} s ago and hasn’t answered yet`}</span>
           <SynaraRecoveryActions onRetry={retry} />
         </div>
       ) : <LoadingAnnouncement message={message} />}

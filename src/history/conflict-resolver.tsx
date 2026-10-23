@@ -59,7 +59,6 @@ function MarkedText(props: { text: string; other: string }) {
 /** One side of a spot, and the choice that keeps it: clicking the side is choosing it. */
 function ConflictSide(props: {
   label: string;
-  caption: string;
   choiceLabel: string;
   shortcut: string;
   text: string;
@@ -85,7 +84,6 @@ function ConflictSide(props: {
       <span className="conflict-side-head">
         <span className="conflict-side-radio" aria-hidden="true">{props.checked ? <Check size={10} strokeWidth={3} /> : null}</span>
         <strong>{props.label}</strong>
-        <span className="conflict-side-caption">{props.caption}</span>
         <kbd aria-hidden="true">{props.shortcut}</kbd>
       </span>
       {props.text ? (
@@ -139,7 +137,6 @@ function ConflictSpot(props: {
         <div className="conflict-sides">
         <ConflictSide
           label={t`This computer`}
-          caption={t`Your Lattice copy`}
           choiceLabel={t`Keep this computer's version`}
           shortcut="1"
           text={ours}
@@ -152,7 +149,6 @@ function ConflictSpot(props: {
         />
         <ConflictSide
           label={t`Overleaf`}
-          caption={t`The copy on Overleaf`}
           choiceLabel={t`Keep Overleaf's version`}
           shortcut="2"
           text={theirs}
@@ -281,27 +277,18 @@ export function ConflictResolverDialog(props: {
   };
 
   const remaining = total - decided;
-  const progress = total === 0
+  const progress = total === 0 || stage === "edit"
     ? ""
-    : stage === "edit"
-      ? t`Review the final file before saving`
-      : remaining === 0
-        ? t`Every spot decided`
-        : t`${decided} of ${total} decided`;
+    : remaining === 0
+      ? t`Every spot decided`
+      : t`${decided} of ${total} decided`;
 
   return (
     <ModalDialog label={t`Resolve conflicts in ${path}`} onClose={props.onClose} closeDisabled={saving}>
       <div className="modal modal-large conflict-resolver" data-stage={stage}>
         <div className="conflict-resolver-head">
           <div className="modal-icon" data-tone="warning"><TriangleAlert size={18} /></div>
-          <div>
-            <h2>{t`Resolve changes to ${path}`}</h2>
-            <p>
-              {stage === "edit"
-                ? t`Fix anything left, then save`
-                : t`Both sides changed these spots. Pick a version for each; saving uploads it to Overleaf`}
-            </p>
-          </div>
+          <h2>{t`Resolve changes to ${path}`}</h2>
         </div>
 
         {error && <InlineMessage level="error">{error}</InlineMessage>}
@@ -389,7 +376,8 @@ export function ConflictResolverDialog(props: {
             {saving
               ? t`Saving…`
               : stage === "edit" || remaining === 0
-                ? t`Save resolved file`
+                // A settled file is queued for upload (App's onResolved), so the button says so.
+                ? t`Save and upload`
                 : t`Save decided spots`}
           </MotionButton>
         </div>

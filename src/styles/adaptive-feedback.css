@@ -97,7 +97,7 @@
 .error > summary .app-log-severity { color: var(--status-danger); }
 .app-log-inline-fields { color: var(--text-secondary); }
 .app-log-entry-content { min-width: 0; padding: var(--space-4) var(--space-5); margin: var(--space-3) var(--space-5); border-inline-start: 1px solid var(--border-strong); background: var(--surface-panel); }
-.app-log-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; }
+.app-log-entry-heading { display: flex; justify-content: flex-end; }
 .app-log-context { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .app-log-context > * { max-width: 100%; padding: var(--space-1) var(--space-3); border-radius: var(--radius-icon); background: var(--surface-panel-raised); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-log-context button { padding: var(--space-1) var(--space-3); border: 0; border-radius: var(--radius-icon); background: var(--surface-panel-raised); color: inherit; font: inherit; cursor: pointer; }

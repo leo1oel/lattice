@@ -5,6 +5,7 @@
  */
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { Eye } from "lucide-react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -64,7 +65,6 @@ export function TextSnapshot({ controller, fileKey, panelId }: { controller: Tre
 }
 
 function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisController; fileKey: string; mode: TrellisViewMode }) {
-  const { t } = useLingui();
   const parentRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
@@ -118,7 +118,6 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
     <div
       className="trellis-snapshot source-editor"
       data-mode={mode}
-      title={t`Click to edit`}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         const view = viewRef.current;
@@ -144,7 +143,8 @@ function SnapshotContent({ controller, fileKey, mode }: { controller: TrellisCon
       {mode !== "source" && text !== null && (
         <ReadOnlyMarkdown controller={controller} path={fileKey} text={text.slice(markdownFrontmatterEnd(text))} sourceLines />
       )}
-      <span className="trellis-snapshot-badge">{t`Read-only preview · click to edit`}</span>
+      {/* Read-only until pressed: an eye in the corner on hover, no caption. */}
+      <span className="trellis-snapshot-badge" aria-hidden="true"><Eye size={12} /></span>
     </div>
   );
 }

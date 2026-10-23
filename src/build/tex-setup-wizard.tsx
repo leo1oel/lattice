@@ -99,7 +99,8 @@ export function TexSetupWizard(props: {
       disabled={busy || ready}
     >
       {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
-      {paperToolsOnly ? t`Install required tools` : t`Install Basic TeX`}
+      {/* The download's size is the one fact the dialog adds to its title. */}
+      {paperToolsOnly ? t`Install required tools · 45 MB` : t`Install Basic TeX · ${TEX_INSTALL_SIZE_HINT}`}
     </MotionButton>
   );
 
@@ -107,16 +108,6 @@ export function TexSetupWizard(props: {
     <TexInstallDialog
       label={t`Install LaTeX tools`}
       title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
-      description={paperToolsOnly
-        ? <>
-          {t({ message: "Needed to add papers and manage bibliographies · about 45 MB" })}
-          <span className="tex-setup-description-note">
-            {props.paperToolsNeeded
-              ? t`That action needs them. Install them, then try it again.`
-              : t`Writing and compiling work without them. Lattice asks again when a paper feature needs them.`}
-          </span>
-        </>
-        : t({ message: `About ${TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes` })}
       closeDisabled={!paperToolsOnly || installing}
       onClose={props.onClose}
       progress={installing ? {

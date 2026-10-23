@@ -6,7 +6,9 @@ import { Images } from "lucide-react";
 import type { AssetPreview, OpenProjectFile, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { toMessage } from "../app-utils";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { EmptyState } from "../components/ui/empty-state";
 import { InlineMessage } from "../components/ui/inline-message";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
@@ -57,11 +59,19 @@ async function applyFigureEdits(options: {
   }
 }
 
+/** PDF, SVG and EPS figures have no pixels, so no raster size or DPI applies to them. */
+const isVectorFigure = (path: string) => /\.(pdf|svg|eps)$/i.test(path);
+
+function VectorBadge() {
+  const { t } = useLingui();
+  return <Badge size="compact" className="figure-vector">{t`Vector`}</Badge>;
+}
+
 function FigurePreview({ root, path, uses }: { root: string; path: string; uses: FigureUse[] }) {
   const { t } = useLingui();
   const [preview, setPreview] = useState<{ url: string; width: number; height: number } | null>(null);
   const [failed, setFailed] = useState(false);
-  const vector = /\.(pdf|svg|eps)$/i.test(path);
+  const vector = isVectorFigure(path);
   useEffect(() => {
     let disposed = false;
     void invoke<AssetPreview>("read_project_asset", { projectRoot: root, path })
@@ -76,13 +86,13 @@ function FigurePreview({ root, path, uses }: { root: string; path: string; uses:
   }, [root, path]);
   return <div className="figure-preview">
     {preview && <img src={preview.url} alt={path} />}
-    <p>{vector ? t`PDF / vector format — raster DPI does not apply` : preview
-      ? t({ message: `${{ width: preview.width }} × ${{ height: preview.height }} pixels` }) : t`Dimensions unknown`}</p>
-    {failed && <p>{t`Preview unavailable. Open the original file to inspect it.`}</p>}
+    {vector ? <VectorBadge /> : <p>{preview
+      ? t({ message: `${{ width: preview.width }} × ${{ height: preview.height }} pixels` }) : t`Dimensions unknown`}</p>}
+    {failed && <p>{t`Preview unavailable`}</p>}
     {!vector && uses.map((use) => <p key={`${use.source}:${use.from}`}>
       {use.source}:{use.line} · {preview && use.widthInches
         ? t({ message: `${{ dpi: Math.round(preview.width / use.widthInches) }} DPI at the specified width` })
-        : t`Effective DPI unknown — physical width is not established`}
+        : t`DPI unknown`}
     </p>)}
   </div>;
 }
@@ -147,20 +157,18 @@ export function FigureInventoryDialog(props: {
   const count = inventory.uses.length;
   return <SheetDialog label={t`Figure inventory`} className="figure-inventory" dirty={busy || !!plan} onClose={() => { if (!busy) props.onClose(); }}>
     <PanelHeader className="drawer-header" icon={<Images size={16} />} title={t`Figure inventory`} onClose={() => { if (!busy) props.onClose(); }} />
-    <p className="drawer-copy">{t`All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images.`}</p>
     <div className="figure-actions">
       <Button disabled={busy || loading} onClick={() => setRevision((value) => value + 1)}>{t`Refresh`}</Button>
       {!!props.undo.length && <Button disabled={busy} onClick={() => void write(props.undo.map((edit) => ({ path: edit.path, before: edit.after, after: edit.before })), true)}>{t`Undo replacement`}</Button>}
     </div>
     {busy && <p role="status">{t`Applying figure changes…`}</p>}
     {error && <InlineMessage level="error">{error}</InlineMessage>}
-    {!!props.undo.length && <InlineMessage>{t`Changes are recorded per file in project history. Undo remains available if a later file fails.`}</InlineMessage>}
-    {loading ? <p role="status">{t`Reading figure usages…`}</p> : <p>{t`${count} literal graphics commands found`}</p>}
+    {loading ? <p role="status">{t`Reading figure usages…`}</p> : count > 0 && <p>{t`${count} literal graphics commands found`}</p>}
     {!!unreadable.length && <InlineMessage level="warning">{t`Could not read:`} {unreadable.join(", ")}</InlineMessage>}
     {!!inventory.limited.length && <InlineMessage level="warning">{t`Static coverage is limited in:`} {inventory.limited.join(", ")}</InlineMessage>}
-    {!loading && !count && <p>{t`No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present.`}</p>}
+    {!loading && !count && <EmptyState className="figure-empty" title={t`No figures found`} />}
     {groups.map(([key, uses]) => <section className="figure-card" key={key}>
-      <h3>{key}</h3>
+      <h3>{key}{uses[0].asset && isVectorFigure(uses[0].asset) && <VectorBadge />}</h3>
       <div className="figure-actions">
         {uses[0].asset && <Button size="compact" disabled={busy} onClick={() => navigate(uses[0].asset!)}>{t`Open original`}</Button>}
         <Button size="compact" disabled={busy || loading} onClick={() => { setSelected(selected === key ? null : key); setTarget(""); setPlan(null); }}>{selected === key ? t`Hide details` : t`Inspect and replace`}</Button>

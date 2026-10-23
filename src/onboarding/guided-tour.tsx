@@ -182,7 +182,12 @@ export default function GuidedTour({ onClose, steps = TOUR_STEPS, replay = false
   const actionDone = done.has(step.id);
   const words = isWelcome && replay ? TOUR_REPLAY_WELCOME : step;
   const titleId = "guided-tour-title";
+  const countId = "guided-tour-count";
   const bodyId = "guided-tour-body";
+  const actionId = "guided-tour-action";
+  // The progress dots show the position on screen; a screen reader hears it
+  // with the card's words, as the card takes focus at each stop.
+  const describedBy = [!isWelcome && countId, words.body && bodyId, step.action && actionId].filter(Boolean).join(" ") || undefined;
 
   const onCardKey = (event: React.KeyboardEvent) => {
     if (event.target instanceof HTMLElement && event.target.closest("input, textarea")) return;
@@ -212,7 +217,7 @@ export default function GuidedTour({ onClose, steps = TOUR_STEPS, replay = false
         role="dialog"
         aria-modal="false"
         aria-labelledby={titleId}
-        aria-describedby={bodyId}
+        aria-describedby={describedBy}
         tabIndex={-1}
         style={cardStyle}
         onKeyDown={onCardKey}
@@ -223,15 +228,15 @@ export default function GuidedTour({ onClose, steps = TOUR_STEPS, replay = false
         <div key={step.id} className="guided-tour-content">
           {isWelcome
             ? <div className="guided-tour-mark"><LatticeMark size={36} motion="weave" /></div>
-            : <p className="guided-tour-count">{t`${index} of ${stops}`}</p>}
+            : <p id={countId} className="sr-only">{t`${index} of ${stops}`}</p>}
           <h2 id={titleId} className="guided-tour-title">{i18n._(words.title)}</h2>
-          <p id={bodyId} className="guided-tour-body">{i18n._(words.body)}</p>
+          {words.body && <p id={bodyId} className="guided-tour-body">{i18n._(words.body)}</p>}
           {step.action && (
             <p className="guided-tour-action" data-done={actionDone || undefined}>
               <span className="guided-tour-action-mark" aria-hidden="true">
                 <Check size={11} strokeWidth={3} />
               </span>
-              <span className="guided-tour-action-label">{i18n._(step.action)}</span>
+              <span id={actionId} className="guided-tour-action-label">{i18n._(step.action)}</span>
               <span className="sr-only" aria-live="polite">{actionDone ? t`Done` : ""}</span>
             </p>
           )}

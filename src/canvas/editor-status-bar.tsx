@@ -17,7 +17,7 @@ const CARET_LINE = "\u0001";
 const CARET_COLUMN = "\u0002";
 
 /**
- * Caret position, save state, Vim mode, section breadcrumb, shortcuts,
+ * Caret position, save state, Vim mode, section breadcrumb,
  * comments/TODOs, and word counts for the focused editor.
  *
  * The bar never wraps or clips: as it narrows, app-shell.css's ladder gives
@@ -33,7 +33,6 @@ export function EditorStatusBar(props: {
   /** The open file; a breadcrumb entry without a path of its own belongs to it. */
   path: string;
   onNavigate: (path: string, line: number) => void;
-  hasDiagnostics: boolean;
   comments: EditorComment[];
   onOpenComments: () => void;
   todoCount: number;
@@ -93,7 +92,6 @@ export function EditorStatusBar(props: {
               {index > 0 && <i aria-hidden="true">›</i>}
               <button
                 type="button"
-                title={t({ message: `Go to ${{ title: node.title }}` })}
                 onClick={() => props.onNavigate(node.path || props.path, node.line)}
               >
                 {node.title}
@@ -102,12 +100,6 @@ export function EditorStatusBar(props: {
           ))}
         </span>
       )}
-      <span className="status-hint" title={t`Editor shortcuts`}>
-        {props.hasDiagnostics
-          // eslint-disable-next-line lingui/no-unlocalized-strings -- key name
-          ? <><kbd>F8</kbd> {t`next`} · <kbd>⇧F8</kbd> {t`previous`}</>
-          : <><kbd>⌘F</kbd> {t`find`} · <kbd>⌘/</kbd> {t`comment`}</>}
-      </span>
       {/* Icon, noun and count, in that order at every width, so the number
           is always the last thing in the item and the eye finds it in one
           place: the noun goes first as the bar narrows, leaving the icon and
@@ -131,7 +123,6 @@ export function EditorStatusBar(props: {
       ))}
       <StatusWordCount
         projectWordCount={props.projectWordCount}
-        path={props.path}
         selectedText={props.selectedText}
         source={props.source}
       />
@@ -142,7 +133,6 @@ export function EditorStatusBar(props: {
         todoCount={todoCount}
         openersRef={openersRef}
         projectWordCount={props.projectWordCount}
-        path={props.path}
         selectedText={moreOpen ? props.selectedText : ""}
         source={moreOpen ? props.source : ""}
       />
@@ -198,7 +188,6 @@ function useCounters(openComments: number, todoCount: number): StatusCounter[] {
 
 type WordCountSource = {
   projectWordCount: WordCount | null;
-  path: string;
   selectedText: string;
   source: string;
 };
@@ -234,21 +223,17 @@ function useWordCountLabels(props: WordCountSource) {
     : projectWordCount
       ? [t`Manuscript`, manuscriptWords(projectWordCount.total)]
       : [t`This file`, words(fileWords)];
-  const fileName = props.path.slice(props.path.lastIndexOf("/") + 1);
   return {
     scope,
     count,
     manuscript: projectWordCount ? manuscriptWords(projectWordCount.total) : null,
-    manuscriptNote: !projectWordCount
-      ? t`Needs a root document to count from`
-      : estimated
-        ? t`Root document only, estimated without texcount`
-        : t`Root document and its includes, via texcount`,
+    // The ≈ marks an estimate; only a missing count needs a note.
+    manuscriptNote: projectWordCount ? null : t`Needs a root document to count from`,
     manuscriptBreakdown: projectWordCount && !estimated
       ? spaceMixedScript(t({ message: `Text ${{ text: formatCount(projectWordCount.text) }} · headings ${{ headers: formatCount(projectWordCount.headers) }} · captions ${{ captions: formatCount(projectWordCount.captions) }}` }))
       : null,
     file: words(fileWords),
-    fileNote: t({ message: `${{ fileName }}, markup included · ${{ characters: characters(source.length) }}` }),
+    fileNote: characters(source.length),
     selection: selectedText ? words(selection.words) : null,
     selectionNote: `${characters(selection.chars)} · ${lines(selection.lines)}`,
   };
@@ -264,7 +249,6 @@ function StatusWordCount(props: WordCountSource) {
         <button
           type="button"
           className="status-item status-body-words"
-          title={t`Word count`}
           aria-label={t`Word count: ${scope}, ${count}`}
         >
           <span className="status-word-scope">{scope}</span>
@@ -285,7 +269,7 @@ function WordCountDetails({ words }: { words: WordCountLabels }) {
       <div>
         <dt>{t`Manuscript`}</dt>
         <dd>{words.manuscript ?? t`Unavailable`}</dd>
-        <dd className="word-count-note">{words.manuscriptNote}</dd>
+        {words.manuscriptNote && <dd className="word-count-note">{words.manuscriptNote}</dd>}
         {words.manuscriptBreakdown && <dd className="word-count-note">{words.manuscriptBreakdown}</dd>}
       </div>
       <div>

@@ -33,6 +33,7 @@ import { OVERLEAF_SESSION_EXPIRED } from "./overleaf-realtime-model";
 import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
+import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { notifyError, notifyInfo, notifySuccess } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { onOverleafSessionChanged } from "./overleaf-realtime-listen";
@@ -76,7 +77,7 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
 
   const cancel = useCallback(() => {
     stop();
-    setNotice(t`Sign-in was cancelled. You can try again whenever you’re ready.`);
+    setNotice(t`Sign-in was cancelled`);
   }, [stop, t]);
 
   const poll = useCallback(async function pollForLogin() {
@@ -231,7 +232,7 @@ function StatusRow(props: { dot: "connected" | "paused"; icon: ReactNode; title:
 
 /** A settings row whose control is a dropdown over `options`, in their listed order. */
 function SelectRow<T extends string>({ label, description, value, onChange, options, setting }: {
-  label: string; description: ReactNode; value: T; onChange: (value: T) => void; options: Record<T, string>;
+  label: string; description?: ReactNode; value: T; onChange: (value: T) => void; options: Record<T, string>;
   /** What Settings search reveals this row by. */
   setting: string;
 }) {
@@ -361,19 +362,16 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
   const connectedToLinkedHost = Boolean(
     known?.connected && link && overleafLinkMatchesSession(known.host, link.host),
   );
+  // Only the live channel's state is worth a line under Sync mode; "Live sync"
+  // and "Manual" say the rest. Likewise only "Delete on Overleaf too" has a
+  // fact its label can't carry: Overleaf's history still holds the file.
   const channelDescriptions = {
     connecting: t`Connecting live editing…`,
     error: t`Live editing is unavailable; regular syncing continues`,
     live: t`Live editing is connected`,
-    off: t`Edits sync live with Overleaf`,
   };
-  const syncModeDescription = props.syncMode === "manual"
-    ? t`Sync only when you click the sync button`
-    : channelDescriptions[props.channel];
   const deleteDescriptions = {
-    ask: t`A sync asks first`,
     always: t`Overleaf history keeps a copy`,
-    never: t`Overleaf keeps its copy`,
   };
 
   const linkDetail = (current: OverleafLink) => {
@@ -385,7 +383,6 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
         : t`Sign in to ${linkedHost} to resume syncing`;
     }
     if (!connectedToLinkedHost) return t`This project uses ${linkedHost}. Sign out and connect to it to resume`;
-    if (current.paused) return t`Nothing is sent or fetched until you resume`;
     return current.lastSync ? t`Last synced ${relativeTime(current.lastSync)}` : t`Not synced yet`;
   };
 
@@ -395,12 +392,11 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
       <SettingsSectionHeader title="Overleaf" />
       <SettingsGroup title={t`Connection`} data-setting="overleaf-connection">
         {loading && !loadError && (
-          <EmptyState
-            align="start"
-            density="compact"
-            icon={<InfinityLoader size={15} />}
-            description={t`Checking your Overleaf connection…`}
-          />
+          <>
+            {/* One small status; its words go to assistive technology, not beside it. */}
+            <EmptyState align="start" density="compact" icon={<InfinityLoader size={15} />} />
+            <LoadingAnnouncement message={t`Checking your Overleaf connection…`} />
+          </>
         )}
         {loadError && <RetryRow error={loadError} busy={loading} label={t`Try again`} onRetry={() => void load()} />}
         {known?.connected && (
@@ -455,9 +451,9 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
           label={t`Sync mode`}
           description={props.syncMode === "live" && props.channel !== "off" ? (
             <span className={`overleaf-channel overleaf-channel-${props.channel}`} title={props.channelDetail ?? undefined}>
-              {syncModeDescription}
+              {channelDescriptions[props.channel]}
             </span>
-          ) : syncModeDescription}
+          ) : undefined}
           value={props.syncMode}
           onChange={props.onSyncModeChange}
           options={{ live: t`Live sync`, manual: t`Manual` }}
@@ -465,7 +461,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
         <SelectRow
           setting="overleaf-remote-delete"
           label={t`When you delete a file here`}
-          description={deleteDescriptions[props.remoteDelete]}
+          description={props.remoteDelete === "always" ? deleteDescriptions.always : undefined}
           value={props.remoteDelete}
           onChange={props.onRemoteDeleteChange}
           options={{ ask: t`Ask before deleting`, always: t`Delete on Overleaf too`, never: t`Keep it on Overleaf` }}
@@ -742,11 +738,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
         {known && !known.connected && (
           <div className="overleaf-stage" data-plain="">
             <StageMessage glyph={known.expired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={known.expired ? "warning" : "accent"}>
-              <p className="overleaf-stage-text">
-                {known.expired
-                  ? t`Your Overleaf session expired. Sign in again`
-                  : t`Connect your Overleaf account to see your projects`}
-              </p>
+              {known.expired && <p className="overleaf-stage-text">{t`Your Overleaf session expired`}</p>}
               <LoginControls
                 login={login}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
@@ -791,7 +783,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 <StageMessage glyph={projects.length === 0 ? <FileText size={20} /> : <SearchX size={20} />} tone="neutral">
                   <p className="overleaf-empty">
                     {projects.length === 0
-                      ? t`No projects in this account yet. Create one on Overleaf and it will appear here`
+                      ? t`No projects in this account yet`
                       : query
                         ? t`No projects match your search`
                         : t`All your projects are archived or trashed`}
@@ -813,7 +805,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </ScrollArea>
               )}
             </div>
-            {visible.length > 0 && <p className="overleaf-picker-keyboard">{t`↑↓ to navigate · Enter to open`}</p>}
             {props.currentProject && props.onPublish && (
               <section className="overleaf-publish-card">
                 <div className="overleaf-publish-head">

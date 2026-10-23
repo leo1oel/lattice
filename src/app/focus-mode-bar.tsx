@@ -25,8 +25,7 @@ export function FocusModeBar({ controller, title, pdf, onPdfChange, onExit }: {
   onExit: () => void;
 }) {
   const { t } = useLingui();
-  const pdfLabel = pdf ? t`Hide the PDF` : t`Show the PDF beside the editor`;
-  const exitKeys = comboText({ mod: true, ...FOCUS_MODE_KEY });
+  const pdfLabel = pdf ? t`Hide the PDF` : t`Show the PDF`;
   const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
   useFocusModeEscape(controller);
   return (
@@ -51,7 +50,7 @@ export function FocusModeBar({ controller, title, pdf, onPdfChange, onExit }: {
             <span>{t`PDF`}</span>
           </button>
         </Tip>
-        <Tip label={t`Leave focus mode · ${exitKeys} or Esc`}>
+        <Tip label={t`Exit focus`} shortcut={comboText({ mod: true, ...FOCUS_MODE_KEY })}>
           <Button variant="ghost" size="compact" className="focus-bar-exit" onClick={onExit}>
             <Minimize2 size={13} aria-hidden="true" />
             {t`Exit focus`}

@@ -71,8 +71,8 @@ msgstr "(this comment's text was removed)"
 
 #. placeholder {0}: file.entries
 #: src/papers/bibliography-audit.tsx
-msgid "{0} {BIBITEM} in the document, compared, never edited"
-msgstr "{0} {BIBITEM} in the document, compared, never edited"
+msgid "{0} {BIBITEM}"
+msgstr "{0} {BIBITEM}"
 
 #. placeholder {0}: label(older)
 #. placeholder {1}: label(newer)
@@ -116,11 +116,6 @@ msgstr "{0} comes in light only"
 msgid "{0} comments"
 msgstr "{0} comments"
 
-#. placeholder {0}: counts.incomplete
-#: src/papers/bibliography-audit.tsx
-msgid "{0} couldn't finish"
-msgstr "{0} couldn't finish"
-
 #. placeholder {0}: list(reasons.map(reason => reasonLabels[reason] ?? reason))
 #: src/papers/bibliography-audit.tsx
 msgid "{0} differ from a source's record"
@@ -141,10 +136,15 @@ msgstr "{0} files"
 msgid "{0} fixes to review"
 msgstr "{0} fixes to review"
 
+#. placeholder {0}: counts.incomplete
+#: src/papers/bibliography-audit.tsx
+msgid "{0} inconclusive"
+msgstr "{0} inconclusive"
+
 #. placeholder {0}: entry.path
 #: src/papers/bibliography-audit.tsx
-msgid "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it: change the {BIBITEM} by hand, or copy the corrected one."
-msgstr "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it: change the {BIBITEM} by hand, or copy the corrected one."
+msgid "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it"
+msgstr "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it"
 
 #. placeholder {0}: counts.review
 #: src/papers/bibliography-audit.tsx
@@ -193,11 +193,6 @@ msgstr "{0} people on Overleaf now"
 #: src/papers/add-papers-sheet.tsx
 msgid "{0} records match"
 msgstr "{0} records match"
-
-#. placeholder {0}: candidates.length
-#: src/papers/bib-entry-dialog.tsx
-msgid "{0} records match. Choose the one you mean."
-msgstr "{0} records match. Choose the one you mean."
 
 #. placeholder {0}: selected.size
 #: src/papers/bibliography-audit.tsx
@@ -326,12 +321,9 @@ msgid "{count} comment lines"
 msgstr "{count} comment lines"
 
 #: src/editor/insert/figure-insert-dialog.tsx
+#: src/project/arxiv-export.ts
 msgid "{count} figures"
 msgstr "{count} figures"
-
-#: src/project/arxiv-export.ts
-msgid "{count} figures, as the last build used them"
-msgstr "{count} figures, as the last build used them"
 
 #: src/project/arxiv-export.ts
 msgid "{count} files"
@@ -342,8 +334,12 @@ msgid "{count} hits"
 msgstr "{count} hits"
 
 #: src/project/import-conflict-dialog.tsx
-msgid "{count} items with these names are already here"
-msgstr "{count} items with these names are already here"
+msgid "{count} items with these names are already in {targetDirectory}"
+msgstr "{count} items with these names are already in {targetDirectory}"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "{count} items with these names are already in the project root"
+msgstr "{count} items with these names are already in the project root"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} line"
@@ -385,10 +381,6 @@ msgstr "{count} paths copied"
 #: src/papers/literature-discovery-panel.tsx
 msgid "{count} results for “{shownQuery}”"
 msgstr "{count} results for “{shownQuery}”"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "{count} suggestions"
-msgstr "{count} suggestions"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
@@ -502,10 +494,6 @@ msgstr "{failing} checks need attention"
 msgid "{failures} to fix"
 msgstr "{failures} to fix"
 
-#: src/canvas/status-save-state.tsx
-msgid "{file} · saves a second after you stop typing"
-msgstr "{file} · saves a second after you stop typing"
-
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -513,10 +501,6 @@ msgstr "{fileCount} file"
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} files"
 msgstr "{fileCount} files"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "{fileName}, markup included · {characters}"
-msgstr "{fileName}, markup included · {characters}"
 
 #: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
@@ -601,10 +585,6 @@ msgstr "{meaning}, {color}"
 msgid "{meaning}, {color}, the pen's colour"
 msgstr "{meaning}, {color}, the pen's colour"
 
-#: src/live-preview/live-preview-settings.tsx
-msgid "{message} Builds work as usual."
-msgstr "{message} Builds work as usual."
-
 #: src/project/deadline-card.tsx
 msgid "{minutes} minutes"
 msgstr "{minutes} minutes"
@@ -621,6 +601,14 @@ msgstr "{more} more replies"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name} (reconnecting…)"
+
+#: src/project/project-dialogs.tsx
+msgid "{name} 2026"
+msgstr "{name} 2026"
+
+#: src/project/project-dialogs.tsx
+msgid "{name} 2026 · preprint"
+msgstr "{name} 2026 · preprint"
 
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
@@ -685,21 +673,12 @@ msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
 #: src/canvas/proofread-card.tsx
-msgid "{offered} edits · clarity and flow"
-msgstr "{offered} edits · clarity and flow"
-
-#: src/canvas/proofread-card.tsx
-msgid "{offered} edits · errors only"
-msgstr "{offered} edits · errors only"
+msgid "{offered} edits"
+msgstr "{offered} edits"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "{open} open"
 msgstr "{open} open"
-
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/overleaf/overleaf-collab.tsx
-msgid "{openCount} open"
-msgstr "{openCount} open"
 
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
@@ -708,10 +687,6 @@ msgstr "{operation} request error"
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request success"
 msgstr "{operation} request success"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "{operation}: {pathname}"
-msgstr "{operation}: {pathname}"
 
 #: src/history/compare-versions.tsx
 msgid "{paragraphs} changed paragraphs"
@@ -823,10 +798,6 @@ msgstr "{totalPages} total · end of the body not located in the PDF"
 msgid "{totalPages} total · included files not read"
 msgstr "{totalPages} total · included files not read"
 
-#: src/project/manuscript-checklist.tsx
-msgid "{unsettled} can't be checked yet"
-msgstr "{unsettled} can't be checked yet"
-
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"
@@ -864,17 +835,17 @@ msgstr "% comment"
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "↑↓ to navigate · Enter to open"
-msgstr "↑↓ to navigate · Enter to open"
+#: src/onboarding/guided-tour-steps.ts
+msgid "⌘⇧J jumps back"
+msgstr "⌘⇧J jumps back"
 
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧-click for a clean rebuild"
 
 #: src/papers/bibliography-audit.tsx
-msgid "1 {BIBITEM} in the document, compared, never edited"
-msgstr "1 {BIBITEM} in the document, compared, never edited"
+msgid "1 {BIBITEM}"
+msgstr "1 {BIBITEM}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "1 already in Papers is skipped"
@@ -915,20 +886,16 @@ msgid "1 day"
 msgstr "1 day"
 
 #: src/canvas/proofread-card.tsx
-msgid "1 edit · clarity and flow"
-msgstr "1 edit · clarity and flow"
-
-#: src/canvas/proofread-card.tsx
-msgid "1 edit · errors only"
-msgstr "1 edit · errors only"
+msgid "1 edit"
+msgstr "1 edit"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 entry"
 msgstr "1 entry"
 
 #: src/project/arxiv-export.ts
-msgid "1 figure, as the last build used it"
-msgstr "1 figure, as the last build used it"
+msgid "1 figure"
+msgstr "1 figure"
 
 #: src/history/versions-timeline.tsx
 #: src/project/arxiv-export.ts
@@ -972,11 +939,6 @@ msgstr "1 note"
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/overleaf/overleaf-collab.tsx
-msgid "1 open"
-msgstr "1 open"
-
 #: src/project/arxiv-export.ts
 #: src/trellis/trellis-build-sequence.tsx
 msgid "1 page"
@@ -1007,7 +969,6 @@ msgstr "1 reference, not checked yet"
 msgid "1 result for “{shownQuery}”"
 msgstr "1 result for “{shownQuery}”"
 
-#: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 msgid "1 suggestion"
 msgstr "1 suggestion"
@@ -1048,10 +1009,6 @@ msgstr "A {BRACE_CLOSE} with no {BRACE_OPEN} before it"
 msgid "A {BRACE_OPEN} is never closed"
 msgstr "A {BRACE_OPEN} is never closed"
 
-#: src/terminal/terminal-panel.tsx
-msgid "A browser tab cannot run commands on this Mac"
-msgstr "A browser tab cannot run commands on this Mac"
-
 #: src/papers/bib-visual-editor.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
@@ -1076,17 +1033,9 @@ msgstr "A file in this project"
 msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 msgstr "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
 
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "A hidden LaTeX comment stores the editable data with this table."
-msgstr "A hidden LaTeX comment stores the editable data with this table."
-
 #: src/build/compile-explain.ts
 msgid "A length without a unit"
 msgstr "A length without a unit"
-
-#: src/history/export-changes-dialog.tsx
-msgid "A line beside every change"
-msgstr "A line beside every change"
 
 #: src/build/compile-explain.ts
 msgid "A line runs {points} pt into the margin"
@@ -1096,13 +1045,13 @@ msgstr "A line runs {points} pt into the margin"
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "A one-minute tour of this sample paper. Seven stops, each with something to try."
-msgstr "A one-minute tour of this sample paper. Seven stops, each with something to try."
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
+
+#: src/papers/bibliography-audit.tsx
+msgid "A possible record conflicts with this reference"
+msgstr "A possible record conflicts with this reference"
 
 #: src/build/compile-explain.ts
 msgid "A preamble command inside the document"
@@ -1125,14 +1074,6 @@ msgstr "A published version of this preprint exists. Inline references are edite
 msgid "A source file changed. Refresh and preview the replacement again."
 msgstr "A source file changed. Refresh and preview the replacement again."
 
-#: src/papers/bibliography-audit.tsx
-msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
-msgstr "A source returned a possible record, but its identifying metadata conflicts with this reference."
-
-#: src/papers/bibliography-audit.tsx
-msgid "A source returned a record that differs from yours. It was not verified, so Lattice won't apply it: read both and keep yours, or edit the entry."
-msgstr "A source returned a record that differs from yours. It was not verified, so Lattice won't apply it: read both and keep yours, or edit the entry."
-
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "A spreadsheet must contain at least one sheet"
 msgstr "A spreadsheet must contain at least one sheet"
@@ -1140,11 +1081,6 @@ msgstr "A spreadsheet must contain at least one sheet"
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "A spreadsheet must contain between 1 and 200 sheets"
-
-#: src/overleaf/overleaf-connect.tsx
-#: src/settings/settings-search-index.ts
-msgid "A sync asks first"
-msgstr "A sync asks first"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1155,10 +1091,6 @@ msgstr "About"
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "About {name}"
-
-#: src/build/tex-setup-wizard.tsx
-msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
-msgstr "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
 
 #: src/project/deadline-card.tsx
 msgid "abstract"
@@ -1197,10 +1129,6 @@ msgid "Accept all"
 msgstr "Accept all"
 
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "Accept or reject each one in the editor; the round is saved as a version"
-msgstr "Accept or reject each one in the editor; the round is saved as a version"
-
-#: src/editor/comments/editor-comments-panel.tsx
 msgid "Accepted"
 msgstr "Accepted"
 
@@ -1222,11 +1150,6 @@ msgstr "Accordion"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
-
-#: src/history/history-drawer.tsx
-msgctxt "history source"
-msgid "Activity"
-msgstr "Activity"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -1285,10 +1208,6 @@ msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, b
 msgid "Add an item"
 msgstr "Add an item"
 
-#: src/project/submission-items.tsx
-msgid "Add an item, e.g. supplementary.pdf checked"
-msgstr "Add an item, e.g. supplementary.pdf checked"
-
 #: src/trellis/trellis-labels.ts
 msgid "Add as tab"
 msgstr "Add as tab"
@@ -1296,10 +1215,6 @@ msgstr "Add as tab"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Add bibliography entry"
 msgstr "Add bibliography entry"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Add bibliography entry and cache the arXiv paper"
-msgstr "Add bibliography entry and cache the arXiv paper"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Add block below"
@@ -1321,10 +1236,6 @@ msgstr "Add field"
 msgid "Add items from"
 msgstr "Add items from"
 
-#: src/papers/bib-visual-editor.tsx
-msgid "Add one by DOI, arXiv ID, title, or by hand"
-msgstr "Add one by DOI, arXiv ID, title, or by hand"
-
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Add or edit a link"
 msgstr "Add or edit a link"
@@ -1335,10 +1246,6 @@ msgstr "Add or edit a link"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add papers"
 msgstr "Add papers"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Add papers by arXiv ID, DOI or title, then read them beside your draft."
-msgstr "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 
 #: src/project/paper-library.tsx
 msgid "Add papers…"
@@ -1410,8 +1317,8 @@ msgstr "Added 1 paper"
 #. placeholder {0}: position || done + 1
 #. placeholder {1}: queue.length
 #: src/papers/add-papers-sheet.tsx
-msgid "Adding {0} of {1} — you can keep writing"
-msgstr "Adding {0} of {1} — you can keep writing"
+msgid "Adding {0} of {1}"
+msgstr "Adding {0} of {1}"
 
 #: src/project/paper-library.tsx
 msgid "Adding paper"
@@ -1420,14 +1327,6 @@ msgstr "Adding paper"
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "Adding…"
-
-#: src/project/paper-library.tsx
-msgid "Adds it to {bibliography} and fetches the full text"
-msgstr "Adds it to {bibliography} and fetches the full text"
-
-#: src/project/paper-library.tsx
-msgid "Adds it to {bibliography}, with its full text when there is one"
-msgstr "Adds it to {bibliography}, with its full text when there is one"
 
 #: src/settings/theme-settings.tsx
 msgid "Adjusted so links and selected text read at {ratio}:1"
@@ -1463,11 +1362,6 @@ msgstr "Agent runtime"
 #: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
 msgstr "Agent settings…"
-
-#. placeholder {0}: item.threadTitle
-#: src/history/history-drawer.tsx
-msgid "Agent task: {0}"
-msgstr "Agent task: {0}"
 
 #: src/app/app-history-drawers.tsx
 msgid "Agent turn"
@@ -1556,56 +1450,44 @@ msgstr "All levels"
 msgid "All papers"
 msgstr "All papers"
 
-#: src/project/figure-inventory-dialog.tsx
-msgid "All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images."
-msgstr "All project TeX files and the active buffer. Literal graphics only; macros, conditions, subfigures and build order need manual review. PDF/SVG files are not scored as raster images."
-
 #: src/papers/bib-visual-editor.tsx
 msgid "All references"
 msgstr "All references"
-
-#: src/App.tsx
-msgid "all source files"
-msgstr "all source files"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "All third-party software"
 msgstr "All third-party software"
 
+#: src/settings/acknowledgements-settings.tsx
+msgid "All third-party software · {total}"
+msgstr "All third-party software · {total}"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "All your projects are archived or trashed"
 msgstr "All your projects are archived or trashed"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Allow shell escape"
+msgstr "Allow shell escape"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "Alpha"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "Already in {targetDirectory}:"
-msgstr "Already in {targetDirectory}:"
 
 #: src/papers/add-papers-sheet.tsx
 #: src/project/paper-library.tsx
 msgid "Already in Papers"
 msgstr "Already in Papers"
 
-#: src/project/import-conflict-dialog.tsx
-msgid "Already in the project root:"
-msgstr "Already in the project root:"
-
 #. placeholder {0}: list(fix.unprinted)
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "Also changes: {0}"
-
-#: src/canvas/proofread-card.tsx
-msgid "Also improve flow and academic clarity"
-msgstr "Also improve flow and academic clarity"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
@@ -1631,21 +1513,21 @@ msgstr "An edit is still on its way to Overleaf. Try again in a moment."
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 
-#: src/project/project-dialogs.tsx
-msgid "An empty LuaLaTeX article with no venue style or page limit"
-msgstr "An empty LuaLaTeX article with no venue style or page limit"
-
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "An existing bibliography entry has an invalid citation key."
 
 #: src/papers/bibliography-audit.tsx
-msgid "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
-msgstr "An index matched this reference, but the official proceedings could not be reached to confirm it. This does not mean the reference is incorrect."
+msgid "An index matched, but the official proceedings could not be reached"
+msgstr "An index matched, but the official proceedings could not be reached"
 
 #: src/project/import-conflict-dialog.tsx
-msgid "An item with this name is already here"
-msgstr "An item with this name is already here"
+msgid "An item with this name is already in {targetDirectory}"
+msgstr "An item with this name is already in {targetDirectory}"
+
+#: src/project/import-conflict-dialog.tsx
+msgid "An item with this name is already in the project root"
+msgstr "An item with this name is already in the project root"
 
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
@@ -1658,10 +1540,6 @@ msgstr "and {hidden} more"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
 msgstr "Angle"
-
-#: src/settings/acknowledged-software.ts
-msgid "Animated interface icons, redrawn from Phosphor glyphs"
-msgstr "Animated interface icons, redrawn from Phosphor glyphs"
 
 #: src/canvas/annotation-composer.tsx
 #: src/canvas/markdown-source-toolbar.tsx
@@ -1843,10 +1721,6 @@ msgstr "Applying figure changes…"
 msgid "Applying…"
 msgstr "Applying…"
 
-#: src/agent/synara-permission-picker.tsx
-msgid "Approve for me"
-msgstr "Approve for me"
-
 #: src/build/tex-install-dialog.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
@@ -1871,53 +1745,34 @@ msgstr "Article"
 msgid "Article entry uses booktitle instead of journal."
 msgstr "Article entry uses booktitle instead of journal."
 
-#: src/project/arxiv-export.ts
-msgid "arXiv doesn’t run BibTeX; from your last build"
-msgstr "arXiv doesn’t run BibTeX; from your last build"
-
 #: src/papers/bibliography-audit.tsx
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
-
-#: src/editor/comments/annotation-rounds-dialog.tsx
-msgid "As the last round left it"
-msgstr "As the last round left it"
 
 #: src/canvas/annotation-review.tsx
 msgid "Ask again"
 msgstr "Ask again"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Ask before deleting"
 msgstr "Ask before deleting"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "Ask before external edits and network access"
-msgstr "Ask before external edits and network access"
+msgid "Ask before outside edits and network"
+msgstr "Ask before outside edits and network"
 
 #: src/agent/synara-permission-picker.tsx
-msgid "Ask for approval"
-msgstr "Ask for approval"
+msgid "Ask for risky actions"
+msgstr "Ask for risky actions"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Ask it anything"
 msgstr "Ask it anything"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Ask it to explain, revise or check the paper. It works inside your project."
-msgstr "Ask it to explain, revise or check the paper. It works inside your project."
-
-#: src/agent/synara-permission-picker.tsx
-msgid "Ask only for potentially unsafe actions"
-msgstr "Ask only for potentially unsafe actions"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Ask the agent"
 msgstr "Ask the agent"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Ask the agent to fix this error, then recompile"
-msgstr "Ask the agent to fix this error, then recompile"
 
 #: src/canvas/annotation-review.tsx
 msgid "Asking the agent again…"
@@ -2131,10 +1986,6 @@ msgstr "BibTeX bibliography style"
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "BibTeX source beside the reference list"
-msgstr "BibTeX source beside the reference list"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Big section heading."
 msgstr "Big section heading."
@@ -2156,10 +2007,6 @@ msgstr "Bigger"
 #: src/overleaf/overleaf-review.tsx
 msgid "binary"
 msgstr "binary"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "Binary file — no line-by-line view"
-msgstr "Binary file — no line-by-line view"
 
 #: src/history/file-diff-view.tsx
 msgid "Binary file changed"
@@ -2205,10 +2052,6 @@ msgstr "Blog"
 msgid "Blue"
 msgstr "Blue"
 
-#: src/settings/acknowledged-software.ts
-msgid "Board typefaces"
-msgstr "Board typefaces"
-
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Body text"
 msgstr "Body text"
@@ -2243,17 +2086,13 @@ msgstr "Book"
 msgid "Booktabs rules"
 msgstr "Booktabs rules"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Booktabs rules need the booktabs package"
+msgstr "Booktabs rules need the booktabs package"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Booktitle"
 msgstr "Booktitle"
-
-#: src/history/conflict-resolver.tsx
-msgid "Both sides changed these spots. Pick a version for each; saving uploads it to Overleaf"
-msgstr "Both sides changed these spots. Pick a version for each; saving uploads it to Overleaf"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "Both sides edited different parts, so the two sets of edits join"
-msgstr "Both sides edited different parts, so the two sets of edits join"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bottom / false"
@@ -2289,11 +2128,6 @@ msgstr "Bracketed matrix"
 msgid "Breve accent example"
 msgstr "Breve accent example"
 
-#. placeholder {0}: file.pathname
-#: src/overleaf/overleaf-history.tsx
-msgid "Bring back {0}"
-msgstr "Bring back {0}"
-
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -2305,10 +2139,6 @@ msgstr "Browser storage is full or unavailable. New entries still reach the log 
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
 msgstr "Build"
-
-#: src/trellis/trellis-header-tools.tsx
-msgid "Build and show the PDF"
-msgstr "Build and show the PDF"
 
 #: src/build/build-result-text.ts
 #: src/trellis/trellis-build-sequence.tsx
@@ -2363,8 +2193,8 @@ msgid "Build superseded"
 msgstr "Build superseded"
 
 #: src/project/arxiv-export-dialog.tsx
-msgid "Build the paper first. The package is made from the files the last build of {rootDocument} used."
-msgstr "Build the paper first. The package is made from the files the last build of {rootDocument} used."
+msgid "Build the paper first"
+msgstr "Build the paper first"
 
 #: src/project/arxiv-export.ts
 msgid "Build the paper so it has one; arXiv doesn’t run BibTeX"
@@ -2374,26 +2204,9 @@ msgstr "Build the paper so it has one; arXiv doesn’t run BibTeX"
 msgid "Build the PDF to export a review copy"
 msgstr "Build the PDF to export a review copy"
 
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Build this project with pdfLaTeX from now on"
-msgstr "Build this project with pdfLaTeX from now on"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Build to count"
 msgstr "Build to count"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Build with {switchedFrom} again"
-msgstr "Build with {switchedFrom} again"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Build with ⌘S. Edits still save on their own"
-msgstr "Build with ⌘S. Edits still save on their own"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Build your LaTeX project to see the typeset paper"
-msgstr "Build your LaTeX project to see the typeset paper"
 
 #: src/pdf/pdf-viewer.tsx
 #: src/project/arxiv-export-dialog.tsx
@@ -2406,11 +2219,6 @@ msgstr "Building…"
 #: src/settings/settings-search-index.ts
 msgid "Builds"
 msgstr "Builds"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Builds 1.2 s after you stop typing"
-msgstr "Builds 1.2 s after you stop typing"
 
 #: src/project/arxiv-export.ts
 msgid "Builds from the package alone"
@@ -2440,12 +2248,28 @@ msgid "Bulleted list"
 msgstr "Bulleted list"
 
 #: src/settings/acknowledged-software.ts
-msgid "By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful."
-msgstr "By Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful."
+msgid "By Ahmed Hatem, built on Iosevka by Renzhi Li"
+msgstr "By Ahmed Hatem, built on Iosevka by Renzhi Li"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Daniel Belyi"
+msgstr "By Daniel Belyi"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Inkeep; Lattice's first visual Markdown editor began there"
+msgstr "By Inkeep; Lattice's first visual Markdown editor began there"
 
 #: src/settings/acknowledged-software.ts
 msgid "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
 msgstr "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
+
+#: src/settings/acknowledged-software.ts
+msgid "By Rasmus Andersson"
+msgstr "By Rasmus Andersson"
+
+#: src/settings/acknowledged-software.ts
+msgid "By T3 Tools Inc. and Emanuele Di Pietro"
+msgstr "By T3 Tools Inc. and Emanuele Di Pietro"
 
 #: src/project/citation-health.ts
 msgid "cached"
@@ -2459,10 +2283,6 @@ msgstr "Call for papers URL or note"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Callout"
 msgstr "Callout"
-
-#: src/project/deadline-card.tsx
-msgid "Calls for papers give deadlines in AoE; your own time shows here"
-msgstr "Calls for papers give deadlines in AoE; your own time shows here"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Can take up to 15 minutes"
@@ -2617,10 +2437,6 @@ msgstr "Caption"
 msgid "Caption of a figure or table"
 msgstr "Caption of a figure or table"
 
-#: src/App.tsx
-msgid "cards beside the text when there is room"
-msgstr "cards beside the text when there is room"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "Caution"
@@ -2665,10 +2481,6 @@ msgstr "Changed files"
 msgid "Changed here"
 msgstr "Changed here"
 
-#: src/overleaf/overleaf-review.tsx
-msgid "Changed here, untouched there"
-msgstr "Changed here, untouched there"
-
 #: src/project/submission-items.tsx
 msgid "Changed since confirmed"
 msgstr "Changed since confirmed"
@@ -2676,10 +2488,6 @@ msgstr "Changed since confirmed"
 #: src/papers/bibliography-audit.tsx
 msgid "Changed since the last check"
 msgstr "Changed since the last check"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "Changed there, untouched here"
-msgstr "Changed there, untouched here"
 
 #: src/history/compare-versions.tsx
 msgid "Changes"
@@ -2690,10 +2498,6 @@ msgstr "Changes"
 msgctxt "git panel"
 msgid "Changes"
 msgstr "Changes"
-
-#: src/project/figure-inventory-dialog.tsx
-msgid "Changes are recorded per file in project history. Undo remains available if a later file fails."
-msgstr "Changes are recorded per file in project history. Undo remains available if a later file fails."
 
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx
@@ -2731,6 +2535,11 @@ msgstr "Check decimal places (0–8), label (letters, digits, colon, dot, dash o
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+msgid "Check English spelling"
+msgstr "Check English spelling"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "Check for updates"
 
@@ -2750,7 +2559,6 @@ msgstr "Check references"
 msgid "Check selected"
 msgstr "Check selected"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Check spelling in prose"
 msgstr "Check spelling in prose"
@@ -2775,10 +2583,6 @@ msgstr "checked {checked}"
 msgid "Checked against it on"
 msgstr "Checked against it on"
 
-#: src/App.tsx
-msgid "Checked, comments removed, builds alone"
-msgstr "Checked, comments removed, builds alone"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "Checking {completed} of {progressTotal}…"
@@ -2791,7 +2595,6 @@ msgstr "Checking the connection to {linkedHost}…"
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
-#: src/build/tex-install-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/settings/settings-dialog.tsx
@@ -2830,21 +2633,9 @@ msgstr "Choose .bib file…"
 msgid "Choose a built-in template"
 msgstr "Choose a built-in template"
 
-#: src/trellis/trellis-workspace.tsx
-msgid "Choose a file from the project, or find it with Quick open"
-msgstr "Choose a file from the project, or find it with Quick open"
-
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "Choose a project image"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Choose a reference to see what was checked."
-msgstr "Choose a reference to see what was checked."
-
-#: src/papers/bib-visual-editor.tsx
-msgid "Choose a reference to see where it is cited and edit its fields"
-msgstr "Choose a reference to see where it is cited and edit its fields"
 
 #: src/project/local-templates.tsx
 msgid "Choose a saved template"
@@ -2877,10 +2668,6 @@ msgstr "Choose one"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "Choose Reading in Panels"
-
-#: src/project/local-templates.tsx
-msgid "Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied."
-msgstr "Choose reusable source files, styles and images. Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied."
 
 #: src/project/local-templates.tsx
 msgid "Choose template source"
@@ -2970,10 +2757,6 @@ msgstr "Citation only"
 msgid "Citation only, no full text"
 msgstr "Citation only, no full text"
 
-#: src/papers/literature-discovery-panel.tsx
-msgid "Citation only: add the bibliography entry without the paper"
-msgstr "Citation only: add the bibliography entry without the paper"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
 msgstr "Citation resolve query"
@@ -3022,10 +2805,6 @@ msgstr "Cited ×{citedCount}"
 #: src/papers/bib-visual-editor.tsx
 msgid "Cited in"
 msgstr "Cited in"
-
-#: src/papers/bib-visual-editor.tsx
-msgid "Cited in the manuscript"
-msgstr "Cited in the manuscript"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Cited in the paper, so it stays"
@@ -3097,26 +2876,13 @@ msgid "Clear terminal"
 msgstr "Clear terminal"
 
 #: src/canvas/proofread-card.tsx
-msgid "Click an edit to keep the original"
-msgstr "Click an edit to keep the original"
-
-#: src/canvas/proofread-card.tsx
-msgid "Click the edit to keep the original"
-msgstr "Click the edit to keep the original"
-
-#: src/trellis/trellis-text-snapshot.tsx
-msgid "Click to edit"
-msgstr "Click to edit"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "click to sync"
-msgstr "click to sync"
+msgid "Click to keep the original"
+msgstr "Click to keep the original"
 
 #: src/telemetry/app-notify.ts
 msgid "Clipboard"
 msgstr "Clipboard"
 
-#: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
 #: src/papers/add-papers-sheet.tsx
@@ -3142,10 +2908,6 @@ msgstr "Close find"
 #: src/app/app-history-drawers.tsx
 msgid "Close Git workspace"
 msgstr "Close Git workspace"
-
-#: src/editor/presentation/open-slide-workspace.tsx
-msgid "Close it there to open this deck here, or switch to that window."
-msgstr "Close it there to open this deck here, or switch to that window."
 
 #: src/trellis/trellis-labels.ts
 msgid "Close other tabs"
@@ -3205,14 +2967,6 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
-#: src/canvas/status-save-state.tsx
-msgid "Co-authors see your changes once you sync"
-msgstr "Co-authors see your changes once you sync"
-
-#: src/canvas/status-save-state.tsx
-msgid "Co-authors see your edits as you type"
-msgstr "Co-authors see your edits as you type"
-
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Code block"
 msgstr "Code block"
@@ -3233,10 +2987,6 @@ msgstr "Code block settings"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Code block title"
 msgstr "Code block title"
-
-#: src/settings/acknowledged-software.ts
-msgid "Code highlighting"
-msgstr "Code highlighting"
 
 #: src/settings/code-theme-settings.tsx
 #: src/settings/settings-search-index.ts
@@ -3304,10 +3054,6 @@ msgstr "Command palette"
 msgid "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
 msgstr "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
 
-#: src/canvas/editor-status-bar.tsx
-msgid "comment"
-msgstr "comment"
-
 #: src/editor/comments/comment-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -3365,10 +3111,6 @@ msgstr "Comments"
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Comments from Overleaf sit here beside the words they are about"
-msgstr "Comments from Overleaf sit here beside the words they are about"
-
 #: src/project/arxiv-export-dialog.tsx
 msgid "Comments in the source"
 msgstr "Comments in the source"
@@ -3403,9 +3145,10 @@ msgstr "Compare with now"
 msgid "Compare…"
 msgstr "Compare…"
 
-#: src/overleaf/overleaf-review.tsx
-msgid "Comparing this project with Overleaf…"
-msgstr "Comparing this project with Overleaf…"
+#: src/history/versions-timeline.tsx
+#: src/overleaf/overleaf-history.tsx
+msgid "Compared with now"
+msgstr "Compared with now"
 
 #: src/history/compare-versions.tsx
 msgid "Comparing…"
@@ -3499,10 +3242,6 @@ msgstr "Congruent"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Connect your Overleaf account to see your projects"
-msgstr "Connect your Overleaf account to see your projects"
 
 #. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
@@ -3651,10 +3390,6 @@ msgstr "Copy key"
 msgid "Copy log"
 msgstr "Copy log"
 
-#: src/telemetry/toast-stack.tsx
-msgid "Copy notification command"
-msgstr "Copy notification command"
-
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "Copy path"
@@ -3663,25 +3398,17 @@ msgstr "Copy path"
 msgid "Copy source"
 msgstr "Copy source"
 
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Copy the whole build log"
-msgstr "Copy the whole build log"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
 msgstr "Copyright"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "Copyright notices of the packages under this text"
-msgstr "Copyright notices of the packages under this text"
+msgid "Copyright notices"
+msgstr "Copyright notices"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Core components"
 msgstr "Core components"
-
-#: src/canvas/proofread-card.tsx
-msgid "Correct grammar, spelling and punctuation only"
-msgstr "Correct grammar, spelling and punctuation only"
 
 #: src/project/citation-health.ts
 msgid "Correction/update"
@@ -3864,10 +3591,6 @@ msgstr "Couldn't find a bibliography entry for {citationCommand}."
 msgid "Couldn't find this one"
 msgstr "Couldn't find this one"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Couldn't finish"
-msgstr "Couldn't finish"
-
 #: src/settings/settings-dialog.tsx
 msgid "Couldn’t install the update"
 msgstr "Couldn’t install the update"
@@ -3916,10 +3639,6 @@ msgstr "Couldn’t save"
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
 
-#: src/project/deadline-card.tsx
-msgid "Counted down in AoE (UTC−12), with your own time beside it"
-msgstr "Counted down in AoE (UTC−12), with your own time beside it"
-
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
 msgstr "Create a research project"
@@ -3935,6 +3654,10 @@ msgstr "created"
 #: src/app/use-project-lifecycle.ts
 msgid "Creating project…"
 msgstr "Creating project…"
+
+#: src/telemetry/app-log.tsx
+msgid "Credentials are masked, but paths and document text may remain"
+msgstr "Credentials are masked, but paths and document text may remain"
 
 #. Search words for the Acknowledgements settings page, space-separated
 #: src/settings/settings-search-index.ts
@@ -3991,10 +3714,6 @@ msgid "Custom · {0}"
 msgstr "Custom · {0}"
 
 #: src/settings/theme-settings.tsx
-msgid "Custom · adjusted to read as text"
-msgstr "Custom · adjusted to read as text"
-
-#: src/settings/theme-settings.tsx
 msgid "Custom accent"
 msgstr "Custom accent"
 
@@ -4032,7 +3751,6 @@ msgid "Daleth"
 msgstr "Daleth"
 
 #: src/settings/code-theme-settings.tsx
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Dark"
@@ -4071,8 +3789,8 @@ msgid "Deadline for"
 msgstr "Deadline for"
 
 #: src/editor/insert/table-generator-dialog.tsx
-msgid "Decimal places (blank preserves values)"
-msgstr "Decimal places (blank preserves values)"
+msgid "Decimal places"
+msgstr "Decimal places"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -4107,7 +3825,6 @@ msgstr "Definition"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/overleaf/overleaf-comments.tsx
 #: src/papers/bib-visual-editor.tsx
 #: src/project/project-file-tree.tsx
 #: src/trellis/trellis-workspace-switch.tsx
@@ -4138,6 +3855,10 @@ msgstr "Delete code block"
 msgid "Delete column"
 msgstr "Delete column"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "Delete discussion"
+msgstr "Delete discussion"
+
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Delete equation"
 msgstr "Delete equation"
@@ -4148,6 +3869,7 @@ msgstr "Delete message"
 
 #: src/app/use-overleaf-remote-deletes.ts
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
 
@@ -4158,10 +3880,6 @@ msgstr "Delete row"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Delete table"
 msgstr "Delete table"
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "Delete this discussion"
-msgstr "Delete this discussion"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
@@ -4180,16 +3898,12 @@ msgid "Delete this item?"
 msgstr "Delete this item?"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message"
-msgstr "Delete this message"
+msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
+msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message?"
-msgstr "Delete this message?"
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
-msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread."
+msgid "Delete this message? This cannot be undone."
+msgstr "Delete this message? This cannot be undone."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Delete worksheet?"
@@ -4214,12 +3928,8 @@ msgid "Deleted “{name}”"
 msgstr "Deleted “{name}”"
 
 #: src/overleaf/overleaf-review.tsx
-msgid "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to"
-msgstr "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "Deleted there and unchanged here, so it goes away locally too"
-msgstr "Deleted there and unchanged here, so it goes away locally too"
+msgid "Deleted here too"
+msgstr "Deleted here too"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Delta"
@@ -4254,10 +3964,6 @@ msgstr "Diagnostics"
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
-#: src/settings/acknowledged-software.ts
-msgid "Diagrams in Markdown"
-msgstr "Diagrams in Markdown"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond operator"
 msgstr "Diamond operator"
@@ -4274,10 +3980,6 @@ msgstr "Diff for {0}"
 #: src/papers/bibliography-audit.tsx
 msgid "Differs from the verified record"
 msgstr "Differs from the verified record"
-
-#: src/settings/acknowledged-software.ts
-msgid "Diffs of changes and history"
-msgstr "Diffs of changes and history"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Dimensions unknown"
@@ -4313,10 +4015,6 @@ msgstr "Dismiss notification"
 #: src/project/references-panel.tsx
 msgid "Dismiss references"
 msgstr "Dismiss references"
-
-#: src/settings/acknowledged-software.ts
-msgid "Display typeface"
-msgstr "Display typeface"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
@@ -4408,17 +4106,9 @@ msgstr "Double dagger text symbol"
 msgid "Double-click a paragraph"
 msgstr "Double-click a paragraph"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
-msgstr "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
-
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
 msgstr "Double-click to rename"
-
-#: src/trellis/trellis-labels.ts
-msgid "Double-click to zoom in"
-msgstr "Double-click to zoom in"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Double-dot accent example"
@@ -4490,6 +4180,10 @@ msgstr "Downloading rtex… {percent}%"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "DPI unknown"
+msgstr "DPI unknown"
+
 #: src/trellis/trellis-build-sequence.tsx
 msgid "draft pass {run}"
 msgstr "draft pass {run}"
@@ -4497,10 +4191,6 @@ msgstr "draft pass {run}"
 #: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "Drop figures onto a TeX or Markdown editor, or the Project pane"
-
-#: src/canvas/project-asset-preview.tsx
-msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
-msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 
 #: src/app/use-project-tree.ts
 msgid "Drop source files and figures separately"
@@ -4571,10 +4261,6 @@ msgstr "e.g. Lattice"
 msgid "e.g. NeurIPS 2027"
 msgstr "e.g. NeurIPS 2027"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
-msgstr "Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add."
-
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
 msgstr "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
@@ -4593,12 +4279,10 @@ msgid "Edit"
 msgstr "Edit"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
@@ -4621,7 +4305,6 @@ msgid "Edit document"
 msgstr "Edit document"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
@@ -4634,7 +4317,6 @@ msgid "Edit link"
 msgstr "Edit link"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
@@ -4650,22 +4332,14 @@ msgstr "Edit message text"
 msgid "Edit table"
 msgstr "Edit table"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Edit the BibTeX source"
-msgstr "Edit the BibTeX source"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Edit the LaTeX here. Build typesets it beside you in seconds."
-msgstr "Edit the LaTeX here. Build typesets it beside you in seconds."
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "Edit this message"
-msgstr "Edit this message"
-
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "edited"
 msgstr "edited"
+
+#: src/papers/bib-entry-dialog.tsx
+msgid "Edited"
+msgstr "Edited"
 
 #. A recent project's last change: “Edited yesterday”, “Edited 3 days ago”.
 #: src/project/welcome-desk.tsx
@@ -4673,8 +4347,8 @@ msgid "Edited {edited}"
 msgstr "Edited {edited}"
 
 #: src/overleaf/overleaf-review.tsx
-msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
-msgstr "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
+msgid "Edited on both sides"
+msgstr "Edited on both sides"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Edited since the last round"
@@ -4693,7 +4367,6 @@ msgstr "Editor"
 msgid "Editor & builds"
 msgstr "Editor & builds"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Editor font size"
 msgstr "Editor font size"
@@ -4704,16 +4377,8 @@ msgid "Editor keymap"
 msgstr "Editor keymap"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Editor shortcuts"
-msgstr "Editor shortcuts"
-
-#: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "Editor status"
-
-#: src/settings/acknowledged-software.ts
-msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
-msgstr "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Edits"
@@ -4722,15 +4387,6 @@ msgstr "Edits"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
 msgstr "Edits on both sides merge when you resume"
-
-#: src/overleaf/overleaf-connect.tsx
-#: src/settings/settings-search-index.ts
-msgid "Edits sync live with Overleaf"
-msgstr "Edits sync live with Overleaf"
-
-#: src/project/figure-inventory-dialog.tsx
-msgid "Effective DPI unknown — physical width is not established"
-msgstr "Effective DPI unknown — physical width is not established"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Element of"
@@ -4805,22 +4461,9 @@ msgstr "End tour"
 msgid "English"
 msgstr "English"
 
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "English, with Harper"
-msgstr "English, with Harper"
-
 #: src/components/ui/color-picker.tsx
 msgid "Enter 6 hex digits"
 msgstr "Enter 6 hex digits"
-
-#: src/editor/goto-line-dialog.tsx
-msgid "Enter a line between 1 and {maxLine}"
-msgstr "Enter a line between 1 and {maxLine}"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Enter a page number"
-msgstr "Enter a page number"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Enter a project name."
@@ -4833,11 +4476,6 @@ msgstr "Enter a replacement key"
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage"
 msgstr "Enter a zoom percentage"
-
-#: src/canvas/zoom-controls.tsx
-#: src/pdf/pdf-viewer.tsx
-msgid "Enter a zoom percentage or scroll to zoom"
-msgstr "Enter a zoom percentage or scroll to zoom"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4920,33 +4558,13 @@ msgstr "Estimator / unit vector mark"
 msgid "Eta"
 msgstr "Eta"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Every comment is resolved. All shows the resolved ones"
-msgstr "Every comment is resolved. All shows the resolved ones"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "Every edit made on Overleaf, by anyone, is kept here and can be restored"
-msgstr "Every edit made on Overleaf, by anyone, is kept here and can be restored"
-
-#: src/history/history-drawer.tsx
-msgid "Every edit you, the agent or the citation tool make shows here, and each can be undone"
-msgstr "Every edit you, the agent or the citation tool make shows here, and each can be undone"
-
 #: src/project/arxiv-export.ts
 msgid "Every figure is included"
 msgstr "Every figure is included"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
-msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
-
 #: src/trellis/trellis-workspace.tsx
 msgid "Every panel is closed"
 msgstr "Every panel is closed"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Every reference matched a verified record. Check again after you edit the bibliography."
-msgstr "Every reference matched a verified record. Check again after you edit the bibliography."
 
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
@@ -4955,10 +4573,6 @@ msgstr "Every spot decided"
 #: src/app/use-tex-setup.ts
 msgid "Every tool Lattice needs is installed"
 msgstr "Every tool Lattice needs is installed"
-
-#: src/overleaf/overleaf-collab.tsx
-msgid "Everyone in the Overleaf project sees what you write here"
-msgstr "Everyone in the Overleaf project sees what you write here"
 
 #: src/history/history-drawer.tsx
 msgid "Everything"
@@ -5250,10 +4864,6 @@ msgstr "Filter shortcuts"
 msgid "Final sigma"
 msgstr "Final sigma"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "find"
-msgstr "find"
-
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/project/project-replace-dialog.tsx
@@ -5263,10 +4873,6 @@ msgstr "Find"
 #: src/project/project-replace-dialog.tsx
 msgid "Find & replace in project"
 msgstr "Find & replace in project"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Find and install the TeX Live package for {missingFile}"
-msgstr "Find and install the TeX Live package for {missingFile}"
 
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Find and replace"
@@ -5314,10 +4920,6 @@ msgstr "Finding each note on the PDF…"
 msgid "Finding it in the source…"
 msgstr "Finding it in the source…"
 
-#: src/project/paper-library.tsx
-msgid "Finds the record, then lets you choose"
-msgstr "Finds the record, then lets you choose"
-
 #: src/onboarding/guided-tour.tsx
 msgid "Finish"
 msgstr "Finish"
@@ -5346,10 +4948,6 @@ msgstr "First author"
 msgid "First layout…"
 msgstr "First layout…"
 
-#: src/papers/linked-library-sheet.tsx
-msgid "First update from this file: where an entry differs here, your version stays unless you tick it."
-msgstr "First update from this file: where an entry differs here, your version stays unless you tick it."
-
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
 msgstr "Fit page to height"
@@ -5365,18 +4963,6 @@ msgstr "Fix"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
 msgstr "Fix all"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Fix all errors and warnings, then recompile"
-msgstr "Fix all errors and warnings, then recompile"
-
-#: src/history/conflict-resolver.tsx
-msgid "Fix anything left, then save"
-msgstr "Fix anything left, then save"
-
-#: src/papers/bib-visual-editor.tsx
-msgid "Fix it in the source and the list comes back."
-msgstr "Fix it in the source and the list comes back."
 
 #: src/app/whats-new-dialog.tsx
 msgid "Fixed"
@@ -5455,10 +5041,6 @@ msgstr "Footnote {label}"
 msgid "Footnote at the cursor"
 msgstr "Footnote at the cursor"
 
-#: src/telemetry/app-log.tsx
-msgid "For Agent failures. Credentials are masked, but paths and document text may remain"
-msgstr "For Agent failures. Credentials are masked, but paths and document text may remain"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "For all"
 msgstr "For all"
@@ -5517,11 +5099,6 @@ msgstr "From {name}"
 msgid "From folder"
 msgstr "From folder"
 
-#. placeholder {0}: formatDate(built)
-#: src/pdf/review-pdf-sheet.tsx
-msgid "From the build of {0}"
-msgstr "From the build of {0}"
-
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "From the official conference author kits, bundled unmodified with their authors' credits"
@@ -5537,16 +5114,12 @@ msgstr "Frontmatter"
 
 #. Search words for the Translucency setting, space-separated
 #: src/settings/settings-search-index.ts
-msgid "frosted glass transparent vibrancy"
-msgstr "frosted glass transparent vibrancy"
+msgid "frosted glass transparent vibrancy desktop"
+msgstr "frosted glass transparent vibrancy desktop"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Frown relation"
 msgstr "Frown relation"
-
-#: src/agent/synara-permission-picker.tsx
-msgid "Full access"
-msgstr "Full access"
 
 #: src/project/deadline-card.tsx
 msgid "full paper"
@@ -5581,10 +5154,6 @@ msgstr "Full-width floating figure"
 msgid "Full-width floating table"
 msgstr "Full-width floating table"
 
-#: src/App.tsx
-msgid "full-width text, cards on demand"
-msgstr "full-width text, cards on demand"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "Gamma"
@@ -5617,6 +5186,10 @@ msgstr "Git (optional project status / commit panel)"
 #: src/overleaf/overleaf-history.tsx
 msgid "git bridge"
 msgstr "git bridge"
+
+#: src/history/versions-timeline.tsx
+msgid "Git isn’t available on this Mac"
+msgstr "Git isn’t available on this Mac"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
@@ -5651,10 +5224,6 @@ msgstr "Go to {BIBITEM} in {0}"
 #: src/project/references-panel.tsx
 msgid "Go to {location}"
 msgstr "Go to {location}"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "Go to {title}"
-msgstr "Go to {title}"
 
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Go to definition"
@@ -5714,10 +5283,6 @@ msgstr "Google Scholar"
 msgid "grammar"
 msgstr "grammar"
 
-#: src/settings/acknowledged-software.ts
-msgid "Grammar checking"
-msgstr "Grammar checking"
-
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Graphite"
@@ -5740,10 +5305,6 @@ msgstr "Greater than or equal"
 #: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "Green"
-
-#: src/App.tsx
-msgid "Grid generator"
-msgstr "Grid generator"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Grid of rows and columns with a header row."
@@ -5824,12 +5385,12 @@ msgid "Heart suit"
 msgstr "Heart suit"
 
 #: src/canvas/proofread-card.tsx
-msgid "Held back {count} edits that would change {changed}. Lattice only offers edits that leave LaTeX intact."
-msgstr "Held back {count} edits that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgid "Held back {count} edits that would change {changed}"
+msgstr "Held back {count} edits that would change {changed}"
 
 #: src/canvas/proofread-card.tsx
-msgid "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
-msgstr "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgid "Held back 1 edit that would change {changed}"
+msgstr "Held back 1 edit that would change {changed}"
 
 #: src/components/ui/inline-edits.tsx
 msgid "Held back: {change}"
@@ -5843,6 +5404,10 @@ msgstr "Help"
 #: src/components/ui/color-picker.tsx
 msgid "Hex color"
 msgstr "Hex color"
+
+#: src/project/local-templates.tsx
+msgid "Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied"
+msgstr "Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Hidden panels"
@@ -6144,10 +5709,6 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
-#: src/overleaf/overleaf-collab.tsx
-msgid "In the project now · {here}"
-msgstr "In the project now · {here}"
-
 #: src/App.tsx
 #: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
@@ -6186,13 +5747,13 @@ msgstr "Include raw diagnostic text"
 msgid "Include replies"
 msgstr "Include replies"
 
-#: src/history/compare-versions.tsx
-msgid "Including changes not saved as a version"
-msgstr "Including changes not saved as a version"
-
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
 msgstr "Incomplete history"
+
+#: src/papers/bibliography-audit.tsx
+msgid "Inconclusive"
+msgstr "Inconclusive"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
@@ -6357,8 +5918,8 @@ msgid "Install automatically"
 msgstr "Install automatically"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "Install Basic TeX"
-msgstr "Install Basic TeX"
+msgid "Install Basic TeX · {TEX_INSTALL_SIZE_HINT}"
+msgstr "Install Basic TeX · {TEX_INSTALL_SIZE_HINT}"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Install BasicTeX"
@@ -6382,14 +5943,22 @@ msgstr "Install LaTeX tools"
 msgid "Install missing package"
 msgstr "Install missing package"
 
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Install package for {0}"
+msgstr "Install package for {0}"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
-#: src/build/tex-setup-wizard.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "Install required tools · 45 MB"
+msgstr "Install required tools · 45 MB"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -6411,11 +5980,6 @@ msgstr "Installing update…"
 msgid "Installing…"
 msgstr "Installing…"
 
-#. placeholder {0}: status.missingFile
-#: src/build/tex-dependency-installer.tsx
-msgid "Installs the TeX Live package that provides {0}"
-msgstr "Installs the TeX Live package that provides {0}"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
 msgstr "Insufficient identifying metadata"
@@ -6433,10 +5997,6 @@ msgstr "Integrations"
 msgid "Interface"
 msgstr "Interface"
 
-#: src/settings/acknowledged-software.ts
-msgid "Interface icons"
-msgstr "Interface icons"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface language"
@@ -6451,14 +6011,6 @@ msgstr "Interface size"
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
-
-#: src/settings/acknowledged-software.ts
-msgid "Interface sounds, by Daniel Belyi"
-msgstr "Interface sounds, by Daniel Belyi"
-
-#: src/settings/acknowledged-software.ts
-msgid "Interface typeface, by Rasmus Andersson"
-msgstr "Interface typeface, by Rasmus Andersson"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
@@ -6511,14 +6063,6 @@ msgstr "Item"
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
 msgstr "Its span was deleted from the document, so Overleaf can't say which file to act on"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Its text was deleted from the document — Overleaf can no longer say where it was"
-msgstr "Its text was deleted from the document — Overleaf can no longer say where it was"
-
-#: src/pdf/review-pdf-sheet.tsx
-msgid "Its words were not found on the page, so the note goes in the margin beside them."
-msgstr "Its words were not found on the page, so the note goes in the margin beside them."
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "journal"
@@ -6530,10 +6074,6 @@ msgstr "Journal"
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Jump to this location"
-msgstr "Jump to this location"
 
 #: src/project/paper-library.tsx
 msgid "Just added"
@@ -6550,6 +6090,11 @@ msgid "Kappa"
 msgstr "Kappa"
 
 #: src/editor/latex/highlighters.ts
+msgid "Keep"
+msgstr "Keep"
+
+#: src/editor/insert/table-generator-dialog.tsx
+msgctxt "decimal places left blank"
 msgid "Keep"
 msgstr "Keep"
 
@@ -6570,6 +6115,7 @@ msgid "Keep deleted text, struck through"
 msgstr "Keep deleted text, struck through"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
@@ -6589,17 +6135,9 @@ msgstr "Keep open"
 msgid "Keep Overleaf's version"
 msgstr "Keep Overleaf's version"
 
-#: src/project/paper-library.tsx
-msgid "Keep sources beside your writing"
-msgstr "Keep sources beside your writing"
-
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
-
-#: src/project/import-conflict-dialog.tsx
-msgid "Keep what is here and import the rest"
-msgstr "Keep what is here and import the rest"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keeping both"
@@ -6653,10 +6191,6 @@ msgstr "Key saved to the keychain"
 #: src/app/shortcut-sheet.tsx
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
-
-#: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain and take priority over shared ones"
-msgstr "Keys stay in your system keychain and take priority over shared ones"
 
 #: src/app/app-search-dialogs.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
@@ -6789,10 +6323,6 @@ msgstr "LaTeX setup"
 msgid "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
 msgstr "latexdiff is not installed. It comes with MacTeX; with BasicTeX, run “sudo tlmgr install latexdiff” in Terminal, then export again."
 
-#: src/App.tsx
-msgid "latexmk -c then -g"
-msgstr "latexmk -c then -g"
-
 #: src/build/build-log-messages.ts
 msgid "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
 msgstr "latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."
@@ -6846,13 +6376,10 @@ msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgid "Lattice couldn’t write {file}"
 msgstr "Lattice couldn’t write {file}"
 
-#: src/settings/acknowledgements-settings.tsx
-msgid "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
-msgstr "Lattice ships {total} open-source packages across its interface, its native app and its bundled runtimes. Select one to read its license."
-
-#: src/settings/acknowledgements-settings.tsx
-msgid "Lattice stands on the work of many open-source projects. Thank you to everyone who builds them."
-msgstr "Lattice stands on the work of many open-source projects. Thank you to everyone who builds them."
+#: src/overleaf/overleaf-collab.tsx
+msgctxt "comment source"
+msgid "Lattice only"
+msgstr "Lattice only"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
@@ -6885,34 +6412,18 @@ msgstr "Layout updating"
 msgid "Layouts for each task"
 msgstr "Layouts for each task"
 
-#: src/App.tsx
-msgid "Learn Lattice with the Understanding Attention sample project"
-msgstr "Learn Lattice with the Understanding Attention sample project"
-
 #: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Leave a code block"
 msgstr "Leave a code block"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "Leave a comment"
-msgstr "Leave a comment"
 
 #: src/App.tsx
 #: src/app/shortcut-groups.ts
 msgid "Leave focus mode"
 msgstr "Leave focus mode"
 
-#: src/app/focus-mode-bar.tsx
-msgid "Leave focus mode · {exitKeys} or Esc"
-msgstr "Leave focus mode · {exitKeys} or Esc"
-
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Left"
 msgstr "Left"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "Left alone"
-msgstr "Left alone"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Left angle bracket"
@@ -6951,12 +6462,12 @@ msgid "Left normal subgroup eq"
 msgstr "Left normal subgroup eq"
 
 #: src/project/arxiv-export.ts
-msgid "Left out: {names} and {hidden} more, which the paper doesn’t use."
-msgstr "Left out: {names} and {hidden} more, which the paper doesn’t use."
+msgid "Left out: {names}"
+msgstr "Left out: {names}"
 
 #: src/project/arxiv-export.ts
-msgid "Left out: {names}, which the paper doesn’t use."
-msgstr "Left out: {names}, which the paper doesn’t use."
+msgid "Left out: {names} and {hidden} more"
+msgstr "Left out: {names} and {hidden} more"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Left vertical bar"
@@ -6991,7 +6502,6 @@ msgid "License text"
 msgstr "License text"
 
 #: src/settings/code-theme-settings.tsx
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Light"
@@ -7056,11 +6566,6 @@ msgstr "Line"
 msgid "Line {0}"
 msgstr "Line {0}"
 
-#. placeholder {0}: passage.line
-#: src/history/versions-timeline.tsx
-msgid "Line {0} of this version"
-msgstr "Line {0} of this version"
-
 #: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "line {line}"
@@ -7102,13 +6607,13 @@ msgstr "Line under an expression"
 msgid "Link"
 msgstr "Link"
 
+#: src/papers/linked-library-sheet.tsx
+msgid "Link a Zotero or Paperpile export"
+msgstr "Link a Zotero or Paperpile export"
+
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Link definition"
 msgstr "Link definition"
-
-#: src/papers/linked-library-sheet.tsx
-msgid "Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to {target}. Your citation keys and your own edits stay."
-msgstr "Link the .bib file your reference manager keeps up to date, such as a Zotero or Paperpile export. Whenever you choose, Lattice shows what changed there and brings in what you tick to {target}. Your citation keys and your own edits stay."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Link this folder"
@@ -7153,14 +6658,11 @@ msgstr "Literature"
 msgid "Literature services"
 msgstr "Literature services"
 
+#: src/canvas/canvas-toolbar.tsx
 #: src/canvas/status-save-state.tsx
 #: src/live-preview/live-preview-status.tsx
 msgid "Live"
 msgstr "Live"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Live · click to sync"
-msgstr "Live · click to sync"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is connected"
@@ -7192,12 +6694,12 @@ msgid "Live preview engine"
 msgstr "Live preview engine"
 
 #: src/live-preview/live-preview-settings.tsx
-msgid "Live preview needs a Mac with Apple silicon. Builds work as usual."
-msgstr "Live preview needs a Mac with Apple silicon. Builds work as usual."
+msgid "Live preview needs a Mac with Apple silicon"
+msgstr "Live preview needs a Mac with Apple silicon"
 
 #: src/live-preview/live-preview-settings.tsx
-msgid "Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again."
-msgstr "Live preview needs LuaLaTeX, and Lattice could not run it. Builds work as usual. Install TeX Live or BasicTeX, then open the project again."
+msgid "Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again"
+msgstr "Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again"
 
 #: src/live-preview/live-preview-status.tsx
 msgid "Live preview redraws the paragraph you are typing within milliseconds, with rtex and your own LuaLaTeX. Page breaks, references, the exported PDF and jumps to the source still come from the normal build."
@@ -7208,6 +6710,7 @@ msgid "Live preview stopped"
 msgstr "Live preview stopped"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Live sync"
 msgstr "Live sync"
 
@@ -7216,8 +6719,8 @@ msgid "Live typing paused"
 msgstr "Live typing paused"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "Live with Overleaf · click to sync"
-msgstr "Live with Overleaf · click to sync"
+msgid "Live with Overleaf"
+msgstr "Live with Overleaf"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
@@ -7322,11 +6825,6 @@ msgstr "Loading your preamble into LuaLaTeX."
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/overleaf/overleaf-collab.tsx
-msgctxt "comment source"
-msgid "Local"
-msgstr "Local"
-
 #: src/papers/linked-library-sheet.tsx
 msgid "Locate the file…"
 msgstr "Locate the file…"
@@ -7397,10 +6895,6 @@ msgstr "lower case"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
 
-#: src/history/export-changes-dialog.tsx
-msgid "Made with latexdiff from your TeX installation, then built like the paper. Saved as {saved} beside {pdf}."
-msgstr "Made with latexdiff from your TeX installation, then built like the paper. Saved as {saved} beside {pdf}."
-
 #: src/components/ui/color-picker.tsx
 msgid "Magenta"
 msgstr "Magenta"
@@ -7410,10 +6904,12 @@ msgid "Main pages"
 msgstr "Main pages"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Manual"
 msgstr "Manual"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Manual only"
 msgstr "Manual only"
 
@@ -7426,10 +6922,6 @@ msgstr "Manuscript"
 #: src/project/todo-scavenger-panel.tsx
 msgid "Manuscript TODOs"
 msgstr "Manuscript TODOs"
-
-#: src/canvas/pdf-annotation-composer.tsx
-msgid "Mapped to the source with SyncTeX"
-msgstr "Mapped to the source with SyncTeX"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Maps to"
@@ -7478,10 +6970,6 @@ msgstr "Markdown document editor"
 msgid "Markdown source"
 msgstr "Markdown source"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Markers left in any source file of the project are listed here"
-msgstr "Markers left in any source file of the project are listed here"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Markers Only"
@@ -7502,10 +6990,6 @@ msgstr "Match case"
 #: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "Match system"
-
-#: src/settings/theme-settings.tsx
-msgid "Match system follows macOS"
-msgstr "Match system follows macOS"
 
 #: src/App.tsx
 msgid "Match the system theme"
@@ -7544,10 +7028,6 @@ msgstr "Math outside math mode"
 #: src/editor/latex/math-preview.tsx
 msgid "Math preview"
 msgstr "Math preview"
-
-#: src/settings/acknowledged-software.ts
-msgid "Math previews"
-msgstr "Math previews"
 
 #: src/history/export-changes-dialog.tsx
 msgid "Maths, figures and citations are left unmarked: the fully marked document did not build."
@@ -7712,10 +7192,6 @@ msgstr "Missing file “{path}”."
 msgid "Missing image"
 msgstr "Missing image"
 
-#: src/project/manuscript-checklist.tsx
-msgid "Missing images and print resolution, figure by figure"
-msgstr "Missing images and print resolution, figure by figure"
-
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
@@ -7737,10 +7213,6 @@ msgstr "Missing tools: {0}"
 #: src/settings/theme-settings.tsx
 msgid "Mist"
 msgstr "Mist"
-
-#: src/canvas/proofread-card.tsx
-msgid "Model"
-msgstr "Model"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
@@ -7765,11 +7237,6 @@ msgstr "More PDF actions"
 #: src/project/paper-library.tsx
 msgid "Most cited here"
 msgstr "Most cited here"
-
-#: src/app/command-palette.tsx
-#: src/project/quick-open-dialog.tsx
-msgid "Move"
-msgstr "Move"
 
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
@@ -7832,9 +7299,6 @@ msgid "Name this version"
 msgstr "Name this version"
 
 #: src/history/versions-timeline.tsx
-msgid "Name this version, e.g. Sent to co-authors"
-msgstr "Name this version, e.g. Sent to co-authors"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version…"
 msgstr "Name this version…"
@@ -7871,10 +7335,6 @@ msgstr "Navigation performance"
 msgid "Need your eyes"
 msgstr "Need your eyes"
 
-#: src/build/tex-setup-wizard.tsx
-msgid "Needed to add papers and manage bibliographies · about 45 MB"
-msgstr "Needed to add papers and manage bibliographies · about 45 MB"
-
 #: src/editor/latex/highlighters.ts
 msgid "Needs a citation"
 msgstr "Needs a citation"
@@ -7896,10 +7356,6 @@ msgstr "Needs approval"
 msgid "Needs your answer"
 msgstr "Needs your answer"
 
-#: src/overleaf/overleaf-review.tsx
-msgid "Needs your decision"
-msgstr "Needs your decision"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Negation / not"
 msgstr "Negation / not"
@@ -7920,6 +7376,10 @@ msgstr "NeurIPS Proceedings"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
+#: src/agent/synara-permission-picker.tsx
+msgid "Never ask"
+msgstr "Never ask"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
 msgid "New"
@@ -7930,8 +7390,8 @@ msgid "New board"
 msgstr "New board"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "New changes on Overleaf · click to pull"
-msgstr "New changes on Overleaf · click to pull"
+msgid "New changes on Overleaf"
+msgstr "New changes on Overleaf"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "New field name"
@@ -8028,7 +7488,6 @@ msgid "Newest first"
 msgstr "Newest first"
 
 #: src/canvas/annotation-review.tsx
-#: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "next"
 
@@ -8085,13 +7544,9 @@ msgid "No Agent logs yet"
 msgstr "No Agent logs yet"
 
 #: src/editor/comments/editor-comments-panel.tsx
-msgid "No annotations yet. Open a file, select text and click Annotate"
-msgstr "No annotations yet. Open a file, select text and click Annotate"
-
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/pdf/review-pdf-sheet.tsx
-msgid "No annotations yet. Select text in the editor or the PDF and click Annotate"
-msgstr "No annotations yet. Select text in the editor or the PDF and click Annotate"
+msgid "No annotations yet"
+msgstr "No annotations yet"
 
 #. placeholder {0}: list(silent)
 #: src/papers/bibliography-audit.tsx
@@ -8146,10 +7601,6 @@ msgstr "No Crossref update metadata found (checked {checkedDate})"
 msgid "No diagnostics"
 msgstr "No diagnostics"
 
-#: src/overleaf/overleaf-review.tsx
-msgid "No differences. You can close this window"
-msgstr "No differences. You can close this window"
-
 #: src/trellis/trellis-workspace.tsx
 msgid "No document open"
 msgstr "No document open"
@@ -8157,6 +7608,10 @@ msgstr "No document open"
 #: src/build/compile-explain.ts
 msgid "No entry for {key}"
 msgstr "No entry for {key}"
+
+#: src/project/figure-inventory-dialog.tsx
+msgid "No figures found"
+msgstr "No figures found"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
@@ -8187,8 +7642,8 @@ msgid "No indent for this paragraph"
 msgstr "No indent for this paragraph"
 
 #: src/papers/bibliography-audit.tsx
-msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
-msgstr "No independent metadata was available to verify a possible record. The reference may still be valid."
+msgid "No independent metadata to verify a possible record"
+msgstr "No independent metadata to verify a possible record"
 
 #: src/build/compile-explain.ts
 msgid "No label {label}"
@@ -8201,10 +7656,6 @@ msgstr "No license declared"
 #: src/project/manuscript-checklist.tsx
 msgid "No limit"
 msgstr "No limit"
-
-#: src/project/figure-inventory-dialog.tsx
-msgid "No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present."
-msgstr "No literal graphics commands found in the readable TeX sources. Macro-generated figures may still be present."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "No literal label"
@@ -8291,8 +7742,8 @@ msgid "No note"
 msgstr "No note"
 
 #: src/app/whats-new-dialog.tsx
-msgid "No notes came with this version."
-msgstr "No notes came with this version."
+msgid "No notes came with this version"
+msgstr "No notes came with this version"
 
 #: src/project/paper-inspector.tsx
 msgid "No notices · checked {date}"
@@ -8302,10 +7753,6 @@ msgstr "No notices · checked {date}"
 msgid "No occurrences"
 msgstr "No occurrences"
 
-#: src/project/references-panel.tsx
-msgid "No occurrences found"
-msgstr "No occurrences found"
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No open annotations"
 msgstr "No open annotations"
@@ -8313,10 +7760,6 @@ msgstr "No open annotations"
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "No open comments"
-
-#: src/project/project-dialogs.tsx
-msgid "No other recent projects yet"
-msgstr "No other recent projects yet"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No Overleaf history yet"
@@ -8326,17 +7769,21 @@ msgstr "No Overleaf history yet"
 msgid "No papers match “{trimmedQuery}”"
 msgstr "No papers match “{trimmedQuery}”"
 
-#: src/project/welcome-desk.tsx
+#: src/project/paper-library.tsx
+msgid "No papers yet"
+msgstr "No papers yet"
+
+#: src/pdf/pdf-viewer.tsx
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
-#: src/settings/settings-dialog.tsx
-msgid "No project terms added"
-msgstr "No project terms added"
+#: src/settings/synara-settings-pane.tsx
+msgid "No project open"
+msgstr "No project open"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "No projects in this account yet. Create one on Overleaf and it will appear here"
-msgstr "No projects in this account yet. Create one on Overleaf and it will appear here"
+msgid "No projects in this account yet"
+msgstr "No projects in this account yet"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "No projects match your search"
@@ -8355,6 +7802,7 @@ msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
 #: src/papers/bib-visual-editor.tsx
+#: src/papers/bibliography-audit.tsx
 msgid "No reference selected"
 msgstr "No reference selected"
 
@@ -8386,8 +7834,8 @@ msgid "No safe edits"
 msgstr "No safe edits"
 
 #: src/canvas/document-outline.tsx
-msgid "No sections yet. Add a \\section{…} to start the outline"
-msgstr "No sections yet. Add a \\section{…} to start the outline"
+msgid "No sections yet"
+msgstr "No sections yet"
 
 #. placeholder {0}: query.trim()
 #: src/app/shortcut-sheet.tsx
@@ -8413,6 +7861,10 @@ msgid "No TODO markers found"
 msgstr "No TODO markers found"
 
 #: src/papers/bibliography-audit.tsx
+msgid "No unique matching publication"
+msgstr "No unique matching publication"
+
+#: src/papers/bibliography-audit.tsx
 msgid "No update found"
 msgstr "No update found"
 
@@ -8423,10 +7875,6 @@ msgstr "No upgrade check was performed for this entry."
 #: src/project/paper-library.tsx
 msgid "No venue"
 msgstr "No venue"
-
-#: src/history/versions-timeline.tsx
-msgid "No version history"
-msgstr "No version history"
 
 #: src/history/versions-timeline.tsx
 msgid "No versions yet"
@@ -8557,10 +8005,6 @@ msgstr "Note discarded"
 msgid "Notes"
 msgstr "Notes"
 
-#: src/project/arxiv-export-dialog.tsx
-msgid "Notes to co-authors stay on this Mac"
-msgstr "Notes to co-authors stay on this Mac"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Nothing blocks submission"
 msgstr "Nothing blocks submission"
@@ -8593,18 +8037,10 @@ msgstr "Nothing in the paper has {command}. Check the spelling, or add the label
 msgid "Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document."
 msgstr "Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document."
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Nothing is sent or fetched until you resume"
-msgstr "Nothing is sent or fetched until you resume"
-
 #. placeholder {0}: counts.kept
 #: src/papers/bibliography-audit.tsx
 msgid "Nothing left to review · {0} kept as written"
 msgstr "Nothing left to review · {0} kept as written"
-
-#: src/papers/bibliography-audit.tsx
-msgid "Nothing left to review. Every other reference matched a verified record."
-msgstr "Nothing left to review. Every other reference matched a verified record."
 
 #. placeholder {0}: deferredQuery.trim()
 #: src/settings/acknowledgements-settings.tsx
@@ -8627,10 +8063,6 @@ msgstr "Nothing to rerun"
 msgid "Nothing to show"
 msgstr "Nothing to show"
 
-#: src/project/arxiv-export.ts
-msgid "Nothing to take out"
-msgstr "Nothing to take out"
-
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Notification position"
@@ -8641,8 +8073,8 @@ msgid "Notifications"
 msgstr "Notifications"
 
 #: src/settings/settings-dialog.tsx
-msgid "Notify me (manual)"
-msgstr "Notify me (manual)"
+msgid "Notify me"
+msgstr "Notify me"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/compare-versions.tsx
@@ -8678,6 +8110,10 @@ msgstr "Numbered list of items."
 msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
+#: src/editor/goto-line-dialog.tsx
+msgid "of {maxLine}"
+msgstr "of {maxLine}"
+
 #: src/settings/theme-settings.tsx
 msgid "Off"
 msgstr "Off"
@@ -8691,14 +8127,6 @@ msgstr "Off"
 #: src/settings/theme-settings.tsx
 msgid "Off while Reduce transparency is on in System Settings"
 msgstr "Off while Reduce transparency is on in System Settings"
-
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 style"
-msgstr "Official 2026 style"
-
-#: src/project/project-dialogs.tsx
-msgid "Official 2026 style · preprint draft"
-msgstr "Official 2026 style · preprint draft"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Official verification incomplete"
@@ -8726,10 +8154,6 @@ msgstr "On “{0}”"
 msgid "on line"
 msgstr "on line"
 
-#: src/editor/latex/highlight-palette.tsx
-msgid "On paper, as in the PDF"
-msgstr "On paper, as in the PDF"
-
 #: src/overleaf/overleaf-margin-review.tsx
 msgctxt "margin review"
 msgid "On screen"
@@ -8743,22 +8167,15 @@ msgstr "On this Mac"
 msgid "One record matches"
 msgstr "One record matches"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "One record matches. Check it is the one you mean."
-msgstr "One record matches. Check it is the one you mean."
-
-#: src/project/arxiv-export-dialog.tsx
-msgid "One source file, as arXiv prefers"
-msgstr "One source file, as arXiv prefers"
-
 #: src/overleaf/overleaf-review.tsx
-msgid "Only binary files would change; line-by-line review is unavailable"
-msgstr "Only binary files would change; line-by-line review is unavailable"
+msgid "Only binary files would change"
+msgstr "Only binary files would change"
 
 #: src/build/compile-explain.ts
 msgid "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it."
 msgstr "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it."
 
+#: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Only in the Lattice window on macOS"
 msgstr "Only in the Lattice window on macOS"
@@ -8771,18 +8188,12 @@ msgstr "Only operation metadata and counts. Nothing leaves this Mac until you co
 msgid "Only pages with changes"
 msgstr "Only pages with changes"
 
-#: src/App.tsx
-msgid "only the editor"
-msgstr "only the editor"
-
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
 msgstr "Only the listed graphics arguments will change. Image files stay in place."
 
-#: src/app/command-palette.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/overleaf/overleaf-connect.tsx
-#: src/project/quick-open-dialog.tsx
 msgid "Open"
 msgstr "Open"
 
@@ -8824,10 +8235,6 @@ msgstr "Open a file"
 msgid "Open a file to see its suggestions"
 msgstr "Open a file to see its suggestions"
 
-#: src/trellis/trellis-workspace.tsx
-msgid "Open a file, or reset the layout to bring your panels back"
-msgstr "Open a file, or reset the layout to bring your panels back"
-
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "Open a LaTeX project"
@@ -8840,10 +8247,6 @@ msgstr "Open a project from Overleaf"
 #: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "Open a project to add terms"
-
-#: src/settings/synara-settings-pane.tsx
-msgid "Open a project to manage Agent settings"
-msgstr "Open a project to manage Agent settings"
 
 #: src/App.tsx
 msgid "Open a recent project by its place"
@@ -9010,14 +8413,6 @@ msgstr "Open the document this suggestion is in first."
 msgid "Open the file this suggestion is in first"
 msgstr "Open the file this suggestion is in first"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Open the full paper Markdown"
-msgstr "Open the full paper Markdown"
-
-#: src/trellis/trellis-workspace.tsx
-msgid "Open the full reader · your notes stay beside it"
-msgstr "Open the full reader · your notes stay beside it"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."
@@ -9027,17 +8422,9 @@ msgstr "Open the linked Overleaf project before changing its sync setting."
 msgid "Open the linked Overleaf project first."
 msgstr "Open the linked Overleaf project first."
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Open the paper overview"
-msgstr "Open the paper overview"
-
 #: src/trellis/trellis-workspace.tsx
 msgid "Open the reader"
 msgstr "Open the reader"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Open the repair task to continue."
-msgstr "Open the repair task to continue."
 
 #: src/app/use-agent-checkpoints.ts
 #: src/history/history-drawer.tsx
@@ -9056,10 +8443,6 @@ msgstr "Open this repository on GitHub"
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
 msgstr "OpenAlex"
-
-#: src/App.tsx
-msgid "OpenAlex search"
-msgstr "OpenAlex search"
 
 #. When a recent project was last opened: “Opened yesterday”, “Opened 3 days ago”.
 #: src/project/welcome-desk.tsx
@@ -9182,18 +8565,9 @@ msgstr "Overleaf history"
 msgid "Overleaf history keeps a copy"
 msgstr "Overleaf history keeps a copy"
 
-#: src/overleaf/overleaf-connect.tsx
-#: src/settings/settings-search-index.ts
-msgid "Overleaf keeps its copy"
-msgstr "Overleaf keeps its copy"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 msgstr "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "Overleaf keeps suggestions with each file; they show here for the file in front"
-msgstr "Overleaf keeps suggestions with each file; they show here for the file in front"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
@@ -9307,10 +8681,6 @@ msgstr "Page of a labeled item"
 #: src/papers/bibliography-audit.tsx
 msgid "Pages"
 msgstr "Pages"
-
-#: src/history/export-changes-dialog.tsx
-msgid "Pages nothing changed on are left out"
-msgstr "Pages nothing changed on are left out"
 
 #: src/components/ui/color-picker.tsx
 msgid "Pale {name}"
@@ -9449,6 +8819,10 @@ msgctxt "macOS menu bar"
 msgid "Paste"
 msgstr "Paste"
 
+#: src/editor/insert/table-generator-dialog.tsx
+msgid "Paste cells or CSV"
+msgstr "Paste cells or CSV"
+
 #: src/App.tsx
 #: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
@@ -9458,17 +8832,13 @@ msgstr "Paste clipboard image as figure"
 msgid "Paste data"
 msgstr "Paste data"
 
-#: src/papers/add-papers-sheet.tsx
-msgid "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
-msgstr "Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
 msgstr "Paste or type a link"
 
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
-msgstr "Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table."
+#: src/papers/add-papers-sheet.tsx
+msgid "Paste references"
+msgstr "Paste references"
 
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
@@ -9495,19 +8865,11 @@ msgstr "paths"
 msgid "Pause syncing"
 msgstr "Pause syncing"
 
-#: src/trellis/trellis-workspace.tsx
-msgid "Paused while hidden · click to resume"
-msgstr "Paused while hidden · click to resume"
-
 #: src/app/focus-mode-bar.tsx
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
-
-#: src/project/figure-inventory-dialog.tsx
-msgid "PDF / vector format — raster DPI does not apply"
-msgstr "PDF / vector format — raster DPI does not apply"
 
 #: src/pdf/use-pdf-document.ts
 msgid "PDF could not be loaded"
@@ -9619,10 +8981,6 @@ msgstr "Pick an emoji to insert at the cursor."
 msgid "Pick color from screen"
 msgstr "Pick color from screen"
 
-#: src/history/compare-versions.tsx
-msgid "Pick where to start and where to end. The newer version is always on the right."
-msgstr "Pick where to start and where to end. The newer version is always on the right."
-
 #: src/settings/theme-settings.tsx
 msgid "Picked"
 msgstr "Picked"
@@ -9656,7 +9014,6 @@ msgstr "Placement"
 msgid "Plain text"
 msgstr "Plain text"
 
-#: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
@@ -9690,17 +9047,13 @@ msgstr "PostScript output"
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
 
-#: src/settings/acknowledged-software.ts
-msgid "Powers presentations"
-msgstr "Powers presentations"
-
 #: src/papers/reference-typeset.ts
 msgid "pp. {pages}"
 msgstr "pp. {pages}"
 
 #: src/trellis/trellis-build-sequence.tsx
-msgid "preamble, kept for later builds"
-msgstr "preamble, kept for later builds"
+msgid "preamble"
+msgstr "preamble"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
@@ -9780,16 +9133,14 @@ msgid "Preview"
 msgstr "Preview"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
 #: src/project/local-templates.tsx
-msgid "Preview image (optional)"
-msgstr "Preview image (optional)"
+msgid "Preview image"
+msgstr "Preview image"
 
 #: src/App.tsx
-#: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
@@ -9801,17 +9152,13 @@ msgstr "Preview of {path}"
 msgid "Preview replacement"
 msgstr "Preview replacement"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Preview unavailable"
+msgstr "Preview unavailable"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Preview unavailable for this figure format."
 msgstr "Preview unavailable for this figure format."
-
-#: src/project/figure-inventory-dialog.tsx
-msgid "Preview unavailable. Open the original file to inspect it."
-msgstr "Preview unavailable. Open the original file to inspect it."
-
-#: src/canvas/editor-status-bar.tsx
-msgid "previous"
-msgstr "previous"
 
 #: src/App.tsx
 msgid "Previous build problem"
@@ -10100,10 +9447,6 @@ msgstr "Rate-limited. Try again later"
 msgid "Raw build log"
 msgstr "Raw build log"
 
-#: src/trellis/trellis-text-snapshot.tsx
-msgid "Read-only preview · click to edit"
-msgstr "Read-only preview · click to edit"
-
 #: src/trellis/trellis-titlebar.tsx
 msgid "Reading"
 msgstr "Reading"
@@ -10141,11 +9484,8 @@ msgstr "Reading the rounds…"
 msgid "Reading the third-party notices…"
 msgstr "Reading the third-party notices…"
 
-#: src/settings/theme-settings.tsx
-msgid "Reads as text at {ratio}:1, used as picked"
-msgstr "Reads as text at {ratio}:1, used as picked"
-
 #: src/project/arxiv-export-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Ready"
 msgstr "Ready"
 
@@ -10160,10 +9500,6 @@ msgstr "Ready · 1 to look at"
 #: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "Ready to compile"
-
-#: src/telemetry/app-updater.tsx
-msgid "Ready to install"
-msgstr "Ready to install"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Ready to submit"
@@ -10241,9 +9577,9 @@ msgctxt "macOS menu bar"
 msgid "Redo"
 msgstr "Redo"
 
-#: src/live-preview/live-preview-settings.tsx
-msgid "Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build."
-msgstr "Redraws the paragraph you type in the PDF within milliseconds, with rtex and your own LuaLaTeX. Downloads rtex (about 4 MB) the first time. Exported PDFs, errors and jumps to the source still come from the normal build."
+#: src/settings/acknowledged-software.ts
+msgid "Redrawn from Phosphor glyphs"
+msgstr "Redrawn from Phosphor glyphs"
 
 #: src/editor/latex/latex-text.ts
 #: src/project/references-panel.tsx
@@ -10277,10 +9613,6 @@ msgstr "Reference check progress"
 #: src/papers/bibliography-audit.tsx
 msgid "Reference lacks identifying metadata"
 msgstr "Reference lacks identifying metadata"
-
-#: src/trellis/trellis-header-tools.tsx
-msgid "Reference list"
-msgstr "Reference list"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Reference with its type name"
@@ -10344,8 +9676,8 @@ msgid "Release to focus"
 msgstr "Release to focus"
 
 #: src/trellis/trellis-labels.ts
-msgid "Release to focus {title} · Esc to cancel"
-msgstr "Release to focus {title} · Esc to cancel"
+msgid "Release to focus {title}"
+msgstr "Release to focus {title}"
 
 #. Search words for the Refresh file tree command, space-separated
 #: src/app/project-panel-commands.ts
@@ -10433,18 +9765,9 @@ msgstr "Removed {0} files from Overleaf"
 msgid "Removed from library"
 msgstr "Removed from library"
 
-#: src/overleaf/overleaf-review.tsx
-msgid "Removed on Overleaf"
-msgstr "Removed on Overleaf"
-
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "Removed one file from Overleaf"
 msgstr "Removed one file from Overleaf"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Removes .aux, .log and other build files"
-msgstr "Removes .aux, .log and other build files"
 
 #: src/live-preview/live-preview-settings.tsx
 msgid "Removing…"
@@ -10576,10 +9899,6 @@ msgstr "Replace “{deleted}” with “{inserted}”"
 #: src/project/project-replace-dialog.tsx
 msgid "Replace {replacementCount}"
 msgstr "Replace {replacementCount}"
-
-#: src/build/compile-diagnostics-panel.tsx
-msgid "Replace {token} with {suggestion} on line {line}, then build"
-msgstr "Replace {token} with {suggestion} on line {line}, then build"
 
 #: src/editor/latex/search-panel.ts
 #: src/project/project-replace-dialog.tsx
@@ -10727,10 +10046,6 @@ msgstr "Requirement source"
 msgid "Research"
 msgstr "Research"
 
-#: src/project/project-dialogs.tsx
-msgid "Research, written with evidence"
-msgstr "Research, written with evidence"
-
 #: src/app/interface-zoom-hud.tsx
 msgid "Reset"
 msgstr "Reset"
@@ -10803,10 +10118,6 @@ msgstr "Resolve changes to {path}"
 msgid "Resolve conflicts in {path}"
 msgstr "Resolve conflicts in {path}"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Resolve from DOI / arXiv / title"
-msgstr "Resolve from DOI / arXiv / title"
-
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/pdf/review-pdf-sheet.tsx
@@ -10851,15 +10162,6 @@ msgstr "Restore"
 msgid "Restore {0}"
 msgstr "Restore {0}"
 
-#. placeholder {0}: file.pathname
-#: src/overleaf/overleaf-history.tsx
-msgid "Restore {0} to this version"
-msgstr "Restore {0} to this version"
-
-#: src/history/versions-timeline.tsx
-msgid "Restore {activePath} to this version"
-msgstr "Restore {activePath} to this version"
-
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Restore {name}"
 msgstr "Restore {name}"
@@ -10881,7 +10183,6 @@ msgid "Restore only “{path}” to the state before this change? The restore wi
 msgstr "Restore only “{path}” to the state before this change? The restore will be added as a new history entry."
 
 #. placeholder {0}: change.path
-#. placeholder {0}: single.path
 #: src/history/history-drawer.tsx
 msgid "Restore only {0}"
 msgstr "Restore only {0}"
@@ -10903,8 +10204,8 @@ msgid "Restore size"
 msgstr "Restore size"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
-msgid "Restore the files the rounds touched to {name}? The restore is added to the project history, so it can be undone there."
-msgstr "Restore the files the rounds touched to {name}? The restore is added to the project history, so it can be undone there."
+msgid "Restore the files the rounds touched to {name}?"
+msgstr "Restore the files the rounds touched to {name}?"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
@@ -10928,8 +10229,8 @@ msgid "Restore the state before this change"
 msgstr "Restore the state before this change"
 
 #: src/overleaf/overleaf-history.tsx
-msgid "Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
-msgstr "Restore the whole project to this version? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
+msgid "Restore the whole project to this version on Overleaf? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
+msgstr "Restore the whole project to this version on Overleaf? Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
 
 #: src/history/history-drawer.tsx
 #: src/history/versions-timeline.tsx
@@ -10949,14 +10250,6 @@ msgstr "Restored {0}."
 #: src/history/use-git-versions.ts
 msgid "Restored {path}."
 msgstr "Restored {path}."
-
-#: src/overleaf/overleaf-history.tsx
-msgid "Restoring changes Overleaf’s copy. Sync afterwards to bring it here"
-msgstr "Restoring changes Overleaf’s copy. Sync afterwards to bring it here"
-
-#: src/agent/synara-loading-surface.tsx
-msgid "Restoring the conversation surface…"
-msgstr "Restoring the conversation surface…"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Results"
@@ -11055,17 +10348,9 @@ msgstr "Review Overleaf changes"
 msgid "Review source changes"
 msgstr "Review source changes"
 
-#: src/history/conflict-resolver.tsx
-msgid "Review the final file before saving"
-msgstr "Review the final file before saving"
-
 #: src/pdf/pdf-annotations.tsx
 msgid "Review the proposal"
 msgstr "Review the proposal"
-
-#: src/history/export-changes-dialog.tsx
-msgid "Reviewers see what was removed"
-msgstr "Reviewers see what was removed"
 
 #. placeholder {0}: rounds.revisable
 #: src/editor/comments/editor-comments-panel.tsx
@@ -11151,11 +10436,6 @@ msgstr "Roman text"
 msgid "Root document"
 msgstr "Root document"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "Root document and its includes, via texcount"
-msgstr "Root document and its includes, via texcount"
-
-#: src/canvas/editor-status-bar.tsx
 #: src/project/manuscript-checklist.tsx
 msgid "Root document only, estimated without texcount"
 msgstr "Root document only, estimated without texcount"
@@ -11210,18 +10490,10 @@ msgstr "rtex stopped. The PDF still updates with each build."
 msgid "run {run}"
 msgstr "run {run}"
 
-#: src/terminal/terminal-panel.tsx
-msgid "Run latexmk, git or any command in this project’s folder"
-msgstr "Run latexmk, git or any command in this project’s folder"
-
 #: src/App.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
-
-#: src/agent/synara-permission-picker.tsx
-msgid "Run without asking for approval"
-msgstr "Run without asking for approval"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Run-in paragraph heading"
@@ -11230,14 +10502,6 @@ msgstr "Run-in paragraph heading"
 #: src/build/tex-doctor-messages.ts
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
-
-#: src/app/whats-new-dialog.tsx
-msgid "Running now"
-msgstr "Running now"
-
-#: src/settings/acknowledged-software.ts
-msgid "Runs the agent runtime"
-msgstr "Runs the agent runtime"
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -11289,10 +10553,6 @@ msgstr "Save a local template"
 msgid "Save a local template…"
 msgstr "Save a local template…"
 
-#: src/history/versions-timeline.tsx
-msgid "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
-msgstr "Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build"
-
 #: src/App.tsx
 msgid "Save and build"
 msgstr "Save and build"
@@ -11300,6 +10560,10 @@ msgstr "Save and build"
 #: src/canvas/annotation-composer.tsx
 msgid "Save and revise now"
 msgstr "Save and revise now"
+
+#: src/history/conflict-resolver.tsx
+msgid "Save and upload"
+msgstr "Save and upload"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
@@ -11404,10 +10668,6 @@ msgstr "Save visual as HTML"
 msgid "Save your edits before exporting."
 msgstr "Save your edits before exporting."
 
-#: src/project/local-templates.tsx
-msgid "Save your school, journal or lab files to reuse them in new projects."
-msgstr "Save your school, journal or lab files to reuse them in new projects."
-
 #: src/canvas/status-save-state.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/project/paper-inspector.tsx
@@ -11435,10 +10695,6 @@ msgstr "Saved {age}"
 msgid "Saved a copy to {written}"
 msgstr "Saved a copy to {written}"
 
-#: src/history/versions-timeline.tsx
-msgid "Saved by Lattice after syncs and builds since {since}"
-msgstr "Saved by Lattice after syncs and builds since {since}"
-
 #: src/canvas/status-save-state.tsx
 msgid "Saved on this Mac"
 msgstr "Saved on this Mac"
@@ -11465,6 +10721,10 @@ msgstr "Saved-text search unavailable"
 msgid "Saved, with its overview"
 msgstr "Saved, with its overview"
 
+#: src/history/export-changes-dialog.tsx
+msgid "Saves {saved} beside {pdf}"
+msgstr "Saves {saved} beside {pdf}"
+
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
 #: src/papers/bib-entry-dialog.tsx
@@ -11474,11 +10734,6 @@ msgstr "Saving…"
 #: src/build/compile-explain.ts
 msgid "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
 msgstr "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page."
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
-msgstr "Scales the whole window: text, icons and spacing together. ⌘+ and ⌘− change it anywhere, ⌘0 resets."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
@@ -11494,12 +10749,9 @@ msgstr "scroll area"
 
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/settings-search.tsx
+#: src/trellis/trellis-titlebar.tsx
 msgid "Search"
 msgstr "Search"
-
-#: src/papers/literature-discovery-panel.tsx
-msgid "Search alphaXiv and OpenAlex by title or topic"
-msgstr "Search alphaXiv and OpenAlex by title or topic"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search by name or license"
@@ -11525,13 +10777,13 @@ msgstr "Search emoji"
 msgid "Search failed."
 msgstr "Search failed."
 
+#: src/project/project-find-dialog.tsx
+msgid "Search files and papers…"
+msgstr "Search files and papers…"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Search files, papers and commands"
 msgstr "Search files, papers and commands"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Search files, papers and commands…"
-msgstr "Search files, papers and commands…"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
@@ -11544,10 +10796,6 @@ msgstr "Search logs"
 #: src/telemetry/app-log.tsx
 msgid "Search logs…"
 msgstr "Search logs…"
-
-#: src/project/paper-library.tsx
-msgid "Search or add by title, arXiv ID, DOI, or URL"
-msgstr "Search or add by title, arXiv ID, DOI, or URL"
 
 #: src/project/paper-library.tsx
 msgid "Search or add papers"
@@ -11584,14 +10832,6 @@ msgstr "Search the project for “{query}”"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Search third-party software"
 msgstr "Search third-party software"
-
-#: src/project/project-find-dialog.tsx
-msgid "Search your files and saved papers."
-msgstr "Search your files and saved papers."
-
-#: src/project/project-find-dialog.tsx
-msgid "Search…"
-msgstr "Search…"
 
 #: src/project/paper-library.tsx
 msgid "Searching saved text…"
@@ -11683,8 +10923,8 @@ msgid "Select task list"
 msgstr "Select task list"
 
 #: src/onboarding/guided-tour-steps.ts
-msgid "Select text in the editor and choose Comment. Every note gathers here."
-msgstr "Select text in the editor and choose Comment. Every note gathers here."
+msgid "Select text, then choose Comment"
+msgstr "Select text, then choose Comment"
 
 #: src/project/local-templates.tsx
 msgid "Select the compile root in the file list to continue."
@@ -11749,8 +10989,8 @@ msgstr "Send reply"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-search-index.ts
-msgid "Sent to Crossref for faster lookups. No key needed"
-msgstr "Sent to Crossref for faster lookups. No key needed"
+msgid "Sent to Crossref"
+msgstr "Sent to Crossref"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
@@ -11783,11 +11023,6 @@ msgstr "Settings sections"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "Sharp"
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Shell escape during builds"
-msgstr "Shell escape during builds"
 
 #. Search words for the Editor keymap setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -11906,8 +11141,11 @@ msgstr "Show results from"
 msgid "Show the citation card"
 msgstr "Show the citation card"
 
-#: src/App.tsx
 #: src/app/focus-mode-bar.tsx
+msgid "Show the PDF"
+msgstr "Show the PDF"
+
+#: src/App.tsx
 msgid "Show the PDF beside the editor"
 msgstr "Show the PDF beside the editor"
 
@@ -11921,15 +11159,11 @@ msgstr "Show this in the editor"
 msgid "Show this version's changes"
 msgstr "Show this version's changes"
 
-#: src/project/project-find-dialog.tsx
-msgid "Show:"
-msgstr "Show:"
-
 #. placeholder {0}: shown.length
 #. placeholder {1}: matches.length
 #: src/settings/acknowledgements-settings.tsx
-msgid "Showing {0} of {1} matches. Keep typing to narrow them."
-msgstr "Showing {0} of {1} matches. Keep typing to narrow them."
+msgid "Showing {0} of {1}"
+msgstr "Showing {0} of {1}"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -11965,13 +11199,8 @@ msgstr "Sign out of Overleaf?\n"
 "Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac."
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Sign-in was cancelled. You can try again whenever you’re ready."
-msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
-
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Signs your comments when Git and Overleaf have no name"
-msgstr "Signs your comments when Git and Overleaf have no name"
+msgid "Sign-in was cancelled"
+msgstr "Sign-in was cancelled"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
@@ -12033,10 +11262,6 @@ msgstr "Skipped {skippedCount} items that are already there."
 msgid "Slash commands"
 msgstr "Slash commands"
 
-#: src/trellis/trellis-workspace.tsx
-msgid "Sleeping · click to open"
-msgstr "Sleeping · click to open"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Small capitals"
 msgstr "Small capitals"
@@ -12062,14 +11287,6 @@ msgstr "Smile relation"
 #: src/components/ui/color-picker.tsx
 msgid "Soft {name}"
 msgstr "Soft {name}"
-
-#: src/canvas/annotation-review.tsx
-msgid "Some changes would alter LaTeX the note did not ask about, so Lattice holds them back."
-msgstr "Some changes would alter LaTeX the note did not ask about, so Lattice holds them back."
-
-#: src/papers/bibliography-audit.tsx
-msgid "Some sources could not complete the lookup. This does not mean the reference is incorrect."
-msgstr "Some sources could not complete the lookup. This does not mean the reference is incorrect."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
@@ -12133,10 +11350,6 @@ msgstr "Source · {0} · not verified"
 msgid "Source · not verified"
 msgstr "Source · not verified"
 
-#: src/trellis/trellis-build-sequence.tsx
-msgid "source ↔ PDF"
-msgstr "source ↔ PDF"
-
 #: src/onboarding/guided-tour-steps.ts
 msgid "Source and PDF, linked"
 msgstr "Source and PDF, linked"
@@ -12151,12 +11364,8 @@ msgstr "Source control"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "Source editor only"
-msgstr "Source editor only"
-
-#: src/App.tsx
-msgid "source files and papers"
-msgstr "source files and papers"
+msgid "Source editor font size"
+msgstr "Source editor font size"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -12183,8 +11392,8 @@ msgid "Source temporarily unavailable"
 msgstr "Source temporarily unavailable"
 
 #: src/project/local-templates.tsx
-msgid "Source URL (optional)"
-msgstr "Source URL (optional)"
+msgid "Source URL"
+msgstr "Source URL"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
@@ -12322,6 +11531,10 @@ msgstr "Status"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Still not connected: {0}"
 msgstr "Still not connected: {0}"
+
+#: src/overleaf/overleaf-review.tsx
+msgid "Still on Overleaf"
+msgstr "Still on Overleaf"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
@@ -12512,11 +11725,6 @@ msgstr "Sync mode"
 msgid "Sync now"
 msgstr "Sync now"
 
-#: src/overleaf/overleaf-connect.tsx
-#: src/settings/settings-search-index.ts
-msgid "Sync only when you click the sync button"
-msgstr "Sync only when you click the sync button"
-
 #: src/canvas/status-save-state.tsx
 msgid "Sync paused"
 msgstr "Sync paused"
@@ -12644,11 +11852,6 @@ msgstr "Terminal name"
 msgid "Terminals"
 msgstr "Terminals"
 
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "Terms Harper should accept in this project"
-msgstr "Terms Harper should accept in this project"
-
 #: src/settings/literature-settings.tsx
 msgid "Test connection"
 msgstr "Test connection"
@@ -12705,17 +11908,9 @@ msgstr "Text to find"
 msgid "Textual citation"
 msgstr "Textual citation"
 
-#: src/build/tex-setup-wizard.tsx
-msgid "That action needs them. Install them, then try it again."
-msgstr "That action needs them. Install them, then try it again."
-
 #: src/settings/literature-settings.tsx
 msgid "That didn’t work. Check the input and keychain access"
 msgstr "That didn’t work. Check the input and keychain access"
-
-#: src/project/project-dialogs.tsx
-msgid "The \\begin and \\end under the cursor"
-msgstr "The \\begin and \\end under the cursor"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the acknowledgement did not arrive in time"
@@ -12750,25 +11945,9 @@ msgstr "The agent could not revise this passage: {detail}"
 msgid "The agent could not revise this passage."
 msgstr "The agent could not revise this passage."
 
-#: src/canvas/proofread-card.tsx
-msgid "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
-msgstr "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
-
-#: src/canvas/proofread-card.tsx
-msgid "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
-msgstr "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
-
-#: src/settings/acknowledged-software.ts
-msgid "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
-msgstr "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
-
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
-
-#: src/agent/synara-loading-surface.tsx
-msgid "The Agent started {seconds} s ago and hasn’t answered yet"
-msgstr "The Agent started {seconds} s ago and hasn’t answered yet"
 
 #: src/canvas/annotation-review.tsx
 msgid "The agent suggests leaving the passage as it is."
@@ -12814,21 +11993,9 @@ msgstr "The bibliography entry no longer exists."
 msgid "The bibliography has no .bbl"
 msgstr "The bibliography has no .bbl"
 
-#: src/settings/acknowledged-software.ts
-msgid "The board editor"
-msgstr "The board editor"
-
-#: src/agent/synara-loading-surface.tsx
-msgid "The bundled Agent service could not start"
-msgstr "The bundled Agent service could not start"
-
 #: src/agent/use-synara-runtime.ts
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
-
-#: src/settings/theme-settings.tsx
-msgid "The colour of the window's surfaces"
-msgstr "The colour of the window's surfaces"
 
 #: src/App.tsx
 msgid "the comment or suggestion by the caret"
@@ -12846,27 +12013,6 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
-
-#: src/history/conflict-resolver.tsx
-msgid "The copy on Overleaf"
-msgstr "The copy on Overleaf"
-
-#: src/history/versions-timeline.tsx
-msgid "The current state is saved as a version first"
-msgstr "The current state is saved as a version first"
-
-#: src/settings/acknowledged-software.ts
-msgid "The desktop app shell"
-msgstr "The desktop app shell"
-
-#: src/settings/settings-search-index.ts
-#: src/settings/theme-settings.tsx
-msgid "The desktop shows through the title bar and sidebars"
-msgstr "The desktop shows through the title bar and sidebars"
-
-#: src/settings/acknowledged-software.ts
-msgid "The dockable panel layout"
-msgstr "The dockable panel layout"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
@@ -12908,33 +12054,17 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 msgid "The files already read as {name}."
 msgstr "The files already read as {name}."
 
-#: src/history/export-changes-dialog.tsx
-msgid "The first changes, marked this way"
-msgstr "The first changes, marked this way"
-
 #: src/app/remove-reference-action.ts
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
-
-#: src/editor/insert/table-generator-dialog.tsx
-msgid "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
-msgstr "The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package."
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
 msgstr "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
 
-#: src/project/import-conflict-dialog.tsx
-msgid "The imported copies get a numbered name"
-msgstr "The imported copies get a numbered name"
-
 #: src/papers/audit-messages.ts
 msgid "The inline reference agrees with the verified record."
 msgstr "The inline reference agrees with the verified record."
-
-#: src/settings/acknowledged-software.ts
-msgid "The interface framework"
-msgstr "The interface framework"
 
 #: src/settings/literature-settings.tsx
 msgid "The key works. Testing doesn’t save it"
@@ -12943,10 +12073,6 @@ msgstr "The key works. Testing doesn’t save it"
 #: src/build/compile-explain.ts
 msgid "The label {label} is used twice"
 msgstr "The label {label} is used twice"
-
-#: src/telemetry/app-log.tsx
-msgid "The last 300 entries"
-msgstr "The last 300 entries"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
@@ -12964,17 +12090,9 @@ msgstr "the linked Overleaf host"
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "The linked Overleaf project changed. Try commenting again."
 
-#: src/app/git-workspace-frames.tsx
-msgid "The local Git service hasn’t answered. Try loading it again."
-msgstr "The local Git service hasn’t answered. Try loading it again."
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "the network became available"
-
-#: src/pdf/review-pdf-sheet.tsx
-msgid "The notes you tick become comments in a copy of the PDF that Preview, Acrobat and Zotero show: a highlight on the words a note is about, or a note in the margin where those words are not on the page. Unticked notes stay in Lattice, and the plain PDF is not changed."
-msgstr "The notes you tick become comments in a copy of the PDF that Preview, Acrobat and Zotero show: a highlight on the words a note is about, or a note in the margin where those words are not on the page. Unticked notes stay in Lattice, and the plain PDF is not changed."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the Overleaf project connection is no longer active"
@@ -12997,10 +12115,6 @@ msgid "The package repository does not have this package."
 msgstr "The package repository does not have this package."
 
 #: src/project/arxiv-export.ts
-msgid "The paper has no \\bibliography"
-msgstr "The paper has no \\bibliography"
-
-#: src/project/arxiv-export.ts
 msgid "The paper has no figures"
 msgstr "The paper has no figures"
 
@@ -13020,14 +12134,6 @@ msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
 
-#: src/settings/acknowledged-software.ts
-msgid "The PDF viewer"
-msgstr "The PDF viewer"
-
-#: src/trellis/trellis-build-sequence.tsx
-msgid "the PDF was already up to date"
-msgstr "the PDF was already up to date"
-
 #. placeholder {0}: formatDate(built)
 #: src/pdf/review-pdf-sheet.tsx
 msgid "The PDF was built on {0}."
@@ -13040,10 +12146,6 @@ msgstr "The previous Overleaf document could not be released. Syncing remains pa
 #: src/App.tsx
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
-
-#: src/settings/acknowledged-software.ts
-msgid "The project file tree"
-msgstr "The project file tree"
 
 #: src/App.tsx
 msgid "The project or its permissions changed. Check references again."
@@ -13089,18 +12191,6 @@ msgstr "The repair service did not return a task."
 msgid "The required tools"
 msgstr "The required tools"
 
-#: src/papers/bibliography-audit.tsx
-msgid "The results did not identify a unique matching publication."
-msgstr "The results did not identify a unique matching publication."
-
-#: src/settings/acknowledged-software.ts
-msgid "The rich-text editor"
-msgstr "The rich-text editor"
-
-#: src/onboarding/guided-tour-steps.ts
-msgid "The same seven stops, for a refresher."
-msgstr "The same seven stops, for a refresher."
-
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "The selected text changed while it was being proofread. Proofread it again to review the current text."
@@ -13109,14 +12199,6 @@ msgstr "The selected text changed while it was being proofread. Proofread it aga
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
-
-#: src/canvas/proofread-card.tsx
-msgid "The selection already reads cleanly."
-msgstr "The selection already reads cleanly."
-
-#: src/canvas/proofread-card.tsx
-msgid "The selection already reads well."
-msgstr "The selection already reads well."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -13137,14 +12219,6 @@ msgstr "The shell was stopped"
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
-
-#: src/settings/acknowledged-software.ts
-msgid "The source editor"
-msgstr "The source editor"
-
-#: src/settings/acknowledged-software.ts
-msgid "The spreadsheet editor"
-msgstr "The spreadsheet editor"
 
 #: src/terminal/terminal-panel.tsx
 msgid "The terminal is in the Lattice window"
@@ -13180,10 +12254,6 @@ msgstr "Theme"
 msgid "theme appearance"
 msgstr "theme appearance"
 
-#: src/settings/code-theme-settings.tsx
-msgid "Themes with both variants follow this; dark-only themes stay dark"
-msgstr "Themes with both variants follow this; dark-only themes stay dark"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -13195,14 +12265,6 @@ msgstr "There exists"
 #: src/build/tex-setup.ts
 msgid "There is not enough disk space to install the package. Free up some space, then try again."
 msgstr "There is not enough disk space to install the package. Free up some space, then try again."
-
-#: src/overleaf/overleaf-collab.tsx
-msgid "These comments stay in Lattice and are not sent to Overleaf."
-msgstr "These comments stay in Lattice and are not sent to Overleaf."
-
-#: src/history/versions-timeline.tsx
-msgid "These files as this version left them, compared with now"
-msgstr "These files as this version left them, compared with now"
 
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
@@ -13230,7 +12292,6 @@ msgid "This account cannot accept or reject suggestions here."
 msgstr "This account cannot accept or reject suggestions here."
 
 #: src/app/use-project-tree.ts
-#: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
 
@@ -13249,6 +12310,10 @@ msgstr "This bibliography entry has no citation key to remove."
 #: src/papers/audit-messages.ts
 msgid "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
 msgstr "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
+
+#: src/agent/synara-confirmations.ts
+msgid "This cannot be undone."
+msgstr "This cannot be undone."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "This collaborator is not in a file right now."
@@ -13338,13 +12403,9 @@ msgstr "This line closes a group that was never opened, or leaves math mode with
 msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 msgstr "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "This match information describes the retrieved record; you have edited its fields."
-msgstr "This match information describes the retrieved record; you have edited its fields."
-
 #: src/settings/acknowledgements-settings.tsx
-msgid "This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps."
-msgstr "This package ships no license text of its own, so none is reproduced here. The third-party notices list it among the attribution gaps."
+msgid "This package ships no license text of its own"
+msgstr "This package ships no license text of its own"
 
 #: src/App.tsx
 msgid "This paper has no local reading or downloadable source."
@@ -13385,10 +12446,6 @@ msgstr "This reference already has a “{name}” field."
 msgid "This reference cannot be updated."
 msgstr "This reference cannot be updated."
 
-#: src/papers/bibliography-audit.tsx
-msgid "This reference has not been checked against the publication sources yet."
-msgstr "This reference has not been checked against the publication sources yet."
-
 #: src/build/compile-explain.ts
 msgid "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
 msgstr "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
@@ -13416,10 +12473,6 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
-
-#: src/papers/linked-library-sheet.tsx
-msgid "Tick to remove it here too"
-msgstr "Tick to remove it here too"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -13593,10 +12646,6 @@ msgstr "Triangle left"
 msgid "Triangle right"
 msgstr "Triangle right"
 
-#: src/project/project-find-dialog.tsx
-msgid "Try a shorter phrase or different terms"
-msgstr "Try a shorter phrase or different terms"
-
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/proofread-card.tsx
@@ -13615,10 +12664,6 @@ msgstr "Try again"
 msgid "Try again…"
 msgstr "Try again…"
 
-#: src/project/paper-library.tsx
-msgid "Try another filter"
-msgstr "Try another filter"
-
 #: src/canvas/project-pdf-panel.tsx
 msgid "Try building the project again"
 msgstr "Try building the project again"
@@ -13627,10 +12672,6 @@ msgstr "Try building the project again"
 msgid "Try now"
 msgstr "Try now"
 
-#: src/app/command-palette.tsx
-msgid "Try other words, or search every source file"
-msgstr "Try other words, or search every source file"
-
 #: src/build/tex-setup-wizard.tsx
 msgid "Try that again now"
 msgstr "Try that again now"
@@ -13638,10 +12679,6 @@ msgstr "Try that again now"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
 msgstr "TSV (tab)"
-
-#: src/history/versions-timeline.tsx
-msgid "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
-msgstr "Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away"
 
 #: src/build/compile-explain.ts
 msgid "Two places set {command}, so references to it may point at the wrong one. Rename one of them."
@@ -13956,10 +12993,6 @@ msgstr "Updated to Lattice {running}"
 msgid "Updates {fields}"
 msgstr "Updates {fields}"
 
-#: src/papers/linked-library-sheet.tsx
-msgid "Updates {target} · last updated {updated}"
-msgstr "Updates {target} · last updated {updated}"
-
 #: src/project/project-dialogs.tsx
 msgid "Updates every \\ref to it"
 msgstr "Updates every \\ref to it"
@@ -13983,10 +13016,6 @@ msgstr "Upload “{name}” to Overleaf and connect this folder?\n"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload and connect"
 msgstr "Upload and connect"
-
-#: src/project/arxiv-export-dialog.tsx
-msgid "Upload it at arXiv’s Add Files step."
-msgstr "Upload it at arXiv’s Add Files step."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload this project to Overleaf"
@@ -14066,6 +13095,10 @@ msgstr "Variant rho"
 msgid "Variant theta"
 msgstr "Variant theta"
 
+#: src/project/figure-inventory-dialog.tsx
+msgid "Vector"
+msgstr "Vector"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Vector arrow over a symbol"
 msgstr "Vector arrow over a symbol"
@@ -14118,7 +13151,6 @@ msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
 #: src/history/compare-versions.tsx
-#: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Version"
@@ -14139,10 +13171,6 @@ msgid "Version history is unavailable: {0}"
 msgstr "Version history is unavailable: {0}"
 
 #: src/history/versions-timeline.tsx
-msgid "Version history needs Git, which isn’t available on this Mac"
-msgstr "Version history needs Git, which isn’t available on this Mac"
-
-#: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 msgid "Version label"
 msgstr "Version label"
@@ -14152,8 +13180,8 @@ msgid "Version named."
 msgstr "Version named."
 
 #: src/project/local-templates.tsx
-msgid "Version or year (optional)"
-msgstr "Version or year (optional)"
+msgid "Version or year"
+msgstr "Version or year"
 
 #: src/history/use-git-versions.ts
 msgid "Version saved."
@@ -14182,17 +13210,9 @@ msgstr "Versions"
 msgid "Versions to compare"
 msgstr "Versions to compare"
 
-#: src/history/history-drawer.tsx
-msgid "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
-msgstr "Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
 msgstr "Vertical space"
-
-#: src/project/manuscript-checklist.tsx
-msgid "via texcount -inc"
-msgstr "via texcount -inc"
 
 #: src/app/palette-sections.ts
 msgid "View"
@@ -14267,14 +13287,6 @@ msgstr "Waiting for Semantic Scholar…"
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "Waiting for you to sign in in the Overleaf window…"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Waiting to find out which file this is in"
-msgstr "Waiting to find out which file this is in"
-
-#: src/agent/synara-loading-surface.tsx
-msgid "Warming the local service…"
-msgstr "Warming the local service…"
-
 #: src/telemetry/app-log.tsx
 msgid "WARN"
 msgstr "WARN"
@@ -14304,10 +13316,6 @@ msgstr "Welcome back"
 #: src/onboarding/guided-tour-steps.ts
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "What has changed on Overleaf since this version"
-msgstr "What has changed on Overleaf since this version"
 
 #: src/project/deadline-card.tsx
 msgid "What is due"
@@ -14346,15 +13354,6 @@ msgstr "What’s New in {name}"
 msgid "What’s new in Lattice"
 msgstr "What’s new in Lattice"
 
-#: src/settings/settings-dialog.tsx
-#: src/settings/settings-search-index.ts
-msgid "When a build or a task in progress finishes"
-msgstr "When a build or a task in progress finishes"
-
-#: src/overleaf/overleaf-changes.tsx
-msgid "When a collaborator edits with Track changes on, each edit waits here for you to accept or reject"
-msgstr "When a collaborator edits with Track changes on, each edit waits here for you to accept or reject"
-
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
@@ -14388,10 +13387,6 @@ msgstr "Width of the text block"
 #: src/editor/markdown/engine/chrome/references.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki link suggestions"
-
-#: src/papers/linked-library-sheet.tsx
-msgid "Will update {target}"
-msgstr "Will update {target}"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -14464,10 +13459,6 @@ msgstr "Workspace: {currentName}"
 msgid "Workspaces"
 msgstr "Workspaces"
 
-#: src/onboarding/guided-tour-steps.ts
-msgid "Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you."
-msgstr "Workspaces keep your panel arrangements. Panels also lays out Writing and Reading for you."
-
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Wrap in \\iffalse … \\fi"
 msgstr "Wrap in \\iffalse … \\fi"
@@ -14496,10 +13487,6 @@ msgstr "Wrap in itemize"
 msgid "Wrap in table float"
 msgstr "Wrap in table float"
 
-#: src/project/project-dialogs.tsx
-msgid "Wraps the selection in \\begin…\\end"
-msgstr "Wraps the selection in \\begin…\\end"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "Wreath product"
@@ -14511,10 +13498,6 @@ msgstr "Write, then build"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Writing"
 msgstr "Writing"
-
-#: src/build/tex-setup-wizard.tsx
-msgid "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
-msgstr "Writing and compiling work without them. Lattice asks again when a paper feature needs them."
 
 #: src/build/build-log-messages.ts
 msgid "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX."
@@ -14562,16 +13545,8 @@ msgid "You kept your entry over an unverified record"
 msgstr "You kept your entry over an unverified record"
 
 #: src/papers/bibliography-audit.tsx
-msgid "You kept your entry. The source's record was not verified, and Lattice never applies it."
-msgstr "You kept your entry. The source's record was not verified, and Lattice never applies it."
-
-#: src/papers/bibliography-audit.tsx
 msgid "You read the publisher's notice and kept citing it"
 msgstr "You read the publisher's notice and kept citing it"
-
-#: src/papers/bibliography-audit.tsx
-msgid "You read the publisher's notice and kept citing this paper."
-msgstr "You read the publisher's notice and kept citing this paper."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "You sign in on Overleaf. Lattice never sees your password"
@@ -14589,10 +13564,6 @@ msgstr "Your {BIBITEM} differs: {fields}"
 msgid "Your answer…"
 msgstr "Your answer…"
 
-#: src/canvas/status-save-state.tsx
-msgid "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
-msgstr "Your changes are saved on this Mac. They’ll sync to Overleaf when the connection is back."
-
 #: src/editor/latex/highlight-palette.tsx
 msgid "Your colours"
 msgstr "Your colours"
@@ -14600,14 +13571,6 @@ msgstr "Your colours"
 #: src/app/use-overleaf-workspace.ts
 msgid "Your edits stay on this Mac until the next sync"
 msgstr "Your edits stay on this Mac until the next sync"
-
-#: src/pdf/pdf-viewer.tsx
-msgid "Your first PDF starts here"
-msgstr "Your first PDF starts here"
-
-#: src/history/conflict-resolver.tsx
-msgid "Your Lattice copy"
-msgstr "Your Lattice copy"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -14623,12 +13586,12 @@ msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign i
 msgstr "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
 
 #: src/overleaf/overleaf-connect.tsx
+msgid "Your Overleaf session expired"
+msgstr "Your Overleaf session expired"
+
+#: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
-
-#: src/project/paper-library.tsx
-msgid "Your paper library"
-msgstr "Your paper library"
 
 #: src/onboarding/guided-tour-steps.ts
 msgid "Your project"
@@ -14641,14 +13604,6 @@ msgstr "Your project files are safe"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your projects"
 msgstr "Your projects"
-
-#: src/project/project-dialogs.tsx
-msgid "Your saved template is selected below"
-msgstr "Your saved template is selected below"
-
-#: src/canvas/status-save-state.tsx
-msgid "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
-msgstr "Your text is safe in this window; nothing has been lost. Try again, or save a copy somewhere else."
 
 #: src/papers/bibliography-audit.tsx
 #: src/papers/linked-library-sheet.tsx

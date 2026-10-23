@@ -90,7 +90,6 @@ export function ProjectAssetPreview({ asset, missing = false, viewState, onViewS
       <div className="asset-preview-heading">
         <Image size={14} />
         <span>{asset.path}</span>
-        <small>{t`Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it`}</small>
         {image && (
           <ZoomControls
             className="asset-preview-zoom-controls"

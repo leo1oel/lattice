@@ -59,7 +59,6 @@
 .references-snippet { min-width: 0; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .document-outline-list button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 .math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
-.math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .math-preview-body { color: var(--text-primary); overflow-x: auto; }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--code-ground); }
 /* Placed with `translate`, so `.popup-motion` keeps `transform` for its entrance. */
@@ -218,13 +217,12 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .proofread-card-summary-text,
 .proofread-card-model { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .proofread-card-model::before { content: "·"; margin-inline-end: var(--gap-inline-tight); }
-.proofread-card-note { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-line-height); }
 /* The selection read in place (components/ui/inline-edits.tsx). */
 .proofread-card-text { padding-inline: var(--gap-tight); }
 .proofread-card-held,
 .proofread-card-error { margin: 0; }
-/* One rule above the answers, then the lead action, the rest, and the hint
-   that an edit is a choice. Narrow, the hint goes first, then the keys. */
+/* One rule above the answers, then the lead action and the rest. Narrow,
+   the keys go. */
 .proofread-card-actions {
   display: flex;
   flex-wrap: wrap;
@@ -234,18 +232,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   border-top: 1px solid var(--border-subtle);
 }
 .proofread-card-actions kbd { margin-inline-start: var(--gap-inline); color: var(--text-secondary); font: inherit; }
-.proofread-card-hint {
-  min-width: 0;
-  margin-inline-start: auto;
-  overflow: hidden;
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-@container (max-width: 440px) {
-  .proofread-card-hint { display: none; }
-}
 @container (max-width: 300px) {
   .proofread-card-actions kbd,
   .proofread-card-model { display: none; }
@@ -1172,8 +1158,8 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .asset-preview { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-panel); }
 .asset-preview-heading { height: 38px; flex: none; padding: 0 13px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--gap-inline); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .asset-preview-heading span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.asset-preview-heading small { margin-left: auto; flex: none; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .asset-preview-zoom-controls { flex: none; display: flex; align-items: center; gap: var(--gap-hairline); }
+.asset-preview-heading > .asset-preview-zoom-controls { margin-left: auto; }
 .asset-preview-zoom-controls button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
 .asset-preview-zoom-controls button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); }
 .asset-preview-zoom-value { position: relative; width: 44px; min-width: 44px; height: var(--control-height-compact); border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }

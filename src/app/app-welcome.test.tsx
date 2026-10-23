@@ -31,7 +31,7 @@ describe("welcome screen", () => {
 
   it("offers project creation and existing folder import", async () => {
     renderApp();
-    expect(await screen.findByRole("heading", { name: "Research, written with evidence" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Lattice" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new project/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Guided tutorial" })).toBeInTheDocument();
@@ -118,8 +118,7 @@ describe("welcome screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
-    expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS");
-    expect(screen.getByText("Official 2026 style · preprint draft")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS 2026 · preprint");
   });
 
   it("keeps duplicate project errors inside the creation dialog", async () => {
@@ -183,12 +182,11 @@ describe("welcome screen", () => {
     expect(section("Appearance")).not.toHaveAttribute("aria-current");
     expect(section("Editor & builds")).toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
-    expect(screen.getByText(/1.2 s after you stop typing/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
     expect(synaraHook.enabledCalls).not.toContain(true);
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));
-    expect(screen.getByText("Open a project to manage Agent settings")).toBeInTheDocument();
+    expect(screen.getByText("No project open")).toBeInTheDocument();
     expect(screen.queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
   });
 
@@ -368,11 +366,12 @@ describe("welcome screen", () => {
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "设置分区" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "外观" })).toBeInTheDocument();
-    expect(screen.getByText("仅源码编辑器")).toBeInTheDocument();
+    expect(screen.getByText("界面大小")).toBeInTheDocument();
     expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-    expect(await screen.findByRole("heading", { name: "让论文写作有据可依" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    // The title is the product name in every language; the actions say the switch happened.
+    expect(await screen.findByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Lattice" })).toBeInTheDocument();
   });
 
   it("keeps Settings draggable from its top edge and the top window strip", async () => {
@@ -395,7 +394,7 @@ describe("welcome screen", () => {
   });
 
   it.each([
-    ["persists the editor spellcheck setting when it is turned off", "Editor & builds", "Check spelling in prose", "editorSpellcheck"],
+    ["persists the editor spellcheck setting when it is turned off", "Editor & builds", "Check English spelling", "editorSpellcheck"],
     ["lets the user mute the small set of interface sounds", undefined, "Interface sounds", "interfaceSounds"],
   ])("%s", async (_name, section, label, setting) => {
     renderApp();
@@ -410,7 +409,7 @@ describe("welcome screen", () => {
   it("opens the command palette on the welcome screen with only what runs there, and finds settings by name", async () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "settings"]));
     renderApp(projectCommands(null));
-    await screen.findByRole("heading", { name: "Research, written with evidence" });
+    await screen.findByRole("heading", { level: 1, name: "Lattice" });
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     const input = await screen.findByRole("searchbox", { name: "Command palette" });
     const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
@@ -426,10 +425,10 @@ describe("welcome screen", () => {
 
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
     fireEvent.change(await screen.findByRole("searchbox", { name: "Command palette" }), { target: { value: "spelling" } });
-    expect(screen.getByRole("option", { name: /Check spelling in prose/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Check English spelling/ })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
     expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText("Check spelling in prose")).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText("Check English spelling")).toHaveFocus());
   });
 
   it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {
@@ -451,9 +450,9 @@ describe("welcome screen", () => {
     fireEvent.change(term, { target: { value: "Lattice" } });
 
     fireEvent.change(search, { target: { value: "build" } });
-    // Labels holding the words lead, in page order; then rows only their terms match, then descriptions.
+    // Labels holding the words lead, in page order; then rows only their terms match.
     expect(results().getAllByRole("option").map((option) => option.firstChild?.textContent))
-      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow external commands", "Interface sounds"]);
+      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow shell escape"]);
     fireEvent.change(search, { target: { value: "vim" } });
     fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Editor keymap" })).toHaveFocus());

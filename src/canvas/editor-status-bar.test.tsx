@@ -25,7 +25,7 @@ const comment = (resolved = false) => ({
 function renderStatus(overrides: Partial<StatusProps>) {
   const props: StatusProps = {
     position: { line: 1, column: 0 }, onGotoLine: vi.fn(), keymap: "default", vimMode: "", breadcrumb: [],
-    path: "main.tex", onNavigate: vi.fn(), hasDiagnostics: false, comments: [], onOpenComments: vi.fn(),
+    path: "main.tex", onNavigate: vi.fn(), comments: [], onOpenComments: vi.fn(),
     todoCount: 0, onOpenTodos: vi.fn(), projectWordCount: null, selectedText: "", source: "",
     ...overrides,
   };
@@ -67,15 +67,16 @@ describe("EditorStatusBar", () => {
     renderStatus({ projectWordCount: texcount, path: "chapters/intro.tex", source: "Two words", selectedText: "Hello big\nworld" });
     const details = openDetails();
     expect(within(details).getAllByRole("term").map((term) => term.textContent)).toEqual(["Manuscript", "This file", "Selection"]);
-    expect(details).toHaveTextContent("Manuscript120,400 wordsRoot document and its includes, via texcountText 120,000 · headings 400 · captions 0");
-    expect(details).toHaveTextContent("This file2 wordsintro.tex, markup included · 9 characters");
+    expect(details).toHaveTextContent("Manuscript120,400 wordsText 120,000 · headings 400 · captions 0");
+    expect(details).toHaveTextContent("This file2 words9 characters");
     expect(details).toHaveTextContent("Selection3 words15 characters · 2 lines");
   });
 
   it("marks an estimated manuscript count as one, and says when there is none", () => {
     renderStatus({ projectWordCount: { ...texcount, source: "estimate" } });
     let details = openDetails();
-    expect(details).toHaveTextContent("Manuscript≈120,400 wordsRoot document only, estimated without texcount");
+    expect(details).toHaveTextContent("Manuscript≈120,400 words");
+    expect(details.querySelectorAll(".word-count-note")).toHaveLength(1);
     expect(details).not.toHaveTextContent("headings");
     expect(within(details).queryByText("Selection")).toBeNull();
     cleanup();
@@ -86,10 +87,9 @@ describe("EditorStatusBar", () => {
     expect(details).toHaveTextContent("This file1 word");
   });
 
-  it("wraps a long unbroken filename inside the details instead of running past them", () => {
-    const fileName = "chapter_03_mechanistic_evidence_for_visual_grounding_and_reproducibility_in_native_vision_language_models.tex";
-    renderStatus({ path: `chapters/${fileName}`, source: "Two words" });
-    const note = within(openDetails()).getByText(new RegExp(`^${fileName}`));
+  it("lets a note break inside the details instead of running past them", () => {
+    renderStatus({ source: "Two words" });
+    const note = within(openDetails()).getByText("9 characters");
     // jsdom does no layout, so this pins the two rules that let the token
     // break: a shrinkable label column, and a note that breaks anywhere.
     expect(getComputedStyle(note.parentElement!).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
@@ -113,7 +113,6 @@ describe("the save slot", () => {
     fireEvent.click(button);
     const details = screen.getByRole("dialog", { name: "Save state" });
     expect(within(details).getByText("Saved just now")).toBeInTheDocument();
-    expect(within(details).getByText("main.tex · saves a second after you stop typing")).toBeInTheDocument();
   });
 
   it.each([
@@ -140,7 +139,6 @@ describe("the save slot", () => {
     fireEvent.click(screen.getByRole("button", { name: "Saved · Syncing…" }));
     const details = screen.getByRole("dialog", { name: "Save state" });
     expect(within(details).getByText("Syncing…")).toBeInTheDocument();
-    expect(within(details).getByText("Co-authors see your edits as you type")).toBeInTheDocument();
   });
 
   it("turns red only for a failed write, saying why and how to get the text out", () => {

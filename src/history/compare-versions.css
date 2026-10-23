@@ -13,7 +13,6 @@
 
 .compare-heading { display: grid; gap: var(--space-1); }
 .compare-heading h2 { margin: 0; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
-.compare-heading p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-wrap: pretty; }
 
 /* ---- The picker: the version list itself, with From and To columns. */
 .compare-picker { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel-raised); overflow: hidden; }
@@ -82,8 +81,8 @@
 .export-changes-range { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: calc(var(--space-4) * -1) 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .export-changes-range b { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: var(--weight-medium); }
 .export-changes-field { display: grid; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.export-changes-switch { padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
 .export-changes-note { margin: 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); overflow-wrap: anywhere; text-wrap: pretty; }
+.export-changes-switch { padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
 .export-changes-form .modal-actions { margin-top: var(--space-2); }
 
 .export-changes-preview {
@@ -110,7 +109,6 @@
 .export-changes-preview[data-colour] .export-changes-page del { color: var(--changes-deleted); }
 .export-changes-preview[data-bars] .export-changes-page p::before { content: ""; position: absolute; inset-block: 1px; left: calc(var(--space-6) * -1); width: 2px; background: var(--changes-bar); }
 .export-changes-preview[data-bars][data-colour] .export-changes-page p::before { background: var(--changes-added); }
-.export-changes-caption { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); text-align: center; }
 @media (max-width: 720px) {
   .modal.export-changes-modal[data-preview] { width: min(440px, calc(100vw - 40px)); grid-template-columns: minmax(0, 1fr); }
   .export-changes-preview { display: none; }

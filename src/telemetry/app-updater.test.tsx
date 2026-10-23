@@ -440,7 +440,6 @@ describe("the update toast", () => {
 
     const offer = updateToast()!;
     expect(offer).toHaveTextContent("New version 0.1.230");
-    expect(offer).toHaveTextContent("Ready to install");
     fireEvent.click(screen.getByRole("button", { name: "Update now" }));
 
     await waitFor(() => expect(updateToast()).toHaveTextContent("Downloading update…"));

@@ -35,11 +35,10 @@ describe("Overleaf collaboration drawer localization", () => {
     const { rerender } = render(drawer("comments", props));
     expect(screen.getByRole("tab", { name: "Comments3" })).toBeInTheDocument();
     expect(screen.queryByText("Unsynced file discussion")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Local2" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Lattice only2" }));
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
-    expect(screen.getByText("These comments stay in Lattice and are not sent to Overleaf.")).toBeInTheDocument();
     rerender(drawer("comments", { ...props, localCommentCount: 0 }));
-    expect(screen.getByRole("tab", { name: "Local" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Lattice only" })).toBeInTheDocument();
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
   });
 
@@ -49,7 +48,7 @@ describe("Overleaf collaboration drawer localization", () => {
     overleaf.focus();
     fireEvent.keyDown(overleaf, { key: "ArrowRight" });
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Local" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Lattice only" })).toHaveFocus();
     expect(screen.getByRole("tab", { name: "Overleaf" })).toBe(overleaf);
   });
 
@@ -65,7 +64,7 @@ describe("Overleaf collaboration drawer localization", () => {
 
   it("opens local inline replies in the local view", () => {
     render(drawer("comments", { hasLocalComments: true, focusLocalComments: true, localComments: <div>Local reply editor</div> }));
-    expect(screen.getByRole("tab", { name: "Local" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Lattice only" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Local reply editor")).toBeInTheDocument();
   });
 

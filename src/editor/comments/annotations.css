@@ -103,21 +103,11 @@
 .annotation-form-actions kbd,
 .annotation-review-actions kbd,
 .annotations-go kbd { margin-inline-start: var(--gap-inline-tight); color: var(--text-secondary); font: inherit; }
-.annotation-form-hint {
-  min-width: 0;
-  margin-inline-start: auto;
-  overflow: hidden;
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 @container (max-width: 320px) {
   .annotation-form-actions kbd { display: none; }
 }
 @container (max-width: 240px) {
   .annotation-form-actions > [data-slot="button"] { flex: 1 1 auto; min-width: 0; }
-  .annotation-form-hint { flex-basis: 100%; margin-inline-start: 0; }
 }
 
 /* --- The Annotations panel -------------------------------------------- */
@@ -150,12 +140,6 @@
   font: var(--type-title-weight) var(--type-title-size)/var(--type-title-line-height) var(--type-title-font);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.annotations-count {
-  flex: none;
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  font-variant-numeric: tabular-nums;
 }
 .annotations-head-actions { grid-area: actions; display: flex; align-items: center; gap: var(--gap-tight); }
 .annotations-filter { justify-self: start; max-width: 100%; min-width: 0; }
@@ -377,20 +361,11 @@
 .annotation-failed { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-inline-start: 30px; }
 .annotation-failed p { flex: 1 1 160px; min-width: 0; margin: 0; color: var(--status-danger); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); overflow-wrap: anywhere; }
 
-/* The round's way in, and where the notes live. */
+/* The round's way in. */
 .annotations-foot { display: grid; gap: var(--space-3); padding: var(--space-5) 0 var(--space-2); border-top: 1px solid var(--border-subtle); }
 .annotations-go { width: 100%; min-width: 0; justify-content: center; }
 .annotations-go-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.annotations-foot-note {
-  color: var(--text-secondary);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-/* Narrow: the header's count gives way to the tabs' own counts, then the counts go. */
-@container annotations (max-width: 300px) {
-  .annotations-count { display: none; }
-}
+/* Narrow: the filter's counts go. */
 @container annotations (max-width: 240px) {
   .annotations-filter-count { display: none; }
 }
@@ -436,7 +411,7 @@
   font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
   overflow-wrap: anywhere;
 }
-.annotation-review-held, .annotation-review-error { margin: 0; }
+.annotation-review-error { margin: 0; }
 .annotation-review-retry { display: grid; gap: var(--space-3); }
 .annotation-review-actions {
   display: flex;
@@ -484,7 +459,8 @@
 .annotation-version:hover { background: var(--control-hover-surface); }
 .annotation-version[aria-current] { background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); }
 .annotation-version[data-base] { box-shadow: inset 2px 0 0 var(--annotation-proposed-ink); }
-.annotation-version-name { color: var(--text-primary); font: var(--type-subtitle-weight) var(--type-body-size)/var(--type-subtitle-line-height) var(--ui-font); }
+.annotation-version-name { display: flex; align-items: center; gap: var(--space-3); min-width: 0; color: var(--text-primary); font: var(--type-subtitle-weight) var(--type-body-size)/var(--type-subtitle-line-height) var(--ui-font); }
+.annotation-version-edited { flex: none; width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); border-radius: var(--radius-pill); background: var(--text-tertiary); }
 .annotation-version-detail,
 .annotation-version-tag { min-width: 0; overflow: hidden; font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .annotation-version-tag { justify-self: start; max-width: 100%; margin-top: var(--gap-tight); padding: 0 var(--space-3); border-radius: var(--radius-compact); background: var(--control-hover-surface); color: var(--text-primary); }
@@ -502,7 +478,7 @@
 .annotation-compare-title { min-width: 0; color: var(--text-primary); font-weight: var(--type-body-compact-weight); overflow-wrap: anywhere; }
 .annotation-compare-count { display: inline-flex; align-items: center; gap: var(--gap-tight); font-variant-numeric: tabular-nums; }
 .annotation-compare-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-inline-start: auto; }
-.annotation-compare-loading { display: flex; align-items: center; gap: var(--gap-inline-tight); margin: 0; color: var(--text-secondary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
+.annotation-compare-loading { display: flex; align-items: center; color: var(--text-secondary); }
 .annotation-compare-columns { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--space-6); }
 .annotation-compare-head,
 .annotation-compare-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); }

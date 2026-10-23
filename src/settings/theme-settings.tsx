@@ -55,9 +55,9 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
     green: t`Green`,
     teal: t`Teal`,
   };
-  const translucencyNote: Record<WindowBacking, string> = {
-    translucent: t`The desktop shows through the title bar and sidebars`,
-    opaque: t`The desktop shows through the title bar and sidebars`,
+  // Off/Subtle/Strong applies live behind the dialog, so only a backing
+  // that ignores the choice says why.
+  const translucencyNote: Partial<Record<WindowBacking, string>> = {
     reducedTransparency: t`Off while Reduce transparency is on in System Settings`,
     unsupported: t`Only in the Lattice window on macOS`,
   };
@@ -70,7 +70,7 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
 
   return (
     <SettingsGroup title={t`Theme`}>
-      <SettingsRow data-setting="color-theme" label={t`Color theme`} description={t`Match system follows macOS`}>
+      <SettingsRow data-setting="color-theme" label={t`Color theme`}>
         <TileGroup
           label={t`Color theme`}
           value={props.themePreference}
@@ -83,7 +83,7 @@ export function ThemeSettingsGroup(props: ThemeSettingsProps) {
           onChange={props.setThemePreference}
         />
       </SettingsRow>
-      <SettingsRow data-setting="theme-tint" label={t`Tint`} description={t`The colour of the window's surfaces`}>
+      <SettingsRow data-setting="theme-tint" label={t`Tint`}>
         <TileGroup
           label={t`Tint`}
           value={tint}
@@ -291,7 +291,11 @@ function SwatchGroup<Id extends string>(props: {
   );
 }
 
-/** The accent row's note for a custom color: what was picked and, when the theme darkened it, what it uses instead. */
+/**
+ * The accent row's note for a custom color: what was picked and, when the
+ * theme darkened it, the color drawn beside it that it uses instead (the
+ * popover says why).
+ */
 function CustomAccentNote(props: { accent: `#${string}`; theme: Theme }) {
   const { t } = useLingui();
   const applied = fitAccent(props.accent, props.theme);
@@ -302,7 +306,7 @@ function CustomAccentNote(props: { accent: `#${string}`; theme: Theme }) {
         <i style={{ background: props.accent }} />
         {adjusted && <><span>→</span><i style={{ background: applied }} /></>}
       </span>
-      <span>{adjusted ? t`Custom · adjusted to read as text` : t`Custom · ${props.accent.toUpperCase()}`}</span>
+      <span>{t`Custom · ${props.accent.toUpperCase()}`}</span>
     </span>
   );
 }
@@ -347,13 +351,22 @@ function CustomAccent(props: {
       <PopoverContent side="bottom" align="end" sideOffset={8} className="theme-accent-popover">
         <div className="theme-accent-head">
           <span className="theme-accent-title">{t`Custom accent`}</span>
-          <span className="theme-accent-chips">
-            <span className="theme-accent-chip"><i style={{ background: picked }} />{t`Picked`}<code>{picked}</code></span>
-            {adjusted && <span className="theme-accent-chip"><i style={{ background: applied }} />{t`In use`}<code>{applied}</code></span>}
-          </span>
-          <span className="theme-accent-why" data-adjusted={adjusted || undefined} role="status">
-            {props.theme === "dark" ? <Moon size={11} strokeWidth={1.8} aria-hidden="true" /> : <Sun size={11} strokeWidth={1.8} aria-hidden="true" />}
-            <span>{adjusted ? t`Adjusted so links and selected text read at ${ratio}:1` : t`Reads as text at ${ratio}:1, used as picked`}</span>
+          {/* Only an adjusted color needs telling apart from the picker's own
+              hex field, and only then is there something to say. The status
+              region stays mounted so the change is announced. */}
+          {adjusted && (
+            <span className="theme-accent-chips">
+              <span className="theme-accent-chip"><i style={{ background: picked }} />{t`Picked`}<code>{picked}</code></span>
+              <span className="theme-accent-chip"><i style={{ background: applied }} />{t`In use`}<code>{applied}</code></span>
+            </span>
+          )}
+          <span className="theme-accent-why" role="status">
+            {adjusted && (
+              <>
+                {props.theme === "dark" ? <Moon size={11} strokeWidth={1.8} aria-hidden="true" /> : <Sun size={11} strokeWidth={1.8} aria-hidden="true" />}
+                <span>{t`Adjusted so links and selected text read at ${ratio}:1`}</span>
+              </>
+            )}
           </span>
         </div>
         <ColorPicker
@@ -361,7 +374,7 @@ function CustomAccent(props: {
           value={picked}
           onChange={(hex) => props.onChange(hex.toLowerCase() as ThemeAccent)}
           swatches={[]}
-          after={<div className="theme-accent-presets"><span className="cp-swatches-label">{t`Presets`}</span>{props.presets(() => setOpen(false))}</div>}
+          after={<div className="theme-accent-presets">{props.presets(() => setOpen(false))}</div>}
         />
       </PopoverContent>
     </Popover>

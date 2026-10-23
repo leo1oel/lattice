@@ -40,7 +40,7 @@ describe("ManuscriptChecklistPanel budgets", () => {
   it("draws no meter and claims nothing without a budget", () => {
     const { container, row } = renderChecklist({});
     expect(container.querySelector(".checklist-meter")).toBeNull();
-    expect(row("Body words")).toHaveTextContent("Body words5,080via texcount -inc");
+    expect(row("Body words").textContent).toBe("Body words5,080");
     expect(row("Body words")).not.toHaveClass("ok");
   });
 
@@ -53,7 +53,8 @@ describe("ManuscriptChecklistPanel budgets", () => {
     [0, "5,080 words over", "warn"],
   ])("says how far the words are from a %i budget", (wordBudget, distance, tone) => {
     const { container, row } = renderChecklist({ wordBudget });
-    expect(row("Body words")).toHaveTextContent(`${distance} · via texcount -inc`);
+    expect(row("Body words")).toHaveTextContent(distance);
+    expect(row("Body words")).not.toHaveTextContent("texcount");
     expect(row("Body words")).toHaveClass(tone);
     expect(container.querySelector(".checklist-meter")).toHaveAttribute("aria-hidden", "true");
   });

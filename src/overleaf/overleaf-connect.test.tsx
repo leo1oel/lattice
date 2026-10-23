@@ -95,11 +95,12 @@ describe("Overleaf settings section", () => {
     const syncMode = screen.getByRole("combobox", { name: "Sync mode" });
     const deletionBehavior = screen.getByRole("combobox", { name: "When you delete a file here" });
     expect(syncMode).toHaveTextContent("Live sync");
-    expect(descriptionOf("Sync mode")).toHaveTextContent("Edits sync live with Overleaf");
+    // "Live sync" and "Manual" say what they do; only a live channel's state gets a line.
+    expect(descriptionOf("Sync mode")).toBeFalsy();
     await pick(syncMode, "Manual");
     expect(onSyncModeChange).toHaveBeenCalledWith("manual");
     rerender(settings({ syncMode: "manual", onSyncModeChange, onRemoteDeleteChange }));
-    expect(descriptionOf("Sync mode")).toHaveTextContent("Sync only when you click the sync button");
+    expect(descriptionOf("Sync mode")).toBeFalsy();
     expect(deletionBehavior).toHaveTextContent("Ask before deleting");
     await pick(deletionBehavior, "Delete on Overleaf too");
     expect(onRemoteDeleteChange).toHaveBeenCalledWith("always");
@@ -396,7 +397,7 @@ describe("Overleaf picker dialog", () => {
   it("runs the standard connect flow inside the dialog when not connected", async () => {
     mockInvoke({ overleaf_status: disconnected, overleaf_list_projects: projects, ...signsIn });
     renderPicker();
-    expect(await screen.findByText(/Connect your Overleaf account to see your projects/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Connect to Overleaf" })).toBeInTheDocument();
     // The disconnected state stays focused on standard sign-in.
     expect(screen.queryByRole("button", { name: "Advanced options" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Connect to Overleaf" }));

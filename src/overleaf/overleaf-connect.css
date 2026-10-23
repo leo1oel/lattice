@@ -318,7 +318,6 @@
 }
 .overleaf-open-button { animation: overleaf-settle var(--motion-moderate); }
 
-.overleaf-picker-keyboard { flex: none; margin: var(--space-4) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 
 .overleaf-publish-card { margin-top: var(--space-8); flex: none; display: grid; gap: var(--space-6); }
 .overleaf-publish-head { display: flex; align-items: center; gap: var(--space-6); }

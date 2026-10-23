@@ -278,7 +278,8 @@ it("explains partial publication lookups without exposing internal error codes",
   expect(screen.queryByText(/Results reflect available sources/)).not.toBeInTheDocument();
   expect(screen.queryByText("Rate limited")).not.toBeInTheDocument();
   openRow();
-  expect(screen.getByText("Some sources could not complete the lookup. This does not mean the reference is incorrect.")).toBeVisible();
+  // The sources that did not answer are the explanation; no sentence restates them.
+  expect(screen.queryByText(/does not mean the reference is incorrect/)).not.toBeInTheDocument();
   expect(screen.getByText("Rate limited")).toBeVisible();
   expect(screen.getByText("Connection failed")).toBeVisible();
   expect(screen.getByText("No published version found")).toBeVisible();
@@ -393,7 +394,7 @@ it("explains a candidate with localized identity fields and no apply action", as
   expect(await screen.findByText("Candidate does not match reference")).toBeInTheDocument();
   openRow();
   fireEvent.click(screen.getByText("Details"));
-  expect(screen.getByText("A source returned a possible record, but its identifying metadata conflicts with this reference.")).toBeVisible();
+  expect(screen.getByText("A possible record conflicts with this reference")).toBeVisible();
   expect(screen.getByText("Candidate record considered, not verified · cached record")).toBeVisible();
   expect(screen.getByText("Access forbidden by provider")).toBeVisible();
   expect(screen.getByText("Entry type")).toBeVisible();

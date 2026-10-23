@@ -165,27 +165,22 @@ export function ExportChangesDialog(props: {
           <SwitchField
             className="export-changes-switch"
             label={t`Keep deleted text, struck through`}
-            description={t`Reviewers see what was removed`}
             checked={options.keepDeleted}
             onChange={(keepDeleted) => set({ keepDeleted })}
           />
           <SwitchField
             className="export-changes-switch"
             label={t`Bars in the margin`}
-            description={t`A line beside every change`}
             checked={options.marginBars}
             onChange={(marginBars) => set({ marginBars })}
           />
           <SwitchField
             className="export-changes-switch"
             label={t`Only pages with changes`}
-            description={t`Pages nothing changed on are left out`}
             checked={options.onlyChangedPages}
             onChange={(onlyChangedPages) => set({ onlyChangedPages })}
           />
-          <p className="export-changes-note">
-            {t`Made with latexdiff from your TeX installation, then built like the paper. Saved as ${saved} beside ${pdf}.`}
-          </p>
+          <p className="export-changes-note">{t`Saves ${saved} beside ${pdf}`}</p>
           {error && <InlineMessage level="error">{error}</InlineMessage>}
           <div className="modal-actions">
             <Button variant="ghost" disabled={running} onClick={props.onClose}>{t`Cancel`}</Button>
@@ -202,7 +197,6 @@ export function ExportChangesDialog(props: {
                 <p key={`${shown[index]!.line}:${index}`}>{parts}</p>
               ))}
             </div>
-            <span className="export-changes-caption">{t`The first changes, marked this way`}</span>
           </div>
         )}
       </div>

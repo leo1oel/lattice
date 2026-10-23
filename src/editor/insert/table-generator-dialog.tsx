@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { CheckboxField } from "../../components/ui/checkbox-field";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { LoadingAnnouncement } from "../../components/ui/loading-status";
 import { PanelHeader } from "../../components/ui/panel-header";
 import { SheetDialog } from "../../components/ui/sheet-dialog";
 import { ScrollArea } from "../../components/ui/scroll-area";
@@ -58,8 +59,7 @@ export function TableGeneratorDialog(props: {
       <PanelHeader className="drawer-header" icon={<Grid3x3 size={16} />} title={review ? t`Review source changes` : block ? t`Edit table` : t`Insert table`} onClose={props.onClose} />
       {!supported ? <p role="alert">{t`This table has source edits or unsupported structure. Continue editing it in the source editor.`}</p> : <>
         {!review && <>
-        <p className="table-generator-help">{t`Paste spreadsheet cells or CSV, then check the data. To edit again, place the cursor inside a generated table and choose Insert table.`}</p>
-        <label className="table-data-paste">{t`Paste data`}<Textarea autoFocus value={paste} onChange={(e) => setPaste(e.target.value)} /></label>
+        <label className="table-data-paste">{t`Paste data`}<Textarea autoFocus placeholder={t`Paste cells or CSV`} value={paste} onChange={(e) => setPaste(e.target.value)} /></label>
         <div className="table-generator-import">
           <Select value={delimiter} onValueChange={setDelimiter}>
             <SelectTrigger aria-label={t`Data format`}><SelectValue /></SelectTrigger>
@@ -70,7 +70,7 @@ export function TableGeneratorDialog(props: {
         <div className="table-generator-form">
           <label>{t`Rows`}<Input type="number" min={1} max={20} value={data.cells.length} onChange={(e) => resize(Number(e.target.value), data.align.length)} /></label>
           <label>{t`Columns`}<Input type="number" min={1} max={20} value={data.align.length} onChange={(e) => resize(data.cells.length, Number(e.target.value))} /></label>
-          <label>{t`Decimal places (blank preserves values)`}<Input type="number" min={0} max={8} value={data.decimals ?? ""} onChange={(e) => update({ decimals: e.target.value === "" ? null : Number(e.target.value) })} /></label>
+          <label>{t`Decimal places`}<Input type="number" min={0} max={8} placeholder={t({ message: "Keep", context: "decimal places left blank" })} value={data.decimals ?? ""} onChange={(e) => update({ decimals: e.target.value === "" ? null : Number(e.target.value) })} /></label>
           <CheckboxField checked={data.booktabs} label={t`Booktabs rules`} onChange={(e) => update({ booktabs: e.target.checked })} />
           <CheckboxField checked={data.float} label={t`Wrap in table float`} onChange={(e) => update({ float: e.target.checked })} />
           {data.float && <>
@@ -78,7 +78,8 @@ export function TableGeneratorDialog(props: {
             <label>{t`Label`}<Input value={data.label} onChange={(e) => update({ label: e.target.value })} /></label>
           </>}
         </div>
-        <p className="table-generator-help">{t`The first row is the header. Text is escaped; enable LaTeX only for intentional math or macros. Booktabs requires the booktabs package.`}</p>
+        {/* Lattice does not add the package, so a build would fail without it. */}
+        {data.booktabs && <p className="table-generator-help">{t`Booktabs rules need the booktabs package`}</p>}
         <ScrollArea orientation="both" className="table-data-grid" fadeEdges={false}>
           <table aria-label={t`Table data`}>
             <thead><tr>{data.align.map((align, c) => <th key={c}>
@@ -96,10 +97,9 @@ export function TableGeneratorDialog(props: {
         </>}
         {!valid && <p role="alert">{t`Check decimal places (0–8), label (letters, digits, colon, dot, dash or underscore), and LaTeX cells (no table structure, line breaks, & or %).`}</p>}
         {review && valid && <section aria-label={t`Source changes`}>
-          <Suspense fallback={<p>{t`Rendering diff…`}</p>}>
+          <Suspense fallback={<LoadingAnnouncement message={t`Rendering diff…`} />}>
             <SourceDiff change={{ path: "table.tex", before: block?.data ? tableSource(block.data) : "", after: tableSource(data) }} />
           </Suspense>
-          <p className="table-generator-help">{t`A hidden LaTeX comment stores the editable data with this table.`}</p>
         </section>}
       </>}
       {error && <p role="alert">{error}</p>}

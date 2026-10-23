@@ -12,11 +12,6 @@
   gap: var(--space-3);
 }
 .modal-actions .tex-setup-install { width: auto; }
-.tex-setup-description-note {
-  display: block;
-  margin-top: var(--space-2);
-  color: var(--text-tertiary);
-}
 .tex-setup-install .tex-setup-install-loader > img {
   filter: invert(1);
   opacity: 1;
@@ -167,8 +162,9 @@
   box-shadow: 0 0 0 1px var(--border-subtle);
 }
 .checklist-verdict { margin: 0; color: var(--text-primary); font-family: var(--type-title-font); font-size: var(--type-title-size); line-height: var(--type-title-line-height); font-weight: var(--type-title-weight); text-wrap: balance; }
-.checklist-summary-detail { margin: var(--space-1) 0 var(--space-5); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
-.checklist-track { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); height: 4px; }
+.checklist-progress { margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-4); }
+.checklist-progress-count { flex: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.checklist-track { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--space-1); height: 4px; }
 .checklist-track > span { border-radius: var(--radius-pill); background: var(--border-strong); }
 .checklist-track > [data-state="ok"] { background: var(--status-success); }
 .checklist-track > [data-state="warn"] { background: var(--status-warning); }
@@ -196,7 +192,7 @@
 .deadline-card[data-urgency="urgent"] .deadline-card-left { color: var(--status-danger); }
 .deadline-card-when { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 .deadline-card-when b { color: var(--text-primary); font-weight: var(--weight-medium); }
-.deadline-card-local { margin: 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
+.deadline-card-local { min-height: var(--type-caption-line-height); margin: 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-caption-line-height); font-variant-numeric: tabular-nums; }
 /* Without a deadline, one quiet line in the card's place offers to add it. */
 .deadline-add {
   width: 100%;
@@ -219,7 +215,6 @@
 .deadline-add svg { position: relative; top: 3px; }
 .deadline-add span { display: grid; gap: var(--space-1); }
 .deadline-add b { color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); font-weight: var(--weight-medium); }
-.deadline-add small { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* One column that never grows past the card: the date input and the segmented
    control would otherwise hold it at their intrinsic width in a narrow drawer. */
 .deadline-form { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
@@ -304,9 +299,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* The figure inventory leads elsewhere rather than passing or failing, so its
    mark stays the neutral disc and its row reads as a way in, like TODOs. */
 .checklist-link .checklist-status svg { stroke-width: 2; }
-/* The limits close the panel as a section of their own, headed like the
-   writer's items above, so the fields never read as part of either list. */
-.checklist-limits h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
 /* One row when the drawer has room; in a narrow one the button wraps to a row
    of its own rather than squeezing the two fields down to an ellipsis. */
 .checklist-budgets {
@@ -434,7 +426,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    serif like the Latin; it sets solid, so it opens its tracking a little
    where the Latin tightens. */
 .welcome-content h1 { margin: var(--space-10) 0 0; font-family: var(--display-font); font-size: clamp(36px, 4.4vw, 48px); line-height: 1.08; font-weight: 400; letter-spacing: -.02em; text-wrap: balance; }
-.welcome-content h1:lang(zh-CN) { letter-spacing: .02em; }
 
 /* Only the welcome composition enters; busy updates and project contents do not. */
 .welcome-content > :not(.busy-label) { animation: welcome-rise var(--motion-slow) both; }
@@ -476,15 +467,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    column above it, so three pages read at a size where a title shows. */
 .welcome-recents { width: min(720px, calc(100vw - 64px)); margin-top: var(--space-16); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); text-align: start; }
 .welcome-unopened { padding-inline: var(--space-1); }
-.welcome-recents-title { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.welcome-recents-title { margin: 0; padding-inline: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 /* The desk: each project as the first page of its paper, paper-coloured in
    both themes as the PDF preview draws it, its name in the title serif under
    it. Cards keep a third of the width however many there are; fewer than
-   three shrink the desk around them, so the title and the keys stay at its
-   ends. */
+   three shrink the desk around them, so the title stays at its start. */
 .welcome-desk-frame { --desk-count: 3; width: calc((100% + var(--space-8)) * var(--desk-count) / 3 - var(--space-8)); justify-self: center; display: grid; gap: var(--space-4); }
-.welcome-desk-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding-inline: var(--space-1); }
-.welcome-desk-keys { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
 .welcome-desk { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(var(--desk-count), minmax(0, 1fr)); gap: var(--space-8); }
 .welcome-desk-card {
   width: 100%;
@@ -524,16 +512,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   color: var(--text-primary);
   box-shadow: var(--elevation-raised);
 }
-/* No PDF yet: a card on the lift that says so, rather than a blank page. */
+/* No PDF yet: a card on the lift with a page glyph, rather than a blank page. */
 .welcome-desk-sheet:not([data-kind="page"]) {
   display: grid;
   place-content: center;
-  justify-items: center;
-  gap: var(--space-3);
   background: var(--surface-elevated);
   box-shadow: var(--elevation-raised);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
 }
 /* The stored pages are a moment away; an empty card would flash in between.
    The page fades in when it lands instead of appearing in one frame. */
@@ -602,7 +586,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .venue-picker { display: grid; gap: var(--space-3); }
 .venue-picker-label { color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
 .venue-picker-content { min-width: var(--radix-select-trigger-width); }
-.venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* The mark says what a dialog asks when that is a risk (a deletion, a
    conflict), in the tone of the risk. A neutral dialog has no mark: its title
    says enough. */
@@ -848,7 +831,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 }
 .settings-project-dictionary-remove:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .settings-project-dictionary-remove:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.settings-project-dictionary-empty { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .settings-section label:not(.ui-settings-row-label) { margin-top: 17px; display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--type-body-compact-weight); }
 .settings-section code {
   font-family: var(--editor-font);
@@ -871,8 +853,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    answers, each a radio row with its consequence on a second line. */
 .import-conflict-modal { width: min(420px, calc(100vw - 40px)); }
 .import-conflict-names { margin-bottom: var(--space-8); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
-.import-conflict-names p { margin: 0; }
-.import-conflict-names ul { margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.import-conflict-names ul { margin: 0; padding: 0; list-style: none; }
 .import-conflict-names li { overflow: hidden; color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); text-overflow: ellipsis; white-space: nowrap; }
 .import-conflict-names li.import-conflict-more { color: var(--text-tertiary); font-family: inherit; }
 .import-conflict-modal [role="radiogroup"] { margin-inline: calc(-1 * var(--space-5)); width: auto; }
@@ -1011,9 +992,11 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 }
 .theme-accent-chip i { width: 14px; height: 14px; flex: none; border-radius: var(--radius-compact); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
 .theme-accent-chip code { color: var(--text-primary); font: var(--weight-medium) var(--type-micro-size)/1 var(--editor-font); }
-.theme-accent-why { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.theme-accent-why { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-2); color: var(--text-primary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .theme-accent-why svg { margin-top: var(--space-1); }
-.theme-accent-why[data-adjusted] { color: var(--text-primary); }
+/* Says something only for an adjusted color; empty, it stays mounted as the
+   live region and gives back the head's gap above it. */
+.theme-accent-why:empty { margin-top: calc(-1 * var(--space-3)); }
 .theme-accent-presets { display: grid; gap: var(--space-2); }
 
 /* A theme with both variants shows both at once, split on a diagonal (hilos,
@@ -1037,7 +1020,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    Outlook on a phone; Linear's drill-in rows). settings-dialog.tsx holds the
    same width for focus and Escape. */
 .settings-modal { container: settings / inline-size; }
-.settings-root-title, .settings-back, .settings-nav-value, .settings-nav-chevron { display: none; }
+.settings-root-title, .settings-back, .settings-nav-chevron { display: none; }
 @container settings (max-width: 560px) {
   .settings-modal .settings-body { grid-template-columns: minmax(0, 1fr); }
   .settings-modal .settings-body[data-narrow-view="root"] .settings-content { display: none; }
@@ -1063,13 +1046,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
     font-size: var(--type-body-size);
     font-weight: var(--weight-regular);
   }
-  .settings-modal .settings-nav-group > .settings-nav-group-label + button { border-top-width: 1px; border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)) 0 0; corner-shape: squircle; }
+  .settings-modal .settings-nav-group > :is(.settings-nav-group-label + button, button:first-child) { border-top-width: 1px; border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)) 0 0; corner-shape: squircle; }
   .settings-modal .settings-nav-group > button:last-child { border-radius: 0 0 calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
-  .settings-modal .settings-nav-group > .settings-nav-group-label + button:last-child { border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
+  .settings-modal .settings-nav-group > :is(.settings-nav-group-label + button, button:first-child):last-child { border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
   .settings-modal .settings-nav .settings-nav-group > button:hover { background: var(--control-hover-surface); }
   .settings-modal .settings-nav-group > button.active { background: var(--settings-card-surface); color: var(--text-primary); font-weight: var(--weight-regular); }
   .settings-modal .settings-nav-group > button > span[title] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .settings-nav-value { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
   .settings-nav-chevron { display: block; flex: none; color: var(--text-tertiary); }
   .settings-back {
     position: sticky;
@@ -1125,7 +1107,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .whats-new-version button:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
 .whats-new-version button:disabled { opacity: .35; }
 .whats-new-version span { padding: 0 var(--space-2); display: inline-flex; align-items: baseline; gap: var(--space-3); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.whats-new-version em { color: var(--status-success); font-size: var(--type-micro-size); font-style: normal; }
 .whats-new-date { margin: calc(var(--space-3) * -1) 0 var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); }
 .whats-new-body { max-height: min(56vh, 520px); overflow-y: auto; display: grid; gap: var(--space-6); }
 .whats-new-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-6); }

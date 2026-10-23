@@ -247,7 +247,6 @@ export function HistoryDrawer(props: {
               <button
                 type="button"
                 className="version-action"
-                title={t`Restore only ${single.path}`}
                 onClick={() => props.onRevertFile?.(item.id, single.path)}
               >
                 <RotateCcw size={12} /> {t`Restore this file`}
@@ -319,7 +318,7 @@ export function HistoryDrawer(props: {
   };
 
   const actorLabels: Record<string, string> = { agent: t`Agent`, citation: t`Citation tool`, system: "Lattice" };
-  const renderActivity = (item: HistoryItem, at: number, source?: string) => {
+  const renderActivity = (item: HistoryItem, at: number) => {
     const key = `activity:${item.id}`;
     const expanded = expandedKey === key;
     const actor = item.actor ?? "user";
@@ -347,7 +346,6 @@ export function HistoryDrawer(props: {
         )}
         time={clockTime(at, i18n.locale)}
         timeTitle={fullTime(at, i18n.locale)}
-        source={source}
         expanded={expanded}
         onToggle={() => toggleActivity(item)}
         tools={(
@@ -373,7 +371,7 @@ export function HistoryDrawer(props: {
           {entryLoad.error && entryLoad.key === item.id && <p className="history-diff-error" role="alert">{entryLoad.error}</p>}
           {item.kind === "agent-checkpoint" && (
             <div className="history-checkpoint-summary">
-              {item.threadTitle && <strong>{t`Agent task: ${item.threadTitle}`}</strong>}
+              {item.threadTitle && <strong>{item.threadTitle}</strong>}
               {item.fileSummaries?.map((file) => (
                 <div key={file.path}>
                   <span>{file.path}</span>
@@ -393,10 +391,6 @@ export function HistoryDrawer(props: {
     );
   };
 
-  const sourceLabels = { version: t`Version`, activity: t({ message: "Activity", context: "history source" }), overleaf: "Overleaf" };
-  /** Rows name their record only when the timeline mixes them. */
-  const source = (kind: keyof typeof sourceLabels) => (view === "everything" ? sourceLabels[kind] : undefined);
-
   const renderVersion = (entry: GitLogEntry, git: GitVersions) => {
     const key = `version:${entry.hash}`;
     return (
@@ -409,7 +403,6 @@ export function HistoryDrawer(props: {
         compare={compareKey === key}
         onToggle={() => toggleRow(key)}
         onCompare={() => compareRow(key)}
-        source={source("version")}
       />
     );
   };
@@ -425,7 +418,6 @@ export function HistoryDrawer(props: {
         compare={compareKey === key}
         onToggle={() => toggleRow(key)}
         onCompare={() => compareRow(key)}
-        source={source("overleaf")}
         onClose={props.onClose}
         onOpenFile={props.onOpenFile}
         onRestored={props.onOverleafRestored}
@@ -446,7 +438,7 @@ export function HistoryDrawer(props: {
       lines: foldAutomatic(day.items).flatMap((row): ReactElement[] => {
         switch (row.kind) {
           case "activity":
-            return [renderActivity(row.item, row.at, source("activity"))];
+            return [renderActivity(row.item, row.at)];
           case "version":
             return [renderVersion(row.entry, versions)];
           case "automatic": {
@@ -457,7 +449,7 @@ export function HistoryDrawer(props: {
               return next;
             });
             return [
-              <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} source={source("version")} />,
+              <AutomaticVersionsRow key={row.key} entries={row.entries} open={open} onToggle={toggle} />,
               ...(open ? row.entries.map((entry) => renderVersion(entry, versions)) : []),
             ];
           }
@@ -526,14 +518,13 @@ export function HistoryDrawer(props: {
           <div className="history-timeline">{renderTimeline(activityRows(), null)}</div>
           {!shownHistory.length && (
             props.history.length ? (
-              <EmptyState icon={<EmptyIllustration kind="search" />} description={t`No changes match this filter`} />
+              <EmptyState icon={<EmptyIllustration kind="search" />} title={t`No changes match this filter`} />
             ) : (
               <EmptyState
                 className="history-empty"
                 fill
                 icon={<ResearchArt drawing={DATED_DRAFTS} />}
                 title={t`Nothing has changed yet`}
-                description={t`Every edit you, the agent or the citation tool make shows here, and each can be undone`}
               />
             )
           )}
@@ -557,7 +548,6 @@ export function HistoryDrawer(props: {
             fill
             icon={<ResearchArt drawing={DATED_DRAFTS} />}
             title={t`Nothing has changed yet`}
-            description={t`Versions you save, every edit you, the agent or the citation tool make, and Overleaf's own history all show here`}
           />
         )}
         {overleaf && <LoadMoreOverleaf history={overleaf} label={t`Show older history`} />}

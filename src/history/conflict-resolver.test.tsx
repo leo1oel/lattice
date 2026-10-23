@@ -117,7 +117,7 @@ describe("ConflictResolverDialog", () => {
     fireEvent.click(choice);
     expect(choice).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("status")).toHaveTextContent("Every spot decided");
-    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
     await waitFor(() => expect(written()).toEqual([expected]));
     expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "references.bib",
@@ -133,7 +133,7 @@ describe("ConflictResolverDialog", () => {
     fireEvent.click(await screen.findByRole("radio", { name: "Keep this computer's version" }));
     fireEvent.click(screen.getByRole("radio", { name: "Keep Overleaf's version" }));
     expect(screen.getByRole("radio", { name: "Keep this computer's version" })).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
     await waitFor(() => expect(written()).toEqual(["before\nremote\nafter"]));
   });
 
@@ -145,7 +145,7 @@ describe("ConflictResolverDialog", () => {
     const editor = await screen.findByRole("textbox", { name: "Resolved file" });
     expect(editor).toHaveValue("before\nremote\nafter");
     fireEvent.change(editor, { target: { value: "before\nrevised remote\nafter" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
 
     await waitFor(() => expect(written()).toEqual(["before\nrevised remote\nafter"]));
     expect(onResolved).toHaveBeenCalledWith("main.tex");
@@ -171,7 +171,7 @@ describe("ConflictResolverDialog", () => {
       return conflict;
     });
     fireEvent.click(await screen.findByRole("radio", { name: "Keep both, yours first" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and upload" }));
     expect(await screen.findByText(/disk full/)).toBeInTheDocument();
     expect(onResolved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();

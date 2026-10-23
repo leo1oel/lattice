@@ -71,16 +71,15 @@ describe("ProjectFindDialog", () => {
     const { search, rerenderWith } = renderFind({
       hits: [fileHit("main.tex", 3), fileHit("intro.tex", 8), { kind: "paper", path: "p", title: "Attention", snippet: "", line: null }],
     });
-    expect(screen.getByPlaceholderText("搜索…")).toBeInTheDocument();
-    expect(screen.getByText("搜索文件和论文库")).toBeInTheDocument();
-    expect(screen.getByText("显示：")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索文件和论文…")).toBeInTheDocument();
+    expect(screen.queryByText("显示：")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "关闭 全局搜索" })).toBeInTheDocument();
     search("image");
     expect(screen.getByText("2 处 · 1 篇论文")).toBeInTheDocument();
     rerenderWith({ hits: [] });
     search("zzq");
     expect(screen.getByText("没找到“zzq”")).toBeInTheDocument();
-    expect(screen.getByText("换个更短或不同的词试试")).toBeInTheDocument();
+    expect(screen.queryByText("换个更短或不同的词试试")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "清空" })).toHaveLength(2);
   });
 
@@ -290,14 +289,13 @@ describe("ProjectFindDialog", () => {
     ];
     const tab = (name: RegExp) => screen.getByRole("tab", { name });
 
-    it("says what an empty search covers, and labels the scope a filter of what it shows", () => {
+    it("says what an empty search covers, and names the scope a filter of what it shows", () => {
       renderFind();
-      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
-      expect(screen.getByText("Show:")).toBeInTheDocument();
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files and papers…");
+      expect(screen.queryByText("Show:")).not.toBeInTheDocument();
       expect(screen.getByRole("tablist", { name: "Show results from" })).toBeInTheDocument();
       fireEvent.click(tab(/^Papers/));
-      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search…");
-      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files and papers…");
     });
 
     it("counts every scope on its tab and filters without searching again", () => {

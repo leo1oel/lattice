@@ -203,8 +203,7 @@ export function CompileDiagnosticsPanel(props: {
             )}
           </div>
         ) : (summary.error + summary.warning > 0 && props.onFixAll) && (
-          <Button variant="ghost" size="compact" className="compile-repair-action" disabled={props.fixDisabled}
-            title={t`Fix all errors and warnings, then recompile`} onClick={props.onFixAll}>
+          <Button variant="ghost" size="compact" className="compile-repair-action" disabled={props.fixDisabled} onClick={props.onFixAll}>
             <WandSparkles size={13} />{t`Fix all`}
           </Button>
         )}
@@ -218,8 +217,8 @@ export function CompileDiagnosticsPanel(props: {
         </IconButton>
         <CloseButton label={t`Dismiss diagnostics`} size="compact" onClick={props.onDismiss} />
       </div>
-      {(props.repair?.message || props.repair?.status === "awaiting-approval") && (
-        <p className="compile-repair-detail" role="status">{props.repair.message ? compileRepairMessage(props.repair.message) : t`Open the repair task to continue.`}</p>
+      {props.repair?.message && (
+        <p className="compile-repair-detail" role="status">{compileRepairMessage(props.repair.message)}</p>
       )}
       {props.expanded && (
         <div className="compile-diagnostics-body">
@@ -238,7 +237,7 @@ export function CompileDiagnosticsPanel(props: {
                 />
               )}
               {(tab === "log" || !diagnostics.length) && (
-                <CopyButton className={buttonClassName({ variant: "ghost", size: "compact", className: "compile-log-copy" })} text={props.log} iconSize={12} title={t`Copy the whole build log`}>
+                <CopyButton className={buttonClassName({ variant: "ghost", size: "compact", className: "compile-log-copy" })} text={props.log} iconSize={12} title={t`Copy log`}>
                   <Trans>Copy log</Trans>
                 </CopyButton>
               )}
@@ -261,7 +260,6 @@ export function CompileDiagnosticsPanel(props: {
                       const line = diagnostic.line;
                       const missingFile = missingTexDependencyFile(diagnostic.message);
                       const previousEngine = diagnostic.params?.previous;
-                      const switchedFrom = diagnostic.params?.from ?? "";
                       const explained = explainDiagnostic(diagnostic, {
                         log: props.log, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,
                         sameAfter: diagnostics.slice(diagnostics.indexOf(diagnostic) + 1)
@@ -285,7 +283,8 @@ export function CompileDiagnosticsPanel(props: {
                               disabled={!navigable}
                               onClick={() => props.onSelect(diagnostic)}
                               aria-label={`${location} ${explained.headline}`}
-                              title={navigable ? t`Jump to this location` : explained.headline}
+                              // TeX's own words stay a hover away (and in the row's Copy).
+                              title={t`TeX: ${diagnostic.message}`}
                             >
                               <SeverityIcon level={diagnostic.level} />
                               <span className="compile-diagnostic-message">{explained.headline}</span>
@@ -295,19 +294,16 @@ export function CompileDiagnosticsPanel(props: {
                             <p className="compile-explained-text">{explained.explanation}</p>
                             <div className="compile-explained-actions">
                               {suggestion && token && props.onReplaceToken && (
-                                <Button variant="secondary" size="compact" onClick={() => props.onReplaceToken?.(diagnostic, token, suggestion)}
-                                  title={t`Replace ${token} with ${suggestion} on line ${line}, then build`}>
+                                <Button variant="secondary" size="compact" onClick={() => props.onReplaceToken?.(diagnostic, token, suggestion)}>
                                   <Trans>Replace with <code>{suggestion}</code></Trans>
                                   <CornerDownLeft size={12} aria-hidden="true" className="compile-explained-enter" />
                                 </Button>
                               )}
                               {props.onAskAgent && (
-                                <Button variant="ghost" size="compact" disabled={props.fixDisabled}
-                                  title={t`Ask the agent to fix this error, then recompile`} onClick={() => props.onAskAgent?.(diagnostic)}>
+                                <Button variant="ghost" size="compact" disabled={props.fixDisabled} onClick={() => props.onAskAgent?.(diagnostic)}>
                                   <WandSparkles size={13} />{t`Ask the agent`}
                                 </Button>
                               )}
-                              <span className="compile-explained-raw" title={diagnostic.message}>{t`TeX: ${diagnostic.message}`}</span>
                               {copy}
                             </div>
                           </li>
@@ -323,27 +319,24 @@ export function CompileDiagnosticsPanel(props: {
                             // The file is the group's heading; the name still says where.
                             aria-label={`${location} ${shown}`}
                             // A rewritten warning keeps its explanation and TeX's words a hover away.
-                            title={explained ? `${explained.explanation}\n\n${t`TeX: ${diagnostic.message}`}` : navigable ? t`Jump to this location` : text}
+                            title={explained ? `${explained.explanation}\n\n${t`TeX: ${diagnostic.message}`}` : text}
                           >
                             <SeverityIcon level={diagnostic.level} />
                             <span className="compile-diagnostic-message">{shown}</span>
                             {line ? <span className="compile-diagnostic-line">{t`line ${line}`}</span> : null}
                           </button>
                           {missingFile && (
-                            <Button variant="ghost" size="compact" title={t`Find and install the TeX Live package for ${missingFile}`}
-                              onClick={() => props.onInstallDependency(missingFile)}>
+                            <Button variant="ghost" size="compact" onClick={() => props.onInstallDependency(missingFile)}>
                               <Trans>Install</Trans>
                             </Button>
                           )}
                           {diagnostic.code === "pdftex-only-command" && props.onSwitchToPdfLatex && (
-                            <Button variant="ghost" size="compact" title={t`Build this project with pdfLaTeX from now on`}
-                              onClick={props.onSwitchToPdfLatex}>
+                            <Button variant="ghost" size="compact" onClick={props.onSwitchToPdfLatex}>
                               <Trans>Switch to pdfLaTeX</Trans>
                             </Button>
                           )}
                           {diagnostic.code === "engine-switched" && previousEngine && props.onUndoEngineSwitch && (
-                            <Button variant="ghost" size="compact" title={t`Build with ${switchedFrom} again`}
-                              onClick={() => props.onUndoEngineSwitch?.(previousEngine)}>
+                            <Button variant="ghost" size="compact" onClick={() => props.onUndoEngineSwitch?.(previousEngine)}>
                               <Trans>Undo</Trans>
                             </Button>
                           )}

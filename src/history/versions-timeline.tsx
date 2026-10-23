@@ -39,7 +39,6 @@ export function VersionRow(props: {
   compare: boolean;
   onToggle: () => void;
   onCompare: () => void;
-  source?: string;
 }) {
   const { i18n, t } = useLingui();
   const { entry, versions } = props;
@@ -59,7 +58,6 @@ export function VersionRow(props: {
       )}
       time={clockTime(at, i18n.locale)}
       timeTitle={fullTime(at, i18n.locale)}
-      source={props.source}
       expanded={props.expanded}
       onToggle={props.onToggle}
       tools={(
@@ -86,12 +84,14 @@ export function VersionRow(props: {
 }
 
 /** A run of automatic versions, folded to one line until it is opened. */
-export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: boolean; onToggle: () => void; source?: string }) {
+export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: boolean; onToggle: () => void }) {
   const { i18n, t } = useLingui();
   const newest = new Date(props.entries[0]!.timestamp).getTime();
   const oldest = new Date(props.entries.at(-1)!.timestamp).getTime();
   const count = formatCount(props.entries.length);
+  // The run's span in the time column ("11:05–16:40"), one time when it fits in a minute.
   const since = clockTime(oldest, i18n.locale);
+  const until = clockTime(newest, i18n.locale);
   const Chevron = props.open ? ChevronDown : ChevronRight;
   return (
     <HistoryRow
@@ -100,10 +100,8 @@ export function AutomaticVersionsRow(props: { entries: GitLogEntry[]; open: bool
       weight="quiet"
       tone="version"
       title={t`${count} automatic versions`}
-      meta={<span className="history-row-detail">{t`Saved by Lattice after syncs and builds since ${since}`}</span>}
-      time={clockTime(newest, i18n.locale)}
+      time={since === until ? until : `${since}–${until}`}
       timeTitle={`${fullTime(oldest, i18n.locale)} – ${fullTime(newest, i18n.locale)}`}
-      source={props.source}
       expanded={props.open}
       onToggle={props.onToggle}
     />
@@ -117,7 +115,7 @@ const FILE_CHIPS = 12;
 function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; projectRoot?: string; compare: boolean; onCompare: () => void }) {
   const { t } = useLingui();
   const { entry, versions } = props;
-  // Git's own file-status words, read in each chip's tooltip.
+  // Git's own file-status words, read out with each chip (its icon is the visible cue).
   const fileKindLabel: Record<GitLogFileKind, string> = {
     added: t`added`,
     deleted: t`deleted`,
@@ -152,7 +150,7 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
     <div className="version-body">
       {props.compare && (
         <p className="version-mode-note">
-          {t`These files as this version left them, compared with now`}
+          {t`Compared with now`}
           {" · "}
           <button type="button" className="version-mode-switch" onClick={props.onCompare}>{t`Show this version's changes`}</button>
         </p>
@@ -164,7 +162,8 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
             type="button"
             className={`version-file${activePath === file.path ? " active" : ""}`}
             aria-pressed={activePath === file.path}
-            title={`${fileKindLabel[file.kind]}: ${file.path}`}
+            title={file.path}
+            aria-description={fileKindLabel[file.kind]}
             onClick={() => openFile(file.path)}
           >
             <FileKindIcon kind={file.kind} />
@@ -196,7 +195,6 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
             type="button"
             className="version-action"
             disabled={versions.busy}
-            title={t`Restore ${activePath} to this version`}
             onClick={() => void versions.restoreFile(entry.hash, activePath)}
           >
             <RotateCcw size={12} /> {t`Restore this file`}
@@ -205,7 +203,6 @@ function VersionBody(props: { entry: GitLogEntry; versions: GitVersions; project
         <button type="button" className="version-action" disabled={versions.busy} onClick={() => void versions.restoreProject(entry.hash)}>
           <RotateCcw size={12} /> {t`Restore project to this version`}
         </button>
-        <span className="version-note">{t`The current state is saved as a version first`}</span>
       </div>
     </div>
   );
@@ -269,7 +266,7 @@ function VersionFileChanges(props: { path: string; diff: GitFileDiff | null; err
             data-current={passages.length > 1 && index === current ? "true" : undefined}
             tabIndex={-1}
           >
-            <span className="version-passage-line" title={t`Line ${passage.line} of this version`}>{passage.line}</span>
+            <span className="version-passage-line">{passage.line}</span>
             <div className="version-passage-text">
               {passage.clippedStart && <span className="version-passage-gap" aria-hidden="true">…</span>}
               <InlineEdits text={passage.text} edits={passage.edits} />
@@ -341,7 +338,7 @@ export function VersionsToolbar(props: { versions: GitVersions; children?: React
             className="versions-save-input"
             controlSize="compact"
             autoFocus
-            placeholder={t`Name this version, e.g. Sent to co-authors`}
+            placeholder={t`Name this version…`}
             aria-label={t`Version label`}
             value={label}
             onChange={(event) => setLabel(event.target.value)}
@@ -381,8 +378,7 @@ export function VersionsState(props: { versions: GitVersions }) {
         className="history-empty"
         fill
         icon={<ResearchArt drawing={DATED_DRAFTS} />}
-        title={t`No version history`}
-        description={t`Version history needs Git, which isn’t available on this Mac`}
+        title={t`Git isn’t available on this Mac`}
       />
     );
   }
@@ -405,7 +401,6 @@ export function VersionsState(props: { versions: GitVersions }) {
           fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`Version tracking is off`}
-          description={t`Turn it on and Lattice keeps dated versions of this project with Git, so any earlier draft is a click away`}
           actions={(
             <button type="button" className="versions-save" disabled={versions.busy} onClick={() => void versions.enableTracking()}>
               <GitBranch size={13} /> {t`Enable version tracking`}
@@ -424,7 +419,6 @@ export function VersionsState(props: { versions: GitVersions }) {
           fill
           icon={<ResearchArt drawing={DATED_DRAFTS} />}
           title={t`No versions yet`}
-          description={t`Save a version to mark a draft you can come back to. A project linked to Overleaf also saves one after each sync and successful build`}
         />
       </>
     );

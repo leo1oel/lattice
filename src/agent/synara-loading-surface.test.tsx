@@ -24,7 +24,6 @@ describe("SynaraLoadingSurface", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Agent unavailable");
-    expect(alert).toHaveTextContent("The bundled Agent service could not start");
     const details = alert.querySelector("details")!;
     expect(details.open).toBe(false);
     // Exact, line breaks included: nothing is rewritten into a diagnosis.
@@ -63,7 +62,7 @@ describe("SynaraLoadingSurface", () => {
 
   it("offers no empty disclosure when the runtime gave no message", () => {
     render(<SynaraLoadingSurface runtime={stopped(null)} onRetry={vi.fn()} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("The bundled Agent service could not start");
+    expect(screen.getByRole("alert")).toHaveTextContent("Agent unavailable");
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 

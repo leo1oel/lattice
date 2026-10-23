@@ -79,7 +79,7 @@ export function DocumentOutline(props: {
               <FluidHoverSurface selector=".document-outline-list button" preserveSelection follow={null} />
               <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={select} />
             </ScrollArea>
-          : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline`}</p>}
+          : <p className="document-outline-empty">{t`No sections yet`}</p>}
       </PopoverContent>
     </Popover>
   );

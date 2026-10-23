@@ -24,14 +24,15 @@ export default function ImportConflictDialog({ request }: { request: ImportConfl
   const [choice, setChoice] = useState<NameConflict>("keepBoth");
   const { names, targetDirectory, answer } = request;
   const count = names.length;
-  const title = count === 1 ? t`An item with this name is already here` : t`${count} items with these names are already here`;
-  const where = targetDirectory
-    ? t`Already in ${targetDirectory}:`
-    : t`Already in the project root:`;
-  const presentations: Record<NameConflict, { label: string; description: string }> = {
-    keepBoth: { label: t`Keep both`, description: t`The imported copies get a numbered name` },
+  // The title names the folder, so the list under it is the names alone.
+  const title = targetDirectory
+    ? count === 1 ? t`An item with this name is already in ${targetDirectory}` : t`${count} items with these names are already in ${targetDirectory}`
+    : count === 1 ? t`An item with this name is already in the project root` : t`${count} items with these names are already in the project root`;
+  // Only Replace says more than its label: it overwrites, and merges folders.
+  const presentations: Record<NameConflict, { label: string; description?: string }> = {
+    keepBoth: { label: t`Keep both` },
     replace: { label: t`Replace`, description: t`Overwrite files of the same name; merge folders` },
-    skip: { label: t`Skip`, description: t`Keep what is here and import the rest` },
+    skip: { label: t`Skip` },
   };
   const hidden = count - LISTED_NAMES;
   return (
@@ -40,7 +41,6 @@ export default function ImportConflictDialog({ request }: { request: ImportConfl
         <div className="modal-icon" data-tone="warning" aria-hidden="true"><FolderInput size={18} /></div>
         <h2>{title}</h2>
         <div id={descriptionId} className="import-conflict-names">
-          <p>{where}</p>
           <ul>
             {names.slice(0, LISTED_NAMES).map((name, index) => <li key={`${index}:${name}`} title={name}>{name}</li>)}
             {hidden > 0 && <li className="import-conflict-more">{t`and ${hidden} more`}</li>}
@@ -53,12 +53,14 @@ export default function ImportConflictDialog({ request }: { request: ImportConfl
                 index={index}
                 label={presentations[value].label}
                 onSelect={() => setChoice(value)}
-                aria-describedby={`${descriptionId}-${value}`}
+                aria-describedby={presentations[value].description ? `${descriptionId}-${value}` : undefined}
                 className="import-conflict-radio"
               />
-              <small id={`${descriptionId}-${value}`} className="import-conflict-description">
-                {presentations[value].description}
-              </small>
+              {presentations[value].description && (
+                <small id={`${descriptionId}-${value}`} className="import-conflict-description">
+                  {presentations[value].description}
+                </small>
+              )}
             </div>
           ))}
         </RadioGroup>

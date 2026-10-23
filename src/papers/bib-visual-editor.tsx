@@ -419,7 +419,6 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
   const optionId = (row: Row) => `bib-row-${row.index}`;
   const sortLabels: Record<Sort, string> = { file: t`File order`, year: t`Newest first`, author: t`Author`, title: t`Title` };
   const filterLabels: Record<Filter, string> = { all: t`All`, cited: t`Cited`, unused: t`Unused` };
-  const filterTitles: Partial<Record<Filter, string>> = { cited: t`Cited in the manuscript`, unused: t`Not cited in any .tex file` };
 
   return (
     <div
@@ -462,7 +461,7 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bib-visual-menu">
             {(Object.keys(filterLabels) as Filter[]).map((value) => (
-              <DropdownMenuItem key={value} role="menuitemradio" aria-checked={filter === value} title={filterTitles[value]} onSelect={() => setFilter(value)}>
+              <DropdownMenuItem key={value} role="menuitemradio" aria-checked={filter === value} onSelect={() => setFilter(value)}>
                 <span className="bib-visual-menu-check">{filter === value && <Check size={14} />}</span>
                 <span className="bib-visual-menu-label">{filterLabels[value]}</span>
                 <span className="bib-visual-menu-count">{formatCount(counts[value])}</span>
@@ -540,7 +539,6 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
               // matches nothing keeps its line at the top.
               fill={rows.length === 0}
               title={rows.length === 0 ? t`No references yet` : t`No matching references`}
-              description={rows.length === 0 && props.editable ? t`Add one by DOI, arXiv ID, title, or by hand` : undefined}
               actions={rows.length === 0 && props.editable
                 ? <Button size="compact" variant="secondary" onClick={() => setAdding({ key: Date.now(), error: null })}>{t`Add reference`}</Button>
                 : query || filter !== "all"
@@ -605,7 +603,6 @@ export function BibVisualEditor(props: BibVisualEditorProps) {
               density="compact"
               icon={<BookOpen size={20} />}
               title={t`No reference selected`}
-              description={t`Choose a reference to see where it is cited and edit its fields`}
             />
           )}
         </div>
@@ -632,7 +629,7 @@ function UnreadableBibliography(props: { error: BibParseError; onOpenLine: (line
     <div className="bib-visual" data-state="unreadable">
       <EmptyState
         title={t`This bibliography can't be shown as a list`}
-        description={<>{bibUnreadableReason(props.error)} {t`Fix it in the source and the list comes back.`}</>}
+        description={bibUnreadableReason(props.error)}
         actions={<Button size="compact" variant="secondary" onClick={() => props.onOpenLine(props.error.line)}>{t`Go to the error`}</Button>}
       />
     </div>

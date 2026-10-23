@@ -3,8 +3,8 @@ import { parseKeyName } from "../app/key-combos";
 
 /**
  * The keys of Check references' review queue, in one table: the sheet's own
- * handler reads them, its hint draws them, and the shortcut sheet lists them
- * (shortcut-groups.ts), so a moved key moves everywhere.
+ * handler reads them, its Apply and Skip buttons show theirs, and the shortcut
+ * sheet lists them all (shortcut-groups.ts), so a moved key moves everywhere.
  */
 export const REFERENCE_CHECK_SHORTCUTS = {
   next: { key: "j", label: msg`Next reference` },

@@ -157,7 +157,7 @@ export function ManuscriptChecklistPanel(props: {
     ? notes(t`Needs a root document to count from`, wordLimitNote)
     : wordsEstimated
       ? notes(t`Root document only, estimated without texcount`, wordLimitNote)
-      : t`via texcount -inc`;
+      : undefined;
   const pageDetail = totalPages == null
     ? notes(pageLimitNote)
     : body.kind === "unread"
@@ -201,10 +201,6 @@ export function ManuscriptChecklistPanel(props: {
   const verdict = failing
     ? failing === 1 ? t`1 check needs attention` : t`${failing} checks need attention`
     : unsettled ? t`Nothing blocks submission` : t`Ready to submit`;
-  const summary = notes(
-    t`${passing} of ${checks.length} checks pass`,
-    unsettled ? t`${unsettled} can't be checked yet` : null,
-  );
 
   return (
     <ResizableDrawer className="checklist-drawer" onClose={props.onClose}>
@@ -217,12 +213,19 @@ export function ManuscriptChecklistPanel(props: {
         <DeadlineCard deadline={props.data.deadline} venue={props.data.venue} onSave={props.onSaveDeadline} />
         <div className="checklist-summary">
           <p className="checklist-verdict">{verdict}</p>
-          <p className="checklist-summary-detail">{summary}</p>
-          <span className="checklist-track" aria-hidden="true">
-            {checks.map((check, index) => (
-              <span key={index} data-state={check == null ? "none" : check ? "ok" : "warn"} />
-            ))}
-          </span>
+          {/* The track's segments say which checks pass, fail or can't run
+              yet; the count at its end is the only figure. */}
+          <div className="checklist-progress">
+            <span className="checklist-track" aria-hidden="true">
+              {checks.map((check, index) => (
+                <span key={index} data-state={check == null ? "none" : check ? "ok" : "warn"} />
+              ))}
+            </span>
+            <span className="checklist-progress-count">
+              <span aria-hidden="true">{`${passing}/${checks.length}`}</span>
+              <span className="sr-only">{t`${passing} of ${checks.length} checks pass`}</span>
+            </span>
+          </div>
         </div>
         <div className="checklist-rows">
           <BudgetRow
@@ -285,12 +288,11 @@ export function ManuscriptChecklistPanel(props: {
               <i className="checklist-status" aria-hidden="true"><Images size={12} /></i>
               <strong>{t`Figure inventory`}</strong>
               <span><ChevronRight size={13} aria-hidden="true" /></span>
-              <small>{t`Missing images and print resolution, figure by figure`}</small>
             </button>
           </div>
         )}
-        <section className="checklist-limits">
-          <h3>{t`Word and page limits`}</h3>
+        {/* Two labelled fields need no visible heading; the name stays for assistive technology. */}
+        <section className="checklist-limits" aria-label={t`Word and page limits`}>
           <div className="checklist-budgets">
             {([
               ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],

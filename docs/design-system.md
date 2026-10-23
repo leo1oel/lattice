@@ -353,6 +353,10 @@ and Diff metadata to the aliases above.
 Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
 A description, subtitle, or explainer paragraph appears only when it says something the label or control does not. A settings group gets a heading only when it holds several rows.
+The interface carries no taglines, and labels do the explaining: a row, option or button whose label needs a sentence under it gets a better label, not the sentence.
+What stays as secondary copy is what the writer would otherwise miss: why a control is disabled or has no effect, a warning before something irreversible, overwritten or shared (what an export contains, what leaves the Mac), an error and its way out, and credits a licence requires.
+A shortcut or gesture that only a hint line taught moves into its control's tooltip (`Tip`'s `shortcut`, or the hover card a control already has); a list picker draws no ↑↓/↵/Esc legend.
+A status line beside a loading indicator goes to assistive technology instead (see the loading rule below), and a step position the progress dots already show (the guided tour's) is read out, not printed.
 
 ## Geometry
 
@@ -699,13 +703,15 @@ all take it.
   skeleton, so the hand-off neither flickers nor waits again. A document
   skeleton's surface colour shows at once and only its bars wait.
 - **Empty states offer the way forward.** An empty region says what would be
-  there and offers the next step, with its shortcut taken from the command table.
+  there in a short title (No papers yet, No annotations yet) and offers the
+  next step, with its shortcut taken from the command table; it does not
+  explain the feature in a paragraph under the title.
   An empty inside a panel titles itself in the subtitle role and sits on the
   panel, never on a plate of its own; a workspace with every panel closed is
   the whole window, so its title takes the serif title role and its drawing
   is larger.
-- **The welcome screen leads with the way back.** The mark and a serif title
-  (48px at most, no eyebrow and no haze behind it), the three actions, then
+- **The welcome screen leads with the way back.** The mark and the app's name
+  as a serif title (48px at most, no tagline, no eyebrow and no haze behind it), the three actions, then
   the recent projects as one card on the lift; the other ways in (Overleaf,
   ZIP, LaTeX tools) come last and quietest. When launch could not reopen the
   last project, an inline warning above the card names it instead of silently
@@ -759,7 +765,7 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
 
 - A key combination is drawn by `key-combos.ts` everywhere it appears: Mac
   glyphs, ⌘ first (⌘⇧J, ⌘⌥P), a Shift-typed character as itself (⌘?). In the
-  shortcut sheet, a hint or the palette's footer it is `Keycaps`
+  shortcut sheet, a hint or quick open's footer it is `Keycaps`
   (`src/components/ui/keycaps.tsx`, or `renderKeycaps` where a list draws
   many), a quiet cap per key. A picker or palette row draws the same `kbd`s
   as one run of caption text in the secondary ink (its `run` variant), as a

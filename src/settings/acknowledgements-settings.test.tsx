@@ -66,7 +66,7 @@ describe("acknowledgements", () => {
   it("lists every shipped package by closure, searchable, and opens each one's license text", async () => {
     license.url = null;
     await renderPane();
-    expect(screen.getByText(/ships 3 open-source packages/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "All third-party software · 3" })).toBeInTheDocument();
     const interfaceClosure = screen.getByRole("button", { name: /Interface\s*2 packages/ });
     expect(interfaceClosure).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: /zustand/ })).not.toBeInTheDocument();

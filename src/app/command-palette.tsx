@@ -17,14 +17,12 @@ import {
 import { PickerDialog, type PickerNoMatch, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { searchPickerRow } from "../components/ui/picker-row";
 import { scoreItem, scorePath } from "../components/ui/picker-ranking";
-import { renderKeycaps } from "../components/ui/render-keycaps";
 import { fileIcon } from "../trellis/trellis-icons";
 import { isProjectAssetFilePath } from "../app-utils";
 import { paperShortAuthors } from "../papers/paper-identity";
 import { settingsEntryKey, useSettingsSearchIndex, type SettingsSearchEntry } from "../settings/settings-search-index";
 import type { PaperSummary } from "../app-types";
 import { commandKeys, type AppCommand } from "./use-app-commands";
-import { comboKeys } from "./key-combos";
 import { PALETTE_SECTIONS, type PaletteSection } from "./palette-sections";
 
 /** Each section's icon; its name and order are `PALETTE_SECTIONS`'. */
@@ -182,7 +180,6 @@ export function CommandPalette(props: {
   const findCommand = commands.find((command) => command.id === "find");
   const noMatch = useMemo(() => (query: string): PickerNoMatch<PaletteItem> => (findCommand ? {
     title: t`No commands, files or papers match “${query}”`,
-    description: t`Try other words, or search every source file`,
     fallback: {
       kind: "find", query, id: "find-in-project", label: t`Search the project for “${query}”`,
       icon: rowIcon(iconPrefix, "find"), keys: commandKeys(findCommand) ?? undefined, order: 0,
@@ -215,14 +212,9 @@ export function CommandPalette(props: {
         else if (item.kind === "find") props.onChoose({ kind: "find", query: item.query });
         else props.onChoose({ kind: "setting", entry: item.entry });
       }}
-      footer={(
-        <div className="command-palette-footer" aria-hidden="true">
-          <IconSprite prefix={iconPrefix} />
-          <span>{renderKeycaps([...comboKeys({ key: "ArrowUp" }), ...comboKeys({ key: "ArrowDown" })])}{t`Move`}</span>
-          <span>{renderKeycaps(comboKeys({ key: "Enter" }))}{t`Open`}</span>
-          <span>{renderKeycaps(comboKeys({ key: "Escape" }))}{t`Close`}</span>
-        </div>
-      )}
+      // No ↑↓ / ↵ / Esc legend: a list picker's keys are universal. The
+      // footer slot only carries the rows' icon sprite.
+      footer={<IconSprite prefix={iconPrefix} />}
     />
   );
 }

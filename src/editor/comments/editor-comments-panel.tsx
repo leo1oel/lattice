@@ -257,9 +257,6 @@ export function EditorCommentsPanel(props: {
     <div className="annotations-head">
       <div className="annotations-title-row">
         {!props.embedded && <h2 className="annotations-title">{t`Annotations`}</h2>}
-        <span className="annotations-count">
-          {openCount === 1 ? t`1 open` : t`${openCount} open`}
-        </span>
       </div>
       {highlightKinds.length > 0 && (
         <div className="annotations-tabs" role="group" aria-label={t`Annotations and highlights`}>
@@ -629,11 +626,12 @@ export function EditorCommentsPanel(props: {
       align={hasComments ? "start" : "center"}
       density={hasComments ? "compact" : "default"}
       icon={<EmptyIllustration kind={hasComments && query.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
-      description={!hasComments
-        ? props.onReturnToEditor && !props.writingFile
-          ? t`No annotations yet. Open a file, select text and click Annotate`
-          : t`No annotations yet. Select text in the editor or the PDF and click Annotate`
-        : query.trim() ? t`No matches` : filter === "resolved" ? t`No resolved annotations` : t`No open annotations`}
+      // Before the first one, a title and the way forward (Return / Open a
+      // file); Annotate itself is on the selection, which has no key.
+      title={!hasComments ? t`No annotations yet` : undefined}
+      description={hasComments
+        ? query.trim() ? t`No matches` : filter === "resolved" ? t`No resolved annotations` : t`No open annotations`
+        : undefined}
       actions={!hasComments && props.onReturnToEditor && (
         <Button size="compact" className="editor-comments-return" onClick={props.onReturnToEditor}>
           {writingName ? <CornerDownLeft size={13} /> : <FileSearch size={13} />}
@@ -676,9 +674,6 @@ export function EditorCommentsPanel(props: {
           </span>
           <kbd>{REVISE_KEYS}</kbd>
         </Button>
-      )}
-      {reviewing && (
-        <small className="annotations-foot-note">{t`Accept or reject each one in the editor; the round is saved as a version`}</small>
       )}
     </div>
   );

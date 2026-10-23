@@ -158,12 +158,11 @@ function AgentView({ controller }: { controller: TrellisController }) {
 }
 
 /** A quiet placeholder for a panel whose content is not mounted right now. */
-function EmptyState({ icon, art, title, detail, children, onActivate, className }: {
+function EmptyState({ icon, art, title, children, onActivate, className }: {
   icon?: ReactNode;
   /** A drawing in place of the icon, for a panel with room to show one. */
   art?: ReactNode;
   title: ReactNode;
-  detail?: ReactNode;
   children?: ReactNode;
   onActivate?: () => void;
   className?: string;
@@ -183,7 +182,6 @@ function EmptyState({ icon, art, title, detail, children, onActivate, className 
     >
       {art ? <span className="trellis-empty-art">{art}</span> : <span className="trellis-empty-icon">{icon}</span>}
       <strong>{title}</strong>
-      {detail && <span className="trellis-empty-detail">{detail}</span>}
       {children && <div className="trellis-empty-actions">{children}</div>}
     </div>
   );
@@ -266,14 +264,17 @@ function ToolView({ controller, kind }: { controller: TrellisController; kind: T
   );
 }
 
-function SleepingDocument({ controller, fileKey, detail }: { controller: TrellisController; fileKey: string; detail: string }) {
+/**
+ * A document that is not drawn right now (asleep, or a live editor paused
+ * while hidden): its icon and name as one button, a press away from open.
+ */
+function SleepingDocument({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
   const bridge = controller.bridge;
   const kind = bridge?.tabKind(fileKey) ?? "file";
   return (
     <EmptyState
       icon={fileIcon(fileKey, kind, 16)}
       title={bridge?.tabLabel(fileKey) ?? fileKey}
-      detail={detail}
       onActivate={() => controller.activate(fileKey)}
     />
   );
@@ -286,8 +287,7 @@ function SleepingDocument({ controller, fileKey, detail }: { controller: Trellis
  * reader, brought back by its header's button, picks up.
  */
 function PaperSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
-  const { t } = useLingui();
-  if (!useBesideActive(controller, panelId)) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  if (!useBesideActive(controller, panelId)) return <SleepingDocument controller={controller} fileKey={fileKey} />;
   return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
 }
 
@@ -303,15 +303,15 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
     });
     return () => { disposed = true; };
   }, [controller, fileKey]);
-  if (paper === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  if (paper === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
   return (
     <div className="trellis-paper-snapshot">
       {/* The reader's own header, so the text holds its place when the reader comes back. */}
       <header className="paper-reader-header">
         <div className="paper-local-actions">
           {/* Named apart from its text, which a narrow header hides; the tip
-              then says what the bare icon does. */}
-          <Tip label={t`Open the full reader · your notes stay beside it`}>
+              then names the bare icon. */}
+          <Tip label={t`Open the reader`}>
             <button type="button" className="paper-local-action" aria-label={t`Open the reader`} onClick={() => controller.activate(fileKey)}>
               <BookOpen size={14} aria-hidden="true" />
               <span>{t`Open the reader`}</span>
@@ -332,7 +332,6 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
  * zoom both ways.
  */
 function AssetSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
-  const { t } = useLingui();
   const besideActive = useBesideActive(controller, panelId);
   const [asset, setAsset] = useState<AssetPreview | null | undefined>(undefined);
   const [missing, setMissing] = useState(false);
@@ -371,7 +370,7 @@ function AssetSnapshot({ controller, fileKey, panelId }: { controller: TrellisCo
       element.removeEventListener("focusin", hold, true);
     };
   }, [controller, fileKey]);
-  if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
   if (!asset) return null;
   return (
     <div ref={holdReading} className="trellis-pdf-snapshot">
@@ -433,7 +432,7 @@ function FileView({ controller }: { controller: TrellisController }) {
       <>
         {surfaceIcon}
         <HostSlot host={controller.hosts.editor} className="trellis-file-live" />
-        {hibernated && <SleepingDocument controller={controller} fileKey={key} detail={t`Paused while hidden · click to resume`} />}
+        {hibernated && <SleepingDocument controller={controller} fileKey={key} />}
       </>
     );
   }
@@ -448,7 +447,7 @@ function FileView({ controller }: { controller: TrellisController }) {
           ? <PaperSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
           : kind === "asset"
             ? <AssetSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
-            : <SleepingDocument controller={controller} fileKey={key} detail={t`Sleeping · click to open`} />}
+            : <SleepingDocument controller={controller} fileKey={key} />}
     </>
   );
 }
@@ -500,7 +499,6 @@ function SlotView({ controller }: { controller: TrellisController }) {
     <EmptyState
       art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
       title={t`No document open`}
-      detail={t`Choose a file from the project, or find it with Quick open`}
     >
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />
@@ -519,7 +517,6 @@ function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
       className="trellis-workspace-empty"
       art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
       title={t`Every panel is closed`}
-      detail={t`Open a file, or reset the layout to bring your panels back`}
     >
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />

@@ -200,7 +200,7 @@ export function AddPapersSheet(props: {
 
   const summary = queued
     ? adding
-      ? t`Adding ${position || done + 1} of ${queue.length} — you can keep writing`
+      ? t`Adding ${position || done + 1} of ${queue.length}`
       : done === queue.length
         ? done === 1 ? t`Added 1 paper` : t`Added ${done} papers`
         : t`Added ${done} of ${queue.length}`
@@ -265,7 +265,7 @@ export function AddPapersSheet(props: {
       <div className="add-papers-body">
         {!batch && (
           <label className="add-papers-paste">
-            <span>{t`Paste DOIs, arXiv IDs, links, titles or BibTeX — one per line, or a whole .bib`}</span>
+            <span>{t`Paste references`}</span>
             <textarea
               autoFocus
               rows={rows.length ? 4 : 5}
@@ -302,7 +302,6 @@ export function AddPapersSheet(props: {
         {!listed.length ? (
           <div className="add-papers-empty">
             <ResearchArt drawing={CATALOGUE_DRAWER} />
-            <p>{t`Each line becomes a card. Lattice looks every one up, sets aside what you already have, and asks when a title matches more than one paper. Nothing is written until you add.`}</p>
           </div>
         ) : (
           <>

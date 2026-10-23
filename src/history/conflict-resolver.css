@@ -13,19 +13,13 @@
 
 .conflict-resolver-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-6);
 }
 .conflict-resolver-head h2 {
-  margin: 0 0 var(--space-2);
-  overflow-wrap: anywhere;
-}
-.conflict-resolver-head p {
+  min-width: 0;
   margin: 0;
-  max-width: 72ch;
-  color: var(--text-secondary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line-height);
+  overflow-wrap: anywhere;
 }
 
 /* Appearance is owned by `.ui-inline-message`; the tinted plate is local, so
@@ -120,7 +114,6 @@
 .conflict-side[data-dropped] { color: var(--text-secondary); }
 .conflict-side-head { display: flex; align-items: center; gap: var(--space-3); min-width: 0; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .conflict-side-head strong { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
-.conflict-side-caption { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .conflict-side-radio {
   flex: none;
   width: 16px;
