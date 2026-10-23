@@ -299,6 +299,9 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* The figure inventory leads elsewhere rather than passing or failing, so its
    mark stays the neutral disc and its row reads as a way in, like TODOs. */
 .checklist-link .checklist-status svg { stroke-width: 2; }
+/* The limits close the panel as a section of their own, headed like the
+   writer's items above, so the fields never read as part of either list. */
+.checklist-limits h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
 /* One row when the drawer has room; in a narrow one the button wraps to a row
    of its own rather than squeezing the two fields down to an ellipsis. */
 .checklist-budgets {
@@ -791,7 +794,11 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .code-theme-card-copy > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-theme-card-name { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-medium); }
 .code-theme-card-variants { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* The terms list grows under the field, so the row hangs from its top; the
+   label keeps the field's height so it centres on the field's line, as every
+   other row's label centres on its control. */
 .settings-project-dictionary-row { align-items: flex-start; }
+.settings-project-dictionary-row > .ui-settings-row-copy { min-height: var(--control-height-default); display: flex; flex-direction: column; justify-content: center; }
 .settings-project-dictionary { width: var(--settings-control-width); max-width: 100%; display: flex; flex-direction: column; gap: var(--space-4); }
 .settings-project-dictionary-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }
 .settings-project-dictionary-terms { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -1046,9 +1053,9 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
     font-size: var(--type-body-size);
     font-weight: var(--weight-regular);
   }
-  .settings-modal .settings-nav-group > :is(.settings-nav-group-label + button, button:first-child) { border-top-width: 1px; border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)) 0 0; corner-shape: squircle; }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button { border-top-width: 1px; border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)) 0 0; corner-shape: squircle; }
   .settings-modal .settings-nav-group > button:last-child { border-radius: 0 0 calc(var(--settings-card-radius) * var(--corner-smoothing)) calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
-  .settings-modal .settings-nav-group > :is(.settings-nav-group-label + button, button:first-child):last-child { border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
+  .settings-modal .settings-nav-group > .settings-nav-group-label + button:last-child { border-radius: calc(var(--settings-card-radius) * var(--corner-smoothing)); corner-shape: squircle; }
   .settings-modal .settings-nav .settings-nav-group > button:hover { background: var(--control-hover-surface); }
   .settings-modal .settings-nav-group > button.active { background: var(--settings-card-surface); color: var(--text-primary); font-weight: var(--weight-regular); }
   .settings-modal .settings-nav-group > button > span[title] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -291,8 +291,8 @@ export function ManuscriptChecklistPanel(props: {
             </button>
           </div>
         )}
-        {/* Two labelled fields need no visible heading; the name stays for assistive technology. */}
-        <section className="checklist-limits" aria-label={t`Word and page limits`}>
+        <section className="checklist-limits">
+          <h3>{t`Word and page limits`}</h3>
           <div className="checklist-budgets">
             {([
               ["word", t`Word budget`, wordBudget, setWordBudget, t`No limit`],
