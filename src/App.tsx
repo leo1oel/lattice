@@ -112,6 +112,7 @@ import {
   resolveAppLocale,
   loadSettingsTab,
   persistSettingsTab,
+  isSynaraSettingsTab,
   loadRecentCommands,
   rememberRecentCommand,
 } from "./settings/app-settings";
@@ -201,10 +202,6 @@ const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module)
 const EMPTY_SPELLING_WORDS: string[] = [];
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
-
-function isSynaraSettingsTab(tab: SettingsTab): boolean {
-  return tab === "agent" || tab === "mcp" || tab === "api";
-}
 
 function App({ surfaces }: { surfaces: AppSurfaces }) {
   const {
@@ -1820,6 +1817,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
               diagnostics={build.diagnostics}
               log={build.log}
               success={build.success}
+              wrotePdf={buildOutcome?.status === "failed" && buildOutcome.wrotePdf}
               expanded={buildPipeline.diagnosticsExpanded}
               onExpandedChange={buildPipeline.setDiagnosticsExpanded}
               onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}

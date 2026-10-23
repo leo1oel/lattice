@@ -24,6 +24,8 @@ export type ProjectManifest = {
   engine?: string;
   /** The writer undid an automatic switch to pdfLaTeX; builds leave the engine alone. */
   keepEngine?: boolean;
+  /** Builds stop at the first LaTeX error instead of carrying on past every one (latex/build.rs). */
+  stopOnFirstError?: boolean;
   venue?: ProjectVenue | string;
   wordBudget?: number | null;
   pageBudget?: number | null;

@@ -6,6 +6,7 @@ import type { CompileDiagnostic } from "../build/compile-diagnostics";
 import { useBuildPipeline } from "./use-build-pipeline";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("../project/first-pages", () => ({ scheduleFirstPage: vi.fn() }));
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
@@ -32,6 +33,9 @@ function result(overrides: Partial<BuildResult> = {}): BuildResult {
   };
 }
 
+/** Each PDF a build reads back is a new one. */
+let pdfWrites = 0;
+
 /** The pipeline over one project, with `build_project` answered by `answer`. */
 function renderPipeline(
   answer: () => Promise<BuildResult>,
@@ -42,6 +46,7 @@ function renderPipeline(
 ) {
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === "build_project") return answer();
+    if (command === "read_compiled_pdf") return new TextEncoder().encode(`%PDF-1.5 ${++pdfWrites}`).buffer;
     if (command === "read_project_file") return DISK[(args as { path: string }).path];
     if (command === "abort_build") return true;
     if (command === "clean_project") return undefined;
@@ -120,6 +125,45 @@ describe("the build outcome the Build button reports", () => {
     });
     expect(view.result.current.building).toBe(false);
     expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 1.5, counts: { error: 0, warning: 1 } });
+  });
+
+  // TeX carries on past errors, so a failed build can still write the PDF
+  // the preview then shows; one stopped by a fatal error writes none.
+  it("says whether a failed build wrote the PDF on screen", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    let answer = result({ success: false, hasPdf: true, diagnostics: [{ level: "error", message: "Undefined control sequence." }] });
+    const view = renderPipeline(async () => answer);
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: true });
+    expect(view.result.current.pdfUrl).toBe("blob:pdf");
+
+    answer = result({ success: false, hasPdf: false, diagnostics: [{ level: "error", message: "Emergency stop." }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+    expect(view.result.current.pdfUrl).toBe("blob:pdf");
+  });
+
+  // A build that leaves no PDF gets the last one put back on disk, and a
+  // later build that stops before its first page leaves those bytes in place.
+  it("does not credit a failed build with the PDF an earlier build wrote", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    let answer = result({ hasPdf: true });
+    const view = renderPipeline(async () => answer);
+    const answerCommand = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => command === "read_compiled_pdf"
+      ? new TextEncoder().encode("%PDF-1.5 shown").buffer
+      : answerCommand(command, args));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "succeeded" });
+
+    answer = result({ success: false, hasPdf: false, diagnostics: [{ level: "error", message: "File `chapter.tex' not found." }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+
+    answer = result({ success: false, hasPdf: true, diagnostics: [{ level: "error", message: "File `foo.sty' not found." }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+    expect(view.result.current.pdfUrl).toBe("blob:pdf");
   });
 
   it("reports a build the backend rejected as failed", async () => {

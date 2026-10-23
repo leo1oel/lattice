@@ -34,6 +34,7 @@ mod history;
 mod imports;
 mod linked_bibliography;
 mod manifest;
+mod manifest_settings;
 mod paths;
 mod references;
 mod search;
@@ -80,8 +81,11 @@ pub use linked_bibliography::{
 pub(crate) use manifest::ensure_ignore_line;
 pub use manifest::{
     classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_manifest,
-    resolve_compile_root, set_compile_root, set_deadline, set_spelling_words, set_submission_items,
-    tex_program_engine, update_manifest_settings,
+    resolve_compile_root, set_compile_root, tex_program_engine,
+};
+pub use manifest_settings::{
+    set_deadline, set_spelling_words, set_submission_items, update_manifest_settings,
+    ManifestSettings,
 };
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};

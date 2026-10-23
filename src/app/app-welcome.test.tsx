@@ -452,7 +452,7 @@ describe("welcome screen", () => {
     fireEvent.change(search, { target: { value: "build" } });
     // Labels holding the words lead, in page order; then rows only their terms match.
     expect(results().getAllByRole("option").map((option) => option.firstChild?.textContent))
-      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow shell escape"]);
+      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow shell escape", "Stop on first error"]);
     fireEvent.change(search, { target: { value: "vim" } });
     fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Editor keymap" })).toHaveFocus());

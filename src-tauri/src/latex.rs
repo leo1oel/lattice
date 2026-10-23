@@ -7,7 +7,8 @@
 //! - `changes` builds the PDF with the changes between two versions marked.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab.
-//! - `synctex` maps positions between the compiled PDF and its sources.
+//! - `synctex` maps positions between the compiled PDF and its sources;
+//!   `shown_pdf` puts the last PDF and its map back when a build leaves none.
 //! - `venue` reads which conference template a document's preamble loads.
 //! - `arxiv` makes and checks the source pack an arXiv submission needs.
 //! - `pinned` is the research environment's build: root, engine, rc files
@@ -33,6 +34,7 @@ mod engine_mismatch;
 mod pinned;
 mod preamble_format;
 mod prewarm;
+mod shown_pdf;
 mod synctex;
 mod venue;
 

@@ -214,6 +214,11 @@ const SETTINGS_TABS: readonly SettingsTab[] = [
 export const loadSettingsTab = () => loadChoice(SETTINGS_TAB_KEY, SETTINGS_TABS, "appearance");
 export const persistSettingsTab = (tab: SettingsTab) => persistSetting(SETTINGS_TAB_KEY, tab);
 
+/** The pages that configure the agent, which need its runtime started. */
+export function isSynaraSettingsTab(tab: SettingsTab): boolean {
+  return tab === "agent" || tab === "mcp" || tab === "api";
+}
+
 export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 
 export function systemTheme(): Theme {

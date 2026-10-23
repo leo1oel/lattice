@@ -146,6 +146,16 @@ describe("build output layout", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ file: "main.tex", line: 4 }));
   });
 
+  // TeX carries on past errors: the PDF below the bar is that build's, errors and all.
+  it("says a failed build whose PDF is on screen built, with its errors", () => {
+    const { rerender } = render(<CompileDiagnosticsPanel {...props} />);
+    const title = () => document.querySelector(".compile-diagnostics-toggle")?.textContent;
+    expect(title()).toBe("Build failed · 1 error · 1 warning");
+    rerender(<CompileDiagnosticsPanel {...props} wrotePdf />);
+    expect(title()).toBe("Built with 1 error · 1 warning");
+    expect(document.querySelector(".compile-diagnostics")).toHaveClass("error");
+  });
+
   it("opens a failed build's log at TeX's error, with the whole log a click from the clipboard", () => {
     // Lines as latexmk -file-line-error writes them.
     const failedLog = "This is pdfTeX\n(./main.tex\nLaTeX Warning: Reference undefined\n./main.tex:4: Undefined control sequence.\nl.4 \\undefinedmacro\n"

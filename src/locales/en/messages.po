@@ -2233,6 +2233,15 @@ msgstr "Built"
 msgid "Built with {issues}"
 msgstr "Built with {issues}"
 
+#: src/build/build-result-text.ts
+msgctxt "a failed build whose PDF was still written"
+msgid "Built with {issues}"
+msgstr "Built with {issues}"
+
+#: src/trellis/trellis-build-sequence.tsx
+msgid "Built with errors"
+msgstr "Built with errors"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
 msgstr "Bullet"
@@ -11547,6 +11556,11 @@ msgstr "Stop"
 #: src/App.tsx
 msgid "Stop build"
 msgstr "Stop build"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Stop on first error"
+msgstr "Stop on first error"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Stop the build"

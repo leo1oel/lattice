@@ -32,7 +32,8 @@ describe("settings search", () => {
     ["open a project", ["project-dictionary"]],
     ["harper", ["spellcheck", "project-dictionary"]],
     // Label matches lead the rows only their terms match.
-    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape"]],
+    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape", "stop-on-first-error"]],
+    ["halt-on-error", ["stop-on-first-error"]],
     // Then the rows only a description holds.
     ["reduce transparency", ["translucency"]],
     // An option name finds its row.

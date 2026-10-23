@@ -8,7 +8,7 @@ use super::build_steps::BuildSteps;
 use super::preamble_format::{self, Prepared};
 use super::{
     arxiv, bib_log, default_root_document, diagnostic_paths, engine_mismatch, latexmk, prewarm,
-    synctex_missing,
+    shown_pdf, synctex_missing,
 };
 use crate::commands;
 use crate::latex::BuildResult;
@@ -170,6 +170,9 @@ pub fn build(
     let mut result = build_passes(root, force, active, open_document, steps)?;
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
+    if shown_pdf::settle(root, &result.root_document, result.has_pdf) {
+        wide_event::record("shown_pdf_restored", true);
+    }
     result.outputs = arxiv::written_by_build(root, &result.root_document);
     record_result(&result);
     Ok(result)
@@ -236,7 +239,11 @@ fn build_passes(
     // or LuaLaTeX. When nothing in the project wants the engine it has, switch
     // and build again now; the note says so and carries the undo.
     if let Some(switch) = engine_mismatch::automatic_switch(root, &result) {
-        project::update_manifest_settings(root, Some("pdf".to_string()), None, None, None, None)?;
+        let pdf = project::ManifestSettings {
+            engine: Some("pdf".to_string()),
+            ..project::ManifestSettings::default()
+        };
+        project::update_manifest_settings(root, pdf)?;
         wide_event::record("engine_switched_from", switch.previous.as_str());
         result = run_latexmk(root, force, active, steps)?;
         result.diagnostics.insert(0, switch.note());
@@ -279,6 +286,24 @@ pub(super) fn engine_args(root: &Path, manifest: &ProjectManifest) -> Vec<&'stat
     args
 }
 
+/// What a LaTeX error does to the build.
+///
+/// By default TeX carries on past it, as Overleaf does: every error in the
+/// document is reported at once, and the PDF and SyncTeX map of the pages
+/// that did typeset are written. `-f` lets latexmk finish its passes too
+/// (BibTeX, the reruns for references), so those pages read as they will
+/// once the error is fixed rather than full of "??". latexmk's rerun limit
+/// still bounds the passes, and run again with nothing changed it answers
+/// that the last run failed rather than typesetting again. Stop on first
+/// error restores `-halt-on-error`, after which pdfTeX writes no PDF at all.
+fn error_mode(manifest: &ProjectManifest) -> &'static str {
+    if manifest.stop_on_first_error {
+        "-halt-on-error"
+    } else {
+        "-f"
+    }
+}
+
 fn run_latexmk(
     root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
@@ -308,7 +333,8 @@ fn run_latexmk_with(
     };
 
     let mut command = latexmk(root);
-    command.args(["-interaction=nonstopmode", "-synctex=1", "-file-line-error", "-halt-on-error"]);
+    command.args(["-interaction=nonstopmode", "-synctex=1", "-file-line-error"]);
+    command.arg(error_mode(&manifest));
     command.args(engine_args(root, &manifest));
     if let Some(format) = &format {
         command.arg(format.latexmk_arg());
@@ -453,6 +479,8 @@ pub(super) fn cancelled_build(
 
 #[cfg(test)]
 mod diagnostics_tests;
+#[cfg(test)]
+mod error_mode_tests;
 
 #[cfg(test)]
 mod tests {

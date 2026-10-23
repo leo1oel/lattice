@@ -60,6 +60,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     ...(hasProject ? [
       { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },
       { tab: "editor", place: editor, id: "shell-escape", label: t`Allow shell escape`, terms: `${builds} shell-escape ${t`Allow external commands`}` },
+      { tab: "editor", place: editor, id: "stop-on-first-error", label: t`Stop on first error`, terms: `${builds} halt-on-error` },
     ] satisfies SettingsSearchEntry[] : []),
     // Offered only to a LuaLaTeX project.
     ...(hasProject && livePreview ? [
