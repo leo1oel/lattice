@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   createAccessPolicy,
   createBootstrapDocument,
-  DECK_ERROR_OVERLAY_SOURCE,
   createMutationQueue,
   createOpenSlideSessionScript,
   deckBuildErrors,
@@ -92,7 +91,9 @@ test("starts when installed under a path containing a space", () => withTempRoot
   // server exited silently and the host saw an empty handshake.
   const runtime = path.join(root, "Lattice Beta.app", "presentation-runtime");
   await mkdir(runtime, { recursive: true });
-  await copyFile(new URL("./server.mjs", import.meta.url), path.join(runtime, "server.mjs"));
+  for (const file of ["server.mjs", "agent-chat.mjs", "deck-error-overlay.mjs", "patch-contract.mjs"]) {
+    await copyFile(new URL(`./${file}`, import.meta.url), path.join(runtime, file));
+  }
   await symlink(fileURLToPath(new URL("./node_modules", import.meta.url)), path.join(runtime, "node_modules"), "dir");
   const env = { ...process.env };
   for (const name of ["OPEN_SLIDE_SHADOW_ROOT", "OPEN_SLIDE_CONTROL_TOKEN", "OPEN_SLIDE_CACHE_ROOT"]) delete env[name];
@@ -287,8 +288,10 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /const \{ slideId, selected, pendingCount, comments \} = useInspector\(\)/);
   assert.match(transformed, /pendingEdits: pendingCount > 0/);
   assert.match(transformed, /pendingComments: comments/);
-  assert.match(transformed, /slice\(0, 12_000\)/);
-  assert.doesNotMatch(transformed, /slice\(0, 120\)/);
+  // Upstream's own agent dock keeps its 120-character selection preview.
+  const reporter = transformed.slice(transformed.indexOf("function SelectionReporter() {"));
+  assert.match(reporter, /slice\(0, 12_000\)/);
+  assert.doesNotMatch(reporter, /slice\(0, 120\)/);
   assert.doesNotMatch(transformed, /AgentConnectedBadge|bg-emerald-500|t\.slide\.agentConnected/);
   // The narrow toolbar's More menu offers the comment mode too.
   assert.match(transformed, /<DropdownMenuRadioItem value="comment">\{t\.inspector\.commentMode\}/);
@@ -569,24 +572,6 @@ test("reports each unresolved import of a deck with its project-relative locatio
     await vite.close();
   }
 }));
-
-test("a deck reload dismisses the error overlay raised for that deck's files", () => {
-  const overlay = (file) => ({
-    closed: false,
-    shadowRoot: { querySelector: (selector) => (selector === ".file" ? { textContent: file } : null) },
-    close() { this.closed = true; },
-  });
-  const talk = overlay("/shadow/workspace/slides/talk/index.tsx:3:26");
-  const paper = overlay("/shadow/workspace/slides/paper/index.tsx:1:1");
-  const listeners = new Map();
-  const hot = { on: (event, listener) => listeners.set(event, listener) };
-  const document = { querySelectorAll: (selector) => (selector === "vite-error-overlay" ? [talk, paper] : []) };
-  runInNewContext(DECK_ERROR_OVERLAY_SOURCE.replaceAll("import.meta.hot", "hot"), { hot, document });
-
-  listeners.get("open-slide:slide-changed")({ slideIds: ["talk"] });
-  assert.equal(talk.closed, true);
-  assert.equal(paper.closed, false);
-});
 
 test("a deck that imported a missing asset reloads and builds once the asset is written", () => withTempRoot(async (root) => {
   // Vite retries a module whose import failed to resolve when a file is

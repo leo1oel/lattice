@@ -7,8 +7,11 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { createViteConfig } from "@open-slide/core/vite";
 import { createServer as createViteServer, optimizeDeps, resolveConfig } from "vite";
+import { OPEN_SLIDE_CONFIG, transformOpenSlideAgentEntryPoints } from "./agent-chat.mjs";
+import { DECK_ERROR_OVERLAY_MODULE, DECK_ERROR_OVERLAY_SOURCE } from "./deck-error-overlay.mjs";
+import { moduleFilePath, replaceRequired, requireContract } from "./patch-contract.mjs";
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.1";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PREVIOUS_CONTENT_LIMIT = 2 * 1024 * 1024;
 const PREVIOUS_CONTENT_TOTAL_LIMIT = 8 * 1024 * 1024;
@@ -129,27 +132,6 @@ const LATTICE_EDITOR_STYLES = `
   }
 }
 `;
-
-/** The file a Vite module id names, without its query and with forward slashes. */
-function moduleFilePath(id) {
-  return id.split("?", 1)[0].replaceAll("\\", "/");
-}
-
-/**
- * Every patch below edits upstream source it expects verbatim. When an
- * @open-slide/core upgrade moves any of it, fail loudly instead of shipping a
- * half-patched editor.
- */
-function requireContract(source, fragments, contract) {
-  if (!fragments.every((fragment) => source.includes(fragment))) {
-    throw new Error(`Open Slide's ${contract} contract changed`);
-  }
-}
-
-function replaceRequired(source, before, after, contract) {
-  requireContract(source, [before], contract);
-  return source.replace(before, after);
-}
 
 function sendJson(res, status, body, headers = {}) {
   res.writeHead(status, { ...headers, "content-type": "application/json" }).end(JSON.stringify(body));
@@ -1857,28 +1839,6 @@ if (window.parent !== window) {
 }
 `;
 
-const DECK_ERROR_OVERLAY_MODULE = "\0virtual:lattice-deck-error-overlay";
-
-/**
- * Loaded by every Open Slide page. A deck that fails to compile raises Vite's
- * error overlay, which Vite clears only on its own HMR `update`. Open Slide
- * reloads an edited deck through `open-slide:slide-changed` instead, so the
- * overlay outlived the fix until the page reloaded or a click dismissed it.
- * Each reload drops the overlay for an error in that deck's files: a reload
- * that still fails compiles the deck again, and Vite raises a fresh one.
- */
-export const DECK_ERROR_OVERLAY_SOURCE = `
-if (import.meta.hot) {
-  import.meta.hot.on("open-slide:slide-changed", (data) => {
-    const ids = Array.isArray(data?.slideIds) ? data.slideIds : [];
-    for (const overlay of document.querySelectorAll("vite-error-overlay")) {
-      const file = overlay.shadowRoot?.querySelector(".file")?.textContent ?? "";
-      if (ids.some((id) => file.includes("/slides/" + id + "/"))) overlay.close();
-    }
-  });
-}
-`;
-
 export function createOpenSlideSessionScript(sessionToken, preferences = {}) {
   return `(() => {
   const sessionToken = ${scriptJson(sessionToken)};
@@ -2171,7 +2131,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
   // Lattice owns the workspace layout. Passing an explicit config prevents
   // Open Slide from executing a project-provided open-slide.config.ts inside
   // this unsandboxed Node process.
-  const config = await createViteConfig({ userCwd: root, mode: "serve", config: {} });
+  const config = await createViteConfig({ userCwd: root, mode: "serve", config: OPEN_SLIDE_CONFIG });
   const viteConfig = {
     ...config,
     cacheDir,
@@ -2225,6 +2185,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
             transformOpenSlideSaveFeedback,
             transformOpenSlideSelection,
             transformOpenSlideToolbar,
+            transformOpenSlideAgentEntryPoints,
             transformOpenSlideConnectionCopy,
             transformOpenSlideAssets,
             transformOpenSlideHomeChrome,

@@ -41,6 +41,7 @@ export { default as ChevronDown, default as ChevronDownIcon } from "lucide-react
 export { default as ChevronLeft } from "lucide-react/dist/esm/icons/chevron-left.mjs";
 export { default as ChevronRight, default as ChevronRightIcon } from "lucide-react/dist/esm/icons/chevron-right.mjs";
 export { default as ChevronUp, default as ChevronUpIcon } from "lucide-react/dist/esm/icons/chevron-up.mjs";
+export { default as CircleAlert } from "lucide-react/dist/esm/icons/circle-alert.mjs";
 export { default as CircleCheckIcon } from "lucide-react/dist/esm/icons/circle-check.mjs";
 export { default as CircleIcon } from "lucide-react/dist/esm/icons/circle.mjs";
 export { default as Clock } from "lucide-react/dist/esm/icons/clock.mjs";
@@ -58,6 +59,7 @@ export { default as FolderInput } from "lucide-react/dist/esm/icons/folder-input
 export { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open.mjs";
 export { default as FolderPlus } from "lucide-react/dist/esm/icons/folder-plus.mjs";
 export { default as Grid2x2 } from "lucide-react/dist/esm/icons/grid-2x2.mjs";
+export { default as History } from "lucide-react/dist/esm/icons/history.mjs";
 export { default as Image, default as ImageIcon } from "lucide-react/dist/esm/icons/image.mjs";
 export { default as InfoIcon } from "lucide-react/dist/esm/icons/info.mjs";
 export { default as Italic } from "lucide-react/dist/esm/icons/italic.mjs";
@@ -95,6 +97,7 @@ export { default as RotateCw } from "lucide-react/dist/esm/icons/rotate-cw.mjs";
 export { default as Save } from "lucide-react/dist/esm/icons/save.mjs";
 export { default as Search } from "lucide-react/dist/esm/icons/search.mjs";
 export { default as SearchX } from "lucide-react/dist/esm/icons/search-x.mjs";
+export { default as Settings2 } from "lucide-react/dist/esm/icons/settings-2.mjs";
 export { default as Shuffle } from "lucide-react/dist/esm/icons/shuffle.mjs";
 export { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles.mjs";
 export { default as Square } from "lucide-react/dist/esm/icons/square.mjs";
