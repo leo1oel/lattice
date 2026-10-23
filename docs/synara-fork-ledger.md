@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-10-23 against upstream
 `v1.0.8` (`d7542782fd52a1dedf9634e1765ab62fa60e259f`), the current integration changes
-**761 files, +85,042 / −8,469 lines**. It carries embedded-workspace UI, a skills manager,
+**765 files, +86,207 / −8,470 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -44,6 +44,15 @@ Providers, MCP and Skills follow the native Settings layout (a serif page title,
 The pin also carries `amp/lattice-cursor-no-autologin`: Cursor's startup model discovery and background text generation use ACP `authPolicy: "never"`, so a signed-out Cursor CLI no longer opens its sign-in page when Lattice starts (discovery falls back to `cursor-agent models`).
 
 On WebKit the composer draws its own caret (`ComposerDrawnCaretPlugin`): WebKit stretches the native caret on every line after a paragraph's first up through the leading above it, so in Lexical's one-paragraph composer it stood a full line pitch tall. The drawn 2px bar takes the glyph height of the text at the caret, hides for range selections, and gives the native caret back during IME composition; Chromium keeps the native caret.
+
+The panel answers `lattice:composer-prompt` (version 1), which lets Lattice put a prompt in the agent composer or send it, in the active chat or a new one, for Open Slide's in-canvas agent buttons.
+A draft fills an empty composer or goes on a new line under the user's text, and focuses the composer; an empty draft only focuses it.
+A send goes through the composer's own Send with the selected provider, model and access mode and the Lattice host context, but as its own queued turn, so the user's unsent draft is neither sent nor cleared; behind a live turn it waits in the queue.
+An unavailable provider or a failed send leaves the prompt as a draft instead; behind a pending question or approval it joins the saved draft the composer returns to, so it never becomes an answer.
+The composer takes focus only once the panel frame has it, so Lattice focuses the frame when it wants the cursor there.
+Each request gets one `synara:composer-prompt-result` with the outcome (`drafted`, `sent`, `queued`) or an error code (`invalid`, `workspace-mismatch`, `no-provider`, `awaiting-input`, `send-failed`).
+Only the panel's focused chat answers, so a side chat or a second split pane never acts on the same request.
+The slide host context now types Open Slide's `pendingComments` and `previewUrl`: a malformed comment or link is dropped on its own instead of the snapshot, and the composer's context details count the comments ("3 comments", zh-CN "3 条评论").
 
 ## Synara 0.9.1 compatibility
 
