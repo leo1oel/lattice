@@ -143,6 +143,29 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.pdfUrl).toBe("blob:pdf");
   });
 
+  // A build that leaves no PDF gets the last one put back on disk, and a
+  // later build that stops before its first page leaves those bytes in place.
+  it("does not credit a failed build with the PDF an earlier build wrote", async () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pdf");
+    let answer = result({ hasPdf: true });
+    const view = renderPipeline(async () => answer);
+    const answerCommand = vi.mocked(invoke).getMockImplementation()!;
+    vi.mocked(invoke).mockImplementation(async (command, args) => command === "read_compiled_pdf"
+      ? new TextEncoder().encode("%PDF-1.5 shown").buffer
+      : answerCommand(command, args));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "succeeded" });
+
+    answer = result({ success: false, hasPdf: false, diagnostics: [{ level: "error", message: "File `chapter.tex' not found." }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+
+    answer = result({ success: false, hasPdf: true, diagnostics: [{ level: "error", message: "File `foo.sty' not found." }] });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", wrotePdf: false });
+    expect(view.result.current.pdfUrl).toBe("blob:pdf");
+  });
+
   it("reports a build the backend rejected as failed", async () => {
     const view = renderPipeline(async () => { throw new Error("latexmk could not start"); });
     await act(() => view.result.current.runBuild(false, { requested: true }));

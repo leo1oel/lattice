@@ -388,7 +388,7 @@ export function useBuildPipeline({
         const fingerprint = pdfBytes ? pdfBytesFingerprint(pdfBytes) : null;
         const wrotePdf = fingerprint !== null && !cancelled
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
-        readPdfFingerprintRef.current = fingerprint;
+        if (fingerprint !== null) readPdfFingerprintRef.current = fingerprint;
         compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
         setOutcome(buildOutcome(result, cancelled, quietRef.current, wrotePdf));
         const { rootDocument } = result;
