@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
@@ -95,34 +95,33 @@ export function LiteratureSettings() {
       <SettingsSectionHeader title={t`Literature services`} />
       {busy === "load" && <InfinityLoader size={16} />}
       {message("load")}
-      {/* One card, a row per service: its name, which key it uses now, and
-          where to get one, with the key's field under it. The page title
-          names the card. */}
-      <SettingsGroup>
-        {providers.map(({ id, name, url }) => (
-          <Fragment key={id}>
-            <SettingsRow data-setting={`literature-${id}`} label={t(name)} htmlFor={`literature-${id}`} description={credentials ? sourceLabel(id, credentials[id]) : t`Loading…`}>
-              <Button variant="ghost" size="compact" disabled={busy !== null} onClick={() => void run(id, () => openUrl(url))}>
-                {t`Get API key`} <ExternalLink size={12} />
-              </Button>
-            </SettingsRow>
-            <form className="literature-credential-form" onSubmit={(event) => { event.preventDefault(); void run(id, () => save(id, drafts[id].trim())); }}>
-              <Input id={`literature-${id}`} aria-label={t`API key`} type="password" autoComplete="off" spellCheck={false} maxLength={16384} disabled={disabled}
-                placeholder={credentials?.[id] === "saved" ? t`Enter a replacement key` : t`Paste your API key`}
-                value={drafts[id]} onChange={(event) => { setDrafts({ ...drafts, [id]: event.target.value }); setNotice(null); }} />
-              <div className="literature-credential-actions">
-                <Button size="compact" type="submit" disabled={disabled || !drafts[id].trim()}>{t`Save`}</Button>
-                <Button size="compact" variant="secondary" disabled={disabled || ((id === "semanticscholar" && credentials?.[id] === "anonymous") || credentials?.[id] === "missing") && !drafts[id].trim()} onClick={() => void run(id, () => test(id))}>{t`Test connection`}</Button>
-                {credentials?.[id] === "saved" && <Button size="compact" variant="ghost" disabled={disabled} onClick={() => void run(id, () => save(id, null))}>{t`Remove key`}</Button>}
-                {busy === id && <InfinityLoader size={14} />}
-              </div>
-            </form>
-            {message(id)}
-          </Fragment>
-        ))}
+      {/* A group per service, titled with its name: the page holds four, so
+          the headings are what it scans by. */}
+      {providers.map(({ id, name, url }) => (
+        <SettingsGroup key={id} title={t(name)} data-setting={`literature-${id}`}>
+          <SettingsRow label={t`API key`} htmlFor={`literature-${id}`} description={credentials ? sourceLabel(id, credentials[id]) : t`Loading…`}>
+            <Button variant="ghost" size="compact" disabled={busy !== null} onClick={() => void run(id, () => openUrl(url))}>
+              {t`Get API key`} <ExternalLink size={12} />
+            </Button>
+          </SettingsRow>
+          <form className="literature-credential-form" onSubmit={(event) => { event.preventDefault(); void run(id, () => save(id, drafts[id].trim())); }}>
+            <Input id={`literature-${id}`} type="password" autoComplete="off" spellCheck={false} maxLength={16384} disabled={disabled}
+              placeholder={credentials?.[id] === "saved" ? t`Enter a replacement key` : t`Paste your API key`}
+              value={drafts[id]} onChange={(event) => { setDrafts({ ...drafts, [id]: event.target.value }); setNotice(null); }} />
+            <div className="literature-credential-actions">
+              <Button size="compact" type="submit" disabled={disabled || !drafts[id].trim()}>{t`Save`}</Button>
+              <Button size="compact" variant="secondary" disabled={disabled || ((id === "semanticscholar" && credentials?.[id] === "anonymous") || credentials?.[id] === "missing") && !drafts[id].trim()} onClick={() => void run(id, () => test(id))}>{t`Test connection`}</Button>
+              {credentials?.[id] === "saved" && <Button size="compact" variant="ghost" disabled={disabled} onClick={() => void run(id, () => save(id, null))}>{t`Remove key`}</Button>}
+              {busy === id && <InfinityLoader size={14} />}
+            </div>
+          </form>
+          {message(id)}
+        </SettingsGroup>
+      ))}
+      {/* eslint-disable-next-line lattice/visible-attribute-text -- product name */}
+      <SettingsGroup title="Crossref" data-setting="literature-email">
         <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref`} />
-        {/* Search reveals the field, the row's only control. */}
-        <form data-setting="literature-email" className="literature-credential-form" onSubmit={(event) => {
+        <form className="literature-credential-form" onSubmit={(event) => {
           event.preventDefault();
           void run("crossref", async () => {
             const value = await invoke<Credentials>("set_literature_contact", { email: email.trim() });

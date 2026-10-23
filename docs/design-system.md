@@ -352,7 +352,8 @@ and Diff metadata to the aliases above.
 
 Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
-A description, subtitle, or explainer paragraph appears only when it says something the label or control does not. A settings group gets a heading only when it holds several rows.
+A description, subtitle, or explainer paragraph appears only when it says something the label or control does not.
+Structural section headings stay: on a page, panel or sidebar with three or more groups, each group carries a short noun title (a settings group, a sidebar cluster, a drawer section), a one-item group included, so the surface scans by its headings. A page's leading group may go untitled, since the page title names it. A heading titles its group and never explains it, so no sentence sits under it.
 The interface carries no taglines, and labels do the explaining: a row, option or button whose label needs a sentence under it gets a better label, not the sentence.
 What stays as secondary copy is what the writer would otherwise miss: why a control is disabled or has no effect, a warning before something irreversible, overwritten or shared (what an export contains, what leaves the Mac), an error and its way out, and credits a licence requires.
 A shortcut or gesture that only a hint line taught moves into its control's tooltip (`Tip`'s `shortcut`, or the hover card a control already has); a list picker draws no ↑↓/↵/Esc legend.

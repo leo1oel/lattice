@@ -136,9 +136,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
       { tab: "logs", label: t`Logs`, icon: "receipt" },
     ] },
-    // One item needs no heading over it: it stands apart by the group gap
-    // alone, and keeps the name for assistive technology.
-    { label: t`About`, unlabelled: true, items: [
+    { label: t`About`, items: [
       { tab: "acknowledgements", label: t`Acknowledgements`, icon: "chat" },
     ] },
   ] as const;
@@ -299,13 +297,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
               onOpen={openSearchResult}
             />
             {!searchQuery.trim() && settingsNavGroups.map((group, groupIndex) => (
-              <div
-                key={group.label}
-                className="settings-nav-group"
-                role="group"
-                {...("unlabelled" in group ? { "aria-label": group.label } : { "aria-labelledby": `settings-nav-${groupIndex}` })}
-              >
-                {!("unlabelled" in group) && <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>}
+              <div key={group.label} className="settings-nav-group" role="group" aria-labelledby={`settings-nav-${groupIndex}`}>
+                <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>
                 {group.items.map((item) => (
                   <button
                     key={item.tab}
