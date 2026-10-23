@@ -253,8 +253,10 @@ export async function checkAppSizeBudgets(
 
 // The installed app is what a user's disk pays for, so this budget counts
 // allocated blocks (what `du` and Finder's "on disk" report): thousands of
-// small runtime files each round up to a 4 KiB block.
-const INSTALLED_APP_BUDGET_BYTES = 315 * 1024 * 1024;
+// small runtime files each round up to a 4 KiB block. Synara 1.0.8 raised it
+// from 315 MiB: the web bundle gained the Code OSS editor's client (about
+// 7 MiB), and only about 3 MiB of it is reachable from that editor alone.
+const INSTALLED_APP_BUDGET_BYTES = 320 * 1024 * 1024;
 
 // Each file counts toward the longest of these prefixes it sits under; the
 // runtimes are split where their size is decided.
