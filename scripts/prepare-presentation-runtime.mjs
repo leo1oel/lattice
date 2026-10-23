@@ -186,7 +186,16 @@ async function preparePresentationRuntime() {
   const stage = join(projectRoot, "node_modules/.cache/lattice/presentation-runtime");
   rmSync(stage, { recursive: true, force: true });
   mkdirSync(stage, { recursive: true });
-  for (const file of ["package.json", "pnpm-lock.yaml", "server.mjs", "lucide-open-slide.mjs"]) {
+  const runtimeFiles = [
+    "package.json",
+    "pnpm-lock.yaml",
+    "server.mjs",
+    "agent-chat.mjs",
+    "deck-error-overlay.mjs",
+    "patch-contract.mjs",
+    "lucide-open-slide.mjs",
+  ];
+  for (const file of runtimeFiles) {
     cpSync(join(source, file), join(stage, file));
   }
   run(

@@ -18663,7 +18663,7 @@ The SPDX identifier is known, but the package contains no `LICENSE`,
 `COPYING` or `NOTICE` file, so the copyright line those licenses require us
 to reproduce is not available from the artifact we distribute.
 
-- `@rolldown/binding-darwin-arm64@1.2.7` (presentation-runtime) — declared `MIT`
+- `@rolldown/binding-darwin-arm64@1.2.15` (presentation-runtime) — declared `MIT`
 - `react-remove-scroll-bar@2.3.8` (presentation-runtime) — declared `MIT`
 
 ### License texts (23 distinct texts across 120 packages)
@@ -18672,7 +18672,7 @@ to reproduce is not available from the artifact we distribute.
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/helper-string-parser@7.29.7`, `@babel/helper-validator-identifier@7.29.7`, `@babel/runtime@7.29.7`, `@babel/types@7.29.8`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@dnd-kit/accessibility@3.1.1`, `@dnd-kit/core@6.3.1`, `@dnd-kit/sortable@10.0.0`, `@dnd-kit/utilities@3.2.2`, `@open-slide/core@2.2.0`, `@oxc-project/types@0.148.0`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-compose-refs@1.1.5`, `@radix-ui/react-context@1.2.2`, `@radix-ui/react-dialog@1.1.23`, `@radix-ui/react-dismissable-layer@1.1.19`, `@radix-ui/react-focus-guards@1.1.6`, `@radix-ui/react-focus-scope@1.1.16`, `@radix-ui/react-id@1.1.4`, `@radix-ui/react-portal@1.1.17`, `@radix-ui/react-presence@1.1.10`, `@radix-ui/react-primitive@2.1.10`, `@radix-ui/react-slot@1.3.3`, `@radix-ui/react-use-callback-ref@1.1.4`, `@radix-ui/react-use-controllable-state@1.2.6`, `@radix-ui/react-use-effect-event@0.0.5`, `@radix-ui/react-use-layout-effect@1.1.4`, `@rolldown/pluginutils@1.0.1`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide-darwin-arm64@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@vitejs/plugin-react@6.1.1`, `aria-hidden@1.2.6`, `chalk@6.0.0`, `clsx@2.1.1`, `cmdk@1.1.1`, `detect-node-es@1.1.0`, `emoji-picker-react@4.19.1`, `fflate@0.8.3`, `get-nonce@1.0.1`, `html-to-image@1.11.13`, `jiti@2.7.0`, `next-themes@0.4.6`, `react-dom@19.2.8`, `react-remove-scroll@2.7.2`, `react-router-dom@7.18.4`, `react-router@7.18.4`, `react-style-singleton@2.2.3`, `react@19.2.8`, `scheduler@0.27.0`, `shadcn@4.21.4`, `sonner@2.0.8`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyglobby@0.2.17`, `tw-animate-css@1.4.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`
+`@babel/helper-string-parser@7.29.7`, `@babel/helper-validator-identifier@7.29.7`, `@babel/runtime@7.29.7`, `@babel/types@7.29.8`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@dnd-kit/accessibility@3.1.1`, `@dnd-kit/core@6.3.1`, `@dnd-kit/sortable@10.0.0`, `@dnd-kit/utilities@3.2.2`, `@open-slide/core@2.3.1`, `@oxc-project/types@0.155.0`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-compose-refs@1.1.5`, `@radix-ui/react-context@1.2.2`, `@radix-ui/react-dialog@1.1.23`, `@radix-ui/react-dismissable-layer@1.1.19`, `@radix-ui/react-focus-guards@1.1.6`, `@radix-ui/react-focus-scope@1.1.16`, `@radix-ui/react-id@1.1.4`, `@radix-ui/react-portal@1.1.17`, `@radix-ui/react-presence@1.1.10`, `@radix-ui/react-primitive@2.1.10`, `@radix-ui/react-slot@1.3.3`, `@radix-ui/react-use-callback-ref@1.1.4`, `@radix-ui/react-use-controllable-state@1.2.6`, `@radix-ui/react-use-effect-event@0.0.5`, `@radix-ui/react-use-layout-effect@1.1.4`, `@rolldown/pluginutils@1.0.1`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide-darwin-arm64@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@vitejs/plugin-react@6.1.1`, `aria-hidden@1.2.6`, `chalk@6.0.1`, `clsx@2.1.1`, `cmdk@1.1.1`, `detect-node-es@1.1.0`, `emoji-picker-react@4.19.1`, `fflate@0.8.3`, `get-nonce@1.0.1`, `html-to-image@1.11.13`, `jiti@2.7.0`, `next-themes@0.4.6`, `react-dom@19.2.8`, `react-remove-scroll@2.7.2`, `react-router-dom@7.18.4`, `react-router@7.18.4`, `react-style-singleton@2.2.3`, `react@19.2.8`, `scheduler@0.27.0`, `shadcn@4.21.4`, `sonner@2.0.8`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyglobby@0.2.17`, `tw-animate-css@1.4.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.7.0`
 
 </details>
 
@@ -18828,7 +18828,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`nanoid@3.3.18`, `postcss@8.5.28`, `queue-microtask@1.2.3`, `run-parallel@1.2.0`
+`nanoid@3.3.20`, `postcss@8.5.31`, `queue-microtask@1.2.3`, `run-parallel@1.2.0`
 
 </details>
 
@@ -19736,11 +19736,11 @@ Apache License
 
 <details><summary>Packages sharing this text</summary>
 
-`vite@8.3.0`
+`vite@8.3.4`
 
 </details>
 
-Copyright notices (93):
+Copyright notices (91):
 
 ```text
 (c) You must retain, in the Source form of any Derivative Works
@@ -19788,7 +19788,6 @@ Copyright (c) 2016 Douglas Christopher Wilson <doug@somethingdoug.com>
 Copyright (c) 2016 Luigi Pinca and contributors
 Copyright (c) 2016, Scott Motte
 Copyright (c) 2017-present, Yuxi (Evan) You
-Copyright (c) 2018 Made With MOXY Lda <hello@moxy.studio>
 Copyright (c) 2018-2021 Josh Junon
 Copyright (c) 2019 Elan Shanker, Paul Miller (https://paulmillr.com)
 Copyright (c) 2019 Rich Harris
@@ -19802,6 +19801,7 @@ Copyright (c) 2022 Anthony Fu <https://github.com/antfu>
 Copyright (c) 2022 Anton Kastritskiy
 Copyright (c) 2023 [these people](https://github.com/Rich-Harris/zimmerframe/graphs/contributors)
 Copyright (c) 2023-present, sapphi-red
+Copyright (c) 2024 Tinylibs
 Copyright (c) 2025 sapphi-red
 Copyright (c) 2026 sapphi-red
 Copyright (c) 2026-present, VoidZero Inc.
@@ -19809,8 +19809,6 @@ Copyright (c) Ben Briggs <beneb.info@gmail.com> (http://beneb.info)
 Copyright (c) Bogdan Chadkin <trysound@yandex.ru>
 Copyright (c) EGOIST <0x142857@gmail.com> (https://github.com/egoist)
 Copyright (c) Felix Böhm
-Copyright (c) Isaac Z. Schlueter and Contributors
-Copyright (c) Kevin Mårtensson <kevinmartensson@gmail.com> (github.com/kevva)
 Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (https://lukeed.com)
 Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
 Copyright (c) Paul Miller (https://paulmillr.com)
@@ -20515,35 +20513,6 @@ Repository: https://github.com/expressjs/cors
 
 ---------------------------------------
 
-## cross-spawn
-License: MIT
-By: André Cruz
-Repository: https://github.com/moxystudio/node-cross-spawn
-
-> The MIT License (MIT)
->
-> Copyright (c) 2018 Made With MOXY Lda <hello@moxy.studio>
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in
-> all copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-> THE SOFTWARE.
-
----------------------------------------
-
 ## cssesc
 License: MIT
 By: Mathias Bynens
@@ -21067,29 +21036,6 @@ Repository: https://github.com/Rich-Harris/is-reference
 
 ---------------------------------------
 
-## isexe, which
-License: ISC
-By: Isaac Z. Schlueter
-Repositories: https://github.com/isaacs/isexe, https://github.com/isaacs/node-which
-
-> The ISC License
->
-> Copyright (c) Isaac Z. Schlueter and Contributors
->
-> Permission to use, copy, modify, and/or distribute this software for any
-> purpose with or without fee is hereby granted, provided that the above
-> copyright notice and this permission notice appear in all copies.
->
-> THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-> WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-> MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-> ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-> WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-> ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-> IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
----------------------------------------
-
 ## js-tokens
 License: MIT
 By: Simon Lydell
@@ -21510,23 +21456,6 @@ Repository: https://github.com/pillarjs/parseurl
 
 ---------------------------------------
 
-## path-key, shebang-regex
-License: MIT
-By: Sindre Sorhus
-Repositories: https://github.com/sindresorhus/path-key, https://github.com/sindresorhus/shebang-regex
-
-> MIT License
->
-> Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
----------------------------------------
-
 ## periscopic
 License: MIT
 Repository: https://github.com/Rich-Harris/periscopic
@@ -21837,23 +21766,6 @@ Repositories: https://github.com/lukeed/resolve.exports, https://github.com/luke
 
 ---------------------------------------
 
-## shebang-command
-License: MIT
-By: Kevin Mårtensson
-Repository: https://github.com/kevva/shebang-command
-
-> MIT License
->
-> Copyright (c) Kevin Mårtensson <kevinmartensson@gmail.com> (github.com/kevva)
->
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
----------------------------------------
-
 ## shell-quote
 License: MIT
 By: James Halliday
@@ -21938,6 +21850,35 @@ Repository: https://github.com/antfu/strip-literal
 > MIT License
 >
 > Copyright (c) 2022 Anthony Fu <https://github.com/antfu>
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+---------------------------------------
+
+## tinyexec
+License: MIT
+By: James Garbutt
+Repository: https://github.com/tinylibs/tinyexec
+
+> MIT License
+>
+> Copyright (c) 2024 Tinylibs
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
@@ -22408,7 +22349,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`rolldown@1.2.7`
+`rolldown@1.2.15`
 
 </details>
 
@@ -22649,7 +22590,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 <details><summary>Packages sharing this text</summary>
 
-`source-map-js@1.2.1`
+`source-map-js@1.2.2`
 
 </details>
 
