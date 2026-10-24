@@ -142,7 +142,6 @@ const BASELINE: Record<string, number> = {
   "src/trellis/trellis-header-tools.tsx": 1,
   // ReadOnlyMarkdown's bailout, moved here from trellis-workspace.tsx with it.
   "src/trellis/trellis-text-snapshot.tsx": 1,
-  "src/trellis/trellis-workspace.tsx": 4,
 };
 
 /** Every source file the build hands the compiler: src/, minus tests and declarations. */

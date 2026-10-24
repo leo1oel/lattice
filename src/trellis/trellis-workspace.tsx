@@ -9,62 +9,45 @@
  * (text, drawn the way it opens; a Paper; a PDF or an image) or a sleeping
  * card (boards, sheets) until it is clicked. A panel that is not on screen
  * renders nothing at all. Decks are the exception: each open one keeps its
- * own live host (see DeckSlot).
+ * own live host (see DeckSlot in trellis-document-views.tsx).
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
-  Workspace, ViewType, useCloseGuard, useView, useViewBadge,
+  Workspace, ViewType,
   type LayoutDocument, type MenuEntry, type MenuItem, type MenuRequest, type ViewHandle, type ViewInfo,
   type WorkspaceHandle,
 } from "@danfessler/trellis-react";
-import type { LayoutNode, PanelNode } from "@danfessler/trellis";
 import "@danfessler/trellis/style.css";
-import { BookOpen, FileText, FolderTree, Moon, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { ResearchArt } from "@/components/ui/research-art";
-import { MANUSCRIPT_CLIPBOARD } from "@/components/ui/research-art-clipboard";
-import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
-import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
+import { FileText } from "lucide-react";
 import { retainParkedEditors } from "../editor/parked-editors";
-import { Tip } from "../components/icon-tip";
-import { ProjectAssetPreview } from "../canvas/project-asset-preview";
-import type { AssetPreview } from "../app-types";
+import { TOOL_KINDS, documentTools, type TrellisController, type TrellisSingleton, type TrellisToolKind } from "./trellis-controller";
 import {
-  TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
-  type TrellisUiState,
-} from "./trellis-controller";
-import {
-  arrangeDocuments, defaultLayout, differsFromWorkspace, enterFocus, enterPreset, filledSlots, keepDocumentSlot, loadFocusPdf,
-  openProjectLayout, persistFocusPdf, placesOf, returnLayout, saveLayout, undoReset, workspaceArrangement,
+  differsFromWorkspace, filledSlots, keepDocumentSlot, openProjectLayout, placesOf, saveLayout,
   VIEW_TYPES, type ActiveFocus, type ActivePreset, type DocumentPlaces,
 } from "./trellis-layout";
-import { notifyInfo } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { TRELLIS_KEYMAP } from "./trellis-keymap";
 import { installTrellisLabels } from "./trellis-labels";
-import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./trellis-workspaces";
-import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
-import { PANEL_ICONS, fileIcon } from "./trellis-icons";
+import { layoutShape } from "./trellis-workspaces";
+import { PANEL_TITLES } from "./trellis-titles";
+import { PANEL_ICONS } from "./trellis-icons";
 import { PanelMenu } from "./trellis-panel-menu";
-import { openDocumentTab, useDocumentTabs, useFileTab, withTabItems } from "./trellis-document-tabs";
+import { useDocumentTabs, withTabItems } from "./trellis-document-tabs";
 import type { FileParams } from "./trellis-tab-policy";
 import { FileHeaderTools } from "./trellis-header-tools";
-import { AfterSwitch } from "../canvas/after-switch";
 import { terminalViewType } from "../terminal/terminal-view-type";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
-import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
-import { useProjectPdfWatch } from "../pdf/use-project-pdf-watch";
-import { ReadOnlyMarkdown, TextSnapshot } from "./trellis-text-snapshot";
-import { useBesideActive } from "./use-beside-active";
+import { AgentView, HostSlot, NavigatorView, PdfView, SlotView, ToolView, WorkspaceEmpty } from "./trellis-panel-views";
+import { FileView } from "./trellis-document-views";
+import { installLayoutHandlers, RESET_UNDO_TOAST, type ResetUndo } from "./trellis-layout-handlers";
+import { useTabSync } from "./use-tab-sync";
+import { useHibernation } from "./use-hibernation";
 import "./trellis.css";
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
 installTrellisLabels();
-
-/** How long a heavy panel may be off screen before it unmounts. */
-const HIBERNATE_AFTER_MS = 20_000;
 
 /** Content minima only. The Trellis patch separately reserves header actions
  * and all tabs at 100px each (capped at 480px, see trellis.css). A panel is
@@ -94,97 +77,6 @@ function measuredMinSize(base: { width: number; height: number }, measured: () =
     get width() { return Math.max(base.width, measured()); },
     height: base.height,
   };
-}
-
-
-function findPanel(node: LayoutNode, id: string): PanelNode | null {
-  if (node.kind === "panel") return node.id === id ? node : null;
-  if (node.kind === "stage") return node.child ? findPanel(node.child, id) : null;
-  for (const child of node.children) {
-    const found = findPanel(child, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-/** Boards, sheets and decks: expensive enough to unmount when their panel is off screen, and never drawn as a text snapshot. */
-function isHeavyDocument(key: string) {
-  return key.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(key) || isOpenSlideDeckPath(key);
-}
-
-/**
- * Adopt a host element App portals into; it never leaves this slot while
- * mounted. `inline` slots sit in a tab bar and take only their content's
- * width: a full-size slot there would cover the bar and swallow the drags
- * and clicks that belong to it.
- */
-function HostSlot({ host, className, inline = false }: { host: HTMLElement; className?: string; inline?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const slot = ref.current;
-    if (!slot) return;
-    slot.appendChild(host);
-    return () => {
-      if (host.parentElement === slot) slot.removeChild(host);
-    };
-  }, [host]);
-  return <div ref={ref} className={cn(inline ? "trellis-slot-inline" : "trellis-slot", className)} />;
-}
-
-/** Report a singleton panel's presence and visibility to the controller. */
-function useReportPanel(controller: TrellisController, kind: TrellisSingleton) {
-  const view = useView();
-  const visible = view.visible;
-  useEffect(() => {
-    const { present, visible: shown } = controller.ui.get();
-    controller.ui.set({ present: { ...present, [kind]: true }, visible: { ...shown, [kind]: visible } });
-  }, [controller, kind, visible]);
-  useEffect(() => () => {
-    const { present, visible: shown } = controller.ui.get();
-    controller.ui.set({ present: { ...present, [kind]: false }, visible: { ...shown, [kind]: false } });
-  }, [controller, kind]);
-  return view;
-}
-
-function NavigatorView({ controller, kind }: { controller: TrellisController; kind: "project" | "papers" }) {
-  useReportPanel(controller, kind);
-  return <HostSlot host={controller.hosts[kind]} className="trellis-navigator" />;
-}
-
-function AgentView({ controller }: { controller: TrellisController }) {
-  useReportPanel(controller, "agent");
-  useEffect(() => { controller.bridge?.agentShown(); }, [controller]);
-  return <HostSlot host={controller.hosts.agent} className="trellis-agent" />;
-}
-
-/** A quiet placeholder for a panel whose content is not mounted right now. */
-function EmptyState({ icon, art, title, children, onActivate, className }: {
-  icon?: ReactNode;
-  /** A drawing in place of the icon, for a panel with room to show one. */
-  art?: ReactNode;
-  title: ReactNode;
-  children?: ReactNode;
-  onActivate?: () => void;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn("trellis-empty", onActivate && "trellis-empty-activatable", className)}
-      onClick={onActivate}
-      role={onActivate ? "button" : undefined}
-      tabIndex={onActivate ? 0 : undefined}
-      onKeyDown={onActivate ? (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onActivate();
-        }
-      } : undefined}
-    >
-      {art ? <span className="trellis-empty-art">{art}</span> : <span className="trellis-empty-icon">{icon}</span>}
-      <strong>{title}</strong>
-      {children && <div className="trellis-empty-actions">{children}</div>}
-    </div>
-  );
 }
 
 /**
@@ -227,310 +119,6 @@ function observePdfToolbarMinimum(controller: TrellisController): () => void {
   };
 }
 
-function PdfView({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
-  useReportPanel(controller, "pdf");
-  const live = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfLive);
-  return (
-    <>
-      <HostSlot host={controller.hosts.pdf} className="trellis-pdf" />
-      {!live && (
-        <EmptyState icon={<Moon size={16} />} title={t`PDF preview paused`} />
-      )}
-    </>
-  );
-}
-
-function ToolView({ controller, kind }: { controller: TrellisController; kind: TrellisToolKind }) {
-  const { t, i18n } = useLingui();
-  useReportPanel(controller, kind);
-  const open = useSyncExternalStore(controller.openDrawers.subscribe, () => Boolean(controller.openDrawers.get()[kind]));
-  // A tool panel restored from a saved layout re-opens its drawer once.
-  useEffect(() => {
-    if (!controller.openDrawers.get()[kind]) controller.bridge?.openTool(kind);
-  }, [controller, kind]);
-  const title = i18n._(PANEL_TITLES[kind]);
-  return (
-    <>
-      <HostSlot host={controller.toolHost(kind)} className="trellis-tool" />
-      {!open && (
-        <EmptyState icon={PANEL_ICONS[kind]} title={title}>
-          <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.openTool(kind)}>
-            {spaceMixedScript(t`Open ${title}`)}
-          </button>
-        </EmptyState>
-      )}
-    </>
-  );
-}
-
-/**
- * A document that is not drawn right now (asleep, or a live editor paused
- * while hidden): its icon and name as one button, a press away from open.
- */
-function SleepingDocument({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
-  const bridge = controller.bridge;
-  const kind = bridge?.tabKind(fileKey) ?? "file";
-  return (
-    <EmptyState
-      icon={fileIcon(fileKey, kind, 16)}
-      title={bridge?.tabLabel(fileKey) ?? fileKey}
-      onActivate={() => controller.activate(fileKey)}
-    />
-  );
-}
-
-/**
- * A Paper that is not the active document, drawn read-only where it was being
- * read, so the Reading layout keeps it legible beside the notes being
- * written. It scrolls in place, and the place it is left at is where the full
- * reader, brought back by its header's button, picks up.
- */
-function PaperSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
-  if (!useBesideActive(controller, panelId)) return <SleepingDocument controller={controller} fileKey={fileKey} />;
-  return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
-}
-
-function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
-  const { t } = useLingui();
-  const [paper, setPaper] = useState<{ path: string; text: string } | null | undefined>(undefined);
-  useEffect(() => {
-    let disposed = false;
-    void controller.bridge?.readPaper(fileKey).then((value) => {
-      if (!disposed) setPaper(value);
-    }, () => {
-      if (!disposed) setPaper(null);
-    });
-    return () => { disposed = true; };
-  }, [controller, fileKey]);
-  if (paper === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
-  return (
-    <div className="trellis-paper-snapshot">
-      {/* The reader's own header, so the text holds its place when the reader comes back. */}
-      <header className="paper-reader-header">
-        <div className="paper-local-actions">
-          {/* Named apart from its text, which a narrow header hides; the tip
-              then names the bare icon. */}
-          <Tip label={t`Open the reader`}>
-            <button type="button" className="paper-local-action" aria-label={t`Open the reader`} onClick={() => controller.activate(fileKey)}>
-              <BookOpen size={14} aria-hidden="true" />
-              <span>{t`Open the reader`}</span>
-            </button>
-          </Tip>
-        </div>
-      </header>
-      {paper && <ReadOnlyMarkdown controller={controller} path={paper.path} text={paper.text} />}
-    </div>
-  );
-}
-
-/**
- * A project PDF (or image) that is not the active document, kept open where
- * it was being read: the Reading layout pairs a PDF with the notes being
- * written, and a sleeping card there would hide it at the moment the notes
- * are typed. It is the asset preview itself, sharing the reader's page and
- * zoom both ways.
- */
-function AssetSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
-  const besideActive = useBesideActive(controller, panelId);
-  const [asset, setAsset] = useState<AssetPreview | null | undefined>(undefined);
-  const [missing, setMissing] = useState(false);
-  // A rewrite on disk hands the viewer the new version, as the live document
-  // host does; a removed file stays open with a notice until it is back.
-  const [recheck, setRecheck] = useState(0);
-  const projectRoot = useTrellisApp(controller, (state) => state.projectRoot);
-  useProjectPdfWatch(besideActive && (asset === null || asset?.ranges) ? projectRoot : null, fileKey, missing, () => setRecheck((count) => count + 1));
-  useEffect(() => {
-    if (!besideActive) return;
-    let disposed = false;
-    void controller.bridge?.readAsset(fileKey).then((value) => {
-      if (disposed) return;
-      setMissing(false);
-      setAsset((current) => (current && current.ranges?.version === value.ranges?.version ? current : value));
-    }, (reason: unknown) => {
-      if (disposed) return;
-      setAsset((current) => current ?? null);
-      if (isProjectFileMissing(reason)) setMissing(true);
-    });
-    return () => { disposed = true; };
-  }, [besideActive, controller, fileKey, recheck]);
-  // Paging, zooming or searching the PDF beside the notes keeps the notes
-  // active: the focus Trellis reports for it would otherwise activate the PDF
-  // and replace this viewer, and the field just clicked, with the live host.
-  // Native capture listeners, so they run after the workspace root's release
-  // and before the deferred activation (React's would run ahead of the root's).
-  // Its tab stays the way to open the PDF itself.
-  const holdReading = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return;
-    const hold = () => controller.holdReading(fileKey);
-    element.addEventListener("pointerdown", hold, true);
-    element.addEventListener("focusin", hold, true);
-    return () => {
-      element.removeEventListener("pointerdown", hold, true);
-      element.removeEventListener("focusin", hold, true);
-    };
-  }, [controller, fileKey]);
-  if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} />;
-  if (!asset) return null;
-  return (
-    <div ref={holdReading} className="trellis-pdf-snapshot">
-      {/* Laid out as the live document host lays out the preview. */}
-      <div className="canvas-body">
-        <AfterSwitch state={controller.switchState}>
-          <ProjectAssetPreview
-            asset={asset}
-            missing={missing}
-            viewState={controller.bridge?.viewState(fileKey)}
-            onViewState={(update) => controller.bridge?.rememberViewState(fileKey, update)}
-            onFileChanged={() => setRecheck((count) => count + 1)}
-            onPdfTextSelect={(text, place) => controller.bridge?.pdfTextSelect(text, place)}
-          />
-        </AfterSwitch>
-      </div>
-    </div>
-  );
-}
-
-function FileView({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
-  const view = useView<FileParams>();
-  const key = view.params.key;
-  const active = useTrellisApp(controller, (state) => state.activeKey === key);
-  const dirty = useTrellisApp(controller, (state) => state.activeKey === key && state.activeDirty);
-  const hibernated = useSyncExternalStore(controller.ui.subscribe, () => active && controller.ui.get().editorHibernated);
-  useViewBadge(dirty ? true : null);
-  // Lattice saves instead of discarding: a dirty document saves before its
-  // panel closes, and a failed save asks before anything is lost.
-  useCloseGuard(async () => {
-    const state = controller.app.get();
-    if (state.activeKey !== key || !state.activeDirty) return true;
-    if (await controller.bridge?.save()) return true;
-    const name = controller.bridge?.tabLabel(key) ?? key;
-    return confirmAction({
-      title: t`Unsaved changes`,
-      message: t`${name} could not be saved. Close it and discard the unsaved changes?`,
-      confirmLabel: t`Discard and close`,
-      destructive: true,
-    });
-  });
-  useEffect(() => {
-    if (active) controller.ui.set({ editorVisible: view.visible });
-  }, [active, controller, view.visible]);
-  const surfaceIcon = useFileTab(controller, view);
-  if (isOpenSlideDeckPath(key)) {
-    return (
-      <>
-        {surfaceIcon}
-        <DeckSlot controller={controller} fileKey={key} view={view} />
-        {/* What App lays over the active document (a document opening) still shows over a deck. */}
-        {active && <HostSlot host={controller.hosts.editor} className="trellis-deck-overlay" />}
-      </>
-    );
-  }
-  if (active) {
-    return (
-      <>
-        {surfaceIcon}
-        <HostSlot host={controller.hosts.editor} className="trellis-file-live" />
-        {hibernated && <SleepingDocument controller={controller} fileKey={key} />}
-      </>
-    );
-  }
-  if (!view.visible) return <>{surfaceIcon}</>;
-  const kind = controller.bridge?.tabKind(key) ?? "file";
-  return (
-    <>
-      {surfaceIcon}
-      {kind === "file" && !isHeavyDocument(key)
-        ? <TextSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
-        : kind === "paper"
-          ? <PaperSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
-          : kind === "asset"
-            ? <AssetSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
-            : <SleepingDocument controller={controller} fileKey={key} />}
-    </>
-  );
-}
-
-/**
- * An open deck's own host, adopted for as long as its panel holds it, active
- * or not and selected or not: its Open Slide frame never leaves the page, so
- * nothing reloads it (Trellis keeps a view's content element in place while
- * the view exists, and only hides an unselected one). Its tab only goes to
- * sleep when its panel has been off screen for a while: hidden, or out of
- * the framing; an unselected tab in a panel on screen is a click away and
- * stays loaded.
- */
-function DeckSlot({ controller, fileKey, view }: { controller: TrellisController; fileKey: string; view: { visible: boolean; selected: boolean; placement: string } }) {
-  const onScreen = view.visible || (!view.selected && view.placement !== "hidden");
-  useEffect(() => {
-    if (onScreen) {
-      controller.decks.setSleeping(fileKey, false);
-      return;
-    }
-    const timer = window.setTimeout(() => controller.decks.setSleeping(fileKey, true), HIBERNATE_AFTER_MS);
-    return () => window.clearTimeout(timer);
-  }, [controller, fileKey, onScreen]);
-  useEffect(() => () => controller.decks.setSleeping(fileKey, false), [controller, fileKey]);
-  // An inactive deck streams nothing and holds the props it was last handed,
-  // so working in it makes it the active document (see `decks.watchFocus`).
-  const active = useTrellisApp(controller, (state) => state.activeKey === fileKey);
-  useEffect(() => {
-    if (active) return;
-    // Left in the frame when another document became active without taking
-    // focus (an agent opening a file), focus would already be where a press
-    // back into the deck puts it.
-    if (controller.decks.host(fileKey).contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
-    return controller.decks.watchFocus(fileKey);
-  }, [active, controller, fileKey]);
-  return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
-}
-
-/** Quick open's keys beside its button, from the command table rather than typed out. */
-function QuickOpenKeys({ controller }: { controller: TrellisController }) {
-  const keys = controller.bridge?.shortcut("quick-open");
-  return keys ? <kbd>{keys}</kbd> : null;
-}
-
-/** A document panel with no document in it: the next one opened lands here. */
-function SlotView({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
-  return (
-    <EmptyState
-      art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
-      title={t`No document open`}
-    >
-      <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
-        <Search size={13} />
-        {t`Quick open`}
-        <QuickOpenKeys controller={controller} />
-      </button>
-    </EmptyState>
-  );
-}
-
-/** Only when every panel is closed: panels fill each other's space otherwise. */
-function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
-  return (
-    <EmptyState
-      className="trellis-workspace-empty"
-      art={<ResearchArt drawing={MANUSCRIPT_CLIPBOARD} />}
-      title={t`Every panel is closed`}
-    >
-      <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
-        <Search size={13} />
-        {t`Quick open`}
-        <QuickOpenKeys controller={controller} />
-      </button>
-      <button type="button" className="trellis-empty-button" onClick={() => void controller.resetLayout()}>
-        <FolderTree size={13} />
-        {t`Reset layout`}
-      </button>
-    </EmptyState>
-  );
-}
-
 // Trellis draws its chrome from these. Every value is a Lattice design token,
 // so both themes follow the app.
 const TOKENS: Record<string, string> = {
@@ -559,23 +147,17 @@ const TOKENS: Record<string, string> = {
   "--trellis-focus-ring": "0 0 0 var(--focus-ring-width) var(--focus-ring)",
 };
 
-/** The toast that offers to undo a reset; a later reset's replaces it. */
-const RESET_UNDO_TOAST = "trellis-layout-reset";
-
-/**
- * A reset that can still be undone: the layout, the preset, focus mode and
- * the focused view from before it, and the arrangement the reset left
- * (`left`, see layoutShape), which any change of the writer's own supersedes.
- */
-type ResetUndo = {
-  document: LayoutDocument; preset: ActivePreset | null; focusMode: ActiveFocus | null; focused: string | null; left: string;
-};
-
 /** `focusMode` comes from App, which reads it already: a subscription here would cost a hook on every startup render. */
 type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark: boolean; focusMode: boolean };
 
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark, focusMode }: WorkspaceProps) {
+  // Left to React as it was before its layout commands moved out to
+  // trellis-layout-handlers.ts: their try/finally made the compiler skip it,
+  // and compiling it changes what its renders memoize, which is a change of
+  // its own to measure rather than a side effect of the move.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
+  "use no memo";
   const { t, i18n } = useLingui();
   const [{ initial, initialPreset, initialFocus, initialWorkspace, initialPlaces, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
@@ -828,244 +410,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const pendingReset = useRef<Promise<void> | null>(null);
   // Bumped by entering a workspace, which cancels a reset still waiting on its save.
   const resetGeneration = useRef(0);
-  useEffect(() => {
-    const resetAfterSave = async (handle: WorkspaceHandle) => {
-      const generation = resetGeneration.current;
-      const saved = !controller.bridge || await controller.bridge.save();
-      // The save can outlast this workspace if the window closes (a project
-      // switch or another surface taking over saves first, waiting for it).
-      // Its reset, or failure, is then nothing to clear, rearrange or
-      // announce: the Undo it would offer could restore nothing.
-      if (controller.ws !== handle || resetGeneration.current !== generation) return;
-      if (!saved) {
-        controller.bridge?.notify(resetFailed);
-        return;
-      }
-      // Read after the save: the arrangement and the focus as they are now.
-      const snapshot = handle.getSnapshot();
-      const before = { document: snapshot.document, preset: presetRef.current, focusMode: focusRef.current, focused: snapshot.focusedView };
-      resettingRef.current = true;
-      presetRef.current = null;
-      focusRef.current = null;
-      try {
-        // The default with its document panel between the navigators and the
-        // PDF: the open documents fill it, and with none open it stays as an
-        // empty one, where the next document opens.
-        handle.setDocument(arrangementOf(defaultLayout()));
-      } finally {
-        resettingRef.current = false;
-      }
-      controller.ui.set({ preset: null, focus: false, focusPdf: false });
-      controller.app.set({ filesRevision: controller.app.get().filesRevision + 1 });
-      controller.resync();
-      // The open documents are back in panels now; that arrangement is the reset's own.
-      const undo: ResetUndo = { ...before, left: layoutShape(handle.getDocument()) };
-      resetUndo.current = undo;
-      // Undo: the layout from before, reconciled with what is open now
-      // (undoReset), back in the preset it was in, with the writer's view
-      // focused again if it is still on screen.
-      const restore = () => {
-        if (resetUndo.current !== undo || controller.ws !== handle) return;
-        resetUndo.current = null;
-        const { activeKey, openTabs } = controller.app.get();
-        const drawers = controller.openDrawers.get();
-        const next = undoReset(undo.document, handle.getDocument(), { activeKey, openTabs }, (type) => Boolean(drawers[type as TrellisToolKind]));
-        resettingRef.current = true;
-        presetRef.current = undo.preset;
-        focusRef.current = undo.focusMode;
-        try {
-          handle.setDocument(next);
-        } finally {
-          resettingRef.current = false;
-        }
-        controller.ui.set({ preset: undo.preset?.preset ?? null, focus: Boolean(undo.focusMode), focusPdf: undo.focusMode?.pdf ?? false });
-        controller.resync();
-        const focused = undo.focused ? handle.view(undo.focused) : null;
-        if (focused && focused.placement !== "hidden") handle.focus(focused.id);
-      };
-      notifyInfo(resetToast.source, resetToast.title, {
-        dedupeKey: RESET_UNDO_TOAST,
-        primaryAction: { label: resetToast.undo, onClick: restore },
-        onDismiss: () => {
-          if (resetUndo.current === undo) resetUndo.current = null;
-        },
-      });
-    };
-    const cancelReset = () => {
-      resetGeneration.current += 1;
-      pendingReset.current = null;
-    };
-    // `current` out of focus mode: the layout it was entered from, brought up
-    // to date with the documents opened and closed meanwhile.
-    const unfocused = (current: LayoutDocument, documents: { activeKey: string; openTabs: readonly string[] }) => {
-      const focus = focusRef.current;
-      return focus ? returnLayout(focus.previous, current, documents, focus.supplied) : current;
-    };
-    // Animate the workspace to `next`, as a switch: no document closes on the
-    // way, and PDFs coming on screen wait for the motion to settle.
-    const show = (handle: WorkspaceHandle, next: LayoutDocument, ui: Partial<TrellisUiState>) => {
-      controller.beginSwitch();
-      resettingRef.current = true;
-      try {
-        handle.setDocument(next);
-      } finally {
-        resettingRef.current = false;
-      }
-      controller.ui.set(ui);
-      controller.resync();
-    };
-    // The project into workspace `id` as it was saved, out of any preset, its
-    // documents placed by `placesFor` the writer's own layout.
-    const load = (id: string, placesFor: (own: LayoutDocument) => DocumentPlaces) => {
-      const handle = controller.ws;
-      if (!handle) return;
-      withdrawUndo();
-      cancelReset();
-      flushSave();
-      const current = handle.getDocument();
-      // Before App restored its tabs, the documents are the layout's own.
-      const { activeKey, openTabs: tabs, tabsReady } = controller.app.get();
-      const openTabs = tabsReady ? tabs : Object.keys(placesOf(current));
-      const active = presetRef.current;
-      const shown = unfocused(current, { activeKey, openTabs });
-      const own = active ? returnLayout(active.previous, shown, { activeKey, openTabs }, active.supplied) : shown;
-      const next = arrangeDocuments(workspaceArrangement(controller.workspaces, id), own, { activeKey, openTabs }, placesFor(own));
-      presetRef.current = null;
-      focusRef.current = null;
-      workspaceRef.current = id;
-      controller.workspaces.use(id);
-      controller.beginSwitch();
-      resettingRef.current = true;
-      try {
-        handle.setDocument(next);
-      } finally {
-        resettingRef.current = false;
-      }
-      const drawers = controller.openDrawers.get();
-      for (const kind of TOOL_KINDS) if (!handle.views({ type: kind }).length) drawers[kind]?.();
-      controller.ui.set({ workspace: id, preset: null, focus: false, focusPdf: false });
-      controller.resync();
-    };
-    return controller.installHandlers({
-      reset: () => {
-        const handle = controller.ws;
-        if (!handle) return Promise.resolve();
-        if (pendingReset.current) return pendingReset.current;
-        const pending = resetAfterSave(handle).finally(() => {
-          if (pendingReset.current === pending) pendingReset.current = null;
-        });
-        pendingReset.current = pending;
-        return pending;
-      },
-      // A preset regroups the open documents' own views, so no document closes
-      // and nothing needs saving first; navigators, the Agent and tools wait
-      // hidden, still mounted, for the writer's own layout to bring them back.
-      preset: (preset) => {
-        const handle = controller.ws;
-        const current = presetRef.current;
-        if (!handle || ((current?.preset ?? null) === preset && !focusRef.current)) return;
-        withdrawUndo();
-        const { activeKey, openTabs } = controller.app.get();
-        // Choosing a layout leaves focus mode, for the layout it was entered from.
-        const document = unfocused(handle.getDocument(), { activeKey, openTabs });
-        focusRef.current = null;
-        if ((current?.preset ?? null) === preset) {
-          show(handle, document, { preset: current?.preset ?? null, focus: false, focusPdf: false });
-          return;
-        }
-        let next: LayoutDocument;
-        if (preset) {
-          const entered = enterPreset(preset, document, current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
-          next = entered.document;
-          presetRef.current = entered.active;
-        } else if (current) {
-          next = returnLayout(current.previous, document, { activeKey, openTabs }, current.supplied);
-          presetRef.current = null;
-        } else {
-          return;
-        }
-        show(handle, next, { preset, focus: false, focusPdf: false });
-        // The document the layout is for becomes the active one: the source to
-        // write, the paper to read. Keyboard focus stays where it was.
-        const root = handle.getDocument().root;
-        const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
-        const key = lead ? handle.view(lead)?.params.key : null;
-        if (typeof key === "string" && key !== activeKey) controller.activate(key);
-      },
-      // Entering another workspace loads its saved arrangement, re-placing
-      // the open documents (so none closes, and nothing needs saving first)
-      // where each sat when the project was last in it. Tools follow the
-      // arrangement: one it does not show closes, one it shows opens (see ToolView).
-      workspace: (id) => {
-        const from = workspaceRef.current;
-        if (id === from || !controller.workspaces.get(id)) return;
-        load(id, (own) => {
-          placesRef.current = { ...placesRef.current, [from]: placesOf(own) };
-          return placesRef.current[id] ?? {};
-        });
-      },
-      // Revert: the workspace as saved, the open documents kept where they are when it has their panels.
-      revertWorkspace: () => {
-        if (controller.workspaces.get(workspaceRef.current)) load(workspaceRef.current, placesOf);
-      },
-      // Save: the arrangement under any preset becomes the workspace's.
-      saveWorkspace: () => {
-        const handle = controller.ws;
-        if (!handle) return;
-        const own = ownLayout(handle.getDocument());
-        if (controller.workspaces.setArrangement(workspaceRef.current, arrangementOf(own))) controller.ui.set({ dirty: false });
-      },
-      // A new workspace starts as the arrangement on screen, a preset's
-      // included, and the project moves into it without anything moving.
-      newWorkspace: (name) => {
-        const handle = controller.ws;
-        if (!handle) return null;
-        withdrawUndo();
-        cancelReset();
-        flushSave();
-        if (focusRef.current) {
-          show(handle, unfocused(handle.getDocument(), controller.app.get()), { focus: false, focusPdf: false });
-          focusRef.current = null;
-        }
-        const document = handle.getDocument();
-        const id = controller.workspaces.add(name, arrangementOf(document), workspaceRef.current);
-        presetRef.current = null;
-        workspaceRef.current = id;
-        controller.workspaces.use(id);
-        controller.ui.set({ workspace: id, preset: null });
-        // Saves it, and shows the panels a preset had parked as hidden ones.
-        onDocumentChange(document);
-        return id;
-      },
-      // A panel the writer asks for is theirs to keep, even one a preset brought in.
-      shown: (kind) => {
-        const current = presetRef.current;
-        if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
-      },
-      // Focus mode regroups the open documents' own views like a preset, over
-      // whatever is on screen; leaving it brings that back. The keyboard goes
-      // to the document either way, so the writer keeps typing.
-      focus: (on, pdf) => {
-        const handle = controller.ws;
-        const current = focusRef.current;
-        if (!handle || (!on && !current) || (on && current && (pdf === undefined || pdf === current.pdf))) return;
-        withdrawUndo();
-        const { activeKey, openTabs } = controller.app.get();
-        if (on) {
-          const showPdf = pdf ?? loadFocusPdf();
-          if (pdf !== undefined) persistFocusPdf(pdf);
-          const entered = enterFocus(handle.getDocument(), current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) }, showPdf);
-          focusRef.current = entered.active;
-          show(handle, entered.document, { focus: true, focusPdf: showPdf });
-        } else {
-          const next = unfocused(handle.getDocument(), { activeKey, openTabs });
-          focusRef.current = null;
-          show(handle, next, { focus: false, focusPdf: false });
-        }
-        if (activeKey) controller.focusDocument(activeKey);
-      },
-    });
-  }, [controller, flushSave, onDocumentChange, ownLayout, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
+  useEffect(() => installLayoutHandlers({
+    controller, resettingRef, presetRef, focusRef, workspaceRef, placesRef, resetUndo, pendingReset, resetGeneration,
+    flushSave, onDocumentChange, ownLayout, withdrawUndo,
+    resetFailed, resetToast: { source: resetToast.source, title: resetToast.title, undo: resetToast.undo },
+  }), [controller, flushSave, onDocumentChange, ownLayout, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
   // The titlebar follows this workspace's preset, named workspace and unsaved changes; another project's starts in its own.
   useEffect(() => {
     controller.ui.set({
@@ -1222,172 +571,5 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     </>
   );
 });
-
-/**
- * Keep document panels in step with App's tabs: a tab App opens gets a panel,
- * a tab App closes loses it, and App's active document is the selected tab of
- * its panel. The reverse direction (focus, close) is in the event handlers.
- */
-function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, quietCloses: { current: Set<string> }) {
-  useEffect(() => {
-    if (!ws) return;
-    let lastActive = "";
-    let lastTabsReady = false;
-    let lastReveal = controller.app.get().revealRequest;
-    const fileViews = () => ws.views({ type: "file" });
-    const reconcile = () => {
-      const { activeKey, openTabs, tabsReady, revealRequest } = controller.app.get();
-      const views = fileViews();
-      const byKey = new Map(views.map((view) => [String(view.params.key ?? ""), view]));
-      // A new document joins the active document's panel, else an empty
-      // document slot on screen, else any document panel; with none left, it gets a panel of its own between
-      // the navigators and the rest of the layout.
-      //
-      // In the Reading layout a document keeps to its side instead: papers
-      // join the paper being read (with the library), everything else the
-      // notes, and a first note gets a panel of its own beside the paper.
-      const anchorPanel = (key: string) => {
-        if (controller.ui.get().preset === "reading") {
-          const reading = controller.isReading(key);
-          const library = ws.view("papers");
-          if (reading && library && library.placement !== "hidden") return library.panelId;
-          const side = fileViews().find((view) => view.placement !== "hidden" && controller.isReading(String(view.params.key ?? "")) === reading);
-          if (side || !reading) return side?.panelId ?? null;
-        }
-        const current = byKey.get(activeKey);
-        if (current && current.placement !== "hidden") return current.panelId;
-        const slot = ws.views({ type: "slot" }).find((view) => view.placement !== "hidden");
-        if (slot) return slot.panelId;
-        return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
-      };
-      // The writer's open of the active document: a quick look, or another (see trellis-tab-policy.ts).
-      const opened = controller.tabs.opening(controller.app.get(), { lastActive, lastReveal, lastTabsReady });
-      const open = (key: string) => {
-        const panelId = anchorPanel(key);
-        let info: ViewInfo | undefined;
-        if (panelId) info = openDocumentTab(controller, ws, key, panelId, key === activeKey ? opened : null);
-        else {
-          const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-          const navigators = NAVIGATORS.flatMap((kind) => ws.view(kind)?.panelId ?? []);
-          // Not animated: this is how the first document appears at startup,
-          // and animating the whole layout there costs a frame of work each.
-          ws.setDocument(withDocumentPanel(ws.getDocument(), { id, key }, { after: navigators }), { animate: false });
-          info = ws.views({ type: "file" }).find((view) => view.id === id);
-        }
-        if (info) byKey.set(key, info);
-        return info ?? null;
-      };
-      if (tabsReady) {
-        for (const view of views) {
-          const key = String(view.params.key ?? "");
-          if (openTabs.includes(key) || key === activeKey || controller.pendingDrops.has(key)) continue;
-          byKey.delete(key);
-          quietCloses.current.add(view.id);
-          void ws.close(view.id, { force: true });
-        }
-        for (const key of openTabs) if (!byKey.has(key)) open(key);
-      }
-      // Selection follows only a change of active document, or an explicit
-      // open (which may reopen the active one from a navigator tabbed over
-      // it): any other reconcile must leave the panels' own selection alone.
-      const activeChanged = activeKey !== lastActive || (tabsReady && !lastTabsReady) || revealRequest !== lastReveal;
-      lastActive = activeKey;
-      lastTabsReady = tabsReady;
-      lastReveal = revealRequest;
-      if (!activeKey || !activeChanged) return;
-      const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
-      if (!info) return;
-      if (info.placement === "hidden") ws.focus(info.id);
-      else if (!info.selected) {
-        // Selecting alone leaves DOM focus on the view it covers, which then
-        // hides and drops focus to the body: an Enter on the paper's own
-        // library button would strand the keyboard. When focus is still in
-        // that covered view, take it along; focus anywhere else (the notes,
-        // reached while a paper read was pending) stays where the writer put it.
-        const covered = ws.views().find((view) => view.panelId === info.panelId && view.selected);
-        const focusedView = document.activeElement?.closest("[data-view]")?.getAttribute("data-view");
-        if (covered && focusedView === covered.id) ws.focus(info.id);
-        else ws.select(info.id);
-      }
-      // A camera framing elsewhere hides it: widen the framing to show it,
-      // unless the writer has moved on to another document meanwhile.
-      requestAnimationFrame(() => {
-        if (controller.app.get().activeKey !== activeKey) return;
-        const handle = ws.view(info.id);
-        if (handle && !handle.visible && handle.placement !== "hidden") ws.focus(info.id);
-      });
-    };
-    const uninstall = controller.installHandlers({ resync: reconcile });
-    reconcile();
-    const unsubscribe = controller.app.subscribe(reconcile);
-    return () => {
-      unsubscribe();
-      uninstall();
-    };
-  }, [controller, quietCloses, ws]);
-}
-
-/**
- * Pause, then unmount, heavy content whose panel is off screen: the PDF after
- * a while hidden, and the active board/sheet likewise (decks hibernate per
- * panel, see DeckSlot). The agent never hibernates; inactive boards and sheets
- * never mount anything heavy to begin with.
- */
-function useHibernation(controller: TrellisController) {
-  useEffect(() => {
-    let pdfTimer: number | null = null;
-    let editorTimer: number | null = null;
-    const clear = (timer: number | null) => {
-      if (timer !== null) window.clearTimeout(timer);
-      return null;
-    };
-    const update = () => {
-      const { present, visible, pdfLive, editorVisible, editorHibernated, switching } = controller.ui.get();
-      const pdfShown = Boolean(present.pdf && visible.pdf);
-      if (!present.pdf) {
-        pdfTimer = clear(pdfTimer);
-        if (pdfLive) controller.ui.set({ pdfLive: false });
-      } else if (pdfShown) {
-        pdfTimer = clear(pdfTimer);
-        // Woken after a switch's animation, not in its frames (see beginSwitch).
-        if (!pdfLive && !switching) controller.ui.set({ pdfLive: true });
-      } else if (pdfLive && pdfTimer === null) {
-        pdfTimer = window.setTimeout(() => {
-          pdfTimer = null;
-          const now = controller.ui.get();
-          if (!now.visible.pdf) controller.ui.set({ pdfLive: false });
-        }, HIBERNATE_AFTER_MS);
-      }
-      // Decks keep their own hosts, which hibernate per panel (see DeckSlot).
-      const activeKey = controller.app.get().activeKey;
-      const heavy = isHeavyDocument(activeKey) && !isOpenSlideDeckPath(activeKey);
-      // Boards and sheets zoom themselves on pinch (decks, in their own hosts,
-      // likewise); text editors let it zoom the workspace.
-      // (A PDF opened here marks its own reader, whether or not the host is marked.)
-      controller.hosts.editor.toggleAttribute("data-trellis-owns-gestures", heavy);
-      if (!heavy || editorVisible) {
-        editorTimer = clear(editorTimer);
-        if (editorHibernated) controller.ui.set({ editorHibernated: false });
-      } else if (!editorHibernated && editorTimer === null) {
-        editorTimer = window.setTimeout(() => {
-          editorTimer = null;
-          const key = controller.app.get().activeKey;
-          if (!controller.ui.get().editorVisible && isHeavyDocument(key) && !isOpenSlideDeckPath(key)) {
-            controller.ui.set({ editorHibernated: true });
-          }
-        }, HIBERNATE_AFTER_MS);
-      }
-    };
-    update();
-    const offUi = controller.ui.subscribe(update);
-    const offApp = controller.app.subscribe(update);
-    return () => {
-      offUi();
-      offApp();
-      clear(pdfTimer);
-      clear(editorTimer);
-    };
-  }, [controller]);
-}
 
 export default TrellisWorkspace;
