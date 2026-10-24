@@ -46,14 +46,14 @@ import { useCommandTable } from "./app/use-command-table";
 import { AppCommandOverlays } from "./app/app-command-overlays";
 import { usePaperActions } from "./app/use-paper-actions";
 import { useSourceNavigation } from "./app/use-source-navigation";
-import { AppDocumentSurfaces } from "./app/app-document-surfaces";
-import { AppPanelPortals } from "./app/app-panel-portals";
+import { useDocumentSurfaces } from "./app/use-document-surfaces";
+import { usePanelPortals } from "./app/use-panel-portals";
 import { AppSettingsDialog } from "./app/app-settings-dialog";
 import { useSettingsWindow } from "./app/use-settings-window";
 import { useCommentAuthor } from "./app/use-comment-author";
 import { AppOverleafDialogs } from "./app/app-overleaf-dialogs";
 import { AppSubmissionDialogs } from "./app/app-submission-dialogs";
-import { AppCanvasToolbar } from "./app/app-canvas-toolbar";
+import { useCanvasToolbar } from "./app/use-canvas-toolbar";
 import { AppOverlays } from "./app/app-overlays";
 import { useAgentSpreadsheetResolver } from "./app/use-agent-spreadsheet-resolver";
 import { useSaveSlot } from "./app/use-save-slot";
@@ -110,7 +110,7 @@ const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
 // with no Suspense reveal to wait out. The file tree and paper library
-// (app-panel-portals.tsx) keep their boundaries: their reveal waits, after the
+// (use-panel-portals.tsx) keep their boundaries: their reveal waits, after the
 // editor's. The canvas, the project PDF and Settings come with App's surfaces
 // (app/app-surfaces.ts).
 // The workspace (and the Trellis library) load after the eager startup chunks.
@@ -716,6 +716,41 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     shortcut: (id) => commandShortcutText(commands, id),
   });
 
+  // The panels' contents and the two document surfaces, built as App
+  // renders rather than by components of their own (see each hook).
+  const panelPortals = usePanelPortals({
+    project, documents, trellis, agentPresent, theme, appLocale, tree, library, overleafSyncing, paperActions,
+    referenceImport, openSymbolOccurrence, synara, tools, checkReferences, rootDocumentPath, gitFiles: projectGit.gitFiles,
+    prewarm: { prewarmLikelyProjectFile, prewarmLikelyPaper },
+    projectSearch: { open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind },
+    newEntry: { request: newEntryRequest, requestNew: requestNewEntry },
+  });
+  const documentSurfaces = useDocumentSurfaces({
+    surfaces, project, projectState, documents, settledSource: settledCanvasSource, workspaceIndex,
+    preferences: {
+      locale: appLocale, theme, editorKeymap: appearance.editorKeymap, editorSpellcheck: appearance.editorSpellcheck,
+      onAddSpellingWord: addProjectSpellingWord, interactivePreviewsEnabled: postStartupInteraction,
+    },
+    library, latex, texlabDiagnostics, referenceImport, referenceImages, sourceNavigation, setSearchDialog, tree, overleaf,
+    tools, agentContext, trellis, synara, texSetup, saveSlot, movingWorkspace, livePreview, syncTex, setPaperPdfOpen,
+    canvasRequests: { requests: canvasRequests.requests, settle: settleCanvasRequest },
+    onEditorPosition: handleEditorPosition,
+    outline: { open: outlineOpen, setOpen: setOutlineOpen },
+    tableGenerator: { open: tableGeneratorOpen, setOpen: setTableGeneratorOpen },
+    layout: { focusMode, editorHibernated, pdfLive },
+    comments: { store: editorComments, author: { id: editorCommentAuthorId, name: authorName } },
+    openSlide: { applyMutation: applyOpenSlideMutation, setContext: setOpenSlideContext },
+    build: {
+      pipeline: buildPipeline, compileAndShowPdf, openCompileDiagnostic, repair: compileRepair, repairWritable,
+      errorFix: buildErrorFix, shortcut: commandShortcutText(commands, "build") ?? undefined,
+    },
+    pdfPage: { setCount: setPdfPageCount, setNumber: setPdfPageNumber },
+  });
+  const canvasToolbar = useCanvasToolbar({
+    documents, tools, commentCount: unresolvedComments, comments: editorComments, inBrowserTab: browserHosted,
+    onMoveWorkspace: () => void moveWorkspace(), hiddenTools: appearance.hiddenTitlebarTools, overleaf,
+    onOverleafSync: syncOverleaf,
+  });
   // Shown over the welcome screen and a project alike.
   const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} />;
   if (!project) {
@@ -796,19 +831,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
             onExit={() => trellis.setFocus(false)}
           />
         ) : undefined}
-        canvasToolbar={(
-          <AppCanvasToolbar
-            documents={documents}
-            tools={tools}
-            commentCount={unresolvedComments}
-            comments={editorComments}
-            inBrowserTab={browserHosted}
-            onMoveWorkspace={() => void moveWorkspace()}
-            hiddenTools={appearance.hiddenTitlebarTools}
-            overleaf={overleaf}
-            onOverleafSync={syncOverleaf}
-          />
-        )}
+        canvasToolbar={canvasToolbar}
       />
 
       {referenceHits && (
@@ -832,75 +855,8 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
             <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
           </Suspense>
         </ChunkGate>
-        <AppPanelPortals
-          project={project}
-          documents={documents}
-          trellis={trellis}
-          agentPresent={agentPresent}
-          theme={theme}
-          appLocale={appLocale}
-          tree={tree}
-          prewarm={{ prewarmLikelyProjectFile, prewarmLikelyPaper }}
-          projectSearch={{ open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind }}
-          newEntry={{ request: newEntryRequest, requestNew: requestNewEntry }}
-          gitFiles={projectGit.gitFiles}
-          rootDocumentPath={rootDocumentPath}
-          library={library}
-          overleafSyncing={overleafSyncing}
-          paperActions={paperActions}
-          referenceImport={referenceImport}
-          openSymbolOccurrence={openSymbolOccurrence}
-          synara={synara}
-          tools={tools}
-          checkReferences={checkReferences}
-        />
-        <AppDocumentSurfaces
-          surfaces={surfaces}
-          project={project}
-          projectState={projectState}
-          documents={documents}
-          settledSource={settledCanvasSource}
-          workspaceIndex={workspaceIndex}
-          preferences={{
-            locale: appLocale,
-            theme,
-            editorKeymap: appearance.editorKeymap,
-            editorSpellcheck: appearance.editorSpellcheck,
-            onAddSpellingWord: addProjectSpellingWord,
-            interactivePreviewsEnabled: postStartupInteraction,
-          }}
-          library={library}
-          latex={latex}
-          texlabDiagnostics={texlabDiagnostics}
-          referenceImport={referenceImport}
-          referenceImages={referenceImages}
-          canvasRequests={{ requests: canvasRequests.requests, settle: settleCanvasRequest }}
-          onEditorPosition={handleEditorPosition}
-          sourceNavigation={sourceNavigation}
-          setSearchDialog={setSearchDialog}
-          outline={{ open: outlineOpen, setOpen: setOutlineOpen }}
-          tableGenerator={{ open: tableGeneratorOpen, setOpen: setTableGeneratorOpen }}
-          tree={tree}
-          overleaf={overleaf}
-          layout={{ focusMode, editorHibernated, pdfLive }}
-          comments={{ store: editorComments, author: { id: editorCommentAuthorId, name: authorName } }}
-          tools={tools}
-          agentContext={agentContext}
-          openSlide={{ applyMutation: applyOpenSlideMutation, setContext: setOpenSlideContext }}
-          trellis={trellis}
-          synara={synara}
-          build={{
-            pipeline: buildPipeline, compileAndShowPdf, openCompileDiagnostic, repair: compileRepair, repairWritable,
-            errorFix: buildErrorFix, shortcut: commandShortcutText(commands, "build") ?? undefined,
-          }}
-          texSetup={texSetup}
-          saveSlot={saveSlot}
-          movingWorkspace={movingWorkspace}
-          livePreview={livePreview}
-          pdfPage={{ setCount: setPdfPageCount, setNumber: setPdfPageNumber }}
-          syncTex={syncTex}
-          setPaperPdfOpen={setPaperPdfOpen}
-        />
+        {panelPortals}
+        {documentSurfaces}
         {guidedTour && (
           <Suspense fallback={null}>
             <GuidedTour

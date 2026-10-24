@@ -5,9 +5,11 @@
  * renders behind a ChunkGate, so the frame shows as soon as its chunk is in.
  *
  * App owns every document and the state these read; this maps that state onto
- * the canvas's and the PDF panel's prop groups.
+ * the canvas's and the PDF panel's prop groups. A hook that returns the two
+ * rather than a component: a component would render again with every App
+ * render, each keystroke included, on top of the canvas's own render.
  */
-import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
+import { Suspense, type Dispatch, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { openSlideComposerPrompt } from "../agent/agent-composer-prompt";
@@ -24,6 +26,7 @@ import type { TrellisController } from "../trellis/trellis-controller";
 import type { EditorPosition, ProjectManifest, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { annotationRounds } from "./annotation-rounds";
+import { CompileDiagnosticsPanel } from "./app-lazy-panels";
 import { AppOverleafMarginReview } from "./app-overleaf-drawer";
 import type { SearchDialog } from "./app-search-dialogs";
 import type { AppSurfaces } from "./app-surfaces";
@@ -50,14 +53,11 @@ import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { TexSetup } from "./use-tex-setup";
 import type { ToolDrawers } from "./use-tool-drawers";
 
-const CompileDiagnosticsPanel = lazy(() =>
-  import("../build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
-);
-
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
 
-export function AppDocumentSurfaces({
+/** The canvas and the project PDF, or nothing on the welcome screen. */
+export function useDocumentSurfaces({
   surfaces: {
     documentCanvas: { load: loadDocumentCanvas, Component: DocumentCanvas },
     projectPdfPanel: { load: loadProjectPdfPanel, Component: ProjectPdfPanel },
@@ -68,7 +68,7 @@ export function AppDocumentSurfaces({
   saveSlot, movingWorkspace, livePreview, pdfPage, syncTex, setPaperPdfOpen,
 }: {
   surfaces: Pick<AppSurfaces, "documentCanvas" | "projectPdfPanel">;
-  project: ProjectSnapshot;
+  project: ProjectSnapshot | null;
   projectState: Pick<ProjectState, "projectRef" | "setProject">;
   documents: OpenDocuments;
   /** The canvas's text as of the last pause in typing (useSettledSource). */
@@ -119,6 +119,7 @@ export function AppDocumentSurfaces({
   syncTex: ReturnType<typeof useSyncTexNavigation>;
   setPaperPdfOpen: (open: boolean) => void;
 }) {
+  if (!project) return null;
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, openFile, openPaper, save } = documents;
   const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
   const { papers, citationKeys, citations, unusedSymbols } = library;

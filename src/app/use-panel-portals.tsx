@@ -3,11 +3,14 @@
  * tree, the paper library, the agent, each panel's tab-bar action row, and the
  * editor's opening overlay. Trellis arranges the panels; App owns what is in
  * them.
+ *
+ * A hook that returns the portals rather than a component: a component here
+ * would render again with every App render, each keystroke included, for
+ * nothing on screen.
  */
-import { lazy, memo, Suspense, useMemo, type Dispatch, type SetStateAction } from "react";
+import { Suspense, useMemo, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
-import { lazyChunk } from "../lib/lazy-chunk";
 import { paperImportStageLabel } from "../papers/paper-import-progress";
 import type { NewEntryRequest, NewEntryType } from "../project/project-new-entries";
 import type { SymbolOccurrence } from "../project/references-panel";
@@ -15,6 +18,7 @@ import type { AppLocale, Theme } from "../settings/app-settings";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { PanelActions } from "../trellis/trellis-panel-actions";
 import type { GitStatus, PaperSummary, ProjectSnapshot } from "../app-types";
+import { PaperLibrary, ProjectFileTree, TrellisAgentSurface } from "./app-lazy-panels";
 import { useStableHandlers } from "./effect-helpers";
 import { showError } from "./notify";
 import { OpeningOverlay } from "./opening-overlay";
@@ -27,24 +31,17 @@ import type { useProjectTree } from "./use-project-tree";
 import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
 import type { ToolDrawers } from "./use-tool-drawers";
-import { loadPaperLibrary, loadProjectFileTree } from "./workspace-chunks";
 
-// Lazy: the file tree pulls @pierre/trees (~270 KB), and neither sidebar
-// panel renders on the Welcome screen, so they must not weigh down first paint.
-// Memoized: their callbacks come through stable forwarders (useStableHandlers
-// below), so an editor keystroke does not re-render the file tree or the paper library.
-const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
 /** Papers' read state while the window's paper list is still another project's. */
 const PAPERS_LOADING = { status: "loading" } as const;
-const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
-const TrellisAgentSurface = lazy(() => import("../trellis/trellis-agent-surface"));
 
-export function AppPanelPortals({
+/** The portals, or nothing on the welcome screen. */
+export function usePanelPortals({
   project, documents, trellis, agentPresent, theme, appLocale, tree, prewarm, projectSearch, newEntry, gitFiles,
   rootDocumentPath, library, overleafSyncing, paperActions, referenceImport, openSymbolOccurrence, synara, tools,
   checkReferences,
 }: {
-  project: ProjectSnapshot;
+  project: ProjectSnapshot | null;
   documents: OpenDocuments;
   trellis: TrellisController;
   agentPresent: boolean;
@@ -69,7 +66,7 @@ export function AppPanelPortals({
   const { papers, paperLoad, citations, unusedSymbols } = library;
   const { open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind } = projectSearch;
   const requestNewEntry = newEntry.requestNew;
-  const primaryBibliography = project.manifest.primaryBibliography ?? "";
+  const primaryBibliography = project?.manifest.primaryBibliography ?? "";
   const protectedProjectPaths = useMemo(
     () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
     [primaryBibliography, rootDocumentPath],
@@ -137,6 +134,7 @@ export function AppPanelPortals({
     },
   });
 
+  if (!project) return null;
   return (
     <>
       {createPortal(

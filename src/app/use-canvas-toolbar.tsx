@@ -1,7 +1,9 @@
 /**
  * The title bar's canvas toolbar as a project shows it: the document in front,
  * the history, Git and comment tools, and the Overleaf link's sync state, the
- * collaborators on the project and the unread conversation.
+ * collaborators on the project and the unread conversation. A hook that
+ * returns the toolbar rather than a component, which would render again with
+ * every App render, each keystroke included.
  */
 import { CanvasToolbar } from "../canvas/canvas-toolbar";
 import { OverleafPresenceAvatars } from "../overleaf/overleaf-presence";
@@ -11,7 +13,7 @@ import type { OpenDocuments } from "./use-open-documents";
 import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { ToolDrawers } from "./use-tool-drawers";
 
-export function AppCanvasToolbar({
+export function useCanvasToolbar({
   documents: { paper: activePaper, asset: activeAsset, activeTab, dirty }, tools, commentCount, comments, inBrowserTab,
   onMoveWorkspace, hiddenTools, overleaf, onOverleafSync,
 }: {
