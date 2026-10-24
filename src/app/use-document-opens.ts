@@ -234,7 +234,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
 
   const openPaper = useCallback(async (
     target: PaperSummary,
-    options?: { view?: PaperView; claim?: OpenClaim },
+    options?: { view?: PaperView; claim?: OpenClaim; line?: number },
   ): Promise<boolean> => {
     const { file: activeFile, paper: openPaperNow } = renderedRef.current;
     const owner = ownerOf(renderedRef.current);
@@ -298,11 +298,15 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     // already fell back to whichever side exists.
     if (options?.view === "fulltext" && opened.hasFullText) choosePaperView("fulltext");
     else if (options?.view === "blog" && opened.hasBlog) choosePaperView("blog");
+    else return true;
+    // A search hit's line, in the reading file it was found in: the Preview
+    // answers the request once that file is the one in front.
+    if (options.line) requestLine(paperDocumentPath(target.arxivId, options.view), options.line);
     return true;
   }, [
     captureProjectScope, choosePaperView, depsRef, flushAndCheckDirty, flushRef, intentRef, paperBuffersDirty,
-    renderedRef, save, savedRef, setAssetLive, setMode, setOpening, setPaper, setPaperBuffers, setPaperView, showTab, t,
-    textRef,
+    renderedRef, requestLine, save, savedRef, setAssetLive, setMode, setOpening, setPaper, setPaperBuffers, setPaperView,
+    showTab, t, textRef,
   ]);
 
   const openAsset = useCallback(async (path: string) => {

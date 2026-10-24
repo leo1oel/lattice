@@ -1042,7 +1042,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 /* The button is the whole row under its text, so its ring is the row's;
    the text it lies under passes every click through to it. */
 .paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
-.paper-row > :is(.paper-glyph, .paper-title, .paper-cell, .paper-uses, .paper-meta, .paper-snippet) { pointer-events: none; }
+.paper-row > :is(.paper-glyph, .paper-title, .paper-cell, .paper-uses, .paper-meta) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
 .paper-glyph { grid-column: 1; grid-row: 1; height: var(--type-subtitle-line-height); display: grid; place-items: center; color: var(--text-secondary); }
 .paper-glyph > svg { stroke-width: 1.5; }
@@ -1055,7 +1055,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-uses { grid-column: 3; grid-row: 1; height: var(--type-subtitle-line-height); display: flex; align-items: center; color: var(--text-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .paper-uses:empty { display: none; }
 .paper-cell { display: none; }
-.paper-row > :is(.paper-meta, .paper-snippet, .paper-tags) { grid-column: 2 / -1; }
+.paper-row > :is(.paper-meta, .paper-hits, .paper-tags) { grid-column: 2 / -1; }
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
 /* The byline line. At rest it is who, when and where; a lit row (hovered,
    focused or open) shows its citation key and actions on the same line, one
@@ -1077,8 +1077,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-byline > :is(.paper-year, .paper-venue, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-year, .paper-cell-year { font-variant-numeric: tabular-nums; }
 :where(.paper-rows[data-row-below~="260"]) .paper-byline > .paper-venue { display: none; }
-/* A full-text hit is a line quoted from the paper, so it reads as one. */
-.paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
+/* A search's matching lines under its paper, best first: each a control
+   above the row's hit area that opens the paper at that line, one line tall
+   and ellipsized, quoted from the paper so it reads as one, its match marked
+   as the Find dialog marks it. The fill sits a step out from the text, which
+   stays on the title's edge. */
+.paper-hits { min-width: 0; margin: var(--space-2) 0 0; padding: 0; display: grid; list-style: none; }
+.paper-hits > li { min-width: 0; }
+.paper-hit, .paper-hit-more { position: relative; z-index: 1; max-width: calc(100% + var(--space-3)); margin-inline-start: calc(-1 * var(--space-3)); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-compact); background: transparent; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: start; cursor: pointer; }
+.paper-hit { width: calc(100% + var(--space-3)); font-family: var(--reading-font); font-style: italic; }
+.paper-hit:hover, .paper-hit-more:hover { background: var(--tone-hover-surface); color: var(--text-primary); }
+.paper-hit mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
+.paper-hit-more { color: var(--text-tertiary); font-size: var(--type-caption-size); }
 /* The row's citation-health notice. */
 .paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 .paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--badge-height-compact); }
@@ -1155,8 +1165,8 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 :where(.paper-list[data-table]) .paper-row > .paper-cell-year { grid-column: 4; }
 :where(.paper-list[data-table]) .paper-row > .paper-cell-venue { grid-column: 5; }
 :where(.paper-list[data-table]) .paper-row > .paper-uses { grid-column: 6; justify-content: flex-end; }
-:where(.paper-list[data-table]) .paper-row > :is(.paper-tags, .paper-snippet) { grid-column: 2 / span 4; }
-.paper-list:where([data-table]) .paper-row > .paper-snippet { margin-top: var(--space-1); }
+:where(.paper-list[data-table]) .paper-row > :is(.paper-tags, .paper-hits) { grid-column: 2 / span 4; }
+.paper-list:where([data-table]) .paper-row > .paper-hits { margin-top: var(--space-1); }
 :where(.paper-list[data-table]) .paper-row > .paper-tags { margin-top: var(--space-2); }
 /* The byline's facts are the columns; the line keeps only the actions,
    over the end of the title's line. */

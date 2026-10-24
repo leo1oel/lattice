@@ -117,7 +117,7 @@ export function usePanelPortals({
   });
   const paperLibraryHandlers = useStableHandlers({
     onReveal: tree.revealItem,
-    onPaper: (paper: PaperSummary) => void openPaper(paper),
+    onPaper: openPaper,
     onLikelyPaper: prewarm.prewarmLikelyPaper,
     onFetchFullText: (paper: PaperSummary) => void paperActions.fetchAndOpenPaper(paper),
     onCancelFetch: paperActions.cancelPaperFetches,

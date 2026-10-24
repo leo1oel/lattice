@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowRight, Check, CircleAlert, CornerDownLeft, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowRight, Check, CornerDownLeft, Plus, X } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
@@ -9,12 +9,13 @@ import { SearchField } from "../components/ui/search-field";
 import { paperKey, toMessage } from "../app-utils";
 import { notifyError } from "../telemetry/app-notify";
 import type { PaperSummary } from "../app-types";
+import type { PaperView } from "../app/paper-documents";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import { formatCount } from "../i18n";
 import { findInLibrary, identityOfInput, referenceKind, type ReferenceKind } from "../papers/paper-add";
 import { paperLinkUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
-import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
+import { paperSearchIdentity, rankPapers, usePaperTextSearch, type PaperLineHit, type RecentPaperImport } from "./paper-library-search";
 import {
   groupPapers, paperFilter, paperOrder, paperReadingState, readablePaper, usePaperFacts,
   type PaperFilter, type PaperGroup, type PaperSort,
@@ -28,8 +29,10 @@ import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PaperInspector } from "./paper-inspector";
 import { PaperListToolbar } from "./paper-list-toolbar";
+import { PaperLoadStatus, PaperTextSearchStatus } from "./paper-library-status";
 import { PaperRow, type PaperFetchState } from "./paper-row";
 import { usePaperListWindow, type RowSpan } from "./paper-list-window";
+import { usePaperListKeys } from "./paper-list-keys";
 import type { SymbolOccurrence } from "./references-panel";
 
 
@@ -51,7 +54,8 @@ export type PaperLibraryProps = {
   citationUsageRevision?: unknown;
   activePaper: PaperSummary | null;
   onReveal: (path: string) => void;
-  onPaper: (paper: PaperSummary) => void;
+  /** Opens a paper, at a line of one of its reading files when a search hit names one. */
+  onPaper: (paper: PaperSummary, at?: { view: PaperView; line: number }) => void;
   onLikelyPaper?: (paper: PaperSummary) => void;
   onFetchFullText: (paper: PaperSummary) => void;
   /** Stops the downloads under way; each paper is left as it was. */
@@ -149,6 +153,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const fetching = !props.importing && Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(fetching || props.importing, props.importStageId);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  /** Moves the keyboard from the box to the first paper; false with nothing to move to. */
+  const focusListRef = useRef<(() => boolean) | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
   const textSearch = usePaperTextSearch(query);
@@ -269,6 +275,16 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 props.onCancelFetch();
                 return;
               }
+              // Escape empties the box; the down arrow goes on to the results.
+              if (event.key === "Escape" && props.importInput && !fetching) {
+                event.preventDefault();
+                props.setImportInput("");
+                return;
+              }
+              if (event.key === "ArrowDown" && !isComposing(event) && focusListRef.current?.()) {
+                event.preventDefault();
+                return;
+              }
               if (event.key !== "Enter" || isComposing(event)) return;
               event.preventDefault();
               if (kind && kind !== "title") addPaper();
@@ -310,7 +326,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </div>
           )}
         </div>
-        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} textSearch={textSearch} addRows={addRows} hasKind={Boolean(kind)} /> : (
+        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} textSearch={textSearch} addRows={addRows} hasKind={Boolean(kind)} searchInputRef={importInputRef} focusListRef={focusListRef} /> : (
           <ScrollArea
             ref={observeListSteps}
             className="paper-list"
@@ -355,65 +371,6 @@ function useFirstSyncWhileEmpty(projectKey: string, syncing: boolean): boolean {
 }
 
 /**
- * The library while its list is not there yet: one quiet line where the rows
- * will be, on their icon gutter, or why the read failed and a retry. Never
- * the empty library's invitation, which would say a library being read is
- * empty.
- */
-function PaperLoadStatus({ load, syncing, onRetry }: {
-  load: PaperLibraryProps["load"];
-  syncing: boolean;
-  onRetry?: () => void;
-}) {
-  const { t } = useLingui();
-  if (load?.status === "error") {
-    return (
-      <div className="papers-load-status" data-state="error" role="status">
-        <CircleAlert size={14} className="papers-load-icon" aria-hidden="true" />
-        <span className="papers-load-text">
-          <strong>{t`Couldn’t read your references`}</strong>
-          <span className="papers-load-detail" title={load.error}>{load.error}</span>
-        </span>
-        {onRetry && <Button size="compact" onClick={onRetry}>{t`Try again`}</Button>}
-      </div>
-    );
-  }
-  return (
-    <div className="papers-load-status" role="status">
-      <span className="papers-load-icon"><InfinityLoader size={12} /></span>
-      <span className="papers-load-text">{syncing ? t`Syncing references…` : t`Loading references…`}</span>
-    </div>
-  );
-}
-
-/**
- * Where the full-text half of a search has got, above what it found: the
- * list shows metadata matches at once, and a slow or failed pass over the
- * saved text says so, so a short list (or none) is not read as the library
- * lacking the paper. A quick pass, the usual case, never shows this.
- */
-function PaperTextSearchStatus({ search }: { search: ReturnType<typeof usePaperTextSearch> }) {
-  const { t } = useLingui();
-  if (search.status === "failed") {
-    const label = t`Saved-text search unavailable`;
-    return (
-      <div className="paper-text-search" data-state="failed" role="status">
-        <CircleAlert size={13} className="paper-add-icon" aria-hidden="true" />
-        <span className="paper-text-search-text" title={search.error ? `${label}\n${search.error}` : label}>{label}</span>
-        <Button size="compact" onClick={search.retry}>{t`Try again`}</Button>
-      </div>
-    );
-  }
-  if (search.status !== "searching") return null;
-  return (
-    <div className="paper-text-search" role="status">
-      <span className="paper-add-icon"><InfinityLoader size={12} /></span>
-      <span className="paper-text-search-text">{t`Searching saved text…`}</span>
-    </div>
-  );
-}
-
-/**
  * The library once it holds a paper: how many, how they are filtered, sorted
  * and grouped, and the list itself. Its own component, so an empty library
  * (every startup without papers) runs none of it.
@@ -426,6 +383,9 @@ function PaperShelf(props: PaperLibraryProps & {
   addRows: (matches: number) => ReactNode;
   /** The box holds something to add, which the add rows answer in place of the empty state. */
   hasKind: boolean;
+  /** The search box, which the up arrow from the first paper and Escape return to. */
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  focusListRef: RefObject<(() => boolean) | null>;
 }) {
   const { query, textHits } = props;
   const { t } = useLingui();
@@ -499,21 +459,9 @@ function PaperShelf(props: PaperLibraryProps & {
   const groupStarts = sections.map((_, sectionIndex) => sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0));
   const rowWindow = usePaperListWindow(viewportRef, rowKeys, groupStarts);
 
-  // Tab walks every control of every paper; the arrows, Home and End move
-  // between papers, across groups, landing where a click on the row would.
-  // A paper the list has not drawn yet is drawn first.
-  const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[event.key];
-    if (step === undefined || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
-    const from = rowKeys.indexOf((event.target as Element).closest<HTMLElement>(".paper-row[data-paper-key]")?.dataset.paperKey ?? "");
-    if (from < 0) return;
-    const to = Math.max(0, Math.min(rowKeys.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rowKeys.length - 1 : 0));
-    const controlIn = (row: HTMLElement) => row.querySelector<HTMLElement>(".paper-open:not(:disabled)")
-      ?? row.querySelector<HTMLElement>("button:not(:disabled)");
-    const drawn = rowWindow.rowOf(rowKeys[to]!);
-    if (drawn && !controlIn(drawn)) return;
-    event.preventDefault();
-    rowWindow.reveal(to, (row) => controlIn(row)?.focus({ preventScroll: true }));
+  const movePaperFocus = usePaperListKeys(rowKeys, rowWindow, props.searchInputRef, props.focusListRef);
+  const openHit = (paper: PaperSummary, hit: PaperLineHit) => {
+    props.onPaper(paper, { view: hit.path.endsWith("/blog.md") ? "blog" : "fulltext", line: hit.line });
   };
   /** Rows `from`…`to` of the list as the window draws them: the rows near the view, and gaps for the rest. */
   const drawRows = (papers: readonly PaperSummary[], from: number) => {
@@ -573,7 +521,7 @@ function PaperShelf(props: PaperLibraryProps & {
       fetchState={props.paperFetchStates[paperKey(paper)]}
       venue={facts.venue(paper)}
       uses={facts.uses(paper)}
-      snippet={textHits.get(paperSearchIdentity(paper))?.snippet.trim()}
+      match={textHits.get(paperSearchIdentity(paper))}
       active={Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper))}
       selected={wide && selectedKey === paperKey(paper)}
       wide={wide}
@@ -588,6 +536,7 @@ function PaperShelf(props: PaperLibraryProps & {
       onEditBibEntry={props.onEditBibEntry}
       onDelete={props.onDeletePaper}
       onReveal={props.onReveal}
+      onOpenHit={openHit}
     />
   );
 
@@ -610,9 +559,14 @@ function PaperShelf(props: PaperLibraryProps & {
           ref={bodyRef}
           className="paper-body"
           onKeyDown={(event) => {
-            if (event.key !== "Escape" || !inspected || event.defaultPrevented) return;
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            // The inspector closes first; then Escape ends the search where it began.
+            if (inspected) closeInspector();
+            else if (props.importInput) {
+              props.setImportInput("");
+              props.searchInputRef.current?.focus();
+            } else return;
             event.preventDefault();
-            closeInspector();
           }}
         >
         <ScrollArea

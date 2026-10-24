@@ -361,6 +361,10 @@ msgstr "{count} 条"
 msgid "{count} markers"
 msgstr "{count} 条"
 
+#: src/project/paper-text-hits.tsx
+msgid "{count} more"
+msgstr "还有 {count} 处"
+
 #: src/project/arxiv-export.ts
 msgid "{count} pages"
 msgstr "{count} 页"
@@ -369,7 +373,7 @@ msgstr "{count} 页"
 msgid "{count} panels. Double-click to zoom in."
 msgstr "{count} 个面板，双击放大"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} 篇论文"
@@ -502,7 +506,7 @@ msgstr "{fileCount} 个文件"
 msgid "{fileCount} files"
 msgstr "{fileCount} 个文件"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "{filtered} of {total} papers"
 msgstr "{filtered}/{total} 篇"
 
@@ -668,7 +672,7 @@ msgid "{notes} notes"
 msgstr "{notes} 条提示"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}。查看公告"
 
@@ -758,7 +762,7 @@ msgstr "{target} 未作任何改动。"
 msgid "{title} — full text"
 msgstr "{title} — 全文"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — 没有本地全文"
 
@@ -935,7 +939,7 @@ msgstr "1 篇没找到"
 msgid "1 note"
 msgstr "1 条批注"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "1 of {total} papers"
 msgstr "1/{total} 篇"
 
@@ -952,7 +956,7 @@ msgstr "超出 1 页"
 msgid "1 page remaining"
 msgstr "还剩 1 页"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
@@ -1447,7 +1451,7 @@ msgstr "全部高亮"
 msgid "All levels"
 msgstr "全部级别"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "All papers"
 msgstr "全部论文"
 
@@ -2757,7 +2761,7 @@ msgstr "引用名"
 msgid "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 msgstr "引用名“{key}”已存在，请换一个或编辑原条目"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Citation key {key}"
 msgstr "引用名 {key}"
 
@@ -2771,7 +2775,7 @@ msgctxt "add a literature result as a bibliography entry only"
 msgid "Citation only"
 msgstr "只添加文献"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Citation only, no full text"
 msgstr "仅引用，无全文"
 
@@ -2808,7 +2812,7 @@ msgstr "引用参考文献条目"
 msgid "Cited"
 msgstr "已引用"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Cited {count}× in this paper"
 msgstr "本文引用 {count} 次"
 
@@ -2828,7 +2832,7 @@ msgstr "引用位置"
 msgid "Cited in the paper, so it stays"
 msgstr "论文中有引用，因此保留"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Cited in this paper"
 msgstr "本文已引用"
 
@@ -2867,11 +2871,11 @@ msgstr "正在清理…"
 msgid "Clear"
 msgstr "清空"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Clear filter"
 msgstr "清除筛选"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Clear filter: {filter}"
 msgstr "清除筛选：{filter}"
 
@@ -3363,11 +3367,11 @@ msgid "Copy \\cite command"
 msgstr "复制 \\cite 命令"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Copy citation key"
 msgstr "复制引用名"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Copy citation key {key}"
 msgstr "复制引用名 {key}"
 
@@ -3637,7 +3641,7 @@ msgstr "连不上服务"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "读取钥匙串失败，请重开设置"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Couldn’t read your references"
 msgstr "未能读取参考文献"
 
@@ -4144,7 +4148,7 @@ msgstr "下箭头"
 msgid "Down double arrow"
 msgstr "下双线箭头"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "下载 {url}"
 
@@ -4152,7 +4156,7 @@ msgstr "下载 {url}"
 msgid "Download a new copy"
 msgstr "重新下载"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
 
@@ -4314,7 +4318,7 @@ msgstr "先编辑"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Edit bibliography entry"
 msgstr "编辑文献"
 
@@ -4842,7 +4846,7 @@ msgid "Filled square"
 msgstr "实心方块"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter"
 msgstr "筛选"
 
@@ -4866,11 +4870,11 @@ msgstr "按颜色筛选高亮"
 msgid "Filter languages"
 msgstr "搜索语言"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter papers"
 msgstr "筛选论文"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter papers: {filter}"
 msgstr "筛选论文：{filter}"
 
@@ -4962,7 +4966,7 @@ msgstr "快好了…"
 msgid "Firecrawl"
 msgstr "Firecrawl"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "First author"
 msgstr "第一作者"
 
@@ -4994,7 +4998,7 @@ msgstr "已修复"
 msgid "Fixes to review"
 msgstr "待审修改"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Flagged"
 msgstr "有警示"
 
@@ -5160,11 +5164,11 @@ msgstr "完整更新说明"
 msgid "Full text"
 msgstr "全文"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Full text downloads on click"
 msgstr "点击即下载全文"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Full text in Papers"
 msgstr "全文已在论文库"
 
@@ -5332,7 +5336,7 @@ msgstr "绿色"
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头的表格"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Group"
 msgstr "分组"
 
@@ -5340,7 +5344,7 @@ msgstr "分组"
 msgid "Group a nested script in braces: write {grouped} rather than {flat}."
 msgstr "嵌套的上下标要用花括号分组：写 {grouped}，而不是 {flat}。"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Group by"
 msgstr "分组"
 
@@ -6097,7 +6101,7 @@ msgstr "期刊"
 msgid "Jump to PDF"
 msgstr "在 PDF 中查看"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Just added"
 msgstr "刚添加"
 
@@ -6812,7 +6816,7 @@ msgstr "正在加载历史…"
 msgid "Loading pull requests…"
 msgstr "正在加载 PR…"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Loading references…"
 msgstr "正在加载参考文献…"
 
@@ -7256,7 +7260,7 @@ msgstr "更多状态"
 msgid "More PDF actions"
 msgstr "更多"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "本文引用最多"
 
@@ -7505,7 +7509,7 @@ msgid "Newer release"
 msgstr "较新的版本"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Newest first"
 msgstr "最新优先"
 
@@ -7643,7 +7647,7 @@ msgstr "这次更新没有文件改动"
 msgid "No files match “{trimmedQuery}”"
 msgstr "没有文件包含“{trimmedQuery}”"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
 msgstr "不分组"
 
@@ -7952,11 +7956,11 @@ msgid "Not cited in any .tex file"
 msgstr "未在任何 .tex 文件中引用"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Not cited in this paper yet"
 msgstr "本文尚未引用"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Not cited yet"
 msgstr "尚未引用"
 
@@ -8237,7 +8241,7 @@ msgstr "在第 {0} 行打开 {path}"
 msgid "Open {title}"
 msgstr "打开{title}"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open {title} in browser"
 msgstr "在浏览器中打开 {title}"
 
@@ -8340,7 +8344,7 @@ msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open link in browser"
 msgstr "在浏览器中打开链接"
 
@@ -8418,7 +8422,7 @@ msgstr "幻灯片编辑器还没就绪"
 msgid "Open Slide sent an incomplete edit for {path}."
 msgstr "Open Slide 发送的 {path} 编辑内容不完整。"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open source page — no downloadable full text found"
 msgstr "打开来源页 — 没找到可下载的全文"
 
@@ -9482,7 +9486,7 @@ msgstr "正在读取 {0}…"
 msgid "Reading figure usages…"
 msgstr "正在读取插图使用位置…"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Reading state"
 msgstr "阅读状态"
 
@@ -9724,7 +9728,7 @@ msgstr "从文献中删除“{title}”？"
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "从 Overleaf 删除 {0} 个文件？"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Remove {title}"
 msgstr "移除 {title}"
 
@@ -10735,7 +10739,7 @@ msgstr "已保存到 {path}"
 msgid "Saved version"
 msgstr "手动保存"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Saved-text search unavailable"
 msgstr "无法搜索论文全文"
 
@@ -10855,7 +10859,7 @@ msgstr "在项目中搜索“{query}”"
 msgid "Search third-party software"
 msgstr "搜索第三方软件"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Searching saved text…"
 msgstr "正在搜索论文全文…"
 
@@ -11113,7 +11117,7 @@ msgstr "显示隐藏文件"
 
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
 msgstr "在访达中显示"
@@ -11315,19 +11319,19 @@ msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort"
 msgstr "排序"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort and group"
 msgstr "排序与分组"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort and group: {order}"
 msgstr "排序与分组：{order}"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort by"
 msgstr "排序"
 
@@ -11765,7 +11769,7 @@ msgstr "同步 Overleaf"
 msgid "Synced {synced}"
 msgstr "{synced}同步"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Syncing references…"
 msgstr "正在同步参考文献…"
 
@@ -12553,6 +12557,7 @@ msgstr "提示"
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Title"
 msgstr "标题"
 
@@ -12690,7 +12695,7 @@ msgstr "右三角形"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "重试"
@@ -13141,6 +13146,7 @@ msgstr "在符号上方加向量箭头"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Venue"
 msgstr "发表于"
 
@@ -13332,6 +13338,7 @@ msgid "Warning"
 msgstr "警告"
 
 #: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Web page"
 msgstr "网页"
 
@@ -13428,7 +13435,7 @@ msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "窗口"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "With full text"
 msgstr "有全文"
 
@@ -13549,6 +13556,7 @@ msgstr "克西"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Year"
 msgstr "年份"
 

@@ -15,6 +15,8 @@ import { paperLinkUrl, paperPdfUrl } from "../papers/paper-source";
 import { beginPaperDrag } from "../papers/paper-drag";
 import { citationHealthLabel, citationHealthParts, citationHealthTitle } from "./citation-health";
 import { paperReadingState, readablePaper } from "./paper-library-view";
+import type { PaperLineHit, PaperTextMatch } from "./paper-library-search";
+import { PaperTextHits } from "./paper-text-hits";
 
 export type PaperFetchState = "loading" | "success";
 
@@ -50,7 +52,8 @@ export type PaperRowProps = {
   fetchState: PaperFetchState | undefined;
   venue: string;
   uses: number | null;
-  snippet: string | undefined;
+  /** What a search matched in its text, when it did. */
+  match: PaperTextMatch | undefined;
   active: boolean;
   selected: boolean;
   wide: boolean;
@@ -67,6 +70,8 @@ export type PaperRowProps = {
   onEditBibEntry: (paper: PaperSummary) => void;
   onDelete: (paper: PaperSummary) => void;
   onReveal: (path: string) => void;
+  /** Opens the paper at a line its text matched. */
+  onOpenHit: (paper: PaperSummary, hit: PaperLineHit) => void;
 };
 
 /**
@@ -76,7 +81,7 @@ export type PaperRowProps = {
  */
 export function PaperRow(props: PaperRowProps) {
   const { t } = useLingui();
-  const { paper, index, rowId, fetchState, venue, uses, snippet, active, selected, wide, recent, observe, position, groupSize } = props;
+  const { paper, index, rowId, fetchState, venue, uses, match, active, selected, wide, recent, observe, position, groupSize } = props;
   const readable = readablePaper(paper);
   const readingState = paperReadingState(paper);
   const healthLabel = citationHealthLabel(paper.citationHealth);
@@ -118,7 +123,6 @@ export function PaperRow(props: PaperRowProps) {
   ));
   const titleId = `${rowId}-${index}-title`;
   const bylineId = `${rowId}-${index}-byline`;
-  const snippetId = `${rowId}-${index}-snippet`;
   const factsId = `${rowId}-${index}-facts`;
   const byline = Boolean(authors || year || venue || source);
   // What the glyph and the count at the end say, for a screen reader.
@@ -162,7 +166,7 @@ export function PaperRow(props: PaperRowProps) {
                 ? t({ message: `Download ${{ url: paper.url }}` })
                 : t({ message: `${{ title: paper.title }} — no local reading available` })}
         className="paper-open"
-        aria-labelledby={[titleId, byline && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
+        aria-labelledby={[titleId, byline && bylineId].filter(Boolean).join(" ")}
         aria-describedby={factsId}
         aria-current={active || undefined}
         // Knowing the preprint is as good as having it: clicking
@@ -228,7 +232,7 @@ export function PaperRow(props: PaperRowProps) {
           />
         </div>
       </div>
-      {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
+      {match && <PaperTextHits match={match} onOpen={(hit) => props.onOpenHit(paper, hit)} />}
       {health && <div className="paper-tags">{healthNotice}</div>}
       <span id={factsId} className="sr-only">
         {[recent && t`Just added`, stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
