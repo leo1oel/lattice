@@ -1,10 +1,9 @@
 import {
-  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type SetStateAction,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
@@ -52,6 +51,10 @@ import { AppSettingsDialog, useSettingsWindow } from "./app/app-settings-window"
 import { useCommentAuthor } from "./app/use-comment-author";
 import { AppOverleafDialogs } from "./app/app-overleaf-dialogs";
 import { AppSubmissionDialogs } from "./app/app-submission-dialogs";
+import { AppCanvasToolbar } from "./app/app-canvas-toolbar";
+import { AppOverlays } from "./app/app-overlays";
+import { useAgentSpreadsheetResolver } from "./app/use-agent-spreadsheet-resolver";
+import { useSaveSlot } from "./app/use-save-slot";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
@@ -62,20 +65,15 @@ import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
-import { saveSourceCopy } from "./app/save-source-copy";
-import { InterfaceZoomHud as InterfaceZoomPill } from "./app/interface-zoom-hud";
 import { useInterfaceZoom } from "./app/use-interface-zoom";
 import { useWhatsNew } from "./app/use-whats-new";
-import { overleafSaveState, type SaveSlot } from "./canvas/save-slot";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
-import { CanvasToolbar } from "./canvas/canvas-toolbar";
 import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
 import { loadTrellisWorkspace } from "./app/workspace-chunks";
 import type { AppSurfaces } from "./app/app-surfaces";
-import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel } from "./project/references-panel";
 import {
   type BuildPreferences,
@@ -85,7 +83,6 @@ import {
 } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
-import { loadAgentSpreadsheetModel, registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsheet-tools";
 import {
   flattenProjectPaths,
   resolveDiagnosticPath,
@@ -111,8 +108,6 @@ import {
 import { showError, showingErrors } from "./app/notify";
 import "./App.css";
 
-// Memoized: its props are stable, and App re-renders on every keystroke.
-const InterfaceZoomHud = memo(InterfaceZoomPill);
 const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
@@ -123,7 +118,6 @@ const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
-const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
 
 function App({ surfaces }: { surfaces: AppSurfaces }) {
   const {
@@ -255,23 +249,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const agentProjectDocumentCreatorRef = useRef<((
     request: AgentProjectDocumentToolRequest,
   ) => Promise<string>) | null>(null);
-  useEffect(() => registerAgentSpreadsheetDocumentResolver(async (path) => {
-    const projectRoot = projectRootRef.current;
-    if (!projectRoot) return null;
-    const content = await invoke<string>("read_project_file", { path, projectRoot });
-    const { openSpreadsheetDoc, spreadsheetDocContent } = await loadAgentSpreadsheetModel();
-    const doc = openSpreadsheetDoc(content);
-    return {
-      doc,
-      canWrite: true,
-      path,
-      commit: async () => {
-        await invoke<void>("write_project_file", { path, content: spreadsheetDocContent(doc), projectRoot });
-        recordSavedPaths([path]);
-      },
-      dispose: () => doc.destroy(),
-    };
-  }), [projectRootRef, recordSavedPaths]);
+  useAgentSpreadsheetResolver(projectRootRef, recordSavedPaths);
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
     updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
@@ -478,11 +456,8 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef, openOverleafSettingsRef,
   });
   const {
-    overleafLink, overleafSyncing, overleafSyncMode, overleafRemoteChanges,
-    setOverleafPickerOpen, setOverleafReviewOpen, setOverleafCollabOpen,
-    overleafSyncRef, runOverleafSync, flushDeferredWholeFileSync,
-    settleRemoteDeletes, openCurrentOverleafProject, jumpToOverleafPeer, overleafRealtime, overleafPresence,
-    overleafChat, overleafComments, overleafDocPaths,
+    overleafLink, overleafSyncing, overleafSyncMode, setOverleafPickerOpen, setOverleafReviewOpen, setOverleafCollabOpen,
+    overleafSyncRef, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes, overleafRealtime,
   } = overleaf;
   useLayoutEffect(() => {
     flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
@@ -728,31 +703,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
     else void runOverleafSync();
   };
-  // The save slot's second layer (S1): whether the saved text has reached Overleaf too.
-  const overleafSaveLayerState = overleafLink ? overleafSaveState({
-    paused: Boolean(overleafLink.paused), syncing: overleafSyncing, mode: overleafSyncMode,
-    channel: overleafRealtime.status, liveFile: overleafRealtime.liveFile,
-    unacknowledged: overleafRealtime.unacknowledged, detail: overleafRealtime.detail,
-  }) : null;
-  const overleafLastSync = overleafLink?.lastSync ?? null;
-  const saveSlotHandlers = useStableHandlers({
-    onRetry: () => void documents.save(),
-    // The copy is of the document whose write failed, as the slot names it:
-    // with a Paper in front that is its reading file, not the retained source.
-    onSaveCopy: () => {
-      const path = documents.saveStatus.path ?? documents.canvas.path;
-      const text = documents.bufferText(path);
-      if (text !== null) void saveSourceCopy(path, text);
-    },
-    onSync: syncOverleaf,
-  });
-  // Memoized, as App re-renders on every keystroke and the slot is a popover.
-  const saveStatus = documents.saveStatus;
-  const saveSlot = useMemo<SaveSlot>(() => ({
-    status: saveStatus,
-    overleaf: overleafSaveLayerState ? { state: overleafSaveLayerState, lastSync: overleafLastSync } : null,
-    ...saveSlotHandlers,
-  }), [overleafLastSync, overleafSaveLayerState, saveSlotHandlers, saveStatus]);
+  const saveSlot = useSaveSlot(documents, overleaf, syncOverleaf);
   const { commands, overlays: commandOverlays, openPaletteFromTitlebar, paletteShortcut } = useCommandTable({
     project, papers, documents, trellis, layout: { focusMode, focusPdf, workspaceDirty }, buildPipeline, compileAndShowPdf,
     syncTex, agentContext, tools, tree, referenceImport, projectSearch, editorComments, lifecycle, overleaf, syncOverleaf,
@@ -774,20 +725,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
 
   // Shown over the welcome screen and a project alike.
-  const appOverlays = (
-    <>
-      <InterfaceZoomHud scale={appearance.interfaceScale} revealKey={interfaceZoom.revealKey} onChange={interfaceZoom.zoom} />
-      {whatsNew.open && (
-        <Suspense fallback={null}>
-          <WhatsNewDialog
-            open
-            onClose={() => whatsNew.setOpen(false)}
-            onOpenUrl={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
-          />
-        </Suspense>
-      )}
-    </>
-  );
+  const appOverlays = <AppOverlays interfaceScale={appearance.interfaceScale} interfaceZoom={interfaceZoom} whatsNew={whatsNew} />;
   if (!project) {
     return (
       <>
@@ -867,49 +805,17 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           />
         ) : undefined}
         canvasToolbar={(
-        <CanvasToolbar
-          activePath={activePaper ? activePaper.title : documents.activeTab}
-          activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
-          dirty={documents.dirty}
-          onHistory={() => tools.open("history")}
-          onGit={() => tools.open("git")}
-          commentCount={unresolvedComments}
-          onComments={() => tools.open("comments")}
-          inBrowserTab={browserHosted}
-          onMoveWorkspace={() => void moveWorkspace()}
-          hiddenTools={appearance.hiddenTitlebarTools}
-          overleafLinked={overleafLink !== null}
-          overleafSyncing={overleafSyncing}
-          overleafPending={overleafRemoteChanges}
-          overleafLiveEditing={overleafRealtime.liveFile}
-          overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
-          overleafChannelDetail={overleafRealtime.detail}
-          overleafProjectName={overleafLink?.projectName}
-          overleafPresence={overleafPresence.peers.length ? (
-            <OverleafPresenceAvatars
-              peers={overleafPresence.peers}
-              reconnecting={overleafPresence.reconnecting}
-              pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
-              onJump={jumpToOverleafPeer}
-              onMessageEveryone={() => {
-                overleaf.setOverleafCollabTab("chat");
-                tools.open("comments");
-                void overleafChat.refresh();
-              }}
-            />
-          ) : null}
-          onOverleafSync={syncOverleaf}
-          onOverleafOpenCurrent={overleafLink ? openCurrentOverleafProject : undefined}
-          onOverleafOpen={() => setOverleafPickerOpen(true)}
-          overleafUnreadChat={
-            overleafChat.unread + overleafComments.threads.filter((thread) => !thread.resolved).length + overleafRealtime.changes.length
-            + editorComments.comments.filter((comment) => !comment.resolved).length
-          }
-          onOverleafChat={() => {
-            tools.open("comments");
-            void overleafChat.refresh();
-          }}
-        />
+          <AppCanvasToolbar
+            documents={documents}
+            tools={tools}
+            commentCount={unresolvedComments}
+            comments={editorComments}
+            inBrowserTab={browserHosted}
+            onMoveWorkspace={() => void moveWorkspace()}
+            hiddenTools={appearance.hiddenTitlebarTools}
+            overleaf={overleaf}
+            onOverleafSync={syncOverleaf}
+          />
         )}
       />
 
