@@ -1,77 +1,24 @@
 /**
- * Settings: whether it is open, on which page and how it was opened, and the
- * dialog with the loading shell that stands in for it while its chunk loads.
- * The dialog itself is one of App's surfaces (app-surfaces.ts).
+ * Settings, with the loading shell that stands in for it while its chunk
+ * loads. The dialog itself is one of App's surfaces (app-surfaces.ts); whether
+ * it is open, and on which page, is use-settings-window.ts.
  */
-import { memo, Suspense, useState, useTransition, type ComponentType, type Dispatch, type SetStateAction } from "react";
+import { memo, Suspense, type ComponentType, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { LivePreview } from "../live-preview/use-live-preview";
-import {
-  isSynaraSettingsTab, loadSettingsTab, persistOverleafRemoteDelete, persistOverleafSyncMode, persistSettingsTab,
-  type BuildPreferences,
-} from "../settings/app-settings";
+import { persistOverleafRemoteDelete, persistOverleafSyncMode, type BuildPreferences } from "../settings/app-settings";
 import type { SettingsDialogProps } from "../settings/settings-dialog";
-import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import type { useAppearance } from "../settings/use-appearance";
 import type { ProjectManifest, ProjectSnapshot, SettingsTab } from "../app-types";
 import { showingErrors } from "./notify";
 import { SettingsLoadingShell } from "./tool-loading-shell";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { useCommentAuthor } from "./use-comment-author";
-import { useLoadingShell } from "./use-loading-shell";
 import type { useOverleafWorkspace } from "./use-overleaf-workspace";
+import type { SettingsWindow } from "./use-settings-window";
 import type { SynaraHost } from "./use-synara-host";
 import type { TexSetup } from "./use-tex-setup";
-
-/**
- * Whether Settings is open and on which page. The actions are bodies for
- * App's stable handler map, whose forwarders give them the identity effects
- * and memoized panels rely on.
- */
-export function useSettingsWindow(requestSynaraRuntime: () => void) {
-  // Where Settings returns focus if not to what held it as Settings opened
-  // (the project menu's trigger, when Settings is opened from that menu), the
-  // row it opens on when the palette found one, and whether a section was
-  // asked for: one state, as each hook is paid on every App render.
-  const [entry, setEntry] = useState<{ returnFocus: HTMLElement | null; reveal: SettingsSearchEntry | null; page: boolean }>(
-    { returnFocus: null, reveal: null, page: false },
-  );
-  const [open, setOpen] = useState(false);
-  // Opening Settings is a transition for the reason opening a lazy tool
-  // drawer is (`useToolDrawers`), with the same loading shell.
-  const [opening, startOpen] = useTransition();
-  const late = useLoadingShell(opening, opening || open);
-  const [tab, setTab] = useState<SettingsTab>(loadSettingsTab);
-  const showTab = (next: SettingsTab) => {
-    if (isSynaraSettingsTab(next)) requestSynaraRuntime();
-    setTab(next);
-    persistSettingsTab(next);
-  };
-  return {
-    open, late, entry, tab, showTab,
-    /** Opens on `tab`, or without one on the page Settings was last left on; on `reveal`'s row, if given. */
-    openSettings: (requested?: SettingsTab, returnFocus: HTMLElement | null = null, reveal: SettingsSearchEntry | null = null) => {
-      showTab(requested ?? loadSettingsTab());
-      setEntry({ returnFocus, reveal, page: requested !== undefined || reveal !== null });
-      startOpen(() => setOpen(true));
-    },
-    // An urgent update after the opening transition's: it also withdraws a
-    // pending open, so a Settings closed from its loading shell stays closed.
-    close: () => {
-      setOpen(false);
-      setEntry({ returnFocus: null, reveal: null, page: false });
-    },
-    /** The agent's provider settings, as the agent panel asks for them. */
-    openProviderSettings: () => {
-      setTab("agent");
-      setEntry({ returnFocus: null, reveal: null, page: true });
-      startOpen(() => setOpen(true));
-    },
-  };
-}
-
-type SettingsWindow = ReturnType<typeof useSettingsWindow>;
 
 /**
  * Settings over the welcome screen or a project. Closed, it does not

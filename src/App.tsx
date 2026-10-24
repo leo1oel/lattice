@@ -43,11 +43,13 @@ import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { commandShortcutText } from "./app/use-app-commands";
 import { useCommandTable } from "./app/use-command-table";
+import { AppCommandOverlays } from "./app/app-command-overlays";
 import { usePaperActions } from "./app/use-paper-actions";
 import { useSourceNavigation } from "./app/use-source-navigation";
 import { AppDocumentSurfaces } from "./app/app-document-surfaces";
 import { AppPanelPortals } from "./app/app-panel-portals";
-import { AppSettingsDialog, useSettingsWindow } from "./app/app-settings-window";
+import { AppSettingsDialog } from "./app/app-settings-dialog";
+import { useSettingsWindow } from "./app/use-settings-window";
 import { useCommentAuthor } from "./app/use-comment-author";
 import { AppOverleafDialogs } from "./app/app-overleaf-dialogs";
 import { AppSubmissionDialogs } from "./app/app-submission-dialogs";
@@ -55,6 +57,7 @@ import { AppCanvasToolbar } from "./app/app-canvas-toolbar";
 import { AppOverlays } from "./app/app-overlays";
 import { useAgentSpreadsheetResolver } from "./app/use-agent-spreadsheet-resolver";
 import { useSaveSlot } from "./app/use-save-slot";
+import { useBuildPreferences } from "./app/use-build-preferences";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
@@ -75,12 +78,7 @@ import { lazyChunk } from "./lib/lazy-chunk";
 import { loadTrellisWorkspace } from "./app/workspace-chunks";
 import type { AppSurfaces } from "./app/app-surfaces";
 import { ReferencesPanel } from "./project/references-panel";
-import {
-  type BuildPreferences,
-  BUILD_PREFERENCES_KEY,
-  loadBuildPreferences,
-  resolveAppLocale,
-} from "./settings/app-settings";
+import { resolveAppLocale } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
 import {
@@ -150,7 +148,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
   } = library;
-  const [buildPreferences, setBuildPreferences] = useState<BuildPreferences>(loadBuildPreferences);
+  const [buildPreferences, setBuildPreferences] = useBuildPreferences();
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const savedPathsRef = useRef(new Set<string>());
@@ -555,14 +553,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = lifecycle;
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify(buildPreferences));
-    } catch {
-      // Build preferences still apply for the current session without storage.
-    }
-  }, [buildPreferences]);
-
   useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
 
   const referenceImport = useReferenceImport({
@@ -704,7 +694,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     else void runOverleafSync();
   };
   const saveSlot = useSaveSlot(documents, overleaf, syncOverleaf);
-  const { commands, overlays: commandOverlays, openPaletteFromTitlebar, paletteShortcut } = useCommandTable({
+  const commandTable = useCommandTable({
     project, papers, documents, trellis, layout: { focusMode, focusPdf, workspaceDirty }, buildPipeline, compileAndShowPdf,
     syncTex, agentContext, tools, tree, referenceImport, projectSearch, editorComments, lifecycle, overleaf, syncOverleaf,
     todoCount: todoHits.length, updateCanvasRequest, setSearchDialog, setTableGeneratorOpen, setArxivExportOpen,
@@ -713,6 +703,8 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     knownAuthorName: commentAuthor.knownName,
     prewarmLikelyProjectFile, readDraggedPaper,
   });
+  const { commands, openPaletteFromTitlebar, paletteShortcut } = commandTable;
+  const commandOverlays = <AppCommandOverlays commands={commands} overlay={commandTable.overlay} />;
 
   // Trellis workspace: App stays the owner of every document; the
   // workspace reads App through this bridge (at event time) and the store below.

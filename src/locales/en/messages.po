@@ -730,7 +730,7 @@ msgstr "{replacementCount} match"
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} matches"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} annotations"
 
@@ -766,11 +766,11 @@ msgstr "{title} — no local reading available"
 msgid "{title} paper reader"
 msgstr "{title} paper reader"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "{todoCount} marker"
 msgstr "{todoCount} marker"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "{todoCount} markers"
 msgstr "{todoCount} markers"
 
@@ -851,7 +851,7 @@ msgstr "1 {BIBITEM}"
 msgid "1 already in Papers is skipped"
 msgstr "1 already in Papers is skipped"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "1 annotation"
 msgstr "1 annotation"
@@ -1240,7 +1240,7 @@ msgstr "Add items from"
 msgid "Add or edit a link"
 msgstr "Add or edit a link"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -1867,7 +1867,7 @@ msgstr "Azure"
 msgid "Back"
 msgstr "Back"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgctxt "Document history"
 msgid "Back"
 msgstr "Back"
@@ -2179,7 +2179,7 @@ msgstr "Build notes"
 msgid "Build output"
 msgstr "Build output"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Build project"
@@ -2562,7 +2562,7 @@ msgid "Check incomplete"
 msgstr "Check incomplete"
 
 #: src/app/shortcut-groups.ts
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -2845,7 +2845,7 @@ msgstr "clarity"
 msgid "Clean"
 msgstr "Clean"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Clean aux files"
 msgstr "Clean aux files"
 
@@ -2853,7 +2853,7 @@ msgstr "Clean aux files"
 msgid "clean rebuild"
 msgstr "clean rebuild"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace.tsx
 msgid "Clean rebuild"
 msgstr "Clean rebuild"
@@ -3064,7 +3064,7 @@ msgid "command"
 msgstr "command"
 
 #: src/app/command-palette.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Command palette"
 msgstr "Command palette"
 
@@ -4015,7 +4015,7 @@ msgstr "Discard"
 msgid "Discard and close"
 msgstr "Discard and close"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/papers/literature-discovery-panel.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -4066,7 +4066,7 @@ msgstr "Document authors"
 msgid "Document date"
 msgstr "Document date"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Document is already formatted."
 msgstr "Document is already formatted."
 
@@ -4095,7 +4095,7 @@ msgstr "Does not exist"
 msgid "DOI metadata corrections are available."
 msgstr "DOI metadata corrections are available."
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOIs, arXiv IDs, links, titles or BibTeX"
 
@@ -4300,11 +4300,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
@@ -4326,7 +4326,7 @@ msgstr "Edit deadline"
 msgid "Edit document"
 msgstr "Edit document"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
@@ -4338,7 +4338,7 @@ msgstr "Edit item"
 msgid "Edit link"
 msgstr "Edit link"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
@@ -4661,7 +4661,7 @@ msgstr "Export Excel workbook"
 msgid "Export for arXiv"
 msgstr "Export for arXiv"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/project-dialogs.tsx
 msgid "Export for arXiv…"
 msgstr "Export for arXiv…"
@@ -4686,7 +4686,7 @@ msgstr "Export PDF with changes…"
 msgid "Export preview"
 msgstr "Export preview"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-project-lifecycle.ts
 msgid "Export project ZIP"
 msgstr "Export project ZIP"
@@ -4910,7 +4910,7 @@ msgstr "Find in document"
 msgid "Find in PDF"
 msgstr "Find in PDF"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-trellis-bridge.ts
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -5026,7 +5026,7 @@ msgstr "flow"
 msgid "Flush floats and start a new page"
 msgstr "Flush floats and start a new page"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Focus mode"
 msgstr "Focus mode"
@@ -5071,11 +5071,11 @@ msgstr "For all"
 msgid "For each item already here"
 msgstr "For each item already here"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Format"
 msgstr "Format"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Format document"
 msgstr "Format document"
 
@@ -5083,7 +5083,7 @@ msgstr "Format document"
 msgid "Format selected LaTeX"
 msgstr "Format selected LaTeX"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Formatted with latexindent."
 msgstr "Formatted with latexindent."
 
@@ -5100,7 +5100,7 @@ msgstr "Formula"
 msgid "Formulas"
 msgstr "Formulas"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgctxt "Document history"
 msgid "Forward"
 msgstr "Forward"
@@ -5255,7 +5255,7 @@ msgstr "Go to definition"
 msgid "Go to entry"
 msgstr "Go to entry"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
 msgid "Go to line"
@@ -5277,7 +5277,7 @@ msgid "Go to section or label…"
 msgstr "Go to section or label…"
 
 #: src/app/app-search-dialogs.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Go to symbol"
 msgstr "Go to symbol"
 
@@ -5444,7 +5444,7 @@ msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "Hide {name}"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Hide {name} panel"
 msgstr "Hide {name} panel"
 
@@ -5466,7 +5466,7 @@ msgid "Hide Others"
 msgstr "Hide Others"
 
 #: src/app/focus-mode-bar.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Hide the PDF"
 msgstr "Hide the PDF"
 
@@ -5644,7 +5644,7 @@ msgstr "Import files…"
 msgid "Import images here"
 msgstr "Import images here"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
@@ -5731,7 +5731,7 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
-#: src/app/use-command-table.tsx
+#: src/app/app-command-overlays.tsx
 #: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
 msgstr "In this document"
@@ -5740,7 +5740,7 @@ msgstr "In this document"
 msgid "In this file"
 msgstr "In this file"
 
-#: src/app/use-command-table.tsx
+#: src/app/app-command-overlays.tsx
 msgid "In this paper"
 msgstr "In this paper"
 
@@ -5884,7 +5884,7 @@ msgid "Insert an image path (requires graphicx)"
 msgstr "Insert an image path (requires graphicx)"
 
 #: src/app/app-search-dialogs.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Insert citation"
 msgstr "Insert citation"
 
@@ -5910,7 +5910,7 @@ msgid "Insert link"
 msgstr "Insert link"
 
 #: src/app/app-search-dialogs.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Insert reference"
 msgstr "Insert reference"
 
@@ -5922,7 +5922,7 @@ msgstr "Insert row above"
 msgid "Insert row below"
 msgstr "Insert row below"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "Insert table"
@@ -6093,7 +6093,7 @@ msgstr "journal"
 msgid "Journal"
 msgstr "Journal"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
 
@@ -6210,7 +6210,7 @@ msgid "Key saved to the keychain"
 msgstr "Key saved to the keychain"
 
 #: src/app/shortcut-sheet.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
 
@@ -6249,7 +6249,7 @@ msgid "Larger fraction"
 msgstr "Larger fraction"
 
 #: src/app/interface-zoom-hud.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Larger interface"
 msgstr "Larger interface"
 
@@ -6439,7 +6439,7 @@ msgid "Leave a code block"
 msgstr "Leave a code block"
 
 #: src/app/shortcut-groups.ts
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Leave focus mode"
 msgstr "Leave focus mode"
 
@@ -6816,7 +6816,7 @@ msgstr "Loading pull requests…"
 msgid "Loading references…"
 msgstr "Loading references…"
 
-#: src/app/app-settings-window.tsx
+#: src/app/app-settings-dialog.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
@@ -6939,7 +6939,7 @@ msgstr "Manual only"
 msgid "Manuscript"
 msgstr "Manuscript"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/canvas/editor-status-bar.tsx
 #: src/project/todo-scavenger-panel.tsx
 msgid "Manuscript TODOs"
@@ -6963,15 +6963,15 @@ msgctxt "macOS menu bar"
 msgid "Margin Review"
 msgstr "Margin Review"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Margin review: Auto"
 msgstr "Margin review: Auto"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Margin review: Markers only"
 msgstr "Margin review: Markers only"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Margin review: Off"
 msgstr "Margin review: Off"
 
@@ -7013,7 +7013,7 @@ msgstr "Match case"
 msgid "Match system"
 msgstr "Match system"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Match the system theme"
 msgstr "Match the system theme"
 
@@ -7063,7 +7063,7 @@ msgstr "Matrix"
 msgid "Maximize"
 msgstr "Maximize"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "Maximize focused panel"
@@ -7464,7 +7464,7 @@ msgstr "New Overleaf project name"
 msgid "New presentation"
 msgstr "New presentation"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
@@ -7491,7 +7491,7 @@ msgstr "New terminal"
 msgid "New version {version}"
 msgstr "New version {version}"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "New workspace"
@@ -7517,7 +7517,7 @@ msgstr "next"
 msgid "Next"
 msgstr "Next"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Next build problem"
 msgstr "Next build problem"
 
@@ -7699,7 +7699,7 @@ msgstr "No logs yet"
 msgid "No longer in the document"
 msgstr "No longer in the document"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "No markers"
 msgstr "No markers"
 
@@ -8224,7 +8224,7 @@ msgctxt "annotation filter"
 msgid "Open"
 msgstr "Open"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open {name}"
 msgstr "Open {name}"
 
@@ -8241,7 +8241,7 @@ msgstr "Open {title}"
 msgid "Open {title} in browser"
 msgstr "Open {title} in browser"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open a .tex file before formatting."
 msgstr "Open a .tex file before formatting."
 
@@ -8270,15 +8270,15 @@ msgstr "Open a project from Overleaf"
 msgid "Open a project to add terms"
 msgstr "Open a project to add terms"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open a recent project by its place"
 msgstr "Open a recent project by its place"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open an Overleaf project"
 msgstr "Open an Overleaf project"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "Open another folder"
@@ -8316,11 +8316,11 @@ msgstr "Open folder"
 msgid "Open from Overleaf"
 msgstr "Open from Overleaf"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open guided tutorial"
 msgstr "Open guided tutorial"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
@@ -8330,7 +8330,7 @@ msgstr "Open in browser"
 msgid "Open in History"
 msgstr "Open in History"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Lattice app"
 msgstr "Open in Lattice app"
@@ -8382,11 +8382,11 @@ msgstr "Open paper result: {paperTitle}"
 msgid "Open PDF in browser"
 msgstr "Open PDF in browser"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open project history"
 msgstr "Open project history"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open settings"
 msgstr "Open settings"
 
@@ -8453,7 +8453,7 @@ msgstr "Open the reader"
 msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Open this project on Overleaf"
 msgstr "Open this project on Overleaf"
 
@@ -8639,7 +8639,7 @@ msgstr "Overleaf sent these empty or much smaller, but its history does not conf
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf sent version {version} while this document is at {current}."
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Overleaf source pack"
 msgstr "Overleaf source pack"
 
@@ -8845,7 +8845,7 @@ msgstr "Paste"
 msgid "Paste cells or CSV"
 msgstr "Paste cells or CSV"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
@@ -9049,7 +9049,7 @@ msgstr "Plus-minus"
 msgid "Polish"
 msgstr "Polish"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Polish selection"
 msgstr "Polish selection"
 
@@ -9154,7 +9154,7 @@ msgstr "Press ⌘S or click Build"
 msgid "Preview"
 msgstr "Preview"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
@@ -9162,7 +9162,7 @@ msgstr "Preview HTML"
 msgid "Preview image"
 msgstr "Preview image"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
@@ -9182,7 +9182,7 @@ msgstr "Preview unavailable"
 msgid "Preview unavailable for this figure format."
 msgstr "Preview unavailable for this figure format."
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Previous build problem"
 msgstr "Previous build problem"
 
@@ -9314,7 +9314,7 @@ msgstr "Proof environment (requires amsthm)"
 msgid "Proofread"
 msgstr "Proofread"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Proofread selection"
 msgstr "Proofread selection"
 
@@ -9428,7 +9428,7 @@ msgstr "queued"
 msgid "Quick open"
 msgstr "Quick open"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/quick-open-dialog.tsx
 msgid "Quick open file"
 msgstr "Quick open file"
@@ -9544,7 +9544,7 @@ msgstr "rebuttal"
 msgid "Rebuttal"
 msgstr "Rebuttal"
 
-#: src/app/use-command-table.tsx
+#: src/app/app-command-overlays.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
@@ -9860,7 +9860,7 @@ msgstr "Rendering first page…"
 msgid "Reopen"
 msgstr "Reopen"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Reopen the closed tab"
 msgstr "Reopen the closed tab"
 
@@ -9944,7 +9944,7 @@ msgstr "Replace current match"
 msgid "Replace grid from data"
 msgstr "Replace grid from data"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Replace in project"
 msgstr "Replace in project"
 
@@ -10072,7 +10072,7 @@ msgstr "Research"
 msgid "Reset"
 msgstr "Reset"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Reset interface size"
 msgstr "Reset interface size"
 
@@ -10081,7 +10081,7 @@ msgstr "Reset interface size"
 msgid "Reset layout"
 msgstr "Reset layout"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Reset panel layout"
 msgstr "Reset panel layout"
 
@@ -10229,7 +10229,7 @@ msgstr "Restore size"
 msgid "Restore the files the rounds touched to {name}?"
 msgstr "Restore the files the rounds touched to {name}?"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
 msgstr "Restore the layout"
@@ -10326,7 +10326,7 @@ msgstr "Reveal cursor in PDF"
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "Revert to saved"
@@ -10358,7 +10358,7 @@ msgstr "Review changes"
 msgid "Review copy exported from Lattice on {0}, with {count}."
 msgstr "Review copy exported from Lattice on {0}, with {count}."
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Review here"
 msgstr "Review here"
 
@@ -10383,7 +10383,7 @@ msgstr "Revise from {0} annotations"
 msgid "Revise from 1 annotation"
 msgstr "Revise from 1 annotation"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Revise from annotations"
 msgstr "Revise from annotations"
@@ -10512,7 +10512,7 @@ msgstr "rtex stopped. The PDF still updates with each build."
 msgid "run {run}"
 msgstr "run {run}"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
@@ -10575,7 +10575,7 @@ msgstr "Save a local template"
 msgid "Save a local template…"
 msgstr "Save a local template…"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Save and build"
 msgstr "Save and build"
 
@@ -10668,7 +10668,7 @@ msgstr "Save the project before repairing."
 msgid "Save these items as a template…"
 msgstr "Save these items as a template…"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "Save to workspace"
@@ -11031,7 +11031,7 @@ msgstr "Set minus"
 msgid "Setting up live preview… {percent}%"
 msgstr "Setting up live preview… {percent}%"
 
-#: src/app/app-settings-window.tsx
+#: src/app/app-settings-dialog.tsx
 #: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
@@ -11064,7 +11064,7 @@ msgstr "Show"
 msgid "Show {0} automatic versions"
 msgstr "Show {0} automatic versions"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Show {name} panel"
 msgstr "Show {name} panel"
 
@@ -11085,7 +11085,7 @@ msgstr "Show all references"
 msgid "Show all results"
 msgstr "Show all results"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Show annotations"
 msgstr "Show annotations"
@@ -11167,7 +11167,7 @@ msgstr "Show the citation card"
 msgid "Show the PDF"
 msgstr "Show the PDF"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Show the PDF beside the editor"
 msgstr "Show the PDF beside the editor"
 
@@ -11298,7 +11298,7 @@ msgid "Smaller"
 msgstr "Smaller"
 
 #: src/app/interface-zoom-hud.tsx
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Smaller interface"
 msgstr "Smaller interface"
 
@@ -11566,7 +11566,7 @@ msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try c
 msgid "Stop"
 msgstr "Stop"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Stop build"
 msgstr "Stop build"
 
@@ -11601,7 +11601,7 @@ msgstr "Strong"
 msgid "structure"
 msgstr "structure"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/project/manuscript-checklist.tsx
 msgid "Submission checklist"
 msgstr "Submission checklist"
@@ -11679,11 +11679,11 @@ msgstr "Surface / area integral"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Switch to a workspace by its place"
 msgstr "Switch to a workspace by its place"
 
@@ -11695,11 +11695,11 @@ msgstr "Switch to pdfLaTeX"
 msgid "Switch to that window"
 msgstr "Switch to that window"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"
 msgstr "Switch to the Reading layout"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Switch to the Writing layout"
 msgstr "Switch to the Writing layout"
 
@@ -11756,7 +11756,7 @@ msgstr "Sync now"
 msgid "Sync paused"
 msgstr "Sync paused"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
@@ -12032,7 +12032,7 @@ msgstr "The bibliography has no .bbl"
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
 msgstr "the comment or suggestion by the caret"
 
@@ -12285,7 +12285,7 @@ msgid "Theme"
 msgstr "Theme"
 
 #. Search words for the theme commands, space-separated
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "theme appearance"
 msgstr "theme appearance"
 
@@ -13081,11 +13081,11 @@ msgstr "Upsilon"
 msgid "URL"
 msgstr "URL"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Use the dark theme"
 msgstr "Use the dark theme"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Use the light theme"
 msgstr "Use the light theme"
 
@@ -13385,7 +13385,7 @@ msgctxt "macOS menu bar"
 msgid "What’s New in {name}"
 msgstr "What’s New in {name}"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "What’s new in Lattice"
 msgstr "What’s new in Lattice"
 
@@ -13457,7 +13457,7 @@ msgctxt "changed words count"
 msgid "words"
 msgstr "words"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 msgid "Words / pages / TODOs"
 msgstr "Words / pages / TODOs"
 
@@ -13475,7 +13475,7 @@ msgstr "Working offline"
 msgid "Working…"
 msgstr "Working…"
 
-#: src/app/use-command-table.tsx
+#: src/app/use-command-table.ts
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts

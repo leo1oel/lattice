@@ -1,13 +1,12 @@
 /**
  * The one command table: every app-level action, as the ⌘K palette lists it,
  * as the window's shortcuts reach it and as the ⌘? sheet shows it (see
- * AppCommand). The palette and the sheet are one overlay state here, and the
- * hook hands App both, ready to render.
+ * AppCommand). The palette and the sheet are one overlay state here, which
+ * app-command-overlays.tsx renders.
  */
-import { lazy, useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
-import { LazyMount } from "../components/lazy-mount";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
 import { welcomeDeskProjects } from "../project/first-pages";
 import type { NewEntryType } from "../project/project-new-entries";
@@ -24,14 +23,14 @@ import { isProjectAssetFilePath } from "../app-utils";
 import { logAction } from "../telemetry/app-notify";
 import { showError } from "./notify";
 import { annotationRounds, revisable } from "./annotation-rounds";
-import { CommandPalette } from "./command-palette";
-import { paletteLeading, paletteSurface } from "./command-palette-leading";
+import type { PaletteChoice } from "./command-palette";
+import { paletteSurface } from "./command-palette-leading";
 import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
 import { RUNNING_VERSION } from "./whats-new";
-import { commandCombo, commandShortcutText, paletteEntries, useAppCommands, type AppCommand } from "./use-app-commands";
+import { commandCombo, commandShortcutText, useAppCommands, type AppCommand } from "./use-app-commands";
 import type { useAgentContext } from "./use-agent-context";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
@@ -48,7 +47,6 @@ import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
 
 const loadTexlabLanguage = () => import("../build/texlab-language");
-const ShortcutSheet = lazy(() => import("./shortcut-sheet"));
 
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
@@ -345,55 +343,43 @@ export function useCommandTable({
   const openCommandPaletteRef = useLatestRef(openCommandPalette);
   const openPaletteFromTitlebar = useCallback(() => openCommandPaletteRef.current(), [openCommandPaletteRef]);
   const palette = commandOverlay?.kind === "palette" ? commandOverlay : null;
-  const paletteCommands = palette ? paletteEntries(commands) : [];
-  // The welcome screen's shortcuts are listed too.
-  const overlays = (
-    <>
-      {palette && (
-        <CommandPalette
-          commands={paletteCommands}
-          leading={paletteLeading(paletteCommands, palette.recentCommands, commandSurface, {
-            recent: t`Recent`,
-            surface: commandSurface === "paper" ? t`In this paper` : t`In this document`,
-          })}
-          // Listed only while open, from the tree as it is now.
-          files={project ? collectFilePaths(project.files, (node) => Boolean(node.path)) : []}
-          recentFiles={palette.recentFiles}
-          papers={project ? papers : []}
-          hasProject={inProject}
-          knownAuthorName={knownAuthorName}
-          onFileIntent={prewarmLikelyProjectFile}
-          onClose={() => setCommandOverlay(null)}
-          onChoose={(choice) => {
-            setCommandOverlay(null);
-            if (choice.kind === "command") rememberRecentCommand(choice.id);
-            // Only once the palette has handed focus back to where it was, so a
-            // command that moves focus itself (the tree's inline New file field)
-            // keeps it. The dialog returns focus in a microtask as it unmounts,
-            // and Radix's FocusScope again on a zero-delay timer it starts then;
-            // this timer, started before that unmount, starts one more after it.
-            window.setTimeout(() => window.setTimeout(() => {
-              if (choice.kind === "command") runCommand(choice.id);
-              else if (choice.kind === "file") {
-                if (isProjectAssetFilePath(choice.path)) void openAsset(choice.path);
-                else void openFile(choice.path);
-              } else if (choice.kind === "paper") readDraggedPaper(choice.paper);
-              else if (choice.kind === "find") openProjectFindFor(choice.query);
-              else openSettings(choice.entry.tab, null, choice.entry);
-            }, 0), 0);
-          }}
-        />
-      )}
-      <LazyMount when={commandOverlay?.kind === "shortcuts"}>
-        <ShortcutSheet commands={commands} onClose={() => setCommandOverlay(null)} />
-      </LazyMount>
-    </>
-  );
   return {
     commands,
-    /** The palette and the shortcut sheet, over the welcome screen and a project alike. */
-    overlays,
     openPaletteFromTitlebar,
     paletteShortcut: commandShortcutText(commands, "palette") ?? undefined,
+    /** What the palette and the shortcut sheet show (app-command-overlays.tsx). */
+    overlay: {
+      shortcuts: commandOverlay?.kind === "shortcuts",
+      palette: palette && {
+        recentCommands: palette.recentCommands,
+        recentFiles: palette.recentFiles,
+        surface: commandSurface,
+        // Listed only while open, from the tree as it is now.
+        files: project ? collectFilePaths(project.files, (node) => Boolean(node.path)) : [],
+        papers: project ? papers : [],
+        hasProject: inProject,
+        knownAuthorName,
+        onFileIntent: prewarmLikelyProjectFile,
+      },
+      close: () => setCommandOverlay(null),
+      choose: (choice: PaletteChoice) => {
+        setCommandOverlay(null);
+        if (choice.kind === "command") rememberRecentCommand(choice.id);
+        // Only once the palette has handed focus back to where it was, so a
+        // command that moves focus itself (the tree's inline New file field)
+        // keeps it. The dialog returns focus in a microtask as it unmounts,
+        // and Radix's FocusScope again on a zero-delay timer it starts then;
+        // this timer, started before that unmount, starts one more after it.
+        window.setTimeout(() => window.setTimeout(() => {
+          if (choice.kind === "command") runCommand(choice.id);
+          else if (choice.kind === "file") {
+            if (isProjectAssetFilePath(choice.path)) void openAsset(choice.path);
+            else void openFile(choice.path);
+          } else if (choice.kind === "paper") readDraggedPaper(choice.paper);
+          else if (choice.kind === "find") openProjectFindFor(choice.query);
+          else openSettings(choice.entry.tab, null, choice.entry);
+        }, 0), 0);
+      },
+    },
   };
 }
