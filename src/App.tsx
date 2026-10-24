@@ -2,11 +2,9 @@ import {
   Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition,
   type SetStateAction,
 } from "react";
-import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { paperImportStageLabel } from "./papers/paper-import-progress";
 import {
   loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
 } from "./editor/comments/editor-comment-data";
@@ -14,7 +12,6 @@ import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { configureToastPosition } from "./telemetry/toast-position";
-import { OpeningOverlay } from "./app/opening-overlay";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
 import { useReferenceImport } from "./app/use-reference-import";
@@ -23,7 +20,6 @@ import { annotationRounds } from "./app/annotation-rounds";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useLivePreview } from "./live-preview/use-live-preview";
-import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
 import { useBuildErrorFix } from "./app/use-build-error-fix";
@@ -54,6 +50,7 @@ import { useCommandTable } from "./app/use-command-table";
 import { usePaperActions } from "./app/use-paper-actions";
 import { useSourceNavigation } from "./app/use-source-navigation";
 import { AppDocumentSurfaces } from "./app/app-document-surfaces";
+import { AppPanelPortals } from "./app/app-panel-portals";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import type { SettingsSearchEntry } from "./settings/settings-search-index";
 import { useToolDrawers } from "./app/use-tool-drawers";
@@ -72,7 +69,6 @@ import { InterfaceZoomHud as InterfaceZoomPill } from "./app/interface-zoom-hud"
 import { useInterfaceZoom } from "./app/use-interface-zoom";
 import { useWhatsNew } from "./app/use-whats-new";
 import { overleafSaveState, type SaveSlot } from "./canvas/save-slot";
-import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -80,10 +76,10 @@ import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
 import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
-import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./app/workspace-chunks";
+import { loadTrellisWorkspace } from "./app/workspace-chunks";
 import type { AppSurfaces } from "./app/app-surfaces";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
-import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
+import { ReferencesPanel } from "./project/references-panel";
 import {
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
@@ -111,7 +107,6 @@ import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
   EditorPosition,
-  PaperSummary,
   SettingsTab,
   InsertSymbolCommand,
   ViewRestoreRequest,
@@ -137,28 +132,20 @@ const ConflictResolverDialog = lazy(() =>
   import("./history/conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
 );
 const ArxivExportDialog = lazy(() => import("./project/arxiv-export-dialog"));
-// Lazy: the file tree pulls @pierre/trees (~270 KB), and neither sidebar
-// panel renders on the Welcome screen, so they must not weigh down first paint.
-// Memoized: their callbacks come through stable forwarders (useStableHandlers
-// in App), so an editor keystroke does not re-render the file tree or the paper library.
-const ProjectFileTree = lazyChunk(loadProjectFileTree, (module) => memo(module.ProjectFileTree));
 // Memoized: its props are stable, and App re-renders on every keystroke.
 const InterfaceZoomHud = memo(InterfaceZoomPill);
-/** Papers' read state while the window's paper list is still another project's. */
-const PAPERS_LOADING = { status: "loading" } as const;
-const PaperLibrary = lazyChunk(loadPaperLibrary, (module) => memo(module.PaperLibrary));
 const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 const BibliographyAudit = lazy(() =>
   import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
 );
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
-// with no Suspense reveal to wait out. The file tree and paper library above
-// keep their boundaries: their reveal waits, after the editor's. The canvas,
+// with no Suspense reveal to wait out. The file tree and paper library
+// (app-panel-portals.tsx) keep their boundaries: their reveal waits, after the
+// editor's. The canvas,
 // the project PDF and Settings come with App's surfaces (app/app-surfaces.ts).
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
-const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
 
@@ -188,7 +175,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   } = projectState;
   const library = useProjectLibrary(projectState);
   const {
-    papers, paperLoad, retryPapers, citationKeys, citations, references,
+    papers, citationKeys, citations, references,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
@@ -231,7 +218,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     mode: canvasMode,
   } = documents;
   const {
-    openFile, openAsset, openPaper, flush, save, load: loadFile, accept, reveal, clear: clearEditor,
+    openFile, openAsset, flush, save, load: loadFile, accept, reveal, clear: clearEditor,
   } = documents;
   const { file: activeFileRef, text: sourceRef, saved: savedSourceRef, asset: activeAssetRef } = documents.live;
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
@@ -373,7 +360,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
     },
   });
-  const { origin: synaraOrigin, postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
+  const { postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
   const autoBuildModeRef = useLatestRef(buildPreferences.autoBuildMode);
   const agentCheckpoints = useAgentCheckpoints({
     project,
@@ -719,12 +706,11 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       },
     });
   });
-  const {
-    paperFetchStates, fetchAndOpenPaper, cancelPaperFetches, readDraggedPaper, deletePaper,
-  } = usePaperActions({
+  const paperActions = usePaperActions({
     projectState, documents, refreshProject, refreshHistory,
     clearImportStage: referenceImport.clearStage, openForMissingPaperTools: texSetup.openForMissingPaperTools,
   });
+  const { readDraggedPaper } = paperActions;
 
   const referenceImages = useReferenceImages(project?.root, references);
 
@@ -764,7 +750,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     updateCanvasRequest, postAgentMessage: postSynaraMessage, agentDocumentCreatorRef: agentProjectDocumentCreatorRef,
     trellis, interfaceScale: appearance.interfaceScale,
   });
-  const { openFileFromClick: openProjectFileFromClick, openAssetFromClick: openProjectAssetFromClick } = tree;
 
   const sourceNavigation = useSourceNavigation({
     project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree,
@@ -904,11 +889,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     </LazyMount>
   </>);
 
-  const primaryBibliography = project?.manifest.primaryBibliography ?? "";
-  const protectedProjectPaths = useMemo(
-    () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
-    [primaryBibliography, rootDocumentPath],
-  );
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
   const importedArxivIds = useMemo(
@@ -977,68 +957,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     requestNewEntry, reportPdfSelection: (text, place) => agentContext.reportSelection("pdf", text, place),
     shortcut: (id) => commandShortcutText(commands, id),
-  });
-  // Panel action rows (Trellis tab-bar accessories): memoized, because App
-  // re-renders on every keystroke and each row is a set of tooltip buttons.
-  const { permissionMode, autoModeAvailable, changePermissionMode } = synara;
-  const panelActionHandlers = useStableHandlers({
-    onCheckReferences: checkReferences,
-    onDiscoverLiterature: () => tools.open("literature"),
-  });
-  const trellisActions = useMemo(() => {
-    const actions = (mode: "project" | "papers" | "agent") => (
-      <PanelActions
-        mode={mode}
-        synara={{ origin: synaraOrigin, permissionMode, autoModeAvailable, changePermissionMode }}
-        openAddPapers={referenceImport.openAddSheet}
-        {...panelActionHandlers}
-        openProjectFind={openProjectFind}
-        setProjectSearchOpen={setProjectSearchOpen}
-        requestNewEntry={requestNewEntry}
-      />
-    );
-    return { project: actions("project"), papers: actions("papers"), agent: actions("agent") };
-    // `synara` is rebuilt each render; the row reads only the fields listed.
-  }, [
-    autoModeAvailable, changePermissionMode, openProjectFind, panelActionHandlers, permissionMode,
-    referenceImport.openAddSheet, requestNewEntry, setProjectSearchOpen, synaraOrigin,
-  ]);
-  // The sidebar panels' callbacks are mostly inline, so they change on every
-  // App render; the memoized panels get stable forwarders instead.
-  const fileTreeHandlers = useStableHandlers({
-    onFile: openProjectFileFromClick,
-    onLikelyFile: prewarmLikelyProjectFile,
-    onAsset: openProjectAssetFromClick,
-    onBeginFigureDrag: tree.beginFigureDrag,
-    onBeginFileDrag: tree.beginFileDrag,
-    onCreateEntry: tree.createEntry,
-    onDeleteEntries: tree.deleteEntries,
-    onRenameEntry: tree.renameEntry,
-    onMoveEntries: tree.moveEntries,
-    onCopyEntries: tree.copyEntries,
-    onError: showError,
-    onReveal: tree.revealItem,
-    onImportAssets: tree.chooseAssets,
-    onImportFiles: (targetDirectory: string) => void tree.chooseFiles(targetDirectory),
-    onPasteImage: (targetDirectory: string) => void tree.importSystemClipboardImage(targetDirectory),
-  });
-  const paperLibraryHandlers = useStableHandlers({
-    onReveal: tree.revealItem,
-    onPaper: (paper: PaperSummary) => void openPaper(paper),
-    onLikelyPaper: prewarmLikelyPaper,
-    onFetchFullText: (paper: PaperSummary) => void fetchAndOpenPaper(paper),
-    onCancelFetch: cancelPaperFetches,
-    onDeletePaper: deletePaper,
-    onEditBibEntry: (paper: PaperSummary) => void referenceImport.editBibEntry(paper),
-    onOpenCitationUse: (usage: SymbolOccurrence) => void openSymbolOccurrence(usage),
-    setImportInput: referenceImport.setInput,
-    onImport: referenceImport.importFromInput,
-    onCancelImport: referenceImport.cancelImport,
-    onAddPapers: (seed: string) => referenceImport.openAddSheet(seed),
-    onSearchLiterature: (query: string) => {
-      referenceImport.searchLiterature(query);
-      tools.open("literature");
-    },
   });
 
   // Shown over the welcome screen and a project alike.
@@ -1203,76 +1121,28 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
             <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
           </Suspense>
         </ChunkGate>
-        {createPortal(
-          <Suspense fallback={null}>
-            <ProjectFileTree
-              key={project.root}
-              projectKey={project.root}
-              searchOpen={projectSearchOpen}
-              newEntryRequest={newEntryRequest}
-              revealRequest={tree.revealRequest}
-              onSearchOpenChange={setProjectSearchOpen}
-              files={project.files}
-              gitStatus={projectGit.gitFiles}
-              // The tree marks the file in front only while its tab is open.
-              // Closing the last file tab leaves it in front with nothing to
-              // replace it, and a row that stays selected cannot be clicked
-              // open again: the tree opens files on a selection change.
-              activeFile={activeAsset || activePaper || (documents.tabsReady && !documents.tabs.includes(activeFile)) ? "" : activeFile}
-              activeAssetPath={activeAsset?.path ?? ""}
-              protectedPaths={protectedProjectPaths}
-              assetDropTarget={tree.assetDropTarget}
-              assetImporting={tree.assetImporting}
-              {...fileTreeHandlers}
-            />
-          </Suspense>,
-          trellis.hosts.project,
-        )}
-        {createPortal(
-          <Suspense fallback={null}>
-            <PaperLibrary
-              projectKey={project.root}
-              papers={papers}
-              // Another project's read state says nothing about this one's.
-              load={paperLoad.root === project.root ? paperLoad : PAPERS_LOADING}
-              syncing={overleafSyncing && !papers.length}
-              onRetryLoad={retryPapers}
-              citations={citations}
-              // Refreshed after every save, so the counts follow the manuscript.
-              citationUsageRevision={unusedSymbols}
-              activePaper={activePaper}
-              paperFetchStates={paperFetchStates}
-              importInput={referenceImport.input}
-              recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
-              importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
-              importStageId={referenceImport.stage}
-              importLabel={referenceImport.importLabel}
-              justAdded={referenceImport.justAdded?.projectRoot === project.root ? referenceImport.justAdded.keys : undefined}
-              importing={referenceImport.importing}
-              {...paperLibraryHandlers}
-            />
-          </Suspense>,
-          trellis.hosts.papers,
-        )}
-        {createPortal(trellisActions.project, trellis.hosts.projectActions)}
-        {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
-        {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
-        {agentPresent && createPortal(
-          <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface thread waiting={synara.frameMounted} runtime={synara.runtime} onRetry={synara.retryAgent} /></div>}>
-            <TrellisAgentSurface
-              synara={synara}
-              projectRoot={project.root}
-              theme={theme}
-              appLocale={appLocale}
-              dropActive={tree.drops.agentPanel}
-            />
-          </Suspense>,
-          trellis.hosts.agent,
-        )}
-        {documents.opening && createPortal(
-          <OpeningOverlay name={documents.opening} />,
-          trellis.hosts.editor,
-        )}
+        <AppPanelPortals
+          project={project}
+          documents={documents}
+          trellis={trellis}
+          agentPresent={agentPresent}
+          theme={theme}
+          appLocale={appLocale}
+          tree={tree}
+          prewarm={{ prewarmLikelyProjectFile, prewarmLikelyPaper }}
+          projectSearch={{ open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind }}
+          newEntry={{ request: newEntryRequest, requestNew: requestNewEntry }}
+          gitFiles={projectGit.gitFiles}
+          rootDocumentPath={rootDocumentPath}
+          library={library}
+          overleafSyncing={overleafSyncing}
+          paperActions={paperActions}
+          referenceImport={referenceImport}
+          openSymbolOccurrence={openSymbolOccurrence}
+          synara={synara}
+          tools={tools}
+          checkReferences={checkReferences}
+        />
         <AppDocumentSurfaces
           surfaces={surfaces}
           project={project}
