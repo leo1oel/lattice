@@ -466,8 +466,7 @@ fn search_open(
     // Only the lines a result shows are read from the document store
     // (1,000 stored lines took 15–25 ms).
     let keep = limits.hits_per_paper.max(RANKED_LINES);
-    let mut groups =
-        searcher.search(&BooleanQuery::new(clauses), &BestLinesPerPaper { keep })?;
+    let mut groups = searcher.search(&BooleanQuery::new(clauses), &BestLinesPerPaper { keep })?;
     // A title match counts double; then the best three lines, each half the
     // last, so a paper about the query outranks one heading that names it.
     let rank = |group: &Group| {
