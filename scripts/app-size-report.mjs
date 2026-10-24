@@ -163,8 +163,11 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // About 25 KB above the eager JS of 2026-10 (1,369,855 bytes). Compiling App
 // whole under the React Compiler had added ~48 KB of memo cache; moving Yjs
 // and the spreadsheet operations behind the Agent's first spreadsheet request
-// (`loadAgentSpreadsheetModel`) took ~87 KB back out.
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.33 * 1024 * 1024);
+// (`loadAgentSpreadsheetModel`) took ~87 KB back out. Raised from 1.33 MiB
+// when App's concepts moved into src/app hooks and components (#498): each is
+// compiled on its own and memoizes its inputs and results, which App's single
+// function had not, ~22 KB more (1,382,409 -> 1,404,478 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;

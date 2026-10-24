@@ -103,6 +103,12 @@ export function useCommandTable({
   requestNewEntry, settingsOpen, openSettings, whatsNew, browserHosted, theme, interfaceZoom, knownAuthorName,
   prewarmLikelyProjectFile, readDraggedPaper,
 }: CommandTableDeps) {
+  // Left to React as it was inside App, where the compiler built the table
+  // afresh each render and kept only the run closures: compiled on its own it
+  // memoized every command and label, ~16 KB of eager JS for a table that
+  // useAppCommands reads through a ref at each keypress anyway.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
+  "use no memo";
   const { t, i18n } = useLingui();
   const { file: activeFile, text: source, paper: activePaper, asset: activeAsset, save } = documents;
   const { openFile, openAsset, edit: editFile } = documents;
