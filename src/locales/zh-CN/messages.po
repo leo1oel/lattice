@@ -730,7 +730,7 @@ msgstr "{replacementCount} 处"
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} 处"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} 条批注"
 
@@ -766,11 +766,11 @@ msgstr "{title} — 没有本地全文"
 msgid "{title} paper reader"
 msgstr "{title} 阅读器"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "{todoCount} marker"
 msgstr "{todoCount} 个标记"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "{todoCount} markers"
 msgstr "{todoCount} 个标记"
 
@@ -851,7 +851,7 @@ msgstr "1 条 {BIBITEM}"
 msgid "1 already in Papers is skipped"
 msgstr "1 篇已在论文库，将跳过"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "1 annotation"
 msgstr "1 条批注"
@@ -1240,7 +1240,7 @@ msgstr "从模板添加"
 msgid "Add or edit a link"
 msgstr "加链接"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/papers/add-papers-sheet.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -1867,7 +1867,7 @@ msgstr "天蓝色"
 msgid "Back"
 msgstr "上一步"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgctxt "Document history"
 msgid "Back"
 msgstr "后退"
@@ -2179,7 +2179,7 @@ msgstr "提示"
 msgid "Build output"
 msgstr "编译结果"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/pdf/pdf-viewer.tsx
 msgid "Build project"
@@ -2561,8 +2561,8 @@ msgstr "检查更新"
 msgid "Check incomplete"
 msgstr "没查完"
 
-#: src/App.tsx
 #: src/app/shortcut-groups.ts
+#: src/app/use-command-table.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -2845,7 +2845,7 @@ msgstr "清晰"
 msgid "Clean"
 msgstr "清理"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Clean aux files"
 msgstr "清理缓存"
 
@@ -2853,7 +2853,7 @@ msgstr "清理缓存"
 msgid "clean rebuild"
 msgstr "从头编译"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Clean rebuild"
 msgstr "从头编译"
@@ -3063,8 +3063,8 @@ msgstr "来自 Overleaf"
 msgid "command"
 msgstr "命令"
 
-#: src/App.tsx
 #: src/app/command-palette.tsx
+#: src/app/use-command-table.tsx
 msgid "Command palette"
 msgstr "命令面板"
 
@@ -3456,11 +3456,11 @@ msgstr "剪贴板图片转换失败"
 msgid "Could not export for arXiv"
 msgstr "无法导出 arXiv 提交包"
 
-#: src/App.tsx
+#: src/app/use-source-navigation.ts
 msgid "Could not find figure “{path}”."
 msgstr "找不到图片“{path}”"
 
-#: src/App.tsx
+#: src/app/use-source-navigation.ts
 msgid "Could not find included file “{path}”."
 msgstr "找不到文件“{path}”"
 
@@ -4015,7 +4015,7 @@ msgstr "放弃"
 msgid "Discard and close"
 msgstr "不保存"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/papers/literature-discovery-panel.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -4066,7 +4066,7 @@ msgstr "文档作者"
 msgid "Document date"
 msgstr "文档日期"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Document is already formatted."
 msgstr "格式已经整齐"
 
@@ -4095,7 +4095,7 @@ msgstr "不存在"
 msgid "DOI metadata corrections are available."
 msgstr "DOI 信息可修正"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "DOIs, arXiv IDs, links, titles or BibTeX"
 msgstr "DOI、arXiv ID、链接、标题或 BibTeX"
 
@@ -4300,11 +4300,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Edit and preview HTML"
 msgstr "边写边看"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Edit and preview Markdown"
 msgstr "边写边看"
 
@@ -4326,7 +4326,7 @@ msgstr "编辑截止时间"
 msgid "Edit document"
 msgstr "编辑文档"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
@@ -4338,7 +4338,7 @@ msgstr "编辑此项"
 msgid "Edit link"
 msgstr "编辑链接"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
@@ -4661,7 +4661,7 @@ msgstr "导出 Excel"
 msgid "Export for arXiv"
 msgstr "导出 arXiv 提交包"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/project-dialogs.tsx
 msgid "Export for arXiv…"
 msgstr "导出 arXiv 提交包…"
@@ -4686,7 +4686,7 @@ msgstr "导出修改对照 PDF…"
 msgid "Export preview"
 msgstr "导出预览"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-project-lifecycle.ts
 msgid "Export project ZIP"
 msgstr "导出 ZIP"
@@ -4910,7 +4910,7 @@ msgstr "查找"
 msgid "Find in PDF"
 msgstr "在 PDF 中搜索"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -5026,7 +5026,7 @@ msgstr "流畅"
 msgid "Flush floats and start a new page"
 msgstr "输出浮动体并另起一页"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Focus mode"
 msgstr "专注"
@@ -5071,11 +5071,11 @@ msgstr "任意"
 msgid "For each item already here"
 msgstr "对每个同名项目"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Format"
 msgstr "排版"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Format document"
 msgstr "整理排版"
 
@@ -5083,7 +5083,7 @@ msgstr "整理排版"
 msgid "Format selected LaTeX"
 msgstr "格式"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Formatted with latexindent."
 msgstr "已整理排版"
 
@@ -5100,7 +5100,7 @@ msgstr "公式"
 msgid "Formulas"
 msgstr "公式"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgctxt "Document history"
 msgid "Forward"
 msgstr "前进"
@@ -5255,7 +5255,7 @@ msgstr "跳到定义"
 msgid "Go to entry"
 msgstr "跳到条目"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
 msgid "Go to line"
@@ -5276,8 +5276,8 @@ msgstr "跳到第 {0} 行"
 msgid "Go to section or label…"
 msgstr "跳到章节或标签…"
 
-#: src/App.tsx
 #: src/app/app-search-dialogs.tsx
+#: src/app/use-command-table.tsx
 msgid "Go to symbol"
 msgstr "跳到标题"
 
@@ -5444,7 +5444,7 @@ msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "隐藏 {name}"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Hide {name} panel"
 msgstr "隐藏{name}"
 
@@ -5465,8 +5465,8 @@ msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "隐藏其他"
 
-#: src/App.tsx
 #: src/app/focus-mode-bar.tsx
+#: src/app/use-command-table.tsx
 msgid "Hide the PDF"
 msgstr "隐藏 PDF"
 
@@ -5644,7 +5644,7 @@ msgstr "导入文件…"
 msgid "Import images here"
 msgstr "导入图片"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "导入 ZIP"
@@ -5731,7 +5731,7 @@ msgstr "会议论文"
 msgid "In progress"
 msgstr "进行中"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/latex/highlight-palette.tsx
 msgid "In this document"
 msgstr "本文档"
@@ -5740,7 +5740,7 @@ msgstr "本文档"
 msgid "In this file"
 msgstr "本文件"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "In this paper"
 msgstr "本论文"
 
@@ -5883,8 +5883,8 @@ msgstr "插入新行"
 msgid "Insert an image path (requires graphicx)"
 msgstr "插入图片路径（需要 graphicx）"
 
-#: src/App.tsx
 #: src/app/app-search-dialogs.tsx
+#: src/app/use-command-table.tsx
 msgid "Insert citation"
 msgstr "插入引用"
 
@@ -5909,8 +5909,8 @@ msgstr "插入图片"
 msgid "Insert link"
 msgstr "插入链接"
 
-#: src/App.tsx
 #: src/app/app-search-dialogs.tsx
+#: src/app/use-command-table.tsx
 msgid "Insert reference"
 msgstr "引用编号"
 
@@ -5922,7 +5922,7 @@ msgstr "上插一行"
 msgid "Insert row below"
 msgstr "下插一行"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "插入表格"
@@ -6093,7 +6093,7 @@ msgstr "期刊"
 msgid "Journal"
 msgstr "期刊"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Jump to PDF"
 msgstr "在 PDF 中查看"
 
@@ -6209,8 +6209,8 @@ msgstr "密钥已移除"
 msgid "Key saved to the keychain"
 msgstr "密钥已存入钥匙串"
 
-#: src/App.tsx
 #: src/app/shortcut-sheet.tsx
+#: src/app/use-command-table.tsx
 msgid "Keyboard shortcuts"
 msgstr "快捷键"
 
@@ -6248,8 +6248,8 @@ msgstr "语言"
 msgid "Larger fraction"
 msgstr "更大的分式"
 
-#: src/App.tsx
 #: src/app/interface-zoom-hud.tsx
+#: src/app/use-command-table.tsx
 msgid "Larger interface"
 msgstr "放大界面"
 
@@ -6438,8 +6438,8 @@ msgstr "按需布局"
 msgid "Leave a code block"
 msgstr "跳出代码"
 
-#: src/App.tsx
 #: src/app/shortcut-groups.ts
+#: src/app/use-command-table.tsx
 msgid "Leave focus mode"
 msgstr "退出专注"
 
@@ -6816,7 +6816,7 @@ msgstr "正在加载 PR…"
 msgid "Loading references…"
 msgstr "正在加载参考文献…"
 
-#: src/App.tsx
+#: src/app/app-settings-window.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "正在加载…"
@@ -6939,7 +6939,7 @@ msgstr "仅手动"
 msgid "Manuscript"
 msgstr "正文"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/project/todo-scavenger-panel.tsx
 msgid "Manuscript TODOs"
@@ -6963,15 +6963,15 @@ msgctxt "macOS menu bar"
 msgid "Margin Review"
 msgstr "页边审阅"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Margin review: Auto"
 msgstr "页边审阅：自动"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Margin review: Markers only"
 msgstr "页边审阅：仅标记"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Margin review: Off"
 msgstr "页边审阅：关闭"
 
@@ -7013,7 +7013,7 @@ msgstr "区分大小写"
 msgid "Match system"
 msgstr "跟随系统"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Match the system theme"
 msgstr "跟随系统"
 
@@ -7063,7 +7063,7 @@ msgstr "矩阵"
 msgid "Maximize"
 msgstr "放大"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "放大面板"
@@ -7464,7 +7464,7 @@ msgstr "项目名称"
 msgid "New presentation"
 msgstr "新建幻灯片"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
@@ -7491,7 +7491,7 @@ msgstr "新建终端"
 msgid "New version {version}"
 msgstr "新版本 {version}"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "New workspace"
 msgstr "新建工作区"
@@ -7517,7 +7517,7 @@ msgstr "下一个"
 msgid "Next"
 msgstr "下一步"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Next build problem"
 msgstr "下个错误"
 
@@ -7699,7 +7699,7 @@ msgstr "还没有日志"
 msgid "No longer in the document"
 msgstr "已不在文中"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "No markers"
 msgstr "没有待办"
 
@@ -8224,7 +8224,7 @@ msgctxt "annotation filter"
 msgid "Open"
 msgstr "待处理"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open {name}"
 msgstr "打开 {name}"
 
@@ -8241,7 +8241,7 @@ msgstr "打开{title}"
 msgid "Open {title} in browser"
 msgstr "在浏览器中打开 {title}"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open a .tex file before formatting."
 msgstr "请先打开 .tex 文件"
 
@@ -8270,15 +8270,15 @@ msgstr "打开 Overleaf 项目"
 msgid "Open a project to add terms"
 msgstr "打开项目后可添加"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open a recent project by its place"
 msgstr "打开最近项目"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open an Overleaf project"
 msgstr "打开 Overleaf 项目"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "打开文件夹"
@@ -8316,11 +8316,11 @@ msgstr "打开文件夹"
 msgid "Open from Overleaf"
 msgstr "从 Overleaf 打开"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open guided tutorial"
 msgstr "新手教程"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
@@ -8330,7 +8330,7 @@ msgstr "在浏览器中打开"
 msgid "Open in History"
 msgstr "在历史中打开"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Lattice app"
 msgstr "在 Lattice 中打开"
@@ -8382,11 +8382,11 @@ msgstr "打开论文：{paperTitle}"
 msgid "Open PDF in browser"
 msgstr "浏览器看 PDF"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open project history"
 msgstr "项目历史"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open settings"
 msgstr "打开设置"
 
@@ -8453,7 +8453,7 @@ msgstr "阅读全文"
 msgid "Open this Agent task before restoring its files"
 msgstr "请先打开这个 AI 任务再恢复"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Open this project on Overleaf"
 msgstr "在 Overleaf 打开"
 
@@ -8480,7 +8480,7 @@ msgstr "正在打开{name}…"
 msgid "Opening project…"
 msgstr "正在打开项目…"
 
-#: src/App.tsx
+#: src/app/app-overleaf-dialogs.tsx
 msgid "Opening the Overleaf project…"
 msgstr "正在打开 Overleaf…"
 
@@ -8639,7 +8639,7 @@ msgstr "Overleaf 传来的版本是空的或小很多，无法确认，所以保
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf 发送了版本 {version}，但此文档当前为版本 {current}。"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Overleaf source pack"
 msgstr "Overleaf 源文件包"
 
@@ -8845,7 +8845,7 @@ msgstr "粘贴"
 msgid "Paste cells or CSV"
 msgstr "粘贴单元格或 CSV"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
 msgstr "贴入图片"
@@ -9049,7 +9049,7 @@ msgstr "正负号"
 msgid "Polish"
 msgstr "润色"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Polish selection"
 msgstr "润色"
 
@@ -9154,7 +9154,7 @@ msgstr "按 ⌘S 或点“编译”"
 msgid "Preview"
 msgstr "预览"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
@@ -9162,7 +9162,7 @@ msgstr "预览 HTML"
 msgid "Preview image"
 msgstr "预览图片"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
 
@@ -9182,7 +9182,7 @@ msgstr "无法预览"
 msgid "Preview unavailable for this figure format."
 msgstr "这种图片格式无法预览"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Previous build problem"
 msgstr "上个错误"
 
@@ -9314,7 +9314,7 @@ msgstr "证明环境（需要 amsthm）"
 msgid "Proofread"
 msgstr "校对"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Proofread selection"
 msgstr "校对"
 
@@ -9428,7 +9428,7 @@ msgstr "排队中"
 msgid "Quick open"
 msgstr "快速打开"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Quick open file"
 msgstr "快速打开"
@@ -9544,7 +9544,7 @@ msgstr "作者回复"
 msgid "Rebuttal"
 msgstr "作者回复"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "最近"
@@ -9860,7 +9860,7 @@ msgstr "正在显示第一页…"
 msgid "Reopen"
 msgstr "重新打开"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Reopen the closed tab"
 msgstr "重开标签"
 
@@ -9944,7 +9944,7 @@ msgstr "替换此处"
 msgid "Replace grid from data"
 msgstr "用数据替换网格"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Replace in project"
 msgstr "全局替换"
 
@@ -10072,7 +10072,7 @@ msgstr "文献"
 msgid "Reset"
 msgstr "重置"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Reset interface size"
 msgstr "重置界面大小"
 
@@ -10081,7 +10081,7 @@ msgstr "重置界面大小"
 msgid "Reset layout"
 msgstr "重置布局"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Reset panel layout"
 msgstr "重置布局"
 
@@ -10229,7 +10229,7 @@ msgstr "恢复大小"
 msgid "Restore the files the rounds touched to {name}?"
 msgstr "把各轮改动过的文件恢复到{name}？"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
 msgstr "取消放大"
@@ -10326,7 +10326,7 @@ msgstr "在 PDF 中定位"
 msgid "Reverse turnstile"
 msgstr "反向断言符"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Revert to saved"
 msgstr "还原布局"
@@ -10358,7 +10358,7 @@ msgstr "查看改动"
 msgid "Review copy exported from Lattice on {0}, with {count}."
 msgstr "评阅副本由 Lattice 于 {0} 导出，含 {count}。"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Review here"
 msgstr "在此审阅"
 
@@ -10383,7 +10383,7 @@ msgstr "根据 {0} 条批注修改"
 msgid "Revise from 1 annotation"
 msgstr "根据 1 条批注修改"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Revise from annotations"
 msgstr "根据批注修改"
@@ -10512,7 +10512,7 @@ msgstr "rtex 已停止。PDF 仍会随每次编译更新。"
 msgid "run {run}"
 msgstr "第 {run} 次"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "检查 TeX"
@@ -10575,7 +10575,7 @@ msgstr "保存本地模板"
 msgid "Save a local template…"
 msgstr "保存本地模板…"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Save and build"
 msgstr "保存编译"
 
@@ -10639,7 +10639,7 @@ msgstr "请先保存，再检查引用"
 msgid "Save pending edits before restoring a round."
 msgstr "恢复某一轮之前，请先保存未保存的修改。"
 
-#: src/App.tsx
+#: src/app/app-submission-dialogs.tsx
 msgid "Save pending edits before updating references."
 msgstr "请先保存，再更新引用"
 
@@ -10668,7 +10668,7 @@ msgstr "请先保存再修复"
 msgid "Save these items as a template…"
 msgstr "将这些事项存为模板…"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Save to workspace"
 msgstr "保存到工作区"
@@ -11031,7 +11031,7 @@ msgstr "集合差"
 msgid "Setting up live preview… {percent}%"
 msgstr "正在准备实时预览… {percent}%"
 
-#: src/App.tsx
+#: src/app/app-settings-window.tsx
 #: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
@@ -11064,7 +11064,7 @@ msgstr "显示"
 msgid "Show {0} automatic versions"
 msgstr "显示 {0} 个自动版本"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Show {name} panel"
 msgstr "显示{name}"
 
@@ -11085,7 +11085,7 @@ msgstr "显示全部文献"
 msgid "Show all results"
 msgstr "显示全部"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Show annotations"
 msgstr "显示批注"
@@ -11167,7 +11167,7 @@ msgstr "显示引用卡片"
 msgid "Show the PDF"
 msgstr "显示 PDF"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Show the PDF beside the editor"
 msgstr "并排看 PDF"
 
@@ -11297,8 +11297,8 @@ msgctxt "macOS menu bar"
 msgid "Smaller"
 msgstr "缩小"
 
-#: src/App.tsx
 #: src/app/interface-zoom-hud.tsx
+#: src/app/use-command-table.tsx
 msgid "Smaller interface"
 msgstr "缩小界面"
 
@@ -11566,7 +11566,7 @@ msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 msgid "Stop"
 msgstr "停止"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Stop build"
 msgstr "停止编译"
 
@@ -11601,7 +11601,7 @@ msgstr "强"
 msgid "structure"
 msgstr "结构"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/project/manuscript-checklist.tsx
 msgid "Submission checklist"
 msgstr "投稿检查"
@@ -11679,11 +11679,11 @@ msgstr "曲面 / 面积积分"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Switch to {name}"
 msgstr "切换到{name}"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Switch to a workspace by its place"
 msgstr "切换工作区"
 
@@ -11695,11 +11695,11 @@ msgstr "切换到 pdfLaTeX"
 msgid "Switch to that window"
 msgstr "切换到那个窗口"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Switch to the Reading layout"
 msgstr "阅读布局"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Switch to the Writing layout"
 msgstr "写作布局"
 
@@ -11756,7 +11756,7 @@ msgstr "立即同步"
 msgid "Sync paused"
 msgstr "同步已暂停"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "同步 Overleaf"
@@ -12032,7 +12032,7 @@ msgstr "参考文献缺少 .bbl"
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "AI 助手没能启动"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "the comment or suggestion by the caret"
 msgstr "光标处的评论或修订"
 
@@ -12182,7 +12182,7 @@ msgstr "上一个文档没能释放，同步仍暂停"
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "项目已关闭，Open Slide 的修改没保存"
 
-#: src/App.tsx
+#: src/app/app-submission-dialogs.tsx
 msgid "The project or its permissions changed. Check references again."
 msgstr "项目已变化，请重新检查引用"
 
@@ -12285,7 +12285,7 @@ msgid "Theme"
 msgstr "主题"
 
 #. Search words for the theme commands, space-separated
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "theme appearance"
 msgstr "主题 外观 theme appearance"
 
@@ -12442,7 +12442,7 @@ msgstr "这一行在 $…$ 之外用了只能在数学模式中使用的命令�
 msgid "This package ships no license text of its own"
 msgstr "这个软件包没有附带自己的许可证文本"
 
-#: src/App.tsx
+#: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
 msgstr "这篇论文没有全文可看"
 
@@ -12454,8 +12454,8 @@ msgstr "这个 PDF 已从项目移除"
 msgid "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
 msgstr "项目里还没有可编译的 .tex 文件。请添加一个，或在设置中选一个主文件"
 
-#: src/App.tsx
 #: src/app/use-reference-import.ts
+#: src/app/use-source-navigation.ts
 #: src/papers/linked-library-sheet.tsx
 msgid "This project has no primary bibliography."
 msgstr "项目里没有文献文件"
@@ -12477,7 +12477,7 @@ msgstr "这条建议已处理。"
 msgid "This reference already has a “{name}” field."
 msgstr "这条文献已有“{name}”字段。"
 
-#: src/App.tsx
+#: src/app/app-submission-dialogs.tsx
 msgid "This reference cannot be updated."
 msgstr "无法更新这条引用"
 
@@ -13081,11 +13081,11 @@ msgstr "宇普西龙"
 msgid "URL"
 msgstr "URL"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Use the dark theme"
 msgstr "深色"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Use the light theme"
 msgstr "浅色"
 
@@ -13385,7 +13385,7 @@ msgctxt "macOS menu bar"
 msgid "What’s New in {name}"
 msgstr "{name} 新功能"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "What’s new in Lattice"
 msgstr "Lattice 新功能"
 
@@ -13457,7 +13457,7 @@ msgctxt "changed words count"
 msgid "words"
 msgstr "词"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 msgid "Words / pages / TODOs"
 msgstr "字数 / 页数 / 待办"
 
@@ -13475,7 +13475,7 @@ msgstr "离线工作中"
 msgid "Working…"
 msgstr "正在处理…"
 
-#: src/App.tsx
+#: src/app/use-command-table.tsx
 #: src/trellis/trellis-labels.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspaces.ts
