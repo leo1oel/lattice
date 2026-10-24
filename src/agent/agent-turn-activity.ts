@@ -64,6 +64,12 @@ export type AgentDeckPresence = {
   decks: string[];
 };
 
+// The decks of each thread's live turn, kept past a cleared presence: the
+// panel reloading or switching threads re-reports a running turn, which must
+// keep the deck it was sent on rather than take the deck open by then.
+const MAX_REMEMBERED_TURNS = 8;
+const turnDecks = new Map<string, { turnId: string; decks: string[] }>();
+
 /**
  * Fold one report into the turn's presence. A turn keeps the decks it has
  * named until it ends, so the presence holds between tools; another thread
@@ -74,20 +80,37 @@ export function nextAgentDeckPresence(
   activity: AgentTurnActivity,
   contextDeck: string | null,
 ): AgentDeckPresence | null {
-  if (activity.state === "idle") return null;
+  if (activity.state === "idle") {
+    turnDecks.delete(activity.threadId);
+    return null;
+  }
   // A turn may be reported before the panel knows its id.
   const sameTurn = previous !== null && previous.threadId === activity.threadId
     && (previous.turnId === activity.turnId || previous.turnId === null || activity.turnId === null);
-  const decks = new Set(sameTurn ? previous.decks : contextDeck ? [contextDeck] : []);
+  const turnId = activity.turnId ?? (sameTurn ? previous.turnId : null);
+  const remembered = turnDecks.get(activity.threadId);
+  const decks = new Set(
+    sameTurn ? previous.decks
+      : remembered && remembered.turnId === turnId ? remembered.decks
+        : contextDeck ? [contextDeck] : [],
+  );
   for (const path of activity.tool?.paths ?? []) {
     const deck = DECK_FOLDER.exec(path)?.[1];
     if (deck) decks.add(deck);
+  }
+  if (turnId !== null) {
+    turnDecks.delete(activity.threadId);
+    turnDecks.set(activity.threadId, { turnId, decks: [...decks] });
+    for (const thread of turnDecks.keys()) {
+      if (turnDecks.size <= MAX_REMEMBERED_TURNS) break;
+      turnDecks.delete(thread);
+    }
   }
   const { tool } = activity;
   return {
     workspaceRoot: activity.workspaceRoot,
     threadId: activity.threadId,
-    turnId: activity.turnId ?? (sameTurn ? previous.turnId : null),
+    turnId,
     state: activity.state,
     provider: activity.provider,
     tool: tool ? { title: tool.title, detail: tool.detail } : null,

@@ -63,6 +63,19 @@ describe("nextAgentDeckPresence", () => {
     const named = nextAgentDeckPresence(null, activity(), "talk");
     expect(nextAgentDeckPresence(named, activity({ turnId: "turn-2" }), "launch")).toMatchObject({ decks: ["launch"] });
   });
+
+  it("keeps the deck a turn was sent on when the panel re-reports it after its presence was cleared", () => {
+    const thread = { threadId: "thread-reload" };
+    const sent = nextAgentDeckPresence(null, activity(thread), "talk");
+    expect(sent).toMatchObject({ decks: ["talk"] });
+    // The user opens another deck, then the panel switches threads and back,
+    // which clears the presence before Synara re-sends the running turn.
+    expect(nextAgentDeckPresence(null, activity(thread), "launch")).toMatchObject({ decks: ["talk"] });
+    // A new turn in that thread starts from the deck open now; an ended one is forgotten.
+    expect(nextAgentDeckPresence(null, activity({ ...thread, turnId: "turn-2" }), "launch")).toMatchObject({ decks: ["launch"] });
+    expect(nextAgentDeckPresence(null, activity({ ...thread, turnId: "turn-2", state: "idle" }), "launch")).toBeNull();
+    expect(nextAgentDeckPresence(null, activity({ ...thread, turnId: "turn-2" }), "other")).toMatchObject({ decks: ["other"] });
+  });
 });
 
 describe("contextDeck", () => {

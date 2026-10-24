@@ -1,15 +1,50 @@
 import assert from "node:assert/strict";
+import { realpathSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import http from "node:http";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
-import { transform as transformTsx } from "esbuild";
+import { fileURLToPath } from "node:url";
+import { build, transform as transformTsx } from "esbuild";
 import { createServer as createViteServer } from "vite";
 import { createAgentActivityChannel, normalizeAgentActivity, transformOpenSlideAgentPresence } from "./agent-presence.mjs";
 
 const CORE = "node_modules/@open-slide/core/";
+const coreRoot = realpathSync(fileURLToPath(new URL(`./${CORE}`, import.meta.url)));
+// React as Open Slide's own pages load it.
+const coreRequire = createRequire(path.join(coreRoot, "package.json"));
+
+/** Compile the patched presence module against Open Slide's locale and stand-ins for its other `@/` modules. */
+async function loadPresence(transformed) {
+  const modules = {
+    "@/lib/use-locale": `export { format } from ${JSON.stringify(path.join(coreRoot, "src/locale/format.ts"))};
+      import { en } from ${JSON.stringify(path.join(coreRoot, "src/locale/en.ts"))};
+      export const useLocale = () => en;`,
+    "@/lib/utils": "export const cn = (...names) => names.filter(Boolean).join(' ');",
+  };
+  const { outputFiles } = await build({
+    stdin: { contents: `${transformed}\nexport { AgentPresencePill };`, loader: "tsx", resolveDir: coreRoot },
+    bundle: true,
+    write: false,
+    format: "cjs",
+    jsx: "automatic",
+    external: ["react", "react/jsx-runtime"],
+    logLevel: "silent",
+    plugins: [{
+      name: "open-slide-modules",
+      setup(build) {
+        build.onResolve({ filter: /^@\// }, ({ path: id }) => (id in modules ? { path: id, namespace: "stub" } : undefined));
+        build.onLoad({ filter: /.*/, namespace: "stub" }, ({ path: id }) => ({ contents: modules[id], loader: "ts", resolveDir: coreRoot }));
+      },
+    }],
+  });
+  const module = { exports: {} };
+  new Function("require", "module", "exports", outputFiles[0].text)(coreRequire, module, module.exports);
+  return module.exports;
+}
 
 async function patchCore(relative) {
   const source = await readFile(new URL(`./${CORE}${relative}`, import.meta.url), "utf8");
@@ -23,23 +58,37 @@ const RUNNING = {
   decks: ["talk"],
 };
 
-test("feeds the deck's presence from the Lattice turn instead of Open Slide's sessions", async () => {
-  const [agent, presence] = await Promise.all([
-    patchCore("src/app/lib/agent/use-agent.ts"),
-    patchCore("src/app/components/agent/agent-presence.tsx"),
-  ]);
-  assert.doesNotMatch(agent.transformed, /sessions\.find\(\(s\) => s\.slideId === slideId/);
-  assert.match(agent.transformed, /useSyncExternalStore\(subscribeLatticeAgentActivity, readLatticeAgentActivity\)/);
-  assert.match(agent.transformed, /import\.meta\.hot\.on\('lattice:agent-activity'/);
-  assert.match(agent.transformed, /import\.meta\.hot\.send\('lattice:agent-activity-request'\)/);
-  assert.doesNotMatch(presence.transformed, /ProviderLogo|setDockOpen|useAgentState|status\?\.providers/);
-  assert.match(presence.transformed, /data-inspector-ui\n {6}onClick=\{\(\) => requestLatticeAgent\('open', activity\.slideId\)\}/);
-  assert.match(presence.transformed, /format\(t\.agent\.presenceEditing, \{ provider: activity\.label \}\)/);
-  assert.match(presence.transformed, /window\.parent\.postMessage\(\{ type: 'lattice:agent-request'/);
-  // The glow, sweep and the rest of the pill stay upstream's.
-  assert.match(presence.transformed, /agent-glow[\s\S]*agent-sweep[\s\S]*t\.agent\.presenceWaiting/);
-  for (const { transformed } of [agent, presence]) await transformTsx(transformed, { loader: "tsx" });
-  assert.equal(transformOpenSlideAgentPresence(agent.source, "/project/slides/talk/index.tsx"), null);
+test("shows the Lattice turn's provider and tool in the pill and opens the Lattice panel on click", async () => {
+  const { source, transformed } = await patchCore("src/app/components/agent/agent-presence.tsx");
+  const { AgentPresence, AgentPresencePill } = await loadPresence(transformed);
+  const react = coreRequire("react");
+  const { renderToStaticMarkup } = coreRequire("react-dom/server");
+  const activity = { ...normalizeAgentActivity(RUNNING), slideId: "talk" };
+  const markup = renderToStaticMarkup(react.createElement(AgentPresence, { activity, revision: 1 }));
+  // The glow stays upstream's; the pill names the provider and its current tool.
+  assert.match(markup, /class="agent-glow"/);
+  assert.match(markup, /<button type="button" data-inspector-ui="true"[^>]*>.*Claude Code is editing.*Edit index\.tsx/);
+  assert.match(
+    renderToStaticMarkup(react.createElement(AgentPresence, { activity: { ...activity, phase: "waiting" }, revision: 1 })),
+    /Waiting for you/,
+  );
+
+  const posted = [];
+  globalThis.window = { parent: { postMessage: (message, origin) => posted.push({ message, origin }) } };
+  try {
+    AgentPresencePill({ activity }).props.onClick();
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(posted.length, 1);
+  assert.deepEqual({ ...posted[0].message, nonce: typeof posted[0].message.nonce }, {
+    type: "lattice:agent-request", version: 1, kind: "open", slideId: "talk", nonce: "string",
+  });
+  assert.equal(posted[0].origin, "*");
+
+  assert.equal(transformOpenSlideAgentPresence(source, "/project/slides/talk/agent-presence.tsx"), null);
+  const agent = await patchCore("src/app/lib/agent/use-agent.ts");
+  await transformTsx(agent.transformed, { loader: "tsx" });
   assert.throws(
     () => transformOpenSlideAgentPresence(agent.source.replace("useAgentSessions();", "useSessions();"), `/r/${CORE}src/app/lib/agent/use-agent.ts`),
     /agent presence contract changed/,
