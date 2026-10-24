@@ -21,9 +21,14 @@ const SNIPPET_LEAD_COLUMNS: usize = 12;
 /// fullwidth forms, one for the rest.
 fn columns(c: char) -> usize {
     match c {
-        '\u{1100}'..='\u{115f}' | '\u{2e80}'..='\u{a4cf}' | '\u{ac00}'..='\u{d7a3}'
-        | '\u{f900}'..='\u{faff}' | '\u{fe30}'..='\u{fe4f}' | '\u{ff00}'..='\u{ff60}'
-        | '\u{ffe0}'..='\u{ffe6}' | '\u{20000}'..='\u{3fffd}' => 2,
+        '\u{1100}'..='\u{115f}'
+        | '\u{2e80}'..='\u{a4cf}'
+        | '\u{ac00}'..='\u{d7a3}'
+        | '\u{f900}'..='\u{faff}'
+        | '\u{fe30}'..='\u{fe4f}'
+        | '\u{ff00}'..='\u{ff60}'
+        | '\u{ffe0}'..='\u{ffe6}'
+        | '\u{20000}'..='\u{3fffd}' => 2,
         _ => 1,
     }
 }
