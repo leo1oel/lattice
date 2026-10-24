@@ -274,7 +274,7 @@ comment in `vitest.config.ts` for how the test suite now catches them.
   by text, or reading in a worker, is what remains.
 - `App.tsx` state extraction — in progress rather than unscheduled; its current
   size and extraction status live in `docs/codebase-map.md` §6. Still open: what `DocumentCanvas`
-  re-renders on — `App.tsx` hands it ten domain models (`src/canvas/canvas-model.ts`) instead
+  re-renders on — App (`src/app/use-document-surfaces.tsx`) hands it ten domain models (`src/canvas/canvas-model.ts`) instead
   of a flat prop list, but the models still carry every field, so the call site
   and its inline lambdas are unchanged in substance.
 - Split-mode publication: replace whole-document `setContent` with

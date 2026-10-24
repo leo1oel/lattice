@@ -18,8 +18,8 @@ export type ReferenceHits = {
  * citation is renamed across the project on disk, then everything that read
  * the old name is refreshed; an environment rename or wrap is handed to the
  * canvas, which edits the open buffer. A failure stays in the dialog as its
- * error. Outside App because its try/catch makes the React Compiler skip the
- * component that holds it.
+ * error. Outside useSourceNavigation because its try/catch makes the React
+ * Compiler skip the hook that holds it.
  */
 export async function submitSymbolRename(target: RenameTarget, name: string, {
   activeFile, loadFile, applyBibliographyIndex, refreshUnusedSymbols, refreshHistory, forgetIncludedSources,

@@ -3,7 +3,8 @@ import type { KeyBinding } from "@codemirror/view";
 /* eslint-disable lingui/no-unlocalized-strings -- CodeMirror key names */
 
 /**
- * Keys App.tsx binds to app-level commands. Those run from a window listener,
+ * Keys the command table (`src/app/use-command-table.ts`) binds to app-level
+ * commands. Those run from a window listener,
  * after the editor's own keymap already handled the key, so an editor binding
  * on the same keys did both: ⌘⇧K (Insert citation) also deleted the line,
  * ⌘[ / ⌘] (Back / Forward) re-indented it, ⌘G (Go to line) opened the find
