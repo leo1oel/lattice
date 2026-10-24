@@ -51,6 +51,8 @@ export const CORE_SOFTWARE: readonly Credit[] = [
   { name: "Pele", url: "https://pele.run", pkg: { closure: "npm", name: "pele" } },
   { name: "Shiki", url: "https://shiki.style", pkg: { closure: "npm", name: "shiki" } },
   { name: "Harper", url: "https://writewithharper.com", pkg: { closure: "crates", name: "harper-core" } },
+  { name: "tantivy", url: "https://github.com/quickwit-oss/tantivy", pkg: { closure: "crates", name: "tantivy" } },
+  { name: "jieba-rs", url: "https://github.com/messense/jieba-rs", pkg: { closure: "crates", name: "jieba-rs" } },
 ];
 
 /** Type, icons and sound. The Timeless family, when embedded, leads this group on its own row. */
