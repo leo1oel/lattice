@@ -44,7 +44,7 @@ const TOKENIZER: &str = "lattice_paper";
 /// (13 MB for 150 papers) fits one segment at this size.
 const WRITER_MEMORY: usize = 32_000_000;
 /// Lines scored per query before grouping: enough for every paper a
-/// panel shows, and to count each one's matches up to this many.
+/// panel shows and its best lines.
 const MAX_SCORED_LINES: usize = 1_000;
 /// A prefix expands to at most this many indexed words.
 const MAX_PREFIX_TERMS: usize = 64;
