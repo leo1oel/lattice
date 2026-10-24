@@ -7,7 +7,7 @@ const ORIGIN = "http://127.0.0.1:4100";
 
 const presence = (overrides: Partial<AgentDeckPresence> = {}): AgentDeckPresence => ({
   workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1", state: "running",
-  provider: { id: "claude", label: "Claude Code" }, tool: { title: "Edit", detail: null }, decks: ["talk"], ...overrides,
+  provider: { id: "claudeAgent", label: "Claude Code" }, tool: { title: "Edit", detail: null }, decks: ["talk"], ...overrides,
 });
 
 function stubFetch() {
@@ -40,7 +40,7 @@ describe("forwardAgentPresence", () => {
       method: "POST", headers: { authorization: "Bearer secret", "content-type": "application/json" },
     }));
     expect(bodies()).toEqual([{
-      state: "running", provider: { id: "claude", label: "Claude Code" }, tool: { title: "Edit", detail: null }, decks: ["talk"],
+      state: "running", provider: { id: "claudeAgent", label: "Claude Code" }, tool: { title: "Edit", detail: null }, decks: ["talk"],
     }]);
     // Two reports while one request is out: only the latest follows it.
     publishAgentDeckPresence(presence({ tool: null }));

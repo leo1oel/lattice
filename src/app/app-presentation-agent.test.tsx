@@ -68,7 +68,7 @@ describe("the Open Slide editor's agent entry points", () => {
     postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
     const report = (overrides: Record<string, unknown> = {}) => ({
       type: "synara:turn-activity", version: 1, workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1",
-      state: "running", provider: { id: "claude", label: "Claude Code" },
+      state: "running", provider: { id: "claudeAgent", label: "Claude Code" },
       tool: { title: "Write", detail: "index.tsx", paths: ["slides/launch/index.tsx"] }, ...overrides,
     });
 

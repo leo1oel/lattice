@@ -18,7 +18,7 @@ async function patchCore(relative) {
 
 const RUNNING = {
   state: "running",
-  provider: { id: "claude", label: "Claude Code" },
+  provider: { id: "claudeAgent", label: "Claude Code" },
   tool: { title: "Edit", detail: "slides/talk/index.tsx" },
   decks: ["talk"],
 };
@@ -63,7 +63,7 @@ test("shows a turn only on the decks it names and drops it when the runtime goes
   assert.equal(useAgentActivity("talk"), null);
   handlers.get("lattice:agent-activity")({ activity: { ...normalizeAgentActivity(RUNNING) } });
   assert.deepEqual(useAgentActivity("talk"), {
-    provider: "claude", label: "Claude Code", phase: "tool", title: "Edit", detail: "slides/talk/index.tsx", slideId: "talk",
+    provider: "claudeAgent", label: "Claude Code", phase: "tool", title: "Edit", detail: "slides/talk/index.tsx", slideId: "talk",
   });
   assert.equal(useAgentActivity("other-deck"), null);
   handlers.get("lattice:agent-activity")({ activity: null });
@@ -75,10 +75,10 @@ test("shows a turn only on the decks it names and drops it when the runtime goes
 
 test("keeps only a live turn that names a deck, with bounded copy", () => {
   assert.deepEqual(normalizeAgentActivity({ ...RUNNING, tool: undefined }), {
-    provider: "claude", label: "Claude Code", phase: "thinking", title: null, detail: null, decks: ["talk"],
+    provider: "claudeAgent", label: "Claude Code", phase: "thinking", title: null, detail: null, decks: ["talk"],
   });
   assert.deepEqual(normalizeAgentActivity({ ...RUNNING, state: "waiting" }), {
-    provider: "claude", label: "Claude Code", phase: "waiting", title: null, detail: null, decks: ["talk"],
+    provider: "claudeAgent", label: "Claude Code", phase: "waiting", title: null, detail: null, decks: ["talk"],
   });
   assert.equal(normalizeAgentActivity({ ...RUNNING, state: "idle" }), null);
   assert.equal(normalizeAgentActivity({ ...RUNNING, decks: [] }), null);

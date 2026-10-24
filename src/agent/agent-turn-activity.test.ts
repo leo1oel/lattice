@@ -8,7 +8,7 @@ const ROOT = "/tmp/lattice-paper";
 function report(overrides: Record<string, unknown> = {}) {
   return {
     type: "synara:turn-activity", version: 1, workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1",
-    state: "running", provider: { id: "claude", label: "Claude Code" }, ...overrides,
+    state: "running", provider: { id: "claudeAgent", label: "Claude Code" }, ...overrides,
   };
 }
 
@@ -22,7 +22,7 @@ describe("parseAgentTurnActivity", () => {
       tool: { title: "Edit", detail: "index.tsx", paths: ["slides/talk/index.tsx", "/etc/passwd", "../outside.tsx", 7] },
     }))).toEqual({
       workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1", state: "running",
-      provider: { id: "claude", label: "Claude Code" },
+      provider: { id: "claudeAgent", label: "Claude Code" },
       tool: { title: "Edit", detail: "index.tsx", paths: ["slides/talk/index.tsx"] },
     });
     expect(parseAgentTurnActivity(report({ turnId: null, state: "waiting", tool: { title: "", paths: [] } })))
@@ -32,7 +32,7 @@ describe("parseAgentTurnActivity", () => {
   it("rejects anything outside the contract", () => {
     for (const malformed of [
       null, report({ type: "synara:turn-started" }), report({ version: 2 }), report({ workspaceRoot: "" }),
-      report({ threadId: " " }), report({ state: "done" }), report({ turnId: 3 }), report({ provider: "claude" }),
+      report({ threadId: " " }), report({ state: "done" }), report({ turnId: 3 }), report({ provider: "claudeAgent" }),
     ]) {
       expect(parseAgentTurnActivity(malformed)).toBeNull();
     }
@@ -44,7 +44,7 @@ describe("nextAgentDeckPresence", () => {
     const started = nextAgentDeckPresence(null, activity(), "talk");
     expect(started).toEqual({
       workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1", state: "running",
-      provider: { id: "claude", label: "Claude Code" }, tool: null, decks: ["talk"],
+      provider: { id: "claudeAgent", label: "Claude Code" }, tool: null, decks: ["talk"],
     });
     const writing = nextAgentDeckPresence(started, activity({
       tool: { title: "Write", detail: null, paths: ["slides/launch/index.tsx", "slides/talk/assets/a.png", "notes.md"] },
