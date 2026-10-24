@@ -194,6 +194,7 @@ async function preparePresentationRuntime() {
     "deck-error-overlay.mjs",
     "patch-contract.mjs",
     "lucide-open-slide.mjs",
+    "prebundled-dependencies.mjs",
   ];
   for (const file of runtimeFiles) {
     cpSync(join(source, file), join(stage, file));

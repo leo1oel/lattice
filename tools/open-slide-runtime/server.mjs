@@ -10,6 +10,7 @@ import { createServer as createViteServer, optimizeDeps, resolveConfig } from "v
 import { OPEN_SLIDE_CONFIG, transformOpenSlideAgentEntryPoints } from "./agent-chat.mjs";
 import { DECK_ERROR_OVERLAY_MODULE, DECK_ERROR_OVERLAY_SOURCE } from "./deck-error-overlay.mjs";
 import { moduleFilePath, replaceRequired, requireContract } from "./patch-contract.mjs";
+import { PREBUNDLED_DEPENDENCIES } from "./prebundled-dependencies.mjs";
 
 const VERSION = "2.3.1";
 const RUNTIME_ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -2216,53 +2217,11 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
     // optimizer messages would otherwise race the JSON handshake after an app
     // update invalidates the cache.
     logLevel: "error",
-    // Avoid crawling Open Slide's whole source tree, but prebundle its large UI
-    // dependencies explicitly. Leaving lucide and Base UI as native ESM makes
-    // the webview fetch and parse thousands of modules before it can render.
     optimizeDeps: {
       ...config.optimizeDeps,
       entries: [],
       noDiscovery: true,
-      include: [
-        "react",
-        "react/jsx-runtime",
-        "react/jsx-dev-runtime",
-        "react-dom",
-        "react-dom/client",
-        "next-themes",
-        "react-router-dom",
-        "@base-ui/react/button",
-        "@base-ui/react/context-menu",
-        "@base-ui/react/dialog",
-        "@base-ui/react/menu",
-        "@base-ui/react/merge-props",
-        "@base-ui/react/popover",
-        "@base-ui/react/progress",
-        "@base-ui/react/scroll-area",
-        "@base-ui/react/select",
-        "@base-ui/react/separator",
-        "@base-ui/react/slider",
-        "@base-ui/react/tabs",
-        "@base-ui/react/toggle",
-        "@base-ui/react/toggle-group",
-        "@base-ui/react/tooltip",
-        "@base-ui/react/use-render",
-        "@dnd-kit/core",
-        "@dnd-kit/sortable",
-        "@dnd-kit/utilities",
-        "use-sync-external-store/shim",
-        "use-sync-external-store/shim/with-selector",
-        "lucide-react",
-        "clsx",
-        "tailwind-merge",
-        "class-variance-authority",
-        "cmdk",
-        "emoji-picker-react",
-        "fflate",
-        "html-to-image",
-        "react-image-crop",
-        "sonner",
-      ],
+      include: PREBUNDLED_DEPENDENCIES,
     },
     server: {
       ...(config.server || {}),
