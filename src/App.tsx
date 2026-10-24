@@ -50,6 +50,8 @@ import { AppDocumentSurfaces } from "./app/app-document-surfaces";
 import { AppPanelPortals } from "./app/app-panel-portals";
 import { AppSettingsDialog, useSettingsWindow } from "./app/app-settings-window";
 import { useCommentAuthor } from "./app/use-comment-author";
+import { AppOverleafDialogs } from "./app/app-overleaf-dialogs";
+import { AppSubmissionDialogs } from "./app/app-submission-dialogs";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
@@ -69,7 +71,6 @@ import { TrellisController, TrellisControllerContext, useTrellisUi } from "./tre
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
 import type { OpenSlideContext } from "./editor/presentation/open-slide-bridge";
-import { LazyMount } from "./components/lazy-mount";
 import { ChunkGate } from "./components/chunk-gate";
 import { lazyChunk } from "./lib/lazy-chunk";
 import { loadTrellisWorkspace } from "./app/workspace-chunks";
@@ -110,28 +111,15 @@ import {
 import { showError, showingErrors } from "./app/notify";
 import "./App.css";
 
-const OverleafPickerDialog = lazy(() =>
-  import("./overleaf/overleaf-connect").then((module) => ({ default: module.OverleafPickerDialog })),
-);
-const OverleafReviewDialog = lazy(() =>
-  import("./overleaf/overleaf-review").then((module) => ({ default: module.OverleafReviewDialog })),
-);
-const ConflictResolverDialog = lazy(() =>
-  import("./history/conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
-);
-const ArxivExportDialog = lazy(() => import("./project/arxiv-export-dialog"));
 // Memoized: its props are stable, and App re-renders on every keystroke.
 const InterfaceZoomHud = memo(InterfaceZoomPill);
 const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
-const BibliographyAudit = lazy(() =>
-  import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
-);
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
 // with no Suspense reveal to wait out. The file tree and paper library
 // (app-panel-portals.tsx) keep their boundaries: their reveal waits, after the
-// editor's. The canvas,
-// the project PDF and Settings come with App's surfaces (app/app-surfaces.ts).
+// editor's. The canvas, the project PDF and Settings come with App's surfaces
+// (app/app-surfaces.ts).
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazyChunk(loadTrellisWorkspace, (module) => module.default);
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
@@ -159,7 +147,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   const {
     project, setProject, projectRef,
     projectOperationGenerationRef,
-    cancelProjectTransition, captureProjectScope,
+    captureProjectScope,
   } = projectState;
   const library = useProjectLibrary(projectState);
   const {
@@ -490,11 +478,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef, openOverleafSettingsRef,
   });
   const {
-    overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode,
-    overleafRemoteChanges, setOverleafRemoteChanges,
-    overleafPickerOpen, setOverleafPickerOpen, overleafReviewOpen, setOverleafReviewOpen,
-    setOverleafCollabOpen, conflictPath, setConflictPath,
-    overleafSyncRef, refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync,
+    overleafLink, overleafSyncing, overleafSyncMode, overleafRemoteChanges,
+    setOverleafPickerOpen, setOverleafReviewOpen, setOverleafCollabOpen,
+    overleafSyncRef, runOverleafSync, flushDeferredWholeFileSync,
     settleRemoteDeletes, openCurrentOverleafProject, jumpToOverleafPeer, overleafRealtime, overleafPresence,
     overleafChat, overleafComments, overleafDocPaths,
   } = overleaf;
@@ -590,7 +576,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
   const {
     launching, busyLabel, recentProjects, unopenedProject, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
-    startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
+    chooseExisting, createProject, chooseRecentProject,
     openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = lifecycle;
 
@@ -710,55 +696,12 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     />
   );
 
-  const overleafPicker = (
-    <LazyMount when={overleafPickerOpen}>
-      <OverleafPickerDialog
-        open
-        onClose={() => setOverleafPickerOpen(false)}
-        onBeforeClone={startProjectTransition}
-        onCloneCancelled={cancelProjectTransition}
-        onCloned={(root) => {
-          setOverleafPickerOpen(false);
-          void revealNewProject(t`Opening the Overleaf project…`, async () => root);
-        }}
-        currentProject={!overleafProjectLinked && project ? { name: project.manifest.name } : null}
-        onPublish={publishProjectToOverleaf}
-        onConnectionChanged={refreshOverleafLink}
-      />
-    </LazyMount>
+  const overleafDialogs = (
+    <AppOverleafDialogs
+      overleaf={overleaf} lifecycle={lifecycle} project={project} activeFile={activeFile} loadFile={loadFile}
+      refreshProject={refreshProject} compile={compile} externalEditsRef={externalOverleafEditsRef}
+    />
   );
-
-  const overleafReview = (<>
-    <LazyMount when={overleafReviewOpen}>
-      <OverleafReviewDialog
-        open
-        projectRoot={project?.root ?? null}
-        onClose={() => setOverleafReviewOpen(false)}
-        onApply={async () => {
-          await runOverleafSync();
-          setOverleafRemoteChanges(false);
-        }}
-      />
-    </LazyMount>
-    <LazyMount when={conflictPath !== null}>
-      {conflictPath !== null && (
-        <ConflictResolverDialog
-          open
-          path={conflictPath}
-          projectRoot={project?.root ?? ""}
-          onClose={() => setConflictPath(null)}
-          onResolved={async (path) => {
-            // Sync held this file back while it carried markers. Now that it
-            // is settled, queue the upload so the choice reaches Overleaf.
-            externalOverleafEditsRef.current([path]);
-            await refreshProject();
-            if (activeFile === path) await loadFile(path);
-            await compile();
-          }}
-        />
-      )}
-    </LazyMount>
-  </>);
 
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
@@ -872,8 +815,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         />}
         {commandOverlays}
         {settingsDialog}
-        {overleafPicker}
-        {overleafReview}
+        {overleafDialogs}
         <TexSetupDialogs setup={texSetup} />
         {appOverlays}
       </>
@@ -1167,41 +1109,17 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         }}
       />
 
-      <LazyMount when={bibliographyAuditRoot === project.root}>
-        <BibliographyAudit
-          key={project.root}
-          open={bibliographyAuditOpen}
-          projectRoot={project.root}
-          onClose={() => setBibliographyAuditOpen(false)}
-          onPrepare={save}
-          onApplied={() => refreshAfterSave(project.root, false, true)}
-          onMissingPaperTools={(failure) => void texSetup.openForMissingPaperTools(failure)}
-          onOpenSource={(path, line) => {
-            // The report stays as it was behind the editor; reopening it resumes the queue.
-            setBibliographyAuditOpen(false);
-            void showingErrors(() => openFile(path, { line }));
-          }}
-          onApply={async (entry, result) => {
-            const root = project.root;
-            if (!result.after) throw new Error(t`This reference cannot be updated.`);
-            if (!await save()) throw new Error(t`Save pending edits before updating references.`);
-            if (projectRootRef.current !== root) throw new Error(t`The project or its permissions changed. Check references again.`);
-            await invoke("bibliography_audit_apply", { projectRoot: root, path: entry.path, key: entry.key, before: result.before, after: result.after });
-            // The update was written straight to disk, not through a save, so
-            // nothing would otherwise schedule its Overleaf upload. Left
-            // unsynced, it meets the next unrelated sync as a local edit and
-            // any Overleaf change to the bibliography in between turns into a
-            // conflict.
-            if (projectRootRef.current !== root) return;
-            externalOverleafEditsRef.current([entry.path]);
-            const content = await invoke<string>("read_project_file", { projectRoot: root, path: entry.path });
-            if (projectRootRef.current !== root) return;
-            accept(entry.path, content, "clean");
-            // The drawer refreshes derived citation/history data once per
-            // apply action (including bulk), outside the durable-write path.
-          }}
-        />
-      </LazyMount>
+      <AppSubmissionDialogs
+        project={project}
+        audit={{ root: bibliographyAuditRoot, open: bibliographyAuditOpen, setOpen: setBibliographyAuditOpen }}
+        arxivExport={{ open: arxivExportOpen, setOpen: setArxivExportOpen }}
+        documents={documents}
+        refreshAfterSave={refreshAfterSave}
+        openForMissingPaperTools={texSetup.openForMissingPaperTools}
+        projectRootRef={projectRootRef}
+        externalEditsRef={externalOverleafEditsRef}
+        compile={compile}
+      />
       <AppProjectSearchDialogs
         search={projectSearch}
         openMarkdownProjectPath={openMarkdownProjectPath}
@@ -1221,19 +1139,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
 
       {commandOverlays}
       {settingsDialog}
-      {overleafPicker}
-      {overleafReview}
-      <LazyMount when={arxivExportOpen}>
-        <ArxivExportDialog
-          key={project.root}
-          projectRoot={project.root}
-          projectName={project.manifest.name}
-          save={save}
-          build={() => compile()}
-          onClose={() => setArxivExportOpen(false)}
-        />
-      </LazyMount>
-
+      {overleafDialogs}
     </div>
     </TrellisControllerContext.Provider>
   );
