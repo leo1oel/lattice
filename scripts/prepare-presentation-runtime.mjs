@@ -191,9 +191,11 @@ async function preparePresentationRuntime() {
     "pnpm-lock.yaml",
     "server.mjs",
     "agent-chat.mjs",
+    "agent-presence.mjs",
     "deck-error-overlay.mjs",
     "patch-contract.mjs",
     "lucide-open-slide.mjs",
+    "locale-copy.mjs",
     "prebundled-dependencies.mjs",
   ];
   for (const file of runtimeFiles) {

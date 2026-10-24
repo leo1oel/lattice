@@ -23,6 +23,9 @@ import {
 import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
 import {
+  SYNARA_TURN_ACTIVITY, agentDeckPresence, contextDeck, nextAgentDeckPresence, parseAgentTurnActivity, publishAgentDeckPresence,
+} from "../agent/agent-turn-activity";
+import {
   SYNARA_EXPAND_VISUAL, SYNARA_SAVE_VISUAL, parseAgentVisualExpand, parseAgentVisualSave, saveAgentVisual,
   type AgentVisualExpand,
 } from "../agent/agent-visual-save";
@@ -202,6 +205,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     if (message.mode === "draft") frameRef.current?.focus();
     void postMessage(message);
   }, [composerPromptRequest, frameReady, postMessage, projectRootRef]);
+  // The decks light up only for this frame's turn: a frame that is replaced,
+  // retried or gone reports nothing more, so its last turn must not linger.
+  useEffect(() => () => publishAgentDeckPresence(null), [frameAttempt, frameKey]);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
   }, [frameReady, postMessage]);
@@ -214,6 +220,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     if (!frame || !origin) return;
     const url = new URL(frame.src);
     url.pathname = `/${encodeURIComponent(threadId)}`;
+    publishAgentDeckPresence(null);
     frame.src = url.toString();
   }, [origin]);
 
@@ -246,6 +253,8 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     const handlers: Record<string, (data: MessageData, host: typeof latest.current) => void> = {
       "synara:embed-ready": (_data, host) => {
         if (host.frameKey) setReadyFrameKey(host.frameKey);
+        // A (re)loaded panel reports its thread's turn afresh.
+        publishAgentDeckPresence(null);
         post({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
         if (host.hostContext) post(host.hostContext);
         if (host.paperLibrary) post(host.paperLibrary);
@@ -343,6 +352,14 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         } else if (error?.code === "send-failed") {
           showError(i18n._(msg`The agent could not send the request. It is waiting in the agent's composer.`), i18n._(msg`Agent`));
         }
+      },
+      [SYNARA_TURN_ACTIVITY]: (data, host) => {
+        const activity = parseAgentTurnActivity(data);
+        // Another project's turn never lights this one's decks.
+        if (!activity || activity.workspaceRoot !== projectRootRef.current) return;
+        publishAgentDeckPresence(nextAgentDeckPresence(
+          agentDeckPresence(), activity, contextDeck(host.hostContext, activity.workspaceRoot),
+        ));
       },
       "synara:agent-permission-mode": (data) => {
         if (!isSynaraPermissionMode(data.mode)) return;
