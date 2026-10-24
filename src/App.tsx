@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { citationSourceUrl } from "./papers/paper-source";
 import { paperImportStageLabel } from "./papers/paper-import-progress";
 import {
   loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
@@ -24,7 +23,6 @@ import { annotationRounds } from "./app/annotation-rounds";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useLivePreview } from "./live-preview/use-live-preview";
-import { openSlideComposerPrompt } from "./agent/agent-composer-prompt";
 import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
@@ -55,12 +53,13 @@ import { commandShortcutText } from "./app/use-app-commands";
 import { useCommandTable } from "./app/use-command-table";
 import { usePaperActions } from "./app/use-paper-actions";
 import { useSourceNavigation } from "./app/use-source-navigation";
+import { AppDocumentSurfaces } from "./app/app-document-surfaces";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import type { SettingsSearchEntry } from "./settings/settings-search-index";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { useApplyOpenSlideMutation } from "./app/use-apply-open-slide-mutation";
-import { AppOverleafCollabDrawer, AppOverleafMarginReview } from "./app/app-overleaf-drawer";
+import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
 import { SettingsLoadingShell } from "./app/tool-loading-shell";
@@ -85,7 +84,6 @@ import { loadPaperLibrary, loadProjectFileTree, loadTrellisWorkspace } from "./a
 import type { AppSurfaces } from "./app/app-surfaces";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
-import { persistSynaraThread } from "./app/app-synara-embed";
 import {
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
@@ -101,8 +99,6 @@ import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-docu
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
 import { loadAgentSpreadsheetModel, registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsheet-tools";
 import {
-  EMPTY_DIAGNOSTICS,
-  diagnosticMatchesFile,
   flattenProjectPaths,
   resolveDiagnosticPath,
   type CompileDiagnostic,
@@ -155,9 +151,6 @@ const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 const BibliographyAudit = lazy(() =>
   import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
 );
-const CompileDiagnosticsPanel = lazy(() =>
-  import("./build/compile-diagnostics-panel").then((module) => ({ default: module.CompileDiagnosticsPanel })),
-);
 // The workspace, the canvas and the project PDF beside it render behind a
 // ChunkGate, so a project's first frame shows as soon as their chunks are in,
 // with no Suspense reveal to wait out. The file tree and paper library above
@@ -169,13 +162,9 @@ const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface")
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const WhatsNewDialog = lazy(() => import("./app/whats-new-dialog").then((module) => ({ default: module.WhatsNewDialog })));
 
-/** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
-const EMPTY_SPELLING_WORDS: string[] = [];
-
 function App({ surfaces }: { surfaces: AppSurfaces }) {
   const {
-    documentCanvas: { load: loadDocumentCanvas, Component: DocumentCanvas },
-    projectPdfPanel: { load: loadProjectPdfPanel, Component: ProjectPdfPanel },
+    documentCanvas: { load: loadDocumentCanvas },
     settingsDialog: SettingsDialog,
   } = surfaces;
   const { t } = useLingui();
@@ -199,7 +188,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   } = projectState;
   const library = useProjectLibrary(projectState);
   const {
-    papers, paperLoad, retryPapers, citationKeys, citations, references, bibliographyIndexPending,
+    papers, paperLoad, retryPapers, citationKeys, citations, references,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
@@ -242,10 +231,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     mode: canvasMode,
   } = documents;
   const {
-    openFile, openAsset, openPaper, flush, save, load: loadFile, accept, reveal, chooseMode, clear: clearEditor,
+    openFile, openAsset, openPaper, flush, save, load: loadFile, accept, reveal, clear: clearEditor,
   } = documents;
   const { file: activeFileRef, text: sourceRef, saved: savedSourceRef, asset: activeAssetRef } = documents.live;
-  const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
   const [paperPdfOpen, setPaperPdfOpen] = useState(false);
   const {
@@ -591,8 +579,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     setOverleafCollabOpen, conflictPath, setConflictPath,
     overleafSyncRef, refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync,
     settleRemoteDeletes, openCurrentOverleafProject, jumpToOverleafPeer, overleafRealtime, overleafPresence,
-    overleafChat, overleafComments, overleafTrackChanges, overleafDocPaths,
-    overleafActiveCursors,
+    overleafChat, overleafComments, overleafDocPaths,
   } = overleaf;
   useLayoutEffect(() => {
     flushWholeFilesBeforeProjectTransitionRef.current = flushDeferredWholeFileSync;
@@ -626,12 +613,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     flush, save, compile: () => compileRef.current(),
   });
   const { settled: settleBuildErrorFix, reset: resetBuildErrorFix } = buildErrorFix;
-  const replaceDiagnosticToken = (diagnostic: CompileDiagnostic, token: string, replacement: string) => {
-    const line = diagnostic.line;
-    if (!project || !line) return;
-    const path = resolveDiagnosticPath(diagnostic.file, flattenProjectPaths(project.files), activeFile);
-    void buildErrorFix.replaceToken(path, line, token, replacement);
-  };
 
   const repairWritable = !overleafLink || overleafRealtime.canWrite;
   const compileRepair = useCompileRepair({
@@ -764,7 +745,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
-    projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, bodyBoundary, forgetIncludedSources,
+    rootDocumentPath, outlineNodes, liveReferences, todoHits, bodyBoundary, forgetIncludedSources,
   } = latex;
   const tree = useProjectTree({
     projectState, documents, library: { refreshProject, refreshHistory }, setGitStatus,
@@ -785,13 +766,13 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   });
   const { openFileFromClick: openProjectFileFromClick, openAssetFromClick: openProjectAssetFromClick } = tree;
 
-  const {
-    openMarkdownProjectPath, gotoDefinition, findSymbolReferences, beginRename, beginSymbolRename, openSymbolOccurrence,
-    referenceHits, dismissReferenceHits, rename,
-  } = useSourceNavigation({
+  const sourceNavigation = useSourceNavigation({
     project, projectRef, papers, documents, library, forgetIncludedSources, updateCanvasRequest, tree,
     openProjectPathRef: openMarkdownProjectPathRef,
   });
+  const {
+    openMarkdownProjectPath, beginSymbolRename, openSymbolOccurrence, referenceHits, dismissReferenceHits, rename,
+  } = sourceNavigation;
 
   const handleEditorPosition = useCallback((position: EditorPosition) => {
     editorPositionRef.current = position;
@@ -936,12 +917,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   );
 
   const texlabDiagnostics = useTexlabDiagnostics(project?.root, activeFile, source, build);
-
-  // texlab, when installed, reports unused labels/citations itself, so the local
-  // check would duplicate its warnings. Suppress the local one when texlab is
-  // available (assume it is until the doctor report loads) and fall back to it
-  // otherwise. The unused-symbol counts elsewhere still use the full list.
-  const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
 
   // A line jump lands in the text on screen: a Paper's reading file in front
   // of the retained source, never that source underneath it. An asset preview
@@ -1116,283 +1091,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     );
   }
 
-  const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
-    !compileRepair.busy
-    && !movingWorkspace
-    && (
-      ignoreOverleaf
-      || overleafLink === null
-      || overleafRealtime.canWrite
-      || (
-        overleafRealtime.permission !== "unknown"
-        && overleafRealtime.entities.get(path)?.kind !== "doc"
-        && !Array.from(overleafDocPaths.values()).includes(path)
-      )
-    )
-  );
-  // A citation opens its readable Paper when the library has one, else the source it cites.
-  const sameKey = (key: string | undefined, other: string) => key?.toLocaleLowerCase() === other.toLocaleLowerCase();
-  const readablePaperCited = (key: string) => papers.find((item) => sameKey(item.citationKey, key) && (item.hasFullText || item.hasBlog));
-  const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
-
-
-  // The outline, from the source's rail and status bar or the PDF's toolbar: its menu closes as the jump starts.
-  const navigateOutline = (path: string, line: number) => {
-    setOutlineOpen(false);
-    void syncTex.navigateOutline(path, line);
-  };
-
   const workspaceLoading = <div className="document-canvas-loading" aria-label={t`Preparing workspace`} />;
-  const documentCanvas = (
-    <DocumentCanvas
-      document={{
-        mode: canvasMode,
-        workspaceIndex,
-        source: canvasSource,
-        settledSource: settledCanvasSource,
-        markdownPreviewSource: documents.canvas.previewText,
-        activeFile: documents.canvas.path,
-        setSource: documents.canvas.setText,
-        onSave: save,
-        onVisualMarkdownFlushChange: documents.canvas.registerFlush,
-        onMarkdownModeViewportCaptureChange: documents.canvas.registerViewportCapture,
-        onCompletionCloseChange: documents.canvas.registerCompletionClose,
-        onViewMarkdownSource: () => chooseMode("split"),
-        activePaper,
-        activeAsset,
-        onActiveAssetChanged: documents.canvas.onAssetChanged,
-        onPaperPdfOpenChange: setPaperPdfOpen,
-        activeAssetMissing: documents.assetMissing,
-        onEditorLeave: documents.canvas.onLeave,
-        onCompletionActiveChange: documents.canvas.onCompletionActiveChange,
-        onOpenMarkdownPath: openMarkdownProjectPath,
-        // Papers live under .research/, which Overleaf deliberately
-        // excludes from sync.
-        editorEditable: editorEditableForPath(activeFile, activePaper !== null),
-        editorKey,
-        openPaths: documents.tabs,
-      }}
-      preferences={{
-        projectRoot: project.root,
-        locale: appLocale,
-        theme,
-        editorKeymap: appearance.editorKeymap,
-        editorSpellcheck: appearance.editorSpellcheck,
-        spellingWords: project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS,
-        onAddSpellingWord: addProjectSpellingWord,
-        interactivePreviewsEnabled: postStartupInteraction,
-      }}
-      bibliography={{
-        papers,
-        onOpenPaper: (paper) => void openPaper(paper),
-        onOpenUrl: (url) => void openUrl(url).catch((reason) => showError(toMessage(reason))),
-        onResolveCitation: referenceImport.resolveBibQuery,
-        citationUsageRevision: unusedSymbols,
-        citationKeys,
-        citations,
-        references: liveReferences,
-        indexPending: bibliographyIndexPending,
-        unusedLabels: texlabActive ? [] : unusedSymbols.labels,
-        unusedCitations: texlabActive ? [] : unusedSymbols.citations,
-        onLoadReferenceImage: referenceImages.load,
-        referenceImageGeneration: referenceImages.generation,
-        localMacros: latex.macros,
-        katexMacros: latex.katexMacros,
-        projectPaths,
-        graphicsRoots: latex.graphicsRoots,
-      }}
-      navigation={{
-        requests: canvasRequests.requests,
-        onRequestHandled: settleCanvasRequest,
-        onEditorPosition: handleEditorPosition,
-        onViewState: (path, state) => rememberFileViewState(path, { text: state }),
-        getFileViewState,
-        onFileViewState: rememberFileViewState,
-        onGotoDefinition: (target) => void gotoDefinition(target),
-        onTexlabGoto: (path, line) => { void openFile(path, { line }); },
-        onFindReferences: (target) => void findSymbolReferences(target),
-        onRenameSymbol: beginSymbolRename,
-        onRenameEnvironment: (name) => beginRename({ kind: "environment", name }),
-        onWrapEnvironment: () => beginRename({ kind: "wrap-environment" }),
-        onGotoLineRequest: () => setSearchDialog("goto-line"),
-        outlineNodes,
-        outlineRootPath: rootDocumentPath,
-        onOutlineNavigate: navigateOutline,
-        tableGeneratorOpen,
-        onTableGeneratorOpenChange: setTableGeneratorOpen,
-        onCreateMissingFile: (path) => {
-          void tree.createEntry(path, "file");
-        },
-      }}
-      pdf={{ pdfUrl }}
-      review={{
-        editorComments: editorComments.all,
-        overleafPresenceCursors: overleafActiveCursors,
-        overleafChanges: overleafRealtime.changes,
-        sourceMargin: overleafLink ? (view) => (
-          <AppOverleafMarginReview overleaf={overleaf} view={view} path={documents.canvas.path} focusMode={focusMode} />
-        ) : undefined,
-        overleafTrackChangeActions: {
-          authorName: overleafTrackChanges.authorName,
-          canAct: () => overleafRealtime.canWrite,
-          onAccept: (change) => void overleafTrackChanges.accept([change.id]),
-          onReject: (change) => void overleafTrackChanges.reject([change]),
-        },
-        activeEditorCommentId: editorComments.activeId,
-        // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
-        commentAuthorName: authorName.trim() || "Anonymous",
-        commentAuthorId: editorCommentAuthorId,
-        onCreateEditorComment: editorComments.create,
-        annotationRounds,
-        onOpenEditorComments: () => tools.open("comments"),
-        onResolveEditorComment: editorComments.resolve,
-        onReplyEditorComment: (commentId) => tools.open("comments", { replyTo: commentId }),
-        onPostEditorCommentReply: editorComments.reply,
-        commentFocusRequest: editorComments.focusRequest,
-        onCommentFocusHandled: editorComments.focusHandled,
-      }}
-      selection={{
-        setSelection: (value, lines) => agentContext.reportSelection(activePaper ? "paper" : "editor", value, undefined, lines),
-        onPdfTextSelect: (value, place) => agentContext.reportSelection("pdf", value, place),
-        onPaperTextSelect: (value) => agentContext.reportSelection("paper", value),
-        onContextSurfaceActivate: agentContext.activateSurface,
-      }}
-      assets={{
-        onImportAsset: tree.importClipboardImageFile,
-        onOpenSlideMutation: applyOpenSlideMutation,
-        onOpenSlideContext: setOpenSlideContext,
-        onOpenSlideError: showError,
-        onOpenSlideAgentRequest: (request) => {
-          const root = projectRef.current?.root;
-          if (!root) return;
-          trellis.showPanel("agent");
-          synara.sendComposerPrompt(openSlideComposerPrompt(request, root));
-        },
-        onPrepareFigure: tree.prepareLatexFigure,
-        onPasteImageFile: tree.pasteImageFile,
-        nativeFigureDropActive: tree.drops.editor,
-        fileDropTargetActive: tree.drops.fileTarget,
-      }}
-      status={{
-        buildDiagnostics: buildPipeline.compiledSources.get(activeFile) === source
-          ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
-          : EMPTY_DIAGNOSTICS,
-        texlabDiagnostics,
-        todoCount: todoHits.length,
-        onOpenTodos: () => tools.open("todos"),
-        projectWordCount,
-        saveSlot,
-      }}
-      hosts={{
-        editorHost: trellis.hosts.editor,
-        editorHibernated,
-        hibernatedPlaceholder: null,
-        decks: trellis.decks,
-        switchState: trellis.switchState,
-      }}
-    />
-  );
-
-  // The build panel's engine actions: write the engine, then build with it.
-  // `keepEngine` is the undo of an automatic switch, which must not recur.
-  // Declared below the canvas: the compiler takes the canvas's
-  // `buildPipeline.compiledSources.get` for a write to the pipeline and
-  // memoizes no function made from it above that read, so the diagnostics
-  // panel handed this one rendered again with every render of App.
-  const switchEngineAndBuild = (engine: string, keepEngine?: boolean) => void showingErrors(async () => {
-    const manifest = await invoke<ProjectManifest>("update_project_manifest", { engine, keepEngine });
-    setProject((current) => current ? { ...current, manifest } : current);
-    await buildPipeline.runBuild(false, { requested: true, sound: true });
-  });
-
-  // The diagnostics' excerpts quote the open buffer, and only an expanded list
-  // naming its file shows one: handed the buffer otherwise, the panel above
-  // the PDF re-rendered on every keystroke for nothing on screen.
-  const diagnosticSourceOf = buildPipeline.diagnosticsExpanded
-    && build?.diagnostics.some((diagnostic) => diagnosticMatchesFile(diagnostic.file, activeFile))
-    ? (file: string | undefined) => (diagnosticMatchesFile(file, activeFile) ? source : null)
-    : undefined;
-
-  // The compiled PDF in its own panel, beside the canvas: it takes the open
-  // document's path, not its text, so only what it shows changing renders it.
-  const projectPdfPanel = (
-    <ProjectPdfPanel
-      host={pdfLive ? trellis.hosts.pdf : null}
-      projectRoot={project.root}
-      activeFile={documents.canvas.path}
-      livePreview={livePreview}
-      pdf={{
-        pdfUrl,
-        pdfBytes: buildPipeline.displayedPdfBytesRef.current,
-        onBuildProject: () => void compileAndShowPdf(false, true),
-        building,
-        buildShortcut: commandShortcutText(commands, "build") ?? undefined,
-        pdfTop: (!buildPipeline.diagnosticsDismissed || compileRepair.busy) && build && (!build.success || build.diagnostics.length > 0 || compileRepair.state) ? (
-          <Suspense fallback={null}>
-            <CompileDiagnosticsPanel
-              diagnostics={build.diagnostics}
-              log={build.log}
-              success={build.success}
-              wrotePdf={buildOutcome?.status === "failed" && buildOutcome.wrotePdf}
-              expanded={buildPipeline.diagnosticsExpanded}
-              onExpandedChange={buildPipeline.setDiagnosticsExpanded}
-              onSelect={(diagnostic) => void openCompileDiagnostic(diagnostic)}
-              onInstallDependency={texSetup.installDependency}
-              onSwitchToPdfLatex={(project.manifest.engine ?? "pdf") === "pdf" ? undefined : () => switchEngineAndBuild("pdf")}
-              onUndoEngineSwitch={(engine) => switchEngineAndBuild(engine, true)}
-              onFixAll={() => { synara.requestRuntime(); void compileRepair.start(build.diagnostics); }}
-              fixDisabled={!repairWritable || building || compileRepair.busy}
-              repair={compileRepair.state}
-              onCancelRepair={() => void compileRepair.cancel()}
-              onOpenRepair={() => {
-                const threadId = compileRepair.state?.threadId;
-                if (!threadId) return;
-                persistSynaraThread(project.root, threadId);
-                synara.mountFrame();
-                trellis.showPanel("agent");
-                synara.showThread(threadId);
-              }}
-              onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
-              sourceOf={diagnosticSourceOf}
-              onReplaceToken={replaceDiagnosticToken}
-              onAskAgent={(diagnostic) => { synara.requestRuntime(); void compileRepair.start([diagnostic]); }}
-            />
-          </Suspense>
-        ) : null,
-        pdfSyncTarget: syncTex.pdfSyncTarget,
-        canForwardSync: syncTex.canForwardSync,
-        locatingPdf: syncTex.locatingPdf,
-        onForwardSync: () => void revealSourceInPdf(),
-        onPdfSource: syncTex.revealPdfSource,
-        onPdfPageCount: setPdfPageCount,
-        onPdfPageChange: setPdfPageNumber,
-      }}
-      citations={{
-        citations,
-        canOpenCitation: (key) => Boolean(readablePaperCited(key) || citationUrl(key)),
-        onOpenCitation: (key) => {
-          const paper = readablePaperCited(key);
-          const url = citationUrl(key);
-          if (paper) void openPaper(paper);
-          else if (url) void openUrl(url).catch((reason) => showError(toMessage(reason)));
-        },
-      }}
-      outline={{
-        nodes: outlineNodes,
-        activeId: latex.activeOutlineId,
-        open: outlineOpen,
-        onOpenChange: setOutlineOpen,
-        onNavigate: navigateOutline,
-      }}
-      review={{ annotations: editorComments.all, annotationRounds }}
-      selection={{
-        onPdfTextSelect: (value, place) => agentContext.reportSelection("pdf", value, place),
-        onContextSurfaceActivate: agentContext.activateSurface,
-      }}
-      viewState={{ getFileViewState, onFileViewState: rememberFileViewState }}
-      onLeaveEditor={documents.canvas.onLeaveForPdf}
-    />
-  );
 
   return (
     <TrellisControllerContext.Provider value={trellis}>
@@ -1574,16 +1273,53 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           <OpeningOverlay name={documents.opening} />,
           trellis.hosts.editor,
         )}
-        <ChunkGate chunk={loadDocumentCanvas}>
-          <Suspense fallback={null}>
-            {documentCanvas}
-          </Suspense>
-        </ChunkGate>
-        <ChunkGate chunk={loadProjectPdfPanel}>
-          <Suspense fallback={null}>
-            {projectPdfPanel}
-          </Suspense>
-        </ChunkGate>
+        <AppDocumentSurfaces
+          surfaces={surfaces}
+          project={project}
+          projectState={projectState}
+          documents={documents}
+          settledSource={settledCanvasSource}
+          workspaceIndex={workspaceIndex}
+          preferences={{
+            locale: appLocale,
+            theme,
+            editorKeymap: appearance.editorKeymap,
+            editorSpellcheck: appearance.editorSpellcheck,
+            onAddSpellingWord: addProjectSpellingWord,
+            interactivePreviewsEnabled: postStartupInteraction,
+          }}
+          library={library}
+          latex={latex}
+          texlabDiagnostics={texlabDiagnostics}
+          referenceImport={referenceImport}
+          referenceImages={referenceImages}
+          canvasRequests={{ requests: canvasRequests.requests, settle: settleCanvasRequest }}
+          onEditorPosition={handleEditorPosition}
+          sourceNavigation={sourceNavigation}
+          setSearchDialog={setSearchDialog}
+          outline={{ open: outlineOpen, setOpen: setOutlineOpen }}
+          tableGenerator={{ open: tableGeneratorOpen, setOpen: setTableGeneratorOpen }}
+          tree={tree}
+          overleaf={overleaf}
+          layout={{ focusMode, editorHibernated, pdfLive }}
+          comments={{ store: editorComments, author: { id: editorCommentAuthorId, name: authorName } }}
+          tools={tools}
+          agentContext={agentContext}
+          openSlide={{ applyMutation: applyOpenSlideMutation, setContext: setOpenSlideContext }}
+          trellis={trellis}
+          synara={synara}
+          build={{
+            pipeline: buildPipeline, compileAndShowPdf, openCompileDiagnostic, repair: compileRepair, repairWritable,
+            errorFix: buildErrorFix, shortcut: commandShortcutText(commands, "build") ?? undefined,
+          }}
+          texSetup={texSetup}
+          saveSlot={saveSlot}
+          movingWorkspace={movingWorkspace}
+          livePreview={livePreview}
+          pdfPage={{ setCount: setPdfPageCount, setNumber: setPdfPageNumber }}
+          syncTex={syncTex}
+          setPaperPdfOpen={setPaperPdfOpen}
+        />
         {guidedTour && (
           <Suspense fallback={null}>
             <GuidedTour
