@@ -585,7 +585,7 @@ the primitive standardizes density without changing those semantics.
 - The command palette (⌘K, and ⌘⇧P) is the one place every app command can be
   reached by name, on the welcome screen as well as in a project; a typed query
   also finds the project's files, its Papers and every Settings row. A new
-  app-level action gets an entry in App's command table, which drives both the
+  app-level action gets an entry in the command table (`src/app/use-command-table.ts`), which drives both the
   palette, the global shortcuts and the shortcut sheet, with a section
   (`palette-sections.ts`) and either a `key` or, for a key bound elsewhere, a
   display-only `shortcut`. Keyboard pickers keep the

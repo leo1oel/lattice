@@ -24,9 +24,9 @@ type RemoveReferenceResult = {
  * Remove `paper`'s entry from the primary bibliography, after the writer
  * confirms (and chooses what happens to its citations, when it is cited).
  * Every await is followed by a check that the same project is still open: a
- * switch while the confirmation is up abandons the removal. Outside App
- * because its try/catch makes the React Compiler skip the component that
- * holds it.
+ * switch while the confirmation is up abandons the removal. Outside
+ * usePaperActions because its try/catch makes the React Compiler skip the
+ * hook that holds it.
  */
 export async function removeReference(paper: PaperSummary, {
   project, captureProjectScope, flush, save, activeFile, activeFileRef, sourceRef, accept, markDiskVersion,
