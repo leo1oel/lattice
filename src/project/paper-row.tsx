@@ -232,7 +232,7 @@ export function PaperRow(props: PaperRowProps) {
           />
         </div>
       </div>
-      {match && <PaperTextHits match={match} onOpen={(hit) => props.onOpenHit(paper, hit)} />}
+      {match && <PaperTextHits match={match} describedBy={titleId} onOpen={(hit) => props.onOpenHit(paper, hit)} />}
       {health && <div className="paper-tags">{healthNotice}</div>}
       <span id={factsId} className="sr-only">
         {[recent && t`Just added`, stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]

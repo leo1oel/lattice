@@ -25,7 +25,12 @@ function marked(text: string, highlights: readonly [number, number][] = []): Rea
  * each one opens the paper at that line. A few show at once; the rest the
  * index returned come on request.
  */
-export function PaperTextHits({ match, onOpen }: { match: PaperTextMatch; onOpen: (hit: PaperLineHit) => void }) {
+export function PaperTextHits({ match, onOpen, describedBy }: {
+  match: PaperTextMatch;
+  onOpen: (hit: PaperLineHit) => void;
+  /** The paper's title, which each line is read with. */
+  describedBy?: string;
+}) {
   const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -44,8 +49,8 @@ export function PaperTextHits({ match, onOpen }: { match: PaperTextMatch; onOpen
     <ul ref={listRef} className="paper-hits">
       {shown.map((hit) => (
         <li key={`${hit.path}:${hit.line}`}>
-          <button type="button" className="paper-hit" title={hit.text} onClick={() => onOpen(hit)}>
-            {marked(hit.text, hit.highlights)}
+          <button type="button" className="paper-hit" title={hit.text} aria-describedby={describedBy} onClick={() => onOpen(hit)}>
+            <span className="paper-hit-text">{marked(hit.text, hit.highlights)}</span>
           </button>
         </li>
       ))}

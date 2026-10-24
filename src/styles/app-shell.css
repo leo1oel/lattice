@@ -1079,16 +1079,18 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 :where(.paper-rows[data-row-below~="260"]) .paper-byline > .paper-venue { display: none; }
 /* A search's matching lines under its paper, best first: each a control
    above the row's hit area that opens the paper at that line, one line tall
-   and ellipsized, quoted from the paper so it reads as one, its match marked
+   (a 24px target) and ellipsized, quoted from the paper so it reads as one, its match marked
    as the Find dialog marks it. The fill sits a step out from the text, which
    stays on the title's edge. */
-.paper-hits { min-width: 0; margin: var(--space-2) 0 0; padding: 0; display: grid; list-style: none; }
+.paper-hits { min-width: 0; margin: var(--space-1) 0 0; padding: 0; display: grid; list-style: none; }
 .paper-hits > li { min-width: 0; }
-.paper-hit, .paper-hit-more { position: relative; z-index: 1; max-width: calc(100% + var(--space-3)); margin-inline-start: calc(-1 * var(--space-3)); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-compact); background: transparent; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: start; cursor: pointer; }
+.paper-hit, .paper-hit-more { position: relative; z-index: 1; max-width: calc(100% + var(--space-3)); min-height: var(--hit-area-min); margin-inline-start: calc(-1 * var(--space-3)); padding: calc((var(--hit-area-min) - var(--type-tree-line-height)) / 2) var(--space-3); border: 0; border-radius: var(--radius-compact); background: transparent; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: start; cursor: pointer; }
 .paper-hit { width: calc(100% + var(--space-3)); font-family: var(--reading-font); font-style: italic; }
+/* The text clips inside the padding, so a mark the ellipsis cuts leaves no stub of its fill. */
+.paper-hit-text { display: block; overflow: hidden; text-overflow: ellipsis; }
 .paper-hit:hover, .paper-hit-more:hover { background: var(--tone-hover-surface); color: var(--text-primary); }
 .paper-hit mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
-.paper-hit-more { color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.paper-hit-more { font-size: var(--type-caption-size); }
 /* The row's citation-health notice. */
 .paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 .paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--badge-height-compact); }
