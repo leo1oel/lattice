@@ -12,9 +12,21 @@ use std::sync::LazyLock;
 /// The longest snippet a hit shows, in characters, before ellipses.
 const SNIPPET_CHARS: usize = 200;
 /// At most how much of the line before the first highlight a snippet keeps,
-/// trimmed to a word boundary: a narrow Papers panel shows about 28
-/// characters of a hit, and the match must be among them.
-const SNIPPET_LEAD_CHARS: usize = 12;
+/// in columns (a CJK character is two), trimmed to a word boundary: a narrow
+/// Papers panel shows about 28 columns of a hit, and the match must be among
+/// them.
+const SNIPPET_LEAD_COLUMNS: usize = 12;
+
+/// How wide `c` sets: two columns for CJK ideographs, kana, Hangul and
+/// fullwidth forms, one for the rest.
+fn columns(c: char) -> usize {
+    match c {
+        '\u{1100}'..='\u{115f}' | '\u{2e80}'..='\u{a4cf}' | '\u{ac00}'..='\u{d7a3}'
+        | '\u{f900}'..='\u{faff}' | '\u{fe30}'..='\u{fe4f}' | '\u{ff00}'..='\u{ff60}'
+        | '\u{ffe0}'..='\u{ffe6}' | '\u{20000}'..='\u{3fffd}' => 2,
+        _ => 1,
+    }
+}
 
 static TOC_ENTRY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*[-*+]\s+\[[^\]]*\]\(#[^)]*\)\s*$").unwrap());
@@ -61,15 +73,17 @@ pub(super) fn snippet(text: &str, highlights: &[(usize, usize)]) -> (String, Vec
     // The window opens just before the match, on a word when there is one to
     // open on, wherever the match is in the line: the panel shows the
     // window's start.
-    let mut start = 0;
-    if first > SNIPPET_LEAD_CHARS {
-        start = first - SNIPPET_LEAD_CHARS;
-        let mut lead = text.chars().skip(start - 1).take(SNIPPET_LEAD_CHARS + 1);
-        // Mid-word, skip to the next word.
-        if !lead.next().is_some_and(char::is_whitespace) {
-            if let Some(space) = lead.position(char::is_whitespace) {
-                start += space + 1;
-            }
+    let chars: Vec<char> = text.chars().collect();
+    let mut start = first;
+    let mut lead = 0;
+    while start > 0 && lead + columns(chars[start - 1]) <= SNIPPET_LEAD_COLUMNS {
+        start -= 1;
+        lead += columns(chars[start]);
+    }
+    // Mid-word, skip to the next word.
+    if start > 0 && !chars[start - 1].is_whitespace() {
+        if let Some(space) = chars[start..first].iter().position(|c| c.is_whitespace()) {
+            start += space + 1;
         }
     }
     let end = (start + SNIPPET_CHARS).min(char_count);
@@ -124,12 +138,16 @@ mod tests {
         let (window, ranges) = snippet(&long, &[(at, at + 6)]);
         assert!(window.starts_with('…') && window.ends_with('…'), "{window}");
         assert_eq!(window.chars().count(), SNIPPET_CHARS + 2);
-        assert_eq!(window.find("needle"), Some('…'.len_utf8() + SNIPPET_LEAD_CHARS));
+        assert_eq!(window.find("needle"), Some('…'.len_utf8() + SNIPPET_LEAD_COLUMNS));
         // Short lines are trimmed too, to a word, so the match is in view.
         assert_eq!(
             snippet("3.3 Studying Information Transfer", &[(25, 33)]).0,
             "…Information Transfer"
         );
+        // A CJK character is two columns of the lead.
+        let cjk = "模型并在此基础上增加了自注意力机制";
+        let at = cjk.find("注意力").unwrap();
+        assert_eq!(snippet(cjk, &[(at, at + "注意力".len())]).0, "…础上增加了自注意力机制");
         // Near the end of a long line the window still opens on the match.
         let late = format!("{}needle tail", "x ".repeat(200));
         let at = late.find("needle").unwrap();
