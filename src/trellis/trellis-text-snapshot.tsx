@@ -1,7 +1,8 @@
 /**
  * The read-only drawings of an open document that is not the active one:
  * its source and, for Markdown, its rendered page. Trellis document panels
- * show them until a click makes the document active (see trellis-workspace.tsx).
+ * show them until a click makes the document active (see
+ * trellis-document-views.tsx).
  */
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";

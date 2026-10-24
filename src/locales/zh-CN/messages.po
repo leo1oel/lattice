@@ -618,7 +618,7 @@ msgstr "无法读取 {name}。{reason}"
 msgid "{name} copy"
 msgstr "{name} 副本"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} 没保存成功，仍要关闭并丢弃修改？"
 
@@ -4011,7 +4011,7 @@ msgstr "尺寸未知"
 msgid "Discard"
 msgstr "放弃"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "Discard and close"
 msgstr "不保存"
 
@@ -4584,7 +4584,7 @@ msgstr "伊塔"
 msgid "Every figure is included"
 msgstr "所有图片均已包含"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-panel-views.tsx
 msgid "Every panel is closed"
 msgstr "面板都已关闭"
 
@@ -7623,7 +7623,7 @@ msgstr "Crossref 没有更新记录（{checkedDate} 查）"
 msgid "No diagnostics"
 msgstr "没有问题"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-panel-views.tsx
 msgid "No document open"
 msgstr "尚未打开文档"
 
@@ -8233,7 +8233,7 @@ msgstr "打开 {name}"
 msgid "Open {path} at line {0}"
 msgstr "在第 {0} 行打开 {path}"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-panel-views.tsx
 msgid "Open {title}"
 msgstr "打开{title}"
 
@@ -8444,7 +8444,7 @@ msgstr "请先打开关联的项目，再改同步设置"
 msgid "Open the linked Overleaf project first."
 msgstr "请先打开关联的 Overleaf 项目"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-document-views.tsx
 msgid "Open the reader"
 msgstr "阅读全文"
 
@@ -8955,7 +8955,7 @@ msgctxt "The scrolling area that shows them"
 msgid "PDF pages"
 msgstr "PDF 页面"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-panel-views.tsx
 msgid "PDF preview paused"
 msgstr "PDF 已暂停"
 
@@ -9424,7 +9424,7 @@ msgstr "疑问"
 msgid "queued"
 msgstr "排队中"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-panel-views.tsx
 msgid "Quick open"
 msgstr "快速打开"
 
@@ -10076,8 +10076,8 @@ msgstr "重置"
 msgid "Reset interface size"
 msgstr "重置界面大小"
 
+#: src/trellis/trellis-panel-views.tsx
 #: src/trellis/trellis-titlebar.tsx
-#: src/trellis/trellis-workspace.tsx
 msgid "Reset layout"
 msgstr "重置布局"
 
@@ -12929,8 +12929,8 @@ msgstr "取消固定"
 msgid "Unresolved"
 msgstr "未解决"
 
+#: src/trellis/trellis-document-views.tsx
 #: src/trellis/trellis-workspace-switch.tsx
-#: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"
 msgstr "未保存"
 
