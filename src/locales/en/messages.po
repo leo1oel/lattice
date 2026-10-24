@@ -3553,11 +3553,11 @@ msgstr "Could not revise"
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Could not save {failedPath}"
 msgstr "Could not save {failedPath}"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "Could not save the project"
 
@@ -4805,7 +4805,7 @@ msgstr "File order"
 msgid "file restore"
 msgstr "file restore"
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "File switch"
 msgstr "File switch"
 
@@ -5147,7 +5147,7 @@ msgstr "Frown relation"
 msgid "full paper"
 msgstr "full paper"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-opens.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
 
@@ -6189,7 +6189,7 @@ msgstr "Kept as written"
 msgid "Kept here"
 msgstr "Kept here"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
 
@@ -7349,7 +7349,7 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "Navigation performance"
 msgstr "Navigation performance"
 
@@ -7819,7 +7819,7 @@ msgstr "No published version found"
 msgid "No published version was found."
 msgstr "No published version was found."
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-opens.ts
 msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
@@ -8770,7 +8770,7 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "Paper switch"
 msgstr "Paper switch"
 
@@ -10545,7 +10545,7 @@ msgid "Saturation and brightness"
 msgstr "Saturation and brightness"
 
 #: src/app/save-source-copy.ts
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx

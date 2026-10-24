@@ -3553,11 +3553,11 @@ msgstr "未能修改"
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "无法安全保留此条目中的 BibTeX 表达式。"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Could not save {failedPath}"
 msgstr "{failedPath} 没保存成功"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "项目没保存成功"
 
@@ -4805,7 +4805,7 @@ msgstr "文件顺序"
 msgid "file restore"
 msgstr "恢复文件"
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "File switch"
 msgstr "切换文件"
 
@@ -5147,7 +5147,7 @@ msgstr "下弧关系"
 msgid "full paper"
 msgstr "全文"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-opens.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "没有全文，先显示概览"
 
@@ -6189,7 +6189,7 @@ msgstr "已保留原文"
 msgid "Kept here"
 msgstr "保留本机"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "{path} 有外部修改重叠，已都保留，请手动合并"
 
@@ -7349,7 +7349,7 @@ msgstr "自然连接 / 蝶形"
 msgid "Navigate"
 msgstr "跳转"
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "Navigation performance"
 msgstr "导航性能"
 
@@ -7819,7 +7819,7 @@ msgstr "没有正式发表版"
 msgid "No published version was found."
 msgstr "没有正式发表版"
 
-#: src/app/use-open-documents.ts
+#: src/app/use-document-opens.ts
 msgid "No readable paper content is available."
 msgstr "这篇论文没有可读内容"
 
@@ -8770,7 +8770,7 @@ msgstr "已取消导入，文献未改动；下好的全文仍可用"
 msgid "Paper import cancelled before making changes."
 msgstr "已取消导入，没有改动"
 
-#: src/app/use-open-documents.ts
+#: src/app/open-document-intents.ts
 msgid "Paper switch"
 msgstr "切换论文"
 
@@ -10545,7 +10545,7 @@ msgid "Saturation and brightness"
 msgstr "饱和度与亮度"
 
 #: src/app/save-source-copy.ts
-#: src/app/use-open-documents.ts
+#: src/app/use-document-save.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
