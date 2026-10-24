@@ -240,7 +240,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | File | Role |
 | --- | --- |
 | `src/App.tsx` | The hub, still the largest component. Composes the `src/app/` hooks and owns what still spans them: the wiring between them, the command table and the top-level layout. See §6. |
-| `src/app/use-open-documents.ts` | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. Read its tests for the guarantees. |
+| `src/app/use-open-documents.ts` | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. It composes the hooks that carry these out: the state in `use-document-store.ts`, then `use-document-save.ts`, `use-document-opens.ts`, `use-document-disk-sync.ts`, `use-document-autosave.ts`, `use-workspace-layout.ts` and `use-document-tree-changes.ts`. Read its tests for the guarantees. |
 | `src-tauri/src/project.rs` + `project/` | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
 | `src/canvas/document-canvas.tsx` | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
