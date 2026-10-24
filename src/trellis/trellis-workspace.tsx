@@ -156,6 +156,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // trellis-layout-handlers.ts: their try/finally made the compiler skip it,
   // and compiling it changes what its renders memoize, which is a change of
   // its own to measure rather than a side effect of the move.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
   "use no memo";
   const { t, i18n } = useLingui();
   const [{ initial, initialPreset, initialFocus, initialWorkspace, initialPlaces, agentMinSize, pdfMinSize }] = useState(() => {
