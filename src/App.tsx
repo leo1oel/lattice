@@ -1,13 +1,10 @@
 import {
-  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition,
+  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type SetStateAction,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
-} from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
 import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
@@ -51,16 +48,15 @@ import { usePaperActions } from "./app/use-paper-actions";
 import { useSourceNavigation } from "./app/use-source-navigation";
 import { AppDocumentSurfaces } from "./app/app-document-surfaces";
 import { AppPanelPortals } from "./app/app-panel-portals";
+import { AppSettingsDialog, useSettingsWindow } from "./app/app-settings-window";
+import { useCommentAuthor } from "./app/use-comment-author";
 import { FocusModeBar } from "./app/focus-mode-bar";
-import type { SettingsSearchEntry } from "./settings/settings-search-index";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { useApplyOpenSlideMutation } from "./app/use-apply-open-slide-mutation";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
-import { SettingsLoadingShell } from "./app/tool-loading-shell";
-import { useLoadingShell } from "./app/use-loading-shell";
 import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
@@ -84,12 +80,7 @@ import {
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
   loadBuildPreferences,
-  persistOverleafRemoteDelete,
-  persistOverleafSyncMode,
   resolveAppLocale,
-  loadSettingsTab,
-  persistSettingsTab,
-  isSynaraSettingsTab,
 } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
@@ -105,12 +96,9 @@ import { Welcome } from "./project/project-dialogs";
 import type { NewEntryRequest, NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
-  ProjectManifest,
   EditorPosition,
-  SettingsTab,
   InsertSymbolCommand,
   ViewRestoreRequest,
-  OverleafStatus,
   CompileProject,
 } from "./app-types";
 import {
@@ -274,14 +262,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   }, [updateCanvasRequest]);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
-  const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
-  const [authorNameSetting, setAuthorNameSetting] = useState(loadAuthorNameSetting);
-  // The writer's name as Git and the Overleaf session know it, which sign
-  // comments ahead of the "Your name" setting.
-  const [knownAuthorNames, setKnownAuthorNames] = useState<{ git: string | null; overleaf: string | null }>({
-    git: null, overleaf: null,
-  });
-  const authorName = resolveAuthorName({ ...knownAuthorNames, setting: authorNameSetting });
   const [outlineOpen, setOutlineOpen] = useState(false);
   const projectRootRef = useLatestRef(project?.root ?? null);
   const agentProjectDocumentCreatorRef = useRef<((
@@ -318,16 +298,10 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     setNewEntryRequest((previous) => ({ type, serial: (previous?.serial ?? 0) + 1 }));
   }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
-  const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
+  const appearanceControls = useAppearance();
+  const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = appearanceControls;
   const interfaceZoom = useInterfaceZoom(setAppearance);
   const whatsNew = useWhatsNew();
-  // Where Settings returns focus if not to what held it as Settings opened
-  // (the project menu's trigger, when Settings is opened from that menu), the
-  // row it opens on when the palette found one, and whether a section was
-  // asked for: one state, as each hook is paid on every App render.
-  const [settingsEntry, setSettingsEntry] = useState<{ returnFocus: HTMLElement | null; reveal: SettingsSearchEntry | null; page: boolean }>(
-    { returnFocus: null, reveal: null, page: false },
-  );
   const synara = useSynaraHost({
     project,
     projectRef,
@@ -340,11 +314,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       translucent: windowBacking === "translucent",
     },
     bridge: {
-      openProviderSettings: () => {
-        setSettingsTab("agent");
-        setSettingsEntry({ returnFocus: null, reveal: null, page: true });
-        startSettingsOpen(() => setSettingsOpen(true));
-      },
+      openProviderSettings: () => settingsWindow.openProviderSettings(),
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
       openReview: (turn) => {
         tools.open("git", turn ? { turnReview: { ...turn, filePath: null } } : { gitView: "changes" });
@@ -361,6 +331,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     },
   });
   const { postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
+  const settingsWindow = useSettingsWindow(requestSynaraRuntime);
+  const commentAuthor = useCommentAuthor(project?.root, settingsWindow.open);
+  const { id: editorCommentAuthorId, name: authorName } = commentAuthor;
   const autoBuildModeRef = useLatestRef(buildPreferences.autoBuildMode);
   const agentCheckpoints = useAgentCheckpoints({
     project,
@@ -391,7 +364,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   useEffect(() => {
     livePreviewHooks.current?.basePageCount(pdfPageCount);
   }, [livePreviewHooks, livePreviewState, pdfPageCount]);
-  const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, cleanProject } = buildPipeline;
+  const { build, setBuild, building, outcome: buildOutcome, pdfUrl, runBuild } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
   const { resetQueue: resetBuildQueue, setDiagnosticsExpanded } = buildPipeline;
   // App's actions whose identity is a contract rather than a cache: effects
@@ -452,23 +425,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
         setDiagnosticsExpanded(true);
       });
     },
-    showSettingsTab: (tab: SettingsTab) => {
-      if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
-      setSettingsTab(tab);
-      persistSettingsTab(tab);
-    },
-    /** Opens on `tab`, or without one on the page Settings was last left on; on `reveal`'s row, if given. */
-    openSettings: (requested?: SettingsTab, returnFocus: HTMLElement | null = null, reveal: SettingsSearchEntry | null = null) => {
-      showSettingsTab(requested ?? loadSettingsTab());
-      setSettingsEntry({ returnFocus, reveal, page: requested !== undefined || reveal !== null });
-      startSettingsOpen(() => setSettingsOpen(true));
-    },
-    // An urgent update after the opening transition's: it also withdraws a
-    // pending open, so a Settings closed from its loading shell stays closed.
-    closeSettings: () => {
-      setSettingsOpen(false);
-      setSettingsEntry({ returnFocus: null, reveal: null, page: false });
-    },
+    showSettingsTab: settingsWindow.showTab,
+    openSettings: settingsWindow.openSettings,
+    closeSettings: settingsWindow.close,
     settleCanvasRequest: (id: string) => {
       settleRequest(id);
       settleBuildErrorFix(id);
@@ -491,35 +450,6 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     },
   });
   const { resetSelection: resetAgentSelection } = agentContext;
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  // Opening Settings is a transition for the reason opening a lazy tool
-  // drawer is (`useToolDrawers`), with the same loading shell.
-  const [settingsOpening, startSettingsOpen] = useTransition();
-  const settingsLate = useLoadingShell(settingsOpening, settingsOpening || settingsOpen);
-  // Re-read on a project switch (Git config is per repository) and whenever
-  // Settings opens, which is where a writer goes after signing in to Overleaf.
-  useEffect(() => {
-    let cancelled = false;
-    const projectOpen = Boolean(project?.root);
-    void Promise.all([
-      projectOpen ? invoke<string | null>("git_user_name").catch(() => null) : Promise.resolve(null),
-      invoke<OverleafStatus>("overleaf_status")
-        .then((status) => (status?.connected ? status.name ?? null : null))
-        .catch(() => null),
-    ]).then(([git, overleaf]) => {
-      // Keep the same object when neither name changed, so the lookup that
-      // runs at every startup and Settings toggle does not re-render App.
-      if (!cancelled) {
-        setKnownAuthorNames((prev) => (
-          prev.git === (git ?? null) && prev.overleaf === overleaf ? prev : { git: git ?? null, overleaf }
-        ));
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [project?.root, settingsOpen]);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(loadSettingsTab);
   const projectGit = useProjectTreeWatch(projectState, true);
   const { setGitStatus } = projectGit;
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
@@ -560,8 +490,8 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef, openOverleafSettingsRef,
   });
   const {
-    overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode, setOverleafSyncMode,
-    overleafRemoteDelete, setOverleafRemoteDelete, overleafRemoteChanges, setOverleafRemoteChanges,
+    overleafLink, overleafProjectLinked, overleafSyncing, overleafSyncMode,
+    overleafRemoteChanges, setOverleafRemoteChanges,
     overleafPickerOpen, setOverleafPickerOpen, overleafReviewOpen, setOverleafReviewOpen,
     setOverleafCollabOpen, conflictPath, setConflictPath,
     overleafSyncRef, refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync,
@@ -771,73 +701,14 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   useLayoutEffect(() => { openOverleafSettingsRef.current = () => openSettings("overleaf"); }, [openSettings]);
 
 
-  const settingsDialog = (<>
-    {settingsLate && (
-      <SettingsLoadingShell label={t`Settings`} message={t`Loading settings…`} backdrop={!settingsOpen}
-        returnFocus={settingsEntry.returnFocus} onClose={closeSettings} />
-    )}
-    <Suspense fallback={null}>
-      {settingsOpen && <SettingsDialog
-        covered={settingsLate}
-        reveal={settingsEntry.reveal}
-        openOnPage={settingsEntry.page}
-        synaraRuntime={synara.runtime}
-        synaraWorkspaceRoot={project?.root}
-        onRetrySynaraRuntime={synara.retry}
-        overleafSyncMode={overleafSyncMode}
-        overleafRemoteDelete={overleafRemoteDelete}
-        onOverleafRemoteDeleteChange={(mode) => {
-          setOverleafRemoteDelete(mode);
-          persistOverleafRemoteDelete(mode);
-        }}
-        overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
-        overleafChannelDetail={overleafRealtime.detail}
-        onOverleafLinkChanged={refreshOverleafLink}
-        onOverleafSyncModeChange={(mode) => {
-          setOverleafSyncMode(mode);
-          persistOverleafSyncMode(mode);
-        }}
-        tab={settingsTab}
-        setTab={(tab) => {
-          showSettingsTab(tab);
-          if (tab === "doctor") void texSetup.runDoctor();
-        }}
-        doctorReport={texSetup.doctorReport}
-        doctorBusy={texSetup.doctorBusy}
-        doctorNotice={texSetup.doctorNotice}
-        onRunDoctor={() => { void texSetup.runDoctor(); }}
-        onOpenTexSetup={() => void texSetup.openWizard()}
-        onCleanProject={() => { void cleanProject(); }}
-        cleaning={cleaning}
-        building={building}
-        authorName={authorNameSetting}
-        knownAuthorName={knownAuthorNames.git || knownAuthorNames.overleaf || null}
-        onAuthorNameChange={(name) => {
-          setAuthorNameSetting(name);
-          persistAuthorNameSetting(name);
-        }}
-        appearance={appearance}
-        setAppearance={setAppearance}
-        theme={theme}
-        themePreference={themePreference}
-        setThemePreference={setThemePreference}
-        windowBacking={windowBacking}
-        buildPreferences={buildPreferences}
-        setBuildPreferences={setBuildPreferences}
-        hasProject={Boolean(project)}
-        project={project}
-        livePreview={livePreview}
-        onUpdateManifest={(patch) => showingErrors(async () => {
-          const manifest = patch.spellingWords != null
-            ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
-            : await invoke<ProjectManifest>("update_project_manifest", patch);
-          setProject((current) => current ? { ...current, manifest } : current);
-        })}
-        returnFocus={settingsEntry.returnFocus}
-        onClose={closeSettings}
-      />}
-    </Suspense>
-  </>);
+  const settingsDialog = (
+    <AppSettingsDialog
+      state={settingsWindow} Dialog={SettingsDialog} showTab={showSettingsTab} close={closeSettings}
+      project={project} setProject={setProject} synara={synara} overleaf={overleaf} texSetup={texSetup}
+      buildPipeline={buildPipeline} author={commentAuthor} appearance={appearanceControls}
+      buildPreferences={buildPreferences} setBuildPreferences={setBuildPreferences} livePreview={livePreview}
+    />
+  );
 
   const overleafPicker = (
     <LazyMount when={overleafPickerOpen}>
@@ -943,9 +814,9 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     project, papers, documents, trellis, layout: { focusMode, focusPdf, workspaceDirty }, buildPipeline, compileAndShowPdf,
     syncTex, agentContext, tools, tree, referenceImport, projectSearch, editorComments, lifecycle, overleaf, syncOverleaf,
     todoCount: todoHits.length, updateCanvasRequest, setSearchDialog, setTableGeneratorOpen, setArxivExportOpen,
-    checkReferences, requestNewEntry, settingsOpen, openSettings, whatsNew, browserHosted,
+    checkReferences, requestNewEntry, settingsOpen: settingsWindow.open, openSettings, whatsNew, browserHosted,
     theme: { preference: themePreference, setPreference: setThemePreference }, interfaceZoom,
-    knownAuthorName: knownAuthorNames.git || knownAuthorNames.overleaf || null,
+    knownAuthorName: commentAuthor.knownName,
     prewarmLikelyProjectFile, readDraggedPaper,
   });
 
