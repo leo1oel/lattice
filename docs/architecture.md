@@ -150,6 +150,7 @@ file:
 | `src/agent/agent-spreadsheet-tools.ts` | `lattice:spreadsheet-tool-result` |
 | `src/agent/agent-presentation-tools.ts` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
 | `src/agent/agent-composer-files.ts` | `lattice:composer-files` |
+| `src/agent/agent-composer-prompt.ts` | `lattice:composer-prompt` (answered by `synara:composer-prompt-result`); sent for the Open Slide editor's `lattice:agent-request` (`src/editor/presentation/open-slide-agent-request.ts`) |
 | `src/app/use-synara-host.ts` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
 | `src/settings/synara-settings-pane.tsx` | `lattice:set-settings-section`, `lattice:settings-layout` |
 

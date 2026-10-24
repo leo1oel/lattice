@@ -194,6 +194,7 @@ type CanvasAssets = Readonly<{
   onOpenSlideMutation: OpenSlideWorkspaceProps["onMutation"];
   onOpenSlideContext?: OpenSlideWorkspaceProps["onContext"];
   onOpenSlideError?: (message: string) => void;
+  onOpenSlideAgentRequest?: OpenSlideWorkspaceProps["onAgentRequest"];
   onPrepareFigure: (path: string) => Promise<string | null>;
   onPasteImageFile: (file: File) => boolean | void;
   nativeFigureDropActive: boolean;

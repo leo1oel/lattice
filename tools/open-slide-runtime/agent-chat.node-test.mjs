@@ -17,20 +17,48 @@ async function patchCore(relative) {
   return { source, transformed: transformOpenSlideAgentEntryPoints(source, `/runtime/${CORE}${relative}?direct`) };
 }
 
-test("offers no entry point to Open Slide's own agent panel", async () => {
-  const [slide, menu] = await Promise.all([
+test("sends the canvas's agent entry points to the Lattice panel", async () => {
+  const [slide, menu, layer, home] = await Promise.all([
     patchCore("src/app/routes/slide.tsx"),
     patchCore("src/app/components/command/slide-command-menu.tsx"),
+    patchCore("src/app/components/inspector/comment-layer.tsx"),
+    patchCore("src/app/routes/home.tsx"),
   ]);
   assert.match(slide.source, /<AgentToggleButton \/>/);
-  assert.doesNotMatch(slide.transformed, /<AgentToggleButton \/>|onClick=\{toggleAgent\}|e\.key === 'a'/);
-  assert.doesNotMatch(menu.transformed, /id: 'agent-panel'|onToggleAgentPanel,/);
-  // The design panel's shortcut and command remain.
+  assert.doesNotMatch(slide.transformed, /<AgentToggleButton \/>|onClick=\{toggleAgent\}|toggleAgent\(\);|onToggleAgentPanel: toggleAgent/);
+  assert.match(slide.transformed, /e\.key === 'A'\)\) \{\n {8}requestLatticeAgent\('open', slideId\);/);
+  assert.match(slide.transformed, /onToggleAgentPanel: \(\) => requestLatticeAgent\('open', slideId\)/);
+  // The command menu keeps its entry and shortcut; only its label copy changes.
+  assert.equal(menu.transformed, null);
+  assert.match(menu.source, /id: 'agent-panel'[\s\S]*run: handlers\.onToggleAgentPanel/);
+  // The design panel's shortcut remains.
   assert.match(slide.transformed, /e\.key === 'd'/);
-  assert.match(menu.transformed, /id: 'design-panel'/);
+  assert.doesNotMatch(layer.transformed, /\/apply-comments|commentsApplyHint/);
+  assert.match(layer.transformed, /onClick=\{\(\) => requestLatticeAgent\('apply-comments', slideId\)\}/);
+  assert.match(layer.transformed, /format\(t\.agent\.applyCommentsWith, \{ provider: 'Lattice AI' \}\)/);
+  assert.doesNotMatch(home.transformed, /\/create-slide|createSlideHint/);
+  assert.match(home.transformed, /onClick=\{\(\) => requestLatticeAgent\('draft-deck'\)\}/);
+  assert.match(home.transformed, /^ {2}Sparkles,$/m);
+  for (const { transformed } of [slide, layer, home]) {
+    assert.match(transformed, /window\.parent\.postMessage\(\{ type: 'lattice:agent-request', version: 1, kind, slideId, nonce \}, '\*'\)/);
+    await transformTsx(transformed, { loader: "tsx" });
+  }
   assert.equal(transformOpenSlideAgentEntryPoints(slide.source, "/project/slides/talk/index.tsx"), null);
-  await transformTsx(slide.transformed, { loader: "tsx" });
-  await transformTsx(menu.transformed, { loader: "tsx" });
+});
+
+test("posts one request with a fresh nonce per click", async () => {
+  const { transformed } = await patchCore("src/app/routes/home.tsx");
+  const helper = transformed.slice(transformed.lastIndexOf("function requestLatticeAgent"));
+  const { code } = await transformTsx(helper, { loader: "ts" });
+  const posted = [];
+  const window = { parent: { postMessage: (message, target) => posted.push({ message, target }) } };
+  new Function("window", `${code}; requestLatticeAgent('draft-deck'); requestLatticeAgent('apply-comments', 'talk');`)(window);
+  assert.equal(posted.length, 2);
+  assert.deepEqual(posted.map(({ message, target }) => ({ ...message, nonce: typeof message.nonce, target })), [
+    { type: "lattice:agent-request", version: 1, kind: "draft-deck", slideId: "", nonce: "string", target: "*" },
+    { type: "lattice:agent-request", version: 1, kind: "apply-comments", slideId: "talk", nonce: "string", target: "*" },
+  ]);
+  assert.notEqual(posted[0].message.nonce, posted[1].message.nonce);
 });
 
 test("never starts an agent from the runtime's dev server", async () => {

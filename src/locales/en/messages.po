@@ -1337,6 +1337,7 @@ msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
 
 #: src/agent/agent-visual-save.ts
+#: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1712,6 +1713,10 @@ msgstr "Apply link"
 #: src/papers/reference-check-keys.ts
 msgid "Apply the fix"
 msgstr "Apply the fix"
+
+#: src/agent/agent-composer-prompt.ts
+msgid "Apply the pending comments in {deck}."
+msgstr "Apply the pending comments in {deck}."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Applying figure changes…"
@@ -2649,6 +2654,10 @@ msgstr "Choose a project image"
 #: src/project/local-templates.tsx
 msgid "Choose a saved template"
 msgstr "Choose a saved template"
+
+#: src/app/use-synara-host.ts
+msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
+msgstr "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -3647,6 +3656,10 @@ msgstr "Couldn’t save"
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "Couldn’t start the paper tools"
+
+#: src/agent/agent-composer-prompt.ts
+msgid "Create a presentation about"
+msgstr "Create a presentation about"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -8377,7 +8390,7 @@ msgstr "Open project history"
 msgid "Open settings"
 msgstr "Open settings"
 
-#: src/App.tsx
+#: src/app/use-apply-open-slide-mutation.ts
 msgid "Open Slide and another editor changed the same lines in {path}; Lattice kept both with conflict markers."
 msgstr "Open Slide and another editor changed the same lines in {path}; Lattice kept both with conflict markers."
 
@@ -11959,6 +11972,14 @@ msgstr "The agent could not revise this passage: {detail}"
 msgid "The agent could not revise this passage."
 msgstr "The agent could not revise this passage."
 
+#: src/app/use-synara-host.ts
+msgid "The agent could not send the request. It is waiting in the agent's composer."
+msgstr "The agent could not send the request. It is waiting in the agent's composer."
+
+#: src/app/use-synara-host.ts
+msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
+msgstr "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
@@ -12157,7 +12178,7 @@ msgstr "The PDF was built on {0}."
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "The previous Overleaf document could not be released. Syncing remains paused."
 
-#: src/App.tsx
+#: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "The project closed before the Open Slide edit could be saved."
 

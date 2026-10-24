@@ -194,26 +194,18 @@ export function transformOpenSlideComments(source, id) {
   }
 
   if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/comment-layer.tsx")) {
-    const manualApplyHint = `              {t.inspector.commentsApplyHintPrefix}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-                /apply-comments
-              </code>
-              {t.inspector.commentsApplyHintSuffix}`;
     const hintRow = '<div className="absolute inset-x-0 bottom-3 flex justify-center">';
     const hintText = "'col-start-1 row-start-1 w-max whitespace-nowrap',";
     const previewCard = '"island-arrive pointer-events-none absolute w-72 origin-top-left';
     const card = "'island-arrive pointer-events-auto absolute w-72 origin-top-left";
-    requireContract(source, [manualApplyHint, hintRow, hintText, previewCard, card], "comment layer");
-    // Lattice sends pending comments with the next AI message, so there is no
-    // command to run. The hint pill also never wraps upstream, which clips the
-    // longer Lattice copy in a narrow editor pane: bound each line by the hint
-    // row's width instead, which unlike the pill's own animated width does not
-    // depend on the text being measured. The 288 px cards likewise overrun a
+    requireContract(source, [hintRow, hintText, previewCard, card], "comment layer");
+    // The hint pill never wraps upstream, which clips the longer Lattice copy
+    // (agent-chat.mjs puts an Apply button in it) in a narrow editor pane:
+    // bound each line by the hint row's width instead, which unlike the
+    // pill's own animated width does not depend on the text being measured. The 288 px cards likewise overrun a
     // pane narrower than that and hide their send button; the layer places
     // them by their measured size, so capping the width keeps them inside.
     return source
-      .replace(manualApplyHint, `              {t.inspector.commentsApplyHintPrefix}
-              {t.inspector.commentsApplyHintSuffix}`)
       .replace(hintRow, '<div className="@container absolute inset-x-0 bottom-3 flex justify-center">')
       .replace(hintText, "'col-start-1 row-start-1 w-max max-w-[calc(100cqw-2rem-26px)] whitespace-normal',")
       .replace(previewCard, `${previewCard.slice(0, -"origin-top-left".length)}max-w-[calc(100%-1rem)] origin-top-left`)
@@ -493,14 +485,7 @@ export function transformOpenSlideConnectionCopy(source, id) {
           "noDemoHintSuffix: ' for this theme to generate a preview slide.'",
           "noDemoHintSuffix: ' in the AI composer and choose Create Theme from the slash menu.'",
         ],
-        [
-          "commentsApplyHintPrefix: 'Run '",
-          "commentsApplyHintPrefix: 'Included automatically with your next Lattice AI message.'",
-        ],
-        [
-          "commentsApplyHintSuffix: ' in your agent to apply these.'",
-          "commentsApplyHintSuffix: ''",
-        ],
+        ["openTitle: 'Open the agent panel'", "openTitle: 'Ask Lattice AI'"],
       ]
     : modulePath.endsWith("/@open-slide/core/src/locale/zh-cn.ts")
       ? [
@@ -525,14 +510,7 @@ export function transformOpenSlideConnectionCopy(source, id) {
             "noDemoHintSuffix: ' 即可生成预览用的 slide。'",
             "noDemoHintSuffix: '，并从斜杠菜单中选择“创建主题”。'",
           ],
-          [
-            "commentsApplyHintPrefix: '在你的代理中运行 '",
-            "commentsApplyHintPrefix: '这些评论会自动包含在你发送给 Lattice AI 的下一条消息中。'",
-          ],
-          [
-            "commentsApplyHintSuffix: ' 以应用这些更改。'",
-            "commentsApplyHintSuffix: ''",
-          ],
+          ["openTitle: '打开 agent 面板'", "openTitle: '询问 Lattice AI'"],
         ]
       : null;
   if (!replacements) return null;

@@ -21,6 +21,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { getDocument } from "pdfjs-dist";
 import { createDocument, layout as panels } from "@danfessler/trellis";
 import { afterEach, beforeEach, expect, vi } from "vitest";
+import { findProjectTreeItem } from "./app-test-project-tree";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { persistWorkspaceLayout, type WorkspaceLayout } from "../settings/app-settings";
 import { activateAppLocale } from "../i18n";
@@ -29,6 +30,7 @@ import { openMarkdown } from "../editor/markdown/engine/markdown-document";
 import { saveLayout } from "../trellis/trellis-layout";
 import type { FileNode, ProjectManifest, ProjectSnapshot } from "../app-types";
 import type { OpenSlideMutation, OpenSlideSyncOperation } from "../editor/presentation/open-slide-bridge";
+import type { OpenSlideAgentRequest } from "../editor/presentation/open-slide-agent-request";
 
 
 const windowApi = vi.hoisted(() => ({
@@ -51,6 +53,7 @@ const { synaraHook, readySynaraRuntime } = vi.hoisted(() => {
 const interfaceSounds = vi.hoisted(() => ({ configure: vi.fn(), play: vi.fn() }));
 const openSlideWorkspaceApi = vi.hoisted(() => ({
   onMutation: null as null | ((mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>),
+  onAgentRequest: null as null | ((request: OpenSlideAgentRequest) => void),
 }));
 const browserRuntime = vi.hoisted(() => ({ hosted: false }));
 const pdfSlickTestApi = vi.hoisted(() => ({ sources: [] as Array<string | ArrayBuffer> }));
@@ -90,10 +93,12 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(), rea
 vi.mock("../editor/board/board-editor", () => ({ BoardEditor: () => <div data-testid="board-editor-mock" /> }));
 vi.mock("../editor/spreadsheet/spreadsheet-editor", () => ({ SpreadsheetEditor: () => <div data-testid="spreadsheet-editor-mock" /> }));
 vi.mock("../editor/presentation/open-slide-workspace", () => ({
-  OpenSlideWorkspace: ({ projectRoot, path, source, onMutation }: {
+  OpenSlideWorkspace: ({ projectRoot, path, source, onMutation, onAgentRequest }: {
     projectRoot: string; path: string; source: string; onMutation: NonNullable<typeof openSlideWorkspaceApi.onMutation>;
+    onAgentRequest?: NonNullable<typeof openSlideWorkspaceApi.onAgentRequest>;
   }) => {
     openSlideWorkspaceApi.onMutation = onMutation;
+    openSlideWorkspaceApi.onAgentRequest = onAgentRequest ?? null;
     return <div data-testid="open-slide-workspace-mock" data-project-root={projectRoot} data-path={path} data-source={source} />;
   },
 }));
@@ -393,11 +398,6 @@ export const fileHit = (path: string, line: number, snippet: string, fileKind = 
   kind: "file", path, title: path, snippet, line, fileKind,
 });
 
-/** Expands `directories` in the project tree, as a previous session left them. */
-export const expandDirectories = (...directories: string[]) => (
-  localStorage.setItem("lattice:expanded-directories:/tmp/lattice-paper", JSON.stringify(directories))
-);
-
 /** A promise whose settlers the test holds. */
 export function deferred<T = void>() {
   let resolve!: (value: T) => void;
@@ -450,21 +450,6 @@ export function selectDocumentView(view: "Edit" | "Preview" | "Split") {
   fireEvent.click(within(screen.getByRole("tablist", { name: "Document view" })).getByRole("tab", { name: view }));
 }
 
-export const projectTreeRoot = () => document.querySelector("file-tree-container.lattice-file-tree")?.shadowRoot ?? null;
-export const queryProjectTreeItem = (path: string) => projectTreeRoot()?.querySelector<HTMLElement>(`[data-item-path="${path}"]`) ?? null;
-
-/** Waits for `selector` inside the project tree's shadow root. */
-export function findInProjectTree<T extends HTMLElement = HTMLElement>(selector: string, timeout?: number): Promise<T> {
-  return waitFor(() => {
-    const element = projectTreeRoot()?.querySelector<T>(selector) ?? null;
-    expect(element, `Project tree: ${selector}`).not.toBeNull();
-    return element!;
-  }, { timeout });
-}
-
-export const findProjectTreeItem = (path: string, timeout = 1000) => findInProjectTree(`[data-item-path="${path}"]`, timeout);
-export const findProjectTreeRenameInput = () => findInProjectTree<HTMLInputElement>("[data-item-rename-input]");
-
 /**
  * jsdom has no layout, and Trellis sizes its camera from its host's client box: at 0×0 every panel is off screen,
  * so each one renders `display: none` and nothing inside it — tabs, header tools, the editor — is reachable by role.
@@ -493,6 +478,7 @@ beforeEach(() => {
   Object.assign(browserRuntime, { hosted: false });
   pdfSlickTestApi.sources.length = 0;
   openSlideWorkspaceApi.onMutation = null;
+  openSlideWorkspaceApi.onAgentRequest = null;
   webviewApi.dragDropHandler = null;
   tauriEventApi.handlers.clear();
   tauriCoreApi.channel = null;
@@ -756,15 +742,6 @@ export function findOverleafSyncButton() {
   });
 }
 
-/** Drags a project-tree row over `target` and drops it there; a function target is re-queried for the drop. */
-export function dragTreeItem(source: Element, target: Element | (() => Element)) {
-  const at = () => (typeof target === "function" ? target() : target);
-  const pointer = { pointerId: 1, pointerType: "mouse" };
-  fireEvent.pointerDown(source, { button: 0, clientX: 1, clientY: 1, ...pointer });
-  fireEvent.pointerMove(at(), { clientX: 20, clientY: 20, ...pointer });
-  fireEvent.pointerUp(at(), { clientX: 20, clientY: 20, ...pointer });
-}
-
 /** A loaded pdf.js document of identical stub pages; `pages` overrides the page stub. */
 export function pdfDocumentStub(numPages: number, pages: object = {}, extra: object = {}) {
   return { numPages, getPage: vi.fn(async () => pdfPageStub(pages)), getDestination: vi.fn(), getPageIndex: vi.fn(), getData: vi.fn(async () => new Uint8Array()), ...extra };
@@ -802,4 +779,5 @@ export async function chooseProjectMenuItem(name: string) {
   fireEvent.pointerDown(await screen.findByRole("button", { name: "Switch project" }), { button: 0 });
   fireEvent.click(await screen.findByRole("menuitem", { name }));
 }
+export { expandDirectories, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, dragTreeItem } from "./app-test-project-tree";
 export { windowApi, tauriEventApi, synaraHook, interfaceSounds, openSlideWorkspaceApi, browserRuntime, pdfSlickTestApi, tauriCoreApi };

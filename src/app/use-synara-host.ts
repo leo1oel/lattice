@@ -1,3 +1,4 @@
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -7,6 +8,9 @@ import { executeAgentCanvasToolRequest, parseAgentCanvasToolRequest } from "../a
 import {
   executeAgentAnnotationsToolRequest, parseAgentAnnotationsToolRequest, type AnnotationToolHost,
 } from "../agent/agent-annotations";
+import {
+  SYNARA_COMPOSER_PROMPT_RESULT, parseAgentComposerPromptResult, type AgentComposerPromptMessage,
+} from "../agent/agent-composer-prompt";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
   LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, type AgentHostContextSnapshot,
@@ -29,6 +33,8 @@ import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from 
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { i18n } from "../i18n";
+import { showError, showWarning } from "./notify";
 
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
@@ -176,6 +182,26 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     }
     frameRef.current?.contentWindow?.postMessage(message, origin);
   }, [origin, projectRootRef]);
+  // A prompt waits for the frame to say it is ready, so a panel opened by the
+  // request that carries it still gets it. Only the latest one is kept.
+  const pendingComposerPromptRef = useRef<AgentComposerPromptMessage | null>(null);
+  const [composerPromptRequest, setComposerPromptRequest] = useState(0);
+  /** Put a prompt into the agent's composer, or send it, starting the frame if need be. */
+  const sendComposerPrompt = useCallback((message: AgentComposerPromptMessage) => {
+    mountFrame();
+    pendingComposerPromptRef.current = message;
+    setComposerPromptRequest((request) => request + 1);
+  }, [mountFrame]);
+  useEffect(() => {
+    const message = pendingComposerPromptRef.current;
+    if (!frameReady || !message) return;
+    pendingComposerPromptRef.current = null;
+    // A project switched in the meantime has its own frame and conversation.
+    if (message.workspaceRoot !== projectRootRef.current) return;
+    // The composer takes focus only once its frame has it.
+    if (message.mode === "draft") frameRef.current?.focus();
+    void postMessage(message);
+  }, [composerPromptRequest, frameReady, postMessage, projectRootRef]);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
   }, [frameReady, postMessage]);
@@ -306,6 +332,18 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
           host.bridge.annotationTools(),
         ).then(postMessage);
       },
+      [SYNARA_COMPOSER_PROMPT_RESULT]: (data) => {
+        const error = parseAgentComposerPromptResult(data)?.error;
+        // The panel leaves a send it refuses in its composer as a draft. Every
+        // other refusal is a stale or malformed request, nothing to act on.
+        if (error?.code === "no-provider") {
+          showWarning(i18n._(msg`Choose an AI provider in the agent panel, then send the request waiting in its composer.`), i18n._(msg`Agent`));
+        } else if (error?.code === "awaiting-input") {
+          showWarning(i18n._(msg`The agent is waiting for your answer. The request is in its composer; send it once you have answered.`), i18n._(msg`Agent`));
+        } else if (error?.code === "send-failed") {
+          showError(i18n._(msg`The agent could not send the request. It is waiting in the agent's composer.`), i18n._(msg`Agent`));
+        }
+      },
       "synara:agent-permission-mode": (data) => {
         if (!isSynaraPermissionMode(data.mode)) return;
         setPermissionMode(data.mode);
@@ -370,7 +408,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     runtime, retry, retryAgent, origin, requestRuntime, mountFrame,
     frameRef, sourceControlFrameRef, frameMounted, frameAttempt, frameReady,
     permissionMode, autoModeAvailable, changePermissionMode,
-    postMessage, notifyPanelOpened, showThread,
+    postMessage, notifyPanelOpened, showThread, sendComposerPrompt,
     expandedVisual, closeExpandedVisual,
     /** Delivery state for the snapshots useAgentContext posts; not for rendering. */
     latest,

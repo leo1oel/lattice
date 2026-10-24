@@ -1337,6 +1337,7 @@ msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
 
 #: src/agent/agent-visual-save.ts
+#: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1712,6 +1713,10 @@ msgstr "应用链接"
 #: src/papers/reference-check-keys.ts
 msgid "Apply the fix"
 msgstr "应用修改"
+
+#: src/agent/agent-composer-prompt.ts
+msgid "Apply the pending comments in {deck}."
+msgstr "应用 {deck} 中待处理的评论。"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Applying figure changes…"
@@ -2649,6 +2654,10 @@ msgstr "选择项目中的图片"
 #: src/project/local-templates.tsx
 msgid "Choose a saved template"
 msgstr "选择已保存的模板"
+
+#: src/app/use-synara-host.ts
+msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
+msgstr "请先在 AI 助手面板中选择 AI 提供商，再发送输入框里待发的请求。"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -3647,6 +3656,10 @@ msgstr "无法保存"
 #: src/app/use-tex-setup.ts
 msgid "Couldn’t start the paper tools"
 msgstr "无法启动论文工具"
+
+#: src/agent/agent-composer-prompt.ts
+msgid "Create a presentation about"
+msgstr "创建一份演示文稿，主题是："
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -8377,7 +8390,7 @@ msgstr "项目历史"
 msgid "Open settings"
 msgstr "打开设置"
 
-#: src/App.tsx
+#: src/app/use-apply-open-slide-mutation.ts
 msgid "Open Slide and another editor changed the same lines in {path}; Lattice kept both with conflict markers."
 msgstr "{path} 两边改了同一处，已都保留，请手动合并"
 
@@ -11959,6 +11972,14 @@ msgstr "AI 助手没能修改这一段：{detail}"
 msgid "The agent could not revise this passage."
 msgstr "AI 助手没能修改这一段。"
 
+#: src/app/use-synara-host.ts
+msgid "The agent could not send the request. It is waiting in the agent's composer."
+msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
+
+#: src/app/use-synara-host.ts
+msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
+msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发送。"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "AI 助手暂不可用"
@@ -12157,7 +12178,7 @@ msgstr "PDF 编译于 {0}。"
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "上一个文档没能释放，同步仍暂停"
 
-#: src/App.tsx
+#: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
 msgstr "项目已关闭，Open Slide 的修改没保存"
 
