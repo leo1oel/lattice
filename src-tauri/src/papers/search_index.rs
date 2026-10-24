@@ -19,13 +19,12 @@ mod lines;
 mod tokenizer;
 
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
-use tantivy::collector::TopDocs;
+use tantivy::collector::{Collector, SegmentCollector};
 use tantivy::columnar::{Column, StrColumn};
 use tantivy::query::{BooleanQuery, Occur, Query, TermQuery};
 use tantivy::schema::{
@@ -33,8 +32,8 @@ use tantivy::schema::{
 };
 use tantivy::tokenizer::TextAnalyzer;
 use tantivy::{
-    doc, DocAddress, Index, IndexReader, IndexWriter, ReloadPolicy, Searcher, TantivyDocument,
-    TantivyError, Term,
+    doc, DocAddress, DocId, Index, IndexReader, IndexWriter, ReloadPolicy, Score, Searcher,
+    SegmentOrdinal, SegmentReader, TantivyDocument, TantivyError, Term,
 };
 
 /// Bump to rebuild every index: a schema, analyzer or line-reading change.
@@ -43,9 +42,9 @@ const TOKENIZER: &str = "lattice_paper";
 /// tantivy's floor is 15 MB per indexing thread; a whole library's text
 /// (13 MB for 150 papers) fits one segment at this size.
 const WRITER_MEMORY: usize = 32_000_000;
-/// Lines scored per query before grouping: enough for every paper a
-/// panel shows and its best lines.
-const MAX_SCORED_LINES: usize = 1_000;
+/// Lines a paper's rank reads (see `search_open`); each paper keeps at least
+/// these many of its best lines while every match is grouped.
+const RANKED_LINES: usize = 3;
 /// A prefix expands to at most this many indexed words.
 const MAX_PREFIX_TERMS: usize = 64;
 
@@ -347,10 +346,96 @@ fn term_query(field: Field, word: &str) -> Box<dyn Query> {
     Box::new(TermQuery::new(Term::from_field_text(field, word), IndexRecordOption::WithFreqs))
 }
 
-/// One paper's matching lines while they are grouped.
+/// One paper's matching lines while they are grouped: its title's score and
+/// its best `keep` lines, best first.
+#[derive(Default)]
 struct Group {
     title_score: f32,
     lines: Vec<(f32, DocAddress)>,
+}
+
+impl Group {
+    fn add_line(&mut self, score: f32, address: DocAddress, keep: usize) {
+        let at = self.lines.partition_point(|(best, _)| *best >= score);
+        if at < keep {
+            self.lines.insert(at, (score, address));
+            self.lines.truncate(keep);
+        }
+    }
+}
+
+/// Every matching line, grouped by paper through the fast fields with each
+/// paper's best `keep` lines, so a paper with one match is ranked alongside
+/// one with thousands rather than crowded out of a top-N of all lines.
+struct BestLinesPerPaper {
+    keep: usize,
+}
+
+struct SegmentBestLines {
+    segment: SegmentOrdinal,
+    keep: usize,
+    papers: StrColumn,
+    lines: Column<u64>,
+    groups: HashMap<u64, Group>,
+}
+
+impl Collector for BestLinesPerPaper {
+    type Fruit = Vec<(String, Group)>;
+    type Child = SegmentBestLines;
+
+    fn for_segment(
+        &self, segment: SegmentOrdinal, reader: &SegmentReader,
+    ) -> tantivy::Result<SegmentBestLines> {
+        let fast = reader.fast_fields();
+        let papers =
+            fast.str("paper")?.ok_or_else(|| TantivyError::FieldNotFound("paper".into()))?;
+        let lines = fast.u64("line")?;
+        Ok(SegmentBestLines { segment, keep: self.keep, papers, lines, groups: HashMap::new() })
+    }
+
+    fn requires_scoring(&self) -> bool {
+        true
+    }
+
+    fn merge_fruits(&self, segments: Vec<Vec<(String, Group)>>) -> tantivy::Result<Self::Fruit> {
+        // A paper re-indexed since a merge has its live lines in one segment,
+        // but nothing promises that, so groups merge by key.
+        let mut merged: HashMap<String, Group> = HashMap::new();
+        for (key, group) in segments.into_iter().flatten() {
+            let into = merged.entry(key).or_default();
+            into.title_score = into.title_score.max(group.title_score);
+            for (score, address) in group.lines {
+                into.add_line(score, address, self.keep);
+            }
+        }
+        Ok(merged.into_iter().collect())
+    }
+}
+
+impl SegmentCollector for SegmentBestLines {
+    type Fruit = Vec<(String, Group)>;
+
+    fn collect(&mut self, doc: DocId, score: Score) {
+        let Some(paper) = self.papers.term_ords(doc).next() else { return };
+        let group = self.groups.entry(paper).or_default();
+        if self.lines.first(doc).unwrap_or(0) == 0 {
+            group.title_score = score;
+        } else {
+            let address = DocAddress { segment_ord: self.segment, doc_id: doc };
+            group.add_line(score, address, self.keep);
+        }
+    }
+
+    fn harvest(self) -> Self::Fruit {
+        let mut key = String::new();
+        self.groups
+            .into_iter()
+            .filter_map(|(ord, group)| {
+                key.clear();
+                self.papers.ord_to_str(ord, &mut key).ok()?.then(|| (key.clone(), group))
+            })
+            .collect()
+    }
 }
 
 fn search_open(
@@ -378,56 +463,25 @@ fn search_open(
         clauses.push((Occur::Must, Box::new(BooleanQuery::new(any))));
         prefixes.push(prefix.clone());
     }
-    let top = searcher.search(
-        &BooleanQuery::new(clauses),
-        &TopDocs::with_limit(MAX_SCORED_LINES).order_by_score(),
-    )?;
-
-    // Grouped through the fast fields; only the lines a result shows are
-    // read from the document store (1,000 stored lines took 15–25 ms).
-    let mut columns: HashMap<u32, (StrColumn, Column<u64>)> = HashMap::new();
-    let mut groups: Vec<(String, Group)> = Vec::new();
-    let mut slot_of: HashMap<String, usize> = HashMap::new();
-    let mut key = String::new();
-    for (score, address) in top {
-        let (papers, lines) = match columns.entry(address.segment_ord) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
-                let fast = searcher.segment_reader(address.segment_ord).fast_fields();
-                let papers = fast
-                    .str("paper")?
-                    .ok_or_else(|| TantivyError::FieldNotFound("paper".into()))?;
-                entry.insert((papers, fast.u64("line")?))
-            }
-        };
-        key.clear();
-        if let Some(ord) = papers.term_ords(address.doc_id).next() {
-            papers.ord_to_str(ord, &mut key)?;
-        }
-        let slot = *slot_of.entry(key.clone()).or_insert_with(|| {
-            groups.push((key.clone(), Group { title_score: 0.0, lines: Vec::new() }));
-            groups.len() - 1
-        });
-        let group = &mut groups[slot].1;
-        if lines.first(address.doc_id).unwrap_or(0) == 0 {
-            group.title_score = score;
-        } else {
-            group.lines.push((score, address));
-        }
-    }
+    // Only the lines a result shows are read from the document store
+    // (1,000 stored lines took 15–25 ms).
+    let keep = limits.hits_per_paper.max(RANKED_LINES);
+    let mut groups =
+        searcher.search(&BooleanQuery::new(clauses), &BestLinesPerPaper { keep })?;
     // A title match counts double; then the best three lines, each half the
     // last, so a paper about the query outranks one heading that names it.
     let rank = |group: &Group| {
         let lines: f32 = group
             .lines
             .iter()
-            .take(3)
+            .take(RANKED_LINES)
             .zip([1.0, 0.5, 0.25])
             .map(|((score, _), weight)| score * weight)
             .sum();
         2.0 * group.title_score + lines
     };
-    groups.sort_by(|(_, a), (_, b)| rank(b).total_cmp(&rank(a)));
+    // Grouping leaves papers unordered; equal ranks go by key, so they stay put.
+    groups.sort_by(|(a_key, a), (b_key, b)| rank(b).total_cmp(&rank(a)).then(a_key.cmp(b_key)));
 
     let exact: HashSet<&str> = terms.iter().map(|term| term.stem.as_str()).collect();
     let mut analyzer = tokenizer::index_analyzer();

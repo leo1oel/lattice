@@ -181,3 +181,38 @@ fn rebuilds_an_index_that_cannot_be_read() {
     assert_eq!(keys(&library.search("sparse")), ["a"]);
     assert!(!library.sync_wrote());
 }
+
+/// A common word lists every paper that has it, not only the papers whose
+/// many lines would crowd the rest out of a fixed number of scored lines.
+#[test]
+fn lists_every_matching_paper_however_many_lines_the_others_match() {
+    let dir = TempDir::new("paper-index-recall");
+    let mut papers = Vec::new();
+    for index in 0..100 {
+        let key = format!("p{index:03}");
+        let markdown = if index < 20 {
+            "Attention heads attend.\n\n".repeat(80)
+        } else {
+            "A long paragraph on many other topics that mentions attention only once, \
+             in passing, among optimizers, datasets and evaluation protocols.\n"
+                .to_string()
+        };
+        let path = format!("papers/{key}/paper.md");
+        let absolute = dir.write(&path, markdown);
+        papers.push(PaperText {
+            key,
+            title: format!("Paper {index}"),
+            files: vec![PaperFile { path, absolute }],
+        });
+    }
+    let limits = Limits { papers: 100, hits_per_paper: 10 };
+    let matches = search(&dir.join("index"), &papers, "attention", limits).unwrap();
+    let mut found = keys(&matches);
+    found.sort_unstable();
+    let all: Vec<&str> = papers.iter().map(|paper| paper.key.as_str()).collect();
+    assert_eq!(found, all);
+    for paper in &matches {
+        let expected = if paper.key.as_str() < "p020" { 10 } else { 1 };
+        assert_eq!(paper.hits.len(), expected, "{}", paper.key);
+    }
+}
