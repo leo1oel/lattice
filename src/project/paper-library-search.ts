@@ -101,10 +101,13 @@ type SettledSearch = { query: string; attempt: number; hits: PaperTextMatch[]; e
  * Debounced full-text search over the local paper cache: the matched papers
  * by library key, each with its rank. Hits for an older query are never
  * returned.
+ * `text` is the box as typed: the index matches its last word as a prefix
+ * until a space follows it, so a trailing space is sent, though the query
+ * the hits answer is the trimmed text.
  * `searchNow` skips the debounce for the current query (Enter in the box);
  * `retry` runs a failed search again.
  */
-export function usePaperTextSearch(query: string): {
+export function usePaperTextSearch(text: string): {
   hits: ReadonlyMap<string, RankedTextMatch>;
   status: PaperTextSearchStatus;
   error?: string;
@@ -116,6 +119,8 @@ export function usePaperTextSearch(query: string): {
   const [attempt, setAttempt] = useState(0);
   const [slow, setSlow] = useState<{ query: string; attempt: number } | null>(null);
   const runNow = useRef<(() => void) | null>(null);
+  const query = text.trim();
+  const sent = query && /\s$/.test(text) ? `${query} ` : query;
   useEffect(() => {
     if (!query) return;
     let disposed = false;
@@ -124,7 +129,7 @@ export function usePaperTextSearch(query: string): {
       if (started) return;
       started = true;
       window.clearTimeout(timer);
-      void invoke<PaperTextMatch[]>("search_paper_library", { query })
+      void invoke<PaperTextMatch[]>("search_paper_library", { query: sent })
         .then((hits) => {
           if (!disposed) setSettled({ query, attempt, hits: Array.isArray(hits) ? hits : [] });
         })
@@ -143,7 +148,7 @@ export function usePaperTextSearch(query: string): {
       window.clearTimeout(timer);
       window.clearTimeout(notice);
     };
-  }, [query, attempt]);
+  }, [query, sent, attempt]);
   const searchNow = useCallback(() => runNow.current?.(), []);
   const retry = useCallback(() => {
     setAttempt((value) => value + 1);

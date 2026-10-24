@@ -40,8 +40,9 @@ impl Library {
             .collect()
     }
 
+    /// Search as the Papers panel does, the last word a prefix while typed.
     fn search(&self, query: &str) -> Vec<PaperTextMatch> {
-        search(&self.index(), &self.texts(), query, LIMITS).unwrap()
+        search(&self.index(), &self.texts(), query, true, LIMITS).unwrap()
     }
 
     /// Sync directly, reporting whether anything was written.
@@ -108,6 +109,23 @@ fn matches_the_word_being_typed_as_a_prefix_and_whole_words_by_stem() {
     assert_eq!(lines("distilling ").len(), 2);
     // Only the last word is a prefix.
     assert!(lines("transfo attention").is_empty());
+    // A whole query has no word being typed.
+    assert!(search(&library.index(), &library.texts(), "transfo", false, LIMITS)
+        .unwrap()
+        .is_empty());
+}
+
+/// A word whose stem is shorter than what is typed of it ("attent") is
+/// found, and marked, at every letter.
+#[test]
+fn finds_a_word_at_every_letter_typed_past_its_stem() {
+    let library = Library::new(&[("1706.03762", "Transformer", "Scaled attention weights.\n")]);
+    for typed in 1..="attention".len() {
+        let typed = &"attention"[..typed];
+        let found = library.search(typed);
+        assert_eq!(keys(&found), ["1706.03762"], "{typed}");
+        assert!(highlighted(&found[0].hits[0]).contains(&"attention".to_string()), "{typed}");
+    }
 }
 
 #[test]
@@ -206,7 +224,7 @@ fn lists_every_matching_paper_however_many_lines_the_others_match() {
         });
     }
     let limits = Limits { papers: 100, hits_per_paper: 10 };
-    let matches = search(&dir.join("index"), &papers, "attention", limits).unwrap();
+    let matches = search(&dir.join("index"), &papers, "attention", false, limits).unwrap();
     let mut found = keys(&matches);
     found.sort_unstable();
     let all: Vec<&str> = papers.iter().map(|paper| paper.key.as_str()).collect();

@@ -37,8 +37,9 @@ use tantivy::{
 };
 
 /// Bump to rebuild every index: a schema, analyzer or line-reading change.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 const TOKENIZER: &str = "lattice_paper";
+const WORD_TOKENIZER: &str = "lattice_paper_words";
 /// tantivy's floor is 15 MB per indexing thread; a whole library's text
 /// (13 MB for 150 papers) fits one segment at this size.
 const WRITER_MEMORY: usize = 32_000_000;
@@ -111,6 +112,8 @@ struct Fields {
     path: Field,
     line: Field,
     text: Field,
+    /// The text's unstemmed words, read only to expand a typed prefix.
+    words: Field,
 }
 
 struct OpenIndex {
@@ -132,9 +135,10 @@ pub(crate) fn sync(dir: &Path, papers: &[PaperText]) -> Result<(), String> {
 
 /// Sync, then search: papers ranked by their title and best lines, each with
 /// its best `limits.hits_per_paper` lines. Every word of the query must be
-/// on one line, the last word also matching as a prefix while it is typed.
+/// on one line; when `typing`, the last word also matches as a prefix unless
+/// a space follows it.
 pub(crate) fn search(
-    dir: &Path, papers: &[PaperText], query: &str, limits: Limits,
+    dir: &Path, papers: &[PaperText], query: &str, typing: bool, limits: Limits,
 ) -> Result<Vec<PaperTextMatch>, String> {
     with_index(dir, |open| {
         match sync_open(open, papers) {
@@ -143,7 +147,7 @@ pub(crate) fn search(
             Err(TantivyError::LockFailure(..)) => {}
             result => result.map(drop)?,
         }
-        search_open(open, query, limits)
+        search_open(open, query, typing, limits)
     })
 }
 
@@ -191,6 +195,14 @@ fn schema() -> (Schema, Fields) {
             "text",
             TextOptions::default().set_indexing_options(indexing).set_stored(),
         ),
+        words: builder.add_text_field(
+            "words",
+            TextOptions::default().set_indexing_options(
+                TextFieldIndexing::default()
+                    .set_tokenizer(WORD_TOKENIZER)
+                    .set_index_option(IndexRecordOption::Basic),
+            ),
+        ),
     };
     (builder.build(), fields)
 }
@@ -215,6 +227,7 @@ fn open_index(dir: &Path) -> tantivy::Result<OpenIndex> {
         (Index::create_in_dir(dir, schema)?, BTreeMap::new())
     };
     index.tokenizers().register(TOKENIZER, tokenizer::index_analyzer());
+    index.tokenizers().register(WORD_TOKENIZER, tokenizer::word_analyzer());
     let reader = index.reader_builder().reload_policy(ReloadPolicy::Manual).try_into()?;
     Ok(OpenIndex { index, reader, fields, indexed })
 }
@@ -278,6 +291,7 @@ fn add_paper(
     writer.add_document(doc!(
         fields.paper => paper.key.as_str(), fields.path => first.as_str(),
         fields.line => 0u64, fields.text => paper.title.as_str(),
+        fields.words => paper.title.as_str(),
     ))?;
     for file in
         paper.files.iter().filter(|file| stamp.files.iter().any(|(path, ..)| path == &file.path))
@@ -287,7 +301,7 @@ fn add_paper(
         for (line, text) in lines::searchable_lines(&content) {
             writer.add_document(doc!(
                 fields.paper => paper.key.as_str(), fields.path => file.path.as_str(),
-                fields.line => u64::from(line), fields.text => text,
+                fields.line => u64::from(line), fields.text => text, fields.words => text,
             ))?;
         }
     }
@@ -301,10 +315,10 @@ struct QueryTerm {
     prefix: Option<String>,
 }
 
-fn query_terms(query: &str) -> Vec<QueryTerm> {
+fn query_terms(query: &str, typing: bool) -> Vec<QueryTerm> {
     let mut analyzer = tokenizer::query_analyzer();
     let tokens = tokenizer::tokens(&mut analyzer, query);
-    let typing = query.chars().last().is_some_and(char::is_alphanumeric);
+    let typing = typing && query.chars().last().is_some_and(char::is_alphanumeric);
     let last = tokens.len().saturating_sub(1);
     let mut seen = HashSet::new();
     tokens
@@ -312,8 +326,9 @@ fn query_terms(query: &str) -> Vec<QueryTerm> {
         .enumerate()
         .filter(|(_, (stem, ..))| seen.insert(stem.clone()))
         .map(|(index, (stem, from, to))| {
-            // The raw word, not its stem: "transfo" stems to itself, which
-            // no indexed word equals, but "transform" starts with it.
+            // The raw word, not its stem, against the unstemmed words:
+            // "attenti" stems to itself, which no stem ("attent") starts
+            // with, but "attention" does.
             let word = &query[from..to];
             let prefix =
                 (typing && index == last && word.chars().all(|c| c.is_ascii_alphanumeric()))
@@ -323,7 +338,7 @@ fn query_terms(query: &str) -> Vec<QueryTerm> {
         .collect()
 }
 
-/// The indexed words that start with `prefix`, across every segment.
+/// The indexed words of `field` that start with `prefix`, across every segment.
 fn expand_prefix(searcher: &Searcher, field: Field, prefix: &str) -> tantivy::Result<Vec<String>> {
     let mut words = Vec::new();
     for segment in searcher.segment_readers() {
@@ -439,29 +454,37 @@ impl SegmentCollector for SegmentBestLines {
 }
 
 fn search_open(
-    open: &OpenIndex, query: &str, limits: Limits,
+    open: &OpenIndex, query: &str, typing: bool, limits: Limits,
 ) -> tantivy::Result<Vec<PaperTextMatch>> {
-    let terms = query_terms(query);
+    let terms = query_terms(query, typing);
     if terms.is_empty() {
         return Ok(Vec::new());
     }
     let searcher = open.reader.searcher();
     let field = open.fields.text;
     let mut clauses: Vec<(Occur, Box<dyn Query>)> = Vec::new();
-    let mut prefixes = Vec::new();
+    // Every stem a clause asks for, which are the words a hit marks.
+    let mut matched: HashSet<String> = HashSet::new();
+    let mut query_analyzer = tokenizer::query_analyzer();
     for term in &terms {
         let Some(prefix) = &term.prefix else {
             clauses.push((Occur::Must, term_query(field, &term.stem)));
+            matched.insert(term.stem.clone());
             continue;
         };
-        let mut words = expand_prefix(&searcher, field, prefix)?;
-        if !words.contains(&term.stem) {
-            words.push(term.stem.clone());
+        // Expanded over the unstemmed words, then scored by their stems.
+        let mut stems = vec![term.stem.clone()];
+        for word in expand_prefix(&searcher, open.fields.words, prefix)? {
+            for (stem, ..) in tokenizer::tokens(&mut query_analyzer, &word) {
+                if !stems.contains(&stem) {
+                    stems.push(stem);
+                }
+            }
         }
         let any: Vec<(Occur, Box<dyn Query>)> =
-            words.iter().map(|word| (Occur::Should, term_query(field, word))).collect();
+            stems.iter().map(|stem| (Occur::Should, term_query(field, stem))).collect();
         clauses.push((Occur::Must, Box::new(BooleanQuery::new(any))));
-        prefixes.push(prefix.clone());
+        matched.extend(stems);
     }
     // Only the lines a result shows are read from the document store
     // (1,000 stored lines took 15–25 ms).
@@ -482,7 +505,6 @@ fn search_open(
     // Grouping leaves papers unordered; equal ranks go by key, so they stay put.
     groups.sort_by(|(a_key, a), (b_key, b)| rank(b).total_cmp(&rank(a)).then(a_key.cmp(b_key)));
 
-    let exact: HashSet<&str> = terms.iter().map(|term| term.stem.as_str()).collect();
     let mut analyzer = tokenizer::index_analyzer();
     let fields = open.fields;
     let mut line_hit = |address: DocAddress| -> tantivy::Result<LineHit> {
@@ -491,7 +513,7 @@ fn search_open(
             document.get_first(field).and_then(|value| value.as_str()).unwrap_or_default()
         };
         let text = text_of(fields.text);
-        let highlights = highlight_ranges(&mut analyzer, text, &exact, &prefixes);
+        let highlights = highlight_ranges(&mut analyzer, text, &matched);
         let (text, highlights) = lines::snippet(text, &highlights);
         let line =
             document.get_first(fields.line).and_then(|value| value.as_u64()).unwrap_or(0) as u32;
@@ -519,14 +541,11 @@ fn search_open(
 /// (the index's search mode emits a Chinese compound and its parts) or only a
 /// space or hyphen parts them, so "low-rank adaptation" is one mark.
 fn highlight_ranges(
-    analyzer: &mut TextAnalyzer, text: &str, exact: &HashSet<&str>, prefixes: &[String],
+    analyzer: &mut TextAnalyzer, text: &str, matched: &HashSet<String>,
 ) -> Vec<(usize, usize)> {
     let mut ranges: Vec<(usize, usize)> = tokenizer::tokens(analyzer, text)
         .into_iter()
-        .filter(|(word, ..)| {
-            exact.contains(word.as_str())
-                || prefixes.iter().any(|prefix| word.starts_with(prefix.as_str()))
-        })
+        .filter(|(stem, ..)| matched.contains(stem))
         .map(|(_, from, to)| (from, to))
         .collect();
     ranges.sort_unstable();

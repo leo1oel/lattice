@@ -45,20 +45,21 @@ fn indexed_papers(root: &Path, entries: &[LibraryPaper]) -> Vec<PaperText> {
 }
 
 /// Matching papers, best first, each with its best lines; a scan's answer
-/// when the index is unavailable.
+/// when the index is unavailable. `typing` as in `search_index::search`.
 fn search_papers(
-    root: &Path, entries: &[LibraryPaper], query: &str, limits: Limits,
+    root: &Path, entries: &[LibraryPaper], query: &str, typing: bool, limits: Limits,
 ) -> Vec<PaperTextMatch> {
     let papers = indexed_papers(root, entries);
     let dir = search_index::project_index_dir(root);
-    search_index::search(&dir, &papers, query, limits).unwrap_or_else(|error| {
+    search_index::search(&dir, &papers, query, typing, limits).unwrap_or_else(|error| {
         log::warn!("Paper search falls back to a scan: {error}");
         scan_matches(root, entries, &project::search_terms(query), limits)
     })
 }
 
 /// The agent's `search_library` and the Find dialog's paper hits: cited
-/// papers' titles and lines, papers by relevance, at most `MAX_HITS`.
+/// papers' titles and lines, papers by relevance, at most `MAX_HITS`. Their
+/// queries are whole, so every word matches as a word.
 pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
     if project::search_terms(query).is_empty() {
         return Ok(Vec::new());
@@ -68,7 +69,7 @@ pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResul
     let by_key: HashMap<&str, &LibraryPaper> =
         entries.iter().map(|entry| (entry.arxiv_id.as_str(), entry)).collect();
     let mut results = Vec::new();
-    for found in search_papers(root, &entries, query, limits) {
+    for found in search_papers(root, &entries, query, false, limits) {
         let Some(paper) = by_key.get(found.key.as_str()) else { continue };
         let first_readable = paper.full_text_path.as_deref().or(paper.overview_path.as_deref());
         let title = found.title_match.then_some(first_readable).flatten();
@@ -82,11 +83,13 @@ pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResul
 }
 
 /// The Papers panel's search: matching papers by relevance, with their lines.
+/// `query` is the box as typed, so a last word with no space after it is
+/// still being typed and matches as a prefix.
 pub fn search_library_text(root: &Path, query: &str) -> Result<Vec<PaperTextMatch>, String> {
     if project::search_terms(query).is_empty() {
         return Ok(Vec::new());
     }
-    Ok(search_papers(root, &library_entries(root)?, query, PANEL_LIMITS))
+    Ok(search_papers(root, &library_entries(root)?, query, true, PANEL_LIMITS))
 }
 
 /// Sync the project's paper index off the calling thread, so the search
@@ -213,5 +216,29 @@ mod tests {
             PANEL_LIMITS,
         );
         assert_eq!((scanned[0].key.as_str(), scanned[0].hits[0].line), ("1706.03762", 3));
+    }
+
+    /// Only the panel's word being typed is a prefix: the agent's and the
+    /// Find dialog's queries are whole words, and so is the panel's once a
+    /// space follows.
+    #[test]
+    fn matches_a_prefix_only_for_the_word_the_panel_is_typing() {
+        let project = TestProject::new(ATTENTION_BIB);
+        project.write(ATTENTION_PAPER, "Artificial agents.\n\nThe art of attention.\n");
+        let panel_lines = |query: &str| -> Vec<u32> {
+            let mut lines: Vec<u32> = search_library_text(&project.root, query)
+                .unwrap()
+                .iter()
+                .flat_map(|paper| paper.hits.iter().map(|hit| hit.line))
+                .collect();
+            lines.sort_unstable();
+            lines
+        };
+        assert_eq!(panel_lines("art"), [1, 3]);
+        assert_eq!(panel_lines("art "), [3]);
+
+        let agent_lines: Vec<Option<u32>> =
+            search_library(&project.root, "art").unwrap().iter().map(|hit| hit.line).collect();
+        assert_eq!(agent_lines, [Some(3)]);
     }
 }

@@ -157,7 +157,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const focusListRef = useRef<(() => boolean) | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
-  const textSearch = usePaperTextSearch(query);
+  const textSearch = usePaperTextSearch(props.importInput);
   const { hits: textHits, searchNow } = textSearch;
   // An empty list is the empty library only once it has been read, and no
   // Overleaf sync that may be bringing the bibliography is still under way.

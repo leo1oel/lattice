@@ -108,22 +108,31 @@ impl TokenStream for MixedTokenStream<'_> {
     }
 }
 
-fn analyzer(search_mode: bool) -> TextAnalyzer {
-    TextAnalyzer::builder(MixedTokenizer { search_mode, tokens: Vec::new() })
+fn analyzer(search_mode: bool, stem: bool) -> TextAnalyzer {
+    let words = TextAnalyzer::builder(MixedTokenizer { search_mode, tokens: Vec::new() })
         .filter(RemoveLongFilter::limit(MAX_TOKEN_BYTES))
-        .filter(LowerCaser)
-        .filter(Stemmer::new(Language::English))
-        .build()
+        .filter(LowerCaser);
+    if stem {
+        words.filter(Stemmer::new(Language::English)).build()
+    } else {
+        words.build()
+    }
 }
 
 /// What the index's text field is analyzed with.
 pub(super) fn index_analyzer() -> TextAnalyzer {
-    analyzer(true)
+    analyzer(true, true)
+}
+
+/// What the index's words field is analyzed with: the same words unstemmed,
+/// which the word being typed is a prefix of before its stem is.
+pub(super) fn word_analyzer() -> TextAnalyzer {
+    analyzer(true, false)
 }
 
 /// What a query is analyzed with.
 pub(super) fn query_analyzer() -> TextAnalyzer {
-    analyzer(false)
+    analyzer(false, true)
 }
 
 /// Each token's text and byte range, as `analyzer` produces them.

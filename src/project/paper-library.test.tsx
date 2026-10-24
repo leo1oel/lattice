@@ -463,6 +463,23 @@ describe("PaperLibrary", () => {
     expect(screen.getByText("scaled dot-product")).toBeInTheDocument();
   });
 
+  it("searches the word being typed as typed, and again as a whole word once a space follows it", async () => {
+    vi.useFakeTimers();
+    vi.mocked(invoke).mockResolvedValue([textMatch("1706.03762", "scaled dot-product")]);
+    const { search } = renderLibrary();
+
+    search("  dot-product");
+    await settleTextSearch();
+    search("dot-product   ");
+    await settleTextSearch();
+
+    expect(searchCalls()).toEqual([
+      ["search_paper_library", { query: "dot-product" }],
+      ["search_paper_library", { query: "dot-product " }],
+    ]);
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+  });
+
   it("keeps filtering by metadata when the full-text index cannot be read", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockRejectedValue(new Error("index missing"));
