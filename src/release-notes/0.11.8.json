@@ -1,0 +1,23 @@
+{
+  "version": "0.11.8",
+  "date": "2026-10-23",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "Builds now carry on past LaTeX errors and show every error, keeping a PDF on screen: the errored PDF, or the last good one. Turn on Stop on first error per project to get the old behaviour.",
+      "zh": "编译现在会越过 LaTeX 错误继续进行，并显示全部错误，同时保留 PDF 在屏幕上：出错时的 PDF 或上一次成功的 PDF。如需恢复旧行为，可按项目开启“遇到首个错误即停止”。"
+    },
+    {
+      "en": "Agent panel updated to Synara 1.0.8: a running-agents capsule above the composer, complete diffs while a turn runs, Codex warnings shown, provider hand-off, and a new-chat button in the tab bar.",
+      "zh": "Agent 面板更新至 Synara 1.0.8：输入框上方新增运行中智能体胶囊、回合进行中即可查看完整差异、显示 Codex 警告、支持切换提供方接力，标签栏新增新建对话按钮。"
+    },
+    {
+      "en": "Presentations updated to Open Slide 2.3.1.",
+      "zh": "演示文稿更新至 Open Slide 2.3.1。"
+    },
+    {
+      "en": "Settings section headings are back, and the project dictionary row lines up with the rest.",
+      "zh": "设置中的分区标题已恢复，项目词典一行也与其他行对齐了。"
+    }
+  ]
+}
