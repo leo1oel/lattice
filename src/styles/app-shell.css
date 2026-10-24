@@ -1086,10 +1086,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-hits > li { min-width: 0; }
 .paper-hit, .paper-hit-more { position: relative; z-index: 1; max-width: calc(100% + var(--space-3)); min-height: var(--hit-area-min); margin-inline-start: calc(-1 * var(--space-3)); padding: calc((var(--hit-area-min) - var(--type-tree-line-height)) / 2) var(--space-3); border: 0; border-radius: var(--radius-compact); background: transparent; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: start; cursor: pointer; }
 .paper-hit { width: calc(100% + var(--space-3)); font-family: var(--reading-font); font-style: italic; }
-/* The text clips inside the padding, so a mark the ellipsis cuts leaves no stub of its fill. */
+/* A mark is an atomic box, so the ellipsis hides one that does not fit
+   whole; as an inline it kept painting its fill past the ellipsis. */
 .paper-hit-text { display: block; overflow: hidden; text-overflow: ellipsis; }
 .paper-hit:hover, .paper-hit-more:hover { background: var(--tone-hover-surface); color: var(--text-primary); }
-.paper-hit mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
+.paper-hit mark { display: inline-block; border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
 .paper-hit-more { font-size: var(--type-caption-size); }
 /* The row's citation-health notice. */
 .paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
