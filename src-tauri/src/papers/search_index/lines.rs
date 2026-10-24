@@ -11,8 +11,10 @@ use std::sync::LazyLock;
 
 /// The longest snippet a hit shows, in characters, before ellipses.
 const SNIPPET_CHARS: usize = 200;
-/// How much of the line before the first highlight a long snippet keeps.
-const SNIPPET_LEAD_CHARS: usize = 48;
+/// At most how much of the line before the first highlight a snippet keeps,
+/// trimmed to a word boundary: a narrow Papers panel shows about 28
+/// characters of a hit, and the match must be among them.
+const SNIPPET_LEAD_CHARS: usize = 12;
 
 static TOC_ENTRY: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*[-*+]\s+\[[^\]]*\]\(#[^)]*\)\s*$").unwrap());
@@ -56,11 +58,21 @@ fn display_text(line: &str) -> String {
 pub(super) fn snippet(text: &str, highlights: &[(usize, usize)]) -> (String, Vec<[u32; 2]>) {
     let char_count = text.chars().count();
     let first = highlights.first().map_or(0, |(from, _)| text[..*from].chars().count());
-    let (mut start, mut end) = (0, char_count);
-    if char_count > SNIPPET_CHARS {
-        start = first.saturating_sub(SNIPPET_LEAD_CHARS).min(char_count - SNIPPET_CHARS);
-        end = start + SNIPPET_CHARS;
+    // The window opens just before the match, on a word when there is one to
+    // open on, wherever the match is in the line: the panel shows the
+    // window's start.
+    let mut start = 0;
+    if first > SNIPPET_LEAD_CHARS {
+        start = first - SNIPPET_LEAD_CHARS;
+        let mut lead = text.chars().skip(start - 1).take(SNIPPET_LEAD_CHARS + 1);
+        // Mid-word, skip to the next word.
+        if !lead.next().is_some_and(char::is_whitespace) {
+            if let Some(space) = lead.position(char::is_whitespace) {
+                start += space + 1;
+            }
+        }
     }
+    let end = (start + SNIPPET_CHARS).min(char_count);
     let byte_of = |chars: usize| text.char_indices().nth(chars).map_or(text.len(), |(at, _)| at);
     let (from, to) = (byte_of(start), byte_of(end));
     let mut window = String::new();
@@ -112,6 +124,16 @@ mod tests {
         let (window, ranges) = snippet(&long, &[(at, at + 6)]);
         assert!(window.starts_with('…') && window.ends_with('…'), "{window}");
         assert_eq!(window.chars().count(), SNIPPET_CHARS + 2);
+        assert_eq!(window.find("needle"), Some('…'.len_utf8() + SNIPPET_LEAD_CHARS));
+        // Short lines are trimmed too, to a word, so the match is in view.
+        assert_eq!(
+            snippet("3.3 Studying Information Transfer", &[(25, 33)]).0,
+            "…Information Transfer"
+        );
+        // Near the end of a long line the window still opens on the match.
+        let late = format!("{}needle tail", "x ".repeat(200));
+        let at = late.find("needle").unwrap();
+        assert_eq!(snippet(&late, &[(at, at + 6)]).0, "…x x x x x x needle tail");
         let [from, to] = ranges[0];
         let units: Vec<u16> = window.encode_utf16().collect();
         assert_eq!(String::from_utf16(&units[from as usize..to as usize]).unwrap(), "needle");

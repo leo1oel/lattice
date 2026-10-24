@@ -10,8 +10,10 @@
 .list-tool[data-state="open"] { background: var(--control-hover-surface); color: var(--text-primary); }
 .list-tool:active:not(:disabled) { background: var(--control-pressed-surface); }
 .list-tool-text { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--gap-inline-tight); overflow: hidden; }
-.list-tool-label { flex: none; }
-.list-tool-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); font-weight: var(--weight-medium); }
+/* The value gives way first, then the name, each to an ellipsis: a tool a
+   step too narrow for its words reads "Fil…", never a clipped "Filte". */
+.list-tool-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.list-tool-value { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); font-weight: var(--weight-medium); }
 .list-tool-caret { color: var(--text-tertiary); transition: color var(--motion-fast-exit); }
 .list-tool:is(:hover, [data-state="open"]) .list-tool-caret { color: var(--text-secondary); }
 /* Folded, a tool set away from its default keeps a dot on its icon. */
