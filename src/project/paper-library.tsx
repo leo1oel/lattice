@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowDownUp, ArrowRight, Check, CircleAlert, CornerDownLeft, ListFilter, Plus, X } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { ArrowDown, ArrowRight, Check, CircleAlert, CornerDownLeft, Plus, X } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { ListTool } from "../components/ui/list-tool";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
 import { SearchField } from "../components/ui/search-field";
@@ -29,6 +27,7 @@ import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PaperInspector } from "./paper-inspector";
+import { PaperListToolbar } from "./paper-list-toolbar";
 import { PaperRow, type PaperFetchState } from "./paper-row";
 import { usePaperListWindow, type RowSpan } from "./paper-list-window";
 import type { SymbolOccurrence } from "./references-panel";
@@ -490,22 +489,10 @@ function PaperShelf(props: PaperLibraryProps & {
   const inspectedLink = inspected && paperLinkUrl(inspected);
   const total = props.papers.length;
   const emptyState = filteredPapers.length || props.hasKind ? null : t`No matching papers`;
-  const sortLabels: Record<PaperSort, string> = {
-    title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
-  };
-  const filterLabels: Record<PaperFilter, string> = {
-    all: t`All papers`,
-    cited: t`Cited in this paper`,
-    uncited: t`Not cited yet`,
-    fullText: t`With full text`,
-    flagged: t`Flagged`,
-  };
-  const groupLabels: Record<PaperGroup, string> = { none: t`No grouping`, year: t`Year`, venue: t`Venue`, state: t`Reading state` };
   const stateLabels: Record<string, string> = { fullText: t`Full text`, downloadable: t`Not downloaded`, citation: t`Citation only` };
   const sections = groupPapers(filteredPapers, group, facts, (value) => (
     group === "state" ? stateLabels[value] : value || (group === "year" ? t`No year` : t`No venue`)
   ));
-  const sortOn = sort !== "title" || group !== "none";
   // Every paper's key in the order the list shows them, and where each group
   // starts: a long list draws only the rows near the view.
   const rowKeys = sections.flatMap((section) => section.papers.map(paperKey));
@@ -604,110 +591,20 @@ function PaperShelf(props: PaperLibraryProps & {
     />
   );
 
-  const shown = formatCount(filteredPapers.length);
-  const totalText = formatCount(total);
   return (
     <>
-        {/* How many papers the list holds, and how it is narrowed, ordered
-            and grouped. The count stands for what is shown, so a search or a
-            filter reads as "3 of 7", and "3/7" where that does not fit. A
-            narrow panel keeps the two tools as icons, each with a dot once
-            it is set; an active filter is also a chip that clears it. */}
-        <div className="paper-list-toolbar">
-            <p className="paper-list-count">
-              <span className="paper-count-long">
-                {filteredPapers.length !== total
-                  ? filteredPapers.length === 1
-                    ? t({ message: `1 of ${{ total: totalText }} papers` })
-                    : t({ message: `${{ filtered: shown }} of ${{ total: totalText }} papers` })
-                  : total === 1
-                    ? t`1 paper`
-                    : t({ message: `${{ count: totalText }} papers` })}
-              </span>
-              <span className="paper-count-short" aria-hidden="true">
-                {filteredPapers.length !== total ? `${shown}/${totalText}` : totalText}
-              </span>
-            </p>
-            {/* Not modal, as the app's other menus are: a modal menu hides the
-                whole window from assistive tech and locks its scrolling as it
-                opens, which in WebKit held the menu back by about 50ms. */}
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                {/* The filter's name is the chip under the toolbar, which clears it. */}
-                <ListTool
-                  icon={<ListFilter size={14} aria-hidden="true" />}
-                  label={t`Filter`}
-                  on={shownFilter !== "all"}
-                  name={shownFilter === "all" ? t`Filter papers` : t({ message: `Filter papers: ${{ filter: filterLabels[shownFilter] }}` })}
-                  title={t`Filter papers`}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="paper-menu">
-                {(Object.keys(filterLabels) as PaperFilter[]).map((value) => (
-                  <DropdownMenuItem
-                    key={value}
-                    role="menuitemradio"
-                    aria-checked={shownFilter === value}
-                    disabled={!usesKnown && (value === "cited" || value === "uncited")}
-                    onSelect={() => setFilter(value)}
-                  >
-                    <span className="paper-menu-check">{shownFilter === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{filterLabels[value]}</span>
-                    <span className="paper-menu-count">{formatCount(filterCounts[value])}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <ListTool
-                  icon={<ArrowDownUp size={14} aria-hidden="true" />}
-                  label={group !== "none" ? t`Group` : t`Sort`}
-                  value={group !== "none" ? groupLabels[group] : sortLabels[sort]}
-                  on={sortOn}
-                  name={t({ message: `Sort and group: ${{ order: group !== "none" ? groupLabels[group] : sortLabels[sort] }}` })}
-                  title={t`Sort and group`}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="paper-menu">
-                <DropdownMenuLabel>{t`Group by`}</DropdownMenuLabel>
-                {(Object.keys(groupLabels) as PaperGroup[]).map((value) => (
-                  <DropdownMenuItem key={value} role="menuitemradio" aria-checked={group === value} onSelect={() => setGroup(value)}>
-                    <span className="paper-menu-check">{group === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{groupLabels[value]}</span>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>{t`Sort by`}</DropdownMenuLabel>
-                {(Object.keys(sortLabels) as PaperSort[]).map((value) => (
-                  <DropdownMenuItem
-                    key={value}
-                    role="menuitemradio"
-                    aria-checked={sort === value}
-                    disabled={!usesKnown && value === "cited"}
-                    onSelect={() => setSort(value)}
-                  >
-                    <span className="paper-menu-check">{sort === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{sortLabels[value]}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        {shownFilter !== "all" && (
-          <div className="paper-chips">
-            <button
-              type="button"
-              className="paper-chip"
-              title={t`Clear filter`}
-              aria-label={t({ message: `Clear filter: ${{ filter: filterLabels[shownFilter] }}` })}
-              onClick={() => setFilter("all")}
-            >
-              <span>{filterLabels[shownFilter]}</span>
-              <X size={12} aria-hidden="true" />
-            </button>
-          </div>
-        )}
+        <PaperListToolbar
+          shown={filteredPapers.length}
+          total={total}
+          filter={shownFilter}
+          onFilter={setFilter}
+          filterCounts={filterCounts}
+          usesKnown={usesKnown}
+          sort={sort}
+          onSort={setSort}
+          group={group}
+          onGroup={setGroup}
+        />
         {/* The list, and beside it in a wide panel the selected paper's inspector. */}
         <div
           ref={bodyRef}
