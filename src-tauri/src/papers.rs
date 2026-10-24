@@ -9,8 +9,9 @@
 //!   records it commits; `ids` is the arXiv identifier grammar.
 //! - `bundle` builds, validates and reuses bundles; `convert` turns an arXiv
 //!   paper into markdown; `markdown` cleans the converters' output.
-//! - `library` lists, searches and reads what the bibliography cites;
-//!   `bibliography` runs bibcite and removes or upgrades entries.
+//! - `library` lists and reads what the bibliography cites; `library_search`
+//!   searches it through `search_index`, the full-text index of its cached
+//!   text; `bibliography` runs bibcite and removes or upgrades entries.
 
 use reqwest::blocking::{RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,9 @@ mod convert;
 mod ids;
 mod import;
 mod library;
+mod library_search;
 mod markdown;
+mod search_index;
 #[cfg(test)]
 mod test_support;
 mod web_citation;
@@ -43,8 +46,9 @@ pub(crate) use ids::{arxiv_base_id, explicit_arxiv_id};
 pub use import::import_reference;
 pub use library::{
     list_library, list_papers, read_paper, read_paper_blog_local, refresh_citation_health,
-    search_library,
 };
+pub use library_search::{refresh_search_index, search_library, search_library_text};
+pub use search_index::PaperTextMatch;
 pub(crate) use web_citation::alphaxiv_bibtex;
 
 /// How Lattice identifies itself to arXiv, alphaXiv and cited webpages.

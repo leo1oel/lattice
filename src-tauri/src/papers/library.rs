@@ -5,10 +5,8 @@
 use super::bundle::{file_has_body, is_bundle_asset_path, read_asset_manifest, PaperMetadata};
 use super::ids::{arxiv_base_id, same_arxiv_work, validate_paper_key};
 use super::markdown::markdown_has_body;
-use crate::models::ProjectSearchResult;
 use crate::papers::PaperSummary;
 use crate::util::err;
-use crate::util::truncate_chars;
 use crate::{alphaxiv, project};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -230,7 +228,7 @@ pub fn list_library(root: &Path) -> Result<Vec<LibraryPaper>, String> {
 }
 
 /// The library with paths attached and only cached citation health.
-fn library_entries(root: &Path) -> Result<Vec<LibraryPaper>, String> {
+pub(super) fn library_entries(root: &Path) -> Result<Vec<LibraryPaper>, String> {
     Ok(list_papers(root)?
         .into_iter()
         .map(|paper| {
@@ -250,70 +248,6 @@ fn library_entries(root: &Path) -> Result<Vec<LibraryPaper>, String> {
             }
         })
         .collect())
-}
-
-/// Full-text search over the cached library for the agent's `search_library`
-/// tool: cited papers' titles plus every line of their cached text. The
-/// bibliography stays authoritative here just like in `list_papers`, so text
-/// the agent fetched but never cited is not searched. A linear scan is fine at
-/// library scale; the project FTS index deliberately excludes `.research/`.
-pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
-    const MAX_HITS: usize = 60;
-    const MAX_HITS_PER_PAPER: usize = 5;
-    let terms = project::search_terms(query);
-    if terms.is_empty() {
-        return Ok(Vec::new());
-    }
-    let mut results = Vec::new();
-    'papers: for paper in library_entries(root)? {
-        let readable = [&paper.full_text_path, &paper.overview_path];
-        let Some(first_readable) = readable.iter().find_map(|path| path.as_deref()) else {
-            // Nothing cached: a hit could not be read, so report nothing.
-            continue;
-        };
-        let mut paper_hits = 0;
-        if project::matches_search(&paper.title, &terms) {
-            results.push(library_hit(&paper, first_readable, None, &paper.title));
-            paper_hits += 1;
-            if results.len() >= MAX_HITS {
-                break 'papers;
-            }
-        }
-        for path in readable.into_iter().flatten() {
-            let Ok(absolute) = project::safe_path(root, path) else {
-                continue;
-            };
-            let content = fs::read_to_string(absolute).unwrap_or_default();
-            for (index, line) in content.lines().enumerate() {
-                if line.trim().is_empty() || !project::matches_search(line, &terms) {
-                    continue;
-                }
-                results.push(library_hit(&paper, path, Some(index as u32 + 1), line));
-                paper_hits += 1;
-                if results.len() >= MAX_HITS {
-                    break 'papers;
-                }
-                if paper_hits >= MAX_HITS_PER_PAPER {
-                    continue 'papers;
-                }
-            }
-        }
-    }
-    Ok(results)
-}
-
-fn library_hit(
-    paper: &LibraryPaper, path: &str, line: Option<u32>, text: &str,
-) -> ProjectSearchResult {
-    ProjectSearchResult {
-        kind: "paper".to_string(),
-        path: path.to_string(),
-        title: paper.title.clone(),
-        snippet: truncate_chars(text.trim(), 180),
-        line,
-        arxiv_id: (!paper.arxiv_id.is_empty()).then(|| paper.arxiv_id.clone()),
-        file_kind: None,
-    }
 }
 
 pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
@@ -630,38 +564,5 @@ mod tests {
         // Everywhere else a citation is shown as text, the braces are gone.
         let citations = project::parse_bibliography(&project.bibliography());
         assert_eq!(citations[1].authors, "Google Brain");
-    }
-
-    /// `search_library` reads the cached text itself so the agent gets line
-    /// hits, and honors the same bibliography boundary as the listing.
-    #[test]
-    fn searches_cached_library_text_but_not_uncited_caches() {
-        let project = TestProject::new(ATTENTION_BIB);
-        project.write(
-            ATTENTION_PAPER,
-            "Title: Attention Is All You Need\n\nThe scaled dot-product attention mechanism.\n",
-        );
-        project.write(
-            ".research/papers/1706.03762/blog.md",
-            "# Overview\n\nA residual stream explanation for practitioners.\n",
-        );
-        // An uncited cache mentioning the same phrase must stay invisible.
-        project
-            .write(".research/papers/2401.00001/paper.md", "Another scaled dot-product variant.\n");
-
-        let hits = search_library(&project.root, "scaled dot-product").unwrap();
-        assert_eq!(hits.len(), 1, "got: {hits:?}");
-        assert_eq!(hits[0].path, ATTENTION_PAPER);
-        assert_eq!(hits[0].line, Some(3));
-        assert!(hits[0].snippet.contains("scaled dot-product"));
-
-        let blog_hits = search_library(&project.root, "residual stream").unwrap();
-        assert_eq!(blog_hits.len(), 1, "got: {blog_hits:?}");
-        assert_eq!(blog_hits[0].path, ".research/papers/1706.03762/blog.md");
-        assert_eq!(blog_hits[0].line, Some(3));
-
-        // A title match reports the readable file without a line number.
-        let title_hits = search_library(&project.root, "attention is all you need").unwrap();
-        assert!(title_hits.iter().any(|hit| hit.line.is_none()), "got: {title_hits:?}");
     }
 }
