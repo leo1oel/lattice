@@ -131,7 +131,7 @@ pub(crate) fn sync(dir: &Path, papers: &[PaperText]) -> Result<(), String> {
 }
 
 /// Sync, then search: papers ranked by their title and best lines, each with
-/// its best `limits.hits_per_paper` lines. Every line of a query word must be
+/// its best `limits.hits_per_paper` lines. Every word of the query must be
 /// on one line, the last word also matching as a prefix while it is typed.
 pub(crate) fn search(
     dir: &Path, papers: &[PaperText], query: &str, limits: Limits,
