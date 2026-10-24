@@ -32,7 +32,8 @@ export function PaperTextHits({ match, onOpen, describedBy }: {
   describedBy?: string;
 }) {
   const { t } = useLingui();
-  const [expanded, setExpanded] = useState(false);
+  const [expandedFor, setExpandedFor] = useState<PaperTextMatch | null>(null);
+  const expanded = expandedFor === match;
   const listRef = useRef<HTMLUListElement | null>(null);
   // "N more" goes away as it is used: the keyboard moves on to the first line it brought.
   const focusFirstNewRef = useRef(false);
@@ -58,7 +59,7 @@ export function PaperTextHits({ match, onOpen, describedBy }: {
         <li>
           <button type="button" className="paper-hit-more" onClick={(event) => {
             focusFirstNewRef.current = event.currentTarget === document.activeElement;
-            setExpanded(true);
+            setExpandedFor(match);
           }}>
             {t({ message: `${{ count: formatCount(more) }} more` })}
           </button>

@@ -10,9 +10,8 @@ export type PaperLineHit = { path: string; line: number; text: string; highlight
 /**
  * A paper the full-text index matched (`search_paper_library`), keyed by its
  * library key (the arXiv id or bundle key), with its best lines first.
- * `matches` counts its matching lines, of which `hits` holds the best.
  */
-export type PaperTextMatch = { key: string; titleMatch?: boolean; matches?: number; hits?: PaperLineHit[] };
+export type PaperTextMatch = { key: string; titleMatch?: boolean; hits?: PaperLineHit[] };
 
 /** A match and its place in the index's ranking. */
 export type RankedTextMatch = PaperTextMatch & { rank: number };

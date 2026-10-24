@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary } from "../app-types";
 import { PaperLibrary } from "./paper-library";
 import type { PaperTextMatch } from "./paper-library-search";
+import { PaperTextHits } from "./paper-text-hits";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
@@ -15,7 +16,7 @@ const lora: PaperSummary = { arxivId: "2106.09685", title: "LoRA: Low-Rank Adapt
 /** LoRA ranks first; its lines carry the marks the index found. */
 const MATCHES: PaperTextMatch[] = [
   {
-    key: lora.arxivId, titleMatch: false, matches: 5,
+    key: lora.arxivId, titleMatch: false,
     hits: [
       { path: ".research/papers/2106.09685/paper.md", line: 12, text: "We freeze the attention weights.", highlights: [[14, 23]] },
       ...[20, 31, 44, 58].map((line) => ({ path: ".research/papers/2106.09685/paper.md", line, text: `Attention at line ${line}.`, highlights: [[0, 9]] as [number, number][] })),
@@ -66,6 +67,15 @@ describe("Papers panel full-text hits", () => {
     expect(screen.getByRole("button", { name: "Attention at line 44." })).toHaveFocus();
   });
 
+  it("shows a few lines again when new results replace the ones it expanded", () => {
+    const { rerender } = render(<PaperTextHits match={MATCHES[0]!} onOpen={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "2 more" }));
+    expect(document.querySelectorAll(".paper-hit")).toHaveLength(5);
+    rerender(<PaperTextHits match={{ ...MATCHES[0]! }} onOpen={vi.fn()} />);
+    expect(document.querySelectorAll(".paper-hit")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "2 more" })).toBeInTheDocument();
+  });
+
   it("opens the paper at a hit's line, in the reading file it was found in", async () => {
     const props = renderSearch("attention");
     await settle();
@@ -102,5 +112,15 @@ describe("Papers panel full-text hits", () => {
     fireEvent.keyDown(loraRow!, { key: "Escape" });
     expect(props.setImportInput).toHaveBeenLastCalledWith("");
     expect(input).toHaveFocus();
+  });
+
+  it("leaves the box alone when Escape dismisses an input method's candidates", async () => {
+    const props = renderSearch("weights");
+    await settle();
+    const input = searchbox();
+    fireEvent.compositionStart(input);
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(props.setImportInput).not.toHaveBeenCalled();
   });
 });

@@ -276,7 +276,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 return;
               }
               // Escape empties the box; the down arrow goes on to the results.
-              if (event.key === "Escape" && props.importInput && !fetching) {
+              if (event.key === "Escape" && !isComposing(event) && props.importInput && !fetching) {
                 event.preventDefault();
                 props.setImportInput("");
                 return;

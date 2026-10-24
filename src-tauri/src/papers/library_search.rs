@@ -121,14 +121,14 @@ fn scan_matches(
     for paper in indexed_papers(root, entries) {
         let title_match = project::matches_search(&paper.title, terms);
         let mut hits = Vec::new();
-        let mut matches = 0;
+        let mut matched = false;
         for file in &paper.files {
             let content = fs::read_to_string(&file.absolute).unwrap_or_default();
             for (index, line) in content.lines().enumerate() {
                 if line.trim().is_empty() || !project::matches_search(line, terms) {
                     continue;
                 }
-                matches += 1;
+                matched = true;
                 if hits.len() < limits.hits_per_paper {
                     let text = truncate_chars(line.trim(), 200);
                     hits.push(LineHit {
@@ -140,8 +140,8 @@ fn scan_matches(
                 }
             }
         }
-        if title_match || matches > 0 {
-            found.push(PaperTextMatch { key: paper.key, title_match, matches, hits });
+        if title_match || matched {
+            found.push(PaperTextMatch { key: paper.key, title_match, hits });
         }
         if found.len() >= limits.papers {
             break;

@@ -73,7 +73,7 @@ fn ranks_papers_by_title_and_best_lines_with_highlighted_line_hits() {
     assert_eq!(keys(&matches), ["2106.09685", "2401.00001"]);
     let lora = &matches[0];
     assert!(lora.title_match);
-    assert_eq!(lora.matches, 2);
+    assert_eq!(lora.hits.len(), 2);
     assert_eq!(lora.hits[0].path, "papers/2106.09685/paper.md");
     assert!([3, 5].contains(&lora.hits[0].line), "{lora:?}");
     let second = &matches[1].hits[0];

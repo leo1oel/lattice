@@ -73,8 +73,6 @@ pub(crate) struct PaperFile {
 pub struct PaperTextMatch {
     pub key: String,
     pub title_match: bool,
-    /// Matching lines, counted among the best `MAX_SCORED_LINES` overall.
-    pub matches: usize,
     pub hits: Vec<LineHit>,
 }
 
@@ -453,7 +451,6 @@ fn search_open(
             Ok(PaperTextMatch {
                 key,
                 title_match: group.title_score > 0.0,
-                matches: group.lines.len(),
                 hits: group
                     .lines
                     .into_iter()
