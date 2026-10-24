@@ -21,6 +21,7 @@ import {
   type OpenSlideMutation,
   type OpenSlideSyncOperation,
 } from "./open-slide-bridge";
+import { forwardAgentPresence } from "./open-slide-agent-presence";
 import { parseOpenSlideAgentRequest, type OpenSlideAgentRequest } from "./open-slide-agent-request";
 import { onProjectFilesChanged } from "../../project/project-files-changed";
 import "./open-slide-workspace.css";
@@ -353,6 +354,12 @@ export function OpenSlideWorkspace({
     void receive();
     return () => controller.abort();
   }, [active, detached, path, runtime]);
+
+  // Hidden decks too: one shown again must not flash a turn that has ended.
+  useEffect(() => {
+    if (detached || !runtime?.origin || !runtime.controlToken) return;
+    return forwardAgentPresence(projectRoot, runtime.origin, runtime.controlToken);
+  }, [detached, projectRoot, runtime]);
 
   useEffect(() => {
     if (!active || detached || !runtime?.origin || !deckId) return;

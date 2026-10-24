@@ -8,6 +8,7 @@ import {
   type OpenSlideMutation,
 } from "./open-slide-bridge";
 import { OpenSlideWorkspace } from "./open-slide-workspace";
+import { publishAgentDeckPresence } from "../../agent/agent-turn-activity";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const tauriEvents = vi.hoisted(() => ({
@@ -452,5 +453,24 @@ describe("OpenSlideWorkspace", () => {
 
       expect(onAgentRequest).not.toHaveBeenCalled();
     });
+  });
+
+  it("keeps the runtime showing the agent panel's turn while any of its decks is open, active or not", async () => {
+    const { rerender, unmount } = render(workspace({ active: false }));
+    await screen.findByTitle(FRAME_TITLE);
+    const activity = () => fetchCalls("agent-activity").map(([, init]) => JSON.parse(String(init?.body)).activity);
+    await waitFor(() => expect(activity()).toEqual([null]));
+    act(() => publishAgentDeckPresence({
+      workspaceRoot: "/tmp/project", threadId: "thread-1", turnId: "turn-1", state: "running",
+      provider: { id: "codex", label: "Codex" }, tool: null, decks: ["research-update"],
+    }));
+    await waitFor(() => expect(activity().at(-1)).toEqual({
+      state: "running", provider: { id: "codex", label: "Codex" }, tool: null, decks: ["research-update"],
+    }));
+    expect(fetchCalls("agent-activity").at(-1)?.[1]?.headers).toMatchObject({ authorization: "Bearer control" });
+    rerender(workspace({ active: true }));
+    act(() => publishAgentDeckPresence(null));
+    await waitFor(() => expect(activity().at(-1)).toBeNull());
+    unmount();
   });
 });

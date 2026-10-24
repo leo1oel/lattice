@@ -91,8 +91,8 @@ test("starts when installed under a path containing a space", () => withTempRoot
   // server exited silently and the host saw an empty handshake.
   const runtime = path.join(root, "Lattice Beta.app", "presentation-runtime");
   await mkdir(runtime, { recursive: true });
-  for (const file of ["server.mjs", "agent-chat.mjs", "deck-error-overlay.mjs", "patch-contract.mjs"]) {
-    await copyFile(new URL(`./${file}`, import.meta.url), path.join(runtime, file));
+  for (const file of await readdir(new URL(".", import.meta.url))) {
+    if (/^[a-z-]+\.mjs$/.test(file)) await copyFile(new URL(`./${file}`, import.meta.url), path.join(runtime, file));
   }
   await symlink(fileURLToPath(new URL("./node_modules", import.meta.url)), path.join(runtime, "node_modules"), "dir");
   const env = { ...process.env };

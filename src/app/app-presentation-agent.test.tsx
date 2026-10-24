@@ -6,6 +6,7 @@ import { appHarness } from "./app-test-mount";
 import { documentCanvas } from "./app-test-canvas";
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { agentDeckPresence } from "../agent/agent-turn-activity";
 
 const { renderApp } = appHarness({ documentCanvas });
 
@@ -53,5 +54,41 @@ describe("the Open Slide editor's agent entry points", () => {
     await waitFor(() => expect(postedOfType(postMessage, "lattice:composer-prompt").at(-1)).toMatchObject({
       text: "Create a presentation about ", mode: "draft",
     }));
+  });
+
+  it("lights only the decks the panel's turn names, from its own frame, until the turn or the frame ends", { timeout: 20_000 }, async () => {
+    const deck = "slides/talk/index.tsx";
+    renderApp({
+      ...refreshableProject(projectSnapshot({ rootDocuments: [], files: [fileNode(deck)] }), "export default [];\n"),
+      stat_project_file: () => ({ exists: true, mtimeMs: 1 }),
+    });
+    await screen.findByTestId("open-slide-workspace-mock", {}, { timeout: 15_000 });
+    act(() => openSlideWorkspaceApi.onAgentRequest?.({ kind: "open", deckPath: deck }));
+    const frame = await findFrame();
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
+    const report = (overrides: Record<string, unknown> = {}) => ({
+      type: "synara:turn-activity", version: 1, workspaceRoot: ROOT, threadId: "thread-1", turnId: "turn-1",
+      state: "running", provider: { id: "claudeAgent", label: "Claude Code" },
+      tool: { title: "Write", detail: "index.tsx", paths: ["slides/launch/index.tsx"] }, ...overrides,
+    });
+
+    // Neither another project's turn nor a message from outside the panel's frame counts.
+    postWindowMessage(frame.contentWindow, report({ workspaceRoot: "/tmp/other" }));
+    postWindowMessage(window, report());
+    postWindowMessage(frame.contentWindow, report(), "http://127.0.0.1:9");
+    expect(agentDeckPresence()).toBeNull();
+
+    postWindowMessage(frame.contentWindow, report());
+    expect(agentDeckPresence()).toMatchObject({
+      state: "running", provider: { label: "Claude Code" }, tool: { title: "Write", detail: "index.tsx" }, decks: ["launch"],
+    });
+    postWindowMessage(frame.contentWindow, report({ state: "idle", tool: undefined }));
+    expect(agentDeckPresence()).toBeNull();
+
+    // A panel that reloads mid-turn reports its turn afresh.
+    postWindowMessage(frame.contentWindow, report());
+    expect(agentDeckPresence()).not.toBeNull();
+    postWindowMessage(frame.contentWindow, { type: "synara:embed-ready" });
+    expect(agentDeckPresence()).toBeNull();
   });
 });

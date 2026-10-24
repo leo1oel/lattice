@@ -20,7 +20,7 @@ const LATTICE_AGENT_NAME = "'Lattice AI'";
 // the host accepts it only from this deck's frame and the runtime's origin
 // (src/editor/presentation/open-slide-agent-request.ts), and drops a nonce it
 // has already seen.
-const REQUEST_LATTICE_AGENT = `
+export const REQUEST_LATTICE_AGENT = `
 function requestLatticeAgent(kind: 'apply-comments' | 'draft-deck' | 'open', slideId = '') {
   const nonce = \`\${Date.now().toString(36)}-\${Math.random().toString(36).slice(2)}\`;
   window.parent.postMessage({ type: 'lattice:agent-request', version: 1, kind, slideId, nonce }, '*');

@@ -151,6 +151,7 @@ file:
 | `src/agent/agent-presentation-tools.ts` | `lattice:presentation-tool-result`; to the preview frame it opens, `lattice:preview-capture` (answered by `lattice:preview-capture-result`) |
 | `src/agent/agent-composer-files.ts` | `lattice:composer-files` |
 | `src/agent/agent-composer-prompt.ts` | `lattice:composer-prompt` (answered by `synara:composer-prompt-result`); sent for the Open Slide editor's `lattice:agent-request` (`src/editor/presentation/open-slide-agent-request.ts`) |
+| `src/agent/agent-turn-activity.ts` | From the panel, `synara:turn-activity`; the decks its turn names are posted to the Open Slide runtime's `/__lattice/agent-activity` (`src/editor/presentation/open-slide-agent-presence.ts`), which lights them with Open Slide's agent presence (`tools/open-slide-runtime/agent-presence.mjs`) |
 | `src/app/use-synara-host.ts` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
 | `src/settings/synara-settings-pane.tsx` | `lattice:set-settings-section`, `lattice:settings-layout` |
 
