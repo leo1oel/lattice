@@ -44,11 +44,12 @@ describe("the Open Slide editor's agent entry points", () => {
       error: { code: "no-provider", message: "No provider is configured." },
     });
     await waitFor(() => expect(visibleToasts("Agent").map((entry) => entry?.title)).toEqual([
-      "Choose an AI provider in the agent panel, then try again.",
+      "Choose an AI provider in the agent panel, then send the request waiting in its composer.",
     ]));
 
-    // Draft a deck, once the frame is ready, goes straight in and is never sent.
+    // Draft a deck, once the frame is ready, goes straight in, is never sent, and puts the cursor there.
     act(() => openSlideWorkspaceApi.onAgentRequest?.({ kind: "draft-deck", deckPath: null }));
+    await waitFor(() => expect(document.activeElement).toBe(frame));
     await waitFor(() => expect(postedOfType(postMessage, "lattice:composer-prompt").at(-1)).toMatchObject({
       text: "Create a presentation about ", mode: "draft",
     }));

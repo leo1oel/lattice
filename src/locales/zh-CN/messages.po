@@ -2656,8 +2656,8 @@ msgid "Choose a saved template"
 msgstr "选择已保存的模板"
 
 #: src/app/use-synara-host.ts
-msgid "Choose an AI provider in the agent panel, then try again."
-msgstr "请先在 AI 助手面板中选择 AI 提供商，然后重试。"
+msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
+msgstr "请先在 AI 助手面板中选择 AI 提供商，再发送输入框里待发的请求。"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -11973,8 +11973,8 @@ msgid "The agent could not revise this passage."
 msgstr "AI 助手没能修改这一段。"
 
 #: src/app/use-synara-host.ts
-msgid "The agent could not send the request."
-msgstr "AI 助手未能发送这条请求。"
+msgid "The agent could not send the request. It is waiting in the agent's composer."
+msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
 
 #: src/app/use-synara-host.ts
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."

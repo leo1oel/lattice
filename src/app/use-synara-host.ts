@@ -197,7 +197,10 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     if (!frameReady || !message) return;
     pendingComposerPromptRef.current = null;
     // A project switched in the meantime has its own frame and conversation.
-    if (message.workspaceRoot === projectRootRef.current) void postMessage(message);
+    if (message.workspaceRoot !== projectRootRef.current) return;
+    // The composer takes focus only once its frame has it.
+    if (message.mode === "draft") frameRef.current?.focus();
+    void postMessage(message);
   }, [composerPromptRequest, frameReady, postMessage, projectRootRef]);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
@@ -331,13 +334,14 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       },
       [SYNARA_COMPOSER_PROMPT_RESULT]: (data) => {
         const error = parseAgentComposerPromptResult(data)?.error;
-        // Every other refusal is a stale or malformed request, nothing the user can act on.
+        // The panel leaves a send it refuses in its composer as a draft. Every
+        // other refusal is a stale or malformed request, nothing to act on.
         if (error?.code === "no-provider") {
-          showWarning(i18n._(msg`Choose an AI provider in the agent panel, then try again.`), i18n._(msg`Agent`));
+          showWarning(i18n._(msg`Choose an AI provider in the agent panel, then send the request waiting in its composer.`), i18n._(msg`Agent`));
         } else if (error?.code === "awaiting-input") {
           showWarning(i18n._(msg`The agent is waiting for your answer. The request is in its composer; send it once you have answered.`), i18n._(msg`Agent`));
         } else if (error?.code === "send-failed") {
-          showError(error.message || i18n._(msg`The agent could not send the request.`), i18n._(msg`Agent`));
+          showError(i18n._(msg`The agent could not send the request. It is waiting in the agent's composer.`), i18n._(msg`Agent`));
         }
       },
       "synara:agent-permission-mode": (data) => {
