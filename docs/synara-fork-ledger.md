@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-10-24 against upstream
 `v1.0.8` (`d7542782fd52a1dedf9634e1765ab62fa60e259f`), the current integration changes
-**768 files, +86,958 / −8,470 lines**. It carries embedded-workspace UI, a skills manager,
+**768 files, +87,020 / −8,470 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -55,7 +55,8 @@ Only the panel's focused chat answers, so a side chat or a second split pane nev
 The slide host context now types Open Slide's `pendingComments` and `previewUrl`: a malformed comment or link is dropped on its own instead of the snapshot, and the composer's context details count the comments ("3 comments", zh-CN "3 条评论").
 
 The panel posts `synara:turn-activity` (version 1) for its active thread, so Lattice can show the agent at work on an Open Slide canvas: `state` is `running` while the latest turn is live, `waiting` while that turn has a pending approval or question, and `idle` once it completes, is interrupted or fails.
-It also names the `workspaceRoot`, `threadId`, `turnId` and the session's `provider` (`id` is Synara's provider kind such as `claudeAgent` or `codex`, `label` its display name such as "Claude"), and, while a tool call is in flight, `tool` with its title, a one-line read target or command as `detail`, and the file paths it reads or writes relative to the workspace root (paths outside it are dropped); no tool input contents or output are sent.
+It also names the `workspaceRoot`, `threadId`, `turnId` and the session's `provider` (`id` is Synara's provider kind such as `claudeAgent` or `codex`, `label` its display name such as "Claude"), and, while a tool call is in flight, `tool` with its title, a one-line read target or command as `detail`, and the file paths it reads or writes relative to the workspace root (an edit's files, or the file a shell command such as Codex's `sed -n 1,5p` reads; paths outside the workspace are dropped); no tool input contents or output are sent.
+A tool that starts and ends between two sends is never reported in flight.
 Messages go out at most four a second and the trailing one is always the current state, so the final `idle` is never lost; a thread the panel switches away from, or a closed chat view's, gets an `idle` first, and a remounted chat view re-sends its state once.
 
 ## Synara 0.9.1 compatibility
