@@ -4,11 +4,17 @@ import { paperKey, toMessage } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { baseArxivId } from "../papers/arxiv-id";
 
-type PaperLibrarySearchHit = {
-  arxivId?: string | null;
-  title: string;
-  snippet: string;
-};
+/** A line of a paper that matched, around its first match; `highlights` are `[from, to)` ranges of `text`. */
+export type PaperLineHit = { path: string; line: number; text: string; highlights?: [number, number][] };
+
+/**
+ * A paper the full-text index matched (`search_paper_library`), keyed by its
+ * library key (the arXiv id or bundle key), with its best lines first.
+ */
+export type PaperTextMatch = { key: string; titleMatch?: boolean; hits?: PaperLineHit[] };
+
+/** A match and its place in the index's ranking. */
+export type RankedTextMatch = PaperTextMatch & { rank: number };
 
 export type RecentPaperImport = { query: string; citationKey?: string; arxivId: string };
 
@@ -40,14 +46,15 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
 
 /**
  * Metadata matches, full-text matches, and the just-confirmed import, with the
- * import first and title matches ahead of the rest; ties keep library order.
- * An `order` (a sort the writer chose) replaces the title-match ranking; the
- * import still leads.
+ * import first. Then the title matches (exact, then prefix, then anywhere),
+ * the other metadata matches, and the papers only their text matched; within
+ * each, the index's relevance order, then library order. An `order` (a sort the
+ * writer chose) replaces that ranking; the import still leads.
  */
 export function rankPapers(
   papers: readonly PaperSummary[],
   input: string,
-  textHits: ReadonlyMap<string, PaperLibrarySearchHit>,
+  textMatches: ReadonlyMap<string, RankedTextMatch>,
   recentImport: RecentPaperImport | null | undefined,
   order?: (a: PaperSummary, b: PaperSummary) => number,
 ): PaperSummary[] {
@@ -58,19 +65,21 @@ export function rankPapers(
       : recentImport.arxivId && baseArxivId(recentImport.arxivId) === baseArxivId(paper.arxivId)
   ));
   const lowered = query.toLocaleLowerCase();
+  const textRank = (paper: PaperSummary) => textMatches.get(paperSearchIdentity(paper))?.rank ?? Infinity;
   const relevance = (paper: PaperSummary) => {
     const title = paper.title.trim().toLocaleLowerCase();
     if (title === lowered) return 4;
     if (title.startsWith(lowered)) return 3;
     if (title.includes(lowered)) return 2;
-    return metadataMatches.has(paperKey(paper)) ? 1 : 0;
+    if (metadataMatches.has(paperKey(paper))) return 1;
+    return textRank(paper) < Infinity ? 0.5 : 0;
   };
   return papers.map((paper, index) => ({ paper, index }))
     .filter(({ paper }) => (
-      metadataMatches.has(paperKey(paper)) || textHits.has(paperSearchIdentity(paper)) || isRecent(paper)
+      metadataMatches.has(paperKey(paper)) || textMatches.has(paperSearchIdentity(paper)) || isRecent(paper)
     ))
     .sort((a, b) => Number(isRecent(b.paper)) - Number(isRecent(a.paper))
-      || (order ? order(a.paper, b.paper) : relevance(b.paper) - relevance(a.paper))
+      || (order ? order(a.paper, b.paper) : relevance(b.paper) - relevance(a.paper) || textRank(a.paper) - textRank(b.paper))
       || a.index - b.index)
     .map(({ paper }) => paper);
 }
@@ -86,16 +95,20 @@ export type PaperTextSearchStatus = "idle" | "pending" | "searching" | "failed" 
 /** A full-text pass this long under way is said to be under way: a quicker one never shows its status. */
 const SEARCHING_NOTICE_MS = 400;
 
-type SettledSearch = { query: string; attempt: number; hits: PaperLibrarySearchHit[]; error?: string };
+type SettledSearch = { query: string; attempt: number; hits: PaperTextMatch[]; error?: string };
 
 /**
- * Debounced full-text search over the local paper cache, keyed by paper
- * identity (first hit wins). Hits for an older query are never returned.
+ * Debounced full-text search over the local paper cache: the matched papers
+ * by library key, each with its rank. Hits for an older query are never
+ * returned.
+ * `text` is the box as typed: the index matches its last word as a prefix
+ * until a space follows it, so a trailing space is sent, though the query
+ * the hits answer is the trimmed text.
  * `searchNow` skips the debounce for the current query (Enter in the box);
  * `retry` runs a failed search again.
  */
-export function usePaperTextSearch(query: string): {
-  hits: ReadonlyMap<string, PaperLibrarySearchHit>;
+export function usePaperTextSearch(text: string): {
+  hits: ReadonlyMap<string, RankedTextMatch>;
   status: PaperTextSearchStatus;
   error?: string;
   searchNow: () => void;
@@ -106,6 +119,8 @@ export function usePaperTextSearch(query: string): {
   const [attempt, setAttempt] = useState(0);
   const [slow, setSlow] = useState<{ query: string; attempt: number } | null>(null);
   const runNow = useRef<(() => void) | null>(null);
+  const query = text.trim();
+  const sent = query && /\s$/.test(text) ? `${query} ` : query;
   useEffect(() => {
     if (!query) return;
     let disposed = false;
@@ -114,7 +129,7 @@ export function usePaperTextSearch(query: string): {
       if (started) return;
       started = true;
       window.clearTimeout(timer);
-      void invoke<PaperLibrarySearchHit[]>("search_paper_library", { query })
+      void invoke<PaperTextMatch[]>("search_paper_library", { query: sent })
         .then((hits) => {
           if (!disposed) setSettled({ query, attempt, hits: Array.isArray(hits) ? hits : [] });
         })
@@ -133,7 +148,7 @@ export function usePaperTextSearch(query: string): {
       window.clearTimeout(timer);
       window.clearTimeout(notice);
     };
-  }, [query, attempt]);
+  }, [query, sent, attempt]);
   const searchNow = useCallback(() => runNow.current?.(), []);
   const retry = useCallback(() => {
     setAttempt((value) => value + 1);
@@ -141,14 +156,7 @@ export function usePaperTextSearch(query: string): {
     setSlow({ query, attempt: attempt + 1 });
   }, [query, attempt]);
   const current = settled.query === query;
-  const hits = useMemo(() => {
-    const firstHit = new Map<string, PaperLibrarySearchHit>();
-    for (const hit of current ? settled.hits : []) {
-      const identity = paperSearchIdentity(hit);
-      if (!firstHit.has(identity)) firstHit.set(identity, hit);
-    }
-    return firstHit;
-  }, [current, settled.hits]);
+  const hits = useMemo(() => new Map((current ? settled.hits : []).map((match, rank) => [match.key, { ...match, rank }])), [current, settled.hits]);
   let status: PaperTextSearchStatus;
   if (!query) status = "idle";
   else if (current && settled.attempt === attempt) status = settled.error === undefined ? "done" : "failed";

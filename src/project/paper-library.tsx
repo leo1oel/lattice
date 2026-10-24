@@ -1,28 +1,21 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowDown, ArrowDownUp, ArrowRight, ArrowUpRight, Check, CircleAlert, CornerDownLeft, ExternalLink, File, FileDown, FileText, FolderOpen, Globe, ListFilter, Pencil, Plus, X } from "lucide-react";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
-import { Badge } from "../components/ui/badge";
+import { ArrowDown, ArrowRight, Check, CornerDownLeft, Plus, X } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { ListTool } from "../components/ui/list-tool";
-import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
 import { SearchField } from "../components/ui/search-field";
 import { paperKey, toMessage } from "../app-utils";
 import { notifyError } from "../telemetry/app-notify";
 import type { PaperSummary } from "../app-types";
+import type { PaperView } from "../app/paper-documents";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import { formatCount } from "../i18n";
 import { findInLibrary, identityOfInput, referenceKind, type ReferenceKind } from "../papers/paper-add";
-import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
-import { paperLinkUrl, paperPdfUrl } from "../papers/paper-source";
+import { paperLinkUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
-import { beginPaperDrag } from "../papers/paper-drag";
-import { citationHealthLabel, citationHealthParts, citationHealthTitle } from "./citation-health";
-import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
+import { paperSearchIdentity, rankPapers, usePaperTextSearch, type PaperLineHit, type RecentPaperImport } from "./paper-library-search";
 import {
   groupPapers, paperFilter, paperOrder, paperReadingState, readablePaper, usePaperFacts,
   type PaperFilter, type PaperGroup, type PaperSort,
@@ -35,10 +28,13 @@ import { ResearchArt } from "../components/ui/research-art";
 import { CARD_INDEX } from "../components/ui/research-art-card-index";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { PaperInspector } from "./paper-inspector";
+import { PaperListToolbar } from "./paper-list-toolbar";
+import { PaperLoadStatus, PaperTextSearchStatus } from "./paper-library-status";
+import { PaperRow, type PaperFetchState } from "./paper-row";
 import { usePaperListWindow, type RowSpan } from "./paper-list-window";
+import { usePaperListKeys } from "./paper-list-keys";
 import type { SymbolOccurrence } from "./references-panel";
 
-type PaperFetchState = "loading" | "success";
 
 export type PaperLibraryProps = {
   projectKey: string;
@@ -58,7 +54,8 @@ export type PaperLibraryProps = {
   citationUsageRevision?: unknown;
   activePaper: PaperSummary | null;
   onReveal: (path: string) => void;
-  onPaper: (paper: PaperSummary) => void;
+  /** Opens a paper, at a line of one of its reading files when a search hit names one. */
+  onPaper: (paper: PaperSummary, at?: { view: PaperView; line: number }) => void;
   onLikelyPaper?: (paper: PaperSummary) => void;
   onFetchFullText: (paper: PaperSummary) => void;
   /** Stops the downloads under way; each paper is left as it was. */
@@ -91,28 +88,6 @@ function isJustAdded(paper: PaperSummary, justAdded: ReadonlySet<string> | undef
   return Boolean(justAdded && ((paper.citationKey && justAdded.has(paper.citationKey)) || (paper.arxivId && justAdded.has(paper.arxivId))));
 }
 
-/** A page cited by its address: no arXiv preprint, no DOI, not a PDF. */
-function webPagePaper(paper: PaperSummary): boolean {
-  if (!paper.url || paper.doi || paperPdfUrl({ arxivId: paper.arxivId })) return false;
-  return !/\.pdf(?:$|[?#])/i.test(paper.url);
-}
-
-/**
- * The row's leading glyph, on the Project tree's icon gutter: what a click
- * opens. A page with lines is a paper to read; an arrow, one that downloads
- * first; a blank page, a citation with nothing to open; a globe, a web page.
- * The shapes differ, so the ink can stay the one secondary grey.
- */
-function paperGlyph(paper: PaperSummary, fetchState: PaperFetchState | undefined): ReactNode {
-  if (fetchState === "loading") return <InfinityLoader size={12} />;
-  if (webPagePaper(paper)) return <Globe size={14} />;
-  if (fetchState === "success") return <FileText size={14} />;
-  const state = paperReadingState(paper);
-  return state === "fullText" ? <FileText size={14} /> : state === "downloadable" ? <FileDown size={14} /> : <File size={14} />;
-}
-
-/** Whether a click on `paper` opens or fetches something. */
-const canActivate = (paper: PaperSummary) => readablePaper(paper) || Boolean(paper.arxivId || paper.url);
 
 /** The width of the list and inspector together from which a selected paper shows its inspector. */
 const INSPECTOR_MIN_WIDTH = 860;
@@ -178,9 +153,11 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const fetching = !props.importing && Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(fetching || props.importing, props.importStageId);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  /** Moves the keyboard from the box to the first paper; false with nothing to move to. */
+  const focusListRef = useRef<(() => boolean) | null>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
-  const textSearch = usePaperTextSearch(query);
+  const textSearch = usePaperTextSearch(props.importInput);
   const { hits: textHits, searchNow } = textSearch;
   // An empty list is the empty library only once it has been read, and no
   // Overleaf sync that may be bringing the bibliography is still under way.
@@ -298,6 +275,16 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 props.onCancelFetch();
                 return;
               }
+              // Escape empties the box; the down arrow goes on to the results.
+              if (event.key === "Escape" && !isComposing(event) && props.importInput && !fetching) {
+                event.preventDefault();
+                props.setImportInput("");
+                return;
+              }
+              if (event.key === "ArrowDown" && !isComposing(event) && focusListRef.current?.()) {
+                event.preventDefault();
+                return;
+              }
               if (event.key !== "Enter" || isComposing(event)) return;
               event.preventDefault();
               if (kind && kind !== "title") addPaper();
@@ -339,7 +326,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </div>
           )}
         </div>
-        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} textSearch={textSearch} addRows={addRows} hasKind={Boolean(kind)} /> : (
+        {props.papers.length ? <PaperShelf {...props} query={query} textHits={textHits} textSearch={textSearch} addRows={addRows} hasKind={Boolean(kind)} searchInputRef={importInputRef} focusListRef={focusListRef} /> : (
           <ScrollArea
             ref={observeListSteps}
             className="paper-list"
@@ -384,65 +371,6 @@ function useFirstSyncWhileEmpty(projectKey: string, syncing: boolean): boolean {
 }
 
 /**
- * The library while its list is not there yet: one quiet line where the rows
- * will be, on their icon gutter, or why the read failed and a retry. Never
- * the empty library's invitation, which would say a library being read is
- * empty.
- */
-function PaperLoadStatus({ load, syncing, onRetry }: {
-  load: PaperLibraryProps["load"];
-  syncing: boolean;
-  onRetry?: () => void;
-}) {
-  const { t } = useLingui();
-  if (load?.status === "error") {
-    return (
-      <div className="papers-load-status" data-state="error" role="status">
-        <CircleAlert size={14} className="papers-load-icon" aria-hidden="true" />
-        <span className="papers-load-text">
-          <strong>{t`Couldn’t read your references`}</strong>
-          <span className="papers-load-detail" title={load.error}>{load.error}</span>
-        </span>
-        {onRetry && <Button size="compact" onClick={onRetry}>{t`Try again`}</Button>}
-      </div>
-    );
-  }
-  return (
-    <div className="papers-load-status" role="status">
-      <span className="papers-load-icon"><InfinityLoader size={12} /></span>
-      <span className="papers-load-text">{syncing ? t`Syncing references…` : t`Loading references…`}</span>
-    </div>
-  );
-}
-
-/**
- * Where the full-text half of a search has got, above what it found: the
- * list shows metadata matches at once, and a slow or failed pass over the
- * saved text says so, so a short list (or none) is not read as the library
- * lacking the paper. A quick pass, the usual case, never shows this.
- */
-function PaperTextSearchStatus({ search }: { search: ReturnType<typeof usePaperTextSearch> }) {
-  const { t } = useLingui();
-  if (search.status === "failed") {
-    const label = t`Saved-text search unavailable`;
-    return (
-      <div className="paper-text-search" data-state="failed" role="status">
-        <CircleAlert size={13} className="paper-add-icon" aria-hidden="true" />
-        <span className="paper-text-search-text" title={search.error ? `${label}\n${search.error}` : label}>{label}</span>
-        <Button size="compact" onClick={search.retry}>{t`Try again`}</Button>
-      </div>
-    );
-  }
-  if (search.status !== "searching") return null;
-  return (
-    <div className="paper-text-search" role="status">
-      <span className="paper-add-icon"><InfinityLoader size={12} /></span>
-      <span className="paper-text-search-text">{t`Searching saved text…`}</span>
-    </div>
-  );
-}
-
-/**
  * The library once it holds a paper: how many, how they are filtered, sorted
  * and grouped, and the list itself. Its own component, so an empty library
  * (every startup without papers) runs none of it.
@@ -455,6 +383,9 @@ function PaperShelf(props: PaperLibraryProps & {
   addRows: (matches: number) => ReactNode;
   /** The box holds something to add, which the add rows answer in place of the empty state. */
   hasKind: boolean;
+  /** The search box, which the up arrow from the first paper and Escape return to. */
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  focusListRef: RefObject<(() => boolean) | null>;
 }) {
   const { query, textHits } = props;
   const { t } = useLingui();
@@ -518,43 +449,19 @@ function PaperShelf(props: PaperLibraryProps & {
   const inspectedLink = inspected && paperLinkUrl(inspected);
   const total = props.papers.length;
   const emptyState = filteredPapers.length || props.hasKind ? null : t`No matching papers`;
-  const sortLabels: Record<PaperSort, string> = {
-    title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
-  };
-  const filterLabels: Record<PaperFilter, string> = {
-    all: t`All papers`,
-    cited: t`Cited in this paper`,
-    uncited: t`Not cited yet`,
-    fullText: t`With full text`,
-    flagged: t`Flagged`,
-  };
-  const groupLabels: Record<PaperGroup, string> = { none: t`No grouping`, year: t`Year`, venue: t`Venue`, state: t`Reading state` };
   const stateLabels: Record<string, string> = { fullText: t`Full text`, downloadable: t`Not downloaded`, citation: t`Citation only` };
   const sections = groupPapers(filteredPapers, group, facts, (value) => (
     group === "state" ? stateLabels[value] : value || (group === "year" ? t`No year` : t`No venue`)
   ));
-  const sortOn = sort !== "title" || group !== "none";
   // Every paper's key in the order the list shows them, and where each group
   // starts: a long list draws only the rows near the view.
   const rowKeys = sections.flatMap((section) => section.papers.map(paperKey));
   const groupStarts = sections.map((_, sectionIndex) => sections.slice(0, sectionIndex).reduce((count, earlier) => count + earlier.papers.length, 0));
   const rowWindow = usePaperListWindow(viewportRef, rowKeys, groupStarts);
 
-  // Tab walks every control of every paper; the arrows, Home and End move
-  // between papers, across groups, landing where a click on the row would.
-  // A paper the list has not drawn yet is drawn first.
-  const movePaperFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[event.key];
-    if (step === undefined || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
-    const from = rowKeys.indexOf((event.target as Element).closest<HTMLElement>(".paper-row[data-paper-key]")?.dataset.paperKey ?? "");
-    if (from < 0) return;
-    const to = Math.max(0, Math.min(rowKeys.length - 1, Number.isFinite(step) ? from + step : step > 0 ? rowKeys.length - 1 : 0));
-    const controlIn = (row: HTMLElement) => row.querySelector<HTMLElement>(".paper-open:not(:disabled)")
-      ?? row.querySelector<HTMLElement>("button:not(:disabled)");
-    const drawn = rowWindow.rowOf(rowKeys[to]!);
-    if (drawn && !controlIn(drawn)) return;
-    event.preventDefault();
-    rowWindow.reveal(to, (row) => controlIn(row)?.focus({ preventScroll: true }));
+  const movePaperFocus = usePaperListKeys(rowKeys, rowWindow, props.searchInputRef, props.focusListRef);
+  const openHit = (paper: PaperSummary, hit: PaperLineHit) => {
+    props.onPaper(paper, { view: hit.path.endsWith("/blog.md") ? "blog" : "fulltext", line: hit.line });
   };
   /** Rows `from`…`to` of the list as the window draws them: the rows near the view, and gaps for the rest. */
   const drawRows = (papers: readonly PaperSummary[], from: number) => {
@@ -614,7 +521,7 @@ function PaperShelf(props: PaperLibraryProps & {
       fetchState={props.paperFetchStates[paperKey(paper)]}
       venue={facts.venue(paper)}
       uses={facts.uses(paper)}
-      snippet={textHits.get(paperSearchIdentity(paper))?.snippet.trim()}
+      match={textHits.get(paperSearchIdentity(paper))}
       active={Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper))}
       selected={wide && selectedKey === paperKey(paper)}
       wide={wide}
@@ -629,121 +536,37 @@ function PaperShelf(props: PaperLibraryProps & {
       onEditBibEntry={props.onEditBibEntry}
       onDelete={props.onDeletePaper}
       onReveal={props.onReveal}
+      onOpenHit={openHit}
     />
   );
 
-  const shown = formatCount(filteredPapers.length);
-  const totalText = formatCount(total);
   return (
     <>
-        {/* How many papers the list holds, and how it is narrowed, ordered
-            and grouped. The count stands for what is shown, so a search or a
-            filter reads as "3 of 7", and "3/7" where that does not fit. A
-            narrow panel keeps the two tools as icons, each with a dot once
-            it is set; an active filter is also a chip that clears it. */}
-        <div className="paper-list-toolbar">
-            <p className="paper-list-count">
-              <span className="paper-count-long">
-                {filteredPapers.length !== total
-                  ? filteredPapers.length === 1
-                    ? t({ message: `1 of ${{ total: totalText }} papers` })
-                    : t({ message: `${{ filtered: shown }} of ${{ total: totalText }} papers` })
-                  : total === 1
-                    ? t`1 paper`
-                    : t({ message: `${{ count: totalText }} papers` })}
-              </span>
-              <span className="paper-count-short" aria-hidden="true">
-                {filteredPapers.length !== total ? `${shown}/${totalText}` : totalText}
-              </span>
-            </p>
-            {/* Not modal, as the app's other menus are: a modal menu hides the
-                whole window from assistive tech and locks its scrolling as it
-                opens, which in WebKit held the menu back by about 50ms. */}
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                {/* The filter's name is the chip under the toolbar, which clears it. */}
-                <ListTool
-                  icon={<ListFilter size={14} aria-hidden="true" />}
-                  label={t`Filter`}
-                  on={shownFilter !== "all"}
-                  name={shownFilter === "all" ? t`Filter papers` : t({ message: `Filter papers: ${{ filter: filterLabels[shownFilter] }}` })}
-                  title={t`Filter papers`}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="paper-menu">
-                {(Object.keys(filterLabels) as PaperFilter[]).map((value) => (
-                  <DropdownMenuItem
-                    key={value}
-                    role="menuitemradio"
-                    aria-checked={shownFilter === value}
-                    disabled={!usesKnown && (value === "cited" || value === "uncited")}
-                    onSelect={() => setFilter(value)}
-                  >
-                    <span className="paper-menu-check">{shownFilter === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{filterLabels[value]}</span>
-                    <span className="paper-menu-count">{formatCount(filterCounts[value])}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <ListTool
-                  icon={<ArrowDownUp size={14} aria-hidden="true" />}
-                  label={group !== "none" ? t`Group` : t`Sort`}
-                  value={group !== "none" ? groupLabels[group] : sortLabels[sort]}
-                  on={sortOn}
-                  name={t({ message: `Sort and group: ${{ order: group !== "none" ? groupLabels[group] : sortLabels[sort] }}` })}
-                  title={t`Sort and group`}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="paper-menu">
-                <DropdownMenuLabel>{t`Group by`}</DropdownMenuLabel>
-                {(Object.keys(groupLabels) as PaperGroup[]).map((value) => (
-                  <DropdownMenuItem key={value} role="menuitemradio" aria-checked={group === value} onSelect={() => setGroup(value)}>
-                    <span className="paper-menu-check">{group === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{groupLabels[value]}</span>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>{t`Sort by`}</DropdownMenuLabel>
-                {(Object.keys(sortLabels) as PaperSort[]).map((value) => (
-                  <DropdownMenuItem
-                    key={value}
-                    role="menuitemradio"
-                    aria-checked={sort === value}
-                    disabled={!usesKnown && value === "cited"}
-                    onSelect={() => setSort(value)}
-                  >
-                    <span className="paper-menu-check">{sort === value && <Check size={14} />}</span>
-                    <span className="paper-menu-label">{sortLabels[value]}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        {shownFilter !== "all" && (
-          <div className="paper-chips">
-            <button
-              type="button"
-              className="paper-chip"
-              title={t`Clear filter`}
-              aria-label={t({ message: `Clear filter: ${{ filter: filterLabels[shownFilter] }}` })}
-              onClick={() => setFilter("all")}
-            >
-              <span>{filterLabels[shownFilter]}</span>
-              <X size={12} aria-hidden="true" />
-            </button>
-          </div>
-        )}
+        <PaperListToolbar
+          shown={filteredPapers.length}
+          total={total}
+          filter={shownFilter}
+          onFilter={setFilter}
+          filterCounts={filterCounts}
+          usesKnown={usesKnown}
+          sort={sort}
+          onSort={setSort}
+          group={group}
+          onGroup={setGroup}
+        />
         {/* The list, and beside it in a wide panel the selected paper's inspector. */}
         <div
           ref={bodyRef}
           className="paper-body"
           onKeyDown={(event) => {
-            if (event.key !== "Escape" || !inspected || event.defaultPrevented) return;
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            // The inspector closes first; then Escape ends the search where it began.
+            if (inspected) closeInspector();
+            else if (props.importInput) {
+              props.setImportInput("");
+              props.searchInputRef.current?.focus();
+            } else return;
             event.preventDefault();
-            closeInspector();
           }}
         >
         <ScrollArea
@@ -819,228 +642,6 @@ function PaperShelf(props: PaperLibraryProps & {
           />
         )}
         </div>
-    </>
-  );
-}
-
-type PaperRowProps = {
-  paper: PaperSummary;
-  /** The row's place in the whole list, for its ids. */
-  index: number;
-  rowId: string;
-  projectKey: string;
-  fetchState: PaperFetchState | undefined;
-  venue: string;
-  uses: number | null;
-  snippet: string | undefined;
-  active: boolean;
-  selected: boolean;
-  wide: boolean;
-  /** Added from this window: the row says so and keeps its key out to copy, in place of a toast. */
-  recent: boolean;
-  /** Set when the list draws only some rows: the ref that measures the row, and its place in its group for a screen reader. */
-  observe: ((row: HTMLElement | null) => (() => void) | undefined) | undefined;
-  position: number | undefined;
-  groupSize: number | undefined;
-  onLikely: ((paper: PaperSummary) => void) | undefined;
-  onSelect: (key: string) => void;
-  onActivate: (paper: PaperSummary) => void;
-  onOpenLink: (link: string) => void;
-  onEditBibEntry: (paper: PaperSummary) => void;
-  onDelete: (paper: PaperSummary) => void;
-  onReveal: (path: string) => void;
-};
-
-/**
- * One paper in the list. Its own component, so the rows a list re-render
- * leaves as they were are not drawn again: a long list's window moving as it
- * scrolls draws only the rows it brings in.
- */
-function PaperRow(props: PaperRowProps) {
-  const { t } = useLingui();
-  const { paper, index, rowId, fetchState, venue, uses, snippet, active, selected, wide, recent, observe, position, groupSize } = props;
-  const readable = readablePaper(paper);
-  const readingState = paperReadingState(paper);
-  const healthLabel = citationHealthLabel(paper.citationHealth);
-  const health = citationHealthParts(paper.citationHealth);
-  const healthTitle = citationHealthTitle(paper.citationHealth);
-  const authors = paperShortAuthors(paper);
-  const year = paper.year?.trim();
-  // A row names its paper by title, authors and year alone; where
-  // it came from stands in only when the entry records neither.
-  const source = authors || year ? null : paperSourceLabel(paper);
-  const citeKey = paper.citationKey;
-  const link = paperLinkUrl(paper);
-  const reportIntent = () => {
-    if (readable) props.onLikely?.(paper);
-  };
-  const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
-  // A short chip says what happened; who reported it and when
-  // follows in quiet type, which may give way to an ellipsis.
-  const healthBody = health && (
-    <>
-      <Badge size="compact" tone="warning" className="paper-tag">
-        {health.kind}
-        {noticeLink && <ArrowUpRight size={11} aria-hidden="true" />}
-      </Badge>
-      {health.detail && <span className="paper-citation-health-detail">{health.detail}</span>}
-    </>
-  );
-  const healthNotice = health && (noticeLink ? (
-    <button
-      className="paper-citation-health"
-      title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
-      aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
-      onClick={() => void openUrl(noticeLink).catch(() => undefined)}
-    >
-      {healthBody}
-    </button>
-  ) : (
-    <span className="paper-citation-health" role="status" title={healthTitle}>{healthBody}</span>
-  ));
-  const titleId = `${rowId}-${index}-title`;
-  const bylineId = `${rowId}-${index}-byline`;
-  const snippetId = `${rowId}-${index}-snippet`;
-  const factsId = `${rowId}-${index}-facts`;
-  const byline = Boolean(authors || year || venue || source);
-  // What the glyph and the count at the end say, for a screen reader.
-  const stateText = webPagePaper(paper)
-    ? t`Web page`
-    : readingState === "fullText" ? t`Full text in Papers`
-      : readingState === "downloadable" ? t`Full text downloads on click` : t`Citation only, no full text`;
-  const usesText = uses === null ? null
-    : uses ? t({ message: `Cited ${{ count: formatCount(uses) }}× in this paper` }) : t`Not cited in this paper yet`;
-  const row = (
-    <div
-      ref={observe}
-      role="listitem"
-      // A list that draws only some rows tells a screen reader how many it holds.
-      aria-setsize={groupSize}
-      aria-posinset={position === undefined ? undefined : position + 1}
-      data-paper-key={paperKey(paper)}
-      className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${recent ? "just-added " : ""}${active ? "active" : ""}`}
-      data-citation-health={paper.citationHealth?.kind}
-      data-reading={readingState}
-      data-item-selected={selected || undefined}
-      draggable
-      onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
-    >
-      {/* The button lies over the whole row, under its other
-          controls, and takes its name from the text beside it
-          (hidden, so it is read once); so the flags line opens the
-          paper too, and the notice there can be a link of its own.
-          What it holds, how often it is cited and its citation key
-          are its description, since the eye sees the key only on a
-          lit row. */}
-      <button
-        data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
-        title={readable
-          ? paper.title
-          : readingState === "citation" && paper.url
-            ? t`Open source page — no downloadable full text found`
-            : paper.arxivId
-              ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
-              : paper.url
-                ? t({ message: `Download ${{ url: paper.url }}` })
-                : t({ message: `${{ title: paper.title }} — no local reading available` })}
-        className="paper-open"
-        aria-labelledby={[titleId, byline && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
-        aria-describedby={factsId}
-        aria-current={active || undefined}
-        // Knowing the preprint is as good as having it: clicking
-        // fetches. A cited webpage is fetchable the same way. Wide, every
-        // paper can be selected, so none is disabled; the keyboard selects
-        // as it moves, as a pointer's first click does.
-        disabled={!wide && (fetchState === "loading" || !canActivate(paper))}
-        onPointerEnter={reportIntent}
-        onFocus={() => {
-          reportIntent();
-          if (wide) props.onSelect(paperKey(paper));
-        }}
-        onClick={(event) => {
-          if (wide && event.detail === 1) props.onSelect(paperKey(paper));
-          else props.onActivate(paper);
-        }}
-      />
-      <span className="paper-glyph" data-fetch={fetchState} aria-hidden="true">{paperGlyph(paper, fetchState)}</span>
-      <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
-      {/* A wide list's columns; a narrow one folds them into the byline. */}
-      <span className="paper-cell paper-cell-authors" aria-hidden="true">{authors || source}</span>
-      <span className="paper-cell paper-cell-year" aria-hidden="true">{year}</span>
-      <span className="paper-cell paper-cell-venue" aria-hidden="true">{venue}</span>
-      <span className="paper-uses" data-zero={uses === 0 || undefined} aria-hidden="true">
-        {uses === null ? null : uses ? `${formatCount(uses)}×` : "—"}
-      </span>
-      {/* The line under the title is the byline at rest. Hovered,
-          focused or open, the row's citation key (a button that
-          copies it) and its actions join it at the end, so they
-          never cover the title or change the row's height. */}
-      <div className="paper-meta">
-        {byline && (
-          <small id={bylineId} className="paper-byline" aria-hidden="true">
-            {authors && <span className="paper-authors">{authors}</span>}
-            {year && <span className="paper-year">{year}</span>}
-            {venue && <span className="paper-venue">{venue}</span>}
-            {source && <span className="paper-source">{source}</span>}
-          </small>
-        )}
-        <div className="paper-row-actions">
-          {citeKey && (
-            <CopyButton
-              className="paper-cite-key"
-              text={citeKey}
-              iconSize={11}
-              title={t`Copy citation key`}
-              aria-label={t({ message: `Copy citation key ${{ key: citeKey }}` })}
-            >
-              <code>{citeKey}</code>
-            </CopyButton>
-          )}
-          {link && (
-            <button className="row-open-link" title={t`Open link in browser`} aria-label={t({ message: `Open ${{ title: paper.title }} in browser` })} onClick={() => props.onOpenLink(link)}><ExternalLink size={14} /></button>
-          )}
-          {citeKey && (
-            <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={14} /></button>
-          )}
-          <DestructiveButton
-            className="row-delete"
-            title={t({ message: `Remove ${{ title: paper.title }}` })}
-            iconSize={14}
-            onClick={() => props.onDelete(paper)}
-          />
-        </div>
-      </div>
-      {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
-      {health && <div className="paper-tags">{healthNotice}</div>}
-      <span id={factsId} className="sr-only">
-        {[recent && t`Just added`, stateText, usesText, citeKey && t({ message: `Citation key ${{ key: citeKey }}` }), !healthLabel && healthTitle]
-          .filter(Boolean).join(". ")}
-      </span>
-    </div>
-  );
-  // The right-click menu opens the paper's web page, and one with a
-  // local file reveals it as a tree file's menu does; a paper with
-  // neither stays bare.
-  const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
-  return (
-    <>
-      {readable || link ? (
-        <ContextMenu>
-          <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-          <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-            {link && (
-              <ContextMenuItem onSelect={() => props.onOpenLink(link)}>
-                <ExternalLink size={14} />{t`Open link in browser`}
-              </ContextMenuItem>
-            )}
-            {readable && (
-              <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
-                <FolderOpen size={14} />{t`Show in Finder`}
-              </ContextMenuItem>
-            )}
-          </ContextMenuContent>
-        </ContextMenu>
-      ) : row}
     </>
   );
 }

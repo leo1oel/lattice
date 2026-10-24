@@ -103,6 +103,13 @@ lopdf = "0.42"
 # headings with the exact NFKD semantics of the editor's toWikiLinkSlug.
 unicode-normalization = "0.1"
 harper-core = { version = "2.7.0", default-features = false, features = ["concurrent"] }
+# Full-text search over the paper library (papers/search_index.rs). Without
+# the defaults: no zstd column compression or stop-word lists, which the
+# index does not use.
+tantivy = { version = "0.27", default-features = false, features = ["mmap", "lz4-compression", "stemmer"] }
+# Chinese word segmentation for that index; its dictionary is compiled in,
+# zstd-compressed, and loaded on the first Han text the index sees.
+jieba-rs = "0.11"
 notify = "8"
 scraper = "0.27"
 

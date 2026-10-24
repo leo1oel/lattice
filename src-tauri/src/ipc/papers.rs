@@ -4,8 +4,7 @@ use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
 use crate::citation_health::CitationHealth;
 use crate::literature::LiteraturePage;
-use crate::models::ProjectSearchResult;
-use crate::papers::{ImportResult, PaperSummary};
+use crate::papers::{ImportResult, PaperSummary, PaperTextMatch};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -146,7 +145,14 @@ pub async fn fetch_web_reference(
 pub async fn list_papers(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<PaperSummary>, String> {
-    in_project(&state, &window, "Paper scan", papers::list_papers).await
+    in_project(&state, &window, "Paper scan", |root| {
+        let listed = papers::list_papers(root)?;
+        // Every import, download and removal ends in a listing: the search
+        // after it should not wait for the index.
+        papers::refresh_search_index(root);
+        Ok(listed)
+    })
+    .await
 }
 
 /// The Papers panel's background recheck of what `list_papers` returned with
@@ -158,12 +164,13 @@ pub async fn refresh_citation_health(
     in_project(&state, &window, "Citation health check", papers::refresh_citation_health).await
 }
 
+/// The Papers panel's search: matching papers by relevance, with their lines.
 #[tauri::command]
 pub async fn search_paper_library(
     state: State<'_, AppState>, window: Window, query: String,
-) -> Result<Vec<ProjectSearchResult>, String> {
+) -> Result<Vec<PaperTextMatch>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Paper library search", move || papers::search_library(&root, &query)).await
+    run_blocking("Paper library search", move || papers::search_library_text(&root, &query)).await
 }
 
 #[tauri::command]

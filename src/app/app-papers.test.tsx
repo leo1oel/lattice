@@ -89,8 +89,8 @@ describe("papers", () => {
         },
       ],
       search_paper_library: (args) => (args as { query?: string } | undefined)?.query === "scaled dot-product" ? [{
-        kind: "paper", path: ".research/papers/1706.03762/paper.md", title: "Attention Is All You Need",
-        snippet: "The scaled dot-product attention mechanism.", line: 42, arxivId: "1706.03762",
+        key: "1706.03762", hits: [{ path: ".research/papers/1706.03762/paper.md", line: 42,
+        text: "The scaled dot-product attention mechanism." }],
       }] : [],
     });
     const search = await screen.findByRole("searchbox", { name: "Search or import papers" });

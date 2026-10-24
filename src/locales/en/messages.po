@@ -361,6 +361,10 @@ msgstr "{count} marker"
 msgid "{count} markers"
 msgstr "{count} markers"
 
+#: src/project/paper-text-hits.tsx
+msgid "{count} more"
+msgstr "{count} more"
+
 #: src/project/arxiv-export.ts
 msgid "{count} pages"
 msgstr "{count} pages"
@@ -369,7 +373,7 @@ msgstr "{count} pages"
 msgid "{count} panels. Double-click to zoom in."
 msgstr "{count} panels. Double-click to zoom in."
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
@@ -502,7 +506,7 @@ msgstr "{fileCount} file"
 msgid "{fileCount} files"
 msgstr "{fileCount} files"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
@@ -668,7 +672,7 @@ msgid "{notes} notes"
 msgstr "{notes} notes"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
@@ -758,7 +762,7 @@ msgstr "{target} has not been changed."
 msgid "{title} — full text"
 msgstr "{title} — full text"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — no local reading available"
 
@@ -935,7 +939,7 @@ msgstr "1 not found"
 msgid "1 note"
 msgstr "1 note"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
@@ -952,7 +956,7 @@ msgstr "1 page over"
 msgid "1 page remaining"
 msgstr "1 page remaining"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
@@ -1447,7 +1451,7 @@ msgstr "All highlights"
 msgid "All levels"
 msgstr "All levels"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "All papers"
 msgstr "All papers"
 
@@ -2757,7 +2761,7 @@ msgstr "Citation key"
 msgid "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 msgstr "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Citation key {key}"
 msgstr "Citation key {key}"
 
@@ -2771,7 +2775,7 @@ msgctxt "add a literature result as a bibliography entry only"
 msgid "Citation only"
 msgstr "Citation only"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Citation only, no full text"
 msgstr "Citation only, no full text"
 
@@ -2808,7 +2812,7 @@ msgstr "Cite bibliography entries"
 msgid "Cited"
 msgstr "Cited"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Cited {count}× in this paper"
 msgstr "Cited {count}× in this paper"
 
@@ -2828,7 +2832,7 @@ msgstr "Cited in"
 msgid "Cited in the paper, so it stays"
 msgstr "Cited in the paper, so it stays"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Cited in this paper"
 msgstr "Cited in this paper"
 
@@ -2867,11 +2871,11 @@ msgstr "Cleaning…"
 msgid "Clear"
 msgstr "Clear"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Clear filter"
 msgstr "Clear filter"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Clear filter: {filter}"
 msgstr "Clear filter: {filter}"
 
@@ -3363,11 +3367,11 @@ msgid "Copy \\cite command"
 msgstr "Copy \\cite command"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Copy citation key"
 msgstr "Copy citation key"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Copy citation key {key}"
 msgstr "Copy citation key {key}"
 
@@ -3637,7 +3641,7 @@ msgstr "Couldn’t reach the service"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "Couldn’t read the keychain. Reopen Settings to retry"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Couldn’t read your references"
 msgstr "Couldn’t read your references"
 
@@ -4144,7 +4148,7 @@ msgstr "Down arrow"
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Download {url}"
 msgstr "Download {url}"
 
@@ -4152,7 +4156,7 @@ msgstr "Download {url}"
 msgid "Download a new copy"
 msgstr "Download a new copy"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
 
@@ -4314,7 +4318,7 @@ msgstr "Edit before saving"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
@@ -4842,7 +4846,7 @@ msgid "Filled square"
 msgstr "Filled square"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter"
 msgstr "Filter"
 
@@ -4866,11 +4870,11 @@ msgstr "Filter highlights by colour"
 msgid "Filter languages"
 msgstr "Filter languages"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter papers"
 msgstr "Filter papers"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Filter papers: {filter}"
 msgstr "Filter papers: {filter}"
 
@@ -4962,7 +4966,7 @@ msgstr "Finishing setup…"
 msgid "Firecrawl"
 msgstr "Firecrawl"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "First author"
 msgstr "First author"
 
@@ -4994,7 +4998,7 @@ msgstr "Fixed"
 msgid "Fixes to review"
 msgstr "Fixes to review"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Flagged"
 msgstr "Flagged"
 
@@ -5160,11 +5164,11 @@ msgstr "Full release notes"
 msgid "Full text"
 msgstr "Full text"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Full text downloads on click"
 msgstr "Full text downloads on click"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Full text in Papers"
 msgstr "Full text in Papers"
 
@@ -5332,7 +5336,7 @@ msgstr "Green"
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Group"
 msgstr "Group"
 
@@ -5340,7 +5344,7 @@ msgstr "Group"
 msgid "Group a nested script in braces: write {grouped} rather than {flat}."
 msgstr "Group a nested script in braces: write {grouped} rather than {flat}."
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Group by"
 msgstr "Group by"
 
@@ -6097,7 +6101,7 @@ msgstr "Journal"
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Just added"
 msgstr "Just added"
 
@@ -6812,7 +6816,7 @@ msgstr "Loading project history…"
 msgid "Loading pull requests…"
 msgstr "Loading pull requests…"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Loading references…"
 msgstr "Loading references…"
 
@@ -7256,7 +7260,7 @@ msgstr "More editor status"
 msgid "More PDF actions"
 msgstr "More PDF actions"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "Most cited here"
 
@@ -7505,7 +7509,7 @@ msgid "Newer release"
 msgstr "Newer release"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Newest first"
 msgstr "Newest first"
 
@@ -7643,7 +7647,7 @@ msgstr "No file changes recorded for this update"
 msgid "No files match “{trimmedQuery}”"
 msgstr "No files match “{trimmedQuery}”"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "No grouping"
 msgstr "No grouping"
 
@@ -7952,11 +7956,11 @@ msgid "Not cited in any .tex file"
 msgstr "Not cited in any .tex file"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Not cited in this paper yet"
 msgstr "Not cited in this paper yet"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Not cited yet"
 msgstr "Not cited yet"
 
@@ -8237,7 +8241,7 @@ msgstr "Open {path} at line {0}"
 msgid "Open {title}"
 msgstr "Open {title}"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open {title} in browser"
 msgstr "Open {title} in browser"
 
@@ -8340,7 +8344,7 @@ msgid "Open in Overleaf"
 msgstr "Open in Overleaf"
 
 #: src/project/paper-inspector.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open link in browser"
 msgstr "Open link in browser"
 
@@ -8418,7 +8422,7 @@ msgstr "Open Slide is not ready"
 msgid "Open Slide sent an incomplete edit for {path}."
 msgstr "Open Slide sent an incomplete edit for {path}."
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Open source page — no downloadable full text found"
 msgstr "Open source page — no downloadable full text found"
 
@@ -9482,7 +9486,7 @@ msgstr "Reading {0}…"
 msgid "Reading figure usages…"
 msgstr "Reading figure usages…"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Reading state"
 msgstr "Reading state"
 
@@ -9724,7 +9728,7 @@ msgstr "Remove “{title}” from the bibliography?"
 msgid "Remove {0} files from the Overleaf project?"
 msgstr "Remove {0} files from the Overleaf project?"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Remove {title}"
 msgstr "Remove {title}"
 
@@ -10735,7 +10739,7 @@ msgstr "Saved to {path}"
 msgid "Saved version"
 msgstr "Saved version"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Saved-text search unavailable"
 msgstr "Saved-text search unavailable"
 
@@ -10855,7 +10859,7 @@ msgstr "Search the project for “{query}”"
 msgid "Search third-party software"
 msgstr "Search third-party software"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Searching saved text…"
 msgstr "Searching saved text…"
 
@@ -11113,7 +11117,7 @@ msgstr "Show hidden files"
 
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
@@ -11315,19 +11319,19 @@ msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
 #: src/papers/bib-visual-editor.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort"
 msgstr "Sort"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort and group"
 msgstr "Sort and group"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort and group: {order}"
 msgstr "Sort and group: {order}"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Sort by"
 msgstr "Sort by"
 
@@ -11765,7 +11769,7 @@ msgstr "Sync with Overleaf"
 msgid "Synced {synced}"
 msgstr "Synced {synced}"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 msgid "Syncing references…"
 msgstr "Syncing references…"
 
@@ -12553,6 +12557,7 @@ msgstr "Tip"
 #: src/papers/bib-visual-editor.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Title"
 msgstr "Title"
 
@@ -12690,7 +12695,7 @@ msgstr "Triangle right"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/papers/linked-library-sheet.tsx
-#: src/project/paper-library.tsx
+#: src/project/paper-library-status.tsx
 #: src/terminal/terminal-panel.tsx
 msgid "Try again"
 msgstr "Try again"
@@ -13141,6 +13146,7 @@ msgstr "Vector arrow over a symbol"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Venue"
 msgstr "Venue"
 
@@ -13332,6 +13338,7 @@ msgid "Warning"
 msgstr "Warning"
 
 #: src/project/paper-library.tsx
+#: src/project/paper-row.tsx
 msgid "Web page"
 msgstr "Web page"
 
@@ -13428,7 +13435,7 @@ msgctxt "macOS menu bar"
 msgid "Window"
 msgstr "Window"
 
-#: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "With full text"
 msgstr "With full text"
 
@@ -13549,6 +13556,7 @@ msgstr "Xi"
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 #: src/project/paper-library.tsx
+#: src/project/paper-list-toolbar.tsx
 msgid "Year"
 msgstr "Year"
 

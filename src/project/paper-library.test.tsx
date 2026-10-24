@@ -74,6 +74,9 @@ function renderLibrary(overrides?: Partial<PaperLibraryProps>) {
   };
 }
 
+/** A paper the full-text index matched, by its one line. */
+const textMatch = (key: string, text: string) => ({ key, hits: [{ path: `.research/papers/${key}/paper.md`, line: 3, text }] });
+
 const searchbox = () => screen.getByRole("searchbox", { name: "Search or import papers" });
 /** The full-text searches, apart from the scan of where the manuscript cites each paper. */
 const searchCalls = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "search_paper_library");
@@ -282,7 +285,7 @@ describe("PaperLibrary", () => {
     const titleMatch = { ...vit, citationKey: "evaluating", arxivId: "2501.00002", title: "Evaluating S-Space representations" };
     const exact = { ...vit, citationKey: "exact", arxivId: "2501.00003", title: "S-Space" };
     vi.mocked(invoke).mockResolvedValue([
-      { arxivId: attention.arxivId, title: attention.title, snippet: "We evaluate s-space representations." },
+      textMatch(attention.arxivId, "We evaluate s-space representations."),
     ]);
     const { search } = renderLibrary({ papers: [attention, metadata, titleMatch, spatial, exact] });
     search("s-space");
@@ -334,7 +337,7 @@ describe("PaperLibrary", () => {
   it("searches the full text at once on Enter, but not while an IME candidate is confirmed", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockResolvedValue([
-      { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "scaled dot-product" },
+      textMatch("1706.03762", "scaled dot-product"),
     ]);
     const { search } = renderLibrary();
     search("dot-product");
@@ -443,7 +446,7 @@ describe("PaperLibrary", () => {
   it("waits for a pause in typing, then adds papers whose text matched even when their metadata did not", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockResolvedValue([
-      { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "  scaled dot-product  " },
+      textMatch("1706.03762", "  scaled dot-product  "),
     ]);
     const { search } = renderLibrary();
 
@@ -460,6 +463,23 @@ describe("PaperLibrary", () => {
     expect(screen.getByText("scaled dot-product")).toBeInTheDocument();
   });
 
+  it("searches the word being typed as typed, and again as a whole word once a space follows it", async () => {
+    vi.useFakeTimers();
+    vi.mocked(invoke).mockResolvedValue([textMatch("1706.03762", "scaled dot-product")]);
+    const { search } = renderLibrary();
+
+    search("  dot-product");
+    await settleTextSearch();
+    search("dot-product   ");
+    await settleTextSearch();
+
+    expect(searchCalls()).toEqual([
+      ["search_paper_library", { query: "dot-product" }],
+      ["search_paper_library", { query: "dot-product " }],
+    ]);
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+  });
+
   it("keeps filtering by metadata when the full-text index cannot be read", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockRejectedValue(new Error("index missing"));
@@ -473,7 +493,7 @@ describe("PaperLibrary", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Saved-text search unavailable");
     expect(screen.getByText("Saved-text search unavailable")).toHaveAttribute("title", "Saved-text search unavailable\nindex missing");
 
-    vi.mocked(invoke).mockResolvedValue([{ arxivId: "2010.11929", title: "An Image Is Worth 16x16 Words", snippet: "attention maps" }]);
+    vi.mocked(invoke).mockResolvedValue([textMatch("2010.11929", "attention maps")]);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     // The retry is said at once, in place of the failure it answers.
     expect(screen.getByRole("status")).toHaveTextContent("Searching saved text…");
@@ -503,7 +523,7 @@ describe("PaperLibrary", () => {
     expect(screen.getByText("Searching saved text…")).toBeInTheDocument();
     expect(document.querySelector(".paper-list")).toHaveAttribute("aria-busy", "true");
 
-    await act(async () => { answer([{ arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "scaled dot-product" }]); });
+    await act(async () => { answer([textMatch("1706.03762", "scaled dot-product")]); });
     expect(paperTitles()).toEqual(["Attention Is All You Need"]);
     expect(screen.queryByText("Searching saved text…")).toBeNull();
     expect(document.querySelector(".paper-list")).not.toHaveAttribute("aria-busy");
