@@ -64,7 +64,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1MkFFM0U0NkFFOEM4OTIKUldTU3lPaHE1T01xTlV4dUozZGVvRUhxcVpJREl1aVJsRkpiYVl4aWttcjJseENQTnBLSzI4VzgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI5ODRBNEY3QUNGNkY1MUIKUldRYjlmYXM5NlNFdWRIaFRlT3ZmUHNyd3NhQ1BabkROOXl6SnpGeTk5WnNYY1FickwxM08xUjUK",
       "endpoints": [
         "https://github.com/leo1oel/lattice/releases/latest/download/latest.json"
       ]

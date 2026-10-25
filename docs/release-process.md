@@ -217,31 +217,42 @@ fork's build (above).
 
 ## Rotating the updater signing key
 
-**Read this before the first public release.**
+**Last rotated 2026-10-25** (new minisign key ID `B984A4F7ACF6F51B`).
 
-The key pair currently in use was generated in a third party's temporary
-environment (this is stated plainly in the setup notes this document replaces),
-and the private key was delivered to the maintainer as a file. It has **never
-been rotated**: the `plugins.updater.pubkey` value in
-`src-tauri/tauri.conf.json` has exactly one commit in its history. Its password
-is the empty string.
+The previous key pair (key ID `352AE3E46AE8C892`) was generated in a third
+party's temporary environment (this is stated plainly in the setup notes this
+document replaces), delivered to the maintainer as a file, never rotated, and
+had an empty password. Anyone who still holds a copy of it can sign an artifact
+that every install of 0.12.0 or earlier accepts as a legitimate update, which
+is why it was replaced. Deleting the old documentation does not remove it from
+git history, and the private key's exposure has nothing to do with this
+repository's contents anyway; rotation was the only mitigation.
 
-Anyone who still holds a copy of that private key can sign an artifact that
-every installed Lattice will accept as a legitimate update. Rotation is the only
-mitigation — deleting the old documentation does not remove it from git history,
-and the private key's exposure has nothing to do with this repository's
-contents anyway.
+The current private key has a password. The maintainer generated it locally and
+keeps the key and its password in `~/.lattice-secrets/updater-2026-10/` on
+their Mac (outside every repository), in the `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` GitHub secrets, and in an offline backup.
+Nothing else holds a copy.
+
+The first release built after the rotation has to carry the reinstall warning
+from step 5 below. A lead that can go into its `.github/release-notes/vX.Y.Z.md`:
+
+> **Please download and install this version manually, once.** This release is
+> signed with a new update key. Copies of Lattice 0.12.0 and earlier only
+> trust the old key, so they will not offer this update automatically. Download
+> the DMG from this page and install it over your current copy; your projects
+> and settings are kept, and automatic updates resume from here on.
 
 Runbook:
 
 1. Generate a new pair:
 
    ```bash
-   pnpm tauri signer generate -w ~/.lattice/updater.key
+   pnpm tauri signer generate -w ~/.lattice-secrets/updater-YYYY-MM/updater.key
    ```
 
-   Set a real password this time; the empty-string password is why
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is currently blank.
+   Set a strong password, and write the private key outside every repository
+   and worktree.
 
 2. Put the **public** key into `src-tauri/tauri.conf.json` under
    `plugins.updater.pubkey`. Commit that; it is meant to be public.
