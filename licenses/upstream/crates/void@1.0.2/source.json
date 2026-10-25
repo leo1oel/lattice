@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/reem/rust-void",
+  "commit": "a6e061227f47ba8798b7e828ed0ac4e25382eb15",
+  "pinned": false,
+  "via": "the default branch `master` at fetch time — the release commit (the release tag `1.0.2`) has no license file",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

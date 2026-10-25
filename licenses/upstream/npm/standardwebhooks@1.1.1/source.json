@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/standard-webhooks/standard-webhooks",
+  "commit": "b4d2c14fc5b4ccff3ff271e3b087dff812254c59",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "LICENSE"
+  ]
+}

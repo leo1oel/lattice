@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/rust-mobile/ndk",
+  "commit": "49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

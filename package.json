@@ -188,7 +188,8 @@
       "@tiptap/extension-list-keymap": "3.32.0",
       "@tiptap/extension-node-range": "3.32.0",
       "@tiptap/extension-ordered-list": "3.32.0",
-      "@tiptap/extensions": "3.32.0"
+      "@tiptap/extensions": "3.32.0",
+      "exceljs>unzipper": "^0.12.3"
     },
     "patchedDependencies": {
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",

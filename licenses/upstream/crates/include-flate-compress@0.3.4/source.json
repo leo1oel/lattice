@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/SOF3/include-flate",
+  "commit": "4118d8e5d30b81c678f889b492945c39c019f846",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

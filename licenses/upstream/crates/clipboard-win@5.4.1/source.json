@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/DoumanAsh/clipboard-win",
+  "commit": "3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

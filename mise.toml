@@ -199,10 +199,11 @@ sources = [
 # regenerates.
 #
 # `--allow-unresolved` is deliberate. The generator exits 2 when a package
-# declares a license but ships no text — 139 of them today, nearly all crates
-# whose published archive omits the LICENSE file in their Git repo. That is a
-# standing condition recorded in the file itself, not drift, and a gate that is
-# red on every run is a gate people learn to ignore. This stage checks only that
+# declares a license but ships no text and none was found in its repository
+# either (`pnpm notices --fetch-upstream` recovers the rest into
+# licenses/upstream/). That is a standing condition recorded in the file itself,
+# not drift, and a gate that is red on every run is a gate people learn to
+# ignore. This stage checks only that
 # the generated section matches the installed trees; run `pnpm notices` to see
 # the gaps, which it still prints in full.
 #
@@ -226,7 +227,13 @@ sources = [
   "src-tauri/Cargo.lock",
   "scripts/generate-notices.mjs",
   "scripts/lib/util.mjs",
+  "scripts/lib/package-notices.mjs",
+  "scripts/lib/license-classification.mjs",
+  "scripts/lib/license-grouping.mjs",
+  "scripts/lib/dependency-closures.mjs",
+  "scripts/lib/upstream-licenses.mjs",
   "public/licenses/**",
+  "licenses/**",
   "THIRD_PARTY_NOTICES.md",
 ]
 

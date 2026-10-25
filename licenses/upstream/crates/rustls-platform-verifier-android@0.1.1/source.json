@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/rustls/rustls-platform-verifier",
+  "commit": "8becdc1beaee80afee396a8c769d42fe9bd9cb4e",
+  "pinned": false,
+  "via": "the default branch `main` at fetch time — no commit or tag identifies this release",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

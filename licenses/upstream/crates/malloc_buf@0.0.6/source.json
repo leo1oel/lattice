@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/SSheldon/malloc_buf",
+  "commit": "d9a3e539642bd90e07df458d226b19cdfa606863",
+  "pinned": false,
+  "via": "the default branch `master` at fetch time — the release commit (the release tag `0.0.6`) has no license file",
+  "files": [
+    "LICENSE"
+  ]
+}

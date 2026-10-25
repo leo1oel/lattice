@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/kriszyp/msgpackr-extract",
+  "commit": "71def7bd969e5c88d2c918e0d81ee2ba3155d19c",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "LICENSE"
+  ]
+}

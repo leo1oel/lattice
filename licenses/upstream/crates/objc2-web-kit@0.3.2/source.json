@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/madsmtm/objc2",
+  "commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE.md"
+  ]
+}

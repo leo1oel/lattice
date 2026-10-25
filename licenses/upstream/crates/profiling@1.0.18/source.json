@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/aclysma/profiling",
+  "commit": "8271551172eb6fa4cba47369aedd93790c623df9",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

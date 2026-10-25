@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/tracel-ai/cubecl",
+  "commit": "0e2ba072b1ebba595d65a90804e616e1b799ef16",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "NOTICE.md"
+  ]
+}

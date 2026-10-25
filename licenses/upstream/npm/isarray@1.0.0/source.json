@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/juliangruber/isarray",
+  "commit": "8c8dd70d48ad5d0897733ca6726302a54ca9e177",
+  "pinned": false,
+  "via": "the default branch `master` at fetch time — the release commit (the gitHead recorded in the npm package) has no license file",
+  "files": [
+    "LICENSE"
+  ]
+}

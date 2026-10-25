@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/tracel-ai/burn",
+  "commit": "a6da424feacf6d82d6a0e81db197310796267c2b",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

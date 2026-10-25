@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/remarkjs/remark-math",
+  "commit": "d5d0660b150810a535bbb07eac6cc96a4510aa24",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "license"
+  ]
+}

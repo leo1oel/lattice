@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/rolldown/rolldown",
+  "commit": "89d821ca07cf9ccd84dd92bd3f48af0f579ab21a",
+  "pinned": true,
+  "via": "the release tag `v1.2.15`",
+  "files": [
+    "LICENSE"
+  ]
+}
