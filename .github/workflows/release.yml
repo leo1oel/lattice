@@ -256,6 +256,10 @@ jobs:
           # compile time (option_env! in firecrawl.rs). Extractable from the
           # shipped app — acceptable for small-scale use, rotate on abuse.
           LATTICE_FIRECRAWL_KEY: ${{ secrets.LATTICE_FIRECRAWL_KEY }}
+          # tldraw's license requires its key for production use; Vite inlines
+          # it into the board editor bundle. Without the secret the shipped
+          # whiteboard runs in tldraw's unlicensed, watermarked mode.
+          VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Lattice ${{ github.ref_name }}"

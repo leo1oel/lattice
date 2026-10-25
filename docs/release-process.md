@@ -157,6 +157,7 @@ Changing the Synara pin or preparation script creates a new cache key; the first
 | `TAURI_SIGNING_PRIVATE_KEY` | Updater signing private key (minisign) |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for it (empty string for the current key) |
 | `LATTICE_FIRECRAWL_KEY` | Shared Firecrawl key baked into release builds |
+| `VITE_TLDRAW_LICENSE_KEY` | tldraw license key inlined into the board editor; without it the release ships tldraw in its unlicensed, watermarked mode |
 | `LATTICE_FONTS_DEPLOY_KEY` | Read-only SSH deploy key for the private `leo1oel/lattice-fonts` repository (optional; without it the release ships the open-licensed fonts) |
 
 `GITHUB_TOKEN` is provided automatically by Actions; it does not need to be

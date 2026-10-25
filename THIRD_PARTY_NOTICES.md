@@ -90,7 +90,7 @@ tldraw 5.x is **not** Apache-2.0 and not an OSI-approved license. Quoting the te
 
 ### What this repository can and cannot verify about its own grant
 
-The project supplies a license key through the `VITE_TLDRAW_LICENSE_KEY` environment variable; builds without that key fall back to tldraw's watermarked mode. **The specific grant the maintainer holds is not recorded anywhere in this repository** and needs confirming against whatever tldraw issued with the key.
+The board editor reads a license key from the `VITE_TLDRAW_LICENSE_KEY` environment variable at build time; the release workflow passes it from the `VITE_TLDRAW_LICENSE_KEY` repository secret. Builds without that key, including release builds when the secret is unset, run tldraw in its unlicensed, watermarked mode. **The specific grant the maintainer holds is not recorded anywhere in this repository** and needs confirming against whatever tldraw issued with the key.
 
 An earlier revision of this file asserted that Lattice "ships under a tldraw Hobby license key". That claim is withdrawn: the license text defines only Development, Trial and Commercial categories and never uses the word "Hobby". A "Hobby" tier exists on tldraw's pricing page as a free, application-gated offering, but its watermark and commercial-use conditions are not published in the legal text, so nothing here can state what they are.
 
