@@ -226,6 +226,10 @@ sources = [
   "src-tauri/Cargo.lock",
   "scripts/generate-notices.mjs",
   "scripts/lib/util.mjs",
+  "scripts/lib/package-notices.mjs",
+  "scripts/lib/license-classification.mjs",
+  "scripts/lib/license-grouping.mjs",
+  "scripts/lib/dependency-closures.mjs",
   "public/licenses/**",
   "THIRD_PARTY_NOTICES.md",
 ]

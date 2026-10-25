@@ -71,7 +71,7 @@ function changedFiles(base) {
 
 // The inputs mise.toml's `notices` task lists: the closures are read from the
 // installed trees, so the lockfiles and manifests are what moves them.
-const NOTICE_INPUTS = /^(package\.json|pnpm-lock\.yaml|src-tauri\/Cargo\.(toml|lock)|scripts\/generate-notices\.mjs|scripts\/lib\/util\.mjs|public\/licenses\/.*|THIRD_PARTY_NOTICES\.md)$/;
+const NOTICE_INPUTS = /^(package\.json|pnpm-lock\.yaml|src-tauri\/Cargo\.(toml|lock)|scripts\/generate-notices\.mjs|scripts\/lib\/(util|package-notices|license-classification|license-grouping|dependency-closures)\.mjs|public\/licenses\/.*|THIRD_PARTY_NOTICES\.md)$/;
 const PERF_EVIDENCE_INPUTS = /^(docs\/performance(\.md|-data\/.*)|scripts\/check-perf-evidence\.mjs)$/;
 
 /**
