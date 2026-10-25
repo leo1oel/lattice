@@ -1,0 +1,39 @@
+{
+  "version": "0.12.0",
+  "date": "2026-10-25",
+  "highlights": [
+    {
+      "title": {
+        "en": "Full-text search across your papers",
+        "zh": "论文全文检索"
+      },
+      "body": {
+        "en": "Type in the Papers panel's search box to search the full text of the project's papers: results are ranked by relevance, each paper shows its matching lines with the words highlighted, and clicking a line opens the paper at that line. Chinese is supported, and the agent searches the same index.",
+        "zh": "在论文库面板的搜索框中输入，即可检索项目中论文的全文：结果按相关度排序，每篇论文列出匹配的行并高亮关键词，点击某一行即可在该行打开论文。支持中文，AI 助手也使用同一索引进行检索。"
+      }
+    },
+    {
+      "icon": "shapes",
+      "title": {
+        "en": "Open Slide works with the Agent panel",
+        "zh": "Open Slide 与 Agent 面板协同"
+      },
+      "body": {
+        "en": "A presentation shows when the Lattice agent is editing the deck, and Open Slide's Apply comments, Draft a deck and Ask AI now open in the Agent panel.",
+        "zh": "Lattice 智能体编辑演示文稿时，演示文稿会显示提示；Open Slide 的“应用批注”“起草演示文稿”和“询问 AI”现在会在 Agent 面板中打开。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "See what the agent is doing",
+        "zh": "查看智能体正在做什么"
+      },
+      "body": {
+        "en": "The Agent panel shows what the current turn is working on.",
+        "zh": "Agent 面板会显示当前回合正在进行的工作。"
+      }
+    }
+  ],
+  "fixes": []
+}
