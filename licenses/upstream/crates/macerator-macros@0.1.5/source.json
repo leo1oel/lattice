@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/wingertge/macerator",
+  "commit": "74ff68d11f164d3da077d673a0c0747e71f0c085",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

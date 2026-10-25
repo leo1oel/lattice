@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/dream-num/univer",
+  "commit": "c9c8607471013f110b7a401d79bfb248e59faa1c",
+  "pinned": true,
+  "via": "the release tag `v0.25.1`",
+  "files": [
+    "LICENSE"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/tauri-apps/tao",
+  "commit": "340684d932b6126bed449fc1f4edca81776ad592",
+  "pinned": true,
+  "via": "the release tag `tao-macros-v0.1.3`",
+  "files": [
+    "LICENSE",
+    "LICENSE.spdx"
+  ]
+}

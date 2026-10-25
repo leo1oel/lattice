@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/brendanzab/gl-rs",
+  "commit": "ea503e8d5fb6d73c6030e6191ce738cd3bf3433e",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

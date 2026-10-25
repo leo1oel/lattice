@@ -200,6 +200,7 @@ export function collectCrates() {
       declared: pkg.license ?? (pkg.license_file ? `see ${pkg.license_file}` : null),
       dir,
       extraTextPaths: pkg.license_file ? [resolve(dir, pkg.license_file)] : [],
+      repository: pkg.repository,
     }));
   }
   return { entries };

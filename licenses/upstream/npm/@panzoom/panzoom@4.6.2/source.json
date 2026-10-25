@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/timmywil/panzoom",
+  "commit": "cb243f464ba87de754febdde1987ae851087ec30",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "MIT-License.txt"
+  ]
+}

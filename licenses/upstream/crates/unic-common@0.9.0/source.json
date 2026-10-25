@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/open-i18n/rust-unic",
+  "commit": "5878605364af97a3358368a6eaef02104af2e016",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "COPYRIGHT.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

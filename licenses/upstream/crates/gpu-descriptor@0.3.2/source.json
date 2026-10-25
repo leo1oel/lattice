@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/zakarumych/gpu-descriptor",
+  "commit": "bb28b4e55b742e0ea3e7a0968e7ee6287ba0e06a",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "COPYING"
+  ]
+}

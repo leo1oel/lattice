@@ -20,12 +20,19 @@
  * sitting next to it. There is deliberately no built-in table of license texts:
  * a package that ships no notice is a finding a human has to see, and inventing
  * the text for it would hide exactly the thing this script exists to surface.
+ * Where the published artifact omits a text that its Git repository has,
+ * `--fetch-upstream` copies the verbatim file from the commit the package was
+ * published from into licenses/upstream/ (scripts/lib/upstream-licenses.mjs),
+ * and every later run reads it from there.
  *
  * Usage:
  *   node scripts/generate-notices.mjs                 rewrite the generated block
  *   node scripts/generate-notices.mjs --check         fail if the block is stale
  *   node scripts/generate-notices.mjs --allow-unresolved
  *                                                     do not exit non-zero on gaps
+ *   node scripts/generate-notices.mjs --fetch-upstream
+ *                                                     fetch missing texts from each
+ *                                                     package's repository, then rewrite
  *
  * Exit codes: 0 ok · 1 drift (--check) · 2 unresolved attribution gaps.
  *
@@ -44,6 +51,7 @@ import { collectCrates, collectNestedPackageRoots, collectNpm } from "./lib/depe
 import { SEVERITY_ORDER, classifyLicense } from "./lib/license-classification.mjs";
 import { compareIds, groupTexts, packageId, rankCounts } from "./lib/license-grouping.mjs";
 import { declaredNpmLicense, isFile, makeEntry, readDirectory, readJson } from "./lib/package-notices.mjs";
+import { fetchUpstream, listUpstream, readUpstream, registryOf } from "./lib/upstream-licenses.mjs";
 import { projectRoot } from "./lib/util.mjs";
 
 const noticesPath = join(projectRoot, "THIRD_PARTY_NOTICES.md");
@@ -54,7 +62,7 @@ const END = "<!-- END GENERATED NOTICES -->";
 const args = new Set(process.argv.slice(2));
 if (args.has("--help") || args.has("-h")) {
   process.stdout.write(
-    "Usage: node scripts/generate-notices.mjs [--check] [--allow-unresolved]\n",
+    "Usage: node scripts/generate-notices.mjs [--check] [--allow-unresolved] [--fetch-upstream]\n",
   );
   process.exit(0);
 }
@@ -272,15 +280,67 @@ function renderUnresolved(all, { heading = "##", scope = "every closure" } = {})
       "",
       "The SPDX identifier is known, but the package contains no `LICENSE`,",
       "`COPYING` or `NOTICE` file, so the copyright line those licenses require us",
-      "to reproduce is not available from the artifact we distribute.",
+      "to reproduce is not available from the artifact we distribute. Where",
+      "`pnpm notices --fetch-upstream` looked for the text in the package's",
+      "repository and found none, the line says what it found instead.",
       "",
     );
     for (const entry of missingText) {
-      lines.push(`- \`${packageId(entry)}\` (${entry.closure}) — declared \`${entry.declared}\``);
+      const why = entry.upstreamUnresolved ? ` — upstream: ${entry.upstreamUnresolved}` : "";
+      lines.push(`- \`${packageId(entry)}\` (${entry.closure}) — declared \`${entry.declared}\`${why}`);
     }
     lines.push("");
   }
   return { markdown: lines.join("\n"), missingField, missingText };
+}
+
+/**
+ * What the generator supplied from outside the package itself: texts fetched
+ * from the upstream repository, and license fields recorded in
+ * UNDECLARED_LICENSES. Listed with their source so each one can be checked.
+ */
+function renderRecovered(all, { heading = "##", scope = "npm and crates" } = {}) {
+  const recovered = all.filter((entry) => entry.upstream).sort(byClosureThenName);
+  const undeclared = all.filter((entry) => entry.undeclared).sort(byClosureThenName);
+  if (recovered.length === 0 && undeclared.length === 0) return "";
+  const lines = [];
+  if (recovered.length > 0) {
+    lines.push(
+      `${heading} License texts recovered from upstream — ${scope} (${recovered.length})`,
+      "",
+      "These packages declare a license but their published artifact omits the",
+      "text — usually a crate in a workspace whose LICENSE sits at the repository",
+      "root, which `cargo package` does not include. The verbatim file was taken",
+      "from the package's Git repository at the commit it was published from and",
+      `is kept in \`licenses/upstream/\`; it is reproduced in the license texts`,
+      "below like any other notice. An entry marked *default branch* was taken",
+      "from the repository's current default branch instead, because no commit or",
+      "tag identifies the release or the release commit had no license file; the",
+      "`source.json` beside the file says which.",
+      "",
+    );
+    for (const entry of recovered) {
+      const { source } = entry.upstream;
+      const files = source.files.map((file) => `[\`${file}\`](${source.repository}/blob/${source.commit}/${file})`).join(", ");
+      const where = source.pinned ? `at \`${source.commit.slice(0, 12)}\`` : "— *default branch*";
+      lines.push(`- \`${packageId(entry)}\` — ${files} ${where}`);
+    }
+    lines.push("");
+  }
+  if (undeclared.length > 0) {
+    lines.push(
+      `${heading} License fields recorded by hand — ${scope} (${undeclared.length})`,
+      "",
+      "These packages ship a license file but declare no `license` field. The",
+      "license named here is the one their upstream states:",
+      "",
+    );
+    for (const entry of undeclared) {
+      lines.push(`- \`${packageId(entry)}\` — \`${entry.undeclared.license}\`: ${entry.undeclared.reason}.`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 const FINDINGS_INTRO = [
@@ -428,7 +488,11 @@ function stagedSection(runtime, existing, findings, unresolved) {
     title: runtime.title,
     blurb: runtime.blurb(runtime),
     entries: runtime.entries,
-    extras: [runtimeFindings.markdown, runtimeUnresolved.markdown],
+    extras: [
+      runtimeFindings.markdown,
+      runtimeUnresolved.markdown,
+      renderRecovered(runtime.entries, { heading: "###", scope: runtime.unresolvedScope }),
+    ].filter(Boolean),
   });
   return [runtime.begin, section, runtime.end];
 }
@@ -465,6 +529,7 @@ function buildBlock({ npm, crates, staged, existing }) {
     "",
     findings[0].markdown,
     unresolved[0].markdown,
+    renderRecovered(lockedScope),
     renderClosure({
       title: "npm packages (web assets)",
       blurb:
@@ -496,10 +561,45 @@ function buildBlock({ npm, crates, staged, existing }) {
 // Main
 // ---------------------------------------------------------------------------
 
+const log = (message) => process.stderr.write(`${message}\n`);
 const started = Date.now();
-const npm = collectNpm();
-const crates = collectCrates();
-const staged = STAGED_RUNTIMES.map(collectStaged);
+const existing = readFileSync(noticesPath, "utf8");
+
+/**
+ * The packages --fetch-upstream should look up: every gap in the closures
+ * scanned now, plus the gaps a carried-over runtime section still lists, so a
+ * runtime staged elsewhere gets its texts before it is next regenerated.
+ */
+function upstreamTasks(entries) {
+  const tasks = new Map();
+  const add = (task) => tasks.set(`${task.registry}/${task.name}@${task.version}`, task);
+  for (const entry of entries) {
+    if (entry.declared && entry.texts.length === 0) {
+      add({ registry: registryOf(entry.closure), name: entry.name, version: entry.version, dir: entry.dir, repository: entry.repository });
+    }
+  }
+  for (const runtime of STAGED_RUNTIMES) {
+    const section = sliceSection(existing, runtime.begin, runtime.end) ?? "";
+    const gaps = section.slice(section.indexOf("# Declared a license but shipped no license text"));
+    for (const match of gaps.matchAll(/^- `([^`]+)@([^@`]+)` \([a-z-]+\) — declared/gm)) {
+      add({ registry: registryOf(runtime.closure), name: match[1], version: match[2] });
+    }
+  }
+  return [...tasks.values()].filter((task) => !readUpstream(projectRoot, task.registry, task.name, task.version));
+}
+
+let npm = collectNpm();
+let crates = collectCrates();
+let staged = STAGED_RUNTIMES.map(collectStaged);
+if (args.has("--fetch-upstream")) {
+  const tasks = upstreamTasks([...npm.entries, ...crates.entries, ...staged.flatMap((runtime) => runtime.entries)]);
+  log(`Fetching license texts from upstream for ${tasks.length} packages:`);
+  const failures = await fetchUpstream(projectRoot, tasks, { log });
+  log(`${tasks.length - failures.length} fetched, ${failures.length} not found.\n`);
+  npm = collectNpm();
+  crates = collectCrates();
+  staged = STAGED_RUNTIMES.map(collectStaged);
+}
 const all = [...npm.entries, ...crates.entries, ...staged.flatMap((runtime) => runtime.entries)];
 
 // A vendored notice exists precisely because the package does not ship it. If
@@ -516,12 +616,10 @@ if (missingVendored.size > 0) {
   process.exit(2);
 }
 
-const existing = readFileSync(noticesPath, "utf8");
 const { block, flagged, missingField, missingText } = buildBlock({ npm, crates, staged, existing });
 const preamble = sliceSection(existing, BEGIN, END) ? existing.slice(0, existing.indexOf(BEGIN)) : `${existing.trimEnd()}\n\n`;
 const nextContent = `${preamble.trimEnd()}\n\n${block}`;
 
-const log = (message) => process.stderr.write(`${message}\n`);
 const row = (label, value, rest) => log(`${label.padEnd(23)}${String(value).padStart(4)}${rest}`);
 row("npm (web assets)", npm.entries.length, " packages");
 row("crates (src-tauri)", crates.entries.length, " packages");
@@ -550,6 +648,19 @@ if (gapCount > 0) {
   for (const entry of missingText) {
     log(`  no license text    ${packageId(entry)} (${entry.closure}) — declared ${entry.declared}`);
   }
+}
+
+// A recovered text outlives the version it was fetched for; once no package
+// uses it, it is only clutter. A carried-over runtime section still counts as
+// a user, since that runtime may be staged again at the same versions.
+const usedUpstream = new Set(all.filter((entry) => entry.upstream || entry.upstreamUnresolved).map((entry) => `${registryOf(entry.closure)}/${packageId(entry)}`));
+const carriedOver = staged.filter((runtime) => !runtime.available).map((runtime) => sliceSection(existing, runtime.begin, runtime.end) ?? "").join("\n");
+const unusedUpstream = listUpstream(projectRoot).filter((id) =>
+  !usedUpstream.has(id) && !(id.startsWith("npm/") && carriedOver.includes(`\`${id.slice(4)}\``)));
+if (unusedUpstream.length > 0) {
+  log("");
+  log(`Recovered license texts no package uses any more — delete them from licenses/upstream/ (${unusedUpstream.length}):`);
+  for (const id of unusedUpstream) log(`  ${id}`);
 }
 
 if (args.has("--check")) {

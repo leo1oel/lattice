@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/automattic/harper",
+  "commit": "dc1182cc2b33603748105df074d6bb47f0de3720",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

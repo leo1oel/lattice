@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/Spxg/sqlite-wasm-rs",
+  "commit": "1bb309784f25c401ddf95131dcde4c4cdad7aee7",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

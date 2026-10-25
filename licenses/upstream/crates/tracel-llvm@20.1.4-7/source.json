@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/tracel-ai/tracel-llvm",
+  "commit": "3e1f7026cd129853b6286581e485d8648beec528",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "COPYRIGHT",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

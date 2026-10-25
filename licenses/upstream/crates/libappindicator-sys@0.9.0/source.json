@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/tauri-apps/libappindicator-rs",
+  "commit": "eafd1e3682a1247f595410266091e9684021cb6f",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

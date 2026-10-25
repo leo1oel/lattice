@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/tracel-ai/cubecl-hip",
+  "commit": "99b002ee9ac7907d3c6c6eb80fd3e5c91c237976",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

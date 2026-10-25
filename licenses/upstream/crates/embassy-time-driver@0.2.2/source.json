@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/embassy-rs/embassy",
+  "commit": "50c6aac5b9b3b0af18f5a7d61725cc8e4d1f7acb",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-CC-BY-SA",
+    "LICENSE-MIT",
+    "NOTICE.md"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/quickwit-oss/tantivy",
+  "commit": "50ac63df66084b8f77bfd067b81b5b8076b8a905",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

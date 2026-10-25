@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/gfx-rs/wgpu",
+  "commit": "03f1b535ca2356d4d490540e76480b0116cf7d7f",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "wgpu-core/LICENSE.APACHE",
+    "wgpu-core/LICENSE.MIT"
+  ]
+}

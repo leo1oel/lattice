@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/zakarumych/gpu-alloc",
+  "commit": "61020bdcb4eb04fca6bbf748aeb9570e859236e0",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "COPYING"
+  ]
+}

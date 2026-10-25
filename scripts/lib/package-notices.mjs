@@ -4,7 +4,8 @@
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
+import { readUpstream, registryOf } from "./upstream-licenses.mjs";
 import { projectRoot } from "./util.mjs";
 
 // A package's notice can be called any of these. NOTICE is not a license, but
@@ -57,6 +58,23 @@ const VENDORED_NOTICES = [
       "the published package ships a 104-byte LICENSE.md containing only a link, while the license it links to requires \"a verbatim copy of this License in any distribution of the Software\"",
   },
 ];
+
+/**
+ * Packages that ship a license file but no `license` field, keyed by exact
+ * version so an upgrade puts them back in front of a human. Each records the
+ * license its upstream repository states, which is what lets the generator
+ * classify it; the text itself is still the file the package ships.
+ */
+const UNDECLARED_LICENSES = new Map([
+  [
+    "@univerjs/telemetry@0.25.1",
+    {
+      license: "Apache-2.0",
+      reason:
+        "its package.json has no `license` field upstream either (dream-num/univer, `packages/telemetry` at tag v0.25.1), but it ships the Apache-2.0 LICENSE of that repository, which GitHub reports as Apache-2.0 and under which every other @univerjs package is declared",
+    },
+  ],
+]);
 
 /**
  * True when a package's "license file" is a signpost rather than a license —
@@ -113,7 +131,9 @@ export function declaredNpmLicense(pkg) {
  * which license was claimed but the copyright notice the license requires us to
  * reproduce did not ship, so there is nothing to reproduce.
  */
-export function makeEntry({ closure, name, version, declared, dir, extraTextPaths = [], note }) {
+export function makeEntry({ closure, name, version, declared: declaredField, dir, extraTextPaths = [], note, repository }) {
+  const undeclared = declaredField ? undefined : UNDECLARED_LICENSES.get(`${name}@${version}`);
+  const declared = declaredField ?? undeclared?.license ?? null;
   // Every notice-shaped file in the package's own directory, sorted for stability.
   const files = readDirectory(dir)
     .filter((entry) => !entry.isDirectory() && NOTICE_FILE.test(entry.name))
@@ -142,5 +162,20 @@ export function makeEntry({ closure, name, version, declared, dir, extraTextPath
     if (text) texts.unshift({ name: vendored.file, text });
     else missingVendored.push(vendored.file);
   }
-  return { closure, name, version: version ?? "(unknown)", declared, texts, note, vendored, missingVendored };
+  // A text the artifact omits but its repository has, fetched by
+  // --fetch-upstream. Like a vendored file, a recorded one that has gone
+  // missing is an error rather than a quiet gap.
+  let upstream;
+  let upstreamUnresolved;
+  if (texts.length === 0 && version) {
+    const recorded = readUpstream(projectRoot, registryOf(closure), name, version);
+    if (recorded?.source.unresolved) upstreamUnresolved = recorded.source.unresolved;
+    else if (recorded) upstream = recorded;
+    for (const path of upstream?.files ?? []) {
+      const text = readNoticeText(path);
+      if (text) texts.push({ name: relative(projectRoot, path), text });
+      else missingVendored.push(relative(projectRoot, path));
+    }
+  }
+  return { closure, name, version: version ?? "(unknown)", declared, texts, note, vendored, missingVendored, upstream, upstreamUnresolved, undeclared, dir, repository };
 }

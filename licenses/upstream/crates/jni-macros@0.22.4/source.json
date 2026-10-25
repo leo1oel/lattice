@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/jni-rs/jni-rs",
+  "commit": "33045a124105c939d1e2cbdcb5a39e5d868ffa03",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

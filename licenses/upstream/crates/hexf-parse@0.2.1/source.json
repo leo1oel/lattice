@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/lifthrasiir/hexf",
+  "commit": "0e69bc4f63895feb51e9b738a8a2d4ec9398957b",
+  "pinned": false,
+  "via": "the default branch `master` at fetch time — the release commit (the commit recorded in the crate's .cargo_vcs_info.json) has no license file",
+  "files": [
+    "LICENSE"
+  ]
+}

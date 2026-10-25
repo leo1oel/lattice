@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/pdfslick/pdfslick",
+  "commit": "c9ca3d6e7806f6ff15d002e0042c39eeb7133851",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "LICENSE"
+  ]
+}

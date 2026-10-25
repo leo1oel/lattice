@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/tauri-apps/tauri",
+  "commit": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE_APACHE-2.0",
+    "LICENSE_MIT",
+    "LICENSE.spdx"
+  ]
+}

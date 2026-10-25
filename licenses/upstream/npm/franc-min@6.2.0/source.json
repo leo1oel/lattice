@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/wooorm/franc",
+  "commit": "3f9f0b51a96c5df32a407dad865a3011ac0fa2d1",
+  "pinned": true,
+  "via": "the gitHead recorded in the npm package",
+  "files": [
+    "license"
+  ]
+}

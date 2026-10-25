@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/messense/jieba-rs",
+  "commit": "3a0d75cf7455e2006330a5b4e94156da272cd7b9",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

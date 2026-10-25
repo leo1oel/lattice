@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/lddubeau/saxes",
+  "commit": "6ef6a275b20f19cb67808daf0d8f64e06aaf5b0e",
+  "pinned": true,
+  "via": "the release tag `v5.0.1`",
+  "files": [
+    "LICENSE"
+  ]
+}

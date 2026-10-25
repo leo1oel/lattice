@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/retep998/winapi-rs",
+  "commit": "5b1829956ef645f3c2f8236ba18bb198ca4c2468",
+  "pinned": false,
+  "via": "the default branch `0.3` at fetch time — no commit or tag identifies this release",
+  "files": [
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ]
+}

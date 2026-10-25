@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/rsms/js-lru",
+  "commit": "5373f60c42259bca06a99d2bb10d872ebe4ae72b",
+  "pinned": false,
+  "via": "the default branch `master` at fetch time — the release commit (the gitHead recorded in the npm package) has no license file",
+  "files": [
+    "LICENSE.txt"
+  ]
+}

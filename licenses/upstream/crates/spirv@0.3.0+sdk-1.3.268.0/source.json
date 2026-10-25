@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/gfx-rs/rspirv",
+  "commit": "e91a5debc10c395b36db7721dfff6326d697a1e2",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}

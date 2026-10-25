@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/wravery/webview2-rs",
+  "commit": "b74dc5e2b394044bea5191052868ce7a106c202c",
+  "pinned": true,
+  "via": "the commit recorded in the crate's .cargo_vcs_info.json",
+  "files": [
+    "LICENSE"
+  ]
+}
