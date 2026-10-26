@@ -8,18 +8,18 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-10-24 against upstream
-`v1.0.8` (`d7542782fd52a1dedf9634e1765ab62fa60e259f`), the current integration changes
-**768 files, +87,020 / −8,470 lines**. It carries embedded-workspace UI, a skills manager,
+The fork as a whole is **not** small. Measured on 2026-10-26 against upstream
+`v1.0.9` (`ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`), the current integration changes
+**768 files, +87,015 / −8,468 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.8 HEAD
+git diff --shortstat v1.0.9 HEAD
 ```
 
-The current pin is the upstream **1.0.8 stable release**, merged with the complete previous
-`amp/lattice-v1.0.7-sync` history (which carries the earlier `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.0.9 stable release**, merged with the complete previous
+`amp/lattice-v1.0.8-sync` history (which carries the earlier `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -165,3 +165,12 @@ The access-mode notices a Lattice permission change can raise are localized too.
 Upstream's Code OSS editor (Monaco with language services and a debugger) is Beta-only: the server refuses its RPCs and the web client keeps the Pierre engine on Stable, so Lattice never loads it. Its web client still ships in the bundle; the TypeScript compiler its language worker needs is pruned from the staged server.
 Hubs keeping requests and follow-ups together, Devin background work, the Environment panel's project actions and the top-bar visibility settings, Safari and Hyprland setup, and the sidebar and Spaces fixes are standalone surfaces that Lattice does not embed.
 Server-side, agent-booted simulators shut down once a turn settles and they are idle, terminals with large process tables are reused, SQLite reclaims deleted pages conservatively, and a retired per-turn MCP write credential is recovered and diagnosed.
+
+## Synara 1.0.9 compatibility
+
+1.0.9 puts the Code OSS editor engine (editable files, diffs and previews, TypeScript and JavaScript intelligence, JavaScript debugging) and Settings → Connectors in Stable. The embed opens files in Lattice's own editor and exposes neither a Connectors pane nor a debugger, so none of it loads in the panel; the turn diff keeps its read-only viewer. The server's `editor.*` RPCs now answer on Stable, but nothing in the embed calls them, so the TypeScript compiler stays pruned from the staged server (the build still fails if a bundle other than the language worker imports it) and the staged runtime stays at 168.4 MB.
+`/goal` in an idle persisted chat now commits a visible "Goal …" message and starts the first turn; its confirmation toast is localized.
+Stop retries stay attached to their original runtime and turn, interrupt-only controls keep queued messages (the queue shows paused with Continue and Edit), command progress keeps its identity across recovery, and provider errors read plainly. After a host restart mid-turn the chat shows the error with "Continue task".
+OpenCode sign-in and cold model discovery use private servers, pre-migration SQLite backups are compressed, and local project favicons become project glyphs in the standalone sidebar.
+Hub workers omit Snooze and Hub actions, and the landing pattern runs continuous beneath the composer, both standalone surfaces.
+The toolchain moves to Bun 1.4.4; Lattice's pin, release workflows and preparation message follow.

@@ -151,7 +151,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.2
+          bun-version: 1.4.4
 
       # The staging script reads the host triple from rustc to select the
       # matching bundled Node runtime.
