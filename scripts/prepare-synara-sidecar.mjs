@@ -131,7 +131,7 @@ function resolveBun() {
     }).trim();
   } catch {
     throw new Error(
-      "Bun is required to build Synara. Install dependencies or set BUN_BIN to a Bun 1.4.2 or newer executable.",
+      "Bun is required to build Synara. Install dependencies or set BUN_BIN to a Bun 1.4.4 or newer executable.",
     );
   }
 }

@@ -104,9 +104,11 @@ function assertServerNeverHighlights(distRoot) {
 }
 
 /**
- * Synara 1.0.8 made `typescript` a production dependency for the Beta native
- * editor's language worker. Pruning it is safe only while that worker is the
- * one bundle importing it; loud on purpose, like the Shiki check above.
+ * Synara 1.0.8 made `typescript` a production dependency for the native
+ * editor's language worker (Stable too since 1.0.9). The embedded panel hands
+ * files to Lattice's own editor and never starts that worker, so pruning it is
+ * safe only while that worker is the one bundle importing it; loud on purpose,
+ * like the Shiki check above.
  */
 function assertOnlyLanguageWorkerLoadsTypeScript(distRoot) {
   const importers = readdirSync(distRoot).filter((entry) =>
