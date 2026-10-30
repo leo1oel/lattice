@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useReducer } from "react";
 import { describe, expect, it } from "vitest";
 import { createStore } from "zustand/vanilla";
 import { useStoreSlice } from "./use-store-slice";
@@ -12,7 +12,7 @@ function renderSlice() {
   const commits: string[] = [];
   const view = renderHook(() => {
     const slice = useStoreSlice(store, rendered);
-    const [project, setProject] = useState("");
+    const [project, setProject] = useReducer((_: string, next: string) => next, "");
     commits.push(`${project}|${slice.file}`);
     return { slice, setProject };
   });

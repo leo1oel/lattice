@@ -81,7 +81,7 @@ const initialState = (): OpenDocumentsState => ({
  */
 export function createOpenDocumentsStore(): OpenDocumentsStore {
   return createStore<OpenDocumentsState & OpenDocumentsActions>()((set, get) => {
-    // A useState-style setter per field, updater functions included (no field holds a function).
+    // A React-style setter per field, updater functions included (no field holds a function).
     const setters = Object.fromEntries(Object.keys(initialState()).map((key) => [
       `set${key[0].toUpperCase()}${key.slice(1)}`,
       (next: unknown) => set((state) => ({

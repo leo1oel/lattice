@@ -431,7 +431,6 @@
         "src/app/use-document-autosave.ts",
         "src/app/use-document-disk-sync.ts",
         "src/app/use-document-save.ts",
-        "src/app/use-document-store.ts",
         "src/app/use-editor-comments.ts",
         "src/app/use-interface-zoom.ts",
         "src/app/use-latex-structure.ts",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from "react";
 import type { DocumentViewMode, PaperSummary, RefreshProject } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -50,7 +50,8 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const depsRef = useLatestRef(deps);
   const { project, projectRef, projectBeforeTransitionRef, projectOperationGenerationRef, captureProjectScope } = deps.projectState;
   const projectRoot = project?.root ?? null;
-  const [documentsStore] = useState(createOpenDocumentsStore);
+  // Made once per mount and kept: nothing is ever dispatched to this reducer.
+  const [documentsStore] = useReducer(keepStore, null, createOpenDocumentsStore);
   // Subscribe to what renders; back/forward history and the "Opening …"
   // overlay are read where they are used, so they never render App.
   const {
@@ -209,6 +210,8 @@ const renderedFields = ({
   file, text, savedText, asset, paper, paperView, paperMarkdown, savedPaperMarkdown, paperBlog, savedPaperBlog,
   tabs, revealRequest, mode, persistenceReadyRoot, tabsSettledRoot,
 });
+
+const keepStore = (store: OpenDocumentsStore) => store;
 
 /** A read-only ref over one field of the store, for code written against ref twins. */
 function liveField<K extends keyof OpenDocumentsState>(store: OpenDocumentsStore, key: K): RefObject<OpenDocumentsState[K]> {

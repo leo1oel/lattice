@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useReducer, useRef } from "react";
 import type { StoreApi } from "zustand/vanilla";
 import { shallow } from "zustand/vanilla/shallow";
 
@@ -13,10 +13,10 @@ import { shallow } from "zustand/vanilla/shallow";
  * its identity (a module-level function).
  */
 export function useStoreSlice<S, T>(store: StoreApi<S>, select: (state: S) => T): T {
-  const [slice, setSlice] = useState(() => select(store.getState()));
-  // The slice last handed to React. Comparing here rather than in an updater
-  // keeps an unchanged slice from queueing an update, which would still run
-  // the component again.
+  const [slice, setSlice] = useReducer(replaceSlice<T>, store, (initial) => select(initial.getState()));
+  // The slice last handed to React. Comparing here rather than in the
+  // reducer keeps an unchanged slice from queueing an update, which would
+  // still run the component again.
   const latestRef = useRef(slice);
   useLayoutEffect(() => {
     const update = (state: S) => {
@@ -31,3 +31,5 @@ export function useStoreSlice<S, T>(store: StoreApi<S>, select: (state: S) => T)
   }, [select, store]);
   return slice;
 }
+
+const replaceSlice = <T,>(_current: T, next: T) => next;
