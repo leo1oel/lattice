@@ -8,19 +8,20 @@ export type Chunk<T> = (() => Promise<T>) & {
 
 /**
  * One lazily loaded chunk, shared by every caller: whoever asks first starts
- * the import, and a failed import is asked for again next time, as a fresh
- * `import()` would be.
+ * the import, and every later caller gets its outcome, a failure included.
+ *
+ * A failed import is not asked for again. The module map keeps a module whose
+ * evaluation threw, and a second `import()` of a module that depends on it
+ * does not reliably report that error: WebKit resolved it and handed back
+ * bindings that were never initialized, so the caller crashed on "Cannot
+ * access uninitialized variable" and the real error (a missing built-in in
+ * PDF.js, #506) never reached the log or the crash page. Kept, the first
+ * error is the one the lazy component throws to its error boundary.
  */
 export function chunk<T>(load: () => Promise<T>): Chunk<T> {
   let module: T | undefined;
   let pending: Promise<T> | undefined;
-  const get = () => pending ??= load().then(
-    (value) => (module = value),
-    (error: unknown) => {
-      pending = undefined;
-      throw error;
-    },
-  );
+  const get = () => pending ??= load().then((value) => (module = value));
   return Object.assign(get, { loaded: () => module });
 }
 

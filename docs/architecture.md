@@ -412,7 +412,7 @@ regression is not visible in a dev build.
 ### 4.1 The eager-startup JavaScript budget
 
 `pnpm build` (the `build` script in `package.json`) runs
-`node scripts/app-size-report.mjs --check` after `vite build`. The `--check` pass enforces four budgets, all constants in
+`node scripts/app-size-report.mjs --check` after `vite build` (and after `scripts/check-webkit-compat.mjs`). The `--check` pass enforces four budgets, all constants in
 `scripts/app-size-report.mjs`:
 
 | Budget | Value | Constant |

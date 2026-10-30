@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?worker&url";
+import workerUrl from "../pdf/pdf.worker.ts?worker&url";
 import { invoke } from "@tauri-apps/api/core";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 
@@ -30,7 +30,6 @@ it("initializes the PDF.js runtime before loading a PDF without opening the main
   const destroy = vi.fn(() => Promise.resolve());
   vi.mocked(getDocument).mockImplementation(() => {
     expect(GlobalWorkerOptions.workerSrc).toBe(workerUrl);
-    expect(typeof Reflect.get(Promise, "withResolvers")).toBe("function");
     return {
       promise: Promise.resolve({
         getPage: vi.fn(() => Promise.resolve({
