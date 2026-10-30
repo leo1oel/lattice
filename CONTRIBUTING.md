@@ -215,7 +215,7 @@ changed since the last successful run:
 | `i18n-check` | catalog extraction, drift check, compile, coverage guard |
 | `lint` | Oxlint over `src/` and `tools/`, then knip (unused files, dependencies and exports) and the benchmark-table evidence check (`pnpm perf:evidence`) |
 | `test` | the Vitest suite |
-| `build` | typecheck plus the production web bundle and its size budget |
+| `build` | typecheck plus the production web bundle, its WebKit built-in check and its size budget |
 | `literature-worker` | `typecheck` and `test` inside `literature-worker/` |
 | `open-slide-runtime` | the Open Slide presentation server's tests inside `tools/open-slide-runtime/`, then `pnpm prepare:presentation`, which stages the pruned runtime and fails unless it still serves the editor |
 | `cargo-fmt` | `cargo fmt --check` |
