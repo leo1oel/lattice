@@ -47,6 +47,42 @@ setInterval(() => {}, 1_000);
   return executable;
 }
 
+/**
+ * A "browser" that exits at once on SIGTERM but leaves a helper behind that
+ * keeps recreating directories in the profile for a while, as Chrome's
+ * network service did on Linux CI (Default/, Default/Cache) after the browser
+ * had exited and the profile was removed. It answers DevTools on a port
+ * nothing listens on, so startup fails and close() runs. It records the
+ * helper's pid.
+ */
+function browserWithLingeringHelper(dir) {
+  writeFileSync(path.join(dir, "package.json"), '{ "type": "module" }\n');
+  const helper = path.join(dir, "helper.cjs");
+  writeFileSync(helper, `
+const fs = require("node:fs");
+const profile = process.argv[2];
+const started = Date.now();
+const timer = setInterval(() => {
+  fs.mkdirSync(require("node:path").join(profile, "Default", "Cache"), { recursive: true });
+  if (Date.now() - started > 600) clearInterval(timer);
+}, 10);
+`);
+  const executable = path.join(dir, "lingering-chrome.cjs");
+  writeFileSync(executable, `#!${process.execPath}
+const { spawn } = require("node:child_process");
+const profile = process.argv.find((arg) => arg.startsWith("--user-data-dir=")).slice("--user-data-dir=".length);
+process.on("SIGTERM", () => {
+  const helper = spawn(process.execPath, [${JSON.stringify(helper)}, profile], { stdio: "ignore" });
+  require("node:fs").writeFileSync(${JSON.stringify(path.join(dir, "helper.pid"))}, String(helper.pid));
+  process.exit(0);
+});
+process.stderr.write("DevTools listening on ws://127.0.0.1:9/devtools/browser/x\\n");
+setInterval(() => {}, 1_000);
+`);
+  chmodSync(executable, 0o755);
+  return executable;
+}
+
 /** Runs `body` in a Node process whose TMPDIR is `dir/tmp`; resolves with how it exited. */
 function run(dir, body, { signalWhenPidFile = false } = {}) {
   const tmp = path.join(dir, "tmp");
@@ -110,6 +146,20 @@ describe("launchChrome cleanup", () => {
     expect(result.stderr).not.toContain("exiting without it");
     expect(result.code).toBe(143);
     expect(alive(browserPid(dir))).toBe(false);
+    expect(result.leftovers).toEqual([]);
+  }, 20_000);
+
+  it("waits for a helper that outlives the browser before removing the profile", async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "lattice-cdp-test-"));
+    dirs.push(dir);
+    const executable = browserWithLingeringHelper(dir);
+    const result = await run(dir, `
+      try { await launchChrome({ executable: ${JSON.stringify(executable)} }); }
+      catch (error) { console.log("caught: " + error.message); }
+    `);
+    expect(result.stdout).toContain("caught: Could not connect to ws://127.0.0.1:9/");
+    expect(result.code).toBe(0);
+    expect(alive(Number(readFileSync(path.join(dir, "helper.pid"), "utf8")))).toBe(false);
     expect(result.leftovers).toEqual([]);
   }, 20_000);
 

@@ -39,11 +39,13 @@ function findChrome() {
 }
 
 /**
- * How long close() lets Chrome exit on SIGTERM before SIGKILL. With the
- * profile removal's retries (up to ~5 s) it stays inside shutdown.mjs's 15 s
- * grace.
+ * How long close() lets Chrome and its helpers exit on SIGTERM before
+ * SIGKILL. With the profile removal's retries (up to ~5 s) it stays inside
+ * shutdown.mjs's 15 s grace.
  */
 const KILL_AFTER_MS = 5_000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function launchChrome({ executable = findChrome(), headless = true, width = 1440, height = 900 } = {}) {
   const profile = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-"));
@@ -66,7 +68,11 @@ export async function launchChrome({ executable = findChrome(), headless = true,
     ...(process.platform === "linux" ? ["--no-sandbox", "--disable-dev-shm-usage"] : []),
     "about:blank",
   ];
-  const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"] });
+  // Its own process group: on Linux the browser can exit while helpers it
+  // started (the network service, zygotes) are still alive and writing into
+  // the profile, and the network service recreates directories in it (Default/,
+  // Default/Cache) after a removal. The group is how close() finds them all.
+  const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"], detached: true });
   // Settles once the browser is gone: reaped, or never started at all. A
   // failed spawn (a stale CHROME_PATH: ENOENT, EACCES) emits "error" and never
   // "exit", so waiting on "exit" alone would hang close() for it.
@@ -79,34 +85,60 @@ export async function launchChrome({ executable = findChrome(), headless = true,
     });
   });
   const running = () => child.pid !== undefined && child.exitCode === null && child.signalCode === null;
+  // Whether any process of the browser's group is left, the browser included.
+  const groupAlive = () => {
+    if (child.pid === undefined) return false;
+    try {
+      process.kill(-child.pid, 0);
+      return true;
+    } catch (error) {
+      return error.code !== "ESRCH";
+    }
+  };
+  const killGroup = (signal) => {
+    try {
+      process.kill(-child.pid, signal);
+    } catch {
+      // Already gone.
+    }
+  };
+  /** Resolves true once the whole group has exited, false at the deadline. */
+  const groupGone = async (deadline) => {
+    while (groupAlive()) {
+      if (Date.now() >= deadline) return false;
+      await sleep(20);
+    }
+    return true;
+  };
   // The last resort for an exit that skips close() or outruns it (a thrown
   // error, a second signal, a close that overran shutdown's grace): SIGKILL,
   // since exit hooks are synchronous and a browser that ignored SIGTERM
   // would otherwise outlive perf-bench. Installed until the browser is reaped.
   const killOnExit = () => {
-    if (running()) child.kill("SIGKILL");
+    if (groupAlive()) killGroup("SIGKILL");
   };
   process.on("exit", killOnExit);
   let connection = null;
   const close = once(async () => {
     connection?.close();
-    if (running()) {
-      child.kill("SIGTERM");
-      // Escalate well inside shutdown.mjs's grace, so a browser that cannot
-      // shut down is still reaped and its profile still removed before the
-      // signal handler gives up and exits.
-      let timer;
-      await Promise.race([gone, new Promise((resolve) => (timer = setTimeout(resolve, KILL_AFTER_MS)))]);
-      clearTimeout(timer);
-      if (running()) child.kill("SIGKILL");
+    // The browser alone gets SIGTERM, to shut down (and stop its helpers) the
+    // way it would for a user. Removing the profile waits for the whole group,
+    // not just the browser: a helper that outlives it writes the profile back.
+    if (running()) child.kill("SIGTERM");
+    // Escalate well inside shutdown.mjs's grace, so a browser or helper that
+    // cannot shut down is still reaped and the profile still removed before
+    // the signal handler gives up and exits.
+    if (!(await groupGone(Date.now() + KILL_AFTER_MS))) {
+      killGroup("SIGKILL");
+      await groupGone(Date.now() + 1_000);
     }
     await gone;
     process.off("exit", killOnExit);
-    // Chrome's helper processes can outlive the browser process for a moment
-    // and keep writing into the profile, so a single rmdir races them
-    // (ENOTEMPTY). rmSync's own maxRetries only re-attempts the final rmdir
-    // without deleting files written since its first pass, so retry the
-    // whole removal instead.
+    // A helper that left the group, or one the SIGKILL deadline gave up on,
+    // could still race a single rmdir (ENOTEMPTY).
+    // rmSync's own maxRetries only re-attempts the final rmdir without
+    // deleting files written since its first pass, so retry the whole removal
+    // instead.
     try {
       for (let attempt = 1; ; attempt++) {
         try {
