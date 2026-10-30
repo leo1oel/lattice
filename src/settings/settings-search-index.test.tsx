@@ -29,8 +29,10 @@ describe("settings search", () => {
     // A row's earlier label still finds it.
     ["external commands", ["shell-escape"]],
     ["signed from git", ["author-name"]],
-    ["open a project", ["project-dictionary"]],
-    ["harper", ["spellcheck", "project-dictionary"]],
+    ["open a project", ["project-dictionary", "grammar-ignored"]],
+    ["harper", ["spellcheck", "project-dictionary", "grammar-dialect", "grammar-style", "grammar-rules", "grammar-ignored"]],
+    ["british", ["grammar-dialect"]],
+    ["academic writing", ["grammar-style"]],
     // Label matches lead the rows only their terms match.
     ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape", "stop-on-first-error"]],
     ["halt-on-error", ["stop-on-first-error"]],
@@ -55,6 +57,7 @@ describe("settings search", () => {
     ["外部程序", ["shell-escape"]],
     ["评论署名", ["author-name"]],
     ["可添加", ["project-dictionary"]],
+    ["英式", ["grammar-dialect"]],
   ])("finds %j in Chinese", async (query, ids) => {
     await act(() => activateAppLocale("zh-CN"));
     expect(search(query)).toEqual(ids);

@@ -51,6 +51,13 @@ pub struct ProjectManifest {
     pub deadline: Option<ProjectDeadline>,
     #[serde(default)]
     pub spelling_words: Vec<String>,
+    /// Harper rules (by name) the project leaves unchecked.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grammar_ignored_rules: Vec<String>,
+    /// Sentences the project leaves unchecked, as their source text with
+    /// whitespace runs collapsed (the frontend's `grammarSentenceKey`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grammar_ignored_sentences: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub submission_items: Vec<SubmissionItem>,
     /// Keys this build does not read, written back as they were: a newer

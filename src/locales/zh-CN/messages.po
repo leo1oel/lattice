@@ -264,6 +264,10 @@ msgstr "{begin} 被 {end} 关闭"
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}；arXiv 使用 pdfLaTeX 编译"
 
+#: src/settings/grammar-settings.tsx
+msgid "{changedCount} changed from the grammar style"
+msgstr "{changedCount} 条与语法风格默认不同"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -1110,6 +1114,15 @@ msgstr "摘要"
 msgid "Abstract environment"
 msgstr "摘要环境"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Academic"
+msgstr "学术"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Academic sentences run long by convention, and hidden citations and math make the word count unreliable."
+msgstr "学术写作的句子通常较长，而且被隐藏的引用和公式会让字数统计不准确。"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Accent"
@@ -1502,6 +1515,11 @@ msgstr "图片说明"
 msgid "Amalgamation"
 msgstr "合并运算"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "American English"
+msgstr "美式英语"
+
 #: src/build/compile-explain.ts
 msgid "An & outside a table"
 msgstr "表格外出现了 &"
@@ -1843,6 +1861,7 @@ msgstr "自动保存"
 msgid "automatic"
 msgstr "自动"
 
+#: src/settings/grammar-settings.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Automatic"
 msgstr "自动"
@@ -1851,6 +1870,11 @@ msgstr "自动"
 #: src/settings/settings-search-index.ts
 msgid "Automatic build"
 msgstr "自动编译"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
+msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常文字检查"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2136,6 +2160,11 @@ msgstr "带方括号的矩阵"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Breve accent example"
 msgstr "短音符示例"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "British English"
+msgstr "英式英语"
 
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -2534,6 +2563,11 @@ msgstr "章标题"
 msgid "Chat"
 msgstr "聊天"
 
+#. placeholder {0}: grammarRuleLabel(rule)
+#: src/settings/grammar-settings.tsx
+msgid "Check {0} again"
+msgstr "重新检查“{0}”"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
 msgstr "抑扬符示例"
@@ -2584,6 +2618,10 @@ msgstr "检查正文拼写"
 #: src/papers/bibliography-audit.tsx
 msgid "Check this reference"
 msgstr "检查这条"
+
+#: src/settings/grammar-settings.tsx
+msgid "Check this sentence again"
+msgstr "重新检查这个句子"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check your connection and try again"
@@ -2674,6 +2712,11 @@ msgstr "选择要导入到 {targetDirectory} 的文件和文件夹"
 #: src/app/use-project-tree.ts
 msgid "Choose files and folders to import into the project root"
 msgstr "选择要导入到项目根目录的文件和文件夹"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Choose Ignore on a grammar suggestion to add one"
+msgstr "在语法提示上选择“忽略”后会列在这里"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4279,6 +4322,10 @@ msgstr "例如：全体作者"
 msgid "e.g. Camera-ready"
 msgstr "例如：终稿"
 
+#: src/settings/grammar-settings.tsx
+msgid "e.g. comma"
+msgstr "例如 comma"
+
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
@@ -4486,6 +4533,11 @@ msgstr "结束教程"
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "英文"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "English variant"
+msgstr "英语变体"
 
 #: src/components/ui/color-picker.tsx
 msgid "Enter 6 hex digits"
@@ -4862,6 +4914,10 @@ msgstr "筛选批注…"
 msgid "Filter by name or key"
 msgstr "按名称或按键搜索"
 
+#: src/settings/grammar-settings.tsx
+msgid "Filter grammar rules"
+msgstr "筛选语法规则"
+
 #: src/editor/comments/highlight-kind-filter.tsx
 msgid "Filter highlights by colour"
 msgstr "按颜色筛选高亮"
@@ -4885,6 +4941,11 @@ msgstr "筛选改动"
 #: src/app/shortcut-sheet.tsx
 msgid "Filter shortcuts"
 msgstr "找快捷键"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Filter to find a rule; these apply to every project"
+msgstr "输入关键词查找规则；设置对所有项目生效"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
@@ -5309,6 +5370,21 @@ msgstr "Google Scholar"
 msgid "grammar"
 msgstr "语法"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar"
+msgstr "语法"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar rules"
+msgstr "语法规则"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar style"
+msgstr "语法风格"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Graphite"
@@ -5592,6 +5668,28 @@ msgstr "想法"
 msgid "If and only if"
 msgstr "当且仅当"
 
+#: src/editor/harper-spellcheck.ts
+msgid "Ignore rule in project"
+msgstr "在本项目中忽略此规则"
+
+#: src/editor/harper-spellcheck.ts
+msgid "Ignore sentence"
+msgstr "忽略这个句子"
+
+#: src/settings/grammar-settings.tsx
+msgid "Ignored grammar rules"
+msgstr "已忽略的语法规则"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Ignored in this project"
+msgstr "本项目中已忽略"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Ignored sentences"
+msgstr "已忽略的句子"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Image"
@@ -5718,6 +5816,10 @@ msgstr "正在导入 ZIP…"
 #: src/project/todo-scavenger-panel.tsx
 msgid "in {0} files"
 msgstr "分布在 {0} 个文件中"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "In a paper “min” is usually minutes or the minimum operator."
+msgstr "论文里的 “min” 通常表示分钟或取最小值运算。"
 
 #: src/history/export-changes-dialog.tsx
 msgid "In colour"
@@ -6067,9 +6169,21 @@ msgstr "无效的工作表：{name}"
 msgid "Iota"
 msgstr "约塔"
 
+#: src/settings/grammar-rule-reasons.ts
+msgid "It flags phrases like “most early in training”, which it says are not errors."
+msgstr "它会标出 “most early in training” 这类短语，而它自己也说明这些并不是错误。"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "It is still cited in the manuscript ({cited})."
 msgstr "稿件中仍有引用（{cited} 处）。"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
+msgstr "它会把 “from easy to hard”、“sum to one” 这类表示范围和数量的写法误认为拼错的 “too”。"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "It splits technical terms such as “softmax” and “sublayer”."
+msgstr "它会把 “softmax”、“sublayer” 这类技术术语拆成两个词。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -7855,6 +7969,11 @@ msgstr "没有结果"
 msgid "No results for “{trimmedQuery}”"
 msgstr "没找到“{trimmedQuery}”"
 
+#. placeholder {0}: filter.trim()
+#: src/settings/grammar-settings.tsx
+msgid "No rule matches “{0}”"
+msgstr "没有与“{0}”匹配的规则"
+
 #: src/canvas/proofread-card.tsx
 msgid "No safe edits"
 msgstr "没有可用的修改"
@@ -8149,6 +8268,11 @@ msgctxt "macOS menu bar"
 msgid "Off"
 msgstr "关闭"
 
+#. placeholder {0}: i18n._(reason)
+#: src/settings/grammar-settings.tsx
+msgid "Off for academic writing: {0}"
+msgstr "学术写作中关闭：{0}"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Off while Reduce transparency is on in System Settings"
@@ -8273,6 +8397,11 @@ msgstr "打开 Overleaf 项目"
 #: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "打开项目后可添加"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Open a project to ignore rules or sentences"
+msgstr "打开项目后才能忽略规则或句子"
 
 #: src/app/use-command-table.ts
 msgid "Open a recent project by its place"
@@ -8794,6 +8923,14 @@ msgstr "论文库"
 #: src/papers/add-papers-sheet.tsx
 msgid "Papers being added"
 msgstr "正在添加的论文"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Papers write durations with unit symbols such as ms and h."
+msgstr "论文用 ms、h 等单位符号表示时长。"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Papers write sizes with unit symbols such as GB and MB."
+msgstr "论文用 GB、MB 等单位符号表示容量。"
 
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -10073,6 +10210,7 @@ msgid "Research"
 msgstr "文献"
 
 #: src/app/interface-zoom-hud.tsx
+#: src/settings/grammar-settings.tsx
 msgid "Reset"
 msgstr "重置"
 
@@ -11191,6 +11329,11 @@ msgstr "看此版本的改动"
 msgid "Showing {0} of {1}"
 msgstr "显示 {0}/{1} 项"
 
+#. placeholder {0}: shown.length
+#: src/settings/grammar-settings.tsx
+msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
+msgstr "显示 {0} 条中的 {MATCH_LIMIT} 条；输入更多关键词以缩小范围"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
 msgstr "并排分栏块"
@@ -11496,6 +11639,11 @@ msgstr "之前失败的编译已过时。请使用“全新重建”（按住 Sh
 #: src/papers/bibliography-audit.tsx
 msgid "Stale result"
 msgstr "结果已过时"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Standard"
+msgstr "标准"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Star operator"
@@ -11861,6 +12009,10 @@ msgstr "青色"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Technical details"
 msgstr "详细信息"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Technical writing uses nouns like “setup” and “rollout” on purpose."
+msgstr "技术写作会有意把 “setup”、“rollout” 这类词用作名词。"
 
 #: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
@@ -12238,6 +12390,10 @@ msgstr "校对时文字被改了，请重新校对"
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "文字已变，请重新选中"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "The serial comma is a house-style choice that venues and authors set differently."
+msgstr "是否使用连续逗号属于出版风格，不同会议和作者的选择不同。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."

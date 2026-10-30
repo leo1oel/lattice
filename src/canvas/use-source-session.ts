@@ -18,7 +18,7 @@ import type { SelectionRange, Text } from "@codemirror/state";
 import type { EditorView, ViewUpdate } from "@codemirror/view";
 import type { AgentSelectionLines } from "../agent/agent-host-context";
 import { CommentCardHosts, setEditorCommentDraftEffect, setEditorCommentsEffect } from "../editor/comments/editor-comments";
-import { harperDictionaryChanged } from "../editor/harper-spellcheck";
+import { harperConfigChanged } from "../editor/harper-spellcheck";
 import { latexIndexChanged } from "../editor/latex/latex-editor";
 import { setOverleafCursorsEffect } from "../overleaf/overleaf-editor-extensions";
 import { isHarperProseFilePath } from "../app-utils";
@@ -123,9 +123,9 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
   useEffect(() => {
     const current = viewRef.current;
     if (!current) return;
-    current.dispatch({ effects: harperDictionaryChanged.of(null) });
+    current.dispatch({ effects: harperConfigChanged.of(null) });
     refreshLint(current);
-  }, [props.preferences.spellingWords]);
+  }, [props.preferences.spellingWords, props.preferences.grammarIgnores]);
 
   useEffect(() => {
     viewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(comments) });

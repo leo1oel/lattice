@@ -8,6 +8,7 @@ import type {
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
+import type { GrammarIgnores, IgnoreGrammar } from "../editor/harper-spellcheck";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
@@ -87,6 +88,9 @@ type CanvasPreferences = Readonly<{
   editorSpellcheck: boolean;
   spellingWords: string[];
   onAddSpellingWord: (word: string) => boolean | Promise<boolean>;
+  /** What the project's grammar check ignores, and the action that adds to it. */
+  grammarIgnores?: GrammarIgnores;
+  onIgnoreGrammar?: IgnoreGrammar;
   interactivePreviewsEnabled: boolean;
 }>;
 

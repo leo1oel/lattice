@@ -33,6 +33,8 @@ import { SelectRow, SliderRow } from "./settings-controls";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
 import { CodeThemeSettingsGroup } from "./code-theme-settings";
+import { GrammarSettingsGroup } from "./grammar-settings";
+import type { GrammarIgnores } from "../editor/harper-spellcheck";
 import { ThemeSettingsGroup } from "./theme-settings";
 import type { WindowBacking } from "./use-appearance";
 import { SettingsSearch } from "./settings-search";
@@ -83,6 +85,7 @@ export type SettingsDialogProps = DoctorSettingsProps & {
     trusted?: boolean | null;
     stopOnFirstError?: boolean | null;
     spellingWords?: string[] | null;
+    grammarIgnores?: GrammarIgnores | null;
   }) => void;
   /** The LuaLaTeX live preview: its switch shows for a LuaLaTeX project. */
   livePreview?: LivePreview;
@@ -545,6 +548,13 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           </div>
         </SettingsRow>
       </SettingsGroup>
+      <GrammarSettingsGroup
+        ignores={props.project ? {
+          rules: props.project.manifest.grammarIgnoredRules ?? [],
+          sentences: props.project.manifest.grammarIgnoredSentences ?? [],
+        } : null}
+        onIgnoresChange={(grammarIgnores) => props.onUpdateManifest({ grammarIgnores })}
+      />
       <SettingsGroup title={t`Builds`}>
         <SelectRow
           data-setting="auto-build"

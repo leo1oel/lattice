@@ -31,6 +31,7 @@ import { AppOverleafMarginReview } from "./app-overleaf-drawer";
 import type { SearchDialog } from "./app-search-dialogs";
 import type { AppSurfaces } from "./app-surfaces";
 import { persistSynaraThread } from "./app-synara-embed";
+import { ignoreGrammarInProject, projectGrammarIgnores } from "./project-grammar-action";
 import { showError, showingErrors } from "./notify";
 import type { useAgentContext } from "./use-agent-context";
 import type { useApplyOpenSlideMutation } from "./use-apply-open-slide-mutation";
@@ -74,8 +75,8 @@ export function useDocumentSurfaces({
   /** The canvas's text as of the last pause in typing (useSettledSource). */
   settledSource: string;
   workspaceIndex: ReturnType<typeof usePreviewPrewarm>["workspaceIndex"];
-  /** The user's editor settings; the project's root and spelling words come from `project`. */
-  preferences: Omit<DocumentCanvasProps["preferences"], "projectRoot" | "spellingWords">;
+  /** The user's editor settings; the project's root, spelling words and grammar ignores come from `project`. */
+  preferences: Omit<DocumentCanvasProps["preferences"], "projectRoot" | "spellingWords" | "grammarIgnores" | "onIgnoreGrammar">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
     "papers" | "citationKeys" | "citations" | "unusedSymbols" | "bibliographyIndexPending" | "projectWordCount"
@@ -193,6 +194,8 @@ export function useDocumentSurfaces({
         projectRoot: project.root,
         ...preferences,
         spellingWords: project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS,
+        grammarIgnores: projectGrammarIgnores(project.manifest),
+        onIgnoreGrammar: (ignore) => ignoreGrammarInProject(ignore, { projectRef, setProject }),
       }}
       bibliography={{
         papers,

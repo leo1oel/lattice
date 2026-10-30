@@ -55,6 +55,10 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments`, description: t`Comments are signed ${knownAuthorName ?? ""}, from Git or Overleaf` },
     { tab: "editor", place: editor, id: "spellcheck", label: t`Check English spelling`, terms: `${t`Check spelling in prose`} Harper` },
     { tab: "editor", place: editor, id: "project-dictionary", label: t`Project dictionary`, terms: "Harper", description: t`Open a project to add terms` },
+    { tab: "editor", place: editor, id: "grammar-dialect", label: t`English variant`, terms: `${t`Grammar`} ${t`American English`} ${t`British English`} Harper` },
+    { tab: "editor", place: editor, id: "grammar-style", label: t`Grammar style`, terms: `${t`Grammar`} ${t`Academic`} ${t`Standard`} Harper`, description: t`Automatic checks LaTeX as academic writing and other files as everyday prose` },
+    { tab: "editor", place: editor, id: "grammar-rules", label: t`Grammar rules`, terms: `${t`Grammar`} Harper`, description: t`Filter to find a rule; these apply to every project` },
+    { tab: "editor", place: editor, id: "grammar-ignored", label: t`Ignored in this project`, terms: `${t`Grammar`} ${t`Ignored sentences`} Harper`, description: `${t`Open a project to ignore rules or sentences`} ${t`Choose Ignore on a grammar suggestion to add one`}` },
     { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build`, terms: `${t`Manual only`} ⌘S` },
     { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`} .aux .log` },
     ...(hasProject ? [

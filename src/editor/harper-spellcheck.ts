@@ -1,9 +1,10 @@
 import { forceLinting, linter, type Action, type Diagnostic } from "@codemirror/lint";
 import { StateEffect, type Extension } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
+import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
+import { grammarSettingsStore } from "./grammar-settings-store";
 
 type HarperSuggestionSnapshot = {
   kind: "replace" | "remove" | "insert-after";
@@ -17,25 +18,57 @@ type HarperLintResult = {
   kind: string;
   message: string;
   suggestions: HarperSuggestionSnapshot[];
+  rule: string;
+  sentenceStart: number;
+  sentenceEnd: number;
 };
 
 type AddProjectWord = (word: string) => boolean | Promise<boolean>;
 
+/** What the open project leaves unchecked, kept in its manifest. */
+export type GrammarIgnores = { rules: readonly string[]; sentences: readonly string[] };
+export type IgnoreGrammar = (ignore: { rule: string } | { sentence: string }) => boolean | Promise<boolean>;
+
+/** The prose a linter checks: LaTeX source, or Markdown and plain text. */
+export type HarperProse = "latex" | "text";
+
 type HarperDiagnosticOptions = {
   projectWords?: string[];
   onAddProjectWord?: AddProjectWord;
+  prose?: HarperProse;
+  ignores?: GrammarIgnores;
+  onIgnore?: IgnoreGrammar;
 };
 
-export const harperDictionaryChanged = StateEffect.define<null>();
+/** The project dictionary, the grammar settings or the project's ignores changed: lint again. */
+export const harperConfigChanged = StateEffect.define<null>();
+
+/**
+ * A sentence as a project ignores it: its source text with whitespace runs
+ * collapsed, so rewrapping the paragraph keeps it ignored and any edit to the
+ * wording checks it again.
+ */
+const grammarSentenceKey = (text: string) => text.replace(/\s+/g, " ").trim();
 
 const words = (list: string) => list.trim().split(/\s+/);
 
 /* eslint-disable lingui/no-unlocalized-strings -- LaTeX command and environment names, not interface copy */
 /** Every argument of these commands is an identifier, path, or key rather than prose. */
 const OPAQUE_COMMANDS = new Set(words(`
-  addbibresource author autocite begin bibliography bibliographystyle cite citealp citealt citeauthor citep citet
-  cref Cref documentclass end eqref footcite graphicspath include includegraphics input label newcommand
-  newenvironment pageref parencite path providecommand ref renewcommand renewenvironment textcite url usepackage
+  addbibresource author autocite autoref Autoref begin bibitem bibliography bibliographystyle cite citealp citealt
+  citeauthor citep Citep citet Citet citeyear cpageref Cpageref cref Cref documentclass end eqref footcite
+  graphicspath include includegraphics input label nameref newcommand newenvironment nocite pageref parencite path
+  providecommand ref renewcommand renewenvironment textcite url usepackage
+`));
+
+/**
+ * Opaque commands that print a citation or a reference in the paper. Like
+ * math, each keeps a neutral subject in the prose, so `\Cref{fig:loss} shows`
+ * still opens its sentence with a capital.
+ */
+const REFERENCE_COMMANDS = new Set(words(`
+  autocite autoref Autoref cite citealp citealt citeauthor citep Citep citet Citet citeyear cpageref Cpageref cref
+  Cref eqref footcite nameref pageref parencite ref textcite
 `));
 
 /** How many leading arguments of these commands are colors or URLs; the rest is prose. */
@@ -109,15 +142,19 @@ export function maskLatexForHarper(source: string): { prose: string; syntaxMask:
       syntaxMask[index] = true;
     }
   };
+  /** Keep a neutral subject for Harper at the first character of a masked span. */
+  const placeholder = (from: number, to: number) => {
+    let cursor = from;
+    while (cursor < Math.min(to, masked.length) && isLineBreak(cursor)) cursor += 1;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- placeholder subject fed to Harper, never shown
+    if (cursor < Math.min(to, masked.length)) masked[cursor] = "X";
+  };
   const maskMath = (from: number, to: number) => {
     blank(from, to);
     // Preserve a neutral subject for Harper while keeping every source offset.
     // If math opens a sentence, the following prose is not itself the sentence
     // start (`$g$ shares`, for example), so it should not be forced uppercase.
-    let cursor = from;
-    while (cursor < Math.min(to, masked.length) && isLineBreak(cursor)) cursor += 1;
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- placeholder subject fed to Harper, never shown
-    if (cursor < Math.min(to, masked.length)) masked[cursor] = "X";
+    placeholder(from, to);
   };
   const skipSpace = (from: number) => {
     while (/\s/.test(source[from] ?? "")) from += 1;
@@ -220,6 +257,7 @@ export function maskLatexForHarper(source: string): { prose: string; syntaxMask:
       cursor = end;
       if (bracket === "}") groupsMasked += 1;
     }
+    if (REFERENCE_COMMANDS.has(command)) placeholder(index, cursor);
     index = Math.max(cursor, index + 1);
   }
 
@@ -241,6 +279,10 @@ export function createHarperDiagnostic(input: {
   suggestions: HarperSuggestionSnapshot[];
   projectWord?: string;
   onAddProjectWord?: AddProjectWord;
+  /** A grammar lint's rule and sentence key, offered to the project to ignore. */
+  rule?: string;
+  sentence?: string;
+  onIgnore?: IgnoreGrammar;
 }): Diagnostic {
   const actions: Action[] = input.suggestions.slice(0, 1).map(({ kind, replacement }) => ({
     name: kind === "remove"
@@ -257,11 +299,23 @@ export function createHarperDiagnostic(input: {
       apply(view) {
         void Promise.resolve(onAddProjectWord(projectWord)).then((accepted) => {
           if (accepted === false) return;
-          view.dispatch({ effects: harperDictionaryChanged.of(null) });
+          view.dispatch({ effects: harperConfigChanged.of(null) });
           forceLinting(view);
         });
       },
     });
+  }
+  const { rule, sentence, onIgnore } = input;
+  if (onIgnore && !isSpellingKind(input.kind)) {
+    const ignore = (what: { rule: string } | { sentence: string }) => (view: EditorView) => {
+      void Promise.resolve(onIgnore(what)).then((accepted) => {
+        if (accepted === false) return;
+        view.dispatch({ effects: harperConfigChanged.of(null) });
+        forceLinting(view);
+      });
+    };
+    if (sentence) actions.push({ name: i18n._(msg`Ignore sentence`), apply: ignore({ sentence }) });
+    if (rule) actions.push({ name: i18n._(msg`Ignore rule in project`), apply: ignore({ rule }) });
   }
   return {
     from: input.from,
@@ -286,6 +340,20 @@ function normalizeProjectWords(list: string[]): string[] {
   return [...unique.values()].sort((left, right) => left.localeCompare(right));
 }
 
+/**
+ * What `harper_lint` checks with: the writer's dialect and profile (`auto`
+ * reads LaTeX as academic writing) and their rule choices, with the
+ * project's ignored rules turned off over them.
+ */
+function harperOptions(prose: HarperProse, ignoredRules: readonly string[]) {
+  const { dialect, profile, rules } = grammarSettingsStore.getState();
+  return {
+    dialect,
+    profile: profile === "auto" ? (prose === "latex" ? "academic" : "standard") : profile,
+    rules: { ...rules, ...Object.fromEntries(ignoredRules.map((rule) => [rule, false])) },
+  };
+}
+
 async function computeHarperDiagnostics(source: string, options: HarperDiagnosticOptions): Promise<Diagnostic[]> {
   if (source.trim().length === 0) return [];
   try {
@@ -296,7 +364,9 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
     const lints = await invoke<HarperLintResult[]>("harper_lint", {
       text: prose,
       projectWords: normalizeProjectWords(options.projectWords ?? []),
+      options: harperOptions(options.prose ?? "latex", options.ignores?.rules ?? []),
     });
+    const ignoredSentences = new Set(options.ignores?.sentences ?? []);
     return lints.flatMap((lint) => {
       const from = Math.max(0, Math.min(source.length, lint.start));
       const to = Math.max(from, Math.min(source.length, lint.end));
@@ -306,6 +376,8 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
       // every lint that touches hidden LaTeX syntax; prose-only spans still map
       // directly to the original document.
       if (to <= from || !/[A-Za-z]/.test(problem) || syntaxMask.slice(from, to).some(Boolean)) return [];
+      const sentence = grammarSentenceKey(source.slice(lint.sentenceStart, lint.sentenceEnd));
+      if (ignoredSentences.has(sentence)) return [];
       return [createHarperDiagnostic({
         from,
         to,
@@ -314,6 +386,9 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
         suggestions: lint.suggestions,
         projectWord: isSpellingKind(lint.kind) && /^[A-Za-z][A-Za-z'’-]*$/.test(problem) ? problem : undefined,
         onAddProjectWord: options.onAddProjectWord,
+        rule: lint.rule,
+        sentence: sentence || undefined,
+        onIgnore: options.onIgnore,
       })];
     });
   } catch (error) {
@@ -364,16 +439,32 @@ export function harperLintWindow(view: EditorView): { from: number; to: number }
   };
 }
 
-/** Harper prose diagnostics for an editor, reading the project dictionary live. */
+/** Lints every open editor again when the writer changes a grammar setting. */
+const grammarSettingsListener = ViewPlugin.define((view) => ({
+  destroy: grammarSettingsStore.subscribe((next, previous) => {
+    if (next.dialect === previous.dialect && next.profile === previous.profile && next.rules === previous.rules) return;
+    view.dispatch({ effects: harperConfigChanged.of(null) });
+  }),
+}));
+
+/** Harper prose diagnostics for an editor, reading the project dictionary and ignores live. */
 export function harperSpellcheck(live?: {
-  current: { spellingWords: string[]; onAddSpellingWord?: AddProjectWord };
-}): Extension {
-  return linter(async (view) => {
+  current: {
+    spellingWords: string[];
+    onAddSpellingWord?: AddProjectWord;
+    grammarIgnores?: GrammarIgnores;
+    onIgnoreGrammar?: IgnoreGrammar;
+  };
+}, prose: HarperProse = "latex"): Extension {
+  return [grammarSettingsListener, linter(async (view) => {
     const data = live?.current;
     const onAdd = data?.onAddSpellingWord;
     const window = harperLintWindow(view) ?? { from: 0, to: view.state.doc.length };
     if (window.to <= window.from) return [];
     const diagnostics = await harperDiagnostics(view.state.sliceDoc(window.from, window.to), {
+      prose,
+      ignores: data?.grammarIgnores,
+      onIgnore: data?.onIgnoreGrammar,
       projectWords: data?.spellingWords ?? [],
       onAddProjectWord: onAdd && (async (word: string) => {
         if (await onAdd(word) === false) return false;
@@ -394,7 +485,7 @@ export function harperSpellcheck(live?: {
       // Windowed docs re-lint as new content scrolls into the window.
       (update.viewportChanged && update.state.doc.length > HARPER_WINDOW_THRESHOLD)
       || update.transactions.some((transaction) =>
-        transaction.effects.some((effect) => effect.is(harperDictionaryChanged)))
+        transaction.effects.some((effect) => effect.is(harperConfigChanged)))
     ),
-  });
+  })];
 }

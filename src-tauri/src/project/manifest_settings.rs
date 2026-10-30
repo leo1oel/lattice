@@ -1,6 +1,7 @@
 //! What the app writes into a project's manifest beside its root documents:
 //! the settings dialog's build settings and budgets, the deadline, the
-//! submission checklist's own items and the project dictionary.
+//! submission checklist's own items, the project dictionary and the grammar
+//! rules and sentences the project ignores.
 
 use super::manifest::{read_manifest, write_manifest};
 use super::paths::{safe_path, stays_inside};
@@ -160,6 +161,43 @@ pub fn set_spelling_words(root: &Path, words: Vec<String>) -> Result<ProjectMani
     Ok(manifest)
 }
 
+/// Replace what the grammar check ignores in this project: Harper rule names
+/// (unique, sorted) and sentences (unique, oldest first). Sentences arrive
+/// already collapsed by the frontend, which compares them that way, so only
+/// the ends are trimmed here.
+pub fn set_grammar_ignores(
+    root: &Path, rules: Vec<String>, sentences: Vec<String>,
+) -> Result<ProjectManifest, String> {
+    if rules.len() > 1000 || sentences.len() > 1000 {
+        return Err("A project ignores at most 1000 rules and 1000 sentences.".to_string());
+    }
+    let mut manifest = read_manifest(root)?;
+    let mut normalized_rules: Vec<String> = Vec::new();
+    for rule in rules.iter().map(|rule| rule.trim()) {
+        if rule.is_empty() || rule.len() > 80 || !rule.chars().all(|ch| ch.is_ascii_alphanumeric())
+        {
+            return Err("Name each ignored grammar rule by its Harper name.".to_string());
+        }
+        if !normalized_rules.iter().any(|existing| existing == rule) {
+            normalized_rules.push(rule.to_string());
+        }
+    }
+    normalized_rules.sort();
+    let mut normalized_sentences: Vec<String> = Vec::new();
+    for sentence in sentences.iter().map(|sentence| sentence.trim()) {
+        if sentence.is_empty() || sentence.chars().count() > 2000 {
+            return Err("Ignored sentences must hold at most 2000 characters.".to_string());
+        }
+        if !normalized_sentences.iter().any(|existing| existing == sentence) {
+            normalized_sentences.push(sentence.to_string());
+        }
+    }
+    manifest.grammar_ignored_rules = normalized_rules;
+    manifest.grammar_ignored_sentences = normalized_sentences;
+    write_manifest(root, &manifest)?;
+    Ok(manifest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +233,42 @@ mod tests {
         let words = ["TexLab", "VLM", "texlab"].map(String::from).to_vec();
         assert_eq!(set_spelling_words(root, words).unwrap().spelling_words, vec!["TexLab", "VLM"]);
         assert_eq!(read_manifest(root).unwrap().engine, "xelatex");
+    }
+
+    #[test]
+    fn grammar_ignores_are_normalized_kept_and_cleared() {
+        let fixture = Fixture::project("manifest-grammar-ignores");
+        let root = &fixture.root;
+        let strings = |values: &[&str]| values.iter().map(|value| value.to_string()).collect();
+        let set = set_grammar_ignores(
+            root,
+            strings(&["OxfordComma", " LongSentences ", "OxfordComma"]),
+            strings(&[
+                "We test this hypothesis.",
+                "  An earlier one.  ",
+                "We test this hypothesis.",
+            ]),
+        )
+        .unwrap();
+        assert_eq!(set.grammar_ignored_rules, ["LongSentences", "OxfordComma"]);
+        assert_eq!(set.grammar_ignored_sentences, ["We test this hypothesis.", "An earlier one."]);
+        let reread = read_manifest(root).unwrap();
+        assert_eq!(reread.grammar_ignored_rules, set.grammar_ignored_rules);
+        assert_eq!(reread.grammar_ignored_sentences, set.grammar_ignored_sentences);
+
+        for (rules, sentences) in [
+            (strings(&["Oxford Comma"]), Vec::new()),
+            (strings(&["../rule"]), Vec::new()),
+            (Vec::new(), strings(&["   "])),
+            (Vec::new(), vec!["x".repeat(2001)]),
+        ] {
+            assert!(set_grammar_ignores(root, rules, sentences).is_err());
+        }
+        assert_eq!(read_manifest(root).unwrap().grammar_ignored_rules, set.grammar_ignored_rules);
+
+        set_grammar_ignores(root, Vec::new(), Vec::new()).unwrap();
+        let raw = fs::read_to_string(root.join(MANIFEST_PATH)).unwrap();
+        assert!(!raw.contains("grammarIgnored"), "nothing ignored leaves no key behind");
     }
 
     #[test]

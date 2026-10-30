@@ -261,6 +261,17 @@ pub async fn set_project_spelling_words(
 }
 
 #[tauri::command]
+pub async fn set_project_grammar_ignores(
+    state: State<'_, AppState>, window: Window, rules: Vec<String>, sentences: Vec<String>,
+) -> Result<ProjectManifest, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Grammar ignore update", move || {
+        project::set_grammar_ignores(&root, rules, sentences)
+    })
+    .await
+}
+
+#[tauri::command]
 pub fn watch_project(
     app: AppHandle, state: State<'_, AppState>, window: Window,
 ) -> Result<(), String> {

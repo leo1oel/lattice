@@ -13,7 +13,7 @@ import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { withoutAppShortcuts } from "../editor-app-shortcuts";
 import { centerMatch, revealExtension } from "../editor-reveal";
-import { harperSpellcheck } from "../harper-spellcheck";
+import { harperSpellcheck, type GrammarIgnores, type HarperProse, type IgnoreGrammar } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
 import {
   citationCompletions, citationIcon, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
@@ -87,6 +87,9 @@ export type LatexEditorLiveData = {
   citationUsageRevision?: unknown;
   spellingWords: string[];
   onAddSpellingWord?: (word: string) => boolean | Promise<boolean>;
+  /** The open project's ignored grammar rules and sentences, and the action that adds one. */
+  grammarIgnores?: GrammarIgnores;
+  onIgnoreGrammar?: IgnoreGrammar;
 };
 
 export type LatexEditorOptions = {
@@ -233,7 +236,8 @@ const popupMotionTooltips = ViewPlugin.define((view) => {
 
 /** Editing behavior shared by LaTeX, Markdown, BibTeX, and plain-text files. */
 export function textEditorExtensions(
-  spellcheck = false,
+  /** Which prose Harper checks, or false for none. */
+  spellcheck: HarperProse | false = false,
   live?: { current: LatexEditorLiveData },
   onPasteImage?: (file: File) => boolean | void,
 ): Extension[] {
@@ -254,7 +258,7 @@ export function textEditorExtensions(
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),
     popupMotionTooltips,
-    ...(spellcheck ? [harperSpellcheck(live)] : []),
+    ...(spellcheck ? [harperSpellcheck(live, spellcheck)] : []),
     ...(onPasteImage ? [EditorView.domEventHandlers({
       paste(event) {
         const file = [...event.clipboardData?.items ?? []].find((item) => item.type.startsWith("image/"))?.getAsFile();
@@ -359,7 +363,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     return true;
   };
   return [
-    ...textEditorExtensions(options.spellcheck, options.live, options.onPasteImage),
+    ...textEditorExtensions(options.spellcheck ? "latex" : false, options.live, options.onPasteImage),
     highlightPaint(),
     citationTooltips(live, onGotoDefinition),
     referenceTooltips(live, options.loadReferenceImage),

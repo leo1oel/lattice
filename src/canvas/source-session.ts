@@ -63,7 +63,7 @@ export function sameSourceConfig(a: SourceSessionConfig, b: SourceSessionConfig)
     && a.proofread === b.proofread && a.reviewBridge === b.reviewBridge && a.commentCards === b.commentCards;
 }
 
-/** The LaTeX and text editors' live data (citations, macros, spelling). */
+/** The LaTeX and text editors' live data (citations, macros, spelling and grammar). */
 function editorLiveData(live: SourceSessionLive): { readonly current: LatexEditorLiveData } {
   return {
     get current() {
@@ -73,6 +73,8 @@ function editorLiveData(live: SourceSessionLive): { readonly current: LatexEdito
         projectRoot: preferences.projectRoot,
         spellingWords: preferences.spellingWords,
         onAddSpellingWord: preferences.onAddSpellingWord,
+        grammarIgnores: preferences.grammarIgnores,
+        onIgnoreGrammar: preferences.onIgnoreGrammar,
       };
     },
   };
@@ -107,7 +109,7 @@ export function sourceSessionExtensions(config: SourceSessionConfig, live: Sourc
       }),
     ] : [
       ...config.language,
-      ...textEditorExtensions(spellcheck, editorLiveData(live), onPasteImage),
+      ...textEditorExtensions(spellcheck && "text", editorLiveData(live), onPasteImage),
     ]),
     config.proofread,
     compositionEndTracker,
