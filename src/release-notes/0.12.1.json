@@ -1,0 +1,27 @@
+{
+  "version": "0.12.1",
+  "date": "2026-10-30",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "Please install this version manually, once. It is signed with a new update key, so Lattice 0.12.0 and earlier will not update to it automatically: download the DMG below and drag it into Applications over your current copy. Your projects and settings are kept, and later updates are automatic again.",
+      "zh": "请手动安装此版本一次。此版本使用新的更新密钥签名，Lattice 0.12.0 及更早版本不会自动更新到它：请下载下方的 DMG，并将其拖入“应用程序”文件夹覆盖当前版本。你的项目和设置都会保留，之后的更新将恢复自动进行。"
+    },
+    {
+      "en": "Lattice opens again on macOS 14, where the PDF preview crashed it on launch.",
+      "zh": "Lattice 在 macOS 14 上可以正常打开了，此前 PDF 预览会导致其启动时崩溃。"
+    },
+    {
+      "en": "Overleaf: your edits no longer stop reaching your local files after the computer sleeps or the network changes.",
+      "zh": "Overleaf：电脑睡眠或网络切换后，你的编辑不会再无法同步到本地文件。"
+    },
+    {
+      "en": "Agent panel updated to Synara 1.0.9: /goal posts a visible message, Stop keeps your queued messages with Continue and Edit, and a turn cut off by a restart shows a readable error with Continue task.",
+      "zh": "Agent 面板更新至 Synara 1.0.9：/goal 会发送一条可见的消息；点击停止后会保留排队中的消息，并可选择继续或编辑；因重启而中断的回合会显示易读的错误信息，并提供“继续任务”。"
+    },
+    {
+      "en": "Complete third-party license notices.",
+      "zh": "第三方许可声明已补全。"
+    }
+  ]
+}
