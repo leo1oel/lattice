@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type {
-  AssetPreview, CanvasMode, DocumentViewMode, NavigationEntry, PaperSummary, RefreshProject,
-} from "../app-types";
+import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from "react";
+import type { DocumentViewMode, PaperSummary, RefreshProject } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { useRefState } from "./effect-helpers";
+import { useStoreSlice } from "../hooks/use-store-slice";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import { useFileViewStates } from "./use-file-view-states";
 import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths } from "./workspace-restore";
-import { paperDocumentPath, type PaperView } from "./paper-documents";
+import { paperDocumentPath } from "./paper-documents";
+import { createOpenDocumentsStore, type OpenDocumentsState, type OpenDocumentsStore } from "./open-documents-store";
 import { readDiskMtime } from "./read-document";
 import { panelViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
 import { publishDeferredEdits, type SurfaceOwner } from "./open-document-intents";
@@ -51,32 +50,41 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const depsRef = useLatestRef(deps);
   const { project, projectRef, projectBeforeTransitionRef, projectOperationGenerationRef, captureProjectScope } = deps.projectState;
   const projectRoot = project?.root ?? null;
-
-  // ---- Buffers. Every buffer has a ref twin for async work; the live setters write both halves.
-  const [file, setFile, fileRef, setFileLive] = useRefState("");
-  const [text, , textRef, setTextLive] = useRefState("");
-  const [savedText, , savedRef, setSavedLive] = useRefState("");
-  const [asset, setAsset, assetRef, setAssetLive] = useRefState<AssetPreview | null>(null);
-  const [paper, setPaper] = useState<PaperSummary | null>(null);
-  const [paperMarkdown, , paperMarkdownRef, setPaperMarkdownLive] = useRefState("");
-  const [savedPaperMarkdown, , savedPaperMarkdownRef, setSavedPaperMarkdown] = useRefState("");
-  // The alphaXiv overview ("blog") is the default reading view; null when the
-  // paper has no report. `paperView` picks which of blog/full-text is shown.
-  const [paperBlog, , paperBlogRef, setPaperBlogLive] = useRefState<string | null>(null);
-  const [savedPaperBlog, , savedPaperBlogRef, setSavedPaperBlog] = useRefState<string | null>(null);
-  const [paperView, setPaperView] = useState<PaperView>("blog");
+  // Made once per mount and kept: nothing is ever dispatched to this reducer.
+  const [documentsStore] = useReducer(keepStore, null, createOpenDocumentsStore);
+  // Subscribe to what renders; back/forward history and the "Opening …"
+  // overlay are read where they are used, so they never render App.
+  const {
+    file, text, savedText, asset, paper, paperView, paperMarkdown, savedPaperMarkdown, paperBlog, savedPaperBlog,
+    tabs, revealRequest, mode, persistenceReadyRoot, tabsSettledRoot,
+  } = useStoreSlice(documentsStore, renderedFields);
+  const {
+    setFile, setText, setSavedText, setAsset, setPaper, setPaperView, setPaperMarkdown, setSavedPaperMarkdown,
+    setPaperBlog, setSavedPaperBlog, setTabs, setMode, setOpening, setNavStack, setNavIndex,
+    setPersistenceReadyRoot, setTabsSettledRoot, commitFileText, showFileText, setPaperBuffers, closePaper,
+    addTab, showTab, pushNavigation,
+  } = documentsStore.getState();
+  // Ref-shaped views for async work: they read the store, so they hold every write at once.
+  const {
+    fileRef, textRef, savedRef, assetRef, paperMarkdownRef, savedPaperMarkdownRef, paperBlogRef, savedPaperBlogRef, tabsRef,
+  } = useMemo(() => ({
+    fileRef: liveField(documentsStore, "file"),
+    textRef: liveField(documentsStore, "text"),
+    savedRef: liveField(documentsStore, "savedText"),
+    assetRef: liveField(documentsStore, "asset"),
+    paperMarkdownRef: liveField(documentsStore, "paperMarkdown"),
+    savedPaperMarkdownRef: liveField(documentsStore, "savedPaperMarkdown"),
+    paperBlogRef: liveField(documentsStore, "paperBlog"),
+    savedPaperBlogRef: liveField(documentsStore, "savedPaperBlog"),
+    tabsRef: liveField(documentsStore, "tabs"),
+  }), [documentsStore]);
   const paperPath = paper ? paperDocumentPath(paper.arxivId, paperView) : null;
   const paperDirty = Boolean(paper) && (paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog);
 
-  // ---- Tabs, in strip order, saved with the layout; a full panel closes
-  // some (trellis-tab-policy.ts). Closed ones stack for reopening.
-  const [tabs, setTabs] = useState<string[]>([]);
-  const tabsRef = useRef<string[]>([]);
-  useLayoutEffect(() => { tabsRef.current = tabs; }, [tabs]);
+  // ---- Closed tabs stack for reopening.
   const closedRef = useRef<string[]>([]);
 
   // ---- Canvas mode, and the modes each kind of document returns to.
-  const [mode, setMode] = useState<CanvasMode>("split");
   const htmlModesRef = useRef(new Map<string, DocumentViewMode>());
   const documentModeRef = useRef<DocumentViewMode>("split");
   // A bibliography opens as its source until the writer picks its reference list (Preview) or Split.
@@ -91,21 +99,10 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   }, [asset, file, paper, mode]);
 
   // ---- Intents. Every open reserves the next generation; a read that lands
-  // under an older one is dropped. `opening` is the "Opening …" overlay.
+  // under an older one is dropped. Back/forward steps lock out recording.
   const intentRef = useRef(0);
   const viewIntentRef = useRef(0);
-  const [opening, setOpening] = useState<{ generation: number; label: string } | null>(null);
-
-  // ---- Back/forward history.
-  const [navStack, setNavStack] = useState<NavigationEntry[]>([]);
-  const [navIndex, setNavIndex] = useState(-1);
   const navLockRef = useRef(false);
-
-  // ---- Restore and layout persistence. Persistence starts once the project's
-  // restore finished; Trellis reconciles panels as soon as the tabs settle
-  // (restored, or superseded by a file the writer opened during the restore).
-  const [persistenceReadyRoot, setPersistenceReadyRoot] = useState<string | null>(null);
-  const [tabsSettledRoot, setTabsSettledRoot] = useState<string | null>(null);
 
   // ---- Disk: the open file's last-seen mtime (-1: inspect the next version).
   const diskMtimeRef = useRef<number | null>(null);
@@ -120,49 +117,16 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const activeTab = paper ? paperTabKey(paper.arxivId) : asset?.path ?? file;
 
   /** The render values commands compare against, as of the last commit (what their closures used to hold). */
-  const renderedRef = useLatestRef({ project, file, paper, asset, paperView, paperDirty, navIndex, navStack, assetPaths });
+  const renderedRef = useLatestRef({ project, file, paper, asset, paperView, paperDirty, assetPaths });
 
   // ---- Buffer primitives -----------------------------------------------------------------------------------------
-  /** Replace the primary buffer with durable content (live and saved agree). */
-  const commitFileText = useCallback((content: string) => {
-    setTextLive(content);
-    setSavedLive(content);
-  }, [setSavedLive, setTextLive]);
-  const showFileText = useCallback((path: string, content: string) => {
-    setFileLive(path);
-    commitFileText(content);
-  }, [commitFileText, setFileLive]);
-  const setPaperBuffers = useCallback((markdown: string, blog: string | null) => {
-    setPaperMarkdownLive(markdown);
-    setSavedPaperMarkdown(markdown);
-    setPaperBlogLive(blog);
-    setSavedPaperBlog(blog);
-  }, [setPaperBlogLive, setPaperMarkdownLive, setSavedPaperBlog, setSavedPaperMarkdown]);
-  /** Leave Paper reading: the primary buffer belongs to a file again. */
-  const closePaper = useCallback(() => {
-    setPaper(null);
-    setPaperBuffers("", null);
-  }, [setPaperBuffers]);
   const paperBuffersDirty = useCallback(() => (
     paperMarkdownRef.current !== savedPaperMarkdownRef.current || paperBlogRef.current !== savedPaperBlogRef.current
   ), [paperBlogRef, paperMarkdownRef, savedPaperBlogRef, savedPaperMarkdownRef]);
   const setPaperText = useCallback((value: string) => {
-    if (paperView === "blog") setPaperBlogLive(value);
-    else setPaperMarkdownLive(value);
-  }, [paperView, setPaperBlogLive, setPaperMarkdownLive]);
-  const addTab = useCallback((path: string) => {
-    setTabs((current) => (current.includes(path) ? current : [...current, path]));
-  }, []);
-  // Each explicit open counts up, so Trellis shows the opened document even
-  // when it was already the active one and only a navigator (Papers, say)
-  // covered it in its panel. Routine reloads keep the panels' selection.
-  const [revealRequest, setRevealRequest] = useState(0);
-  /** An explicit open: the document gets its tab, and its panel shows it. */
-  const showTab = useCallback((path: string) => {
-    addTab(path);
-    setRevealRequest((request) => request + 1);
-  }, [addTab]);
-
+    if (paperView === "blog") setPaperBlog(value);
+    else setPaperMarkdown(value);
+  }, [paperView, setPaperBlog, setPaperMarkdown]);
   /** Publish deferred visual edits; false while a text composition is still open. */
   const flush = useCallback(() => flushRef.current?.() !== false, []);
   /**
@@ -217,23 +181,39 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   }, [commitFileText, fileRef, savedRef, textRef]);
 
   return {
-    depsRef, autoBuildEnabled: deps.autoBuild.enabled,
+    depsRef, autoBuildEnabled: deps.autoBuild.enabled, documentsStore,
     project, projectRoot, projectRef, projectOperationGenerationRef, captureProjectScope,
     // Buffers.
-    file, setFile, fileRef, text, textRef, setTextLive, savedText, savedRef, setSavedLive,
-    asset, setAsset, assetRef, setAssetLive, paper, setPaper,
+    file, setFile, fileRef, text, textRef, setText, savedText, savedRef, setSavedText,
+    asset, setAsset, assetRef, paper, setPaper,
     paperMarkdown, paperMarkdownRef, savedPaperMarkdown, savedPaperMarkdownRef, setSavedPaperMarkdown,
     paperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef, setSavedPaperBlog,
     paperView, setPaperView, paperPath, paperDirty,
     // Tabs, modes, intents, history, restore.
     tabs, setTabs, tabsRef, closedRef, activeTab, assetPaths, revealRequest,
     mode, setMode, htmlModesRef, documentModeRef, bibModeRef, viewModes, viewModeFor,
-    intentRef, viewIntentRef, opening, setOpening,
-    navStack, setNavStack, navIndex, setNavIndex, navLockRef,
+    intentRef, viewIntentRef, setOpening,
+    setNavStack, setNavIndex, pushNavigation, navLockRef,
     persistenceReadyRoot, setPersistenceReadyRoot, tabsSettledRoot, setTabsSettledRoot,
     diskMtimeRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
     // Primitives.
     commitFileText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
     addTab, showTab, flush, bufferText, flushAndCheckDirty, markDiskMtime, requestLine, accept,
   };
+}
+
+/** The fields useDocumentStore renders from; picked whole so a write elsewhere re-renders nothing. */
+const renderedFields = ({
+  file, text, savedText, asset, paper, paperView, paperMarkdown, savedPaperMarkdown, paperBlog, savedPaperBlog,
+  tabs, revealRequest, mode, persistenceReadyRoot, tabsSettledRoot,
+}: OpenDocumentsState) => ({
+  file, text, savedText, asset, paper, paperView, paperMarkdown, savedPaperMarkdown, paperBlog, savedPaperBlog,
+  tabs, revealRequest, mode, persistenceReadyRoot, tabsSettledRoot,
+});
+
+const keepStore = (store: OpenDocumentsStore) => store;
+
+/** A read-only ref over one field of the store, for code written against ref twins. */
+function liveField<K extends keyof OpenDocumentsState>(store: OpenDocumentsStore, key: K): RefObject<OpenDocumentsState[K]> {
+  return { get current() { return store.getState()[key]; } };
 }

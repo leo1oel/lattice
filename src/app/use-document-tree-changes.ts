@@ -8,7 +8,7 @@ import type { DocumentStore } from "./use-document-store";
 export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentOpens["loadFile"]) {
   const {
     depsRef, renderedRef, intentRef, tabsRef, closedRef, setTabs, setNavStack, setOpening, setMode, viewStates,
-    fileRef, setFile, setAsset, setAssetLive, showFileText,
+    setFile, setAsset, showFileText,
   } = store;
 
   /**
@@ -26,7 +26,6 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
     const deletedActiveFile = gone(activeFile);
     const deletedActiveAsset = gone(openAsset?.path);
     const remainingTabs = tabsRef.current.filter((tab) => !gone(tab));
-    tabsRef.current = remainingTabs;
     closedRef.current = closedRef.current.filter((tab) => !gone(tab));
     setTabs(remainingTabs);
     setNavStack((entries) => entries.filter((entry) => !gone(entry.path)));
@@ -38,7 +37,7 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
       setOpening(null);
       showFileText("", "");
     }
-    if (deletedActiveAsset) setAssetLive(null);
+    if (deletedActiveAsset) setAsset(null);
     viewStates.forget([...paths], gone);
     const snapshot = await depsRef.current.refreshProject();
     if (deletedActiveFile && !openAsset && !openPaperNow) {
@@ -56,7 +55,7 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
       setMode("split");
     }
   }, [
-    closedRef, depsRef, intentRef, loadFile, renderedRef, setAssetLive, setMode, setNavStack, setOpening, setTabs,
+    closedRef, depsRef, intentRef, loadFile, renderedRef, setAsset, setMode, setNavStack, setOpening, setTabs,
     showFileText, tabsRef, viewStates,
   ]);
 
@@ -66,12 +65,11 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
     const remap = (path: string) => remapProjectPath(path, changes);
     viewStates.remap(changes, remap);
     setTabs((current) => current.map(remap));
-    fileRef.current = remap(fileRef.current);
     setFile((path) => remap(path));
     setAsset((shown) => shown && { ...shown, path: remap(shown.path) });
     setNavStack((entries) => entries.map((entry) => ({ ...entry, path: remap(entry.path) })));
     depsRef.current.updateCanvasRequest("restore", (request) => request ? { ...request, path: remap(request.path) } : request);
-  }, [depsRef, fileRef, setAsset, setFile, setNavStack, setTabs, viewStates]);
+  }, [depsRef, setAsset, setFile, setNavStack, setTabs, viewStates]);
 
   return { remove, move };
 }

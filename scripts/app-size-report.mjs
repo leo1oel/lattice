@@ -166,8 +166,11 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // (`loadAgentSpreadsheetModel`) took ~87 KB back out. Raised from 1.33 MiB
 // when App's concepts moved into src/app hooks and components (#498): each is
 // compiled on its own and memoizes its inputs and results, which App's single
-// function had not, ~22 KB more (1,382,409 -> 1,404,478 bytes).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
+// function had not, ~22 KB more (1,382,409 -> 1,404,478 bytes). Raised from
+// 1.35 MiB on 2026-10-30 when the open documents moved into a Zustand store:
+// zustand (~1 KB) and the store with its compiled hook, +3.3 KB
+// (1,414,200 -> 1,417,523 bytes).
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.355 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 66 * 1024 * 1024;

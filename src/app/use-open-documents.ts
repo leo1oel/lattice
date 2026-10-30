@@ -42,12 +42,12 @@ const RECENTLY_CLOSED_LIMIT = 20;
 export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const store = useDocumentStore(deps);
   const {
-    depsRef, projectRoot, captureProjectScope, renderedRef,
-    file, fileRef, text, textRef, setTextLive, savedText, savedRef, asset, assetRef, setAssetLive,
+    depsRef, documentsStore, projectRoot, captureProjectScope, renderedRef,
+    file, fileRef, text, textRef, setText, savedText, savedRef, asset, assetRef, setAsset,
     paper, paperView, paperPath, paperDirty, paperBlog, paperMarkdown, setPaperText,
     tabs, setTabs, tabsRef, closedRef, activeTab, assetPaths, revealRequest,
     mode, setMode, htmlModesRef, documentModeRef, bibModeRef, viewModeFor,
-    intentRef, viewIntentRef, opening, setOpening, setNavIndex, navLockRef,
+    intentRef, viewIntentRef, setOpening, setNavIndex, navLockRef,
     persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates,
     showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, markDiskMtime, accept,
   } = store;
@@ -100,7 +100,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     if (isPaperTabKey(key)) return;
     if (assets.has(key)) {
       if (openAsset?.path === key) {
-        setAssetLive(null);
+        setAsset(null);
         if (fileFallback) await openFile(fileFallback);
         else setMode((current) => (current === "asset" ? "split" : current));
       }
@@ -109,7 +109,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     if (key === activeFile && fileFallback) await openFile(fileFallback);
   }, [
     closePaper, closedRef, flushAndCheckDirty, flushRef, intentRef, loadFile, openFile, paperBuffersDirty, renderedRef,
-    save, setAssetLive, setMode, setOpening, setTabs, tabsRef,
+    save, setAsset, setMode, setOpening, setTabs, tabsRef,
   ]);
 
   /** Bring `key` in front through its own reader. A Paper that left the library closes its tab instead. */
@@ -132,7 +132,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
    * back/forward history holds them (the palette's Recent files). Read when
    * asked, so following them costs nothing while writing.
    */
-  const recentPaths = () => [...new Set(renderedRef.current.navStack.map((entry) => entry.path).reverse())];
+  const recentPaths = () => [...new Set(documentsStore.getState().navStack.map((entry) => entry.path).reverse())];
 
   /** Reopen the most recently closed tab, through its own reader. */
   const reopenClosed = useCallback(() => {
@@ -142,7 +142,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
 
   /** Step back or forward through the lines the writer jumped between. */
   const go = useCallback(async (step: -1 | 1) => {
-    const { navIndex: index, navStack: stack } = renderedRef.current;
+    const { navIndex: index, navStack: stack } = documentsStore.getState();
     const nextIndex = index + step;
     const entry = stack[nextIndex];
     if (!entry) return;
@@ -151,7 +151,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     await openFile(entry.path, { line: entry.line }).finally(() => {
       navLockRef.current = false;
     });
-  }, [navLockRef, openFile, renderedRef, setNavIndex]);
+  }, [documentsStore, navLockRef, openFile, setNavIndex]);
 
   /** Switch the document in front between Edit, Split and Preview: the writer's choice, remembered per kind. */
   const chooseMode = useCallback((next: DocumentViewMode) => {
@@ -175,7 +175,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       if (isHtmlFilePath(activeFile)) htmlModesRef.current.set(activeFile, next);
       else if (isBibFilePath(activeFile)) bibModeRef.current = next;
       else documentModeRef.current = next;
-      setAssetLive(null);
+      setAsset(null);
       closePaper();
       // PDF can stand alone without a source tab. Returning to any source-backed
       // view restores the active document to the strip before rendering it.
@@ -186,7 +186,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     })();
   }, [
     addTab, bibModeRef, captureViewportRef, closePaper, documentModeRef, flushRef, htmlModesRef, intentRef, renderedRef,
-    save, setAssetLive, setMode, viewIntentRef,
+    save, setAsset, setMode, viewIntentRef,
   ]);
 
   /** Bring the editor (or the PDF) on screen, widening a view that hides it to split. */
@@ -237,6 +237,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const paperText = paperView === "blog" ? paperBlog ?? "" : paperMarkdown;
 
   return {
+    /** The open documents' store, for components that subscribe to one slice (the "Opening …" overlay). */
+    store: documentsStore,
     // What is open.
     file, text, savedText,
     paper, paperView, paperPath, paperDirty,
@@ -248,14 +250,13 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     revealRequest,
     /** Unsaved edits in the document in front. */
     dirty: paper ? paperDirty : text !== savedText,
-    opening: opening?.label ?? null,
     /** What the canvas edits (the Paper's current view, else the file), and how it reports back. */
     canvas: {
       key: paper ? `paper:${paperPath}` : `local:${file}`,
       path: paperPath ?? file,
       text: paper ? paperText : text,
       previewText: paper ? (paperView === "blog" ? paperBlog ?? "" : stripFrontmatter(paperMarkdown)) : undefined,
-      setText: paper ? setPaperText : setTextLive,
+      setText: paper ? setPaperText : setText,
       onLeave: onEditorLeave,
       onLeaveForPdf,
       onCompletionActiveChange,
@@ -274,7 +275,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     // Buffers.
     /** The last write to disk, for the status bar's save slot. */
     saveStatus,
-    flush, save, bufferText, hasUnsavedEdits, edit: setTextLive, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
+    flush, save, bufferText, hasUnsavedEdits, edit: setText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
     enter, remove, move,
   };

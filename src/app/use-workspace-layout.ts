@@ -27,7 +27,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
     depsRef, projectRef, projectOperationGenerationRef, projectRoot, intentRef, viewStates,
     file, tabs, setTabs, activeTab, mode, setMode, paperView, setPaperView, htmlModesRef, documentModeRef, bibModeRef,
     persistenceReadyRoot, setPersistenceReadyRoot, setTabsSettledRoot, setNavStack, setNavIndex,
-    setPaper, setAssetLive, setPaperBuffers, showFileText,
+    setPaper, setAsset, setPaperBuffers, showFileText,
   } = store;
   const { loadFile, openPaper, openAsset, choosePaperView } = opens;
 
@@ -70,7 +70,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
     showFileText("", "");
     viewStates.loadForProject(snapshot.root);
     setPaper(null);
-    setAssetLive(null);
+    setAsset(null);
     setPaperBuffers("", null);
     setTabs([]);
     setMode("split");
@@ -139,7 +139,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
     };
   }, [
     bibModeRef, choosePaperView, depsRef, documentModeRef, htmlModesRef, intentRef, loadFile, openAsset, openPaper,
-    projectOperationGenerationRef, projectRef, setAssetLive, setMode, setNavIndex, setNavStack, setPaper,
+    projectOperationGenerationRef, projectRef, setAsset, setMode, setNavIndex, setNavStack, setPaper,
     setPaperBuffers, setPaperView, setPersistenceReadyRoot, setTabs, setTabsSettledRoot, showFileText, viewStates,
   ]);
 

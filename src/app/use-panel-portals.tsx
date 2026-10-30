@@ -203,8 +203,8 @@ export function usePanelPortals({
         </Suspense>,
         trellis.hosts.agent,
       )}
-      {documents.opening && createPortal(
-        <OpeningOverlay name={documents.opening} />,
+      {createPortal(
+        <OpeningOverlay documents={documents.store} />,
         trellis.hosts.editor,
       )}
     </>
