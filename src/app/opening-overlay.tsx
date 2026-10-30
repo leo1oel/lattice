@@ -1,9 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { useStore } from "zustand";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { useLoadingReveal } from "../components/ui/loading-reveal";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
-import type { OpenDocumentsStore } from "./open-documents-store";
+import { useStoreSlice } from "../hooks/use-store-slice";
+import type { OpenDocumentsState, OpenDocumentsStore } from "./open-documents-store";
 
 /**
  * Over the editor while a file opens. It holds the pointer from the start
@@ -14,7 +14,7 @@ import type { OpenDocumentsStore } from "./open-documents-store";
  */
 export function OpeningOverlay({ documents }: { documents: OpenDocumentsStore }) {
   // Subscribed here, so showing and hiding the overlay renders only it.
-  const name = useStore(documents, (state) => state.opening?.label);
+  const name = useStoreSlice(documents, openingLabel);
   return name ? <OpeningScrim name={name} /> : null;
 }
 
@@ -28,3 +28,5 @@ function OpeningScrim({ name }: { name: string }) {
     </div>
   );
 }
+
+const openingLabel = (state: OpenDocumentsState) => state.opening?.label;

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useStore } from "zustand";
-import { useShallow } from "zustand/react/shallow";
 import type { DocumentViewMode, PaperSummary, RefreshProject } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { useStoreSlice } from "../hooks/use-store-slice";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import { useFileViewStates } from "./use-file-view-states";
 import type { ProjectState } from "./use-project-state";
@@ -57,7 +56,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const {
     file, text, savedText, asset, paper, paperView, paperMarkdown, savedPaperMarkdown, paperBlog, savedPaperBlog,
     tabs, revealRequest, mode, persistenceReadyRoot, tabsSettledRoot,
-  } = useStore(documentsStore, useShallow(renderedFields));
+  } = useStoreSlice(documentsStore, renderedFields);
   const {
     setFile, setText, setSavedText, setAsset, setPaper, setPaperView, setPaperMarkdown, setSavedPaperMarkdown,
     setPaperBlog, setSavedPaperBlog, setTabs, setMode, setOpening, setNavStack, setNavIndex,
