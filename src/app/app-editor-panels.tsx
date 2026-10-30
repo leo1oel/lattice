@@ -13,7 +13,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLingui } from "@lingui/react/macro";
 import { LazyMount } from "../components/lazy-mount";
 import { useProjectFigureUndo } from "../project/figure-undo";
-import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { useLinkedFileStats } from "../project/submission-item-state";
 import { useSubmissionReview } from "../project/submission-review-state";
 import { collectFilePaths } from "./workspace-restore";
@@ -40,6 +39,9 @@ import type {
 } from "../app-types";
 
 const EMPTY_ITEMS: SubmissionItem[] = [];
+// The checklist loads when it is first opened: its checks and their labels
+// are no part of what a window needs to start.
+const ManuscriptChecklistPanel = lazy(() => import("../project/manuscript-checklist").then((module) => ({ default: module.ManuscriptChecklistPanel })));
 const FigureInventoryDialog = lazy(() => import("../project/figure-inventory-dialog").then((module) => ({ default: module.FigureInventoryDialog })));
 
 const EditorCommentsPanel = lazy(() =>
@@ -226,7 +228,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
         onClose={() => setFiguresOpen(false)} beforeWrite={props.beforeFigureWrite} afterWrite={props.afterFigureWrite}
         captureProjectScope={props.captureProjectScope} undo={figureUndo} setUndo={setFigureUndo}
       /></Suspense>}
-      {tools.isOpen.checklist && project && (
+      <LazyMount when={tools.isOpen.checklist}>
         <ManuscriptChecklistPanel
           data={{
             words: props.projectWordCount?.total ?? null,
@@ -267,7 +269,7 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
           onOpenAt={(path, line) => void openProjectFile(path, { line })}
           onOpenSource={(url) => void openUrl(url).catch((reason: unknown) => showError(toMessage(reason)))}
         />
-      )}
+      </LazyMount>
     </>
   );
 }

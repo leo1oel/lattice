@@ -1,6 +1,5 @@
 import { useEffect, useReducer } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { chunk } from "../lib/lazy-chunk";
 
 /** One thing the backend's review found (`latex/submission_review.rs`), where in the source it is when it is anywhere. */
 export type ReviewFinding = {
@@ -26,11 +25,10 @@ export type SubmissionReview = {
 };
 
 /**
- * One review row's result, before it has words: the panel counts these in its
- * verdict at once, while the labels and the rows themselves load in their own
- * chunk. A camera-ready copy has no anonymity rows, since naming its authors
- * is the point; a row about the PDF cannot settle without one (or, for the
- * fonts, without a PDF whose fonts could be read).
+ * One review row's result, before it has words, as the verdict counts it. A
+ * camera-ready copy has no anonymity rows, since naming its authors is the
+ * point; a row about the PDF cannot settle without one (or, for the fonts,
+ * without a PDF whose fonts could be read).
  */
 export type ReviewRow = {
   id: "authors" | "acknowledgements" | "links" | "self-citation" | "pdf-author" | "type3" | "unembedded";
@@ -38,17 +36,13 @@ export type ReviewRow = {
   findings: ReviewFinding[];
 };
 
-/** The rows and their labels: only an open checklist with a review to show needs them. */
-export const reviewRowsChunk = chunk(() => import("./submission-review"));
-
 type ReadReview = { key: string; review: SubmissionReview | null };
 
 /**
  * The review of the open project, read while the checklist is open and again
  * whenever the project's tree (after a file event) or its last build changes.
  * Answers that arrive for another project, or after the checklist closed,
- * are dropped. The rows' chunk loads alongside, so it is usually in before
- * the answer is.
+ * are dropped.
  */
 export function useSubmissionReview(scope: string, wanted: boolean, tree: unknown, build: unknown): SubmissionReview | null {
   const key = wanted ? scope : "";
@@ -56,7 +50,6 @@ export function useSubmissionReview(scope: string, wanted: boolean, tree: unknow
   useEffect(() => {
     if (!key) return;
     let current = true;
-    void reviewRowsChunk().catch(() => undefined);
     void invoke<SubmissionReview | null>("submission_review").then(
       (review) => review,
       // A project the backend cannot read has nothing to report, not a failure to show.

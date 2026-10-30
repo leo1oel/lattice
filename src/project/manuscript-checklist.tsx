@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronRight, ClipboardCheck, Images } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
@@ -11,10 +11,8 @@ import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
 import { itemCondition, itemPasses, type LinkedFileStat } from "./submission-item-state";
 import { SubmissionItems } from "./submission-items";
-import { lazyChunk } from "../lib/lazy-chunk";
-import { reviewRows, reviewRowsChunk, type SubmissionReview } from "./submission-review-state";
-
-const SubmissionReviewGroups = lazyChunk(reviewRowsChunk, (module) => module.SubmissionReviewGroups);
+import { SubmissionReviewGroups } from "./submission-review";
+import { reviewRows, type SubmissionReview } from "./submission-review-state";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -262,13 +260,7 @@ export function ManuscriptChecklistPanel(props: {
             detail={props.data.buildMessage}
           />
         </div>
-        {/* Counted in the verdict above at once; its rows follow their chunk,
-            which loads while the review is read. */}
-        {review && (
-          <Suspense fallback={null}>
-            <SubmissionReviewGroups review={review} rows={reviewResults} onOpenAt={props.onOpenAt} />
-          </Suspense>
-        )}
+        {review && <SubmissionReviewGroups review={review} rows={reviewResults} onOpenAt={props.onOpenAt} />}
         <SubmissionItems
           items={props.data.items}
           fileStats={props.data.fileStats}

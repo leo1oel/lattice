@@ -1,4 +1,4 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -22,6 +22,7 @@ vi.mock("../project/manuscript-checklist", () => ({
 }));
 afterEach(() => {
   cleanup();
+  checklist.props = null;
   vi.mocked(invoke).mockReset();
   vi.mocked(showError).mockReset();
 });
@@ -41,8 +42,11 @@ const snapshot = (name: string) => ({
 const answered = (name: string, change: Partial<ProjectManifest>) => ({ ...snapshot(name).manifest, ...change });
 const DEADLINE = { venue: "ICLR", kind: "paper", due: "2027-01-01T23:59" } as const;
 
-/** The panels open on project A's checklist; `current` is what the window shows. */
-function renderPanels() {
+/**
+ * The panels open on project A's checklist, once its lazily loaded panel is
+ * in; `current` is what the window shows.
+ */
+async function renderPanels() {
   const window = { current: snapshot("A"), generation: 0 };
   const captureProjectScope = () => {
     const { root } = window.current;
@@ -66,6 +70,7 @@ function renderPanels() {
     annotationRounds: { subscribe: () => () => undefined, getSnapshot: () => ({ roundsOpen: false }) },
   } as unknown as ComponentProps<typeof AppEditorPanels>;
   render(<AppEditorPanels {...props} />);
+  await waitFor(() => expect(checklist.props).not.toBeNull());
   return { window, open };
 }
 
@@ -75,7 +80,7 @@ it("installs no manifest a deadline or budget write answers after its project cl
   ] as const) {
     const write = deferred<ProjectManifest>();
     vi.mocked(invoke).mockReset().mockReturnValue(write.promise);
-    const { window, open } = renderPanels();
+    const { window, open } = await renderPanels();
     act(() => {
       if (save === "deadline") checklist.props!.onSaveDeadline(DEADLINE);
       else checklist.props!.onSaveBudgets(8000, 9);
@@ -97,7 +102,7 @@ it("installs every settings answer in the order written, and the project's own f
   const older = deferred<ProjectManifest>();
   const newer = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
-  const { window, open } = renderPanels();
+  const { window, open } = await renderPanels();
   act(() => {
     checklist.props!.onSaveBudgets(8000, null);
     checklist.props!.onSaveDeadline(DEADLINE);
@@ -130,7 +135,7 @@ it("runs every manifest write one after another, the newest answer holding them 
   const items = deferred<ProjectManifest>();
   const deadline = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(items.promise).mockReturnValueOnce(deadline.promise);
-  const { window } = renderPanels();
+  const { window } = await renderPanels();
   const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
   act(() => {
     checklist.props!.onSaveItems([item]);
@@ -153,7 +158,7 @@ it("runs every manifest write one after another, the newest answer holding them 
 it("never sends a write still queued when its project closed", async () => {
   const items = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(items.promise);
-  const { open } = renderPanels();
+  const { open } = await renderPanels();
   const item = { id: "a", title: "All authors confirmed", status: "confirmed" } as const;
   let saved: Promise<boolean> | undefined;
   act(() => {
@@ -176,7 +181,7 @@ it("runs item writes one after another, so an older one never lands over a newer
   const first = deferred<ProjectManifest>();
   const second = deferred<ProjectManifest>();
   vi.mocked(invoke).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-  const { window } = renderPanels();
+  const { window } = await renderPanels();
   const item = { id: "a", title: "All authors confirmed", status: "todo" } as const;
   act(() => {
     checklist.props!.onSaveItems([item]);

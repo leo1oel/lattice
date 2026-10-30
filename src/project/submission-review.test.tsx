@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ManuscriptChecklistPanel, type ManuscriptChecklistData } from "./manuscript-checklist";
-import { reviewRowsChunk, type ReviewFinding, type SubmissionReview } from "./submission-review-state";
+import type { ReviewFinding, SubmissionReview } from "./submission-review-state";
 import { activateAppLocale } from "../i18n";
 
 // Every automatic check above the review passes, so the verdict is the review's.
@@ -38,8 +38,6 @@ function renderReview(review: SubmissionReview | null) {
 }
 
 describe("submission checklist review", () => {
-  // The rows render from their own chunk; loaded first, they render at once.
-  beforeAll(() => reviewRowsChunk());
   beforeEach(() => activateAppLocale("en"));
   afterEach(cleanup);
 
