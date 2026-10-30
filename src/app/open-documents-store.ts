@@ -6,7 +6,7 @@ import type { PaperView } from "./paper-documents";
 const NAVIGATION_HISTORY_LIMIT = 80;
 
 /** The "Opening …" overlay of the open under way; `generation` is the intent that showed it. */
-export type Opening = { generation: number; label: string };
+type Opening = { generation: number; label: string };
 
 /** What a project window has open, as plain data. */
 export type OpenDocumentsState = {
@@ -49,7 +49,7 @@ export type OpenDocumentsState = {
 
 type Setters = { [K in keyof OpenDocumentsState as `set${Capitalize<K>}`]: (next: SetStateAction<OpenDocumentsState[K]>) => void };
 
-export type OpenDocumentsActions = Setters & {
+type OpenDocumentsActions = Setters & {
   /** Replace the file's buffer with durable content (live and saved agree). */
   commitFileText: (content: string) => void;
   /** Load `content` as `path`'s durable text. */
