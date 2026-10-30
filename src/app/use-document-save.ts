@@ -18,7 +18,7 @@ import type { DocumentStore } from "./use-document-store";
 export function useDocumentSave(store: DocumentStore) {
   const { t } = useLingui();
   const {
-    depsRef, projectRoot, renderedRef, fileRef, textRef, savedRef, setTextLive, setSavedLive,
+    depsRef, projectRoot, renderedRef, fileRef, textRef, savedRef, setText, setSavedText,
     paperMarkdownRef, savedPaperMarkdownRef, setSavedPaperMarkdown, paperBlogRef, savedPaperBlogRef, setSavedPaperBlog,
     diskMtimeRef,
   } = store;
@@ -49,14 +49,14 @@ export function useDocumentSave(store: DocumentStore) {
         const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource, primarySavedSource) : primarySource;
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
         // edit, not be replaced by the formatted snapshot when the write returns.
-        if (content !== primarySource) setTextLive(content);
+        if (content !== primarySource) setText(content);
         writing = primaryPath;
         const writeResult = await invoke<EditorWriteResult>("write_project_file", {
           path: primaryPath, content, baseContent: primarySavedSource, projectRoot: current.root,
         });
         const writtenSource = writeResult?.content ?? content;
         const sameFile = fileRef.current === primaryPath;
-        if (writtenSource !== content && sameFile && textRef.current === content) setTextLive(writtenSource);
+        if (writtenSource !== content && sameFile && textRef.current === content) setText(writtenSource);
         if (writeResult?.hadConflicts) {
           const path = primaryPath;
           showWarning(t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }));
@@ -69,7 +69,7 @@ export function useDocumentSave(store: DocumentStore) {
         // save write the buffer straight over it, losing the outside edit.
         // Keeping `content` lets that save merge again instead.
         const typedOn = sameFile && textRef.current !== content;
-        setSavedLive(writtenSource !== content && typedOn ? content : writtenSource);
+        setSavedText(writtenSource !== content && typedOn ? content : writtenSource);
         // Force the detector to inspect the next filesystem version. An Agent
         // may finish another atomic write after the backend response but before
         // a post-save stat; recording that newer mtime without reading it would
@@ -105,7 +105,7 @@ export function useDocumentSave(store: DocumentStore) {
     });
   }, [
     depsRef, diskMtimeRef, fileRef, paperBlogRef, paperMarkdownRef, renderedRef, savedPaperBlogRef, savedPaperMarkdownRef,
-    savedRef, setSavedLive, setSavedPaperBlog, setSavedPaperMarkdown, setTextLive, t, textRef,
+    savedRef, setSavedText, setSavedPaperBlog, setSavedPaperMarkdown, setText, t, textRef,
   ]);
   const save = useCallback(
     () => trackSave(saveActivityRef.current, renderedRef.current.project?.root, setSaveStatus, saveContents),

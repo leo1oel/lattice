@@ -188,12 +188,13 @@ describe("opening documents", () => {
     const paperRead = docs.hold("read_paper", "");
     let paper!: Promise<boolean>;
     act(() => { paper = docs.current().openPaper(PAPER); });
-    expect(docs.current().opening).toBe("Attention");
+    expect(docs.current().store.getState().opening?.label).toBe("Attention");
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_paper", { arxivId: PAPER.arxivId }));
     await act(() => docs.current().openFile("intro.tex"));
     paperRead.resolve("Full text");
     expect(await act(() => paper)).toBe(false);
-    expect(docs.current()).toMatchObject({ file: "intro.tex", paper: null, activeTab: "intro.tex", opening: null });
+    expect(docs.current()).toMatchObject({ file: "intro.tex", paper: null, activeTab: "intro.tex" });
+    expect(docs.current().store.getState().opening).toBeNull();
     expect(docs.current().tabs).toEqual(["main.tex", "intro.tex"]);
   });
 

@@ -13,8 +13,6 @@ import {
 } from "./open-document-intents";
 import type { DocumentStore } from "./use-document-store";
 
-const NAVIGATION_HISTORY_LIMIT = 80;
-
 export type DocumentOpens = ReturnType<typeof useDocumentOpens>;
 
 /**
@@ -26,7 +24,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
   const { t } = useLingui();
   const {
     depsRef, projectRef, projectOperationGenerationRef, captureProjectScope, renderedRef,
-    fileRef, textRef, savedRef, setAssetLive, setPaper, setPaperView, setMode, setOpening, setNavStack, setNavIndex,
+    fileRef, textRef, savedRef, setAsset, setPaper, setPaperView, setMode, setOpening, pushNavigation: recordNavigation,
     intentRef, navLockRef, flushRef, viewStateRef, setTabsSettledRoot, viewModes,
     showFileText, setPaperBuffers, closePaper, paperBuffersDirty, addTab, showTab, flushAndCheckDirty, markDiskMtime,
     requestLine, accept,
@@ -48,7 +46,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       showFileText(path, content);
       addTab(path);
       closePaper();
-      setAssetLive(null);
+      setAsset(null);
       setMode((current) => modeOnLoad(path, previousPath, current, options?.revealSource, viewModes()));
       if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine);
     };
@@ -80,25 +78,14 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     });
   }, [
     addTab, closePaper, depsRef, fileRef, intentRef, markDiskMtime, projectOperationGenerationRef, projectRef,
-    requestLine, setAssetLive, setMode, showFileText, viewModes, viewStateRef,
+    requestLine, setAsset, setMode, showFileText, viewModes, viewStateRef,
   ]);
 
   // ---- Open --------------------------------------------------------------------------------------------------------
   const pushNavigation = useCallback((path: string, line: number) => {
     if (navLockRef.current || !path) return;
-    const index = renderedRef.current.navIndex;
-    setNavStack((stack) => {
-      const trimmed = stack.slice(0, Math.max(0, index + 1));
-      const last = trimmed[trimmed.length - 1];
-      if (last && last.path === path && last.line === line) {
-        setNavIndex(trimmed.length - 1);
-        return trimmed;
-      }
-      const next = [...trimmed, { path, line }].slice(-NAVIGATION_HISTORY_LIMIT);
-      setNavIndex(next.length - 1);
-      return next;
-    });
-  }, [navLockRef, renderedRef, setNavIndex, setNavStack]);
+    recordNavigation(path, line);
+  }, [navLockRef, recordNavigation]);
 
   /** Open a project file in the text editor, optionally at a 1-based line. */
   const openFile = useCallback(async (path: string, options?: OpenFileOptions) => {
@@ -282,7 +269,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       setPaperView((current) => preferredPaperView(current, fullText, blog));
       if (!fullText && blog) showNotice(t`Full paper text is unavailable; showing the overview instead.`);
       setPaper(target);
-      setAssetLive(null);
+      setAsset(null);
       setMode("pdf");
       showTab(paperTabKey(target.arxivId));
       recordNavigationTiming("paper", target.title, switchStartedAt, {
@@ -305,7 +292,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     return true;
   }, [
     captureProjectScope, choosePaperView, depsRef, flushAndCheckDirty, flushRef, intentRef, paperBuffersDirty,
-    renderedRef, requestLine, save, savedRef, setAssetLive, setMode, setOpening, setPaper, setPaperBuffers, setPaperView,
+    renderedRef, requestLine, save, savedRef, setAsset, setMode, setOpening, setPaper, setPaperBuffers, setPaperView,
     showTab, t, textRef,
   ]);
 
@@ -323,7 +310,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       const preview = await invoke<AssetPreview>("read_project_asset", { path });
       if (!isLatestLoad() || flushAndCheckDirty(owner)) return false;
       showTab(path);
-      setAssetLive(preview);
+      setAsset(preview);
       closePaper();
       setMode("asset");
       return true;
@@ -333,7 +320,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       return false;
     });
   }, [
-    captureProjectScope, closePaper, flushAndCheckDirty, flushRef, intentRef, renderedRef, save, setAssetLive, setMode,
+    captureProjectScope, closePaper, flushAndCheckDirty, flushRef, intentRef, renderedRef, save, setAsset, setMode,
     setOpening, showTab,
   ]);
 

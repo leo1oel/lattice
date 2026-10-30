@@ -16,7 +16,7 @@ const DISK_POLL_MS = 2500;
 export function useDocumentDiskSync(store: DocumentStore, saveActivityRef: RefObject<SaveActivity>) {
   const {
     depsRef, autoBuildEnabled, project, file, asset, paper, savedRef, textRef, diskMtimeRef, accept,
-    assetRef, setAssetLive, captureProjectScope,
+    assetRef, setAsset, captureProjectScope,
   } = store;
   // A PDF removed from the project while it is open.
   const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
@@ -78,14 +78,14 @@ export function useDocumentDiskSync(store: DocumentStore, saveActivityRef: RefOb
       .then((preview) => {
         const current = assetRef.current;
         if (!ownsProject() || current?.path !== path || !preview.ranges) return;
-        if (preview.ranges.version !== current.ranges?.version) setAssetLive(preview);
+        if (preview.ranges.version !== current.ranges?.version) setAsset(preview);
         else setMissingAsset((missing) => (missing === current ? null : missing));
       })
       .catch((reason: unknown) => {
         // A file caught mid-write is read again on the next tick.
         if (ownsProject() && assetRef.current === shown && isProjectFileMissing(reason)) setMissingAsset(shown);
       });
-  }, [assetRef, captureProjectScope, setAssetLive]);
+  }, [assetRef, captureProjectScope, setAsset]);
   /** The viewer found its file changed: answered at most once per poll interval. */
   const onAssetChanged = useCallback(() => {
     const now = Date.now();
