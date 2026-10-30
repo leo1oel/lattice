@@ -68,6 +68,7 @@ describe("pre-React WebKit compatibility", () => {
   const consoleTimeStampType = (protocol: string, userAgent: string) => {
     const context = createContext({
       console: { timeStamp: () => undefined },
+      document: {},
       location: { protocol },
       navigator: { userAgent },
     });
@@ -81,5 +82,15 @@ describe("pre-React WebKit compatibility", () => {
     // Production and non-WebKit performance instrumentation are left alone.
     expect(consoleTimeStampType("tauri:", webKit)).toBe("function");
     expect(consoleTimeStampType("http:", "Mozilla/5.0 Gecko/20100101 Firefox/142.0")).toBe("function");
+  });
+
+  it("leaves the PDF.js worker's console alone: a worker has no document", () => {
+    const context = createContext({
+      console: { timeStamp: () => undefined },
+      location: { protocol: "http:" },
+      navigator: { userAgent: webKit },
+    });
+    runInContext(script, context);
+    expect(runInContext("typeof console.timeStamp", context)).toBe("function");
   });
 });

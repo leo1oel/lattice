@@ -344,8 +344,8 @@ describe("PDFSlick viewer integration", () => {
     });
     expect((instance.args.options.getDocumentParams as { data: ArrayBuffer }).data.byteLength)
       .toBe(bytes.byteLength);
-    // The readable build: patches/pdfjs-dist@*.patch edits it, not the minified one.
-    expect(pdf.state.workerOptions.workerSrc).toMatch(/\/pdf\.worker\.mjs\b/);
+    // Lattice's worker entry: polyfills, then the readable (patched) build.
+    expect(pdf.state.workerOptions.workerSrc).toMatch(/\/src\/pdf\/pdf\.worker\.ts\b/);
     expect(await view.findByLabelText("PDF page 3")).toBeInTheDocument();
     expect(onNumPages).toHaveBeenLastCalledWith(3);
   });

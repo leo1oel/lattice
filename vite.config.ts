@@ -1,7 +1,7 @@
-import { cpSync, mkdirSync, readFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, minifySync, type Plugin } from "vite";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
@@ -192,6 +192,50 @@ function pdfjsAssetsPlugin(): Plugin {
   };
 }
 
+/**
+ * `virtual:webkit-polyfills`: public/polyfills.js as a module, for the PDF.js
+ * worker to import ahead of PDF.js (src/pdf/pdf.worker.ts). index.html runs
+ * the same file as a classic script before the app; Vite will not import a
+ * file out of public/ directly.
+ */
+function webkitPolyfillsModulePlugin(): Plugin {
+  const id = "virtual:webkit-polyfills";
+  const file = path.resolve("public/polyfills.js");
+  return {
+    name: "webkit-polyfills-module",
+    resolveId: (source) => (source === id ? `\0${id}` : null),
+    load(loadId) {
+      if (loadId !== `\0${id}`) return null;
+      this.addWatchFile(file);
+      return readFileSync(file, "utf8");
+    },
+  };
+}
+
+/**
+ * Minifies dist/polyfills.js, which Vite copies out of public/ as it is. The
+ * window loads it before the app on every launch, so it counts against the
+ * eager JavaScript budget (scripts/app-size-report.mjs); the readable source,
+ * comments included, is several times the size. The worker's copy is already
+ * minified as part of its bundle.
+ */
+function minifyPolyfillsPlugin(): Plugin {
+  let outDir = "";
+  return {
+    name: "minify-polyfills",
+    apply: "build",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const file = path.join(outDir, "polyfills.js");
+      const { code, errors } = minifySync(file, readFileSync(file, "utf8"));
+      if (errors.length) throw new Error(`Could not minify polyfills.js: ${errors.map((error) => error.message).join("; ")}`);
+      writeFileSync(file, code);
+    },
+  };
+}
+
 const shikiTrim = shikiTrimPlugin();
 
 const manualChunkName = (id: string) => {
@@ -234,6 +278,8 @@ export default defineConfig(() => ({
     privateFontsPlugin(),
     shikiTrim.plugin,
     univerHyphenTrimPlugin(),
+    webkitPolyfillsModulePlugin(),
+    minifyPolyfillsPlugin(),
   ],
 
   resolve: {
@@ -246,6 +292,7 @@ export default defineConfig(() => ({
   // starts it as a module, and its wasm loaders read `import.meta.url`.
   worker: {
     format: "es",
+    plugins: () => [webkitPolyfillsModulePlugin()],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

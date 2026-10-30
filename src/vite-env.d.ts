@@ -5,6 +5,9 @@ declare module "virtual:lattice-private-fonts-license" {
   export const fontLicenseUrl: string | null;
 }
 
+/** public/polyfills.js, imported for its side effects (vite.config.ts). */
+declare module "virtual:webkit-polyfills" {}
+
 declare module "*.po" {
   import type { Messages } from "@lingui/core";
   export const messages: Messages;
