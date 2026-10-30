@@ -16,6 +16,8 @@
 
 mod source;
 
+pub(super) use source::code_lines;
+
 use super::build::{abort, run_tracked, ActiveBuild};
 use super::build_log::{pages_written, parse_diagnostics, trim_log};
 use super::{default_root_document, latexmk, BuildSteps};

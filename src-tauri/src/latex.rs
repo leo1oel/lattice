@@ -35,6 +35,7 @@ mod pinned;
 mod preamble_format;
 mod prewarm;
 mod shown_pdf;
+mod submission_review;
 mod synctex;
 mod venue;
 
@@ -51,6 +52,7 @@ pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
 pub use changes::{export_changes_pdf, ChangesPdf, ChangesPdfOptions};
 pub use pinned::{build_pinned, PinnedBuild};
+pub use submission_review::{review_submission, SubmissionReview};
 pub use synctex::{
     body_pages, forward_search, heading_pages, inverse_search, BodySpan, SourceLine,
 };

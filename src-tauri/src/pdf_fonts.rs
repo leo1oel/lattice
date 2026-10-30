@@ -49,8 +49,21 @@ fn extract_base_fonts(bytes: &[u8]) -> Vec<String> {
     names.into_iter().map(str::to_string).collect()
 }
 
+/// A PDF's objects as text, and its XMP metadata streams apart from them.
+pub(crate) struct PdfText {
+    /// Everything outside stream data, with compressed object streams inflated in place.
+    pub objects: Vec<u8>,
+    /// The XMP packets, which are XML, not PDF objects.
+    pub metadata: Vec<u8>,
+}
+
 fn font_metadata(bytes: &[u8]) -> Vec<u8> {
+    pdf_text(bytes).objects
+}
+
+pub(crate) fn pdf_text(bytes: &[u8]) -> PdfText {
     let mut out = Vec::with_capacity(bytes.len().min(1024 * 1024));
+    let mut metadata = Vec::new();
     let mut search_from = 0;
     while let Some(rel) = find_subslice(&bytes[search_from..], b"stream") {
         let stream_kw = search_from + rel;
@@ -73,20 +86,153 @@ fn font_metadata(bytes: &[u8]) -> Vec<u8> {
             data_end -= 1;
         }
         out.extend_from_slice(&bytes[search_from..data_start]);
-        if contains_ascii_ci(dict, b"/ObjStm") {
+        // XMP packets are small, and where a figure's own author survives.
+        let target = if contains_ascii_ci(dict, b"/ObjStm") {
+            Some(&mut out)
+        } else if contains_ascii_ci(dict, b"/Metadata") {
+            Some(&mut metadata)
+        } else {
+            None
+        };
+        if let Some(target) = target {
             if contains_ascii_ci(dict, b"FlateDecode") {
                 if let Some(inflated) = try_inflate(&bytes[data_start..data_end]) {
-                    out.extend_from_slice(&inflated);
+                    target.extend_from_slice(&inflated);
                 }
             } else {
-                out.extend_from_slice(&bytes[data_start..data_end]);
+                target.extend_from_slice(&bytes[data_start..data_end]);
             }
         }
         out.push(b'\n');
         search_from = data_start + end_rel + 9;
     }
     out.extend_from_slice(&bytes[search_from..]);
-    out
+    PdfText { objects: out, metadata }
+}
+
+/// Every dictionary in `objects`, each with the dictionaries nested in it
+/// cut out, so a key read from one is that dictionary's own: a page's
+/// `/Resources` holding a font inline is not itself a font. Strings are
+/// skipped whole, since `<<` or `)` may be text inside them.
+pub(crate) fn dictionaries(objects: &[u8]) -> Vec<Vec<u8>> {
+    let mut open: Vec<Vec<u8>> = Vec::new();
+    let mut closed = Vec::new();
+    let mut at = 0;
+    while at < objects.len() {
+        let rest = &objects[at..];
+        let token_end = if rest.starts_with(b"<<") {
+            open.push(Vec::new());
+            at += 2;
+            continue;
+        } else if rest.starts_with(b">>") {
+            if let Some(dictionary) = open.pop() {
+                closed.push(dictionary);
+            }
+            at += 2;
+            continue;
+        } else if rest[0] == b'(' {
+            literal_string_end(objects, at)
+        } else if rest[0] == b'<' {
+            objects[at..].iter().position(|&b| b == b'>').map_or(objects.len(), |end| at + end + 1)
+        } else {
+            at + 1
+        };
+        if let Some(top) = open.last_mut() {
+            top.extend_from_slice(&objects[at..token_end]);
+        }
+        at = token_end;
+    }
+    closed
+}
+
+/// Where the literal string opening at `start` ends: parentheses nest, and a
+/// backslash escapes the byte after it.
+pub(crate) fn literal_string_end(bytes: &[u8], start: usize) -> usize {
+    let mut depth = 0;
+    let mut at = start;
+    while at < bytes.len() {
+        match bytes[at] {
+            b'\\' => at += 1,
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return at + 1;
+                }
+            }
+            _ => {}
+        }
+        at += 1;
+    }
+    bytes.len()
+}
+
+/// What a proceedings' font check refuses, by font name (empty for a font
+/// that gives none, as bitmap Type 3 fonts often do).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct FontEmbedding {
+    /// Whether any font was found: without one the lists below say nothing.
+    pub read: bool,
+    /// Bitmap or procedure-drawn fonts, which print badly and fail
+    /// conference checks; matplotlib writes them by default.
+    pub type3: Vec<String>,
+    /// Fonts the PDF names without carrying, which a printer substitutes.
+    pub unembedded: Vec<String>,
+}
+
+/// Which fonts in `dictionaries` (from [`dictionaries`]) are Type 3 or not
+/// embedded. A font's file hangs off its descriptor, so a descriptor without
+/// a `/FontFile*` is a font the PDF does not carry, and so is a simple font
+/// with no descriptor at all (the old standard-14 shorthand). Type 3 fonts
+/// draw their glyphs in the PDF and composite (Type 0) fonts embed through
+/// their descendant, so neither has a file of its own to miss.
+pub fn font_embedding(dictionaries: &[Vec<u8>]) -> FontEmbedding {
+    static TYPE: OnceLock<Regex> = OnceLock::new();
+    static NAME: OnceLock<Regex> = OnceLock::new();
+    let kind = TYPE
+        .get_or_init(|| Regex::new(r"/Type\s*/(FontDescriptor|Font)\b").expect("font type regex"));
+    let name = NAME.get_or_init(|| {
+        Regex::new(r"/(?:BaseFont|FontName|Name)\s*/([^\s/\[\]()<>]+)").expect("font name regex")
+    });
+    let mut read = false;
+    let (mut type3, mut unembedded) = (BTreeSet::new(), BTreeSet::new());
+    for dictionary in dictionaries {
+        let text = String::from_utf8_lossy(dictionary);
+        let Some(found) = kind.captures(&text) else { continue };
+        let named = || {
+            name.captures(&text)
+                .and_then(|caps| caps.get(1)?.as_str().rsplit('+').next().map(str::to_string))
+                .unwrap_or_default()
+        };
+        let subtype = subtype(&text);
+        if &found[1] == "FontDescriptor" {
+            if !text.contains("/FontFile") {
+                unembedded.insert(named());
+            }
+            continue;
+        }
+        read = true;
+        match subtype.as_deref() {
+            Some("Type3") => {
+                type3.insert(named());
+            }
+            Some("Type1" | "MMType1" | "TrueType") if !text.contains("/FontDescriptor") => {
+                unembedded.insert(named());
+            }
+            _ => {}
+        }
+    }
+    FontEmbedding {
+        read,
+        type3: type3.into_iter().collect(),
+        unembedded: unembedded.into_iter().collect(),
+    }
+}
+
+fn subtype(dictionary: &str) -> Option<String> {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(r"/Subtype\s*/(\w+)").expect("subtype regex"));
+    re.captures(dictionary).map(|caps| caps[1].to_string())
 }
 
 fn stream_data_start(bytes: &[u8], stream_kw: usize) -> Option<usize> {
@@ -326,5 +472,31 @@ mod tests {
             assert_eq!(report.conclusive, conclusive, "{case}: {}", report.detail);
             assert!(report.detail.contains(named), "{case}: {}", report.detail);
         }
+    }
+
+    #[test]
+    fn finds_type3_and_unembedded_fonts_by_their_own_dictionaries() {
+        // A page's resources holding a font inline are not a font themselves,
+        // and a `<<` inside a string opens nothing.
+        let objects = concat!(
+            "<< /Type /Page /Resources << /Font << /F1 << /Type /Font /Subtype /TrueType ",
+            "/BaseFont /ABCDEF+Arial /FontDescriptor 5 0 R >> >> >> /Annots [(<<)] >>\n",
+            "<< /Type /FontDescriptor /FontName /ABCDEF+Arial /FontFile2 6 0 R >>\n",
+            "<< /Type /Font /Subtype /Type0 /BaseFont /NotoSans /DescendantFonts [7 0 R] >>\n",
+            "<< /Type /FontDescriptor /FontName /NotoSans >>\n",
+            "<< /Type /Font /Subtype /Type3 /FontMatrix [0.01 0 0 0.01 0 0] /CharProcs << /a 9 0 R >> >>\n",
+        );
+        let pdf = pdf_with_compressed_stream("/Type /ObjStm", objects.as_bytes());
+        let fonts = font_embedding(&dictionaries(&pdf_text(&pdf).objects));
+        assert_eq!(
+            fonts,
+            FontEmbedding {
+                read: true,
+                type3: vec![String::new()],
+                unembedded: vec!["NotoSans".to_string()],
+            }
+        );
+        let none = font_embedding(&dictionaries(b"%PDF-1.5\n<< /Type /Catalog >>\n"));
+        assert_eq!(none, FontEmbedding::default());
     }
 }

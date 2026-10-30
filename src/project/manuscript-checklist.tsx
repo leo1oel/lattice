@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check, ChevronRight, ClipboardCheck, Images, Minus } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Images } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import type { BodyBoundary, ProjectDeadline, SubmissionItem } from "../app-types";
 import { formatCount } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
+import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
 import { itemCondition, itemPasses, type LinkedFileStat } from "./submission-item-state";
 import { SubmissionItems } from "./submission-items";
+import { SubmissionReviewGroups } from "./submission-review";
+import { reviewRows, type SubmissionReview } from "./submission-review-state";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -39,6 +42,8 @@ export type ManuscriptChecklistData = {
   fileStats: Record<string, LinkedFileStat>;
   /** Project files offered when linking one to an item. */
   filePaths: string[];
+  /** The double-blind and font checks of the source and PDF on disk, once read. */
+  review: SubmissionReview | null;
 };
 
 /** A blank or non-numeric budget clears the limit. */
@@ -62,28 +67,6 @@ function BudgetMeter(props: { value: number; limit: number }) {
       {props.limit > 0 && <span className="checklist-meter-fill" style={{ width: percent(Math.min(props.value, props.limit)) }} />}
       {over && <span className="checklist-meter-over" style={{ left: percent(props.limit), width: percent(props.value - props.limit) }} />}
     </span>
-  );
-}
-
-/**
- * A check's result as a mark, so colour never carries it alone: a tick when it
- * passes, an exclamation when it needs attention, a dash when it cannot be
- * settled. Lucide has no bare exclamation, so that one is drawn here from the
- * strokes of its CircleAlert.
- */
-function CheckStatus(props: { ok: boolean | null }) {
-  return (
-    <i className="checklist-status" aria-hidden="true">
-      {props.ok == null
-        ? <Minus size={12} />
-        : props.ok
-          ? <Check size={12} />
-          : (
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M12 5v9M12 19h.01" />
-            </svg>
-          )}
-    </i>
   );
 }
 
@@ -130,11 +113,15 @@ export function ManuscriptChecklistPanel(props: {
   /** Answers whether the list was saved. */
   onSaveItems: (items: SubmissionItem[]) => Promise<boolean>;
   onOpenFile: (path: string) => void;
+  /** Opens a source file at the line a review finding points to. */
+  onOpenAt: (path: string, line: number) => void;
   onOpenSource: (url: string) => void;
 }) {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
+  const review = props.data.review;
+  const reviewResults = reviewRows(review);
   const { words, wordBudget: wordLimit, pageBudget: pageLimit, pages: totalPages, body } = props.data;
   // A missing or partial count is never a pass: no meter, no colour, only
   // what was counted and why it cannot settle the limit.
@@ -193,6 +180,7 @@ export function ManuscriptChecklistPanel(props: {
     props.data.todos === 0,
     props.data.unusedLabels + props.data.unusedCitations === 0,
     props.data.buildOk,
+    ...reviewResults.map((row) => row.ok),
     ...props.data.items.map((item) => itemPasses(itemCondition(item, props.data.fileStats[item.file ?? ""]))),
   ];
   const failing = checks.filter((check) => check === false).length;
@@ -272,6 +260,7 @@ export function ManuscriptChecklistPanel(props: {
             detail={props.data.buildMessage}
           />
         </div>
+        {review && <SubmissionReviewGroups review={review} rows={reviewResults} onOpenAt={props.onOpenAt} />}
         <SubmissionItems
           items={props.data.items}
           fileStats={props.data.fileStats}
