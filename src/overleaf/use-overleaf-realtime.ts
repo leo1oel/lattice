@@ -21,9 +21,10 @@ import { OtDocument, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
+import { useOverleafDocumentTree } from "./use-overleaf-document-tree";
 import {
   isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
-  type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
+  type CommentRange, type DocumentProof, type DocUpdateEvent, type JoinedDoc,
   type JoinedProject, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
   type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
 } from "./overleaf-realtime-model";
@@ -74,15 +75,9 @@ export function useOverleafRealtime(options: {
   // re-read: accepting one is an endpoint, not an operation, so nothing on the
   // channel would otherwise tell us the ranges moved.
   const [reloadNonce, setReloadNonce] = useState(0);
-  // State, not a ref: the tree can arrive from the connect call or from an
-  // event, and either way the effect that joins the open document has to run
-  // again once it does.
-  const [docs, setDocs] = useState<Map<string, string>>(new Map());
   const [projectPermission, setProjectPermission] = useState<{ projectRoot: string | null; permission: OverleafPermission }>(
     { projectRoot: null, permission: "unknown" },
   );
-  const [entities, setEntities] = useState<Map<string, { id: string; kind: string }>>(new Map());
-  const [livePaths, setLivePaths] = useState<string[]>([]);
 
   const publicId = useRef<string | null>(null);
   const suspendedPaths = useRef(new Set<string>());
@@ -95,10 +90,9 @@ export function useOverleafRealtime(options: {
    * it away at the moment of switching and the last edit made in it goes too.
    */
   const documents = useRef<Map<string, OtDocument>>(new Map());
+  const { docs, entities, livePaths, pathsByDocId, publishLivePaths, noteDocumentTree } = useOverleafDocumentTree(documents);
   /** Updates received after joining a room but before its snapshot reaches React. */
   const joiningUpdates = useRef<Map<string, DocUpdateEvent[]>>(new Map());
-  /** Current reverse lookup, so draining documents keep their project paths. */
-  const pathsByDocId = useRef<Map<string, string>>(new Map());
   /** Documents kept alive only until they settle, then left. */
   const draining = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   /**
@@ -123,6 +117,8 @@ export function useOverleafRealtime(options: {
   const remoteDeliveries = useRef(new WeakMap<OtDocument, { tail: Promise<void>; pending: number }>());
   const proofs = useRef(new WeakMap<OtDocument, DocumentProof>());
   const leaving = useRef(new Map<string, Promise<boolean>>());
+  /** Connections lost, counted once their documents are released; see `release`. */
+  const drops = useRef(0);
   const documentEpoch = useRef(0);
   /** When each document last sent a hash; see `HASH_INTERVAL_MS`. */
   const lastHashed = useRef(new WeakMap<OtDocument, number>());
@@ -205,35 +201,6 @@ export function useOverleafRealtime(options: {
     draining.current.delete(id);
   };
 
-  /** Publish the complete set of paths that ordinary syncing must not own. */
-  const publishLivePaths = useCallback(() => {
-    const next = [...new Set(
-      [...documents.current.keys()]
-        .map((id) => pathsByDocId.current.get(id))
-        .filter((path): path is string => Boolean(path)),
-    )].sort();
-    setLivePaths((current) => (
-      current.length === next.length && current.every((path, index) => path === next[index]) ? current : next
-    ));
-  }, []);
-
-  /** Replace both directions of the live document tree without dropping held ids. */
-  const noteDocumentTree = useCallback((entries: DocEntry[], entityEntries?: EntityEntry[]) => {
-    setDocs(new Map(entries.map((doc) => [doc.path, doc.id])));
-    setEntities(new Map((entityEntries ?? []).map((entity) => [entity.path, { id: entity.id, kind: entity.kind }])));
-    const previous = pathsByDocId.current;
-    const next = new Map(entries.map((doc) => [doc.id, doc.path]));
-    // A tree event can remove a document while its final operation is still
-    // awaiting an answer. Keep that id's last path so REST cannot take it over.
-    // If the same id was renamed, `next` already contains the new path and wins.
-    for (const id of documents.current.keys()) {
-      const lastPath = previous.get(id);
-      if (!next.has(id) && lastPath) next.set(id, lastPath);
-    }
-    pathsByDocId.current = next;
-    publishLivePaths();
-  }, [publishLivePaths]);
-
   /** Let go of a document for good: leave the room and forget it. */
   const release = useCallback((id: string) => {
     if (leaving.current.has(id)) return;
@@ -242,22 +209,28 @@ export function useOverleafRealtime(options: {
     if (!doc || !projectRoot) return;
     cancelDrain(id);
     const proof = proofs.current.get(doc);
+    const drop = drops.current;
     // Rust checkpoints under the sync lease before leaving. Keep frontend
     // ownership too until IPC succeeds; a failed write must not enable REST.
+    // Except once the connection drops: its rooms close with it, so the leave
+    // fails, and a settled document owes nothing. Held, it would stay out of
+    // every sync with no operation able to reach it, Overleaf's edits never
+    // landing here.
     const pending = invoke("overleaf_rt_leave_doc", {
       projectRoot, docId: id, receipt: proof?.receipt, checkpoint: proof?.lastShared ?? null,
-    }).then(() => {
-      if (connectionRoot.current === projectRoot && documents.current.get(id) === doc) {
+    }).then(() => true, (reason) => {
+      if (drops.current !== drop && doc.settled) return true;
+      const detail = String(reason);
+      callbacks.current.onNotice(i18n._(msg`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`));
+      return false;
+    }).then((released) => {
+      if (released && connectionRoot.current === projectRoot && documents.current.get(id) === doc) {
         uncertain.current.delete(id);
         reconciling.current.delete(id);
         documents.current.delete(id);
         publishLivePaths();
       }
-      return true;
-    }).catch((reason) => {
-      const detail = String(reason);
-      callbacks.current.onNotice(i18n._(msg`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`));
-      return false;
+      return released;
     }).finally(() => {
       if (leaving.current.get(id) === pending) leaving.current.delete(id);
     });
@@ -287,7 +260,7 @@ export function useOverleafRealtime(options: {
     if (docId.current === id) setDetail(message);
     if (first) callbacks.current.onNotice(message);
     reconcileUnknownRef.current(id);
-  }, [publishLivePaths, publishUnacknowledged]);
+  }, [pathsByDocId, publishLivePaths, publishUnacknowledged]);
 
   /**
    * Stop editing the open document, without necessarily letting go of it.
@@ -371,7 +344,7 @@ export function useOverleafRealtime(options: {
       if (owned || !suspendedPaths.current.delete(path)) continue;
       if (path === activeFile) setReloadNonce((nonce) => nonce + 1);
     }
-  }, []);
+  }, [pathsByDocId]);
 
   /**
    * A broken connection is different from an intentional shutdown: settled
@@ -384,6 +357,7 @@ export function useOverleafRealtime(options: {
       if (doc.settled) release(id);
       else markOutcomeUnknown(id, reason);
     }
+    drops.current += 1;
   }, [markOutcomeUnknown, release, stopDocument]);
 
   const fail = useCallback((message: string, projectRoot = connectionRoot.current) => {
@@ -461,7 +435,7 @@ export function useOverleafRealtime(options: {
       delivery.pending -= 1;
       if (!delivery.pending && isCurrent()) setLiveFile(true);
     });
-  }, [suspendPaths]);
+  }, [pathsByDocId, suspendPaths]);
 
   /**
    * Ask the server to replay from the last version we trust after a send's
