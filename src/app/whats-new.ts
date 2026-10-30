@@ -26,10 +26,6 @@ export const RUNNING_VERSION: string = version;
 
 const LAST_RUN_KEY = "lattice.last-run-version.v1";
 
-// Read only when the sheet or the toast needs them: none of it belongs at startup.
-// eslint-disable-next-line lingui/no-unlocalized-strings -- a module path
-const notesFiles = import.meta.glob<ReleaseNotes>("../release-notes/*.json", { import: "default" });
-
 /** Compare two x.y.z versions numerically. */
 export function compareVersions(left: string, right: string): number {
   const a = left.split(".").map(Number);
@@ -43,8 +39,9 @@ export function compareVersions(left: string, right: string): number {
 
 /** Every bundled release's notes up to the running version, newest first. */
 export async function loadReleaseNotes(running = RUNNING_VERSION): Promise<ReleaseNotes[]> {
-  const all = await Promise.all(Object.values(notesFiles).map((load) => load()));
-  return all
+  // Read only when the sheet or the toast needs them: none of it belongs at startup.
+  const { bundledReleaseNotes } = await import("./release-notes-bundle");
+  return bundledReleaseNotes
     .filter((notes) => compareVersions(notes.version, running) <= 0)
     .sort((left, right) => compareVersions(right.version, left.version));
 }
