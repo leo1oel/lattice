@@ -136,7 +136,8 @@
     "tldraw": "5.2.5",
     "unified": "^11.0.5",
     "yaml": "^2.9.0",
-    "yjs": "^13.6.32"
+    "yjs": "^13.6.32",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
