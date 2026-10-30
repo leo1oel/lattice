@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { StoreApi } from "zustand";
 import { shallow } from "zustand/shallow";
 
@@ -14,12 +14,18 @@ import { shallow } from "zustand/shallow";
  */
 export function useStoreSlice<S, T>(store: StoreApi<S>, select: (state: S) => T): T {
   const [slice, setSlice] = useState(() => select(store.getState()));
+  // The slice last handed to React. Comparing here rather than in an updater
+  // keeps an unchanged slice from queueing an update, which would still run
+  // the component again.
+  const latestRef = useRef(slice);
   useLayoutEffect(() => {
     const update = (state: S) => {
       const next = select(state);
-      setSlice((current) => (shallow(current, next) ? current : next));
+      if (shallow(latestRef.current, next)) return;
+      latestRef.current = next;
+      setSlice(next);
     };
-    // Writes between this render and the subscription.
+    // Writes between the first render and the subscription.
     update(store.getState());
     return store.subscribe(update);
   }, [select, store]);
