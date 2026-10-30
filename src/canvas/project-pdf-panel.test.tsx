@@ -25,7 +25,7 @@ vi.mock("./canvas-lazy-modules", async () => {
       <button data-testid="pdf-view-state" onClick={() => props.onViewState?.({ page: 7, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 })} />
       <button data-testid="pdf-read" onClick={() => { props.onNumPages?.(22); props.onPageChange?.(7); }} />
       <button data-testid="pdf-select" onClick={() => props.onTextSelect?.("Selected passage")} />
-      <button data-testid="pdf-source" onClick={() => props.onSource?.(4, 120, 300)} />
+      <button data-testid="pdf-source" onClick={() => props.onSource?.(4, 120, 300, null)} />
       <button data-testid="pdf-forward" onClick={() => props.onForwardSync?.()} />
       <button data-testid="pdf-cite" onClick={() => { if (props.canOpenCitation?.("lee2026")) props.onOpenCitation?.("lee2026"); }} />
       {props.outline}
@@ -192,7 +192,7 @@ describe("ProjectPdfPanel", () => {
     expect(preview).toHaveAttribute("data-annotations", "1");
 
     fireEvent.click(within(preview).getByTestId("pdf-source"));
-    expect(props.pdf.onPdfSource).toHaveBeenCalledWith(4, 120, 300);
+    expect(props.pdf.onPdfSource).toHaveBeenCalledWith(4, 120, 300, null);
     fireEvent.click(within(preview).getByTestId("pdf-forward"));
     expect(props.pdf.onForwardSync).toHaveBeenCalledOnce();
     fireEvent.click(within(preview).getByTestId("pdf-read"));

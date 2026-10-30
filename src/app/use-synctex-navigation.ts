@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type { EditorPosition, PdfSyncResponse, SyncTexTarget } from "../app-types";
+import type { EditorPosition, PdfSyncResponse, SyncTexTarget, SyncTexWord } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
 import type { TrellisController } from "../trellis/trellis-controller";
@@ -144,12 +144,13 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   }, [activeFileRef, captureProjectScope, editorPositionRef, ensureCompiled, openFile, reveal, save]);
 
   /**
-   * From a double-click in the PDF to its source line. The answer is a
+   * From a double-click in the PDF to its source line, and to the clicked
+   * word on it when that word is known and found there. The answer is a
    * project-relative path, which a project opened meanwhile may have too, so
    * it lands only while the click is the newest, its PDF is still the one on
    * screen and nothing else was opened or chosen since.
    */
-  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
+  const revealPdfSource = useCallback(async (page: number, x: number, y: number, word: SyncTexWord | null) => {
     const requestGeneration = inverseSyncGenerationRef.current + 1;
     inverseSyncGenerationRef.current = requestGeneration;
     const ownsDocuments = scope();
@@ -166,7 +167,9 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     // A citation resolves into the bibliography, a macro into a .sty. Those
     // files own the whole editor area when opened deliberately, but a jump
     // out of the PDF must keep the preview it was made from on screen.
-    await showingErrors(() => openFile(target.path, { line: target.line, revealSource: false }));
+    // The word clicked lands the caret on it within that line, when the line
+    // can tell it apart (src/editor/latex/synctex-word.ts).
+    await showingErrors(() => openFile(target.path, { line: target.line, ...(word && { word }), revealSource: false }));
     // Opening is itself a newer choice, so only the project, the click and
     // the file it opened decide whether the editor comes forward.
     if (inverseSyncGenerationRef.current !== requestGeneration || !ownsProject() || activeFileRef.current !== target.path) return;

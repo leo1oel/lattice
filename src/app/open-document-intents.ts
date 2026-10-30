@@ -1,6 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
-import type { AssetPreview, PaperSummary } from "../app-types";
+import type { AssetPreview, PaperSummary, SyncTexWord } from "../app-types";
 import { isPaperTabKey } from "../app-utils";
 import { addAppLog } from "../telemetry/app-log-store";
 
@@ -82,6 +82,8 @@ export type LoadOptions = {
    * jump out of the PDF shows as a flash.
    */
   navigateToLine?: number;
+  /** The word on that line to land on (see OpenFileOptions.word). */
+  navigateToWord?: SyncTexWord;
 };
 
 /** Load a file from disk into the editor now, replacing its buffer (a reload, or a programmatic replacement). */

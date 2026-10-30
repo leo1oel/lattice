@@ -1073,13 +1073,10 @@ describe("PDFSlick viewer integration", () => {
     vi.spyOn(page, "getBoundingClientRect").mockReturnValue(box(10, 20, 600, 800));
 
     await waitFor(() => expect(view.getByLabelText("Source location in PDF")).toHaveStyle({
-      left: "144px",
-      top: "192px",
-      width: "240px",
-      height: "28px",
+      left: "144px", top: "192px", width: "240px", height: "28px",
     }));
     fireEvent.doubleClick(page, { clientX: 110, clientY: 220 });
-    expect(onSource).toHaveBeenCalledWith(2, 50, 100);
+    expect(onSource).toHaveBeenCalledWith(2, 50, 100, null);
   });
 
   it("restores a SyncTeX highlight cleared by first page rendering without replaying navigation", async () => {

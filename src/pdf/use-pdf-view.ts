@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import type { PdfFileViewState } from "../app-types";
+import type { PdfFileViewState, SyncTexWord } from "../app-types";
 import { applyPdfZoom, type ViewerRecord } from "./pdf-slick";
 import { clampPdfScale, loadPdfViewPreference, PDF_VIEW_PREFERENCE_KEY, pdfFitMode, toAppScale, type PdfFitMode } from "./pdf-viewer-utils";
 
@@ -23,7 +23,8 @@ export type PdfViewerCallbacks = {
   onViewState?: (state: PdfFileViewState) => void;
   /** The project file was rewritten or removed since this viewer opened it. */
   onFileChanged?: () => void;
-  onSource?: (page: number, x: number, y: number) => void;
+  /** A double-click at (`x`, `y`) in PDF units on `page`, and the word under it when it was on one. */
+  onSource?: (page: number, x: number, y: number, word: SyncTexWord | null) => void;
 };
 
 export type ActiveViewerRef = RefObject<ViewerRecord | null>;

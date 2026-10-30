@@ -220,7 +220,20 @@ type FigureDropRequest = {
 export type SyncTexTarget = { path: string; line: number };
 export type NavigationEntry = SyncTexTarget;
 
-type EditorNavigation = SyncTexTarget & { id: string };
+/**
+ * The word a reverse SyncTeX jump came from, read off the PDF's text layer:
+ * its key (`wordKey` in `src/editor/latex/synctex-word.ts`), which of the
+ * PDF line's occurrences of it was clicked and how many there are, and the
+ * words either side of it on that line.
+ */
+export type SyncTexWord = {
+  word: string;
+  occurrence: number;
+  count: number;
+  before: string | null;
+  after: string | null;
+};
+type EditorNavigation = SyncTexTarget & { id: string; word?: SyncTexWord };
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
@@ -319,6 +332,8 @@ export type EditorKeymap = "default" | "vim" | "emacs";
 export type OpenFileOptions = {
   /** Land on this 1-based line (and record it in back/forward history). */
   line?: number;
+  /** The word on `line` to put the caret on, when it can be found there (a reverse SyncTeX jump). */
+  word?: SyncTexWord;
   /**
    * Whether a file with no preview of its own (.bib, .sty, .cls) may take
    * the whole editor area. True (the default) for an ordinary open — that
