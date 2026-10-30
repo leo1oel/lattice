@@ -9,6 +9,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { expect, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
+import { createOverleafConnectionStore } from "./overleaf-connection-store";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 
 export const DOC_A = "doc-a";
@@ -121,7 +122,9 @@ export type Options = Parameters<typeof useOverleafRealtime>[0];
 
 /** Live on a.tex in /tmp/project; `rerender` takes only the props that change. */
 export function mount(overrides: Partial<Options> = {}) {
+  const store = createOverleafConnectionStore();
   return renderHook((props: Partial<Options>) => useOverleafRealtime({
+    store,
     enabled: true,
     documents: true,
     projectRoot: "/tmp/project",

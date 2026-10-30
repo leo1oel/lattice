@@ -11,13 +11,15 @@
  * channel and leaves the existing sync to keep the project correct. A live
  * channel is an improvement on syncing, never a replacement for it.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
+import { useStoreSlice } from "../hooks/use-store-slice";
 import { i18n } from "../i18n";
 import { OtDocument, type OtOp } from "./ot";
+import { channelFields, projectAccess, type OverleafConnectionStore } from "./overleaf-connection-store";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
@@ -25,8 +27,8 @@ import { useOverleafDocumentTree } from "./use-overleaf-document-tree";
 import {
   isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocumentProof, type DocUpdateEvent, type JoinedDoc,
-  type JoinedProject, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
-  type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
+  type JoinedProject, type OverleafCommentTarget, type OverleafRemoteTextContext,
+  type ReplayedUpdate, type ReservedOperation, type TrackedChange,
 } from "./overleaf-realtime-model";
 
 export type { OverleafCommentTarget, OverleafRemoteTextContext, ReservedOperation, TrackedChange };
@@ -46,6 +48,8 @@ const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy,
 const replacedNotice = () => i18n._(msg`Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees.`);
 
 export function useOverleafRealtime(options: {
+  /** The window's connection store, where the channel's status and tree live. */
+  store: OverleafConnectionStore;
   /** Connect whenever the project is linked: chat and presence ride here too. */
   enabled: boolean;
   /**
@@ -66,18 +70,13 @@ export function useOverleafRealtime(options: {
   // effects depend on translates through `i18n._(msg…)` instead: a dependency
   // on `t` turns a language change into a disconnect and a failed handoff.
   const { t } = useLingui();
-  const [status, setStatus] = useState<RealtimeStatus>("off");
-  const [detail, setDetail] = useState<string | null>(null);
-  const [liveFile, setLiveFile] = useState(false);
-  // See `publishUnacknowledged`.
-  const [unacknowledged, setUnacknowledged] = useState(false);
+  const { store } = options;
+  const { status, detail, liveFile, unacknowledged, projectPermission } = useStoreSlice(store, channelFields);
+  const { setStatus, setDetail, setLiveFile, setUnacknowledged, setProjectPermission } = store.getState();
   // Bumped to re-join the open document, which is how the suggestion list is
   // re-read: accepting one is an endpoint, not an operation, so nothing on the
   // channel would otherwise tell us the ranges moved.
-  const [reloadNonce, setReloadNonce] = useState(0);
-  const [projectPermission, setProjectPermission] = useState<{ projectRoot: string | null; permission: OverleafPermission }>(
-    { projectRoot: null, permission: "unknown" },
-  );
+  const [reloadNonce, bumpReloadNonce] = useReducer(increment, 0);
 
   const publicId = useRef<string | null>(null);
   const suspendedPaths = useRef(new Set<string>());
@@ -90,7 +89,7 @@ export function useOverleafRealtime(options: {
    * it away at the moment of switching and the last edit made in it goes too.
    */
   const documents = useRef<Map<string, OtDocument>>(new Map());
-  const { docs, entities, livePaths, pathsByDocId, publishLivePaths, noteDocumentTree } = useOverleafDocumentTree(documents);
+  const { docs, entities, livePaths, pathsByDocId, publishLivePaths, noteDocumentTree } = useOverleafDocumentTree(documents, store);
   /** Updates received after joining a room but before its snapshot reaches React. */
   const joiningUpdates = useRef<Map<string, DocUpdateEvent[]>>(new Map());
   /** Documents kept alive only until they settle, then left. */
@@ -130,17 +129,7 @@ export function useOverleafRealtime(options: {
     callbacks.current.onNotice(replacedNotice());
   };
 
-  // A permission is only meaningful for the project whose connect result
-  // supplied it. During a root switch, the previous render's role must not be
-  // reused for the new project.
-  const permission = projectPermission.projectRoot === options.projectRoot ? projectPermission.permission : "unknown";
-  /**
-   * Whether this account may change the document directly — false for a
-   * reviewer, who can only suggest. Unknown fails closed: until Overleaf
-   * names a role, neither the live channel nor the durable ZIP synchronizer
-   * may assume write access.
-   */
-  const canWrite = permission === "owner" || permission === "readAndWrite";
+  const { permission, canWrite } = projectAccess(projectPermission, options.projectRoot);
   // Read through refs inside the event listener so it can stay mounted for the
   // whole session instead of being torn down on every keystroke.
   const callbacks = useRef(options);
@@ -195,7 +184,7 @@ export function useOverleafRealtime(options: {
     const doc = id ? documents.current.get(id) : undefined;
     const typing = sendTimer.current !== null || unsentText.current !== null;
     setUnacknowledged(Boolean(id && doc && (typing || !doc.settled || uncertain.current.has(id))));
-  }, []);
+  }, [setUnacknowledged]);
   const cancelDrain = (id: string) => {
     clearTimeout(draining.current.get(id));
     draining.current.delete(id);
@@ -260,7 +249,7 @@ export function useOverleafRealtime(options: {
     if (docId.current === id) setDetail(message);
     if (first) callbacks.current.onNotice(message);
     reconcileUnknownRef.current(id);
-  }, [pathsByDocId, publishLivePaths, publishUnacknowledged]);
+  }, [pathsByDocId, publishLivePaths, publishUnacknowledged, setDetail]);
 
   /**
    * Stop editing the open document, without necessarily letting go of it.
@@ -308,7 +297,7 @@ export function useOverleafRealtime(options: {
       if (!held || held.settled) release(previous);
       else markOutcomeUnknown(previous, i18n._(msg`the acknowledgement did not arrive in time`));
     }, DRAIN_TIMEOUT_MS));
-  }, [markOutcomeUnknown, publishUnacknowledged, release, setOpenDoc]);
+  }, [markOutcomeUnknown, publishUnacknowledged, release, setLiveFile, setOpenDoc]);
 
   /** Every document goes, on the way to shutting the connection down. */
   const stopEverything = useCallback(() => {
@@ -330,7 +319,7 @@ export function useOverleafRealtime(options: {
       // save's three-way merge; only already-owned operations may still drain.
       unsentText.current = null;
       stopDocument();
-      setReloadNonce((nonce) => nonce + 1);
+      bumpReloadNonce();
     }
     callbacks.current.onNeedsSync?.(paths);
   }, [stopDocument]);
@@ -342,7 +331,7 @@ export function useOverleafRealtime(options: {
     for (const path of paths) {
       const owned = [...documents.current.keys()].some((id) => pathsByDocId.current.get(id) === path);
       if (owned || !suspendedPaths.current.delete(path)) continue;
-      if (path === activeFile) setReloadNonce((nonce) => nonce + 1);
+      if (path === activeFile) bumpReloadNonce();
     }
   }, [pathsByDocId]);
 
@@ -366,7 +355,7 @@ export function useOverleafRealtime(options: {
     setStatus("error");
     setDetail(message);
     void invoke("overleaf_rt_disconnect", { projectRoot }).catch(() => {});
-  }, [stopAfterDisconnect]);
+  }, [setDetail, setStatus, stopAfterDisconnect]);
 
   /**
    * Give up on one document without giving up the connection: one file
@@ -382,7 +371,7 @@ export function useOverleafRealtime(options: {
       publishUnacknowledged();
     }
     release(id);
-  }, [publishUnacknowledged, release, setOpenDoc]);
+  }, [publishUnacknowledged, release, setDetail, setLiveFile, setOpenDoc]);
 
   // OT advances synchronously, but checking/writing the disk crosses IPC. Keep
   // deliveries ordered and never send an intermediate editor snapshot back
@@ -435,7 +424,7 @@ export function useOverleafRealtime(options: {
       delivery.pending -= 1;
       if (!delivery.pending && isCurrent()) setLiveFile(true);
     });
-  }, [pathsByDocId, suspendPaths]);
+  }, [pathsByDocId, setDetail, setLiveFile, suspendPaths]);
 
   /**
    * Ask the server to replay from the last version we trust after a send's
@@ -491,7 +480,7 @@ export function useOverleafRealtime(options: {
     } finally {
       if (connectionRoot.current === projectRoot) reconciling.current.delete(id);
     }
-  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors]);
+  }, [deliverRemoteText, patchOpenDoc, publishLivePaths, publishUnacknowledged, releaseIfDone, setDetail, shiftAnchors]);
   useEffect(() => {
     reconcileUnknownRef.current = (id) => void reconcileUnknown(id);
   }, [reconcileUnknown]);
@@ -623,7 +612,10 @@ export function useOverleafRealtime(options: {
         }
       }
     }
-  }), [deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, onReviewEvent, publishLivePaths, publishUnacknowledged, releaseIfDone, shiftAnchors, stopAfterDisconnect]);
+  }), [
+    deliverRemoteText, dropDocument, fail, flush, noteDocumentTree, onReviewEvent, publishLivePaths, publishUnacknowledged,
+    releaseIfDone, setDetail, shiftAnchors, stopAfterDisconnect,
+  ]);
 
   // ---- connection ---------------------------------------------------------
 
@@ -746,7 +738,7 @@ export function useOverleafRealtime(options: {
       if (connectionRoot.current === connectingRoot) connectionRoot.current = null;
       void invoke("overleaf_rt_disconnect", { projectRoot: connectingRoot }).catch(() => {});
     };
-  }, [noteDocumentTree, noteProject, options.enabled, options.projectRoot, stopEverything]);
+  }, [noteDocumentTree, noteProject, options.enabled, options.projectRoot, setDetail, setProjectPermission, setStatus, stopEverything]);
 
   // The ZIP synchronizer also enforces this permission from its durable
   // SyncState. Keep it in step with the live channel, but never persist
@@ -907,6 +899,7 @@ export function useOverleafRealtime(options: {
   }, [
     options.activeFile, options.documents, options.projectRoot, activeDocId, status, reloadNonce,
     deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, publishUnacknowledged, setOpenDoc, shiftAnchors,
+    setDetail,
   ]);
 
   // ---- local edits and out-of-band operations -------------------------------
@@ -1062,7 +1055,7 @@ export function useOverleafRealtime(options: {
       // accepted, or rejected by an operation we never applied here — so our
       // copy is exactly what cannot be trusted.
       forceFullJoin.current = true;
-      setReloadNonce((nonce) => nonce + 1);
+      bumpReloadNonce();
     },
     pushLocal,
     suspendPaths,
@@ -1070,3 +1063,5 @@ export function useOverleafRealtime(options: {
     anchorComment,
   };
 }
+
+const increment = (count: number) => count + 1;

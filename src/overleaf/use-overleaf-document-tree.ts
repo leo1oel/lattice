@@ -3,37 +3,33 @@
  * is, every entity's id for the endpoints that take one, and the paths the
  * channel owns, which ordinary syncing must leave alone.
  */
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useRef, type RefObject } from "react";
+import { useStoreSlice } from "../hooks/use-store-slice";
 import type { OtDocument } from "./ot";
+import type { OverleafConnectionState, OverleafConnectionStore } from "./overleaf-connection-store";
 import type { DocEntry, EntityEntry } from "./overleaf-realtime-model";
 
-/** `documents` is every document the connection holds, by id. */
-export function useOverleafDocumentTree(documents: RefObject<Map<string, OtDocument>>) {
-  // State, not a ref: the tree can arrive from the connect call or from an
+/** `documents` is every document the connection holds, by id; the tree itself lives in `store`. */
+export function useOverleafDocumentTree(documents: RefObject<Map<string, OtDocument>>, store: OverleafConnectionStore) {
+  // Subscribed, not read: the tree can arrive from the connect call or from an
   // event, and either way the effect that joins the open document has to run
   // again once it does.
-  const [docs, setDocs] = useState<Map<string, string>>(new Map());
-  const [entities, setEntities] = useState<Map<string, { id: string; kind: string }>>(new Map());
-  const [livePaths, setLivePaths] = useState<string[]>([]);
+  const { docs, entities, livePaths } = useStoreSlice(store, treeFields);
   /** Current reverse lookup, so draining documents keep their project paths. */
   const pathsByDocId = useRef<Map<string, string>>(new Map());
 
   /** Publish the complete set of paths that ordinary syncing must not own. */
   const publishLivePaths = useCallback(() => {
-    const next = [...new Set(
+    store.getState().publishLivePaths([...new Set(
       [...documents.current.keys()]
         .map((id) => pathsByDocId.current.get(id))
         .filter((path): path is string => Boolean(path)),
-    )].sort();
-    setLivePaths((current) => (
-      current.length === next.length && current.every((path, index) => path === next[index]) ? current : next
-    ));
-  }, [documents]);
+    )].sort());
+  }, [documents, store]);
 
   /** Replace both directions of the live document tree without dropping held ids. */
   const noteDocumentTree = useCallback((entries: DocEntry[], entityEntries?: EntityEntry[]) => {
-    setDocs(new Map(entries.map((doc) => [doc.path, doc.id])));
-    setEntities(new Map((entityEntries ?? []).map((entity) => [entity.path, { id: entity.id, kind: entity.kind }])));
+    store.getState().showDocumentTree(entries, entityEntries);
     const previous = pathsByDocId.current;
     const next = new Map(entries.map((doc) => [doc.id, doc.path]));
     // A tree event can remove a document while its final operation is still
@@ -45,7 +41,9 @@ export function useOverleafDocumentTree(documents: RefObject<Map<string, OtDocum
     }
     pathsByDocId.current = next;
     publishLivePaths();
-  }, [documents, publishLivePaths]);
+  }, [documents, publishLivePaths, store]);
 
   return { docs, entities, livePaths, pathsByDocId, publishLivePaths, noteDocumentTree };
 }
+
+const treeFields = ({ docs, entities, livePaths }: OverleafConnectionState) => ({ docs, entities, livePaths });

@@ -2,6 +2,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafThread, ProjectSnapshot } from "../app-types";
+import { createOverleafConnectionStore } from "../overleaf/overleaf-connection-store";
 import { useOverleafRealtime } from "../overleaf/use-overleaf-realtime";
 import { applyOverleafRemoteText, projectOverleafEditorComments, useOverleafWorkspace, type OverleafWorkspaceDeps } from "./use-overleaf-workspace";
 
@@ -50,8 +51,9 @@ describe("safe Overleaf remote text delivery", () => {
     deps.sourceRef.current = deps.savedSourceRef.current = "agent caption and new section";
     const notice = vi.fn();
     vi.mocked(invoke).mockImplementation(async (command) => realtimeReply(command, "old caption"));
+    const store = createOverleafConnectionStore();
     const view = renderHook(() => useOverleafRealtime({
-      enabled: true, documents: true, projectRoot: "/project", activeFile: "section.tex",
+      store, enabled: true, documents: true, projectRoot: "/project", activeFile: "section.tex",
       onNotice: notice,
       onRemoteText: (text, context) => applyOverleafRemoteText(deps, text, context),
     }));
