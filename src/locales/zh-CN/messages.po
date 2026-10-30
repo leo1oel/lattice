@@ -810,7 +810,7 @@ msgstr "共 {totalPages} 页 · 没在 PDF 里找到正文结尾"
 msgid "{totalPages} total · included files not read"
 msgstr "共 {totalPages} 页 · 未计入引用的文件"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
 msgstr "{venue} 终稿版本：不检查匿名性。"
 
@@ -1180,7 +1180,7 @@ msgstr "折叠块"
 msgid "Acknowledgements"
 msgstr "致谢"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Acknowledgements and thanks"
 msgstr "致谢与感谢脚注"
 
@@ -1838,11 +1838,11 @@ msgstr "Attention Is All You Need、扩散模型…"
 msgid "Author"
 msgstr "作者"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Author in PDF metadata"
 msgstr "PDF 元数据中的作者"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Author names"
 msgstr "作者姓名"
 
@@ -2266,7 +2266,7 @@ msgstr "请编译论文以生成 .bbl；arXiv 不运行 BibTeX"
 msgid "Build the PDF to export a review copy"
 msgstr "先编译出 PDF，才能导出评阅副本"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Build to check"
 msgstr "构建后检查"
 
@@ -4199,11 +4199,11 @@ msgstr "双剑号"
 msgid "Double dagger text symbol"
 msgstr "双剑号（文本符号）"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Double-blind review"
 msgstr "双盲评审"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Double-blind review · {venue}"
 msgstr "双盲评审 · {venue}"
 
@@ -5152,7 +5152,7 @@ msgstr "已折叠的代码"
 msgid "Folded lines"
 msgstr "已折叠行"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Fonts not embedded"
 msgstr "未嵌入的字体"
 
@@ -5547,7 +5547,7 @@ msgstr "帮助"
 msgid "Hex color"
 msgstr "十六进制颜色"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Hidden"
 msgstr "已隐藏"
 
@@ -6824,7 +6824,7 @@ msgstr "关联的文献库"
 msgid "Linked library…"
 msgstr "关联的文献库…"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Links to your accounts"
 msgstr "指向作者账号的链接"
 
@@ -8082,7 +8082,7 @@ msgid "none"
 msgstr "无"
 
 #: src/project/local-templates.tsx
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "None"
 msgstr "无"
 
@@ -9096,7 +9096,7 @@ msgstr "PDF 文档"
 msgid "PDF embedded fonts"
 msgstr "PDF 嵌入字体"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "PDF fonts"
 msgstr "PDF 字体"
 
@@ -11167,7 +11167,7 @@ msgstr "所选"
 msgid "Selection deleted"
 msgstr "已删除所选内容"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Self-citing wording"
 msgstr "自引措辞"
 
@@ -11391,7 +11391,7 @@ msgstr "显示 {0}/{1} 项"
 msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
 msgstr "显示 {0} 条中的 {MATCH_LIMIT} 条；输入更多关键词以缩小范围"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Shown"
 msgstr "已显示"
 
@@ -12476,11 +12476,11 @@ msgstr "shell 已被停止"
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
 msgstr "模板选项会印出作者，送审前请移除"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "The template's options were not found"
 msgstr "未找到模板的选项"
 
@@ -12962,7 +12962,7 @@ msgstr "连续两个上标"
 msgid "Type"
 msgstr "类型"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Type 3 fonts"
 msgstr "Type 3 字体"
 
@@ -13087,7 +13087,7 @@ msgstr "并集"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 #: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "未知"

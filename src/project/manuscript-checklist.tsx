@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronRight, ClipboardCheck, Images } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
@@ -11,8 +11,10 @@ import { CheckStatus } from "./check-status";
 import { DeadlineCard } from "./deadline-card";
 import { itemCondition, itemPasses, type LinkedFileStat } from "./submission-item-state";
 import { SubmissionItems } from "./submission-items";
-import { SubmissionReviewGroups } from "./submission-review";
-import { useReviewGroups, type SubmissionReview } from "./submission-review-state";
+import { lazyChunk } from "../lib/lazy-chunk";
+import { reviewRows, reviewRowsChunk, type SubmissionReview } from "./submission-review-state";
+
+const SubmissionReviewGroups = lazyChunk(reviewRowsChunk, (module) => module.SubmissionReviewGroups);
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
@@ -120,7 +122,8 @@ export function ManuscriptChecklistPanel(props: {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
-  const reviewGroups = useReviewGroups(props.data.review);
+  const review = props.data.review;
+  const reviewResults = reviewRows(review);
   const { words, wordBudget: wordLimit, pageBudget: pageLimit, pages: totalPages, body } = props.data;
   // A missing or partial count is never a pass: no meter, no colour, only
   // what was counted and why it cannot settle the limit.
@@ -179,7 +182,7 @@ export function ManuscriptChecklistPanel(props: {
     props.data.todos === 0,
     props.data.unusedLabels + props.data.unusedCitations === 0,
     props.data.buildOk,
-    ...reviewGroups.flatMap((group) => group.rows.map((row) => row.ok)),
+    ...reviewResults.map((row) => row.ok),
     ...props.data.items.map((item) => itemPasses(itemCondition(item, props.data.fileStats[item.file ?? ""]))),
   ];
   const failing = checks.filter((check) => check === false).length;
@@ -259,7 +262,13 @@ export function ManuscriptChecklistPanel(props: {
             detail={props.data.buildMessage}
           />
         </div>
-        <SubmissionReviewGroups groups={reviewGroups} onOpenAt={props.onOpenAt} />
+        {/* Counted in the verdict above at once; its rows follow their chunk,
+            which loads while the review is read. */}
+        {review && (
+          <Suspense fallback={null}>
+            <SubmissionReviewGroups review={review} rows={reviewResults} onOpenAt={props.onOpenAt} />
+          </Suspense>
+        )}
         <SubmissionItems
           items={props.data.items}
           fileStats={props.data.fileStats}

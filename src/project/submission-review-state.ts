@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useLingui } from "@lingui/react/macro";
+import { chunk } from "../lib/lazy-chunk";
 
 /** One thing the backend's review found (`latex/submission_review.rs`), where in the source it is when it is anywhere. */
 export type ReviewFinding = {
@@ -25,16 +25,21 @@ export type SubmissionReview = {
   findings: ReviewFinding[];
 };
 
-type ReviewRow = {
-  id: string;
-  label: string;
+/**
+ * One review row's result, before it has words: the panel counts these in its
+ * verdict at once, while the labels and the rows themselves load in their own
+ * chunk. A camera-ready copy has no anonymity rows, since naming its authors
+ * is the point; a row about the PDF cannot settle without one (or, for the
+ * fonts, without a PDF whose fonts could be read).
+ */
+export type ReviewRow = {
+  id: "authors" | "acknowledgements" | "links" | "self-citation" | "pdf-author" | "type3" | "unembedded";
   ok: boolean | null;
-  value: string;
-  detail?: string;
   findings: ReviewFinding[];
 };
 
-export type ReviewGroup = { id: string; title: string; note?: string; rows: ReviewRow[] };
+/** The rows and their labels: only an open checklist with a review to show needs them. */
+export const reviewRowsChunk = chunk(() => import("./submission-review"));
 
 type ReadReview = { key: string; review: SubmissionReview | null };
 
@@ -42,7 +47,8 @@ type ReadReview = { key: string; review: SubmissionReview | null };
  * The review of the open project, read while the checklist is open and again
  * whenever the project's tree (after a file event) or its last build changes.
  * Answers that arrive for another project, or after the checklist closed,
- * are dropped.
+ * are dropped. The rows' chunk loads alongside, so it is usually in before
+ * the answer is.
  */
 export function useSubmissionReview(scope: string, wanted: boolean, tree: unknown, build: unknown): SubmissionReview | null {
   const key = wanted ? scope : "";
@@ -50,6 +56,7 @@ export function useSubmissionReview(scope: string, wanted: boolean, tree: unknow
   useEffect(() => {
     if (!key) return;
     let current = true;
+    void reviewRowsChunk().catch(() => undefined);
     void invoke<SubmissionReview | null>("submission_review").then(
       (review) => review,
       // A project the backend cannot read has nothing to report, not a failure to show.
@@ -63,56 +70,23 @@ export function useSubmissionReview(scope: string, wanted: boolean, tree: unknow
   return read?.key === key && key ? read.review : null;
 }
 
-/**
- * The review as checklist rows. The anonymity group follows the venue: only a
- * double-blind template has one, and a camera-ready copy keeps only a note,
- * since naming its authors is the point. Without a PDF (or a PDF whose fonts
- * cannot be read) the PDF rows cannot be settled.
- */
-export function useReviewGroups(review: SubmissionReview | null): ReviewGroup[] {
-  const { t } = useLingui();
+export function reviewRows(review: SubmissionReview | null): ReviewRow[] {
   if (!review) return [];
-  const of = (...checks: ReviewFinding["check"][]) => review.findings.filter((finding) => checks.includes(finding.check));
-  const counted = (findings: ReviewFinding[], settled = true) => ({
-    ok: settled ? findings.length === 0 : null,
-    value: !settled ? t`Build to check` : findings.length ? `${findings.length}` : t`None`,
-    findings,
-  });
-  const groups: ReviewGroup[] = [];
-  const venue = review.venue ?? "";
-  if (review.mode === "camera-ready") {
-    groups.push({ id: "blind", title: t`Double-blind review`, note: t`${venue} camera-ready copy: anonymity is not checked.`, rows: [] });
-  } else if (review.mode) {
-    const shown = of("authors-shown");
-    groups.push({
-      id: "blind",
-      title: t`Double-blind review · ${venue}`,
-      rows: [
-        {
-          id: "authors",
-          label: t`Author names`,
-          ok: review.mode === "anonymous" ? true : review.mode === "authors-shown" ? false : null,
-          value: review.mode === "anonymous" ? t`Hidden` : review.mode === "authors-shown" ? t`Shown` : t`Unknown`,
-          detail: review.mode === "authors-shown"
-            ? t`The template's option prints the authors; remove it for review`
-            : review.mode === "unknown" ? t`The template's options were not found` : undefined,
-          findings: shown,
-        },
-        { id: "acknowledgements", label: t`Acknowledgements and thanks`, ...counted(of("acknowledgements", "thanks")) },
-        { id: "links", label: t`Links to your accounts`, ...counted(of("identifying-link")) },
-        { id: "self-citation", label: t`Self-citing wording`, ...counted(of("self-citation")) },
-        { id: "pdf-author", label: t`Author in PDF metadata`, ...counted(of("pdf-author"), review.pdf) },
-      ],
-    });
+  const row = (id: ReviewRow["id"], checks: ReviewFinding["check"][], settled = true): ReviewRow => {
+    const findings = review.findings.filter((finding) => checks.includes(finding.check));
+    return { id, ok: settled ? findings.length === 0 : null, findings };
+  };
+  const rows: ReviewRow[] = [];
+  if (review.mode && review.mode !== "camera-ready") {
+    rows.push(
+      { ...row("authors", ["authors-shown"]), ok: review.mode === "anonymous" ? true : review.mode === "authors-shown" ? false : null },
+      row("acknowledgements", ["acknowledgements", "thanks"]),
+      row("links", ["identifying-link"]),
+      row("self-citation", ["self-citation"]),
+      row("pdf-author", ["pdf-author"], review.pdf),
+    );
   }
   const fontsSettled = review.pdf && review.fontsRead;
-  groups.push({
-    id: "fonts",
-    title: t`PDF fonts`,
-    rows: [
-      { id: "type3", label: t`Type 3 fonts`, ...counted(of("type3-font"), fontsSettled) },
-      { id: "unembedded", label: t`Fonts not embedded`, ...counted(of("unembedded-font"), fontsSettled) },
-    ],
-  });
-  return groups;
+  rows.push(row("type3", ["type3-font"], fontsSettled), row("unembedded", ["unembedded-font"], fontsSettled));
+  return rows;
 }

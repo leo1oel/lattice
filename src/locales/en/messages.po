@@ -810,7 +810,7 @@ msgstr "{totalPages} total · end of the body not located in the PDF"
 msgid "{totalPages} total · included files not read"
 msgstr "{totalPages} total · included files not read"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "{venue} camera-ready copy: anonymity is not checked."
 msgstr "{venue} camera-ready copy: anonymity is not checked."
 
@@ -1180,7 +1180,7 @@ msgstr "Accordion"
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Acknowledgements and thanks"
 msgstr "Acknowledgements and thanks"
 
@@ -1838,11 +1838,11 @@ msgstr "Attention Is All You Need, diffusion, …"
 msgid "Author"
 msgstr "Author"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Author in PDF metadata"
 msgstr "Author in PDF metadata"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Author names"
 msgstr "Author names"
 
@@ -2266,7 +2266,7 @@ msgstr "Build the paper so it has one; arXiv doesn’t run BibTeX"
 msgid "Build the PDF to export a review copy"
 msgstr "Build the PDF to export a review copy"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Build to check"
 msgstr "Build to check"
 
@@ -4199,11 +4199,11 @@ msgstr "Double dagger"
 msgid "Double dagger text symbol"
 msgstr "Double dagger text symbol"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Double-blind review"
 msgstr "Double-blind review"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Double-blind review · {venue}"
 msgstr "Double-blind review · {venue}"
 
@@ -5152,7 +5152,7 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Fonts not embedded"
 msgstr "Fonts not embedded"
 
@@ -5547,7 +5547,7 @@ msgstr "Help"
 msgid "Hex color"
 msgstr "Hex color"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Hidden"
 msgstr "Hidden"
 
@@ -6824,7 +6824,7 @@ msgstr "Linked library"
 msgid "Linked library…"
 msgstr "Linked library…"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Links to your accounts"
 msgstr "Links to your accounts"
 
@@ -8082,7 +8082,7 @@ msgid "none"
 msgstr "none"
 
 #: src/project/local-templates.tsx
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "None"
 msgstr "None"
 
@@ -9096,7 +9096,7 @@ msgstr "PDF document"
 msgid "PDF embedded fonts"
 msgstr "PDF embedded fonts"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "PDF fonts"
 msgstr "PDF fonts"
 
@@ -11167,7 +11167,7 @@ msgstr "Selection"
 msgid "Selection deleted"
 msgstr "Selection deleted"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Self-citing wording"
 msgstr "Self-citing wording"
 
@@ -11391,7 +11391,7 @@ msgstr "Showing {0} of {1}"
 msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
 msgstr "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Shown"
 msgstr "Shown"
 
@@ -12476,11 +12476,11 @@ msgstr "The shell was stopped"
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
 msgstr "The template's option prints the authors; remove it for review"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "The template's options were not found"
 msgstr "The template's options were not found"
 
@@ -12962,7 +12962,7 @@ msgstr "Two superscripts in a row"
 msgid "Type"
 msgstr "Type"
 
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 msgid "Type 3 fonts"
 msgstr "Type 3 fonts"
 
@@ -13087,7 +13087,7 @@ msgstr "Union"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
-#: src/project/submission-review-state.ts
+#: src/project/submission-review.tsx
 #: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "Unknown"
