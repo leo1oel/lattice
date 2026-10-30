@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { DocumentViewMode, PaperSummary, RefreshProject } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { useStoreSlice } from "../hooks/use-store-slice";
+import { liveField, useStoreSlice } from "../hooks/use-store-slice";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import { useFileViewStates } from "./use-file-view-states";
 import type { ProjectState } from "./use-project-state";
@@ -212,8 +212,3 @@ const renderedFields = ({
 });
 
 const keepStore = (store: OpenDocumentsStore) => store;
-
-/** A read-only ref over one field of the store, for code written against ref twins. */
-function liveField<K extends keyof OpenDocumentsState>(store: OpenDocumentsStore, key: K): RefObject<OpenDocumentsState[K]> {
-  return { get current() { return store.getState()[key]; } };
-}

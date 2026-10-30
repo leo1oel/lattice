@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDelete, type OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { liveField, useStoreSlice } from "../hooks/use-store-slice";
 import { isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
 import { useOverleafRemoteDeletes } from "./use-overleaf-remote-deletes";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
+import {
+  bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore, type OverleafLinkFor,
+} from "../overleaf/overleaf-connection-store";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import {
   isOverleafProjectRefusal,
@@ -25,7 +28,6 @@ import { useOverleafComments, type OverleafComments } from "../overleaf/use-over
 import { useOverleafTrackChanges } from "../overleaf/use-overleaf-track-changes";
 import { collabPeopleHues, peopleHuesFromKey, peopleHuesKey, personColor, type PeopleHues } from "../overleaf/overleaf-collab-people";
 import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
-import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
@@ -115,9 +117,6 @@ const OVERLEAF_CHANNEL_POLL_MS = 45_000;
  * minute, and a collaborator typing moves the version on every poll.
  */
 const minimumSyncGap = (channelLive: boolean) => (channelLive ? 30_000 : 12_000);
-
-/** The project's Overleaf link, and whether the signed-in session may use it. */
-type OverleafLinkFor = { root: string; link: OverleafLink; active: boolean };
 
 async function readOverleafLink(root: string): Promise<OverleafLinkFor | null> {
   const [status, link] = await Promise.all([invoke<OverleafStatus>("overleaf_status"), invoke<OverleafLink | null>("overleaf_link")]);
@@ -224,24 +223,24 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   } = deps;
   const { t } = useLingui();
 
-  const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
-  // The link counts only while the root it was fetched for is still open (for
-  // one render of a switch it is the old project's). Inactive links are kept,
-  // so a paused one is not offered for upload as a second Overleaf project.
-  const [overleafLinkFor, setOverleafLinkFor] = useState<OverleafLinkFor | null>(null);
+  // Made once per mount and kept: nothing is ever dispatched to this reducer.
+  const [overleafStore] = useReducer(keepStore, null, createOverleafConnectionStore);
+  const {
+    linkFor: overleafLinkFor, syncing: overleafSyncing, syncMode: overleafSyncMode, remoteDelete: overleafRemoteDelete,
+    remoteChanges: overleafRemoteChanges, pickerOpen: overleafPickerOpen, reviewOpen: overleafReviewOpen,
+    collabOpen: overleafCollabOpen, collabTab: overleafCollabTab, conflictPath, selfId: overleafSelfId, docPaths: overleafDocPaths,
+  } = useStoreSlice(overleafStore, bridgeFields);
+  const {
+    setLinkFor: setOverleafLinkFor, setSyncing: setOverleafSyncing, setSyncMode: setOverleafSyncMode,
+    setRemoteDelete: setOverleafRemoteDelete, setRemoteChanges: setOverleafRemoteChanges, setPickerOpen: setOverleafPickerOpen,
+    setReviewOpen: setOverleafReviewOpen, setCollabOpen: setOverleafCollabOpen, setCollabTab: setOverleafCollabTab,
+    setConflictPath, noteChannelEvent, forgetChannel,
+  } = overleafStore.getState();
   const overleafLinkLoadGenerationRef = useRef(0);
   const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
   const overleafLink = currentOverleafLink?.active ? currentOverleafLink.link : null;
   const overleafProjectLinked = currentOverleafLink !== null;
-  const [overleafSyncing, setOverleafSyncing] = useState(false);
-  const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
-  const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(loadOverleafRemoteDelete);
-  const overleafRemoteDeleteRef = useLatestRef(overleafRemoteDelete);
-  const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
-  const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
-  const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
-  const [overleafCollabTab, setOverleafCollabTab] = useState<OverleafCollabTab>("comments");
-  const [conflictPath, setConflictPath] = useState<string | null>(null);
+  const overleafRemoteDeleteRef = useMemo(() => liveField(overleafStore, "remoteDelete"), [overleafStore]);
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
@@ -250,7 +249,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // Tokens distinguish edits arriving during a network-bound sync from the
   // batch it owns. A completed older pass must not retire the newer work.
   const externalChangesRef = useRef(new Map<string, symbol>());
-  const [externalChangeGeneration, setExternalChangeGeneration] = useState(0);
+  const [externalChangeGeneration, bumpExternalChangeGeneration] = useReducer(increment, 0);
   const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
@@ -289,7 +288,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       overleafSyncSettledRef.current = null;
       settle?.();
     };
-  }, [overleafSyncSettledRef, overleafSyncingRef, resolveOverleafSyncRef]);
+  }, [overleafSyncSettledRef, overleafSyncingRef, resolveOverleafSyncRef, setOverleafSyncing]);
 
   const currentOverleafLivePaths = useCallback((includeWholeFilePaths: readonly string[] = []) => {
     const included = new Set(includeWholeFilePaths);
@@ -314,14 +313,14 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     void readOverleafLink(root).catch(() => null).then((linkFor) => {
       if (generation === overleafLinkLoadGenerationRef.current) setOverleafLinkFor(linkFor);
     });
-  }, []);
+  }, [setOverleafLinkFor]);
 
   // Whether the open project is linked drives the toolbar sync button and auto-sync.
   useEffect(() => {
     setOverleafLinkFor(null);
     if (project?.root) loadOverleafLink(project.root);
     return () => { overleafLinkLoadGenerationRef.current += 1; };
-  }, [loadOverleafLink, project?.root]);
+  }, [loadOverleafLink, project?.root, setOverleafLinkFor]);
 
   /** Re-read the link after Settings changes it, so unlinking reaches every surface that rides it. */
   const refreshOverleafLink = useCallback(() => {
@@ -345,7 +344,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       setOverleafLinkFor({ root: publishRoot, link, active: true });
       return true;
     }).finally(release);
-  }, [holdSyncGate, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, save]);
+  }, [holdSyncGate, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, save, setOverleafLinkFor]);
 
   const openCurrentOverleafProject = useCallback(() => {
     if (!overleafLink) return;
@@ -395,7 +394,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // out of the realtime rejoin below until that next sync settles them.
       if (result.editedDuringSync?.length) {
         for (const path of result.editedDuringSync) externalChangesRef.current.set(path, Symbol());
-        setExternalChangeGeneration((generation) => generation + 1);
+        bumpExternalChangeGeneration();
       }
       // Pending whole-file paths omitted from `livePaths` went up with this
       // sync; forget them so a later blur does not download the project again.
@@ -572,7 +571,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   }, [
     activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile, openOverleafSettingsRef,
     overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
-    save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
+    save, savedSourceRef, setConflictPath, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
   overleafSyncRef.current = runOverleafSync;
@@ -710,6 +709,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   // Editing through Overleaf's own channel.
   const overleafRealtime = useOverleafRealtime({
+    store: overleafStore,
     enabled: overleafLink !== null,
     documents: overleafSyncMode === "live",
     projectRoot: project?.root ?? null,
@@ -719,17 +719,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     onNotice: (message) => showNotice(message),
     onNeedsSync: (paths) => {
       for (const path of paths) externalChangesRef.current.set(path, Symbol());
-      setExternalChangeGeneration((generation) => generation + 1);
+      bumpExternalChangeGeneration();
     },
   });
   useLayoutEffect(() => {
     resumeRealtimePathsRef.current = overleafRealtime.resumePaths;
   }, [overleafRealtime.resumePaths]);
-  // The poll loop and the sync read these mid-flight. "Channel live" means
+  // The poll loop and the sync read these mid-flight, as rendered (the first
+  // poll after connecting keeps its short cadence). "Channel live" means
   // carrying documents: in manual mode it stays up for chat alone.
-  overleafEntitiesRef.current = overleafRealtime.entities;
-  overleafChannelLiveRef.current = overleafRealtime.status === "live" && overleafSyncMode === "live";
-  overleafLivePathsRef.current = overleafRealtime.livePaths;
+  useLayoutEffect(() => {
+    overleafEntitiesRef.current = overleafRealtime.entities;
+    overleafChannelLiveRef.current = overleafRealtime.status === "live" && overleafSyncMode === "live";
+    overleafLivePathsRef.current = overleafRealtime.livePaths;
+  });
 
   /**
    * Push after the quiet period, waiting out the rest of the sync gap rather
@@ -786,26 +789,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   }, [autoSync, currentOverleafLivePaths, overleafLink, overleafRealtime.status, overleafSyncMode, project?.root, projectRef]);
 
   // The channel carries what presence cannot get elsewhere: our connection id,
-  // and which file each document id is (rebuilt on every tree change).
-  const [overleafSelfId, setOverleafSelfId] = useState<string | null>(null);
-  const [overleafDocPaths, setOverleafDocPaths] = useState<Map<string, string>>(new Map());
+  // and which file each document id is.
   useEffect(() => {
     if (overleafLink === null || !project?.root) {
-      setOverleafSelfId(null);
-      setOverleafDocPaths(new Map());
+      forgetChannel();
       return;
     }
     const projectRoot = project.root;
-    return onOverleafEvent(() => projectRoot, (event) => {
-      if (event.type === "connected" && event.publicId) {
-        setOverleafSelfId(event.publicId);
-      } else if (event.type === "projectJoined" || event.type === "treeChanged") {
-        setOverleafDocPaths(new Map(event.docs.map((doc) => [doc.id, doc.path])));
-      } else if (event.type === "disconnected") {
-        setOverleafSelfId(null);
-      }
-    });
-  }, [overleafLink, project?.root]);
+    return onOverleafEvent(() => projectRoot, noteChannelEvent);
+  }, [forgetChannel, noteChannelEvent, overleafLink, project?.root]);
 
   const overleafPresence = useOverleafPresence({
     // An unlinked project has no presence scope, or the last roster outlives a switch.
@@ -952,7 +944,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       window.clearInterval(timer);
       window.removeEventListener("focus", check);
     };
-  }, [overleafLink, overleafSyncMode, project?.root]);
+  }, [overleafLink, overleafSyncMode, project?.root, setOverleafRemoteChanges]);
 
   // Version successful builds of linked projects at most every 2 minutes.
   // Unlinked projects never get surprise commits in a repo managed by hand.
@@ -986,3 +978,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     overleafTrackChanges, overleafDocPaths, overleafEditorComments, overleafActiveCursors,
   };
 }
+
+const keepStore = (store: OverleafConnectionStore) => store;
+
+const increment = (count: number) => count + 1;
