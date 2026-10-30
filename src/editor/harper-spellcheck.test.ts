@@ -1,6 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 
 // The engine itself now lives in Rust (src-tauri/src/harper.rs, covered by
 // cargo tests); these tests exercise the JS layer's real responsibilities —
@@ -10,6 +11,12 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (command: string, args?: { text?: string; projectWords?: string[] }) => {
     if (command !== "harper_lint") throw new Error(`unexpected command ${command}`);
     const text = args?.text ?? "";
+    // Sentences end at a period, as harper-core splits them.
+    const sentenceAt = (index: number) => {
+      const start = text.lastIndexOf(".", index - 1) + 1;
+      const stop = text.indexOf(".", index);
+      return { sentenceStart: start, sentenceEnd: stop === -1 ? text.length : stop + 1 };
+    };
     const projectWords = (args?.projectWords ?? []).map((word) => word.toLocaleLowerCase());
     const misspelled = new Map([
       ["introductiom", "introduction"], ["sentnce", "sentence"], ["takeawayaccent", "takeaway accent"], ["zylorph", "sylph"],
@@ -19,14 +26,14 @@ vi.mock("@tauri-apps/api/core", () => ({
       const replacement = misspelled.get(word);
       if (!replacement || projectWords.includes(word)) return [];
       const suggestions = [{ kind: "replace", replacement }];
-      return [{ start: match.index, end: match.index + match[0].length, kind: "Spelling", message: `Did you mean “${replacement}”?`, suggestions }];
+      return [{ start: match.index, end: match.index + match[0].length, kind: "Spelling", message: `Did you mean “${replacement}”?`, suggestions, rule: "SpellCheck", ...sentenceAt(match.index) }];
     });
     // Sentence capitalization, like harper's lint: only when the sentence
     // actually starts the text (masked math leaves leading spaces).
     const first = text.match(/^[a-z][A-Za-z'’-]*/);
     if (first) {
       const message = "This sentence does not start with a capital letter";
-      lints.push({ start: 0, end: first[0].length, kind: "Capitalization", message, suggestions: [] });
+      lints.push({ start: 0, end: first[0].length, kind: "Capitalization", message, suggestions: [], rule: "SentenceCapitalization", ...sentenceAt(0) });
     }
     return lints;
   }),
@@ -35,11 +42,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
   createHarperDiagnostic,
   harperDiagnostics,
-  harperDictionaryChanged,
+  harperConfigChanged,
   harperLintWindow,
   HARPER_WINDOW_THRESHOLD,
   maskLatexForHarper,
 } from "./harper-spellcheck";
+import { grammarSettingsStore } from "./grammar-settings-store";
 
 const spelling = (input: Partial<Parameters<typeof createHarperDiagnostic>[0]>) =>
   createHarperDiagnostic({ from: 0, to: 0, message: "Unknown word.", kind: "Spelling", suggestions: [], ...input });
@@ -140,7 +148,7 @@ describe("Harper prose spellcheck", () => {
         doc: "Zylorph",
         extensions: EditorView.updateListener.of((update) => {
           refreshes += update.transactions.filter((transaction) =>
-            transaction.effects.some((effect) => effect.is(harperDictionaryChanged))).length;
+            transaction.effects.some((effect) => effect.is(harperConfigChanged))).length;
         }),
       }),
     });
@@ -161,6 +169,81 @@ describe("Harper prose spellcheck", () => {
     expect(diagnostic.source).toBe("Harper");
     expect(diagnostic.severity).toBe("error");
     view.destroy();
+  });
+
+  it.each([
+    ["a reference opening a sentence", "Results follow. \\Cref{fig:loss} shows the curve.", "\\Cref{fig:loss}"],
+    ["autoref and bibitem keys", "See \\autoref{tab:ece}.\n\\bibitem{knuth1997art} D. Knuth.", "tab:ece"],
+  ])("masks %s, leaving a neutral subject where the reference prints", (_name, source, hidden) => {
+    const { prose } = maskLatexForHarper(source);
+    expect(prose).toHaveLength(source.length);
+    expect(prose).not.toContain(hidden.replace(/^\\/, ""));
+    expect(prose).not.toContain("knuth1997art");
+    if (source.includes("Cref")) expect(prose.slice(source.indexOf("\\Cref")).trimStart()).toMatch(/^X\s+shows/);
+  });
+
+  describe("grammar settings and project ignores", () => {
+    const lastOptions = () => vi.mocked(invoke).mock.lastCall?.[1] as { options: unknown } | undefined;
+    afterEach(() => {
+      const { setDialect, setProfile, resetRules } = grammarSettingsStore.getState();
+      setDialect("american");
+      setProfile("auto");
+      resetRules();
+    });
+
+    it("checks LaTeX as academic writing unless the writer chose, with the project's ignored rules off", async () => {
+      const source = "A clean sentence.";
+      await harperDiagnostics(source, { prose: "latex", ignores: { rules: ["OxfordComma"], sentences: [] } });
+      expect(lastOptions()?.options).toEqual({ dialect: "american", profile: "academic", rules: { OxfordComma: false } });
+      await harperDiagnostics(source, { prose: "text" });
+      expect(lastOptions()?.options).toEqual({ dialect: "american", profile: "standard", rules: {} });
+
+      const { setDialect, setProfile, setRule } = grammarSettingsStore.getState();
+      setDialect("british");
+      setProfile("standard");
+      setRule("OxfordComma", true);
+      setRule("LongSentences", true);
+      await harperDiagnostics(source, { prose: "latex" });
+      expect(lastOptions()?.options).toEqual({ dialect: "british", profile: "standard", rules: { OxfordComma: true, LongSentences: true } });
+      // The project's ignore wins over the writer's own choice.
+      await harperDiagnostics(source, { prose: "latex", ignores: { rules: ["OxfordComma"], sentences: [] } });
+      expect(lastOptions()?.options).toMatchObject({ rules: { OxfordComma: false, LongSentences: true } });
+      setRule("LongSentences", null);
+      expect(grammarSettingsStore.getState().rules).toEqual({ OxfordComma: true });
+    });
+
+    it("drops every lint in an ignored sentence, matched with its whitespace collapsed", async () => {
+      const source = "this  sentence\nhas a sentnce. And a sentnce here.";
+      expect(spans(source, await harperDiagnostics(source)).sort()).toEqual(["sentnce", "sentnce", "this"]);
+      const ignored = await harperDiagnostics(source, { ignores: { rules: [], sentences: ["this sentence has a sentnce."] } });
+      expect(spans(source, ignored)).toEqual(["sentnce"]);
+      expect(ignored[0].from).toBe(source.lastIndexOf("sentnce"));
+    });
+
+    it("offers to ignore a grammar lint's sentence or rule in the project, and not a misspelling's", async () => {
+      const onIgnore = vi.fn().mockResolvedValue(true);
+      const source = "this sentence starts in lowercase.";
+      const [capitalization] = await harperDiagnostics(source, { onIgnore });
+      expect(capitalization.actions?.map((action) => action.name)).toEqual(["Ignore sentence", "Ignore rule in project"]);
+      let refreshes = 0;
+      const view = new EditorView({
+        state: EditorState.create({
+          doc: source,
+          extensions: EditorView.updateListener.of((update) => {
+            refreshes += update.transactions.filter((transaction) =>
+              transaction.effects.some((effect) => effect.is(harperConfigChanged))).length;
+          }),
+        }),
+      });
+      capitalization.actions?.[0]?.apply(view, 0, 4);
+      capitalization.actions?.[1]?.apply(view, 0, 4);
+      expect(onIgnore.mock.calls).toEqual([[{ sentence: source }], [{ rule: "SentenceCapitalization" }]]);
+      await vi.waitFor(() => expect(refreshes).toBe(2));
+      view.destroy();
+
+      const [misspelling] = await harperDiagnostics("A sentnce.", { onIgnore });
+      expect(misspelling.actions?.map((action) => action.name)).toEqual(["Replace with “sentence”"]);
+    });
   });
 
   it("windows Harper linting only above the size threshold", () => {

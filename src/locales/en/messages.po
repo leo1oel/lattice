@@ -264,6 +264,10 @@ msgstr "{begin} is closed by {end}"
 msgid "{built}; arXiv builds with pdfLaTeX"
 msgstr "{built}; arXiv builds with pdfLaTeX"
 
+#: src/settings/grammar-settings.tsx
+msgid "{changedCount} changed from the grammar style"
+msgstr "{changedCount} changed from the grammar style"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -1110,6 +1114,15 @@ msgstr "Abstract"
 msgid "Abstract environment"
 msgstr "Abstract environment"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Academic"
+msgstr "Academic"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Academic sentences run long by convention, and hidden citations and math make the word count unreliable."
+msgstr "Academic sentences run long by convention, and hidden citations and math make the word count unreliable."
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Accent"
@@ -1502,6 +1515,11 @@ msgstr "Alt text"
 msgid "Amalgamation"
 msgstr "Amalgamation"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "American English"
+msgstr "American English"
+
 #: src/build/compile-explain.ts
 msgid "An & outside a table"
 msgstr "An & outside a table"
@@ -1843,6 +1861,7 @@ msgstr "Auto-saved version"
 msgid "automatic"
 msgstr "automatic"
 
+#: src/settings/grammar-settings.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Automatic"
 msgstr "Automatic"
@@ -1851,6 +1870,11 @@ msgstr "Automatic"
 #: src/settings/settings-search-index.ts
 msgid "Automatic build"
 msgstr "Automatic build"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Automatic checks LaTeX as academic writing and other files as everyday prose"
+msgstr "Automatic checks LaTeX as academic writing and other files as everyday prose"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -2136,6 +2160,11 @@ msgstr "Bracketed matrix"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Breve accent example"
 msgstr "Breve accent example"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "British English"
+msgstr "British English"
 
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -2534,6 +2563,11 @@ msgstr "Chapter heading"
 msgid "Chat"
 msgstr "Chat"
 
+#. placeholder {0}: grammarRuleLabel(rule)
+#: src/settings/grammar-settings.tsx
+msgid "Check {0} again"
+msgstr "Check {0} again"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
 msgstr "Check accent example"
@@ -2584,6 +2618,10 @@ msgstr "Check spelling in prose"
 #: src/papers/bibliography-audit.tsx
 msgid "Check this reference"
 msgstr "Check this reference"
+
+#: src/settings/grammar-settings.tsx
+msgid "Check this sentence again"
+msgstr "Check this sentence again"
 
 #: src/settings/settings-dialog.tsx
 msgid "Check your connection and try again"
@@ -2674,6 +2712,11 @@ msgstr "Choose files and folders to import into {targetDirectory}"
 #: src/app/use-project-tree.ts
 msgid "Choose files and folders to import into the project root"
 msgstr "Choose files and folders to import into the project root"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Choose Ignore on a grammar suggestion to add one"
+msgstr "Choose Ignore on a grammar suggestion to add one"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Choose image to upload"
@@ -4279,6 +4322,10 @@ msgstr "e.g. all authors"
 msgid "e.g. Camera-ready"
 msgstr "e.g. Camera-ready"
 
+#: src/settings/grammar-settings.tsx
+msgid "e.g. comma"
+msgstr "e.g. comma"
+
 #: src/settings/settings-dialog.tsx
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
@@ -4486,6 +4533,11 @@ msgstr "End tour"
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "English"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "English variant"
+msgstr "English variant"
 
 #: src/components/ui/color-picker.tsx
 msgid "Enter 6 hex digits"
@@ -4862,6 +4914,10 @@ msgstr "Filter annotations…"
 msgid "Filter by name or key"
 msgstr "Filter by name or key"
 
+#: src/settings/grammar-settings.tsx
+msgid "Filter grammar rules"
+msgstr "Filter grammar rules"
+
 #: src/editor/comments/highlight-kind-filter.tsx
 msgid "Filter highlights by colour"
 msgstr "Filter highlights by colour"
@@ -4885,6 +4941,11 @@ msgstr "Filter project changes"
 #: src/app/shortcut-sheet.tsx
 msgid "Filter shortcuts"
 msgstr "Filter shortcuts"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Filter to find a rule; these apply to every project"
+msgstr "Filter to find a rule; these apply to every project"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
@@ -5309,6 +5370,21 @@ msgstr "Google Scholar"
 msgid "grammar"
 msgstr "grammar"
 
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar"
+msgstr "Grammar"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar rules"
+msgstr "Grammar rules"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Grammar style"
+msgstr "Grammar style"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Graphite"
@@ -5592,6 +5668,28 @@ msgstr "Idea"
 msgid "If and only if"
 msgstr "If and only if"
 
+#: src/editor/harper-spellcheck.ts
+msgid "Ignore rule in project"
+msgstr "Ignore rule in project"
+
+#: src/editor/harper-spellcheck.ts
+msgid "Ignore sentence"
+msgstr "Ignore sentence"
+
+#: src/settings/grammar-settings.tsx
+msgid "Ignored grammar rules"
+msgstr "Ignored grammar rules"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Ignored in this project"
+msgstr "Ignored in this project"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Ignored sentences"
+msgstr "Ignored sentences"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Image"
@@ -5718,6 +5816,10 @@ msgstr "Importing ZIP…"
 #: src/project/todo-scavenger-panel.tsx
 msgid "in {0} files"
 msgstr "in {0} files"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "In a paper “min” is usually minutes or the minimum operator."
+msgstr "In a paper “min” is usually minutes or the minimum operator."
 
 #: src/history/export-changes-dialog.tsx
 msgid "In colour"
@@ -6067,9 +6169,21 @@ msgstr "Invalid worksheet: {name}"
 msgid "Iota"
 msgstr "Iota"
 
+#: src/settings/grammar-rule-reasons.ts
+msgid "It flags phrases like “most early in training”, which it says are not errors."
+msgstr "It flags phrases like “most early in training”, which it says are not errors."
+
 #: src/papers/bib-visual-editor.tsx
 msgid "It is still cited in the manuscript ({cited})."
 msgstr "It is still cited in the manuscript ({cited})."
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
+msgstr "It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”."
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "It splits technical terms such as “softmax” and “sublayer”."
+msgstr "It splits technical terms such as “softmax” and “sublayer”."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -7855,6 +7969,11 @@ msgstr "No results"
 msgid "No results for “{trimmedQuery}”"
 msgstr "No results for “{trimmedQuery}”"
 
+#. placeholder {0}: filter.trim()
+#: src/settings/grammar-settings.tsx
+msgid "No rule matches “{0}”"
+msgstr "No rule matches “{0}”"
+
 #: src/canvas/proofread-card.tsx
 msgid "No safe edits"
 msgstr "No safe edits"
@@ -8149,6 +8268,11 @@ msgctxt "macOS menu bar"
 msgid "Off"
 msgstr "Off"
 
+#. placeholder {0}: i18n._(reason)
+#: src/settings/grammar-settings.tsx
+msgid "Off for academic writing: {0}"
+msgstr "Off for academic writing: {0}"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Off while Reduce transparency is on in System Settings"
@@ -8273,6 +8397,11 @@ msgstr "Open a project from Overleaf"
 #: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "Open a project to add terms"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Open a project to ignore rules or sentences"
+msgstr "Open a project to ignore rules or sentences"
 
 #: src/app/use-command-table.ts
 msgid "Open a recent project by its place"
@@ -8794,6 +8923,14 @@ msgstr "Papers"
 #: src/papers/add-papers-sheet.tsx
 msgid "Papers being added"
 msgstr "Papers being added"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Papers write durations with unit symbols such as ms and h."
+msgstr "Papers write durations with unit symbols such as ms and h."
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Papers write sizes with unit symbols such as GB and MB."
+msgstr "Papers write sizes with unit symbols such as GB and MB."
 
 #: src/canvas/annotation-review.tsx
 #: src/canvas/proofread-card.tsx
@@ -10073,6 +10210,7 @@ msgid "Research"
 msgstr "Research"
 
 #: src/app/interface-zoom-hud.tsx
+#: src/settings/grammar-settings.tsx
 msgid "Reset"
 msgstr "Reset"
 
@@ -11191,6 +11329,11 @@ msgstr "Show this version's changes"
 msgid "Showing {0} of {1}"
 msgstr "Showing {0} of {1}"
 
+#. placeholder {0}: shown.length
+#: src/settings/grammar-settings.tsx
+msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
+msgstr "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
 msgstr "Side-by-side column block"
@@ -11496,6 +11639,11 @@ msgstr "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux
 #: src/papers/bibliography-audit.tsx
 msgid "Stale result"
 msgstr "Stale result"
+
+#: src/settings/grammar-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Standard"
+msgstr "Standard"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Star operator"
@@ -11861,6 +12009,10 @@ msgstr "Teal"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Technical details"
 msgstr "Technical details"
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "Technical writing uses nouns like “setup” and “rollout” on purpose."
+msgstr "Technical writing uses nouns like “setup” and “rollout” on purpose."
 
 #: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
@@ -12238,6 +12390,10 @@ msgstr "The selected text changed while it was being proofread. Proofread it aga
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
+
+#: src/settings/grammar-rule-reasons.ts
+msgid "The serial comma is a house-style choice that venues and authors set differently."
+msgstr "The serial comma is a house-style choice that venues and authors set differently."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."

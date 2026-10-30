@@ -31,6 +31,9 @@ export type ProjectManifest = {
   pageBudget?: number | null;
   deadline?: ProjectDeadline | null;
   spellingWords?: string[];
+  /** Harper rules (by name) and sentences (whitespace-collapsed source) the project leaves unchecked. */
+  grammarIgnoredRules?: string[];
+  grammarIgnoredSentences?: string[];
   submissionItems?: SubmissionItem[];
 };
 

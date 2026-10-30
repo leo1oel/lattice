@@ -106,9 +106,12 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
         project={project}
         livePreview={livePreview}
         onUpdateManifest={(patch) => showingErrors(async () => {
+          const { grammarIgnores } = patch;
           const manifest = patch.spellingWords != null
             ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
-            : await invoke<ProjectManifest>("update_project_manifest", patch);
+            : grammarIgnores
+              ? await invoke<ProjectManifest>("set_project_grammar_ignores", grammarIgnores)
+              : await invoke<ProjectManifest>("update_project_manifest", patch);
           setProject((current) => current ? { ...current, manifest } : current);
         })}
         returnFocus={entry.returnFocus}

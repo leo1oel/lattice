@@ -84,8 +84,8 @@ pub use manifest::{
     resolve_compile_root, set_compile_root, tex_program_engine,
 };
 pub use manifest_settings::{
-    set_deadline, set_spelling_words, set_submission_items, update_manifest_settings,
-    ManifestSettings,
+    set_deadline, set_grammar_ignores, set_spelling_words, set_submission_items,
+    update_manifest_settings, ManifestSettings,
 };
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};

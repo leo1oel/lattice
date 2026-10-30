@@ -1,0 +1,61 @@
+/* The rule filter and the project's ignores reuse the project dictionary's
+   row shape and chips (styles/dialogs.css). */
+.settings-grammar-rules-row { align-items: flex-start; }
+.settings-grammar-rules-row > .ui-settings-row-copy {
+  min-height: var(--control-height-default);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.settings-grammar-rules,
+.settings-grammar-ignored {
+  width: var(--settings-control-width);
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-grammar-rules-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-grammar-note {
+  margin: 0;
+  padding-block: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+
+.settings-grammar-sentences {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-grammar-sentences > li {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.settings-grammar-sentence {
+  min-width: 0;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
