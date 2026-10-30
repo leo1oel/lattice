@@ -1,4 +1,4 @@
-import { useLayoutEffect, useReducer, useRef } from "react";
+import { useLayoutEffect, useReducer, useRef, type RefObject } from "react";
 import type { StoreApi } from "zustand/vanilla";
 import { shallow } from "zustand/vanilla/shallow";
 
@@ -33,3 +33,8 @@ export function useStoreSlice<S, T>(store: StoreApi<S>, select: (state: S) => T)
 }
 
 const replaceSlice = <T,>(_current: T, next: T) => next;
+
+/** A read-only ref over one field of a store, for code written against ref twins. */
+export function liveField<S, K extends keyof S>(store: StoreApi<S>, key: K): RefObject<S[K]> {
+  return { get current() { return store.getState()[key]; } };
+}
