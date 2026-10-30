@@ -21,11 +21,12 @@ export type OpenDocumentsState = {
   paperView: PaperView;
   paperMarkdown: string;
   savedPaperMarkdown: string;
-  /** The alphaXiv overview ("blog"); null when the Paper has no report. */
+  /** The alphaXiv overview ("blog"), the default reading view; null when the Paper has no report. */
   paperBlog: string | null;
   savedPaperBlog: string | null;
   /**
-   * Tab keys in strip order. Each explicit open counts `revealRequest` up, so
+   * Tab keys in strip order, saved with the layout; a full panel closes some
+   * (trellis-tab-policy.ts). Each explicit open counts `revealRequest` up, so
    * Trellis shows the opened document even when it was already the active one
    * and only a navigator (Papers, say) covered it in its panel. Routine
    * reloads keep the panels' selection.
@@ -37,7 +38,11 @@ export type OpenDocumentsState = {
   /** Back/forward history: commands read it when asked, nothing renders it. */
   navStack: NavigationEntry[];
   navIndex: number;
-  /** The project whose restore finished (layout persistence may start), and whose tabs settled. */
+  /**
+   * Layout persistence starts once the project's restore finished; Trellis
+   * reconciles panels as soon as the tabs settle (restored, or superseded by
+   * a file the writer opened during the restore).
+   */
   persistenceReadyRoot: string | null;
   tabsSettledRoot: string | null;
 };

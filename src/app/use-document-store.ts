@@ -81,8 +81,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const paperPath = paper ? paperDocumentPath(paper.arxivId, paperView) : null;
   const paperDirty = Boolean(paper) && (paperMarkdown !== savedPaperMarkdown || paperBlog !== savedPaperBlog);
 
-  // ---- Tabs are saved with the layout; a full panel closes some
-  // (trellis-tab-policy.ts). Closed ones stack for reopening.
+  // ---- Closed tabs stack for reopening.
   const closedRef = useRef<string[]>([]);
 
   // ---- Canvas mode, and the modes each kind of document returns to.
