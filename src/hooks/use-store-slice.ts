@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { StoreApi } from "zustand";
-import { shallow } from "zustand/shallow";
+import type { StoreApi } from "zustand/vanilla";
+import { shallow } from "zustand/vanilla/shallow";
 
 /**
  * Zustand's `useStore(store, useShallow(select))`, for a store whose writes
