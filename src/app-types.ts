@@ -233,7 +233,7 @@ export type SyncTexWord = {
   before: string | null;
   after: string | null;
 };
-type EditorNavigation = SyncTexTarget & { id: string; word?: SyncTexWord };
+type EditorNavigation = SyncTexTarget & { id: string; word?: SyncTexWord | null };
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 
@@ -333,7 +333,7 @@ export type OpenFileOptions = {
   /** Land on this 1-based line (and record it in back/forward history). */
   line?: number;
   /** The word on `line` to put the caret on, when it can be found there (a reverse SyncTeX jump). */
-  word?: SyncTexWord;
+  word?: SyncTexWord | null;
   /**
    * Whether a file with no preview of its own (.bib, .sty, .cls) may take
    * the whole editor area. True (the default) for an ordinary open — that

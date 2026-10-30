@@ -155,8 +155,8 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     if (mayApply()) diskMtimeRef.current = mtime;
   }, []);
 
-  const requestLine = useCallback((path: string, line: number, word?: SyncTexWord) => {
-    depsRef.current.updateCanvasRequest("navigation", { path, line, ...(word && { word }), id: crypto.randomUUID() });
+  const requestLine = useCallback((path: string, line: number, word?: SyncTexWord | null) => {
+    depsRef.current.updateCanvasRequest("navigation", { path, line, word, id: crypto.randomUUID() });
   }, [depsRef]);
 
   /**

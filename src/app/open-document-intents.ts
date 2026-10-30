@@ -83,7 +83,7 @@ export type LoadOptions = {
    */
   navigateToLine?: number;
   /** The word on that line to land on (see OpenFileOptions.word). */
-  navigateToWord?: SyncTexWord;
+  word?: SyncTexWord | null;
 };
 
 /** Load a file from disk into the editor now, replacing its buffer (a reload, or a programmatic replacement). */

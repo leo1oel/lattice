@@ -170,7 +170,7 @@ function centerAgainOnceDrawn(view: EditorView, from: number) {
  * lines it has: at `word` on it when that word can be told apart there, at
  * its start otherwise.
  */
-export function lineTarget(view: EditorView, { line, word }: { line: number; word?: SyncTexWord }) {
+export function lineTarget(view: EditorView, { line, word }: { line: number; word?: SyncTexWord | null }) {
   const target = view.state.doc.line(clamp(line, 1, view.state.doc.lines));
   const column = word ? sourceColumnForWord(target.text, word) : null;
   return { from: target.from + (column ?? 0) };

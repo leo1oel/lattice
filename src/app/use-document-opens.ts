@@ -48,7 +48,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       closePaper();
       setAsset(null);
       setMode((current) => modeOnLoad(path, previousPath, current, options?.revealSource, viewModes()));
-      if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine, options.navigateToWord);
+      if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine, options.word);
     };
     const commitLoaded = ([content, gateOk]: [string, boolean]) => {
       if (!gateOk || !isLatestLoad() || options?.canCommit?.() === false) return false;
@@ -191,7 +191,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       loadGeneration,
       canCommit: () => !flushAndCheckDirty(owner),
       navigateToLine: line,
-      navigateToWord: options?.word,
+      word: options?.word,
     });
     clearOpening();
     if (!applied) return;

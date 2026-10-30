@@ -169,7 +169,7 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     // out of the PDF must keep the preview it was made from on screen.
     // The word clicked lands the caret on it within that line, when the line
     // can tell it apart (src/editor/latex/synctex-word.ts).
-    await showingErrors(() => openFile(target.path, { line: target.line, ...(word && { word }), revealSource: false }));
+    await showingErrors(() => openFile(target.path, { line: target.line, word, revealSource: false }));
     // Opening is itself a newer choice, so only the project, the click and
     // the file it opened decide whether the editor comes forward.
     if (inverseSyncGenerationRef.current !== requestGeneration || !ownsProject() || activeFileRef.current !== target.path) return;
