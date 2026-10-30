@@ -9,7 +9,7 @@ const base: ManuscriptChecklistData = {
   words: 5_080, wordSource: "texcount", wordBudget: null, pages: 12, body: { kind: "none" }, pageBudget: null,
   deadline: null, venue: "NeurIPS",
   todos: 0, unusedLabels: 0, unusedCitations: 0, buildOk: true, buildMessage: "",
-  items: [], fileStats: {}, filePaths: [],
+  items: [], fileStats: {}, filePaths: [], review: null,
 };
 
 function renderChecklist(data: Partial<ManuscriptChecklistData>) {
@@ -24,6 +24,7 @@ function renderChecklist(data: Partial<ManuscriptChecklistData>) {
       onSaveDeadline={vi.fn()}
       onSaveItems={onSaveItems}
       onOpenFile={onOpenFile}
+      onOpenAt={vi.fn()}
       onOpenSource={vi.fn()}
     />
   );

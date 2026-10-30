@@ -538,6 +538,10 @@ msgstr "超出 {gap} 页"
 msgid "{gap} pages remaining"
 msgstr "还剩 {gap} 页"
 
+#: src/project/submission-review.tsx
+msgid "{hidden} more"
+msgstr "另有 {hidden} 项"
+
 #: src/history/versions-timeline.tsx
 msgid "{hidden} more files"
 msgstr "还有 {hidden} 个文件"
@@ -806,6 +810,10 @@ msgstr "共 {totalPages} 页 · 没在 PDF 里找到正文结尾"
 msgid "{totalPages} total · included files not read"
 msgstr "共 {totalPages} 页 · 未计入引用的文件"
 
+#: src/project/submission-review-state.ts
+msgid "{venue} camera-ready copy: anonymity is not checked."
+msgstr "{venue} 终稿版本：不检查匿名性。"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}。Crossref 类型：{updateType}"
@@ -925,6 +933,10 @@ msgstr "1 小时"
 #: src/project/deadline-card.tsx
 msgid "1 minute"
 msgstr "1 分钟"
+
+#: src/project/submission-review.tsx
+msgid "1 more"
+msgstr "另有 1 项"
 
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -1167,6 +1179,10 @@ msgstr "折叠块"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "致谢"
+
+#: src/project/submission-review-state.ts
+msgid "Acknowledgements and thanks"
+msgstr "致谢与感谢脚注"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -1822,6 +1838,14 @@ msgstr "Attention Is All You Need、扩散模型…"
 msgid "Author"
 msgstr "作者"
 
+#: src/project/submission-review-state.ts
+msgid "Author in PDF metadata"
+msgstr "PDF 元数据中的作者"
+
+#: src/project/submission-review-state.ts
+msgid "Author names"
+msgstr "作者姓名"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Authorization failed"
 msgstr "授权失败"
@@ -2241,6 +2265,10 @@ msgstr "请编译论文以生成 .bbl；arXiv 不运行 BibTeX"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Build the PDF to export a review copy"
 msgstr "先编译出 PDF，才能导出评阅副本"
+
+#: src/project/submission-review-state.ts
+msgid "Build to check"
+msgstr "构建后检查"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Build to count"
@@ -4171,6 +4199,14 @@ msgstr "双剑号"
 msgid "Double dagger text symbol"
 msgstr "双剑号（文本符号）"
 
+#: src/project/submission-review-state.ts
+msgid "Double-blind review"
+msgstr "双盲评审"
+
+#: src/project/submission-review-state.ts
+msgid "Double-blind review · {venue}"
+msgstr "双盲评审 · {venue}"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Double-click a paragraph"
 msgstr "双击一段"
@@ -5116,6 +5152,10 @@ msgstr "已折叠的代码"
 msgid "Folded lines"
 msgstr "已折叠行"
 
+#: src/project/submission-review-state.ts
+msgid "Fonts not embedded"
+msgstr "未嵌入的字体"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "脚注"
@@ -5506,6 +5546,10 @@ msgstr "帮助"
 #: src/components/ui/color-picker.tsx
 msgid "Hex color"
 msgstr "十六进制颜色"
+
+#: src/project/submission-review-state.ts
+msgid "Hidden"
+msgstr "已隐藏"
 
 #: src/project/local-templates.tsx
 msgid "Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied"
@@ -6780,6 +6824,10 @@ msgstr "关联的文献库"
 msgid "Linked library…"
 msgstr "关联的文献库…"
 
+#: src/project/submission-review-state.ts
+msgid "Links to your accounts"
+msgstr "指向作者账号的链接"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "List item"
 msgstr "列表项"
@@ -8034,6 +8082,7 @@ msgid "none"
 msgstr "无"
 
 #: src/project/local-templates.tsx
+#: src/project/submission-review-state.ts
 msgid "None"
 msgstr "无"
 
@@ -9046,6 +9095,10 @@ msgstr "PDF 文档"
 #: src/build/tex-doctor-messages.ts
 msgid "PDF embedded fonts"
 msgstr "PDF 嵌入字体"
+
+#: src/project/submission-review-state.ts
+msgid "PDF fonts"
+msgstr "PDF 字体"
 
 #: src/build/build-log-messages.ts
 msgid "PDF fonts are not the Times that {venue} requires ({fonts})."
@@ -11114,6 +11167,10 @@ msgstr "所选"
 msgid "Selection deleted"
 msgstr "已删除所选内容"
 
+#: src/project/submission-review-state.ts
+msgid "Self-citing wording"
+msgstr "自引措辞"
+
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "Semantic Scholar"
@@ -11333,6 +11390,10 @@ msgstr "显示 {0}/{1} 项"
 #: src/settings/grammar-settings.tsx
 msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
 msgstr "显示 {0} 条中的 {MATCH_LIMIT} 条；输入更多关键词以缩小范围"
+
+#: src/project/submission-review-state.ts
+msgid "Shown"
+msgstr "已显示"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -12415,6 +12476,14 @@ msgstr "shell 已被停止"
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
 
+#: src/project/submission-review-state.ts
+msgid "The template's option prints the authors; remove it for review"
+msgstr "模板选项会印出作者，送审前请移除"
+
+#: src/project/submission-review-state.ts
+msgid "The template's options were not found"
+msgstr "未找到模板的选项"
+
 #: src/terminal/terminal-panel.tsx
 msgid "The terminal is in the Lattice window"
 msgstr "终端位于 Lattice 窗口中"
@@ -12893,6 +12962,10 @@ msgstr "连续两个上标"
 msgid "Type"
 msgstr "类型"
 
+#: src/project/submission-review-state.ts
+msgid "Type 3 fonts"
+msgstr "Type 3 字体"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
 msgstr "由钦奈的 Timeless Ventures Private Limited 设计的字体家族，依据 {license} 使用。请从 timeless.co 获取字体"
@@ -13014,6 +13087,7 @@ msgstr "并集"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
+#: src/project/submission-review-state.ts
 #: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "未知"
@@ -13061,6 +13135,10 @@ msgstr "已取消关联，{target} 保持不变。"
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."
 msgstr "多了一个 {found}"
+
+#: src/project/submission-review.tsx
+msgid "Unnamed font"
+msgstr "未命名字体"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered aligned equations"

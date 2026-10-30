@@ -12,6 +12,8 @@ const checklist = vi.hoisted(() => ({ props: null as ChecklistProps | null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("./notify", () => ({ showError: vi.fn() }));
 vi.mock("../trellis/trellis-controller", () => ({ useTrellisController: () => null }));
+// The review reads the project on its own; these tests count the manifest writes alone.
+vi.mock("../project/submission-review-state", () => ({ useSubmissionReview: () => null }));
 vi.mock("../project/manuscript-checklist", () => ({
   ManuscriptChecklistPanel: (props: ChecklistProps) => {
     checklist.props = props;

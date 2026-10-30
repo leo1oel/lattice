@@ -538,6 +538,10 @@ msgstr "{gap} pages over"
 msgid "{gap} pages remaining"
 msgstr "{gap} pages remaining"
 
+#: src/project/submission-review.tsx
+msgid "{hidden} more"
+msgstr "{hidden} more"
+
 #: src/history/versions-timeline.tsx
 msgid "{hidden} more files"
 msgstr "{hidden} more files"
@@ -806,6 +810,10 @@ msgstr "{totalPages} total · end of the body not located in the PDF"
 msgid "{totalPages} total · included files not read"
 msgstr "{totalPages} total · included files not read"
 
+#: src/project/submission-review-state.ts
+msgid "{venue} camera-ready copy: anonymity is not checked."
+msgstr "{venue} camera-ready copy: anonymity is not checked."
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"
@@ -925,6 +933,10 @@ msgstr "1 hour"
 #: src/project/deadline-card.tsx
 msgid "1 minute"
 msgstr "1 minute"
+
+#: src/project/submission-review.tsx
+msgid "1 more"
+msgstr "1 more"
 
 #: src/editor/comments/comment-card.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -1167,6 +1179,10 @@ msgstr "Accordion"
 #: src/settings/settings-search-index.ts
 msgid "Acknowledgements"
 msgstr "Acknowledgements"
+
+#: src/project/submission-review-state.ts
+msgid "Acknowledgements and thanks"
+msgstr "Acknowledgements and thanks"
 
 #: src/history/history-drawer.tsx
 msgctxt "history tab"
@@ -1822,6 +1838,14 @@ msgstr "Attention Is All You Need, diffusion, …"
 msgid "Author"
 msgstr "Author"
 
+#: src/project/submission-review-state.ts
+msgid "Author in PDF metadata"
+msgstr "Author in PDF metadata"
+
+#: src/project/submission-review-state.ts
+msgid "Author names"
+msgstr "Author names"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Authorization failed"
 msgstr "Authorization failed"
@@ -2241,6 +2265,10 @@ msgstr "Build the paper so it has one; arXiv doesn’t run BibTeX"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Build the PDF to export a review copy"
 msgstr "Build the PDF to export a review copy"
+
+#: src/project/submission-review-state.ts
+msgid "Build to check"
+msgstr "Build to check"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Build to count"
@@ -4171,6 +4199,14 @@ msgstr "Double dagger"
 msgid "Double dagger text symbol"
 msgstr "Double dagger text symbol"
 
+#: src/project/submission-review-state.ts
+msgid "Double-blind review"
+msgstr "Double-blind review"
+
+#: src/project/submission-review-state.ts
+msgid "Double-blind review · {venue}"
+msgstr "Double-blind review · {venue}"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Double-click a paragraph"
 msgstr "Double-click a paragraph"
@@ -5116,6 +5152,10 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
+#: src/project/submission-review-state.ts
+msgid "Fonts not embedded"
+msgstr "Fonts not embedded"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "Footnote"
@@ -5506,6 +5546,10 @@ msgstr "Help"
 #: src/components/ui/color-picker.tsx
 msgid "Hex color"
 msgstr "Hex color"
+
+#: src/project/submission-review-state.ts
+msgid "Hidden"
+msgstr "Hidden"
 
 #: src/project/local-templates.tsx
 msgid "Hidden files, project history, comments, sessions and credentials are excluded. Only saved files are copied"
@@ -6780,6 +6824,10 @@ msgstr "Linked library"
 msgid "Linked library…"
 msgstr "Linked library…"
 
+#: src/project/submission-review-state.ts
+msgid "Links to your accounts"
+msgstr "Links to your accounts"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "List item"
 msgstr "List item"
@@ -8034,6 +8082,7 @@ msgid "none"
 msgstr "none"
 
 #: src/project/local-templates.tsx
+#: src/project/submission-review-state.ts
 msgid "None"
 msgstr "None"
 
@@ -9046,6 +9095,10 @@ msgstr "PDF document"
 #: src/build/tex-doctor-messages.ts
 msgid "PDF embedded fonts"
 msgstr "PDF embedded fonts"
+
+#: src/project/submission-review-state.ts
+msgid "PDF fonts"
+msgstr "PDF fonts"
 
 #: src/build/build-log-messages.ts
 msgid "PDF fonts are not the Times that {venue} requires ({fonts})."
@@ -11114,6 +11167,10 @@ msgstr "Selection"
 msgid "Selection deleted"
 msgstr "Selection deleted"
 
+#: src/project/submission-review-state.ts
+msgid "Self-citing wording"
+msgstr "Self-citing wording"
+
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "Semantic Scholar"
@@ -11333,6 +11390,10 @@ msgstr "Showing {0} of {1}"
 #: src/settings/grammar-settings.tsx
 msgid "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
 msgstr "Showing {MATCH_LIMIT} of {0} rules; type more to narrow the list"
+
+#: src/project/submission-review-state.ts
+msgid "Shown"
+msgstr "Shown"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -12415,6 +12476,14 @@ msgstr "The shell was stopped"
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
 
+#: src/project/submission-review-state.ts
+msgid "The template's option prints the authors; remove it for review"
+msgstr "The template's option prints the authors; remove it for review"
+
+#: src/project/submission-review-state.ts
+msgid "The template's options were not found"
+msgstr "The template's options were not found"
+
 #: src/terminal/terminal-panel.tsx
 msgid "The terminal is in the Lattice window"
 msgstr "The terminal is in the Lattice window"
@@ -12893,6 +12962,10 @@ msgstr "Two superscripts in a row"
 msgid "Type"
 msgstr "Type"
 
+#: src/project/submission-review-state.ts
+msgid "Type 3 fonts"
+msgstr "Type 3 fonts"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
 msgstr "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
@@ -13014,6 +13087,7 @@ msgstr "Union"
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
+#: src/project/submission-review-state.ts
 #: src/telemetry/app-log.tsx
 msgid "Unknown"
 msgstr "Unknown"
@@ -13061,6 +13135,10 @@ msgstr "Unlinked. {target} stays as it is."
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unmatched {found}."
 msgstr "Unmatched {found}."
+
+#: src/project/submission-review.tsx
+msgid "Unnamed font"
+msgstr "Unnamed font"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered aligned equations"

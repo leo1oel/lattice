@@ -236,6 +236,20 @@ pub(super) fn code_matches(source: &str, pattern: &Regex) -> bool {
     })
 }
 
+/// Each line's commands, numbered from 1: what is left of it once its
+/// comment is cut, and nothing of a verbatim or `comment` environment's body.
+pub(in crate::latex) fn code_lines(source: &str) -> Vec<(u32, &str)> {
+    let mut scanner = Scanner::default();
+    let mut lines = Vec::new();
+    for (index, line) in source.split_inclusive('\n').enumerate() {
+        let (body, _) = split_ending(line);
+        if let LineKind::Code { live_end, .. } = scanner.classify(body) {
+            lines.push((u32::try_from(index + 1).unwrap_or(u32::MAX), &body[..live_end]));
+        }
+    }
+    lines
+}
+
 /// `root`'s text with every `\input{…}` and `\include{…}` of a file in
 /// `sources` (project-relative paths to texts) replaced by that file's text,
 /// recursively, and the paths merged that way.

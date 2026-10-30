@@ -240,6 +240,16 @@ pub async fn run_doctor(
     run_blocking("Doctor check", move || Ok(doctor::run(root.as_deref()))).await
 }
 
+/// The submission checklist's double-blind and font checks of the window's
+/// project: its root document's source and the PDF beside it.
+#[tauri::command]
+pub async fn submission_review(
+    state: State<'_, AppState>, window: Window,
+) -> Result<latex::SubmissionReview, String> {
+    in_project(&state, &window, "Submission review", |root| Ok(latex::review_submission(root)))
+        .await
+}
+
 #[tauri::command]
 pub async fn harper_lint(
     text: String, project_words: Vec<String>, options: harper::HarperOptions,

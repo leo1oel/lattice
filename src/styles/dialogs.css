@@ -299,6 +299,16 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 /* The figure inventory leads elsewhere rather than passing or failing, so its
    mark stays the neutral disc and its row reads as a way in, like TODOs. */
 .checklist-link .checklist-status svg { stroke-width: 2; }
+/* The double-blind and font checks, headed like the writer's items. Each
+   finding is a line under its row: where it is (a way to it) and what it says,
+   cut to one line, since the source line is the place to read it whole. */
+.checklist-review h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
+.checklist-review p { margin: 0 0 var(--space-8); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.checklist-findings { grid-column: 2 / -1; min-width: 0; margin: var(--space-1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+.checklist-findings li { min-width: 0; display: flex; align-items: baseline; gap: var(--space-3); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.checklist-findings button { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--control-active); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.checklist-findings button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.checklist-findings .checklist-finding-text { display: block; min-width: 0; justify-self: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; color: var(--text-secondary); font-size: inherit; line-height: inherit; font-weight: var(--weight-regular); }
 /* The limits close the panel as a section of their own, headed like the
    writer's items above, so the fields never read as part of either list. */
 .checklist-limits h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
