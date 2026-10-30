@@ -3,6 +3,7 @@
 import { appTestUtilsFirst } from "./eslint-app-test-utils-first.mjs";
 import { awaitChangedAlert } from "./eslint-await-changed-alert.mjs";
 import { moduleClock } from "./eslint-module-clock.mjs";
+import { noUseState } from "./eslint-no-use-state.mjs";
 
 // `lattice/visible-attribute-text`: Lingui's no-unlocalized-strings trusts
 // every attribute of a native DOM element except `placeholder`, `alt`,
@@ -33,6 +34,7 @@ export default {
     "app-test-utils-first": appTestUtilsFirst,
     "await-changed-alert": awaitChangedAlert,
     "module-clock": moduleClock,
+    "no-use-state": noUseState,
     "visible-attribute-text": visibleAttributeText,
   },
 };

@@ -24,3 +24,20 @@ Confirm that before/after use comparable fixtures, readiness definitions and
 engine measurements, and that interleaving/load confounds are disclosed.
 Counts, browser thread time, frame rate and paint readiness are distinct
 metrics. Require source-backed attribution before crediting a speedup.
+
+## Component state
+
+New code does not call `useState`; `lattice/no-use-state` rejects it.
+
+- State one component owns uses React's `useReducer`, so every transition is a
+  named action handled in one reducer.
+- State several components read or change lives in a shared Zustand store
+  rather than being lifted and passed down.
+- Only where a state change must itself trigger a side effect, use a
+  useEffectReducer-style reducer that returns the effects to run alongside
+  the next state, instead of a `useEffect` that watches the state.
+
+Files that used `useState` when the rule landed are listed in the last
+override in `.oxlintrc.json`. Migrating a file means deleting its entry;
+`scripts/check-use-state-allowlist.mjs` fails on a new entry or on one whose
+file no longer uses `useState`.
