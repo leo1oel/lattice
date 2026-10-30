@@ -308,7 +308,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-findings li { min-width: 0; display: flex; align-items: baseline; gap: var(--space-3); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .checklist-findings button { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--control-active); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 .checklist-findings button:hover { text-decoration: underline; text-underline-offset: 3px; }
-.checklist-findings .checklist-finding-text { display: block; min-width: 0; justify-self: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; color: var(--text-secondary); font-size: inherit; line-height: inherit; font-weight: var(--weight-regular); }
+.checklist-findings .checklist-finding-text { display: block; min-width: 0; justify-self: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; color: var(--text-secondary); font-size: inherit; line-height: inherit; font-weight: var(--weight-regular); font-variant-numeric: normal; }
 /* The limits close the panel as a section of their own, headed like the
    writer's items above, so the fields never read as part of either list. */
 .checklist-limits h3 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); word-break: keep-all; overflow-wrap: break-word; }
