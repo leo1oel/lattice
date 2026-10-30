@@ -10,7 +10,9 @@
  */
 import { StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
+import type { SyncTexWord } from "../app-types";
 import { clamp } from "../settings/app-settings";
+import { sourceColumnForWord } from "./latex/synctex-word";
 import { focusWhenShown } from "./focus-when-shown";
 
 /** How long a revealed target stays marked; the CSS animation (`.cm-reveal-flash`) fades within it. */
@@ -163,9 +165,15 @@ function centerAgainOnceDrawn(view: EditorView, from: number) {
   for (const type of WRITER_INPUT) view.dom.addEventListener(type, stop, true);
 }
 
-/** The 1-based `line` of `view`'s document as a caret target, clamped to the lines it has. */
-export function lineTarget(view: EditorView, line: number) {
-  return { from: view.state.doc.line(clamp(line, 1, view.state.doc.lines)).from };
+/**
+ * The 1-based `line` of `view`'s document as a caret target, clamped to the
+ * lines it has: at `word` on it when that word can be told apart there, at
+ * its start otherwise.
+ */
+export function lineTarget(view: EditorView, { line, word }: { line: number; word?: SyncTexWord | null }) {
+  const target = view.state.doc.line(clamp(line, 1, view.state.doc.lines));
+  const column = word ? sourceColumnForWord(target.text, word) : null;
+  return { from: target.from + (column ?? 0) };
 }
 
 /** The search panel's match placement: centered, like every other jump. */

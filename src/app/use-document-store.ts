@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
-import type { DocumentViewMode, PaperSummary, RefreshProject } from "../app-types";
+import type { DocumentViewMode, PaperSummary, RefreshProject, SyncTexWord } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { liveField, useStoreSlice } from "../hooks/use-store-slice";
@@ -155,8 +155,8 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     if (mayApply()) diskMtimeRef.current = mtime;
   }, []);
 
-  const requestLine = useCallback((path: string, line: number) => {
-    depsRef.current.updateCanvasRequest("navigation", { path, line, id: crypto.randomUUID() });
+  const requestLine = useCallback((path: string, line: number, word?: SyncTexWord | null) => {
+    depsRef.current.updateCanvasRequest("navigation", { path, line, word, id: crypto.randomUUID() });
   }, [depsRef]);
 
   /**

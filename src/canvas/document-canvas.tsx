@@ -539,7 +539,7 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     const targetView = () => primaryViewRef.current ?? editorViewRef.current;
     if (!targetView()) return;
     return landWhenReady(targetView, editorSource, (view) => {
-      revealInEditor(view, lineTarget(view, request.line));
+      revealInEditor(view, lineTarget(view, request));
       editorViewRef.current = view;
       onRequestHandled(request.id);
     });

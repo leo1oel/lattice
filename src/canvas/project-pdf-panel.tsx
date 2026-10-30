@@ -2,7 +2,7 @@ import { Suspense, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { AgentHostSurface, AgentPdfDocumentPlace } from "../agent/agent-host-context";
-import type { FileViewState } from "../app-types";
+import type { FileViewState, SyncTexWord } from "../app-types";
 import { isPreviewableSourceFilePath } from "../app-utils";
 import type { AnnotationRounds } from "../app/annotation-rounds";
 import { ChunkGate } from "../components/chunk-gate";
@@ -32,7 +32,7 @@ type ProjectPdf = Readonly<{
   canForwardSync: boolean;
   locatingPdf: boolean;
   onForwardSync: () => void;
-  onPdfSource: (page: number, x: number, y: number) => void;
+  onPdfSource: (page: number, x: number, y: number, word: SyncTexWord | null) => void;
   onPdfPageCount: (pages: number | null) => void;
   onPdfPageChange: (page: number) => void;
 }>;

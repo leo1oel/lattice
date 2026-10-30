@@ -46,7 +46,7 @@ describe("revealInEditor", () => {
 
   it("still lands in an editor without the mark", () => {
     const view = editor("one\ntwo", []);
-    revealInEditor(view, lineTarget(view, 2));
+    revealInEditor(view, lineTarget(view, { line: 2 }));
     expect(view.state.selection.main.head).toBe(4);
     expect(marked(view)).toEqual([]);
   });
@@ -57,7 +57,7 @@ describe("revealInEditor", () => {
     let hidden = true;
     const focusShown = view.contentDOM.focus.bind(view.contentDOM);
     view.contentDOM.focus = (options?: FocusOptions) => { if (!hidden) focusShown(options); };
-    revealInEditor(view, lineTarget(view, 2));
+    revealInEditor(view, lineTarget(view, { line: 2 }));
     expect(view.hasFocus).toBe(false);
     hidden = false;
     await vi.waitFor(() => expect(view.hasFocus).toBe(true));
@@ -113,9 +113,16 @@ describe("revealInEditor", () => {
 
   it("turns a line number into its start, clamped to the document", () => {
     const view = editor("one\ntwo");
-    expect(lineTarget(view, 2)).toEqual({ from: 4 });
-    expect(lineTarget(view, 0)).toEqual({ from: 0 });
-    expect(lineTarget(view, 99)).toEqual({ from: 4 });
+    expect(lineTarget(view, { line: 2 })).toEqual({ from: 4 });
+    expect(lineTarget(view, { line: 0 })).toEqual({ from: 0 });
+    expect(lineTarget(view, { line: 99 })).toEqual({ from: 4 });
+  });
+
+  it("lands a reverse SyncTeX jump on the clicked word, or at the line's start when it is not found", () => {
+    const view = editor("intro\nWe train \\emph{the} model on the data.");
+    const word = { word: "the", occurrence: 0, count: 1, before: "on", after: "data" };
+    expect(lineTarget(view, { line: 2, word })).toEqual({ from: 6 + "We train \\emph{the} model on ".length });
+    expect(lineTarget(view, { line: 2, word: { ...word, word: "absent" } })).toEqual({ from: 6 });
   });
 });
 

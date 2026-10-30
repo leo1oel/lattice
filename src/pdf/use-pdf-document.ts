@@ -7,6 +7,7 @@ import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
 import { isProjectPdfStale } from "./project-pdf-refusals";
 import { changedPages, pdfPageSignatures, swapPdfPages } from "./pdf-page-swap";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
+import { pdfClickedWord } from "./pdf-clicked-word";
 import { installPdfTextLayerSelection, refreshPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
@@ -294,13 +295,15 @@ export function usePdfDocument({
       disposeRecord();
     };
 
-    // Reverse SyncTeX: report the double-clicked PDF point to the host.
+    // Reverse SyncTeX: report the double-clicked PDF point, and the word
+    // under it for the jump to land on, to the host.
     const onDoubleClick = (event: MouseEvent) => {
       const onSource = callbacks.current.onSource;
       const point = onSource && pdfPointAt(record, event, viewRef.current.scale);
       if (!point) return;
       event.preventDefault();
-      onSource(point.page, point.x, point.y);
+      const page = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-page-number]") : null;
+      onSource(point.page, point.x, point.y, page ? pdfClickedWord(page, event.clientX, event.clientY) : null);
     };
     record.cleanup.push(
       () => unsubscribeReady(),

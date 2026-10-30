@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { SyncTexTarget } from "../app-types";
+import type { OpenFileOptions, SyncTexTarget, SyncTexWord } from "../app-types";
 import { showError } from "./notify";
 import { useSyncTexNavigation, type SyncTexNavigationDeps } from "./use-synctex-navigation";
 
@@ -27,16 +27,16 @@ function deferred<T>() {
  */
 function renderNavigation() {
   const window = { root: "/A", generation: 0, intent: 0, file: "main.tex", pdfUrl: "A.pdf" };
-  const opened: { root: string; path: string; line?: number }[] = [];
+  const opened: { root: string; path: string; line?: number; word?: SyncTexWord }[] = [];
   const reveal = vi.fn();
   const captureProjectScope = () => {
     const { root, generation } = window;
     return () => window.root === root && window.generation === generation;
   };
-  const openFile = vi.fn(async (path: string, options?: { line?: number }) => {
+  const openFile = vi.fn(async (path: string, options?: OpenFileOptions) => {
     window.intent += 1;
     window.file = path;
-    opened.push({ root: window.root, path, line: options?.line });
+    opened.push({ root: window.root, path, line: options?.line, ...(options?.word && { word: options.word }) });
   });
   const fileRef = { get current() { return window.file; } };
   const deps = () => ({
@@ -65,9 +65,17 @@ function renderNavigation() {
 it("opens a double-click's source line in the project it was made in", async () => {
   vi.mocked(invoke).mockResolvedValue({ path: "intro.tex", line: 12 } satisfies SyncTexTarget);
   const { view, opened, reveal } = renderNavigation();
-  await act(() => view.result.current.revealPdfSource(3, 10, 10));
+  await act(() => view.result.current.revealPdfSource(3, 10, 10, null));
   expect(opened).toEqual([{ root: "/A", path: "intro.tex", line: 12 }]);
   expect(reveal).toHaveBeenCalledWith("editor");
+});
+
+it("sends the double-clicked word along with its line, for the editor to land on", async () => {
+  vi.mocked(invoke).mockResolvedValue({ path: "intro.tex", line: 12 } satisfies SyncTexTarget);
+  const { view, opened } = renderNavigation();
+  const word: SyncTexWord = { word: "model", occurrence: 0, count: 1, before: "the", after: "is" };
+  await act(() => view.result.current.revealPdfSource(3, 10, 10, word));
+  expect(opened).toEqual([{ root: "/A", path: "intro.tex", line: 12, word }]);
 });
 
 it("opens nothing in the next project when a double-click in the last one's PDF answers late", async () => {
@@ -76,7 +84,7 @@ it("opens nothing in the next project when a double-click in the last one's PDF 
     vi.mocked(invoke).mockReturnValue(answer.promise);
     const { view, opened, reveal, openProject } = renderNavigation();
     let running: Promise<void> = Promise.resolve();
-    act(() => { running = view.result.current.revealPdfSource(3, 10, 10); });
+    act(() => { running = view.result.current.revealPdfSource(3, 10, 10, null); });
     act(() => switches.forEach(openProject));
     await act(async () => {
       answer.resolve({ path: "main.tex", line: 88 });
@@ -95,8 +103,8 @@ it("drops a double-click overtaken by a newer one, a file chosen meanwhile, or a
   const navigation = renderNavigation();
   let first: Promise<void> = Promise.resolve();
   let second: Promise<void> = Promise.resolve();
-  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1); });
-  act(() => { second = navigation.view.result.current.revealPdfSource(2, 2, 2); });
+  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1, null); });
+  act(() => { second = navigation.view.result.current.revealPdfSource(2, 2, 2, null); });
   await act(async () => {
     newer.resolve({ path: "results.tex", line: 4 });
     await second;
@@ -107,7 +115,7 @@ it("drops a double-click overtaken by a newer one, a file chosen meanwhile, or a
 
   const chosen = deferred<SyncTexTarget>();
   vi.mocked(invoke).mockReturnValueOnce(chosen.promise);
-  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1); });
+  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1, null); });
   await act(() => navigation.openFile("notes.tex"));
   await act(async () => {
     chosen.resolve({ path: "intro.tex", line: 9 });
@@ -117,7 +125,7 @@ it("drops a double-click overtaken by a newer one, a file chosen meanwhile, or a
 
   const rebuilt = deferred<SyncTexTarget>();
   vi.mocked(invoke).mockReturnValueOnce(rebuilt.promise);
-  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1); });
+  act(() => { first = navigation.view.result.current.revealPdfSource(1, 1, 1, null); });
   navigation.window.pdfUrl = "A-rebuilt.pdf";
   navigation.view.rerender();
   await act(async () => {

@@ -48,7 +48,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       closePaper();
       setAsset(null);
       setMode((current) => modeOnLoad(path, previousPath, current, options?.revealSource, viewModes()));
-      if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine);
+      if (options?.navigateToLine !== undefined) requestLine(path, options.navigateToLine, options.word);
     };
     const commitLoaded = ([content, gateOk]: [string, boolean]) => {
       if (!gateOk || !isLatestLoad() || options?.canCommit?.() === false) return false;
@@ -112,7 +112,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       // asking for it again brings the tab, and so its panel, back.
       showTab(path);
       if (line) {
-        requestLine(path, line);
+        requestLine(path, line, options?.word);
         setMode(withEditorFor(path));
         pushNavigation(path, line);
       }
@@ -191,6 +191,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       loadGeneration,
       canCommit: () => !flushAndCheckDirty(owner),
       navigateToLine: line,
+      word: options?.word,
     });
     clearOpening();
     if (!applied) return;
