@@ -19,6 +19,7 @@ import {
   citationCompletions, citationIcon, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
   textBefore,
 } from "./latex-completions";
+import type { CompiledBuild } from "./compiled-labels";
 import { indexDiagnostics } from "./latex-diagnostics";
 import {
   sortSelectedLines, toggleLineComments, transformCase, wrapCommentRegion, wrapEnvironment, wrapRange,
@@ -34,6 +35,7 @@ import {
   citationCompletionRange, definitionTargetAt, shouldInsertCommandBraces, symbolAt,
 } from "./latex-symbols";
 import type { CitationInfo, DefinitionTarget, LocalMacro, ReferenceInfo, SymbolTarget } from "./latex-text";
+import { listItemNewline, sizedDelimiterClose, type InputEdit } from "./latex-input";
 import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
@@ -85,6 +87,10 @@ export type LatexEditorLiveData = {
   projectRoot?: string;
   /** Changes after the manuscript was saved, so a citation card counts its uses again. */
   citationUsageRevision?: unknown;
+  /** The project's `\newcommand`s, for the math a `\ref` card sets. */
+  katexMacros?: Record<string, string>;
+  /** The last build that wrote a PDF, whose `.aux` numbers each label. */
+  compiledBuild?: CompiledBuild;
   spellingWords: string[];
   onAddSpellingWord?: (word: string) => boolean | Promise<boolean>;
   /** The open project's ignored grammar rules and sentences, and the action that adds one. */
@@ -115,12 +121,17 @@ export type LatexEditorOptions = {
  * that suits a programming language, not LaTeX prose inside
  * `\begin{document}`. Right after a `\begin{env}` it opens an indented body
  * line and writes the matching `\end{env}`, unless the environment is already
- * closed there, in which case it only indents the new line.
+ * closed there, in which case it only indents the new line. On an `\item`
+ * line it starts the next item, or leaves the list from an empty one.
  */
 export function insertLatexNewline(view: EditorView): boolean {
   const { main } = view.state.selection;
   const line = view.state.doc.lineAt(main.from);
   const before = line.text.slice(0, main.from - line.from).replace(/[ \t]+$/, "");
+  const item = main.empty && !/\\begin\{[^}]+\}$/.test(before)
+    ? listItemNewline(view.state.doc.toString(), main.head)
+    : null;
+  if (item) return applyInputEdit(view, item, "input");
   if (!main.empty || !/\\begin\{[^}]+\}$/.test(before)) return insertNewlineKeepIndent(view);
   const indent = /^\s*/.exec(line.text)?.[0] ?? "";
   const close = beginEnvironmentClose(before, view.state.doc, indent)
@@ -132,6 +143,16 @@ export function insertLatexNewline(view: EditorView): boolean {
     selection: { anchor: from + close.cursorOffset },
     scrollIntoView: true,
     userEvent: "input",
+  });
+  return true;
+}
+
+function applyInputEdit(view: EditorView, edit: InputEdit, userEvent: string): true {
+  view.dispatch({
+    changes: { from: edit.from, to: edit.to, insert: edit.insert },
+    selection: { anchor: edit.cursor },
+    scrollIntoView: true,
+    userEvent,
   });
   return true;
 }
@@ -310,6 +331,10 @@ export function latexCommandKeymap(host: {
     bind("references", host.findReferences),
     bind("renameSymbol", host.renameSymbol),
     bind("citationCard", host.citationCard ?? (() => false)),
+    bind("symbolPalette", (view) => {
+      void import("./symbol-palette").then(({ openSymbolPalette }) => openSymbolPalette(view));
+      return true;
+    }),
     bind("matchingEnvironment", (view) => {
       const text = view.state.doc.toString();
       const head = view.state.selection.main.head;
@@ -453,6 +478,12 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
           selection: { anchor: head + close.cursorOffset },
           annotations: Transaction.userEvent.of("input.type"),
         });
+        return;
+      }
+      const line = update.state.doc.lineAt(head);
+      const closer = sizedDelimiterClose(line.text.slice(0, head - line.from), line.text.slice(head - line.from));
+      if (closer) {
+        applyInputEdit(update.view, { from: head, to: head + closer.replace, insert: closer.insert, cursor: head }, "input.type");
         return;
       }
       // Only an accepted completion gets braces. Every braced command is a

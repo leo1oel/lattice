@@ -213,6 +213,7 @@ export function useDocumentSurfaces({
         referenceImageGeneration: referenceImages.generation,
         localMacros: latex.macros,
         katexMacros: latex.katexMacros,
+        compiledBuild: lastBuild?.hasPdf ? lastBuild : undefined,
         projectPaths: latex.projectPaths,
         graphicsRoots: latex.graphicsRoots,
       }}

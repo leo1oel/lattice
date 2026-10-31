@@ -2,20 +2,8 @@ import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { mathRegionAt } from "./math-region";
+import { katexSource, mathRegionAt } from "./math-region";
 import { InlineMessage } from "../../components/ui/inline-message";
-
-/**
- * Strip LaTeX bookkeeping that lives inside a math environment but isn't math —
- * KaTeX would otherwise typeset `\label{eq:foo}` as literal text in the preview.
- */
-function forPreview(source: string): string {
-  return source
-    .replace(/\\label\s*\{[^}]*\}/g, "")
-    .replace(/\\(?:nonumber|notag)\b/g, "")
-    .replace(/\\intertext\s*\{[^}]*\}/g, "")
-    .trim();
-}
 
 export function MathPreview(props: {
   source: string;
@@ -25,7 +13,7 @@ export function MathPreview(props: {
   const { t } = useLingui();
   const region = useMemo(() => mathRegionAt(props.source, props.cursor), [props.cursor, props.source]);
   const rendered = useMemo(() => {
-    const source = region?.source && forPreview(region.source);
+    const source = region?.source && katexSource(region.source);
     if (!region || !source) return null;
     try {
       const options = { displayMode: region.display, throwOnError: false, strict: "ignore" as const, macros: props.macros };
