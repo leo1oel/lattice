@@ -156,7 +156,8 @@ pub fn log(root: &Path, limit: usize) -> Result<Vec<GitLogEntry>, String> {
     }
     let limit_arg = format!("--max-count={limit}");
     let format = "--pretty=format:%x1e%H%x1f%h%x1f%an%x1f%aI%x1f%s";
-    Ok(parse_log(&git_output(root, &["log", "--name-status", "-M", &limit_arg, format])?))
+    let args = ["log", "--no-ext-diff", "--no-textconv", "--name-status", "-M", &limit_arg, format];
+    Ok(parse_log(&git_output(root, &args)?))
 }
 
 pub fn show_diff(root: &Path, rev: &str, path: &str) -> Result<GitFileDiff, String> {
@@ -236,7 +237,7 @@ pub fn auto_commit(
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| "Lattice".to_string());
     let user_name = format!("user.name={identity}");
-    let mut command = git_command(root);
+    let mut command = git_command_running_hooks(root);
     let prefix = rev_parse(root, &["--show-prefix"])?;
     let folder_index = (!prefix.is_empty()).then(|| FolderIndex::new(root, &prefix)).transpose()?;
     if let Some(index) = &folder_index {
@@ -401,9 +402,33 @@ pub fn user_name(root: &Path) -> Option<String> {
     (output.status.success() && !name.is_empty()).then(|| name.to_string())
 }
 
+/// Git in `root` with the repository's own config unable to make it run a
+/// program. Opening a folder copied or unpacked from elsewhere polls `git
+/// status`, and its `.git/config` is as untrusted as the folder: without these
+/// a `core.fsmonitor` command runs on every poll, and `log.showSignature` with
+/// a `gpg.program` runs on reading the history — even with automatic builds
+/// turned off. Hooks are pointed at nothing for the same reason.
+///
+/// Diff-producing calls also pass `--no-ext-diff --no-textconv` themselves:
+/// those are not global options, and `-c diff.external=` would make any patch
+/// output fail outright rather than fall back to git's own diff.
+///
+/// Filter drivers (`filter.<name>.clean`/`smudge`) are not covered: their
+/// names come from the repository's attributes, so no fixed setting turns
+/// them off.
 fn git_command(root: &Path) -> Command {
+    let mut command = git_command_running_hooks(root);
+    command.args(["-c", "core.hooksPath=/dev/null"]);
+    command
+}
+
+/// [`git_command`] for the one call that should still run the repository's
+/// hooks: a version Lattice commits is a commit like any other, and the
+/// user's pre-commit and commit-msg hooks are part of how they commit.
+fn git_command_running_hooks(root: &Path) -> Command {
     let mut command = commands::command("git");
     command.current_dir(root).env("GIT_TERMINAL_PROMPT", "0").env("GIT_OPTIONAL_LOCKS", "0");
+    command.args(["-c", "core.fsmonitor=false", "-c", "log.showSignature=false"]);
     command
 }
 
