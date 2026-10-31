@@ -33,6 +33,7 @@ import { highlightSelectionMatches } from "@codemirror/search";
 import { closeBrackets } from "@codemirror/autocomplete";
 import { dropCursor } from "./drop-cursor";
 import { baseEditorKeymap } from "./editor-keymap";
+import { nativeSelectAllSelectsDocument } from "./native-select-all";
 import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
@@ -51,7 +52,7 @@ const baseSetup: Extension = [
   dropCursor(), EditorState.allowMultipleSelections.of(true), indentOnInput(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }), bracketMatching(), closeBrackets(),
   rectangularSelection(), crosshairCursor(), highlightActiveLine(), highlightSelectionMatches(),
-  keymap.of(baseEditorKeymap),
+  keymap.of(baseEditorKeymap), nativeSelectAllSelectsDocument,
 ];
 
 /**
