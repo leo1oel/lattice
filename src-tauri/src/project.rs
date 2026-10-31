@@ -30,6 +30,7 @@ mod assets;
 mod bibliography;
 mod citation_lookup;
 mod create;
+mod editor_save;
 mod entries;
 mod history;
 mod imports;
