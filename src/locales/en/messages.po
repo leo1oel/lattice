@@ -1544,6 +1544,10 @@ msgstr "American English"
 msgid "An & outside a table"
 msgstr "An & outside a table"
 
+#: src/app/use-save-before-close.ts
+msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
+msgstr "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
+
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
 msgstr "An edit is still on its way to Overleaf. Try accepting again in a moment."

@@ -216,6 +216,7 @@ rather than a fact:
 | `browser_host.rs` + `browser_host/` | The loopback browser host that serves the app to a browser on a fixed local port. |
 | `macos_window.rs` | macOS window chrome: traffic lights, backing colours, AppKit event monitors, the colour sampler, the import panel. |
 | `native_locale.rs` | The native surfaces (menu bar, AppKit and WebKit panels) that follow Lattice's interface language. |
+| `save_before_close.rs` | Holding a window's close, and Lattice ▸ Quit, until each window's page has saved its open edits (or a few seconds pass). |
 | `perf_lab.rs` | The real-app measurement lab's native half, built only with the `perf-lab` feature (see [`driving-the-app.md`](driving-the-app.md)). |
 | `test_support.rs` | Fixtures shared by the crate's unit tests. |
 
