@@ -168,6 +168,15 @@ describe("Overleaf sync", () => {
     await expectNotification(/Kept your copy of notes\.md, figures\/fig\.png\. Overleaf sent these files empty/);
   });
 
+  it("names Overleaf paths that differ only in case, since only one of each can sync to this Mac", async () => {
+    renderOverleafPaper({
+      overleaf_sync: () => overleafSyncResult({ caseCollisions: [{ kept: "fig/Plot.png", skipped: "fig/plot.png" }] }),
+    });
+    await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    fireEvent.click(await findOverleafSyncButton());
+    await expectNotification(/differ only in capitalization.*: fig\/Plot\.png \/ fig\/plot\.png\. Only the first of each pair syncs here\. Rename one/);
+  });
+
   it("silently removes legacy app-owned intermediates from Overleaf", async () => {
     let syncCount = 0;
     renderOverleafPaper({
