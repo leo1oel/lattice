@@ -8,6 +8,7 @@
 const overlaps = (a, b) => a.left < b.left + b.width && b.left < a.left + a.width
   && a.top < b.top + b.height && b.top < a.top + a.height;
 
+const SOURCE = ".cm-editor .cm-content";
 const PDF_ACTION = '.paper-local-actions [aria-label="View original PDF"]';
 const PDF_SEARCH = '.trellis-pdf-snapshot input[aria-label="Search PDF"]';
 
@@ -446,4 +447,34 @@ export const LAYOUT_CHECKS = [
       if (after <= before) throw new Error(`a wheel over the pinned sop left the tree at ${after}px, not below ${before}px`);
     },
   })),
+  {
+    name: "source-menu-select-all",
+    description: "The 18k-line long.tex in the source editor, caret near the top, scrolled to the middle: Edit › Select All, then a typed key, leaves only that key.",
+    query: {},
+    width: 1440,
+    height: 900,
+    async run(driver) {
+      await driver.openFile("long.tex");
+      await driver.click(`${SOURCE} > .cm-line:nth-of-type(12)`, { offsetX: 0.02 });
+      await driver.evaluate(`(() => { const scroller = document.querySelector(".cm-editor .cm-scroller"); scroller.scrollTop = scroller.scrollHeight / 2; })()`);
+      await driver.nextFrame();
+      await driver.nextFrame();
+      const lines = await driver.evaluate(`document.querySelectorAll(${JSON.stringify(`${SOURCE} > .cm-line`)}).length`);
+      if (lines > 2_000) throw new Error(`the editor drew ${lines} lines, so a Select All of its DOM is the whole file: lengthen the fixture`);
+      // The menu item sends the web view selectAll:, which runs the same
+      // editing command as this; ⌘A never gets here, the editor's keymap
+      // takes it. WebKit selects the drawn lines only (native-select-all.ts).
+      await driver.evaluate(`document.execCommand("selectAll")`);
+      await driver.nextFrame();
+      await driver.type("x");
+      const left = await driver.waitFor(`(() => {
+        const content = document.querySelector(${JSON.stringify(SOURCE)});
+        return content.querySelectorAll(".cm-line").length === 1 && { text: content.textContent };
+      })()`, { timeout: 5_000, what: "the typed key to replace the whole file" }).catch(() => null);
+      if (left?.text !== "x") {
+        const kept = await driver.evaluate(`document.querySelector(${JSON.stringify(SOURCE)}).querySelectorAll(".cm-line").length`);
+        throw new Error(`Select All then a key left ${left ? JSON.stringify(left.text) : `${kept} drawn lines`}, not just "x"`);
+      }
+    },
+  },
 ];
