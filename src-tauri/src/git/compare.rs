@@ -23,7 +23,8 @@ pub fn compare_files(root: &Path, from: &str, to: Option<&str>) -> Result<Vec<Gi
     ensure_repository(root)?;
     let from = validate_rev(from)?;
     let to = to.map(validate_rev).transpose()?;
-    let mut args = vec!["diff", "--name-status", "-z", "-M", from.as_str()];
+    let mut args =
+        vec!["diff", "--no-ext-diff", "--no-textconv", "--name-status", "-z", "-M", from.as_str()];
     args.extend(to.as_deref());
     args.push("--");
     let mut files = parse_name_status_z(&git_output(root, &args)?);

@@ -386,3 +386,54 @@ fn auto_commit_works_without_user_config() {
     assert_eq!(hash, Some(git(&root, &["rev-parse", "HEAD"])));
     assert_eq!(last_commit(&root, "%an <%ae>"), "Lattice <lattice@local>");
 }
+
+/// A folder copied from elsewhere brings its `.git/config` along: none of the
+/// programs it names may run when Lattice reads the repository. The setup
+/// proves plain git runs both, so the test cannot pass by never triggering.
+#[cfg(unix)]
+#[test]
+fn reading_a_repository_never_runs_programs_its_config_names() {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(root) = repo("config-programs") else { return };
+    let marks = scratch("config-programs-marks");
+    // Leaves a mark, then does `rest`.
+    let program = |name: &str, rest: &str| {
+        let script = format!("#!/bin/sh\ntouch '{}'\n{rest}\n", marks.join(name).display());
+        let path = marks.write(&format!("{name}.sh"), script);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        path.display().to_string()
+    };
+    // Signs well enough for git to record the signature.
+    let sign = "echo '[GNUPG:] SIG_CREATED ' >&2\n\
+                printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nx\\n-----END PGP SIGNATURE-----\\n'";
+    let first = commit(&root, &[("main.tex", "one\n")], "first");
+    git(&root, &["config", "gpg.program", &program("gpg", sign)]);
+    root.write("main.tex", "one\ntwo\n");
+    git(&root, &["commit", "-S", "-am", "signed"]);
+    git(&root, &["config", "log.showSignature", "true"]);
+    git(&root, &["config", "core.fsmonitor", &program("fsmonitor", "exit 1")]);
+    root.write("main.tex", "one\ntwo\nthree\n");
+    let ran = || {
+        let names = fs::read_dir(&marks).unwrap().map(|entry| entry.unwrap().file_name());
+        let mut names = names
+            .map(|name| name.to_string_lossy().into_owned())
+            .filter(|name| !name.ends_with(".sh"))
+            .collect::<Vec<_>>();
+        names.sort();
+        names.iter().for_each(|name| fs::remove_file(marks.join(name)).unwrap());
+        names
+    };
+    git(&root, &["status"]);
+    git(&root, &["log"]);
+    assert_eq!(ran(), ["fsmonitor", "gpg"], "plain git runs both programs");
+
+    let report = status(&root).unwrap();
+    assert_eq!(report.files.len(), 1);
+    assert_eq!(log(&root, 10).unwrap().len(), 2);
+    assert_eq!(compare_files(&root, &first, None).unwrap().len(), 1);
+    compare_file(&root, &first, None, "main.tex", None).unwrap();
+    show_diff(&root, &git(&root, &["rev-parse", "HEAD"]), "main.tex").unwrap();
+    write_version(&root, None, &scratch("config-programs-now")).unwrap();
+    restore_file(&root, &first, "main.tex").unwrap();
+    assert_eq!(ran(), Vec::<String>::new(), "Lattice ran a program from the repository config");
+}
