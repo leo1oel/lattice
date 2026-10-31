@@ -1,13 +1,33 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
-import { toMessage } from "../app-utils";
+import type { FileNode, PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
+import { isBibFilePath, toMessage } from "../app-utils";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import type { HistoryItem } from "../history/history-drawer";
+import { changesReach, onBibliographyWrite, onProjectFilesChanged } from "../project/project-files-changed";
 import type { TodoHit } from "../project/todo-scavenger";
+import { collectFilePaths } from "./workspace-restore";
 import type { ProjectState } from "./use-project-state";
 
 const NO_UNUSED_SYMBOLS: UnusedSymbols = { labels: [], citations: [] };
+
+/**
+ * How long a watcher burst that touched a .bib waits for the next before the
+ * bibliography is read again. A reference manager's auto-export (Better
+ * BibTeX) and a git checkout write in several bursts; a large .bib is parsed
+ * once for all of them rather than once per burst.
+ */
+const BIBLIOGRAPHY_WATCH_DELAY_MS = 400;
+
+/**
+ * Whether a burst the watcher reported may have changed the project's
+ * bibliography: it names a .bib (one the tree does not show yet included), a
+ * folder holding one the tree shows, or no exact set at all.
+ */
+export function changesReachBibliography(paths: readonly string[] | null, files: readonly FileNode[]): boolean {
+  if (!paths || paths.some(isBibFilePath)) return true;
+  return collectFilePaths([...files], (node) => isBibFilePath(node.path)).some((path) => changesReach(paths, path));
+}
 
 type CitationHealth = NonNullable<PaperSummary["citationHealth"]>;
 
@@ -174,21 +194,63 @@ export function useProjectLibrary(state: ProjectState) {
     return () => generation === bibliographyRefreshGenerationRef.current;
   }, []);
 
+  /**
+   * Read `projectRoot`'s citation keys and paper list again after its .bib
+   * files changed. A failed read keeps what was shown; a newer bibliography
+   * read, or another project, discards this one.
+   */
+  const refreshCitations = useCallback((projectRoot: string) => {
+    const isLatestBibliography = claimBibliographyRefresh();
+    void Promise.allSettled([
+      invoke<CitationInfo[]>("list_citations"),
+      invoke<PaperSummary[]>("list_papers"),
+    ]).then(([nextCitations, nextPapers]) => {
+      if (projectRef.current?.root !== projectRoot || !isLatestBibliography()) return;
+      if (nextCitations.status === "fulfilled") setCitations(nextCitations.value);
+      if (nextPapers.status === "fulfilled") publishPapers(projectRoot, nextPapers.value);
+    });
+  }, [claimBibliographyRefresh, projectRef, publishPapers]);
+
+  /**
+   * The bibliography changed without a save in the editor: the agent's
+   * bibliography tool, a reference manager's auto-export, a git pull. The
+   * unused-citation list follows the keys, so it is read again too.
+   */
+  const refreshBibliography = useCallback((projectRoot: string) => {
+    if (projectRef.current?.root !== projectRoot) return;
+    refreshCitations(projectRoot);
+    void refreshUnusedSymbols();
+  }, [projectRef, refreshCitations, refreshUnusedSymbols]);
+
+  // The watcher reports what changed on disk; only a .bib it may have touched
+  // costs a re-read, and a run of bursts costs one.
+  const watchedRoot = project?.root;
+  useEffect(() => {
+    if (!watchedRoot) return;
+    let timer: number | undefined;
+    const stopListening = onProjectFilesChanged(watchedRoot, (paths) => {
+      if (!changesReachBibliography(paths, projectRef.current?.files ?? [])) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => refreshBibliography(watchedRoot), BIBLIOGRAPHY_WATCH_DELAY_MS);
+    });
+    // The agent's own write: the key it just cited must not read as unknown
+    // until the watcher catches up.
+    const stopAgentWrites = onBibliographyWrite(watchedRoot, () => {
+      window.clearTimeout(timer);
+      refreshBibliography(watchedRoot);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      stopListening();
+      stopAgentWrites();
+    };
+  }, [projectRef, refreshBibliography, watchedRoot]);
+
   const refreshAfterSave = useCallback((projectRoot: string, wroteTex: boolean, wroteBib: boolean) => {
     const generation = ++postSaveRefreshGenerationRef.current;
     // A subsequent .tex save must not discard a pending bibliography refresh,
     // and slow history/word-count scans must not delay the Papers update.
-    if (wroteBib) {
-      const isLatestBibliography = claimBibliographyRefresh();
-      void Promise.allSettled([
-        invoke<CitationInfo[]>("list_citations"),
-        invoke<PaperSummary[]>("list_papers"),
-      ]).then(([nextCitations, nextPapers]) => {
-        if (projectRef.current?.root !== projectRoot || !isLatestBibliography()) return;
-        if (nextCitations.status === "fulfilled") setCitations(nextCitations.value);
-        if (nextPapers.status === "fulfilled") publishPapers(projectRoot, nextPapers.value);
-      });
-    }
+    if (wroteBib) refreshCitations(projectRoot);
     // These replies share the scans' slots: a later scan of a kind supersedes
     // this refresh's result for it, and this refresh supersedes earlier ones.
     const ownsProject = captureProjectScope();
@@ -210,7 +272,7 @@ export function useProjectLibrary(state: ProjectState) {
       if (todoResult.status === "fulfilled" && currentTodos()) setDiskTodos(todoResult.value);
       if (wordCountResult.status === "fulfilled" && currentWordCount()) setProjectWordCount(wordCountResult.value);
     });
-  }, [captureProjectScope, claimBibliographyRefresh, claimScan, projectRef, publishPapers]);
+  }, [captureProjectScope, claimScan, projectRef, refreshCitations]);
 
   /** Read the paper list again after a failed read, from the Papers panel's retry. */
   const retryPapers = useCallback(() => {

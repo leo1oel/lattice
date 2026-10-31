@@ -51,6 +51,26 @@ export function onProjectTreeStale(root: string, onStale: () => void): () => voi
   };
 }
 
+// Lattice's own writes to a .bib outside the editor, for this window.
+const bibliographyWrites = new EventTarget();
+
+/** Say that Lattice itself (the agent's bibliography tool) just wrote a .bib of the project at `root`. */
+export function announceBibliographyWrite(root: string): void {
+  bibliographyWrites.dispatchEvent(new CustomEvent("write", { detail: root }));
+}
+
+/**
+ * Call `onWrite` each time Lattice announces a write to a .bib of the project
+ * at `root`. The watcher reports the same write, but only after its debounce.
+ */
+export function onBibliographyWrite(root: string, onWrite: () => void): () => void {
+  const listener = (event: Event) => {
+    if ((event as CustomEvent<string>).detail === root) onWrite();
+  };
+  bibliographyWrites.addEventListener("write", listener);
+  return () => bibliographyWrites.removeEventListener("write", listener);
+}
+
 /** `path` as a clean project-relative path, or null when it is empty or climbs out of the project. */
 export function normalizeProjectRelativePath(path: string): string | null {
   const parts: string[] = [];
