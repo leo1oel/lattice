@@ -219,13 +219,13 @@ pub fn enable_save_before_close(window: WebviewWindow, state: tauri::State<'_, S
 }
 
 /// The page's answer to a save request: `saved` is false when an edit could
-/// not be written, which keeps the window (and Lattice) open.
+/// not be written, which keeps the window (and Lattice) open. Async, so the
+/// window is not destroyed from inside its own page's IPC call on the main
+/// thread.
 #[tauri::command]
-pub fn finish_save_before_close(
-    app: AppHandle, window: WebviewWindow, state: tauri::State<'_, SaveBeforeClose>, id: u64,
-    saved: bool,
-) {
-    if let Some(action) = state.answer(id, window.label(), saved) {
+pub async fn finish_save_before_close(app: AppHandle, window: WebviewWindow, id: u64, saved: bool) {
+    let action = app.state::<SaveBeforeClose>().answer(id, window.label(), saved);
+    if let Some(action) = action {
         perform(&app, action);
     }
 }

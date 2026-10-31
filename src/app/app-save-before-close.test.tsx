@@ -68,7 +68,7 @@ describe("saving before the window closes or Lattice quits", () => {
     });
     emitTauriEvent(SAVE_BEFORE_CLOSE_EVENT, 1);
     await expectInvoked("finish_save_before_close", { id: 1, saved: false });
-    await expectNotification(/Lattice stayed open/);
+    await expectNotification(/window stayed open/);
     emitTauriEvent(SAVE_BEFORE_CLOSE_EVENT, 2);
     await expectInvoked("finish_save_before_close", { id: 2, saved: true });
   });

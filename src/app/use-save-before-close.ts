@@ -33,7 +33,7 @@ export function useSaveBeforeClose({ browserHosted, ...edits }: Edits & { browse
   const editsRef = useLatestRef(edits);
   /** The last close found an edit it could not save: the next close goes ahead anyway. */
   const closeAnywayRef = useRef(false);
-  const unsavedWarning = t`An edit could not be saved, so Lattice stayed open. Close again to close without it.`;
+  const unsavedWarning = t`An edit could not be saved, so the window stayed open. Close or quit again to leave without it.`;
   const warningRef = useLatestRef(unsavedWarning);
 
   useEffect(() => {
