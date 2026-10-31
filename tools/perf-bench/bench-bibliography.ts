@@ -1,7 +1,7 @@
 /**
  * The bench's reads of the project's bibliography, as the backend's citation
  * commands report them: the `.bib` entries, where the `.tex` files cite them,
- * and the citation audit's scan.
+ * the citation audit's scan, and the files a staged index leaves out.
  */
 import { NOT_HANDLED } from "./bench-overleaf";
 
@@ -13,15 +13,29 @@ type Context = {
   cited: boolean;
 };
 
+/**
+ * `?index=skipped`: the label scan leaves out a GBK draft and a file it could
+ * not read, as `list_references` names them; `?index=failed` fails the
+ * citation scan. Either shows the label and citation index's toast.
+ */
+const STAGED_SKIPPED_SOURCES = [
+  { path: "archive/old-draft.tex", reason: "notUtf8" },
+  { path: "legacy/refs-latin1.tex", reason: "notUtf8" },
+  { path: "locked.tex", reason: "unreadable", message: "Permission denied (os error 13)" },
+];
+
 /** The answer to a bibliography command, or `NOT_HANDLED` for any other. */
-export function bibliographyAnswer(command: string, { files, cited }: Context): unknown {
+export function bibliographyAnswer(command: string, { params, files, cited }: Context): unknown {
   switch (command) {
     case "bibliography_audit_scan":
       return bibliographyAuditScan(files);
     case "list_citation_usages":
       return citationUsages(files);
     case "list_citations":
-      return cited ? bibliographyCitations(files) : [];
+      if (params.get("index") === "failed") throw "Permission denied (os error 13)";
+      return { citations: cited ? bibliographyCitations(files) : [], skipped: [] };
+    case "list_references":
+      return { references: [], skipped: params.get("index") === "skipped" ? STAGED_SKIPPED_SOURCES : [] };
     default:
       return NOT_HANDLED;
   }

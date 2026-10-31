@@ -4,7 +4,7 @@
 use super::{current_root, in_project, pinned_root, run_blocking, scoped_root};
 use crate::agent_literature::AgentBibliographyMutation;
 use crate::app_state::{AppState, Lease};
-use crate::models::{CitationInfo, ResolvedCitation};
+use crate::models::ResolvedCitation;
 use crate::papers::{self, CitationRemovalMode, HistoryMode};
 use crate::{citation_audit, project};
 use serde_json::Value;
@@ -14,7 +14,7 @@ use tauri::{AppHandle, Manager, State, Window};
 #[tauri::command]
 pub async fn list_citations(
     state: State<'_, AppState>, window: Window,
-) -> Result<Vec<CitationInfo>, String> {
+) -> Result<project::CitationIndex, String> {
     in_project(&state, &window, "Citation scan", project::citations).await
 }
 

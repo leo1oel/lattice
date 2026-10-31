@@ -1,10 +1,10 @@
 //! Binary project files: byte previews for figures and embedded HTML, and
 //! converting figures into formats LaTeX can include.
 
-use super::paths::{extension, safe_path, NOT_FOUND};
+use super::paths::{extension, safe_path, source_kind, NOT_FOUND};
 use super::tree::{
-    classify_file_bytes, is_html_path, is_supported_asset, ContentKind, MAX_CLASSIFIED_TEXT_BYTES,
-    MAX_LOCAL_HTML_BYTES,
+    classify_file_bytes, is_html_path, is_non_utf8_text, is_supported_asset, ContentKind,
+    MAX_CLASSIFIED_TEXT_BYTES, MAX_LOCAL_HTML_BYTES, NOT_UTF8,
 };
 use crate::commands;
 use crate::util::err;
@@ -101,6 +101,11 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
         return Err("This HTML file is too large to open (32 MB maximum).".to_string());
     }
     let bytes = fs::read(&path).map_err(err)?;
+    // The tree files a GBK `.tex` as binary, so it lands here rather than in
+    // the editor; say why it does not open instead of "cannot be rendered".
+    if source_kind(&path).is_some() && is_non_utf8_text(&bytes) {
+        return Err(NOT_UTF8.to_string());
+    }
     let is_text = classify_file_bytes(&bytes) == ContentKind::Text;
     if (html && !is_text) || (!svg && !html && size <= MAX_CLASSIFIED_TEXT_BYTES && is_text) {
         return Err("Choose a binary project file.".to_string());

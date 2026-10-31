@@ -2604,6 +2604,7 @@ msgstr "重新检查“{0}”"
 msgid "Check accent example"
 msgstr "抑扬符示例"
 
+#: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
@@ -3510,6 +3511,10 @@ msgstr "核心组件"
 #: src/project/citation-health.ts
 msgid "Correction/update"
 msgstr "更正/更新"
+
+#: src/app/project-index-load.ts
+msgid "Could not be read: {failed}"
+msgstr "无法读取：{failed}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
@@ -6399,6 +6404,10 @@ msgstr "标签"
 msgid "Label <0>{symbol}</0>"
 msgstr "标签 <0>{symbol}</0>"
 
+#: src/app/project-index-load.ts
+msgid "Label and citation checks are off"
+msgstr "标签和引用检查已关闭"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Label removed."
 msgstr "已删除版本名"
@@ -6410,6 +6419,10 @@ msgstr "带条目标题的描述列表"
 #: src/editor/latex/latex-diagnostics.ts
 msgid "labels"
 msgstr "标签"
+
+#: src/app/project-index-load.ts
+msgid "Labels and citations"
+msgstr "标签和引用"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Lambda"
@@ -6556,6 +6569,10 @@ msgstr "此文件暂停同步，正在确认 Overleaf 是否已收到（{detail}
 #: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice 无法读取 {0}。"
+
+#: src/app/project-index-load.ts
+msgid "Lattice could not read the project’s labels and citations: {error}"
+msgstr "Lattice 无法读取项目的标签和引用：{error}"
 
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
@@ -8195,6 +8212,10 @@ msgstr "不在此 PDF 中"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "还没同步"
+
+#: src/app/project-index-load.ts
+msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
+msgstr "不是 UTF-8 文本，转换为 UTF-8 后即可纳入检查：{encoded}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
@@ -11544,6 +11565,10 @@ msgstr "上弧关系"
 #: src/components/ui/color-picker.tsx
 msgid "Soft {name}"
 msgstr "浅{name}"
+
+#: src/app/project-index-load.ts
+msgid "Some files are left out of label and citation checks"
+msgstr "有些文件未纳入标签和引用检查"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
