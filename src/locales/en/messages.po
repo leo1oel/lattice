@@ -36,6 +36,10 @@ msgstr "“{0}” already has files and isn’t linked to Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}” stays linked"
 
+#: src/editor/latex/latex-diagnostics.ts
+msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
+msgstr "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
+
 #: src/app/use-reference-import.ts
 msgid "“{title}” is already in Papers — cite it with {citationCommand}."
 msgstr "“{title}” is already in Papers — cite it with {citationCommand}."
@@ -841,6 +845,14 @@ msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the proje
 #: src/project/figure-inventory-dialog.tsx
 msgid "{width} × {height} pixels"
 msgstr "{width} × {height} pixels"
+
+#: src/project/arxiv-export.ts
+msgid "{written} is {file} on disk, and {more} more; arXiv can fail to find them"
+msgstr "{written} is {file} on disk, and {more} more; arXiv can fail to find them"
+
+#: src/project/arxiv-export.ts
+msgid "{written} is {file} on disk; arXiv can fail to find it"
+msgstr "{written} is {file} on disk; arXiv can fail to find it"
 
 #: src/build/compile-explain.ts
 msgid "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
@@ -5099,6 +5111,10 @@ msgstr "Fix"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
 msgstr "Fix all"
+
+#: src/editor/latex/latex-diagnostics.ts
+msgid "Fix case"
+msgstr "Fix case"
 
 #: src/app/whats-new-dialog.tsx
 msgid "Fixed"
@@ -12532,6 +12548,10 @@ msgstr "The shell was stopped"
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
+
+#: src/project/arxiv-export.ts
+msgid "The source spells file names in another case"
+msgstr "The source spells file names in another case"
 
 #: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"

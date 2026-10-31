@@ -3,7 +3,9 @@
  * completion slot before the cursor, the key under a pointer, and the project
  * file an argument names.
  */
-import { LABEL, findProjectPath, resolveTexPath, type DefinitionTarget, type ReferenceInfo, type SymbolTarget } from "./latex-text";
+import {
+  LABEL, findProjectPath, findProjectPathIgnoringCase, foldCase, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
+} from "./latex-text";
 
 /* eslint-disable lingui/no-unlocalized-strings -- regular-expression alternations of LaTeX command names */
 const CITATION_COMMANDS = "cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite";
@@ -98,6 +100,22 @@ export function unwrapLatexPath(raw: string): string {
   return (detokenized ? detokenized[1] : trimmed).trim().replace(/\\/g, "/");
 }
 
+/**
+ * The project paths an unwrapped argument may name, in the order they are
+ * tried: the path as written or with the extension TeX or graphicx adds, a
+ * figure under each `\graphicspath` root too.
+ */
+function pathCandidates(path: string, kind: "tex" | "graphics", graphicsRoots: string[]) {
+  if (kind === "tex") {
+    return (path.endsWith(".tex") ? [""] : ["", ".tex"]).map((extension) => ({ candidate: `${path}${extension}`, extension }));
+  }
+  const extensions = path.includes(".") ? [""] : GRAPHICS_EXTENSIONS;
+  return ["", ...graphicsRoots.map((root) => `${root}/`)].flatMap((prefix) => extensions.map((extension) => ({
+    candidate: `${prefix}${path}${extension}`.replace(/\/+/g, "/"),
+    extension,
+  })));
+}
+
 /** A URL resolves to itself; anything else must name a project file. */
 export function resolveProjectPath(
   raw: string,
@@ -107,13 +125,36 @@ export function resolveProjectPath(
 ): string | null {
   const path = unwrapLatexPath(raw);
   if (!path || /^https?:/.test(path)) return path || null;
-  if (kind === "tex") return resolveTexPath(path, projectPaths);
-  const bases = path.includes(".") ? [path] : GRAPHICS_EXTENSIONS.map((extension) => `${path}${extension}`);
-  for (const prefix of ["", ...graphicsRoots.map((root) => `${root}/`)]) {
-    for (const base of bases) {
-      const found = findProjectPath(`${prefix}${base}`.replace(/\/+/g, "/"), projectPaths);
-      if (found) return found;
-    }
+  for (const { candidate } of pathCandidates(path, kind, graphicsRoots)) {
+    const found = findProjectPath(candidate, projectPaths);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * The project file an argument names only when letter case is ignored, and
+ * the argument's path respelled in that file's case. macOS's disk ignores
+ * case, so the build here finds the file; TeX on Linux (Overleaf, arXiv) does
+ * not when a folder's case differs. `path` is null when the respelling has
+ * no place in the argument (a doubled `/` the lookup collapsed).
+ */
+export function miscasedProjectPath(
+  raw: string,
+  projectPaths: string[],
+  kind: "tex" | "graphics",
+  graphicsRoots: string[] = [],
+): { file: string; path: string | null } | null {
+  const path = unwrapLatexPath(raw);
+  if (!path || /^https?:/.test(path)) return null;
+  for (const { candidate, extension } of pathCandidates(path, kind, graphicsRoots)) {
+    const file = findProjectPathIgnoringCase(candidate, projectPaths);
+    if (!file) continue;
+    // The file ends with the candidate, folded, and folding keeps lengths,
+    // so the written path sits just before the extension the lookup added.
+    const end = file.length - extension.length;
+    const respelled = file.slice(end - path.length, end);
+    return { file, path: respelled !== path && foldCase(respelled) === foldCase(path) ? respelled : null };
   }
   return null;
 }

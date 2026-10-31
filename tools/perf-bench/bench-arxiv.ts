@@ -47,6 +47,7 @@ function pack(mode: string, options: { stripComments?: boolean; mergeInputs?: bo
     leftOut: ["attention-demo.html", "attention-map.tldr", "notes.md", "references.bib", "results.lattice-sheet", "slides/"],
     figures: files.filter((file) => /\.(pdf|png)$/.test(file.path)).map((file) => file.path),
     missing: [],
+    miscased: [],
     bibliography: { state: "included", file: "main.bbl" },
     comments: {
       removed: options.stripComments !== false,

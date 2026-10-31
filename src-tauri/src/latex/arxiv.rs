@@ -113,6 +113,8 @@ pub struct ArxivPackage {
     pub figures: Vec<String>,
     /// Files the last build read that are gone now.
     pub missing: Vec<String>,
+    /// Files the source names in another letter case than the disk does.
+    pub miscased: Vec<Miscased>,
     pub bibliography: Bibliography,
     pub comments: Comments,
     /// Files merged into the root document, which no longer ship alone.
@@ -124,6 +126,17 @@ pub struct ArxivPackage {
     /// The test build; absent until it has run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compile: Option<CompileCheck>,
+}
+
+/// A file TeX found only because macOS's disk ignores letter case: the
+/// recorder names it as the source wrote it, the disk spells it otherwise.
+/// The test build runs here and finds it; arXiv builds on Linux, where TeX
+/// does not when a folder's case differs, and the pack ships the disk's name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Miscased {
+    pub written: String,
+    pub file: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -230,6 +243,7 @@ struct Staged {
     files: BTreeMap<String, Vec<u8>>,
     figures: Vec<String>,
     missing: Vec<String>,
+    miscased: Vec<Miscased>,
     bibliography: Bibliography,
     comments: Comments,
     merged: Vec<String>,
@@ -251,6 +265,7 @@ impl Staged {
             left_out: self.left_out.clone(),
             figures: self.figures.clone(),
             missing: self.missing.clone(),
+            miscased: self.miscased.clone(),
             bibliography: self.bibliography.clone(),
             comments: self.comments.clone(),
             merged: self.merged.clone(),
@@ -307,7 +322,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
     let Ok(recorder) = fs::read_to_string(root_path.with_extension("fls")) else {
         return Ok(None);
     };
-    let Recorded { read, missing, written } = recorded_inputs(&root, &recorder);
+    let Recorded { read, missing, miscased, written } = recorded_inputs(&root, &recorder);
     let mut files = BTreeMap::new();
     for path in &read {
         let bytes =
@@ -360,6 +375,7 @@ fn stage(root: &Path, options: ArxivOptions) -> Result<Option<Staged>, String> {
         root_document: document.path.clone(),
         figures: figures.collect(),
         missing,
+        miscased,
         bibliography,
         comments: comment_summary(comments, options.strip_comments),
         merged: merged.into_iter().collect(),
@@ -376,33 +392,53 @@ struct Recorded {
     read: Vec<String>,
     /// Files TeX read that are gone now.
     missing: Vec<String>,
+    /// Files TeX read, named in another case than the disk's.
+    miscased: Vec<Miscased>,
     /// Files TeX wrote.
     written: BTreeSet<String>,
 }
 
-/// The project files TeX read, those of them now gone, and those it wrote.
+/// The project files TeX read, those of them now gone, those it found under
+/// another case, and those it wrote.
 ///
 /// The recorder names each file TeX opened, as `INPUT` or `OUTPUT`, relative
 /// to its `PWD` line unless absolute. A file TeX wrote is build output even
 /// when it was read back; a file outside the project is the TeX distribution's.
+/// The recorder keeps the name as the source spelled it, and canonicalizing
+/// gives the disk's spelling, so a name that differs only in case is a file
+/// found because macOS's disk ignores case.
 fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
     let mut cwd = root.to_path_buf();
     let mut inputs = BTreeSet::new();
     let mut outputs = BTreeSet::new();
+    let mut spellings = BTreeMap::new();
     for line in recorder.lines() {
         if let Some(path) = line.strip_prefix("PWD ") {
             cwd = Path::new(path).canonicalize().unwrap_or_else(|_| PathBuf::from(path));
         } else if let Some(path) = line.strip_prefix("INPUT ") {
-            inputs.extend(project_relative(root, &cwd, path));
+            let Some(file) = project_relative(root, &cwd, path) else { continue };
+            let written = relative_parts(root, &normalize(&cwd.join(path)));
+            if let Some(written) = written
+                .filter(|written| *written != file && written.to_lowercase() == file.to_lowercase())
+            {
+                spellings.entry(file.clone()).or_insert(written);
+            }
+            inputs.insert(file);
         } else if let Some(path) = line.strip_prefix("OUTPUT ") {
             outputs.extend(project_relative(root, &cwd, path));
         }
     }
-    let (read, missing) = inputs
+    let (read, missing): (Vec<String>, Vec<String>) = inputs
         .into_iter()
         .filter(|path| !outputs.contains(path) && !private(path))
         .partition(|path| root.join(path).is_file());
-    Recorded { read, missing, written: outputs }
+    let miscased = (read.iter())
+        .filter_map(|file| {
+            let written = spellings.remove(file)?;
+            Some(Miscased { written, file: file.clone() })
+        })
+        .collect();
+    Recorded { read, missing, miscased, written: outputs }
 }
 
 /// The project files the root document's last compile wrote, by its
@@ -421,6 +457,11 @@ fn project_relative(root: &Path, cwd: &Path, path: &str) -> Option<String> {
     let path = cwd.join(path);
     // Lexically first: a file deleted since the build no longer canonicalizes.
     let path = path.canonicalize().unwrap_or_else(|_| normalize(&path));
+    relative_parts(root, &path)
+}
+
+/// `path` as a `/`-separated path inside `root`, if it is one.
+fn relative_parts(root: &Path, path: &Path) -> Option<String> {
     let relative = path.strip_prefix(root).ok()?;
     let parts: Option<Vec<&str>> = relative
         .components()
