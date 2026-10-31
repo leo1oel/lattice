@@ -80,14 +80,49 @@ const NON_PROSE_ENVIRONMENTS = new Set(words(`
   align align* displaymath equation equation* gather gather* lstlisting math minted multline multline*
   tikzpicture verbatim verbatim*
 `));
+
+/** The combining mark each TeX accent command puts on its letter. */
+const ACCENT_MARKS = new Map([
+  ["'", "\u0301"], ["`", "\u0300"], ["^", "\u0302"], ["\"", "\u0308"], ["~", "\u0303"], ["=", "\u0304"],
+  [".", "\u0307"], ["u", "\u0306"], ["v", "\u030C"], ["H", "\u030B"], ["c", "\u0327"], ["d", "\u0323"],
+  ["b", "\u0331"], ["r", "\u030A"], ["k", "\u0328"],
+]);
 /* eslint-enable lingui/no-unlocalized-strings */
 
 const COMMAND = /\\([A-Za-z@]+|.)/y;
+
+/** An accent's letter: `e`, `\i`, `{e}` or `{\i}`. */
+const ACCENT_LETTER = /(?:([A-Za-z])|\\([ij])(?![A-Za-z])|\{[ \t]*(?:([A-Za-z])|\\([ij])(?![A-Za-z]))[ \t]*\})/y;
 
 function isEscaped(source: string, index: number): boolean {
   let slashes = 0;
   for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) slashes += 1;
   return slashes % 2 === 1;
+}
+
+/**
+ * The source span of a TeX accent such as `\'e`, `\v{r}`, `\H o` or
+ * `{\"o}`, and the letter it prints. A letter with no precomposed form,
+ * such as `\b{o}`, stays its base letter.
+ */
+function texAccent(source: string, start: number, command: string, argument: number) {
+  const mark = ACCENT_MARKS.get(command);
+  if (!mark) return null;
+  // TeX skips spaces after a command named by letters (`\H o`), not after `\'`.
+  if (/^[A-Za-z]$/.test(command)) while (source[argument] === " " || source[argument] === "\t") argument += 1;
+  ACCENT_LETTER.lastIndex = argument;
+  const match = ACCENT_LETTER.exec(source);
+  const base = match?.slice(1).find(Boolean);
+  if (!match || !base) return null;
+  let from = start;
+  let to = argument + match[0].length;
+  if (source[from - 1] === "{" && !isEscaped(source, from - 1) && source[to] === "}") {
+    from -= 1;
+    to += 1;
+  }
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Unicode normalization form
+  const composed = `${base}${mark}`.normalize("NFC");
+  return { from, to, letter: composed.length === 1 ? composed : base };
 }
 
 function balancedGroupEnd(source: string, start: number, open: string, close: string): number {
@@ -207,6 +242,19 @@ export function maskLatexForHarper(source: string): { prose: string; syntaxMask:
       continue;
     }
     const command = commandMatch[1];
+    const accent = texAccent(source, index, command, index + commandMatch[0].length);
+    if (accent) {
+      // Blanking `\'` would split `Fr\'echet` into `Fr` and `echet`, which
+      // Harper reports as misspellings. Fill the accent's whole span with its
+      // letter so the word stays one word. The span stays in the syntax mask:
+      // the padded word is not the real spelling, so lints on it are dropped.
+      for (let at = accent.from; at < accent.to; at += 1) {
+        masked[at] = accent.letter;
+        syntaxMask[at] = true;
+      }
+      index = accent.to;
+      continue;
+    }
     let cursor = index + commandMatch[0].length;
     if (source[cursor] === "*") cursor += 1;
 
