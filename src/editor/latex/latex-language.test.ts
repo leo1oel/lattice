@@ -1,3 +1,4 @@
+import { closeBrackets, insertBracket } from "@codemirror/autocomplete";
 import { ensureSyntaxTree, foldable } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { highlightTree, tagHighlighter, tags } from "@lezer/highlight";
@@ -85,6 +86,21 @@ describe("LaTeX highlighting", () => {
 
   it("uses % as the line comment token", () => {
     expect(stateOf("x").languageDataAt("commentTokens", 0)).toEqual([{ line: "%" }]);
+  });
+
+  it("auto-closes brackets and braces but types quotes as one character", () => {
+    /** The document after typing `character` at its end, as closeBrackets handles it; null leaves it to plain input. */
+    const typed = (doc: string, character: string, extensions = [closeBrackets(), latex()]) =>
+      insertBracket(EditorState.create({ doc, selection: { anchor: doc.length }, extensions }), character)
+        ?.state.doc.toString() ?? null;
+    expect(typed("f", "(")).toBe("f()");
+    expect(typed("x_", "[")).toBe("x_[]");
+    expect(typed("\\emph", "{")).toBe("\\emph{}");
+    // ``quoted'' text and apostrophes: a paired quote is always wrong.
+    expect(typed("He said ", "\"")).toBeNull();
+    expect(typed("the ", "'")).toBeNull();
+    // Other languages keep closeBrackets' default quote pairing.
+    expect(typed("He said ", "\"", [closeBrackets()])).toBe("He said \"\"");
   });
 });
 
