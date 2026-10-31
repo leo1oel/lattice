@@ -36,6 +36,7 @@ import type {
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
+import { overleafSyncWarnings } from "./overleaf-sync-warnings";
 
 /** Marks a comment that lives on Overleaf rather than in this project; App's comment handlers route on it. */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
@@ -412,19 +413,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         await settleRemoteDeletes(result.skippedRemoteDeletes, syncRoot, syncGeneration);
         if (!stillCurrent()) return;
       }
-      // Name files too big for Overleaf; otherwise they look synced and the
-      // absence is only discovered from the other side.
-      if (result.skippedLarge?.length) {
-        const files = result.skippedLarge.join(", ");
-        showWarning(t`Too large for Overleaf, so left on this machine: ${files}.`, "Overleaf");
-      }
-      // A download that would have emptied or gutted files nobody changed
-      // on Overleaf. Say so once: the files simply stay, and the reason is
-      // that Overleaf's own history does not confirm the change.
-      if (result.refusedIncoming?.length) {
-        const files = result.refusedIncoming.join(", ");
-        showWarning(t`Kept your copy of ${files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again.`, "Overleaf");
-      }
+      for (const warning of overleafSyncWarnings(result)) showWarning(warning, "Overleaf");
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
       const changedOnDisk = new Set([

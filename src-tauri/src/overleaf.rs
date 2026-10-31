@@ -39,6 +39,7 @@ mod account;
 mod api;
 #[cfg(test)]
 mod bench;
+mod case_collisions;
 mod doc_push;
 mod files;
 mod link;

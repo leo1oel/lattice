@@ -6393,7 +6393,7 @@ msgstr "保留本机"
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "{path} 有外部修改重叠，已都保留，请手动合并"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-warnings.ts
 msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 msgstr "已保留你本机的 {files}：Overleaf 传来的版本是空的或小很多，无法确认。如果要用 Overleaf 的，删掉本机文件再同步"
 
@@ -8822,6 +8822,10 @@ msgstr "Overleaf 无法从可信版本恢复"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "此文件不支持实时协作，改用普通同步"
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both."
+msgstr "Overleaf 上有只差大小写的名称，这台 Mac 会把它们当成同一个：{pairs}。每对只同步第一个到本机；在 Overleaf 上把其中一个改名，两个就都能同步"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Overleaf history"
@@ -12929,7 +12933,7 @@ msgstr "这些修改合起来会改到 LaTeX，请少选几处或重新校对"
 msgid "Too dark for black text"
 msgstr "颜色过深，黑字难以阅读"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-warnings.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "这些文件太大，只留在本机：{files}"
 

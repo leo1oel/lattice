@@ -508,6 +508,12 @@ export type OverleafSyncResult = {
   refusedIncoming?: string[];
   readOnly?: boolean;
   /**
+   * Overleaf paths that differ only in letter case, which one file or folder
+   * here cannot hold apart: `kept` syncs, `skipped` (and all under it) is
+   * left alone on both sides until one is renamed on Overleaf.
+   */
+  caseCollisions?: { kept: string; skipped: string }[];
+  /**
    * Changed here while the sync ran by something other than the editor (an
    * agent, another program). The sync left them exactly as edited; they go
    * up with the next one.

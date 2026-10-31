@@ -6393,7 +6393,7 @@ msgstr "Kept here"
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-warnings.ts
 msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 msgstr "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 
@@ -8822,6 +8822,10 @@ msgstr "Overleaf could not replay from the last version Lattice trusts"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "Overleaf doesn’t support live editing for this file, so it will use regular sync."
+
+#: src/app/overleaf-sync-warnings.ts
+msgid "Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both."
+msgstr "Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both."
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Overleaf history"
@@ -12929,7 +12933,7 @@ msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or pr
 msgid "Too dark for black text"
 msgstr "Too dark for black text"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/app/overleaf-sync-warnings.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "Too large for Overleaf, so left on this machine: {files}."
 
