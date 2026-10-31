@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { beginWindowDrag, toggleWindowFullscreen } from "../../app-utils";
+import { PanelErrorBoundary } from "../../telemetry/panel-error-boundary";
 import { toolKindForDrawer, useTrellisController, type TrellisController, type TrellisToolKind } from "../../trellis/trellis-controller";
 import "./scroll-area.css";
 
@@ -39,7 +40,8 @@ type ResizableDrawerProps = {
 /**
  * A right-hand drawer over the workspace. In the Trellis workspace,
  * drawers that have a tool panel (history, comments, TODOs, …) render into
- * that dockable panel instead; the rest stay overlays.
+ * that dockable panel instead; the rest stay overlays. Either way its content
+ * has its own error boundary: a tool that crashes leaves the window working.
  */
 export function ResizableDrawer(props: ResizableDrawerProps) {
   const trellis = useTrellisController();
@@ -65,7 +67,7 @@ function DockedDrawer({ trellis, kind, ...props }: ResizableDrawerProps & { trel
       aria-label={props.ariaLabel}
       onScroll={props.onScroll}
     >
-      {props.children}
+      <PanelErrorBoundary name={kind}>{props.children}</PanelErrorBoundary>
     </aside>,
     trellis.toolHost(kind),
   );
@@ -176,7 +178,7 @@ function OverlayDrawer(props: ResizableDrawerProps) {
             setWidth(next);
           }}
         />
-        {props.children}
+        <PanelErrorBoundary name={props.className ?? "drawer"}>{props.children}</PanelErrorBoundary>
       </aside>
     </div>
   );

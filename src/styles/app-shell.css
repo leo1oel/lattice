@@ -32,6 +32,11 @@ input[type="search"]:focus-visible {
 .root-error-details { margin-top: 22px; border-top: 1px solid var(--border-subtle); padding-top: 14px; color: var(--text-secondary); font-size: var(--type-caption-size); }
 .root-error-details summary { width: max-content; cursor: pointer; font-weight: 600; }
 .root-error-details pre { max-height: 180px; margin: var(--space-6) 0 0; padding: var(--space-6); overflow: auto; border-radius: var(--radius-control); background: var(--surface-panel); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* A panel that crashed (telemetry/panel-error-boundary.tsx): its card fills the panel, centered, as an empty state does. */
+.panel-error { box-sizing: border-box; height: 100%; padding: var(--space-8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); overflow: auto; text-align: center; color: var(--text-secondary); font-size: var(--type-body-compact-size); }
+.panel-error > strong { color: var(--text-primary); }
+.panel-error > p { margin: 0; }
+.panel-error > .root-error-details { width: min(100%, 420px); margin-top: var(--space-4); text-align: start; }
 
 /* Focus, in two parts.
  *

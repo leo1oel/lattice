@@ -2,7 +2,8 @@
  * What App renders into the Trellis panels' hosts by portal: the project file
  * tree, the paper library, the agent, each panel's tab-bar action row, and the
  * editor's opening overlay. Trellis arranges the panels; App owns what is in
- * them.
+ * them. Each panel's content sits in its own PanelErrorBoundary, so a render
+ * error there stays in that panel.
  *
  * A hook that returns the portals rather than a component: a component here
  * would render again with every App render, each keystroke included, for
@@ -16,6 +17,7 @@ import type { NewEntryRequest, NewEntryType } from "../project/project-new-entri
 import type { SymbolOccurrence } from "../project/references-panel";
 import type { AppLocale, Theme } from "../settings/app-settings";
 import type { TrellisController } from "../trellis/trellis-controller";
+import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import { PanelActions } from "../trellis/trellis-panel-actions";
 import type { GitStatus, PaperSummary, ProjectSnapshot } from "../app-types";
 import { PaperLibrary, ProjectFileTree, TrellisAgentSurface } from "./app-lazy-panels";
@@ -138,6 +140,7 @@ export function usePanelPortals({
   return (
     <>
       {createPortal(
+        <PanelErrorBoundary name="project" resetKey={project.root}>
         <Suspense fallback={null}>
           <ProjectFileTree
             key={project.root}
@@ -159,10 +162,12 @@ export function usePanelPortals({
             assetImporting={tree.assetImporting}
             {...fileTreeHandlers}
           />
-        </Suspense>,
+        </Suspense>
+        </PanelErrorBoundary>,
         trellis.hosts.project,
       )}
       {createPortal(
+        <PanelErrorBoundary name="papers" resetKey={project.root}>
         <Suspense fallback={null}>
           <PaperLibrary
             projectKey={project.root}
@@ -185,13 +190,15 @@ export function usePanelPortals({
             importing={referenceImport.importing}
             {...paperLibraryHandlers}
           />
-        </Suspense>,
+        </Suspense>
+        </PanelErrorBoundary>,
         trellis.hosts.papers,
       )}
       {createPortal(trellisActions.project, trellis.hosts.projectActions)}
       {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
       {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
       {agentPresent && createPortal(
+        <PanelErrorBoundary name="agent" resetKey={project.root}>
         <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface thread waiting={synara.frameMounted} runtime={synara.runtime} onRetry={synara.retryAgent} /></div>}>
           <TrellisAgentSurface
             synara={synara}
@@ -200,7 +207,8 @@ export function usePanelPortals({
             appLocale={appLocale}
             dropActive={tree.drops.agentPanel}
           />
-        </Suspense>,
+        </Suspense>
+        </PanelErrorBoundary>,
         trellis.hosts.agent,
       )}
       {createPortal(
