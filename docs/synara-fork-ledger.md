@@ -59,6 +59,10 @@ It also names the `workspaceRoot`, `threadId`, `turnId` and the session's `provi
 A tool that starts and ends between two sends is never reported in flight.
 Messages go out at most four a second and the trailing one is always the current state, so the final `idle` is never lost; a thread the panel switches away from, or a closed chat view's, gets an `idle` first, and a remounted chat view re-sends its state once.
 
+The pin also gives the agent `preview_latex_figure`: it sends a figure's body (with extra preamble lines, the document whose preamble to use, the line width, and optionally the caption, label and placement) to Lattice, which typesets it alone and answers with a PNG that reaches the model as image content (see [the agent tool boundary](synara-runtime.md#agent-tool-boundary)).
+It rides the presentation channel as the action `preview_figure`, since that broker, its result route and the web relay already carry one rendered image back per request, and the broker's timeout message now names a preview rather than the presentation tool.
+The host policy tells the agent to preview every figure it draws or changes, fix what reads badly in the image, and insert the `figure` environment the tool returns with its ordinary file edit.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.

@@ -470,6 +470,7 @@ pub fn run() {
             ipc::build::compile_repair,
             ipc::build::agent_text_task,
             ipc::build::export_changes_pdf,
+            ipc::build::preview_latex_figure,
             ipc::build::abort_build,
             ipc::build::clean_project,
             ipc::build::read_compiled_pdf,

@@ -20,6 +20,7 @@ import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from ".
 import {
   executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
 } from "../agent/agent-project-document-tools";
+import { executeAgentFigureToolRequest, parseAgentFigureToolRequest } from "../agent/agent-figure-tools";
 import { executeAgentPresentationToolRequest, parseAgentPresentationToolRequest } from "../agent/agent-presentation-tools";
 import { executeAgentSpreadsheetToolRequest, parseAgentSpreadsheetToolRequest } from "../agent/agent-spreadsheet-tools";
 import {
@@ -97,6 +98,10 @@ const TOOL_ROUTES: Array<(data: unknown, bridge: SynaraHostBridge, projectRoot: 
   (data, _bridge, projectRoot) => {
     const request = parseAgentPresentationToolRequest(data);
     return request && executeAgentPresentationToolRequest(request, projectRoot);
+  },
+  (data, _bridge, projectRoot) => {
+    const request = parseAgentFigureToolRequest(data);
+    return request && executeAgentFigureToolRequest(request, projectRoot);
   },
 ];
 
