@@ -226,6 +226,10 @@ const latexStreamParser: StreamParser<LatexStreamState> = {
   languageData: {
     commentTokens: { line: "%" },
     wordChars: "$\\-_",
+    // closeBrackets' default set also pairs `'` and `"`. LaTeX quotes with
+    // ``…'' and uses `'` as an apostrophe and prime, so a typed quote must
+    // stay a single character; only real delimiters are paired.
+    closeBrackets: { brackets: ["(", "[", "{"] },
   },
 };
 
