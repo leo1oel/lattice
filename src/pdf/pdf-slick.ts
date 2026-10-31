@@ -14,6 +14,7 @@ import {
   toViewerScale,
   type PdfFitMode,
 } from "./pdf-viewer-utils";
+import { watchPixelDensity } from "./pdf-pixel-density";
 import { clearParkedPdfTextSelection } from "./pdf-text-layer-selection";
 import type { PDFDataRangeTransport } from "./pdfjs-runtime";
 import "./pdfjs-runtime";
@@ -156,7 +157,14 @@ export function createViewerRecord(
   slick.viewer.pageWindowMinScale = toViewerScale(PDF_MIN_SCALE);
   // Before loadDocument, whose metadata parser asks for these strings.
   adaptPdfSlickL10n(slick.l10n);
-  return { key, slick, root, viewer, textLayers: new Map(), cleanup: [], destroyed: false };
+  const record: ViewerRecord = { key, slick, root, viewer, textLayers: new Map(), cleanup: [], destroyed: false };
+  // After the window moves to a display of another pixel density. refresh()
+  // recomputes every page's output scale from the new devicePixelRatio and
+  // redraws the visible ones; the zoom and page boxes are unchanged, so the
+  // scroll position holds, and each old canvas stays up until its
+  // replacement is drawn. (It does nothing before a document is set.)
+  record.cleanup.push(watchPixelDensity(() => slick.viewer.refresh()));
+  return record;
 }
 
 /** Fit the pages, or apply a manual app scale when not fitted, through PDFSlick's imperative zoom setters. */
