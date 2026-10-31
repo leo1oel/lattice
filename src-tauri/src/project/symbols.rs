@@ -3,15 +3,14 @@
 
 use super::bibliography::{citations, iter_bibliography_sources};
 use super::history::apply_transaction;
+use super::index_sources::IndexSources;
 use super::paths::relative_to;
 use super::references::{command_argument_at, references};
 use super::tree::read_file;
 use super::{clip_line, line_number_at, skip_bytes};
 use crate::models::SymbolOccurrence;
-use crate::util::err;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
@@ -35,9 +34,16 @@ const CITATION_COMMANDS: &[&str] = &[
     "fullcite",
 ];
 
-/// Every `.tex` file outside `.research` (eight levels deep), sorted by path.
+/// Every `.tex` file outside `.research` (eight levels deep), sorted by path,
+/// or an error naming the first one that cannot be read.
 pub(super) fn iter_tex_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
-    let mut files = Vec::new();
+    read_tex_sources(root)?.complete()
+}
+
+/// Every readable `.tex` file outside `.research` (eight levels deep), sorted
+/// by path, and the ones that could not be read.
+pub(super) fn read_tex_sources(root: &Path) -> Result<IndexSources, String> {
+    let mut files = IndexSources::default();
     for entry in WalkDir::new(root)
         .max_depth(8)
         .into_iter()
@@ -51,10 +57,10 @@ pub(super) fn iter_tex_sources(root: &Path) -> Result<Vec<(String, String)>, Str
                 .is_ok_and(|path| path.components().any(|part| part.as_os_str() == ".research"))
         })
     {
-        let source = fs::read_to_string(entry.path()).map_err(err)?;
-        files.push((relative_to(root, entry.path())?, source));
+        files.read(relative_to(root, entry.path())?, entry.path());
     }
-    files.sort_by(|left, right| left.0.cmp(&right.0));
+    files.sources.sort_by(|left, right| left.0.cmp(&right.0));
+    files.skipped.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(files)
 }
 
@@ -347,8 +353,10 @@ impl Symbol {
 
     fn is_defined(self, root: &Path, value: &str) -> Result<bool, String> {
         Ok(match self {
-            Self::Label => references(root)?.iter().any(|item| item.label == value),
-            Self::Citation => citations(root)?.iter().any(|citation| citation.key == value),
+            Self::Label => references(root)?.references.iter().any(|item| item.label == value),
+            Self::Citation => {
+                citations(root)?.citations.iter().any(|citation| citation.key == value)
+            }
         })
     }
 
@@ -501,8 +509,11 @@ pub fn unused_symbols(root: &Path) -> Result<UnusedSymbols, String> {
         }
     }
     let labels = defined_labels.difference(&referenced_labels).cloned().collect();
-    let bibliography_keys =
-        citations(root)?.into_iter().map(|citation| citation.key).collect::<BTreeSet<_>>();
+    let bibliography_keys = citations(root)?
+        .citations
+        .into_iter()
+        .map(|citation| citation.key)
+        .collect::<BTreeSet<_>>();
     let citations = bibliography_keys.difference(&cited_keys).cloned().collect();
     Ok(UnusedSymbols { labels, citations })
 }

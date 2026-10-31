@@ -1,15 +1,27 @@
 //! The reference index behind hover previews: every `\label` with the
 //! figure, table, equation, or section it names.
 
-use super::symbols::iter_tex_sources;
+use super::index_sources::SkippedSource;
+use super::symbols::read_tex_sources;
 use super::{line_number_at, skip_bytes};
 use serde::Serialize;
 use std::path::Path;
 
-pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
+/// Every label the project's readable `.tex` files define, and the files that
+/// could not be read: one unreadable draft leaves out its own labels, not the
+/// whole index.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceIndex {
+    pub references: Vec<ReferenceInfo>,
+    pub skipped: Vec<SkippedSource>,
+}
+
+pub fn references(root: &Path) -> Result<ReferenceIndex, String> {
+    let sources = read_tex_sources(root)?;
     let mut references = Vec::new();
-    for (path, source) in iter_tex_sources(root)? {
-        references.extend(parse_latex_references(root, Path::new(&path), &path, &source));
+    for (path, source) in &sources.sources {
+        references.extend(parse_latex_references(root, Path::new(path), path, source));
     }
     // Keep duplicate labels so the editor can warn across files; go-to uses the first match.
     references.sort_by(|left, right| {
@@ -19,7 +31,7 @@ pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
             .then_with(|| left.path.cmp(&right.path))
             .then_with(|| left.line.cmp(&right.line))
     });
-    Ok(references)
+    Ok(ReferenceIndex { references, skipped: sources.skipped })
 }
 
 /// Environments a label can name, with the preview kind each produces.
@@ -299,7 +311,7 @@ mod tests {
 "#,
         );
 
-        let indexed = references(&fixture.root).unwrap();
+        let indexed = references(&fixture.root).unwrap().references;
         let find = |label: &str| indexed.iter().find(|item| item.label == label).unwrap();
         let figure = find("fig:model");
         assert_eq!(

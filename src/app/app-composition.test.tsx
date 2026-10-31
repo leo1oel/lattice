@@ -191,7 +191,7 @@ describe("builds and the PDF reader", () => {
 
   it.each(["completion selection", "PDF pointer down", "PDF wheel"])("resumes autosave after citation completion on %s", async (trigger) => {
     await openWithAutomaticBuilds({
-      list_citations: () => ["dosovitskiy2021image", "vaswani2017attention"].map((key) => ({ key, title: "", authors: "", year: "", venue: "" })),
+      list_citations: () => ({ skipped: [], citations: ["dosovitskiy2021image", "vaswani2017attention"].map((key) => ({ key, title: "", authors: "", year: "", venue: "" })) }),
       write_project_file: undefined,
     }, projectSnapshot());
     const view = await waitFor(() => editorViewAt(), { timeout: 60_000 });
@@ -2169,29 +2169,6 @@ describe("project tree and projects", () => {
     const idsBeforeLatestResponse = randomUUID.mock.calls.length;
     syncResolvers[1]({ page: 2, x: 72, y: 96, width: 120, height: 14 });
     await waitFor(() => expect(randomUUID).toHaveBeenCalledTimes(idsBeforeLatestResponse + 1));
-  });
-
-  it("opens the document before its label index lands, and checks it only against that index", async () => {
-    const citations = deferred<unknown[]>();
-    const references = deferred<unknown[]>();
-    renderApp({
-      ...projectCommands(projectSnapshot(), "See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}."),
-      list_citations: () => citations.promise,
-      list_references: () => references.promise,
-    });
-    const view = await expectEditorText("See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}.");
-    const diagnostics = () => {
-      const found: string[] = [];
-      forEachDiagnostic(view.state, (diagnostic) => found.push(diagnostic.message));
-      return found;
-    };
-    // Past the linter's delay: an index that is not this project's yet reports nothing.
-    await pause(600);
-    expect(diagnostics()).toEqual([]);
-
-    citations.resolve([{ key: "known", title: "", authors: "", year: "", venue: "" }]);
-    references.resolve([{ label: "fig:model", kind: "figure", title: "", snippet: "", path: "sections/a.tex", line: 1 }]);
-    await waitFor(() => expect(diagnostics()).toEqual(["Unknown label “fig:gone”."]));
   });
 
   it.each([

@@ -5,7 +5,7 @@ use super::{current_root, in_project, pinned_root, run_blocking};
 use crate::app_state::AppState;
 use crate::models::{ProjectSearchResult, SymbolOccurrence};
 use crate::project::{
-    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, TodoHit, UnusedSymbols,
+    ReferenceIndex, RenameSymbolResult, ReplacePreview, ReplaceResult, TodoHit, UnusedSymbols,
 };
 use crate::texcount::WordCount;
 use crate::{papers, project, texcount};
@@ -79,7 +79,7 @@ pub async fn rename_symbol(
 #[tauri::command]
 pub async fn list_references(
     state: State<'_, AppState>, window: Window,
-) -> Result<Vec<ReferenceInfo>, String> {
+) -> Result<ReferenceIndex, String> {
     in_project(&state, &window, "Reference scan", project::references).await
 }
 

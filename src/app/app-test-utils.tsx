@@ -31,6 +31,7 @@ import { saveLayout } from "../trellis/trellis-layout";
 import type { FileNode, ProjectManifest, ProjectSnapshot } from "../app-types";
 import type { OpenSlideMutation, OpenSlideSyncOperation } from "../editor/presentation/open-slide-bridge";
 import type { OpenSlideAgentRequest } from "../editor/presentation/open-slide-agent-request";
+import { mockAppCommand } from "./app-test-startup-commands";
 
 
 const windowApi = vi.hoisted(() => ({
@@ -284,11 +285,7 @@ vi.mock("@pdfslick/core", () => {
   } };
 });
 
-/** Answers the commands every window issues at startup; rejects any other command a test did not declare. */
-export function mockAppCommand(command: string) {
-  if (["list_citations", "list_references", "list_local_templates"].includes(command)) return [];
-  throw new Error(`Unexpected command: ${command}`);
-}
+export { mockAppCommand };
 
 const FILE_KINDS: Record<string, string> = {
   tex: "tex", md: "markdown", bib: "bib", tldr: "board", "lattice-sheet": "spreadsheet", tsx: "tsx",

@@ -14,7 +14,8 @@
 //! - [`bibliography`] — BibTeX parsing, entry editing, and SyncTeX hops
 //!   between `.bib` and `.bbl`; [`citation_lookup`] resolves new citations.
 //! - [`symbols`] and [`references`] — `\label`/`\cite` find, rename, and
-//!   removal, and the reference hover index.
+//!   removal, and the reference hover index; [`index_sources`] reads the
+//!   files they scan and names the ones it cannot.
 //! - [`search`] — project search, TODO markers, and find/replace.
 //! - [`entries`], [`imports`], [`assets`], [`archive`] — Project-pane file
 //!   operations, drops and uploads, figure previews, and ZIP packs.
@@ -32,6 +33,7 @@ mod create;
 mod entries;
 mod history;
 mod imports;
+mod index_sources;
 mod linked_bibliography;
 mod manifest;
 mod manifest_settings;
@@ -55,6 +57,7 @@ pub use assets::AssetPreview;
 pub use assets::{prepare_latex_figure, read_asset, read_asset_range, save_asset_copy};
 pub use bibliography::{
     bbl_target_for_bib, bib_target_for_bbl, citations, read_bib_entry, save_bib_entry,
+    CitationIndex,
 };
 pub(crate) use bibliography::{
     bibliography_arxiv_id, bibliography_entry_spans, iter_bibliography_sources, normalize_doi,
@@ -90,7 +93,7 @@ pub use manifest_settings::{
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};
 pub use references::references;
-pub use references::ReferenceInfo;
+pub use references::ReferenceIndex;
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,
 };

@@ -16,6 +16,7 @@ import { PLAYBOOK_FIXTURE, perfFixture, type PerfFixtureSizes } from "../../scri
 import { arxivAnswer } from "./bench-arxiv";
 import { paintStandInDesktop } from "./bench-glass";
 import { linkedLibraryAnswer, linkedLibraryBibliography } from "./bench-linked-library";
+import { bibliographyAnswer } from "./bench-bibliography";
 import { addNestedTree } from "./bench-nested-tree";
 import { NOT_HANDLED, overleafAnswer } from "./bench-overleaf";
 import { terminalAnswer } from "./bench-terminal";
@@ -786,63 +787,6 @@ function textTask(args: Args): unknown {
   return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
 
-/** Every `\\cite…{keys}` in the project's .tex files, as `list_citation_usages` reports them. */
-function citationUsages() {
-  const usages: Array<{ kind: string; symbol: string; role: string; path: string; line: number; snippet: string }> = [];
-  for (const [path, content] of current.files) {
-    if (!path.endsWith(".tex") || typeof content !== "string") continue;
-    const lines = content.split("\n");
-    lines.forEach((text, index) => {
-      for (const match of text.matchAll(/\\(?:no)?cite[a-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}/g)) {
-        for (const key of match[1].split(",").map((part) => part.trim()).filter(Boolean)) {
-          usages.push({ kind: "citation", symbol: key, role: "reference", path, line: index + 1, snippet: text.trim().slice(0, 160) });
-        }
-      }
-    });
-  }
-  return usages;
-}
-
-/**
- * The tutorial's references as `list_citations` reports them (fields without
- * their braces), so a `\\cite` there has its card; the fixture cites nothing.
- */
-function tutorialCitations() {
-  if (current.root !== TUTORIAL_ROOT && !scale.bibEntries) return [];
-  const field = (entry: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`, "i")
-    .exec(entry)?.[1].replace(/[{}]/g, "").replace(/\s+/g, " ").trim() ?? "";
-  return [...current.files].flatMap(([path, content]) => (
-    path.endsWith(".bib") && typeof content === "string" ? content.split(/\n(?=@)/) : []
-  )).flatMap((entry) => {
-    const key = /^\s*@\w+\s*\{\s*([^,\s]+)\s*,/.exec(entry)?.[1];
-    if (!key) return [];
-    const arxivId = field(entry, "eprint");
-    const doi = field(entry, "doi");
-    return [{
-      key, title: field(entry, "title"), authors: field(entry, "author"), year: field(entry, "year"),
-      venue: field(entry, "journal") || field(entry, "booktitle") || (arxivId ? "arXiv" : ""),
-      ...arxivId ? { arxivId } : {}, ...doi ? { doi } : {},
-    }];
-  });
-}
-
-/** `bibliography_audit_scan` over the project's `.bib` files, as the backend reads them. */
-function bibliographyAuditScan() {
-  const entries = [...current.files].flatMap(([path, content]) => (
-    path.endsWith(".bib") && typeof content === "string"
-      ? content.split(/\n(?=@)/).flatMap((bibtex) => {
-        const key = /^\s*@\w+\s*\{\s*([^,\s]+)\s*,/.exec(bibtex)?.[1];
-        const title = /\btitle\s*=\s*\{([^}]*)\}/i.exec(bibtex)?.[1] ?? "";
-        return key ? [{ path, key, title, bibtex: bibtex.trim(), issues: [] }] : [];
-      })
-      : []
-  ));
-  const coverage = [...current.files].flatMap(([path, content]) => (
-    path.endsWith(".bib") && typeof content === "string" ? [{ path, kind: "bibliography", entries: entries.filter((entry) => entry.path === path).length }] : []
-  ));
-  return { entries, issues: [], coverage };
-}
-
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   // `?overleaf=review` (or `long`, `expired`) links the open project to Overleaf (bench-overleaf.ts).
@@ -862,6 +806,9 @@ function answer(command: string, args: Args): unknown {
   if (linked !== NOT_HANDLED) return linked;
   const shell = terminalAnswer(command, args, () => current);
   if (shell !== NOT_HANDLED) return shell;
+  const cited = current.root === TUTORIAL_ROOT || Boolean(scale.bibEntries);
+  const bibliography = bibliographyAnswer(command, { params, files: current.files, cited });
+  if (bibliography !== NOT_HANDLED) return bibliography;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "list_local_templates":
@@ -961,14 +908,8 @@ function answer(command: string, args: Args): unknown {
       const after = String(current.files.get(path) ?? "");
       return { id: args?.transactionId, changes: [{ path, before: after.replace(/Section/, "Part"), after }] };
     }
-    case "bibliography_audit_scan":
-      return bibliographyAuditScan();
     case "list_unused_symbols":
       return { labels: [], citations: [] };
-    case "list_citation_usages":
-      return citationUsages();
-    case "list_citations":
-      return tutorialCitations();
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":
