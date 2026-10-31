@@ -104,8 +104,17 @@ pub(super) enum ContentKind {
 }
 
 pub(super) fn classify_file_bytes(bytes: &[u8]) -> ContentKind {
-    // Binary formats can have an ASCII-only prefix and no early NULs. Known
-    // signatures keep routing content-based without trusting the extension.
+    if has_binary_marker(bytes) || std::str::from_utf8(bytes).is_err() {
+        ContentKind::Binary
+    } else {
+        ContentKind::Text
+    }
+}
+
+/// A NUL byte or a known binary signature. Binary formats can have an
+/// ASCII-only prefix and no early NULs, so the signatures keep routing
+/// content-based without trusting the extension.
+fn has_binary_marker(bytes: &[u8]) -> bool {
     let binary_signature = [
         &b"%PDF-"[..],
         b"\x89PNG\r\n\x1a\n",
@@ -118,12 +127,19 @@ pub(super) fn classify_file_bytes(bytes: &[u8]) -> ContentKind {
     .iter()
     .any(|signature| bytes.starts_with(signature))
         || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"));
-    if bytes.contains(&0) || binary_signature || std::str::from_utf8(bytes).is_err() {
-        ContentKind::Binary
-    } else {
-        ContentKind::Text
-    }
+    bytes.contains(&0) || binary_signature
 }
+
+/// Text in another encoding (GBK, Latin-1, …): no binary marker, but not
+/// UTF-8. The tree still files it as binary, since nothing can edit it, but
+/// opening it says what is wrong instead of calling it a binary file.
+pub(super) fn is_non_utf8_text(bytes: &[u8]) -> bool {
+    !has_binary_marker(bytes) && std::str::from_utf8(bytes).is_err()
+}
+
+/// Why a text file in another encoding does not open.
+pub(super) const NOT_UTF8: &str = "This file is not UTF-8 text, so Lattice cannot open it. \
+Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again.";
 
 pub(super) fn is_html_path(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("html"))
@@ -361,10 +377,13 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
         return Err(NOT_EDITABLE.to_string());
     }
     let bytes = fs::read(&path).map_err(err)?;
+    if is_non_utf8_text(&bytes) {
+        return Err(NOT_UTF8.to_string());
+    }
     if classify_file_bytes(&bytes) != ContentKind::Text {
         return Err(NOT_EDITABLE.to_string());
     }
-    String::from_utf8(bytes).map_err(|_| "This is not lossless UTF-8 text.".to_string())
+    String::from_utf8(bytes).map_err(|_| NOT_UTF8.to_string())
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -33,7 +33,7 @@ async function openWithUnknownCitation(
 ) {
   renderApp({
     ...projectCommands(projectSnapshot(), SOURCE),
-    list_citations: () => bibliography.keys.map(citation),
+    list_citations: () => ({ citations: bibliography.keys.map(citation), skipped: [] }),
     ...extra,
   });
   const view = await expectEditorText(SOURCE);

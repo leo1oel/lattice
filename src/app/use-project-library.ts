@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
 import { isBibFilePath, toMessage } from "../app-utils";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import type { HistoryItem } from "../history/history-drawer";
 import { changesReach, onBibliographyWrite, onProjectFilesChanged } from "../project/project-files-changed";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import type { TodoHit } from "../project/todo-scavenger";
 import { collectFilePaths } from "./workspace-restore";
+import {
+  announceProjectIndex, isProjectIndexPending, PROJECT_INDEX_IDLE, projectIndexNotice, projectIndexReducer,
+  type CitationIndex, type ReferenceIndex,
+} from "./project-index-load";
 import type { ProjectState } from "./use-project-state";
 
 const NO_UNUSED_SYMBOLS: UnusedSymbols = { labels: [], citations: [] };
@@ -56,8 +61,8 @@ export function loadBibliographyIndex() {
 export function requestBibliographyIndex() {
   return [
     invoke<PaperSummary[]>("list_papers"),
-    invoke<CitationInfo[]>("list_citations"),
-    invoke<ReferenceInfo[]>("list_references"),
+    invoke<CitationIndex>("list_citations"),
+    invoke<ReferenceIndex>("list_references"),
   ] as const;
 }
 
@@ -75,7 +80,9 @@ export function useProjectLibrary(state: ProjectState) {
   const [citations, setCitations] = useState<CitationInfo[]>([]);
   const citationKeys = useMemo(() => citations.map((citation) => citation.key), [citations]);
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
-  const [bibliographyIndexPending, setBibliographyIndexPending] = useState(false);
+  const [indexLoad, dispatchIndexLoad] = useReducer(projectIndexReducer, PROJECT_INDEX_IDLE);
+  const indexLoadRef = useLatestRef(indexLoad);
+  const bibliographyIndexPending = isProjectIndexPending(indexLoad);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>(NO_UNUSED_SYMBOLS);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
@@ -171,12 +178,20 @@ export function useProjectLibrary(state: ProjectState) {
     setPaperLoad({ root, status: "loading" });
     setCitations([]);
     setReferences([]);
-    setBibliographyIndexPending(true);
+    dispatchIndexLoad({ type: "reset" });
   }, []);
 
-  const applyReferences = useCallback((nextReferences: ReferenceInfo[] | null | undefined) => {
-    setReferences(nextReferences ?? []);
-    setBibliographyIndexPending(false);
+  const applyCitations = useCallback((index: CitationIndex) => {
+    setCitations(index.citations);
+    dispatchIndexLoad({ type: "loaded", part: "citations", skipped: index.skipped });
+  }, []);
+  const applyReferences = useCallback((index: ReferenceIndex) => {
+    setReferences(index.references);
+    dispatchIndexLoad({ type: "loaded", part: "references", skipped: index.skipped });
+  }, []);
+  /** A citation or label read failed: the checks stay off and the toast offers a retry. */
+  const failIndex = useCallback((part: "citations" | "references", reason: unknown) => {
+    dispatchIndexLoad({ type: "failed", part, error: toMessage(reason) });
   }, []);
 
   const applyBibliographyIndex = useCallback((
@@ -184,9 +199,9 @@ export function useProjectLibrary(state: ProjectState) {
   ) => {
     const root = projectRef.current?.root;
     if (root) publishPapers(root, nextPapers);
-    setCitations(nextCitations);
+    applyCitations(nextCitations);
     applyReferences(nextReferences);
-  }, [applyReferences, projectRef, publishPapers]);
+  }, [applyCitations, applyReferences, projectRef, publishPapers]);
 
   /** A newer bibliography refresh supersedes this one; see refreshAfterSave. */
   const claimBibliographyRefresh = useCallback(() => {
@@ -196,20 +211,22 @@ export function useProjectLibrary(state: ProjectState) {
 
   /**
    * Read `projectRoot`'s citation keys and paper list again after its .bib
-   * files changed. A failed read keeps what was shown; a newer bibliography
-   * read, or another project, discards this one.
+   * files changed. A failed read keeps keys already shown, and says so only
+   * when there were none to keep; a newer bibliography read, or another
+   * project, discards this one.
    */
   const refreshCitations = useCallback((projectRoot: string) => {
     const isLatestBibliography = claimBibliographyRefresh();
     void Promise.allSettled([
-      invoke<CitationInfo[]>("list_citations"),
+      invoke<CitationIndex>("list_citations"),
       invoke<PaperSummary[]>("list_papers"),
     ]).then(([nextCitations, nextPapers]) => {
       if (projectRef.current?.root !== projectRoot || !isLatestBibliography()) return;
-      if (nextCitations.status === "fulfilled") setCitations(nextCitations.value);
+      if (nextCitations.status === "fulfilled") applyCitations(nextCitations.value);
+      else failIndex("citations", nextCitations.reason);
       if (nextPapers.status === "fulfilled") publishPapers(projectRoot, nextPapers.value);
     });
-  }, [claimBibliographyRefresh, projectRef, publishPapers]);
+  }, [applyCitations, claimBibliographyRefresh, failIndex, projectRef, publishPapers]);
 
   /**
    * The bibliography changed without a save in the editor: the agent's
@@ -248,9 +265,13 @@ export function useProjectLibrary(state: ProjectState) {
 
   const refreshAfterSave = useCallback((projectRoot: string, wroteTex: boolean, wroteBib: boolean) => {
     const generation = ++postSaveRefreshGenerationRef.current;
+    // An index whose last read failed is read again on any save, so the
+    // checks come back once the file that broke it is fixed.
+    const readCitations = wroteBib || indexLoadRef.current.citations.status === "failed";
+    const readReferences = wroteTex || indexLoadRef.current.references.status === "failed";
     // A subsequent .tex save must not discard a pending bibliography refresh,
     // and slow history/word-count scans must not delay the Papers update.
-    if (wroteBib) refreshCitations(projectRoot);
+    if (readCitations) refreshCitations(projectRoot);
     // These replies share the scans' slots: a later scan of a kind supersedes
     // this refresh's result for it, and this refresh supersedes earlier ones.
     const ownsProject = captureProjectScope();
@@ -259,20 +280,23 @@ export function useProjectLibrary(state: ProjectState) {
     const currentTodos = claimScan(todoScanRef);
     const currentWordCount = claimScan(wordCountScanRef);
     void Promise.allSettled([
-      wroteTex ? invoke<ReferenceInfo[]>("list_references") : Promise.resolve(null),
+      readReferences ? invoke<ReferenceIndex>("list_references") : Promise.resolve(null),
       invoke<UnusedSymbols>("list_unused_symbols"),
       invoke<HistoryItem[]>("list_history"),
       invoke<TodoHit[]>("list_todos"),
       invoke<WordCount>("count_project_words"),
     ] as const).then(([referenceResult, unusedResult, historyResult, todoResult, wordCountResult]) => {
       if (projectRef.current?.root !== projectRoot || !ownsProject() || generation !== postSaveRefreshGenerationRef.current) return;
-      if (referenceResult.status === "fulfilled" && referenceResult.value) setReferences(referenceResult.value);
+      if (referenceResult.status === "fulfilled" && referenceResult.value) applyReferences(referenceResult.value);
+      else if (referenceResult.status === "rejected") failIndex("references", referenceResult.reason);
       if (unusedResult.status === "fulfilled" && currentUnused()) setUnusedSymbols(unusedResult.value);
       if (historyResult.status === "fulfilled" && currentHistory()) setHistory(historyResult.value);
       if (todoResult.status === "fulfilled" && currentTodos()) setDiskTodos(todoResult.value);
       if (wordCountResult.status === "fulfilled" && currentWordCount()) setProjectWordCount(wordCountResult.value);
     });
-  }, [captureProjectScope, claimScan, projectRef, refreshCitations]);
+  }, [
+    applyReferences, captureProjectScope, claimScan, failIndex, indexLoadRef, projectRef, refreshCitations,
+  ]);
 
   /** Read the paper list again after a failed read, from the Papers panel's retry. */
   const retryPapers = useCallback(() => {
@@ -286,6 +310,40 @@ export function useProjectLibrary(state: ProjectState) {
       if (projectRef.current?.root === root && isLatestBibliography()) failPapers(root, reason);
     });
   }, [claimBibliographyRefresh, failPapers, projectRef, publishPapers]);
+
+  /** The notice the index toast last showed, so the same files are listed once. */
+  const announcedIndexRef = useRef<string | null>(null);
+  /** Read the citation and label indexes again, from the toast that says they failed or left files out. */
+  const retryProjectIndex = useCallback(() => {
+    const root = projectRef.current?.root;
+    if (!root) return;
+    // The toast closed on the click: whatever this read finds is said again,
+    // and a clean read takes down any toast still up. ("" matches no notice.)
+    announcedIndexRef.current = "";
+    const ownsProject = captureProjectScope();
+    const isLatestBibliography = claimBibliographyRefresh();
+    const [, citationRequest, referenceRequest] = requestBibliographyIndex();
+    void citationRequest.then((index) => {
+      if (ownsProject() && isLatestBibliography()) applyCitations(index);
+    }, (reason: unknown) => {
+      if (ownsProject() && isLatestBibliography()) failIndex("citations", reason);
+    });
+    void referenceRequest.then((index) => {
+      if (ownsProject()) applyReferences(index);
+    }, (reason: unknown) => {
+      if (ownsProject()) failIndex("references", reason);
+    });
+  }, [applyCitations, applyReferences, captureProjectScope, claimBibliographyRefresh, failIndex, projectRef]);
+
+  // The toast follows the index: shown when a read fails or leaves files out,
+  // taken down once a read succeeds, and not shown again for the same files.
+  useEffect(() => {
+    const notice = projectIndexNotice(indexLoad);
+    const signature = notice && JSON.stringify(notice);
+    if (signature === announcedIndexRef.current) return;
+    announcedIndexRef.current = signature;
+    announceProjectIndex(notice, retryProjectIndex);
+  }, [indexLoad, retryProjectIndex]);
 
   /** Re-read the tree and every bibliography index, unless a newer refresh or project took over. */
   const refreshProject = useCallback(async (scope?: { expectedRoot: string; generation: number }) => {
@@ -311,22 +369,28 @@ export function useProjectLibrary(state: ProjectState) {
       if (mayApply(snapshot.root) && isLatestBibliography()) failPapers(snapshot.root, reason);
       throw reason;
     });
-    const [, nextCitations, nextReferences] = await Promise.all([papersPublished, citationRequest, referenceRequest]);
+    const [[citationResult, referenceResult]] = await Promise.all([
+      Promise.allSettled([citationRequest, referenceRequest]), papersPublished,
+    ]);
     if (!mayApply(snapshot.root)) return snapshot;
-    if (isLatestBibliography()) setCitations(nextCitations);
-    applyReferences(nextReferences);
+    if (isLatestBibliography()) {
+      if (citationResult.status === "fulfilled") applyCitations(citationResult.value);
+      else failIndex("citations", citationResult.reason);
+    }
+    if (referenceResult.status === "fulfilled") applyReferences(referenceResult.value);
+    else failIndex("references", referenceResult.reason);
     await refreshUnusedSymbols();
     return snapshot;
   }, [
-    applyReferences, claimBibliographyRefresh, failPapers, projectOperationGenerationRef, projectRef,
-    projectRefreshGenerationRef, publishPapers, refreshUnusedSymbols, setProject,
+    applyCitations, applyReferences, claimBibliographyRefresh, failIndex, failPapers, projectOperationGenerationRef,
+    projectRef, projectRefreshGenerationRef, publishPapers, refreshUnusedSymbols, setProject,
   ]);
 
   return {
     papers, paperLoad, publishPapers, failPapers, retryPapers, citationKeys, citations, references, bibliographyIndexPending,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
-    resetBibliographyIndex, applyReferences, setCitations, applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave,
-    refreshProject,
+    resetBibliographyIndex, applyCitations, applyReferences, failIndex, retryProjectIndex, applyBibliographyIndex,
+    claimBibliographyRefresh, refreshAfterSave, refreshProject,
   };
 }

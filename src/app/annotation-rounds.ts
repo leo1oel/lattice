@@ -324,7 +324,7 @@ export class AnnotationRounds {
     }
     const previous = annotation.revision;
     const citations = annotation.intent === "cite"
-      ? await invoke<AnnotationCitation[]>("list_citations").catch(() => [])
+      ? await invoke<{ citations: AnnotationCitation[] }>("list_citations").then(({ citations }) => citations, () => [])
       : undefined;
     const stale = () => controller.signal.aborted || this.deps?.projectRootRef.current !== projectRoot;
     await reviseAnnotationWithAgent({

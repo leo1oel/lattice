@@ -2608,6 +2608,7 @@ msgstr "Check {0} again"
 msgid "Check accent example"
 msgstr "Check accent example"
 
+#: src/app/project-index-load.ts
 #: src/papers/bibliography-audit.tsx
 #: src/project/arxiv-export-dialog.tsx
 msgid "Check again"
@@ -3514,6 +3515,10 @@ msgstr "Core components"
 #: src/project/citation-health.ts
 msgid "Correction/update"
 msgstr "Correction/update"
+
+#: src/app/project-index-load.ts
+msgid "Could not be read: {failed}"
+msgstr "Could not be read: {failed}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not change Overleaf sync"
@@ -6403,6 +6408,10 @@ msgstr "Label"
 msgid "Label <0>{symbol}</0>"
 msgstr "Label <0>{symbol}</0>"
 
+#: src/app/project-index-load.ts
+msgid "Label and citation checks are off"
+msgstr "Label and citation checks are off"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Label removed."
 msgstr "Label removed."
@@ -6414,6 +6423,10 @@ msgstr "Labeled description list"
 #: src/editor/latex/latex-diagnostics.ts
 msgid "labels"
 msgstr "labels"
+
+#: src/app/project-index-load.ts
+msgid "Labels and citations"
+msgstr "Labels and citations"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Lambda"
@@ -6560,6 +6573,10 @@ msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to t
 #: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
 msgstr "Lattice could not read {0}."
+
+#: src/app/project-index-load.ts
+msgid "Lattice could not read the project’s labels and citations: {error}"
+msgstr "Lattice could not read the project’s labels and citations: {error}"
 
 #: src/build/tex-setup.ts
 msgid "Lattice could not write to the TeX installation folder."
@@ -8199,6 +8216,10 @@ msgstr "Not on this PDF"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
+
+#: src/app/project-index-load.ts
+msgid "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
+msgstr "Not UTF-8 text; convert to UTF-8 to include: {encoded}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
@@ -11548,6 +11569,10 @@ msgstr "Smile relation"
 #: src/components/ui/color-picker.tsx
 msgid "Soft {name}"
 msgstr "Soft {name}"
+
+#: src/app/project-index-load.ts
+msgid "Some files are left out of label and citation checks"
+msgstr "Some files are left out of label and citation checks"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
