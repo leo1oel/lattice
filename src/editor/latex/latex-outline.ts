@@ -1,5 +1,7 @@
+import { headingTitle } from "./latex-heading-title";
 import { INCLUDE } from "./latex-symbols";
 import { lineCounter, resolveTexPath } from "./latex-text";
+import { groupEnd, skipSpace, visibleLatexSource } from "./latex-visible-source";
 
 type OutlineLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -17,15 +19,14 @@ export type OutlineNode = {
   children: OutlineNode[];
 };
 
-const SECTION_COMMAND = /\\(part|chapter|section|subsection|subsubsection)(\*?)\{([^{}]*)\}/g;
+/** A sectioning command's name; its `*`, `[short title]` and `{title}` are read by hand, as they nest. */
+const SECTION_COMMAND = /\\(part|chapter|section|subsection|subsubsection)(?![A-Za-z@])/g;
 /** Where the appendix starts: `\appendix`, or the appendix package's environment. */
 const APPENDIX = /\\(?:appendix(?![A-Za-z@])|begin\{appendices\})/g;
 const LEVELS: Record<string, OutlineLevel> = { part: 1, chapter: 2, section: 3, subsection: 4, subsubsection: 5 };
 
 /** What ends the body: an appendix, or the references. */
 const BODY_END = /(?<!\\)\\(?:appendix(?![A-Za-z@])|begin\{appendices\}|bibliography\s*\{|printbibliography(?![A-Za-z@])|begin\{thebibliography\})/;
-/** A comment, from the first `%` that is not escaped. */
-const COMMENT = /(^|[^\\])%.*/;
 
 /** Source the manuscript's body is read from: all of `path`, or its lines before `before`. */
 export type BodySpan = { path: string; before: number | null };
@@ -58,8 +59,7 @@ export function findBodyEnd(
       unread = true;
       return false;
     }
-    for (const [index, raw] of source.split("\n").entries()) {
-      const line = raw.replace(COMMENT, "$1");
+    for (const [index, line] of visibleLatexSource(source).split("\n").entries()) {
       const end = BODY_END.exec(line)?.index ?? Infinity;
       // The line's includes before the end are read first, and may end the body themselves.
       const ended = [...line.matchAll(INCLUDE)].some((match) => {
@@ -79,7 +79,7 @@ export function findBodyEnd(
 }
 
 export function includedPathsIn(source: string, projectPaths: string[]): string[] {
-  const paths = [...source.matchAll(INCLUDE)].map((match) => resolveTexPath(match[1], projectPaths));
+  const paths = [...visibleLatexSource(source).matchAll(INCLUDE)].map((match) => resolveTexPath(match[1], projectPaths));
   return [...new Set(paths.filter((path): path is string => path !== null))];
 }
 
@@ -181,21 +181,41 @@ type OutlineEvent =
   | { kind: "input"; offset: number; raw: string }
   | { kind: "appendix"; offset: number };
 
+/**
+ * Each heading in `visible` source: `\section`, an optional `*`, an optional
+ * `[short title]`, then its `{title}`, braces balanced. The outline shows
+ * the short title when there is one, as the table of contents does.
+ */
+function headingEvents(visible: string): OutlineEvent[] {
+  return [...visible.matchAll(SECTION_COMMAND)].flatMap((match): OutlineEvent[] => {
+    let at = match.index + match[0].length;
+    const starred = visible[at] === "*";
+    at = skipSpace(visible, starred ? at + 1 : at);
+    const shortEnd = groupEnd(visible, at, "[", "]");
+    const titleStart = shortEnd == null ? at : skipSpace(visible, shortEnd);
+    const titleEnd = groupEnd(visible, titleStart);
+    if (titleEnd == null) return [];
+    const short = shortEnd == null ? "" : headingTitle(visible.slice(at + 1, shortEnd - 1));
+    return [{
+      kind: "section",
+      offset: match.index,
+      level: LEVELS[match[1]],
+      title: short || headingTitle(visible.slice(titleStart + 1, titleEnd - 1)) || `(${match[1]})`,
+      starred,
+    }];
+  });
+}
+
 function outlineEvents(source: string): OutlineEvent[] {
-  const sections = [...source.matchAll(SECTION_COMMAND)].map((match): OutlineEvent => ({
-    kind: "section",
-    offset: match.index,
-    level: LEVELS[match[1]],
-    title: match[3].replace(/\s+/g, " ").trim() || `(${match[1]})`,
-    starred: match[2] === "*",
-  }));
-  const inputs = [...source.matchAll(INCLUDE)].map((match): OutlineEvent => ({
+  // Commented-out, quoted (verbatim) and macro-defined headings and includes are not the document's.
+  const visible = visibleLatexSource(source);
+  const inputs = [...visible.matchAll(INCLUDE)].map((match): OutlineEvent => ({
     kind: "input",
     offset: match.index,
     raw: match[1],
   }));
-  const appendices = [...source.matchAll(APPENDIX)].map((match): OutlineEvent => ({ kind: "appendix", offset: match.index }));
-  return [...sections, ...inputs, ...appendices].sort((left, right) => left.offset - right.offset);
+  const appendices = [...visible.matchAll(APPENDIX)].map((match): OutlineEvent => ({ kind: "appendix", offset: match.index }));
+  return [...headingEvents(visible), ...inputs, ...appendices].sort((left, right) => left.offset - right.offset);
 }
 
 export function parseProjectOutline(
