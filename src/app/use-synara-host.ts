@@ -35,6 +35,7 @@ import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
+import { announceBibliographyWrite } from "../project/project-files-changed";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { i18n } from "../i18n";
@@ -81,7 +82,11 @@ type MessageData = Record<string, unknown> & { type?: unknown };
 const TOOL_ROUTES: Array<(data: unknown, bridge: SynaraHostBridge, projectRoot: string | null) => Promise<object> | null> = [
   (data, _bridge, projectRoot) => {
     const request = parseAgentBibliographyToolRequest(data);
-    return request && executeAgentBibliographyToolRequest(request, projectRoot);
+    // The citation index re-reads at once (use-project-library.ts); a dry run wrote nothing.
+    return request && executeAgentBibliographyToolRequest(request, projectRoot).then((response) => {
+      if (response.ok && request.params.dryRun !== true) announceBibliographyWrite(request.workspaceRoot);
+      return response;
+    });
   },
   (data, bridge) => {
     const request = parseAgentProjectDocumentToolRequest(data);

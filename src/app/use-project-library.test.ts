@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import type { HistoryItem } from "../history/history-drawer";
-import { useProjectLibrary } from "./use-project-library";
+import { changesReachBibliography, useProjectLibrary } from "./use-project-library";
 import { useProjectState } from "./use-project-state";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -108,4 +108,17 @@ it("drops late todo, word-count and unused-symbol reads from the outgoing projec
   expect(view.result.current.library.diskTodos).toEqual([]);
   expect(view.result.current.library.projectWordCount).toBeNull();
   expect(view.result.current.library.unusedSymbols).toEqual({ labels: [], citations: [] });
+});
+
+it("tells which watcher bursts may have changed the bibliography", () => {
+  const files = [
+    { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+    { name: "bib", path: "bib", kind: "directory", children: [{ name: "refs.bib", path: "bib/refs.bib", kind: "bib", children: [] }] },
+  ];
+  expect(changesReachBibliography(null, files)).toBe(true);
+  // A .bib the tree does not show yet (an export just created it), in any case.
+  expect(changesReachBibliography(["new/Extra.BIB"], files)).toBe(true);
+  // A folder holding one was renamed or removed.
+  expect(changesReachBibliography(["bib"], files)).toBe(true);
+  expect(changesReachBibliography(["main.tex", "main.pdf", "bibliography.tex"], files)).toBe(false);
 });

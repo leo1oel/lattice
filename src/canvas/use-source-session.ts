@@ -116,9 +116,11 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
     if (viewRef.current) refreshLint(viewRef.current);
   }, [buildDiagnostics, texlabDiagnostics]);
 
+  // Keys re-read from a .bib written outside this editor (the agent, a
+  // reference manager's export) clear or raise flags in the open document.
   useEffect(() => {
     viewRef.current?.dispatch({ effects: latexIndexChanged.of(null) });
-  }, [props.bibliography.indexPending]);
+  }, [props.bibliography.indexPending, props.bibliography.citationKeys]);
 
   useEffect(() => {
     const current = viewRef.current;
