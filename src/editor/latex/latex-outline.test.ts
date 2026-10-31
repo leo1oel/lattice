@@ -3,6 +3,8 @@ import {
   activeOutlineNode,
   findBodyEnd,
   flattenOutline,
+  includedPathsIn,
+  outlineNumbers,
   parseLatexOutline,
   parseProjectOutline,
   sameOutline,
@@ -84,6 +86,61 @@ describe("latex outline", () => {
       { title: "Main", path: "main.tex", children: [{ title: "Approach", path: method, children: [{ title: "Details", path: method }] }] },
       { title: "Close", path: "main.tex" },
     ]);
+  });
+});
+
+describe("outline headings as TeX reads them", () => {
+  const titles = (source: string) => flattenOutline(parseLatexOutline(source, "main.tex")).map(({ title }) => title);
+
+  it.each([
+    ["\\section{Experiments on \\textsc{ImageNet}}", "Experiments on ImageNet"],
+    ["\\subsection{Complexity $\\mathcal{O}(n \\log n)$}", "Complexity $\\mathcal{O}(n \\log n)$"],
+    ["\\section[Short]{A Long Title}", "Short"],
+    ["\\section{Fr\\'echet Distance on \\textbf{CIFAR}}", "Fréchet Distance on CIFAR"],
+    ["\\section{\\texorpdfstring{$\\alpha$-Nets}{alpha-Nets}}", "alpha-Nets"],
+    ["\\section{Intro\\label{sec:intro}}", "Intro"],
+    ["\\section*\n  [Short]\n  {Long}", "Short"],
+  ])("lists %j, nested braces and all", (heading, title) => {
+    expect(titles(`${heading}\nBody.\n\\section{Next}\n`)).toEqual([title, "Next"]);
+  });
+
+  it("leaves out headings that are commented out, quoted, or defined for later", () => {
+    const source = [
+      "\\newcommand{\\mysec}[1]{\\section{#1}}",
+      "\\def\\oldsec#1{\\section{#1}}",
+      "\\section{Results \\& Analysis}",
+      "% \\section{Commented out}",
+      "50\\% done \\section{After an escaped percent}",
+      "\\begin{verbatim}",
+      "\\section{In verbatim}",
+      "\\end{verbatim}",
+      "\\begin{lstlisting}\\section{In a listing}\\end{lstlisting}",
+      "\\verb|\\section{Inline}| \\mysec{Through a macro}",
+    ].join("\n");
+    expect(titles(source)).toEqual(["Results & Analysis", "After an escaped percent"]);
+  });
+
+  it("keeps each heading's line and the numbering after a heading the old parser dropped", () => {
+    const source = "\\section{One}\n\\section{Two on \\textsc{X}}\n%\\section{Gone}\n\\section{Three}\n";
+    const outline = parseLatexOutline(source, "main.tex");
+    expect(outline.map(({ title, line }) => [title, line])).toEqual([["One", 1], ["Two on X", 2], ["Three", 4]]);
+    expect([...outlineNumbers(outline).values()]).toEqual(["1", "2", "3"]);
+  });
+
+  it("does not follow a commented-out include", () => {
+    const sources = {
+      "main.tex": "\\section{Intro}\n% \\input{sections/old}\n\\section{Method}\n",
+      "sections/old.tex": "\\section{Old Draft}\n",
+    };
+    const paths = Object.keys(sources);
+    expect(flattenOutline(parseProjectOutline("main.tex", sources, paths)).map(({ title }) => title))
+      .toEqual(["Intro", "Method"]);
+    expect(includedPathsIn(sources["main.tex"], paths)).toEqual([]);
+  });
+
+  it("does not end the body at an appendix inside a verbatim block", () => {
+    const source = "\\section{Intro}\n\\begin{verbatim}\n\\appendix\n\\end{verbatim}\n\\appendix\n";
+    expect(findBodyEnd("main.tex", { "main.tex": source }, ["main.tex"])).toEqual([{ path: "main.tex", before: 5 }]);
   });
 });
 
