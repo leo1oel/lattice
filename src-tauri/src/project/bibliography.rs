@@ -4,13 +4,15 @@
 
 use super::citation_lookup::citation_from_bibtex;
 use super::history::{apply_citation_transaction, current_text};
+use super::index_sources::{IndexSources, SkippedSource};
 use super::manifest::read_manifest;
-use super::paths::safe_path;
+use super::paths::{extension, safe_path};
 use super::tree::{scan_tree, tree_files, TreeView};
 use super::{line_number_at, skip_bytes};
 use crate::models::{CitationInfo, ResolvedCitation, SyncTexTarget};
 use crate::util::err;
 use regex::Regex;
+use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -268,37 +270,55 @@ fn normalize_bibliography_value(value: &str) -> String {
 }
 
 /// The project's `.bib` files as `(relative path, contents)`: the manifest's
-/// primary bibliography first, then every other `.bib` in the tree.
+/// primary bibliography first, then every other `.bib` in the tree. Fails,
+/// naming the file, when one cannot be read.
 pub(crate) fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
+    read_bibliography_sources(root)?.complete()
+}
+
+/// The readable `.bib` files, in [`iter_bibliography_sources`] order, and the
+/// ones that could not be read. A `.bib` is picked by its extension rather
+/// than the tree's `bib` kind: the tree classifies a Latin-1 export as binary,
+/// and selecting by kind dropped its keys without a word.
+fn read_bibliography_sources(root: &Path) -> Result<IndexSources, String> {
     let manifest = read_manifest(root)?;
     let scanned = scan_tree(root, TreeView::Inventory)?;
     let candidates = std::iter::once(manifest.primary_bibliography).chain(
         tree_files(&scanned)
             .into_iter()
-            .filter(|node| node.kind == "bib")
+            .filter(|node| extension(&node.path).as_deref() == Some("bib"))
             .map(|node| node.path.clone()),
     );
     let mut seen = BTreeSet::new();
-    let mut sources = Vec::new();
+    let mut sources = IndexSources::default();
     for relative in candidates.filter(|relative| seen.insert(relative.clone())) {
         let path = safe_path(root, &relative)?;
         if path.is_file() {
-            let contents = fs::read_to_string(&path).map_err(err)?;
-            sources.push((relative, contents));
+            sources.read(relative, &path);
         }
     }
     Ok(sources)
 }
 
-pub fn citations(root: &Path) -> Result<Vec<CitationInfo>, String> {
-    let sources = iter_bibliography_sources(root)?;
+/// Every key the project's readable `.bib` files define, and the files that
+/// could not be read.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CitationIndex {
+    pub citations: Vec<CitationInfo>,
+    pub skipped: Vec<SkippedSource>,
+}
+
+pub fn citations(root: &Path) -> Result<CitationIndex, String> {
+    let sources = read_bibliography_sources(root)?;
     let mut citations = sources
+        .sources
         .iter()
         .flat_map(|(_, bibliography)| parse_bibliography(bibliography))
         .collect::<Vec<_>>();
     citations.sort_by_key(|citation| citation.key.to_lowercase());
     citations.dedup_by(|left, right| left.key.eq_ignore_ascii_case(&right.key));
-    Ok(citations)
+    Ok(CitationIndex { citations, skipped: sources.skipped })
 }
 
 /// The primary bibliography's path and contents (`None` when the file is missing).
@@ -499,7 +519,7 @@ mod tests {
             "extra.bib",
             "@article{attention,\n  title={Attention {Is} All You Need},\n  author={Vaswani, Ashish and Shazeer, Noam},\n  year={2017},\n  journal={NeurIPS}\n}\n@inproceedings{dosovitskiy2021image,\n}\n",
         );
-        let found = citations(root).unwrap();
+        let found = citations(root).unwrap().citations;
         let keys = found.iter().map(|citation| citation.key.as_str()).collect::<Vec<_>>();
         assert_eq!(keys, ["attention", "dosovitskiy2021image", "keep", "vaswani2017"]);
         let attention = &found[0];

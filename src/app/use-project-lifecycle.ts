@@ -33,7 +33,8 @@ export type ProjectLifecycleDeps = {
   documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
-    "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyReferences" | "setCitations" | "publishPapers" | "failPapers"
+    "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyCitations" | "applyReferences" | "failIndex" | "publishPapers"
+    | "failPapers"
   >;
   build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject">;
   /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
@@ -83,7 +84,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     captureProjectScope,
   } = projectState;
   const { claim, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
-  const { claimBibliographyRefresh, resetBibliographyIndex, applyReferences, setCitations, publishPapers, failPapers } = library;
+  const {
+    claimBibliographyRefresh, resetBibliographyIndex, applyCitations, applyReferences, failIndex, publishPapers, failPapers,
+  } = library;
   const { runBuild, resetForProject } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
@@ -206,11 +209,18 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // takes seconds (a 3.2 MB file: 10 s), so they land when ready instead
     // of holding the document back.
     if (nextPapers && isLatestBibliography()) publishPapers(snapshot.root, nextPapers);
-    void Promise.all([citationRequest, referenceRequest]).then(([nextCitations, nextReferences]) => {
-      if (!ownsProject()) return;
-      if (isLatestBibliography()) setCitations(nextCitations);
-      applyReferences(nextReferences);
-    }, () => undefined);
+    // Each index lands on its own; a read that fails says so, with a retry,
+    // instead of leaving the label and citation checks off without a word.
+    void citationRequest.then((index) => {
+      if (ownsProject() && isLatestBibliography()) applyCitations(index);
+    }, (reason: unknown) => {
+      if (ownsProject() && isLatestBibliography()) failIndex("citations", reason);
+    });
+    void referenceRequest.then((index) => {
+      if (ownsProject()) applyReferences(index);
+    }, (reason: unknown) => {
+      if (ownsProject()) failIndex("references", reason);
+    });
     if (!(await entry.restore(nextPapers ?? []))) return;
     await depsRef.current.scanProject();
     entry.finish();
@@ -218,9 +228,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // whole window blank white with the UI still "mounted".
     if (shellRef.current) shellRef.current.style.opacity = "1";
   }, [
-    applyReferences, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, depsRef, enterDocuments,
-    failPapers, projectBeforeTransitionRef, projectRef, publishPapers, rememberProject, resetBibliographyIndex,
-    resetForProject, runBuild, setCitations, setProject, shellRef,
+    applyCitations, applyReferences, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, depsRef,
+    enterDocuments, failIndex, failPapers, projectBeforeTransitionRef, projectRef, publishPapers, rememberProject,
+    resetBibliographyIndex, resetForProject, runBuild, setProject, shellRef,
   ]);
   const enterProjectRef = useLatestRef(enterProject);
 
