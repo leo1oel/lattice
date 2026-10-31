@@ -84,6 +84,29 @@ export function findProjectPath(candidate: string, projectPaths: string[]): stri
   return projectPaths.find((path) => path.endsWith(`/${candidate}`)) ?? null;
 }
 
+/** Lower case, one UTF-16 unit for one, so a folded path keeps the original's offsets. */
+export function foldCase(path: string): string {
+  return path.replace(/[^]/g, (unit) => {
+    const lower = unit.toLowerCase();
+    return lower.length === 1 ? lower : unit;
+  });
+}
+
+const foldedPaths = new WeakMap<readonly string[], string[]>();
+
+/**
+ * `findProjectPath` with letter case ignored, as macOS's disk ignores it.
+ * The index hands every lint run the same `projectPaths` array, so it is
+ * folded once, not once per unresolved argument.
+ */
+export function findProjectPathIgnoringCase(candidate: string, projectPaths: readonly string[]): string | null {
+  let folded = foldedPaths.get(projectPaths);
+  if (!folded) foldedPaths.set(projectPaths, folded = projectPaths.map(foldCase));
+  const wanted = foldCase(candidate);
+  const index = folded.findIndex((path) => path === wanted || path.endsWith(`/${wanted}`));
+  return index < 0 ? null : projectPaths[index];
+}
+
 /** The project `.tex` file an `\input`/`\include` argument names. */
 export function resolveTexPath(raw: string, projectPaths: string[]): string | null {
   const path = raw.trim();

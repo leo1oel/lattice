@@ -66,12 +66,54 @@ fn the_pack_is_what_the_build_read_inside_the_project_and_never_app_state() {
     );
     assert_eq!(pack.figures, ["figures/plot.pdf"]);
     assert_eq!(pack.missing, ["figures/deleted.pdf"]);
+    assert!(pack.miscased.is_empty());
     assert!(matches!(&pack.bibliography, Bibliography::Included { file } if file == "main.bbl"));
     assert_eq!(pack.left_out, ["figures/unused.png", "notes.md", "refs.bib", "slides/"]);
     // Kept as written when the writer keeps comments, and still counted.
     assert_eq!(pack.files["main.tex"], MAIN.as_bytes());
     assert_eq!((pack.comments.count, pack.comments.todos, pack.comments.removed), (2, 1, false));
     assert_eq!(pack.comments.lines[0].text, "TODO: tighten the abstract");
+}
+
+/// macOS's disk ignores case, so TeX here opens `Sections/Intro.tex` for
+/// `sections/intro.tex` and the test build passes; the recorder keeps the
+/// source's spelling. arXiv's Linux TeX cannot find a folder in another case,
+/// and the pack ships the disk's names, so the check names each such file.
+#[test]
+fn files_the_source_names_in_another_case_are_listed() {
+    let fixture = built_project("arxiv-case");
+    let root = fixture.root.canonicalize().unwrap();
+    if !root.join("SECTIONS/INTRO.TEX").is_file() {
+        return; // A case-sensitive disk: TeX could not have read these.
+    }
+    let recorder = (fixture.read("main.fls"))
+        .replace(
+            "INPUT sections/intro.tex\n",
+            "INPUT ./Sections/Intro.tex\nINPUT sections/intro.tex\n",
+        )
+        .replace("/figures/plot.pdf", "/Figures/Plot.pdf");
+    fixture.write("main.fls", recorder);
+
+    let pack = staged(&fixture, options(false, false));
+    let miscased =
+        |written: &str, file: &str| Miscased { written: written.into(), file: file.into() };
+    assert_eq!(
+        pack.miscased,
+        [
+            miscased("Figures/Plot.pdf", "figures/plot.pdf"),
+            miscased("Sections/Intro.tex", "sections/intro.tex")
+        ]
+    );
+    // The pack itself ships the names on disk, as before.
+    assert_eq!(
+        pack.files.keys().collect::<Vec<_>>(),
+        ["figures/plot.pdf", "main.bbl", "main.tex", "neurips.sty", "sections/intro.tex"]
+    );
+    let json = serde_json::to_value(pack.package()).unwrap();
+    assert_eq!(
+        json["miscased"][0],
+        serde_json::json!({ "written": "Figures/Plot.pdf", "file": "figures/plot.pdf" })
+    );
 }
 
 #[test]

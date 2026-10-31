@@ -3,7 +3,8 @@
  * (`src-tauri/src/latex/arxiv.rs`), and how each check reads as a row.
  *
  * A row's state is the backend's finding put as the sheet shows it: a
- * warning (TODO comments, a non-pdfLaTeX engine) never blocks the export;
+ * warning (TODO comments, a non-pdfLaTeX engine, a file named in another
+ * case than the disk's) never blocks the export;
  * a failure (missing files, no `.bbl`, a package that does not build alone,
  * over arXiv's limit) does.
  */
@@ -30,6 +31,8 @@ export type ArxivPackage = {
   leftOut: string[];
   figures: string[];
   missing: string[];
+  /** Files the build found only because macOS's disk ignores case. */
+  miscased: { written: string; file: string }[];
   bibliography: { state: "included"; file: string } | { state: "none" } | { state: "missing" };
   comments: { removed: boolean; count: number; todos: number; lines: CommentLine[] };
   merged: string[];
@@ -124,6 +127,20 @@ function figuresRow(pack: ArxivPackage): CheckRow {
       state: "fail",
       label: i18n._(msg`Files the last build used are missing`),
       detail: more > 0 ? i18n._(msg`${first} and ${more} more; build again`) : i18n._(msg`${first}; build again`),
+    };
+  }
+  // The test build runs on this Mac and passes; arXiv's TeX runs on Linux and
+  // cannot find a folder named in another case, so this is the place to say it.
+  if (pack.miscased.length > 0) {
+    const [{ written, file }] = pack.miscased;
+    const more = pack.miscased.length - 1;
+    return {
+      id: "figures",
+      state: "warn",
+      label: i18n._(msg`The source spells file names in another case`),
+      detail: more > 0
+        ? i18n._(msg`${written} is ${file} on disk, and ${more} more; arXiv can fail to find them`)
+        : i18n._(msg`${written} is ${file} on disk; arXiv can fail to find it`),
     };
   }
   const count = pack.figures.length;

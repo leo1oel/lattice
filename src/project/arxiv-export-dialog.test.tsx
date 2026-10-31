@@ -31,6 +31,7 @@ const PACKAGE: ArxivPackage = {
   leftOut: ["attention-demo.html", "notes.md", "refs.bib", "slides/", "whiteboard.tldr"],
   figures: ["figures/attention.pdf"],
   missing: [],
+  miscased: [],
   bibliography: { state: "included", file: "main.bbl" },
   comments: {
     removed: true,
@@ -145,6 +146,20 @@ describe("Export for arXiv", () => {
     expect(within(row("compile")).getByRole("button", { name: "Copy log" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("1 to fix");
     expect(exportButton()).toHaveProperty("disabled", true);
+  });
+
+  // The test build runs on this Mac, whose disk ignores case, so it passes;
+  // the row is the only place the sheet can say arXiv may not find the file.
+  it("warns about files the source names in another case than the disk", async () => {
+    checkReturns(checked(undefined, { miscased: [
+      { written: "Sections/Intro.tex", file: "sections/intro.tex" },
+      { written: "Figures/Plot.pdf", file: "figures/plot.pdf" },
+    ] }));
+    renderSheet();
+    expect(await within(row("figures")).findByText("The source spells file names in another case")).toBeTruthy();
+    expect(row("figures").dataset.state).toBe("warn");
+    expect(within(row("figures")).getByText("Sections/Intro.tex is sections/intro.tex on disk, and 1 more; arXiv can fail to find them")).toBeTruthy();
+    expect(exportButton()).toHaveProperty("disabled", false);
   });
 
   it("checks again when an option changes, and warns that kept comments will be published", async () => {

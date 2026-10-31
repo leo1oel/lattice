@@ -1,3 +1,4 @@
+import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import { indexDiagnostics, pathDiagnostics, structureDiagnostics } from "./latex-diagnostics";
 import { uncommented } from "./latex-language";
@@ -98,6 +99,40 @@ describe("LaTeX diagnostics", () => {
     expect(messages(diagnostics)).toEqual(["Missing file “missing”.", "Missing figure “figures/gone.pdf”."]);
     diagnostics[0]?.actions?.[0]?.apply(null as never, 0, 0);
     expect(created).toEqual(["missing.tex"]);
+  });
+
+  // macOS's disk ignores case, so these build here; TeX on Linux (Overleaf,
+  // arXiv) cannot find a folder whose case differs. Before, both read as
+  // "Missing file" / "Missing figure", which the writer could see was wrong.
+  it("tells a path that differs only in case from a missing one, and fixes it in place", () => {
+    const source = [
+      "\\input{Sections/Intro}",
+      "\\includegraphics[width=2cm]{Figures/Plot.PNG}",
+      "\\includegraphics{\\detokenize{Figures\\Plot}}",
+      "\\input{sections/gone}",
+    ].join("\n");
+    const projectPaths = ["main.tex", "sections/intro.tex", "figures/plot.png"];
+    const diagnostics = pathDiagnostics(source, projectPaths);
+    expect(messages(diagnostics)).toEqual([
+      "“Sections/Intro” differs in case from sections/intro.tex on disk. Overleaf and arXiv can fail to find it.",
+      "Missing file “sections/gone”.",
+      "“Figures/Plot.PNG” differs in case from figures/plot.png on disk. Overleaf and arXiv can fail to find it.",
+      "“Figures/Plot” differs in case from figures/plot.png on disk. Overleaf and arXiv can fail to find it.",
+    ]);
+    const view = new EditorView({ doc: source });
+    for (const diagnostic of [...diagnostics].reverse()) {
+      const fix = diagnostic.actions?.find((action) => action.name === "Fix case");
+      fix?.apply(view, diagnostic.from, diagnostic.to);
+    }
+    expect(view.state.doc.toString().split("\n")).toEqual([
+      "\\input{sections/intro}",
+      "\\includegraphics[width=2cm]{figures/plot.png}",
+      "\\includegraphics{\\detokenize{figures\\plot}}",
+      "\\input{sections/gone}",
+    ]);
+    expect(pathDiagnostics(view.state.doc.toString(), projectPaths).map(({ message }) => message))
+      .toEqual(["Missing file “sections/gone”."]);
+    view.destroy();
   });
 
   it("resolves figures wrapped in detokenize or found through graphicspath", () => {

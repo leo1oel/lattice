@@ -5,7 +5,8 @@ import { i18n } from "../../i18n";
 import { environmentEvents, type EnvironmentEvent } from "./latex-environments";
 import { uncommented } from "./latex-language";
 import {
-  CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, resolveProjectPath, unwrapLatexPath, type KeySpan,
+  CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, miscasedProjectPath, resolveProjectPath, unwrapLatexPath,
+  type KeySpan,
 } from "./latex-symbols";
 import { LABEL, type ReferenceInfo } from "./latex-text";
 import { unclosedMathDiagnostics } from "./math-region";
@@ -56,6 +57,35 @@ function missingIncludeCreatePath(raw: string): string | null {
   return path.endsWith(".tex") ? path : `${path}.tex`;
 }
 
+/**
+ * An argument that names a project file only when case is ignored. The build
+ * here finds it, so "missing" would be wrong; Overleaf and arXiv run TeX on
+ * Linux, which cannot find it when a folder's case differs. The fix respells
+ * the path in place, keeping a `\detokenize` wrapper and any backslashes.
+ */
+function caseDiagnostic(from: number, content: string, miscased: { file: string; path: string | null }): Diagnostic {
+  const path = unwrapLatexPath(content);
+  const { file, path: respelled } = miscased;
+  // unwrapLatexPath turns `\` into `/`; doing the same here keeps offsets,
+  // and the path is the last thing before any closing brace or space.
+  const offset = content.replace(/\\/g, "/").lastIndexOf(path);
+  const message = i18n._(msg`“${path}” differs in case from ${file} on disk. Overleaf and arXiv can fail to find it.`);
+  return {
+    ...warning(from, from + content.length, "paths", message),
+    actions: respelled && offset >= 0
+      ? [{
+        name: i18n._(msg`Fix case`),
+        apply: (view, start) => {
+          const at = start + offset;
+          const written = view.state.sliceDoc(at, at + path.length);
+          const insert = written.replace(/[^\\]/g, (_unit, index: number) => respelled[index]);
+          view.dispatch({ changes: { from: at, to: at + path.length, insert } });
+        },
+      }]
+      : undefined,
+  };
+}
+
 export function pathDiagnostics(
   text: string,
   projectPaths: string[],
@@ -67,6 +97,11 @@ export function pathDiagnostics(
   for (const { from, content } of argumentsOf(text, INCLUDE)) {
     const path = content.trim();
     if (!path || resolveProjectPath(path, projectPaths, "tex")) continue;
+    const miscased = miscasedProjectPath(path, projectPaths, "tex");
+    if (miscased) {
+      diagnostics.push(caseDiagnostic(from, content, miscased));
+      continue;
+    }
     const createPath = missingIncludeCreatePath(path);
     diagnostics.push({
       ...warning(from, from + content.length, "paths", i18n._(msg`Missing file “${path}”.`)),
@@ -78,6 +113,11 @@ export function pathDiagnostics(
   for (const { from, content } of argumentsOf(text, GRAPHICS)) {
     const raw = content.trim();
     if (!raw || resolveProjectPath(raw, projectPaths, "graphics", graphicsRoots)) continue;
+    const miscased = miscasedProjectPath(raw, projectPaths, "graphics", graphicsRoots);
+    if (miscased) {
+      diagnostics.push(caseDiagnostic(from, content, miscased));
+      continue;
+    }
     const figure = unwrapLatexPath(raw) || raw;
     diagnostics.push(warning(from, from + content.length, "paths", i18n._(msg`Missing figure “${figure}”.`)));
   }

@@ -36,6 +36,10 @@ msgstr "“{0}”里已有文件，且没关联 Overleaf\n"
 msgid "“{0}” stays linked"
 msgstr "“{0}”保持关联"
 
+#: src/editor/latex/latex-diagnostics.ts
+msgid "“{path}” differs in case from {file} on disk. Overleaf and arXiv can fail to find it."
+msgstr "“{path}”和磁盘上的 {file} 大小写不一致，Overleaf 和 arXiv 可能找不到它"
+
 #: src/app/use-reference-import.ts
 msgid "“{title}” is already in Papers — cite it with {citationCommand}."
 msgstr "“{title}”已在论文库，用 {citationCommand} 引用"
@@ -841,6 +845,14 @@ msgstr "{wholeFiles} 两边都改了。项目里是 Overleaf 的版本，你的�
 #: src/project/figure-inventory-dialog.tsx
 msgid "{width} × {height} pixels"
 msgstr "{width} × {height} 像素"
+
+#: src/project/arxiv-export.ts
+msgid "{written} is {file} on disk, and {more} more; arXiv can fail to find them"
+msgstr "{written} 在磁盘上是 {file}，另有 {more} 个；arXiv 可能找不到它们"
+
+#: src/project/arxiv-export.ts
+msgid "{written} is {file} on disk; arXiv can fail to find it"
+msgstr "{written} 在磁盘上是 {file}；arXiv 可能找不到它"
 
 #: src/build/compile-explain.ts
 msgid "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&."
@@ -5099,6 +5111,10 @@ msgstr "修正"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
 msgstr "一键修复"
+
+#: src/editor/latex/latex-diagnostics.ts
+msgid "Fix case"
+msgstr "修正大小写"
 
 #: src/app/whats-new-dialog.tsx
 msgid "Fixed"
@@ -12532,6 +12548,10 @@ msgstr "shell 已被停止"
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
+
+#: src/project/arxiv-export.ts
+msgid "The source spells file names in another case"
+msgstr "源文件里的文件名和磁盘上的大小写不一致"
 
 #: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
