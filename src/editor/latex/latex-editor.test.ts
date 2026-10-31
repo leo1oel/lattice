@@ -280,22 +280,36 @@ describe("LaTeX editor extensions", () => {
     }
   });
 
+  it("closes a typed \\left( or \\bigl\\{ over the bracket pairing's close, with the caret inside", () => {
+    const view = productionLatexView([]);
+    typeText(view, "$\\left");
+    view.dispatch(insertBracket(view.state, "(")!);
+    expect(doc(view)).toBe("$\\left(\\right)");
+    expect(view.state.selection.main.head).toBe(7);
+    typeText(view, "x\\bigl\\");
+    typeBracket(view, "{");
+    expect(doc(view)).toBe("$\\left(x\\bigl\\{\\bigr\\}\\right)");
+    expect(view.state.selection.main.head).toBe(15);
+  });
+
   it.each([
     ["starts the next line at the current indent, not an extra tab inside a document",
       "\\begin{document}\nHello\n\\end{document}", "Hello", "\\begin{document}\nHello\n\n\\end{document}"],
     ["keeps an already-indented line's indent on newline",
-      "\\begin{itemize}\n  \\item one\n\\end{itemize}", "one", "\\begin{itemize}\n  \\item one\n  \n\\end{itemize}"],
+      "\\begin{center}\n  one\n\\end{center}", "one", "\\begin{center}\n  one\n  \n\\end{center}"],
+    ["starts the next item from an \\item line",
+      "\\begin{itemize}\n  \\item one\n\\end{itemize}", "one", "\\begin{itemize}\n  \\item one\n  \\item |\n\\end{itemize}"],
     ["closes an environment when Enter follows its \\begin, with the caret on the body line",
       "\\begin{align}", "\\begin{align}", "\\begin{align}\n  |\n\\end{align}"],
-    ["keeps the \\begin line's indent for the body and the \\end",
-      "  \\begin{itemize}  ", "\\begin{itemize}  ", "  \\begin{itemize}\n    |\n  \\end{itemize}"],
+    ["keeps the \\begin line's indent for the body and the \\end, and starts a list's first item",
+      "  \\begin{itemize}  ", "\\begin{itemize}  ", "  \\begin{itemize}\n    \\item |\n  \\end{itemize}"],
     ["only indents the body when the environment is already closed",
       "\\begin{itemize}\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n\\end{itemize}"],
     ["does not duplicate the \\end of an environment that already has items",
       "\\begin{itemize}\n  \\item a\n\\end{itemize}", "\\begin{itemize}", "\\begin{itemize}\n  |\n  \\item a\n\\end{itemize}"],
     ["closes a nested environment of the same name inside a closed one",
       "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n\\end{itemize}", "  \\begin{itemize}",
-      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n    |\n  \\end{itemize}\n\\end{itemize}"],
+      "\\begin{itemize}\n  \\item a\n  \\begin{itemize}\n    \\item |\n  \\end{itemize}\n\\end{itemize}"],
   ])("%s", (_name, source, cursorAfter, expected) => {
     const view = latexView(source, source.indexOf(cursorAfter) + cursorAfter.length);
     expect(insertLatexNewline(view)).toBe(true);

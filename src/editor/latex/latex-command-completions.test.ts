@@ -49,7 +49,8 @@ describe("built-in LaTeX completion", () => {
   });
 
   it("completes an environment name and writes its \\end at the line's indent", () => {
-    expect(accept("  \\begin{ite|}", "itemize")).toBe("  \\begin{itemize}\n    |\n  \\end{itemize}");
+    expect(accept("  \\begin{ite|}", "itemize")).toBe("  \\begin{itemize}\n    \\item |\n  \\end{itemize}");
+    expect(accept("\\begin{fig|}", "figure")).toBe("\\begin{figure}\n  |\n\\end{figure}");
     expect(accept("\\end{ite|", "itemize")).toBe("\\end{itemize}|");
   });
 

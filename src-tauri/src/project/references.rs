@@ -217,14 +217,20 @@ fn nearest_section_title(source: &str, position: usize) -> Option<String> {
 }
 
 fn environment_snippet(source: &str, kind: &str) -> String {
+    // An equation's hover card sets its snippet as math, so only the
+    // equation's own `\begin`/`\end` go: a nested `cases` or `split` is
+    // part of the formula.
+    let (source, dropped): (&str, &[&str]) = if kind == "equation" {
+        (equation_body(source), &["\\label"])
+    } else {
+        (source, &["\\begin", "\\end", "\\caption", "\\label"])
+    };
     let lines = source
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('%'))
         .filter(|line| {
-            !["\\begin", "\\end", "\\caption", "\\label"]
-                .iter()
-                .any(|prefix| line.starts_with(prefix))
+            !dropped.iter().any(|prefix| line.starts_with(prefix))
                 && *line != "\\centering"
                 && (kind != "figure" || !line.starts_with("\\includegraphics"))
         })
@@ -236,6 +242,13 @@ fn environment_snippet(source: &str, kind: &str) -> String {
     } else {
         lines
     }
+}
+
+/// Between an environment's `\begin{…}` and its last `\end{`.
+fn equation_body(source: &str) -> &str {
+    let start = source.find('}').map_or(0, |brace| brace + 1);
+    let end = source.rfind("\\end{").filter(|end| *end >= start).unwrap_or(source.len());
+    &source[start..end]
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -279,6 +292,10 @@ mod tests {
   \mathcal{L} = \lVert x - y \rVert_2
   \label{eq:loss}
 \end{equation}
+\begin{equation} f(x) = \begin{cases}
+  1 & x > 0 \\
+  0 & \text{otherwise}
+\end{cases} \label{eq:step} \end{equation}
 "#,
         );
 
@@ -293,7 +310,15 @@ mod tests {
         let table = find("tab:results");
         assert_eq!(table.kind, "table");
         assert!(table.snippet.contains("Method & Score"));
-        assert_eq!(find("eq:loss").kind, "equation");
+        let loss = find("eq:loss");
+        assert_eq!(
+            (loss.kind.as_str(), loss.snippet.as_str()),
+            ("equation", "\\mathcal{L} = \\lVert x - y \\rVert_2")
+        );
+        assert_eq!(
+            find("eq:step").snippet,
+            "f(x) = \\begin{cases}\n1 & x > 0 \\\\\n0 & \\text{otherwise}\n\\end{cases} \\label{eq:step}"
+        );
         let section = find("sec:intro");
         assert_eq!((section.kind.as_str(), section.title.as_str()), ("section", "Introduction"));
         assert_eq!((section.line, figure.line, table.line), (1, 5, 13));

@@ -1,6 +1,9 @@
 import type { Text } from "@codemirror/state";
 import { uncommented } from "./latex-language";
 
+/** Lists whose body a closed `\\begin` seeds with a first `\\item`. */
+const LIST_ENVIRONMENT = /^(?:itemize|enumerate|description)\*?$/;
+
 const BEGIN_OR_END = /\\(begin|end)\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
 
 type Span = { from: number; to: number };
@@ -84,8 +87,9 @@ export function renameEnvironmentAt(
 /**
  * The body line and `\\end{…}` to add after a just-completed `\\begin{…}` that
  * ends `textBeforeCursor`, with the caret on the body line; `indent` is the
- * `\\begin` line's own indentation. Nothing is added unless `doc`, ignoring
- * `%` comments, has more `\\begin{…}` than `\\end{…}` of that name.
+ * `\\begin` line's own indentation. A list's body line starts its first
+ * `\\item`. Nothing is added unless `doc`, ignoring `%` comments, has more
+ * `\\begin{…}` than `\\end{…}` of that name.
  */
 export function beginEnvironmentClose(
   textBeforeCursor: string,
@@ -94,7 +98,8 @@ export function beginEnvironmentClose(
 ): { insert: string; cursorOffset: number } | null {
   const name = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/.exec(textBeforeCursor)?.[1];
   if (!name || !isUnbalanced(name, doc)) return null;
-  return { insert: `\n${indent}  \n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length };
+  const body = LIST_ENVIRONMENT.test(name) ? "\\item " : "";
+  return { insert: `\n${indent}  ${body}\n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length + body.length };
 }
 
 function isUnbalanced(name: string, doc: Text): boolean {

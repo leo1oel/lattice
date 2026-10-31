@@ -94,6 +94,27 @@ function stripLineComments(text: string): string {
   return text.split("\n").map((line) => uncommented(line).padEnd(line.length)).join("\n");
 }
 
+const NOVALIDATE = /^%\s*(?:(begin|end)\s+)?novalidate(?![A-Za-z])/;
+
+/**
+ * Blank out what the writer exempted from these checks, keeping every offset:
+ * a line whose comment starts `%novalidate`, and every line from
+ * `%begin novalidate` through `%end novalidate` (or the end of the file).
+ * Code a macro generates or a package reads its own way would otherwise be
+ * reported as broken LaTeX.
+ */
+function withoutNovalidate(text: string): string {
+  if (!text.includes("novalidate")) return text;
+  let exempt = false;
+  return text.split("\n").map((line) => {
+    const marker = NOVALIDATE.exec(line.slice(uncommented(line).length));
+    if (marker?.[1] === "begin") exempt = true;
+    const blank = exempt || (marker !== null && !marker[1]);
+    if (marker?.[1] === "end") exempt = false;
+    return blank ? " ".repeat(line.length) : line;
+  }).join("\n");
+}
+
 export function structureDiagnostics(text: string): Diagnostic[] {
   const source = stripLineComments(text);
   const diagnostics: Diagnostic[] = [];
@@ -138,11 +159,12 @@ export type LatexIndex = {
 };
 
 export function indexDiagnostics(
-  text: string,
+  source: string,
   index: LatexIndex,
   currentPath = "",
   onCreateMissingFile?: (path: string) => void,
 ): Diagnostic[] {
+  const text = withoutNovalidate(source);
   const fileDiagnostics = [
     ...structureDiagnostics(text),
     ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),

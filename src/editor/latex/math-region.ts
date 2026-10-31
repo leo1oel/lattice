@@ -104,6 +104,24 @@ export function mathRegionInDocument(doc: Text, position: number): MathRegion | 
   return region && { ...region, from: region.from + first.from, to: region.to + first.from };
 }
 
+/** An environment nested in math, such as `cases`, whose `&` columns are its own. */
+const NESTED_ENVIRONMENT = /\\begin\{([A-Za-z]+\*?)\}[\s\S]*?\\end\{\1\}/g;
+
+/**
+ * A math body as KaTeX should set it. LaTeX bookkeeping that lives inside
+ * math but is not math goes (KaTeX would typeset `\label{eq:foo}` as text),
+ * and an `align` body's rows are set as `aligned`, since KaTeX refuses `&`
+ * columns outside an alignment.
+ */
+export function katexSource(source: string): string {
+  const math = source
+    .replace(/\\label\s*\{[^}]*\}/g, "")
+    .replace(/\\(?:nonumber|notag)\b/g, "")
+    .replace(/\\intertext\s*\{[^}]*\}/g, "")
+    .trim();
+  return math.replace(NESTED_ENVIRONMENT, "").includes("&") ? `\\begin{aligned}${math}\\end{aligned}` : math;
+}
+
 /** Jump between the opening and closing delimiters of the math region under the cursor. */
 export function matchingMathDelimiter(text: string, position: number): { from: number; to: number } | null {
   const region = mathRegionAt(text, position);

@@ -684,6 +684,10 @@ msgstr "{notes} notes"
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
+#: src/editor/latex/latex-hover-cards.ts
+msgid "{number} · page {page} in the last build"
+msgstr "{number} · page {page} in the last build"
+
 #: src/canvas/proofread-card.tsx
 msgid "{offered} edits"
 msgstr "{offered} edits"
@@ -6029,6 +6033,10 @@ msgstr "Insert a formula"
 msgid "Insert a line below"
 msgstr "Insert a line below"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Insert a math symbol…"
+msgstr "Insert a math symbol…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Insert an image path (requires graphicx)"
 msgstr "Insert an image path (requires graphicx)"
@@ -6157,6 +6165,7 @@ msgid "Insufficient identifying metadata"
 msgstr "Insufficient identifying metadata"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Integral"
 msgstr "Integral"
 
@@ -6187,6 +6196,10 @@ msgstr "Interface sounds"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
 msgstr "Intersection"
+
+#: src/editor/latex/latex-vocabulary.ts
+msgid "Intersection of a family of sets"
+msgstr "Intersection of a family of sets"
 
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
@@ -6717,6 +6730,7 @@ msgid "Lime"
 msgstr "Lime"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Limit"
 msgstr "Limit"
 
@@ -7216,6 +7230,10 @@ msgstr "Math outside math mode"
 #: src/editor/latex/math-preview.tsx
 msgid "Math preview"
 msgstr "Math preview"
+
+#: src/editor/latex/symbol-palette.ts
+msgid "Math symbols"
+msgstr "Math symbols"
 
 #: src/history/export-changes-dialog.tsx
 msgid "Maths, figures and citations are left unmarked: the fully marked document did not build."
@@ -8038,6 +8056,10 @@ msgstr "No shortcut matches “{0}”"
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this file"
 msgstr "No suggestions in this file"
+
+#: src/editor/latex/symbol-palette.ts
+msgid "No symbol matches “{query}”."
+msgstr "No symbol matches “{query}”."
 
 #: src/terminal/terminal-panel.tsx
 msgid "No terminal open"
@@ -9429,6 +9451,7 @@ msgid "Prime"
 msgstr "Prime"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Product"
 msgstr "Product"
 
@@ -10978,6 +11001,10 @@ msgstr "Search by name or license"
 msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
 
+#: src/editor/latex/symbol-palette.ts
+msgid "Search by symbol, command or meaning"
+msgstr "Search by symbol, command or meaning"
+
 #: src/app/command-palette.tsx
 msgid "Search commands and settings…"
 msgstr "Search commands and settings…"
@@ -11873,6 +11900,7 @@ msgid "Suggests removing \"{text}\""
 msgstr "Suggests removing \"{text}\""
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Summation"
 msgstr "Summation"
 
@@ -13082,6 +13110,10 @@ msgstr "Unhandled promise rejection"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Union"
 msgstr "Union"
+
+#: src/editor/latex/latex-vocabulary.ts
+msgid "Union of a family of sets"
+msgstr "Union of a family of sets"
 
 #: src/history/compare-versions.tsx
 #: src/history/versions-timeline.tsx

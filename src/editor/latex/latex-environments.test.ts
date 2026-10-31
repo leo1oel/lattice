@@ -23,7 +23,8 @@ describe("LaTeX environments", () => {
     expect(closeAfter("\\begin{itemize}", "\n% \\end{itemize}")?.insert).toContain("\\end{itemize}");
     expect(closeAfter("a \\\\% \\begin{itemize}\n\\begin{itemize}", "\n\\end{itemize}")).toBeNull();
     expect(closeAfter("\\begin{align*}", "")?.insert).toContain("\\end{align*}");
-    expect(closeAfter("  \\begin{itemize}", "", "  ")).toEqual({ insert: "\n    \n  \\end{itemize}", cursorOffset: 5 });
+    expect(closeAfter("  \\begin{itemize}", "", "  ")).toEqual({ insert: "\n    \\item \n  \\end{itemize}", cursorOffset: 11 });
+    expect(closeAfter("  \\begin{figure}", "", "  ")).toEqual({ insert: "\n    \n  \\end{figure}", cursorOffset: 5 });
   });
 
   it("jumps between matching begin and end environments and renames the one under the cursor", () => {

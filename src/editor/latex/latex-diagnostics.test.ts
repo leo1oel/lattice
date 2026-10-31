@@ -71,6 +71,22 @@ describe("LaTeX diagnostics", () => {
     ))).toEqual(["Unclosed inline math $.", "Missing file “gone”."]);
   });
 
+  it("reports nothing on a %novalidate line or inside a %begin/%end novalidate region", () => {
+    const source = [
+      "\\newcommand{\\bi}{\\begin{itemize}} % novalidate",
+      "\\ref{gone:a}",
+      "%begin novalidate",
+      "\\begin{tikzpicture} \\ref{gone:b} $x",
+      "%end novalidate",
+      "\\ref{gone:c} 100\\% novalidate",
+      "%begin novalidate",
+      "\\end{figure}",
+    ].join("\n");
+    const diagnostics = indexDiagnostics(source, { citationKeys: [], references: [] });
+    expect(messages(diagnostics)).toEqual(["Unknown label “gone:a”.", "Unknown label “gone:c”."]);
+    expect(diagnostics.map(({ from }) => source.slice(from, from + 6))).toEqual(["gone:a", "gone:c"]);
+  });
+
   it("flags missing include and graphics paths and offers to create a missing file", () => {
     const created: string[] = [];
     const diagnostics = pathDiagnostics(
