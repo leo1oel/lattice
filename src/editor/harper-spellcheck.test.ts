@@ -20,8 +20,11 @@ vi.mock("@tauri-apps/api/core", () => ({
     const projectWords = (args?.projectWords ?? []).map((word) => word.toLocaleLowerCase());
     const misspelled = new Map([
       ["introductiom", "introduction"], ["sentnce", "sentence"], ["takeawayaccent", "takeaway accent"], ["zylorph", "sylph"],
+      // What harper-core reported for the pieces of a split `Fr\'echet` and `Erd\H{o}s--R\'enyi`.
+      ["echet", "etched"], ["erd", "end"], ["enyi", "envy"],
     ]);
-    const lints = [...text.matchAll(/[A-Za-z][A-Za-z'’-]*/g)].flatMap((match) => {
+    // Like harper-core, a word is a run of Latin letters, accented ones included.
+    const lints = [...text.matchAll(/\p{Script=Latin}[\p{Script=Latin}'’-]*/gu)].flatMap((match) => {
       const word = match[0].toLocaleLowerCase();
       const replacement = misspelled.get(word);
       if (!replacement || projectWords.includes(word)) return [];
@@ -132,6 +135,24 @@ describe("Harper prose spellcheck", () => {
     expect(prose).toHaveLength(source.length);
     for (const text of hidden) expect(prose).not.toContain(text);
     for (const text of visible) expect(prose.slice(source.indexOf(text), source.indexOf(text) + text.length)).toBe(text);
+  });
+
+  it.each([
+    [String.raw`Kate\v{r}ina and Andr\'e wrote it.`, ["Kateřřřřřina", "Andrééé"]],
+    [String.raw`Erd\H{o}s--R\'enyi, Erd{\H o}s, G{\"o}del, na\"{\i}ve and Fran\c{c}ois.`,
+      ["Erdőőőőős", "Rééényi", "Erdőőőőőős", "Gööööödel", "naïïïïïïve", "Françççççois"]],
+    [String.raw`\b{o} keeps a letter with no precomposed form.`, ["ooooo"]],
+  ])("keeps a TeX-accented word whole in %s", (source, maskedWords) => {
+    const { prose, syntaxMask } = maskLatexForHarper(source);
+    expect(prose).toHaveLength(source.length);
+    for (const word of maskedWords) expect(prose).toContain(word);
+    // The accent is still hidden syntax, so no lint lands on the padded word.
+    expect(syntaxMask[source.indexOf("\\")]).toBe(true);
+  });
+
+  it("does not report the pieces of a TeX-accented word as misspellings", async () => {
+    const source = String.raw`We report the Fr\'echet Inception Distance on Erd\H{o}s--R\'enyi graphs.`;
+    expect(spans(source, await harperDiagnostics(source))).toEqual([]);
   });
 
   it("accepts words from the project dictionary", async () => {
