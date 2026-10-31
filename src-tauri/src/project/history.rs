@@ -4,6 +4,7 @@
 //! index is refreshed. Also here: restoring and deleting history entries, and
 //! pruning conversation checkpoints.
 
+use super::editor_save::{editor_save, EditorSave};
 use super::manifest::write_pretty_json;
 use super::paths::{is_plain_segment, safe_path, validate_transaction_path};
 use crate::models::FileChange;
@@ -190,31 +191,12 @@ pub struct EditorWriteResult {
     pub had_conflicts: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TextMergeResult {
-    content: String,
-    had_conflicts: bool,
-}
-
-/// Merge one edit against the exact content it observed, without touching disk.
-fn merge_text_snapshots(base: &str, edited: &str, current: &str) -> TextMergeResult {
-    if edited == base || edited == current {
-        return TextMergeResult { content: current.to_string(), had_conflicts: false };
-    }
-    if current == base {
-        return TextMergeResult { content: edited.to_string(), had_conflicts: false };
-    }
-    match diffy::MergeOptions::new().merge(base, edited, current) {
-        Ok(content) => TextMergeResult { content, had_conflicts: false },
-        Err(content) => TextMergeResult { content, had_conflicts: true },
-    }
-}
-
 /// Save an editor buffer against the exact disk contents it was loaded from.
 /// Agent and filesystem edits bypass React, so an ordinary last-writer-wins
 /// save can otherwise replace a complete external edit with the stale open
 /// buffer. A three-way merge preserves both sides, including explicit conflict
-/// markers when they touched the same span.
+/// markers when they touched the same span. The file keeps its line breaks
+/// (see editor_save.rs).
 pub fn apply_editor_transaction(
     root: &Path, path: String, content: String, base_content: Option<String>,
     expected_content: Option<String>,
@@ -225,6 +207,7 @@ pub fn apply_editor_transaction(
         return Err(format!("Cannot save {path} because it was deleted outside the editor."));
     }
     let current_content = current.as_deref().unwrap_or_default();
+    let compare_and_swap = expected_content.is_some();
 
     // Live Overleaf deliveries know the exact disk version they may replace,
     // not the common ancestor needed to merge an arbitrary join snapshot.
@@ -235,13 +218,8 @@ pub fn apply_editor_transaction(
         ));
     }
 
-    let (next, external_changes_merged, had_conflicts) = match base_content {
-        Some(base) if current_content != base => {
-            let merged = merge_text_snapshots(&base, &content, current_content);
-            (merged.content, true, merged.had_conflicts)
-        }
-        _ => (content, false, false),
-    };
+    let EditorSave { content: next, external_changes_merged, had_conflicts } =
+        editor_save(content, base_content, current_content, !compare_and_swap);
     let changes = if current.as_deref() == Some(next.as_str()) {
         Vec::new()
     } else {
