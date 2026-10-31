@@ -1544,6 +1544,10 @@ msgstr "美式英语"
 msgid "An & outside a table"
 msgstr "表格外出现了 &"
 
+#: src/app/use-save-before-close.ts
+msgid "An edit could not be saved, so Lattice stayed open. Close again to close without it."
+msgstr "有修改没能保存，Lattice 先不关闭。再关闭一次会丢弃这处修改。"
+
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
 msgstr "修改还在传，请稍后再接受"

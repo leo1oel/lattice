@@ -88,6 +88,9 @@ const INTERFACE_ZOOM_EVENT: &str = "interface-zoom";
 /// window, which opens its release notes sheet.
 const WHATS_NEW: &str = "whats-new";
 
+/// The menu id of Lattice ▸ Quit, which saves every window before it exits.
+const QUIT: &str = "quit";
+
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
     "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
@@ -123,7 +126,9 @@ pub(crate) fn build_menu<R: Runtime>(
             &PredefinedMenuItem::hide_others(app, Some(labels.hide_others.as_str()))?,
             &PredefinedMenuItem::show_all(app, Some(labels.show_all.as_str()))?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, Some(labels.quit.as_str()))?,
+            // Not the predefined item: its `terminate:` ends the process
+            // before any window can save its last edits (save_before_close.rs).
+            &MenuItem::with_id(app, QUIT, &labels.quit, true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
     let file_menu = Submenu::with_items(
@@ -233,11 +238,15 @@ pub(crate) fn build_menu<R: Runtime>(
 /// A margin review choice goes to the window it was made in, which keeps it
 /// as its own and sends the menu back with the new check; Undo and Redo go
 /// to the focused window's focused editor, and an interface size change and
-/// What's New to the focused window.
+/// What's New to the focused window. Quit asks every window to save first.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     use tauri::Emitter;
 
     let id = event.id().as_ref();
+    if id == QUIT {
+        crate::save_before_close::quit(app);
+        return;
+    }
     let (name, payload) = if let Some(mode) = id.strip_prefix(MARGIN_REVIEW_PREFIX) {
         (MARGIN_REVIEW_EVENT, mode)
     } else if let Some(direction) = id.strip_prefix(EDIT_HISTORY_PREFIX) {

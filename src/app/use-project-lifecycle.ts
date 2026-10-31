@@ -13,6 +13,7 @@ import type { CreateProjectForm } from "./app-project-dialogs";
 import type { UnopenedProject } from "../project/project-dialogs";
 import { showError, showNotice } from "./notify";
 import { saveEveryEdit, settleWithin } from "./save-every-edit";
+import { useSaveBeforeClose } from "./use-save-before-close";
 import type { useBuildPipeline } from "./use-build-pipeline";
 import type { OpenDocuments } from "./use-open-documents";
 import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-library";
@@ -462,30 +463,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     await switchProject(t`Switching project…`, path, () => setRecents((current) => ({ ...current, projects: forgetRecentProject(path) })));
   }, [openProjectWindow, project?.root, switchProject, t]);
 
-  // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
-  useEffect(() => {
-    if (!browserHosted) return;
-    const saveBrowserPage = (event?: BeforeUnloadEvent) => {
-      flush();
-      if (!hasUnsavedEdits()) return;
-      // Sending the invoke begins synchronously before the tab is discarded.
-      // The confirmation keeps a just-typed buffer alive long enough for the
-      // loopback write to finish instead of losing the last autosave interval.
-      void save();
-      if (event) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    const pageHide = () => saveBrowserPage();
-    window.addEventListener("beforeunload", saveBrowserPage);
-    window.addEventListener("pagehide", pageHide);
-    return () => {
-      window.removeEventListener("beforeunload", saveBrowserPage);
-      window.removeEventListener("pagehide", pageHide);
-    };
-  }, [browserHosted, flush, hasUnsavedEdits, save]);
+  // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
+  useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
 
+  // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
   const moveWorkspace = useCallback(async () => {
     if (browserHosted) {

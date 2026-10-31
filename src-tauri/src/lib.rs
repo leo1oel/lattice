@@ -52,6 +52,7 @@ mod project;
 mod project_fs;
 mod research_env;
 mod review_pdf;
+mod save_before_close;
 mod sidecar;
 mod synara;
 mod terminal;
@@ -157,10 +158,17 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     if let tauri::WindowEvent::Focused(is_focused) = event {
         macos_window::set_window_focused(window.label(), *is_focused);
     }
+    // The page saves its last edits first; the window closes once it has.
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        if save_before_close::on_close_requested(window.app_handle(), window.label()) {
+            api.prevent_close();
+        }
+    }
     // A closed window's project must stop being anyone's project, or
     // its LaTeX language server and Overleaf socket outlive the window
     // and a later window reusing the label inherits a stale binding.
     if matches!(event, tauri::WindowEvent::Destroyed) {
+        save_before_close::forget(window.app_handle(), window.label());
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
         // Its page never ran the cleanup that releases a deck's lease, which
@@ -182,6 +190,8 @@ fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
+        // The new page enables saving before close again once it can.
+        save_before_close::forget(webview.app_handle(), webview.label());
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
         }
@@ -202,6 +212,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     perf_lab::disable_app_nap();
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
+    app.manage(save_before_close::SaveBeforeClose::default());
     app.manage(synara::SynaraRuntime::new(app)?);
     app.manage(presentation::PresentationRuntime::new(app)?);
     let background = browser_host_launch();
@@ -578,6 +589,8 @@ pub fn run() {
             ipc::terminal::terminal_ack,
             ipc::terminal::terminal_running_command,
             ipc::terminal::terminal_close,
+            save_before_close::enable_save_before_close,
+            save_before_close::finish_save_before_close,
         ])
         .build(context)
         .expect("error while running tauri application");
