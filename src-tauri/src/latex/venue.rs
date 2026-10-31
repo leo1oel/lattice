@@ -129,7 +129,7 @@ fn commands() -> &'static Regex {
 }
 
 /// `line` up to its first unescaped `%`.
-fn strip_comment(line: &str) -> &str {
+pub(super) fn strip_comment(line: &str) -> &str {
     let bytes = line.as_bytes();
     let mut index = 0;
     while index < bytes.len() {

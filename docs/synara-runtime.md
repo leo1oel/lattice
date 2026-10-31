@@ -130,7 +130,7 @@ since the read-only phase-one catalog:
 - **Browser control is out.** The `browser_*` tools have no alias and are not in the allowlist, so
   the embedded-browser surface never reaches the Lattice catalog.
 
-`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **32** names that pass the filter *without* being
+`LATTICE_NATIVE_TOOL_NAMES` is an allowlist of **33** names that pass the filter *without* being
 renamed. They are not all Lattice code:
 
 | Group | Count | Names | Implemented by |
@@ -141,13 +141,14 @@ renamed. They are not all Lattice code:
 | Project documents | 1 | `create_project_document` | Lattice. It creates and opens native `.tldr` boards or `.lattice-sheet` spreadsheets through the project transaction path. |
 | Editor comments | 1 | `read_editor_comments` | Lattice, answered through the shared host-tools poll below. |
 | Presentations | 1 | `preview_presentation_page` | Lattice. The fork relays `{deck, page, step}` like the canvas tools; `src/agent/agent-presentation-tools.ts` brings the presentation runtime up to date with the disk, asks it to compile the deck (`deckBuildErrors` in `tools/open-slide-runtime/server.mjs`; a deck that does not build is answered with `presentation_build_failed` and Vite's located errors), opens its token-gated preview entry in a hidden 1920 × 1080 frame, and the preview page rasterizes itself (`PREVIEW_CAPTURE_SOURCE` in `tools/open-slide-runtime/server.mjs`). The model receives the JPEG as image content, so no shell or local browser is needed. |
+| LaTeX figures | 1 | `preview_latex_figure` | Lattice. The fork relays `{code, preamble, document, lineWidth, wide, caption, label, placement}` over the presentation channel as the action `preview_figure`. `src/agent/agent-figure-tools.ts` has Rust typeset the figure body alone (`preview_latex_figure`, `src-tauri/src/latex/figure_preview.rs`): the document's own preamble, a minipage as wide as `\columnwidth` (or the requested width), the box shipped as a cropped one-page PDF, in a scratch folder removed afterwards, with no shell escape, writes confined to that folder and a 45-second limit; a preamble that stops before the body is retried on a plain `article`. It renders that page as a PNG and answers with the image, the lines wider than the column and the preamble lines the paper lacks; a figure that does not typeset is answered with `figure_build_failed` and TeX's errors by code line. Given a caption and label, the result also carries the `figure` environment, which the agent inserts with its ordinary file edit, so the insertion is approved, checkpointed and undone like any agent edit. |
 | iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/src/synara.rs`). |
 
 The mutating literature tools run with `HistoryMode::Defer`, so agent bibliography edits fold into
 Lattice's own transaction history instead of committing independently.
 
 The agent panel receives every host-answered tool request (bibliography, canvas, spreadsheet, project
-document, editor comments, presentation) through one long poll, the fork's
+document, editor comments, presentation and figure previews) through one long poll, the fork's
 `/api/lattice/host-tools/poll`, and posts each result to that tool's own result route.
 A new host tool joins that shared queue instead of adding a poll: each held poll occupies one of the
 six HTTP/1.1 connections WebKit allows the sidecar origin, and when six were held the panel's own

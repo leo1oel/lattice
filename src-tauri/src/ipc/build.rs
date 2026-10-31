@@ -133,6 +133,18 @@ pub async fn export_changes_pdf(
     .await
 }
 
+/// Typeset one figure alone, for the agent to look at before inserting it.
+/// It builds in a scratch folder, so the paper's build and preview are not
+/// touched and can run beside it (latex/figure_preview.rs).
+#[tauri::command]
+pub async fn preview_latex_figure(
+    state: State<'_, AppState>, window: Window, project_root: String,
+    request: latex::FigurePreviewRequest,
+) -> Result<latex::FigurePreview, String> {
+    let root = pinned_root(&state, &window, &project_root, "the figure could be previewed")?;
+    run_blocking("Figure preview", move || latex::preview_figure(&root, &request)).await
+}
+
 #[tauri::command]
 pub fn abort_build(state: State<'_, AppState>, window: Window) -> Result<bool, String> {
     // Stops this window's build. Sharing one handle meant Stop in either window

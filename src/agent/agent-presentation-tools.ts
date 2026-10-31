@@ -16,7 +16,7 @@ import { activeOpenSlideRefresh, OPEN_SLIDE_PAGE_ID } from "../editor/presentati
 import { hasOnlyKeys, parseToolEnvelope, runAgentTool, toolError, type AgentToolResult } from "./agent-protocol";
 
 export const SYNARA_PRESENTATION_TOOL_REQUEST = "synara:presentation-tool-request";
-const LATTICE_PRESENTATION_TOOL_RESULT = "lattice:presentation-tool-result";
+export const LATTICE_PRESENTATION_TOOL_RESULT = "lattice:presentation-tool-result";
 const PREVIEW_CAPTURE_REQUEST = "lattice:preview-capture";
 const PREVIEW_CAPTURE_RESULT = "lattice:preview-capture-result";
 /** Open Slide's deck ids, as `deckIdFromOpenSlidePath` reads them from `slides/<deck>/index.tsx`. */

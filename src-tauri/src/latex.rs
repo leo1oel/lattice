@@ -11,6 +11,8 @@
 //!   `shown_pdf` puts the last PDF and its map back when a build leaves none.
 //! - `venue` reads which conference template a document's preamble loads.
 //! - `arxiv` makes and checks the source pack an arXiv submission needs.
+//! - `figure_preview` typesets one figure alone in a scratch folder, for the
+//!   agent to look at before it inserts the figure.
 //! - `pinned` is the research environment's build: root, engine, rc files
 //!   and clock fixed so an agent cannot change what is graded.
 //!
@@ -31,6 +33,7 @@ mod build_steps;
 mod changes;
 mod diagnostic_paths;
 mod engine_mismatch;
+mod figure_preview;
 mod pinned;
 mod preamble_format;
 mod prewarm;
@@ -51,6 +54,7 @@ pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
 pub use changes::{export_changes_pdf, ChangesPdf, ChangesPdfOptions};
+pub use figure_preview::{preview_figure, FigurePreview, FigurePreviewRequest};
 pub use pinned::{build_pinned, PinnedBuild};
 pub use submission_review::{review_submission, SubmissionReview};
 pub use synctex::{
