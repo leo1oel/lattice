@@ -49,6 +49,42 @@ describe("compile diagnostics helpers", () => {
     expect(resolveDiagnosticPath("intro.tex", ["preintro.tex"])).toBe("intro.tex");
   });
 
+  // The build names every project file by its exact path from the project
+  // root (src-tauri/src/latex/diagnostic_paths.rs). A project that keeps an
+  // `arxiv/` or `old/` copy, or a supplement with its own `sections/`, has
+  // several files sharing a name: the error belongs to the one it names.
+  it("resolves a diagnostic to the exact project file, not another that shares its name", () => {
+    const files = ["arxiv/sections/intro.tex", "paper/main.tex", "paper/sections/intro.tex"];
+    expect(resolveDiagnosticPath("paper/sections/intro.tex", files)).toBe("paper/sections/intro.tex");
+    expect(resolveDiagnosticPath("./paper/sections/intro.tex", files)).toBe("paper/sections/intro.tex");
+    expect(resolveDiagnosticPath("intro.tex", ["chapters/intro.tex", "intro.tex"])).toBe("intro.tex");
+    // No exact match: a suffix decides only when one file has it.
+    expect(resolveDiagnosticPath("sections/intro.tex", files)).toBe("sections/intro.tex");
+    expect(resolveDiagnosticPath("/Users/me/paper/sections/intro.tex", files)).toBe("paper/sections/intro.tex");
+    expect(resolveDiagnosticPath("/Users/me/x/sections/intro.tex", files)).toBe("sections/intro.tex");
+  });
+
+  it("draws a diagnostic only on the file it names", () => {
+    expect(diagnosticMatchesFile("paper/sections/intro.tex", "arxiv/sections/intro.tex")).toBe(false);
+    expect(diagnosticMatchesFile("intro.tex", "chapters/intro.tex")).toBe(false);
+    expect(diagnosticMatchesFile("chapters/intro.tex", "intro.tex")).toBe(false);
+    expect(diagnosticMatchesFile("sections/method.tex", "old/sections/method.tex")).toBe(false);
+    expect(diagnosticMatchesFile("./paper/sections/intro.tex", "paper/sections/intro.tex")).toBe(true);
+    // Outside the project (TeX named it from the root document's folder up).
+    expect(diagnosticMatchesFile("../intro.tex", "intro.tex")).toBe(false);
+  });
+
+  it("labels and groups a diagnostic by its full project path", () => {
+    expect(normalizeDiagnosticPath("paper/sections/intro.tex")).toBe("paper/sections/intro.tex");
+    expect(diagnosticLocationLabel({ level: "error", message: "x", file: "arxiv/sections/intro.tex", line: 3 }))
+      .toBe("arxiv/sections/intro.tex:3");
+    const groups = groupDiagnosticsByFile([
+      { level: "error", message: "a", file: "arxiv/sections/intro.tex", line: 1 },
+      { level: "error", message: "b", file: "paper/sections/intro.tex", line: 1 },
+    ]);
+    expect(groups.map((group) => group.file)).toEqual(["arxiv/sections/intro.tex", "paper/sections/intro.tex"]);
+  });
+
   it("recognizes installable missing TeX dependencies without treating project templates as packages", () => {
     expect(missingTexDependencyFile(
       "Missing LaTeX dependency `algorithm.sty`. BasicTeX does not include every package available on Overleaf.",

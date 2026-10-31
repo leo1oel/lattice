@@ -40,31 +40,49 @@ export function diagnosticSeverity(level: string): DiagnosticSeverity {
   return SEVERITIES.get(level.trim().toLocaleLowerCase()) ?? "info";
 }
 
-export function normalizeDiagnosticPath(file: string | undefined): string | undefined {
+/** `file` with forward slashes and no `.` or empty segments: `./a//./b.tex` is `a/b.tex`. */
+function cleanDiagnosticPath(file: string | undefined): string | undefined {
   if (!file) return undefined;
-  const normalized = file.replace(/\\/g, "/").replace(/^\.\/+/, "");
-  if (!normalized) return undefined;
-  const lower = normalized.toLocaleLowerCase();
+  const parts = file.replace(/\\/g, "/").split("/");
+  return parts.filter((part, index) => part !== "." && (part !== "" || index === 0)).join("/") || undefined;
+}
+
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || /^[A-Za-z]:\//.test(path);
+}
+
+/**
+ * The name a diagnostic's file is shown and grouped under. The build names a
+ * project file by its exact path from the project root (diagnostic_paths.rs),
+ * shown whole: `arxiv/` and `paper/` copies of `sections/intro.tex` are two
+ * files. Only a path TeX gave in full, outside the project or not, is cut to
+ * its last project-like folder, else its name.
+ */
+export function normalizeDiagnosticPath(file: string | undefined): string | undefined {
+  const cleaned = cleanDiagnosticPath(file);
+  if (!cleaned || !isAbsolutePath(cleaned)) return cleaned;
+  const lower = cleaned.toLocaleLowerCase();
   // eslint-disable-next-line lingui/no-unlocalized-strings -- project directory names
   const markers = ["/src/", "/chapters/", "/sections/", "/figures/"];
   for (const marker of markers) {
     const index = lower.lastIndexOf(marker);
-    if (index >= 0) return normalized.slice(index + 1);
+    if (index >= 0) return cleaned.slice(index + 1);
   }
-  const absolute = normalized.startsWith("/") || /^[A-Za-z]:\//.test(normalized);
-  if (absolute) {
-    const parts = normalized.split("/").filter(Boolean);
-    return parts[parts.length - 1] || normalized;
-  }
-  return normalized;
+  const parts = cleaned.split("/").filter(Boolean);
+  return parts[parts.length - 1] || cleaned;
 }
 
+/**
+ * Whether a diagnostic belongs to the project file `activeFile`: by its exact
+ * path, never by a shared name, so an error in `paper/sections/intro.tex`
+ * leaves `arxiv/sections/intro.tex` alone. A path TeX gave in full can only
+ * end with the file's: nothing here knows the project's own folder.
+ */
 export function diagnosticMatchesFile(diagnosticFile: string | undefined, activeFile: string): boolean {
-  const diagnostic = normalizeDiagnosticPath(diagnosticFile);
-  const active = normalizeDiagnosticPath(activeFile);
+  const diagnostic = cleanDiagnosticPath(diagnosticFile);
+  const active = cleanDiagnosticPath(activeFile);
   if (!diagnostic || !active) return false;
-  if (diagnostic === active) return true;
-  return diagnostic.endsWith(`/${active}`) || active.endsWith(`/${diagnostic}`);
+  return diagnostic === active || (isAbsolutePath(diagnostic) && diagnostic.endsWith(`/${active}`));
 }
 
 type ProjectPathNode = { path: string; children?: ProjectPathNode[] };
@@ -74,14 +92,25 @@ export function flattenProjectPaths(nodes: ProjectPathNode[]): string[] {
   return nodes.flatMap((node) => [...(node.path ? [node.path] : []), ...flattenProjectPaths(node.children ?? [])]);
 }
 
+/**
+ * The project file a diagnostic names: the one at its exact path. Failing
+ * that, a full path TeX gave that ends with a project file's path, or a
+ * shorter one a project file's path ends with, picks that file, but only when
+ * exactly one file fits; with several, guessing opened the wrong copy. A
+ * suffix counts at a folder boundary only: `intro.tex` is not `preintro.tex`.
+ */
 export function resolveDiagnosticPath(diagnosticFile: string | undefined, projectFiles: string[], fallbackPath = ""): string {
-  const normalized = normalizeDiagnosticPath(diagnosticFile);
-  if (!normalized) return fallbackPath;
-  const slashed = (path: string) => path.replace(/\\/g, "/");
-  // A suffix only counts at a folder boundary: `intro.tex` is not `preintro.tex`.
-  return projectFiles.find((path) => slashed(path) === normalized)
-    ?? projectFiles.find((path) => slashed(path).endsWith(`/${normalized}`))
-    ?? normalized;
+  const path = cleanDiagnosticPath(diagnosticFile);
+  if (!path) return fallbackPath;
+  const exact = projectFiles.find((file) => cleanDiagnosticPath(file) === path);
+  if (exact) return exact;
+  const absolute = isAbsolutePath(path);
+  const candidates = projectFiles.filter((file) => {
+    const cleaned = cleanDiagnosticPath(file);
+    if (!cleaned) return false;
+    return absolute ? path.endsWith(`/${cleaned}`) : cleaned.endsWith(`/${path}`);
+  });
+  return candidates.length === 1 ? candidates[0]! : normalizeDiagnosticPath(path)!;
 }
 
 export function sortDiagnostics(diagnostics: CompileDiagnostic[]): CompileDiagnostic[] {
