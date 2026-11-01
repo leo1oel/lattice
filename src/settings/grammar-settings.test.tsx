@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { grammarSettingsStore } from "../editor/grammar-settings-store";
+import { activateAppLocale } from "../i18n";
 import { GrammarSettingsGroup } from "./grammar-settings";
-import { grammarRuleLabel } from "./grammar-rule-reasons";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -25,17 +25,13 @@ afterEach(() => {
 
 const switchFor = (label: string) => screen.getByRole("switch", { name: label });
 
-it("names rules readably", () => {
-  expect(grammarRuleLabel("PhrasalVerbAsCompoundNoun")).toBe("Phrasal verb as compound noun");
-  expect(grammarRuleLabel("ExpandMemoryShorthands")).toBe("Expand memory shorthands");
-});
-
 it("lists what the academic profile turns off with its reason, and finds any rule by a filter", async () => {
   render(<GrammarSettingsGroup ignores={null} onIgnoresChange={vi.fn()} />);
   expect(await screen.findByText("Long sentences")).toBeInTheDocument();
   expect(screen.getByText(/^Off for academic writing: The serial comma/)).toBeInTheDocument();
   expect(switchFor("Oxford comma")).not.toBeChecked();
   expect(screen.queryByText("An a")).not.toBeInTheDocument();
+  expect(screen.getByText(/There are 4 rules in all; type in the filter to search every one/)).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText("Filter grammar rules"), { target: { value: "vowel" } });
   expect(screen.getByText("Use an before a vowel sound.")).toBeInTheDocument();
@@ -57,10 +53,28 @@ it("switches a rule over the profile, gives it back when it matches again, and r
   fireEvent.click(screen.getByRole("button", { name: "Reset" }));
   expect(grammarSettingsStore.getState().rules).toEqual({});
 
-  // Under the standard profile nothing is off for academic writing.
+  // The standard profile changes no rule, so only a filter lists one.
   grammarSettingsStore.getState().setProfile("standard");
-  expect(await screen.findByText("Asks for a serial comma.")).toBeInTheDocument();
+  await vi.waitFor(() => expect(screen.queryByText("Oxford comma")).not.toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText("Filter grammar rules"), { target: { value: "serial" } });
+  expect(screen.getByText("Asks for a serial comma.")).toBeInTheDocument();
   expect(switchFor("Oxford comma")).toBeChecked();
+});
+
+it("names and finds rules in Chinese as well as English", async () => {
+  await activateAppLocale("zh-CN");
+  render(<GrammarSettingsGroup ignores={{ rules: ["AnA"], sentences: [] }} onIgnoresChange={vi.fn()} />);
+  expect(await screen.findByRole("switch", { name: "标点：牛津逗号" })).not.toBeChecked();
+  expect(screen.getByText(/^学术写作中关闭：是否使用连续逗号/)).toBeInTheDocument();
+  expect(screen.getByText("这里只列出语法风格或你改动过的规则。共有 4 条规则，在筛选框中输入即可搜索全部规则。")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "已忽略的语法规则" })).toHaveTextContent("冠词：a 与 an");
+
+  const filter = screen.getByRole("textbox");
+  fireEvent.change(filter, { target: { value: "冠词" } });
+  expect(screen.getByRole("switch", { name: "冠词：a 与 an" })).toBeChecked();
+  expect(screen.getByText("检查用错的不定冠词。例如 “this is an mule” 会被标为错误。")).toBeInTheDocument();
+  fireEvent.change(filter, { target: { value: "boring" } });
+  expect(screen.getByRole("switch", { name: "文体：乏味词语" })).not.toBeChecked();
 });
 
 it("lists the project's ignored rules and sentences and checks one again", async () => {

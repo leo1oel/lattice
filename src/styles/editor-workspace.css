@@ -794,6 +794,16 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-tooltip-lint .cm-diagnosticText {
   flex: 1 0 100%;
 }
+/* A Harper finding in a non-English interface: the rule's name and
+   description, then the finding itself (harper-spellcheck.ts). */
+.source-editor .cm-tooltip-lint .cm-harper-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.source-editor .cm-tooltip-lint .cm-harper-rule { font-weight: 600; }
+.source-editor .cm-tooltip-lint .cm-harper-rule-description { color: var(--text-secondary); }
+.source-editor .cm-tooltip-lint .cm-harper-detail-original { color: var(--text-tertiary); font-size: 0.9em; }
 .source-editor .cm-tooltip-lint .cm-diagnosticAction {
   min-height: 24px;
   margin: 0;

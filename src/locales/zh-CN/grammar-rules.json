@@ -1,0 +1,3294 @@
+{
+  "ACoupleMore": {
+    "name": "固定搭配：a couple more",
+    "description": "将 “a couple of more” 改为 “a couple more”。"
+  },
+  "ALittleOfPractice": {
+    "name": "固定搭配：a little practice",
+    "description": "将 “a little of practice” 改为 “a little practice” 或 “a bit of practice”。"
+  },
+  "ALongTime": {
+    "name": "固定搭配：a long time",
+    "description": "将 “along time” 改为 “a long time”。"
+  },
+  "AMeansToAnEnd": {
+    "name": "习语：a means to an end",
+    "description": "将 “a mean to an end” 改为 “a means to an end”。"
+  },
+  "AOkHyphen": {
+    "name": "连字符：A-OK",
+    "description": "在系动词表示“准备就绪”或“认可”时，把冠词加缩写的松散写法改为标准的连字符形式 “A-OK”。"
+  },
+  "APart": {
+    "name": "用词：a part 与 apart",
+    "description": "找出并纠正 “a part” 与 “apart” 之间的常见混用。"
+  },
+  "ASomeTime": {
+    "name": "冗余：a some time",
+    "description": "在 “some” 后接时间表达时，删去前面多余且矛盾的不定冠词 “a”。"
+  },
+  "AWaysToGo": {
+    "name": "习语：a ways to go",
+    "description": "纠正缺少不定冠词的习语 “ways to go”，改为 “a ways to go”。"
+  },
+  "AWhile": {
+    "name": "用词：awhile 与 a while",
+    "description": "动词后用 “awhile”，其他位置用 “a while”。"
+  },
+  "AdNauseam": {
+    "name": "习语：ad nauseam",
+    "description": "将 “as nauseam” 改为 “ad nauseam”。"
+  },
+  "Addicting": {
+    "name": "用词：addictive",
+    "description": "“addicting” 用作形容词时，改为 “addictive”。"
+  },
+  "AdjectiveDoubleDegree": {
+    "name": "比较级：双重比较",
+    "description": "找出重复表示比较级或最高级的形容词（如 “more prettier”）。"
+  },
+  "AdjectiveOfA": {
+    "name": "结构：adjective of a",
+    "description": "检查 “形容词 + of a” 形式的词序列（如 “too big of a deal”）。"
+  },
+  "Ado": {
+    "name": "拼写：ado",
+    "description": "将 “adieu” 改为 “ado”。"
+  },
+  "AfterAWhile": {
+    "name": "固定搭配：after a while",
+    "description": "补上 “after while” 中缺少的冠词，改为 “after a while”。"
+  },
+  "AfterAll": {
+    "name": "固定搭配：after all",
+    "description": "将 “afterall” 改为 “after all”。"
+  },
+  "AfterLater": {
+    "name": "冗余：after … later",
+    "description": "检查 “after + 一段时间” 后面多余的 “later”。"
+  },
+  "AheadAnd": {
+    "name": "拼写：ahead and",
+    "description": "将 “ahead” 后误写的 “an” 改为 “and”。"
+  },
+  "Albeit": {
+    "name": "拼写：albeit",
+    "description": "将这一表达改为标准写法 “albeit”。"
+  },
+  "AllHellBreakLoose": {
+    "name": "习语：all hell breaks loose",
+    "description": "将 “all hell breaks out” 的各种形式改为 “all hell breaks loose”。"
+  },
+  "AllIntentsAndPurposes": {
+    "name": "习语：for all intents and purposes",
+    "description": "找出并纠正 “for all intents and purposes” / “to all intents and purposes” 的常见错误形式。"
+  },
+  "AllOfASudden": {
+    "name": "习语：all of a sudden",
+    "description": "将这一表达改为标准形式 “all of a sudden”。"
+  },
+  "AllReady": {
+    "name": "用词：already 与 all ready",
+    "description": "“all ready” 位于形容词前时提示改为副词 “already”。"
+  },
+  "AllThough": {
+    "name": "拼写：although",
+    "description": "想表达 “although” 时几乎不会写成两个词 “all though”。"
+  },
+  "AllowTo": {
+    "name": "结构：allow to",
+    "description": "提示缺少宾语的 “allow to” 用法（应为 “allow someone to …”）。"
+  },
+  "Alongside": {
+    "name": "合写词：alongside",
+    "description": "将分开写的 “along side” 改为 “alongside”。"
+  },
+  "AlzheimersDisease": {
+    "name": "拼写：Alzheimer’s disease",
+    "description": "纠正常见的误称 “old-timers' disease”，改为正确的医学术语 “Alzheimer’s disease”。"
+  },
+  "AmInTheMorning": {
+    "name": "冗余：am/pm 与时段",
+    "description": "找出与 “in the morning”、“at night” 等时段连用的多余 am/pm 标记。"
+  },
+  "AmazonNames": {
+    "name": "专有名词：Amazon",
+    "description": "提及 Amazon.com 的各类产品时，按专有名词书写。"
+  },
+  "Americas": {
+    "name": "专有名词：the Americas",
+    "description": "指北美洲、中美洲和南美洲时，按专有名词书写。"
+  },
+  "AmountsFor": {
+    "name": "固定搭配：amounts to",
+    "description": "将 “amounts for” 改为 “amounts to” 或 “accounts for”。"
+  },
+  "AnA": {
+    "name": "冠词：a 与 an",
+    "description": "检查用错的不定冠词。例如 “this is an mule” 会被标为错误。"
+  },
+  "AnAnother": {
+    "name": "冠词：another",
+    "description": "纠正 “an another” 和 “a another”。"
+  },
+  "AnalogAcousticBike": {
+    "name": "用词：analog bike",
+    "description": "为 “analog/analogue bike” 和 “acoustic bike” 建议更通行的说法。"
+  },
+  "AndIn": {
+    "name": "拼写：and in",
+    "description": "当 “an in” 是连词 “and in” 的笔误时予以纠正，同时避开常见的 “in-…” 名词短语和少数已知例外。"
+  },
+  "AndSuch": {
+    "name": "固定搭配：and such",
+    "description": "将 “and the such” 改为 “and such”。"
+  },
+  "AndTheLike": {
+    "name": "固定搭配：and the like",
+    "description": "纠正 “and the like” 和 “or the like” 中的错误。"
+  },
+  "AnotherAn": {
+    "name": "冠词：another an",
+    "description": "将 “another an” 改为 “another”。"
+  },
+  "AnotherOnes": {
+    "name": "单复数：another ones",
+    "description": "纠正 “another ones”。"
+  },
+  "AnotherThingComing": {
+    "name": "习语：another thing coming",
+    "description": "“another think coming” 虽是原始说法，但 “another thing coming” 如今更常见。"
+  },
+  "AnotherThings": {
+    "name": "单复数：another things",
+    "description": "纠正 “another things”。"
+  },
+  "AnotherThinkComing": {
+    "name": "习语：another think coming",
+    "description": "“another thing coming” 虽然如今更常见，但 “another think coming” 才是原始说法。"
+  },
+  "Anybody": {
+    "name": "合写词：anybody",
+    "description": "检查合写词 “anybody” 是否被错误地拆开。"
+  },
+  "Anyhow": {
+    "name": "合写词：anyhow",
+    "description": "检查合写词 “anyhow” 是否被错误地拆开。"
+  },
+  "Anywhere": {
+    "name": "合写词：anywhere",
+    "description": "检查合写词 “anywhere” 是否被错误地拆开。"
+  },
+  "ApartFrom": {
+    "name": "拼写：apart from",
+    "description": "提示误写的 “apart form”，建议改为 “apart from”。"
+  },
+  "AppleNames": {
+    "name": "专有名词：Apple",
+    "description": "提及 Apple 的产品和服务时，按专有名词书写。"
+  },
+  "ArgumentToBeMade": {
+    "name": "固定搭配：argument to be made",
+    "description": "将 “argument to be said” 改为 “argument to be made”。"
+  },
+  "ArriveOnWeekday": {
+    "name": "介词：arrive on + 星期",
+    "description": "倾向常见的 “arrive on Friday” 写法，而不是直接接星期几，使日程表述明确。"
+  },
+  "ArriveTo": {
+    "name": "介词：arrive to",
+    "description": "供贡献者复制到 “harper_core/src/linting/” 并重命名的规则模板。"
+  },
+  "AsComparedTo": {
+    "name": "固定搭配：as compared to",
+    "description": "将 “as compare to” 改为 “as compared to”。"
+  },
+  "AsEvidentBy": {
+    "name": "固定搭配：as evidenced by",
+    "description": "在把 “evidence” 用作动词的被动结构中，将 “evident by” 改为 “evidenced by”。"
+  },
+  "AsFarAsIKnow": {
+    "name": "首字母缩写：AFAIK",
+    "description": "将首字母缩写 “AFAIK” 展开为完整写法。"
+  },
+  "AsFarBackAs": {
+    "name": "固定搭配：as far back as",
+    "description": "将不规范的 “as early back as” 改为 “as far back as”。"
+  },
+  "AsFollows": {
+    "name": "固定搭配：as follows",
+    "description": "纠正因矫枉过正而写出的 “as follow”。它在 19 世纪的英语中曾短暂出现，如今已属古旧用法；现代标准英语无论单复数都用 “as follows”。"
+  },
+  "AsHow": {
+    "name": "固定搭配：as to how",
+    "description": "将 “as how” 改为 “as to how”。"
+  },
+  "AsIfThough": {
+    "name": "冗余：as if though",
+    "description": "纠正重复的 “as if though”。"
+  },
+  "AsIsWithAnything": {
+    "name": "固定搭配：as with anything",
+    "description": "提示混搭而成的错误说法 “as is with anything”，建议改为 “as with anything” 或 “as is the case with anything” 等标准说法。"
+  },
+  "AsItHappens": {
+    "name": "固定搭配：as it happens",
+    "description": "将 “as it so happens” 改为 “as it happens”。"
+  },
+  "AsLongAs": {
+    "name": "固定搭配：as long as",
+    "description": "将 “aslong as” 和 “as long that” 改为 “as long as”。"
+  },
+  "AsMuchAs": {
+    "name": "固定搭配：as much as",
+    "description": "将 “as much than” 改为 “as much as”。"
+  },
+  "AsOfCurrently": {
+    "name": "冗余：as of currently",
+    "description": "将 “as of currently” 改为 “currently” 或 “as of now”。"
+  },
+  "AsOfLately": {
+    "name": "冗余：as of lately",
+    "description": "将 “as of lately” 改为 “lately” 或 “as of late”。"
+  },
+  "AsOpposedTo": {
+    "name": "固定搭配：as opposed to",
+    "description": "将 “as oppose to” 改为 “as opposed to”。"
+  },
+  "AsSoonAsPossible": {
+    "name": "首字母缩写：ASAP",
+    "description": "将首字母缩写 “ASAP” 展开为完整写法。"
+  },
+  "AsToInterrogative": {
+    "name": "介词：as to + 疑问词",
+    "description": "在某些形容词与 “wh-” 疑问词之间，将 “to” 改为 “as to”。"
+  },
+  "AskNoPreposition": {
+    "name": "介词：ask 与 tell 后多余的 to",
+    "description": "找出 “ask to us”、“tell to him” 这类结构，建议删去多余的 “to”。"
+  },
+  "AspireTo": {
+    "name": "介词：aspire to",
+    "description": "将 “aspire for” 改为 “aspire to”。"
+  },
+  "AtAllCosts": {
+    "name": "习语：at all costs",
+    "description": "将 “at all cost” 改为 “at all costs”。"
+  },
+  "AtFaceValue": {
+    "name": "习语：at face value",
+    "description": "纠正 “at face value” 的不规范变体。"
+  },
+  "AtLeasToLeast": {
+    "name": "拼写：at least（at leas）",
+    "description": "纠正常见笔误 “at leas”，改为 “at least”。"
+  },
+  "AtLestToLeast": {
+    "name": "拼写：at least（at lest）",
+    "description": "纠正误写的 “at lest”，改为 “at least”。"
+  },
+  "AtTheBestOfTimes": {
+    "name": "习语：at the best of times",
+    "description": "将 “in the best of times” 改为 “at the best of times”。"
+  },
+  "AtTheEndOfTheDay": {
+    "name": "习语：at the end of the day",
+    "description": "将 “in the end of the day” 改为 “at the end of the day”。"
+  },
+  "AtTheExpenseOf": {
+    "name": "习语：at the expense of",
+    "description": "正确的习语是用单数 “expense” 的 “at the expense of”；但若该短语指一大片区域，保留 “expanse”。"
+  },
+  "AtTheVeryLeast": {
+    "name": "固定搭配：at the very least",
+    "description": "将 “in the very least” 改为 “at the very least”。"
+  },
+  "Australia": {
+    "name": "专有名词：澳大利亚地名",
+    "description": "提及澳大利亚的州、领地和城市时，按专有名词书写。"
+  },
+  "AvoidAndAlso": {
+    "name": "冗余：and also",
+    "description": "把 “and also” 改为 “and”，减少冗余。"
+  },
+  "AvoidContractions": {
+    "name": "文体：避免缩约形式",
+    "description": "为常见缩约形式建议完整写法，例如 “isn't” → “is not”、“we're” → “we are”。"
+  },
+  "AvoidCurses": {
+    "name": "文体：避免粗话",
+    "description": "标出冒犯性用语，并提供多种遮蔽写法或委婉说法。"
+  },
+  "AwaitFor": {
+    "name": "冗余：await for",
+    "description": "建议用 “await” 或 “wait for”，不要两者连用，因为二者意思相同。"
+  },
+  "AwareOf": {
+    "name": "介词：aware of",
+    "description": "将 “aware about” 改为标准的 “aware of”。"
+  },
+  "AzureNames": {
+    "name": "专有名词：Azure",
+    "description": "提及 Azure 云服务时，按专有名词书写。"
+  },
+  "BackInTheDay": {
+    "name": "习语：back in the day",
+    "description": "提示不规范的说法 “back in the days”，更正确、更通行的形式是 “back in the day”。"
+  },
+  "Backplane": {
+    "name": "合写词：backplane",
+    "description": "检查合写词 “backplane” 是否被错误地拆开。"
+  },
+  "BadRap": {
+    "name": "习语：bad rap",
+    "description": "将 “bed rap” 改为正确的习语 “bad rap”。"
+  },
+  "BanTogether": {
+    "name": "习语：band together",
+    "description": "发现并纠正把习语 “band together”（团结、联合）误写成 “ban together” 的常见错误。"
+  },
+  "BareInMind": {
+    "name": "习语：bear in mind",
+    "description": "确保写成 “bear in mind”，而不是 “bare in mind”。"
+  },
+  "BarelyUn": {
+    "name": "否定：barely + un-",
+    "description": "提示 “barely” 与 “un-” 开头的否定形容词连用（如 “barely unusable”），这属于一种双重否定。"
+  },
+  "BatedBreath": {
+    "name": "习语：bated breath",
+    "description": "将 “baited breath” 改为正确的 “bated breath”。"
+  },
+  "BeAllowed": {
+    "name": "动词形式：be allowed",
+    "description": "确保在将来时否定句后使用被动形式 “be allowed”。"
+  },
+  "BeBiased": {
+    "name": "词性：be biased",
+    "description": "检查误用 “be + 动词” 而非 “be + 形容词” 的情况（应为 “be biased”）。"
+  },
+  "BeConcerned": {
+    "name": "词性：be concerned",
+    "description": "检查误用 “be + 动词” 而非 “be + 形容词” 的情况（应为 “be concerned”）。"
+  },
+  "BePrejudiced": {
+    "name": "词性：be prejudiced",
+    "description": "检查误用 “be + 动词” 而非 “be + 形容词” 的情况（应为 “be prejudiced”）。"
+  },
+  "BeRightBack": {
+    "name": "首字母缩写：BRB",
+    "description": "将首字母缩写 “BRB” 展开为完整写法。"
+  },
+  "BeShocked": {
+    "name": "词性：be shocked",
+    "description": "检查误用 “be + 动词” 而非 “be + 形容词” 的情况（应为 “be shocked”）。"
+  },
+  "BeWorried": {
+    "name": "词性：be worried",
+    "description": "检查误用 “be + 动词” 而非 “be + 形容词” 的情况（应为 “be worried”）。"
+  },
+  "BeckAndCall": {
+    "name": "习语：beck and call",
+    "description": "将 “back and call” 改为 “beck and call”。"
+  },
+  "BeenThere": {
+    "name": "拼写：been there",
+    "description": "将误写的 “bee there” 改为正确的 “been there”。"
+  },
+  "Beforehand": {
+    "name": "合写词：beforehand",
+    "description": "“beforehand” 是表示“事先”的固定副词，分成两个词或加连字符都不规范，读来别扭。"
+  },
+  "BehindTheScenes": {
+    "name": "习语：behind the scenes",
+    "description": "将 “behind the scene” 改为 “behind the scenes”。"
+  },
+  "BesideThePoint": {
+    "name": "习语：beside the point",
+    "description": "将 “besides the point” 改为 “beside the point”。"
+  },
+  "BestOfAllTime": {
+    "name": "固定搭配：of all time",
+    "description": "检查最高级后不规范的 “of all times”，应使用单数 “time”。"
+  },
+  "BestRegards": {
+    "name": "拼写：best regards",
+    "description": "信件结尾敬语中的 “best” 表示最诚挚的问候，避免误写成 “beat regards”。"
+  },
+  "BetterOffPhrase": {
+    "name": "固定搭配：better off",
+    "description": "在常见的比较说法中，将 “better of” 改为 “better off”。"
+  },
+  "BetterOffWith": {
+    "name": "固定搭配：better off with",
+    "description": "将 “better of with” 改为 “better off with”。"
+  },
+  "BewareOf": {
+    "name": "介词：beware of",
+    "description": "动词 “beware” 后接所警示的名词时自然搭配 “of”，换掉其他介词以求清楚。"
+  },
+  "BlacklistWhitelist": {
+    "name": "合写词：blacklist 与 whitelist",
+    "description": "将两个词的 “black list” / “white list” 统一为既定的合写名词或动词。"
+  },
+  "BlanketStatement": {
+    "name": "固定搭配：blanket statement",
+    "description": "纠正 “blanket statement” 这一说法中的常见错误。"
+  },
+  "BluRayHyphen": {
+    "name": "连字符：Blu-ray",
+    "description": "将这种光盘格式的两词写法合并为标准的复合形式。"
+  },
+  "BoarderBorder": {
+    "name": "用词：border 与 boarder",
+    "description": "提示把 “border”（边缘、边界）误写成 “boarder”（寄宿者）的近音误用。"
+  },
+  "Bollocks": {
+    "name": "拼写：bollocks",
+    "description": "意为“胡说”时，将 “bullocks” 改为 “bollocks”。"
+  },
+  "BoringWords": {
+    "name": "文体：乏味词语",
+    "description": "查找格外乏味或被滥用的词。用词多样能更容易抓住读者的注意力。"
+  },
+  "Bought": {
+    "name": "拼写：bought",
+    "description": "在主格代词后，将误拼的过去式 “bough” 改为 “bought”。"
+  },
+  "BrandBrandish": {
+    "name": "用词：brand 与 brandish",
+    "description": "查找本该用 “brand” 却误用 “brandish” 的情况。"
+  },
+  "Brutality": {
+    "name": "用词：brutality",
+    "description": "建议使用更标准、更常用的同义词 “brutality”。"
+  },
+  "BuiltIn": {
+    "name": "连字符：built-in",
+    "description": "英语惯例将 “built-in” 视为一个定语形容词，意为从一开始就集成在内；“in built” 等其他写法不规范，读来别扭。"
+  },
+  "ByAccident": {
+    "name": "介词：by accident",
+    "description": "介词用错：地道的说法是 “by accident”。"
+  },
+  "ByOnesOwn": {
+    "name": "固定搭配：on one’s own",
+    "description": "纠正 “by my own” 等说法，建议改为 “on my own” 或 “by myself”。"
+  },
+  "ByTheBook": {
+    "name": "习语：by the book",
+    "description": "将 “by the books” 改为 “by the book”。"
+  },
+  "ByTheWay": {
+    "name": "首字母缩写：BTW",
+    "description": "将首字母缩写 “BTW” 展开为完整写法。"
+  },
+  "Bypass": {
+    "name": "合写词：bypass",
+    "description": "检查合写词 “bypass” 是否被错误地拆开。"
+  },
+  "CallItQuits": {
+    "name": "习语：call it quits",
+    "description": "纠正习语 “call it quits” 的错误变体。"
+  },
+  "CallThem": {
+    "name": "固定搭配：call them",
+    "description": "纠正不地道的 “call them as”。"
+  },
+  "CanBeSeen": {
+    "name": "固定搭配：can be seen",
+    "description": "将 “can be seem” 改为正确的 “can be seen”。"
+  },
+  "Canada": {
+    "name": "专有名词：加拿大地名",
+    "description": "提及加拿大的省、领地和城市时，按专有名词书写。"
+  },
+  "Cant": {
+    "name": "缩约形式：can't",
+    "description": "建议将 “cant” 改为 “can't”。"
+  },
+  "CantWay": {
+    "name": "拼写：can't wait",
+    "description": "在 “can't way to”、“doesn't way for” 等把握较大的语境中，将 “way” 改为 “wait”。"
+  },
+  "CapitalizeOn": {
+    "name": "介词：capitalize on",
+    "description": "将 “capitalize off (of)” 改为 “capitalize on”，涵盖 -ise 拼法及各种词形。"
+  },
+  "CapitalizePersonalPronouns": {
+    "name": "大小写：人称代词 I",
+    "description": "忘记把人称代词（如 “I”、“I'm”）大写是最常见的错误之一，这条规则帮你检查。"
+  },
+  "CaseInPoint": {
+    "name": "习语：case in point",
+    "description": "将 “case and point” 改为 “case in point”。"
+  },
+  "CaseSensitive": {
+    "name": "连字符：case-sensitive",
+    "description": "确保 “case-sensitive” 正确使用连字符。"
+  },
+  "Catch22": {
+    "name": "习语：catch-22",
+    "description": "纠正习语 “catch 22” 中误用的近音词。"
+  },
+  "CauseItIsBecause": {
+    "name": "用词：because it is",
+    "description": "在解释性从句中，把口语化的 “cause it is” 改为标准的从属连词形式。"
+  },
+  "CautionaryTale": {
+    "name": "用词：tale 与 tail",
+    "description": "纠正常见短语中 “tale”（故事）与 “tail”（尾巴）的混淆。"
+  },
+  "Chalkboard": {
+    "name": "合写词：chalkboard",
+    "description": "检查合写词 “chalkboard” 是否被错误地拆开。"
+  },
+  "ChampAtTheBit": {
+    "name": "习语：champ at the bit",
+    "description": "将 “chomp at the bit” 改为习语 “champ at the bit”。它源自马术，指焦躁的马用牙咬磨嚼铁。"
+  },
+  "ChangeTack": {
+    "name": "习语：change tack",
+    "description": "找出习语 “to change tack” 和 “change of tack” 中的错误，准确表达改变方向或策略之意。"
+  },
+  "ChineseCommunistParty": {
+    "name": "专有名词：Chinese Communist Party",
+    "description": "指该政党时，按专有名词书写。"
+  },
+  "ChockFull": {
+    "name": "连字符：chock-full",
+    "description": "标出 “chock-full” 的常见近音误写，并确保加上连字符。"
+  },
+  "ClicheAccent": {
+    "name": "拼写：cliché",
+    "description": "为 “cliché” 及其复数 “clichés” 补上标准拼写中的重音符号。"
+  },
+  "ClickThroughRate": {
+    "name": "连字符：click-through rate",
+    "description": "当动词加介词直接位于 rate 类名词前时加连字符，与数据分析写作中这类术语的常见写法一致。"
+  },
+  "ClientOrServerSide": {
+    "name": "标点：client side 中多余的撇号",
+    "description": "删去 “client's side” 和 “server's side” 中多余的撇号。"
+  },
+  "CloseTightKnit": {
+    "name": "拼写：close-knit 与 tight-knit",
+    "description": "将 “close-nit” 和 “tight-nit” 改为 “close-knit” 和 “tight-knit”。"
+  },
+  "CodeInWriteIn": {
+    "name": "介词：write in（代码）",
+    "description": "谈论编写代码时，将误用的介词 “on” 改为 “in”。"
+  },
+  "ColdModalTypo": {
+    "name": "拼写：could",
+    "description": "在常见的“主语 + 情态动词”语境中，将 “cold” 改为 “could”。"
+  },
+  "CommaFixes": {
+    "name": "标点：逗号",
+    "description": "修正常见的逗号错误，例如逗号后缺空格、逗号前多空格，以及误用中文等全角逗号代替英文逗号。"
+  },
+  "CommitmentTo": {
+    "name": "介词：commitment to",
+    "description": "将 “commitment toward/towards” 改为 “commitment to”。"
+  },
+  "CompaniesProductsAndTrademarks": {
+    "name": "专有名词：公司、产品与商标",
+    "description": "确保公司、产品和商标名称的大小写正确。"
+  },
+  "ComplainAsNoun": {
+    "name": "词性：complaint",
+    "description": "纠正把 “complain” 当名词用的情况。"
+  },
+  "CompoundNouns": {
+    "name": "合写词：复合名词",
+    "description": "发现被空格拆开的复合名词，当两部分合起来是一个有效名词时，建议合写。"
+  },
+  "CompoundSubjectI": {
+    "name": "代词：复合主语中的 I",
+    "description": "在以物主限定词开头的复合主语中，将代词改为 “I”。"
+  },
+  "ComprisesOf": {
+    "name": "冗余：comprises of",
+    "description": "“comprises” 本身已含 “of” 的意思，后面再加 “of” 是多余的。"
+  },
+  "CompulseToCompel": {
+    "name": "用词：compel",
+    "description": "建议用标准动词 “compel” 替换已废弃的古旧动词 “compulse”。"
+  },
+  "CondenseAllThe": {
+    "name": "文体：all the",
+    "description": "建议删去 “all of the” 中的 “of”，使表达更简洁。"
+  },
+  "Confident": {
+    "name": "用词：confident 与 confidant",
+    "description": "检查把形容词 “confident” 误写成名词 “confidant” 的情况。“confidant” 指可信赖的知己，“confident” 表示有把握、自信。在形容词语境中建议改为 “confident”。"
+  },
+  "ConfirmThat": {
+    "name": "拼写：confirm",
+    "description": "将误写的 “conform” 改为 “confirm”。"
+  },
+  "ConstituteAs": {
+    "name": "冗余：constitute as",
+    "description": "删去动词 “constitute” 后多余的 “as”。"
+  },
+  "ConvenientStore": {
+    "name": "固定搭配：convenience store",
+    "description": "尝试找出把 “convenience store” 误写成 “convenient store” 的情况。"
+  },
+  "Copyright": {
+    "name": "拼写：copyright",
+    "description": "将 “copywrite” 改为 “copyright”。“copywrite” 指撰写文案，“copyright” 是对创作作品享有的法定权利。"
+  },
+  "CorrectNumberSuffix": {
+    "name": "数字：序数词后缀",
+    "description": "快速修改时，作者常常改了数字却忘了改后缀。这条规则会找出这类情况，例如 “2st”。"
+  },
+  "Countries": {
+    "name": "专有名词：国家名",
+    "description": "提及国家时，按专有名词书写。"
+  },
+  "CoursingThroughVeins": {
+    "name": "习语：coursing through veins",
+    "description": "英语习语中 “to course” 意为急速流动，因此不要误写成近音的 “cursing through veins”。"
+  },
+  "CraveFor": {
+    "name": "冗余：crave for",
+    "description": "动词 “crave” 后不应加 “for”。"
+  },
+  "CriteriaPhenomena": {
+    "name": "单复数：criteria 与 phenomena",
+    "description": "“criteria” 和 “phenomena” 分别是 “criterion” 和 “phenomenon” 的复数，常被误当作单数使用。"
+  },
+  "CrossPlatform": {
+    "name": "连字符：cross-platform",
+    "description": "与有些复合修饰语不同，“cross-platform” 始终应加连字符。"
+  },
+  "CureFor": {
+    "name": "介词：cure for",
+    "description": "标出 “cure against”，建议使用标准搭配 “cure for”。"
+  },
+  "CurrencyPlacement": {
+    "name": "数字：货币符号位置",
+    "description": "货币符号的位置因国家而异。这条规则查找并纠正放错位置的货币符号。"
+  },
+  "CuttingAgeEggcorn": {
+    "name": "拼写：cutting-edge",
+    "description": "将近音误写 “cutting age” 或 “cutting-age” 改为 “cutting-edge” 或 “cutting edge”。"
+  },
+  "Cybersec": {
+    "name": "缩写：cybersecurity",
+    "description": "将非正式缩写 “cybersec” 展开为 “cybersecurity”。"
+  },
+  "Damages": {
+    "name": "用词：damages",
+    "description": "检查不在诉讼语境中使用的复数 “damages”（该词通常指损害赔偿金）。"
+  },
+  "DampSquib": {
+    "name": "习语：damp squib",
+    "description": "将近音误写 “damp squid” 改为 “damp squib”，以准确表达“令人失望的结果”之意。"
+  },
+  "Dashes": {
+    "name": "标点：破折号",
+    "description": "作者常输入 “--” 或 “---”，以为编辑器会自动转成破折号。这条规则将其替换为正确的字符：表示范围或连接用短破折号（–），表示思路中断用长破折号（—）。"
+  },
+  "DateBackFrom": {
+    "name": "固定搭配：date back to",
+    "description": "纠正由 “date from” 和 “date back to” 混合而成的不规范说法 “date back from”。"
+  },
+  "DayAndAge": {
+    "name": "习语：in this day and age",
+    "description": "纠正习语 “in this day and age” 的错误变体。"
+  },
+  "DayOneNames": {
+    "name": "专有名词：Day One",
+    "description": "确保品牌名 Day One 和 Day One Premium 的大小写正确。"
+  },
+  "Deadlift": {
+    "name": "合写词：deadlift",
+    "description": "检查合写词 “deadlift” 是否被错误地拆开。"
+  },
+  "DefiniteArticle": {
+    "name": "术语：definite article",
+    "description": "“the” 这个词的名称是 “definite article”（定冠词）。"
+  },
+  "DegreesKelvin": {
+    "name": "单位：kelvin",
+    "description": "将 “degrees kelvin” 改为 “kelvins”。"
+  },
+  "DegreesKelvinSymbol": {
+    "name": "单位：K",
+    "description": "将 “°K” 改为 “K”。"
+  },
+  "Desktop": {
+    "name": "合写词：desktop",
+    "description": "检查合写词 “desktop” 是否被错误地拆开。"
+  },
+  "DespiteItIs": {
+    "name": "结构：despite",
+    "description": "纠正 “despite” 后接错误的 “is” 形式。"
+  },
+  "DespiteOf": {
+    "name": "冗余：despite of",
+    "description": "纠正误用的 “despite of”，建议改为 “despite” 或 “in spite of”。"
+  },
+  "Devops": {
+    "name": "合写词：devops",
+    "description": "检查合写词 “devops” 是否被错误地拆开。"
+  },
+  "DidPast": {
+    "name": "动词形式：did + 原形",
+    "description": "与 “did” 连用时，将动词的过去式改为原形。"
+  },
+  "Didnt": {
+    "name": "缩约形式：didn't",
+    "description": "在主格代词后，将 “dint” 改为 “didn't”。"
+  },
+  "DigestiveTract": {
+    "name": "固定搭配：digestive tract",
+    "description": "将 “digestive track” 改为 “digestive tract”。"
+  },
+  "DiscourseMarkers": {
+    "name": "标点：话语标记后的逗号",
+    "description": "标出以话语标记开头、但缺少其后必需逗号的句子。"
+  },
+  "Discuss": {
+    "name": "冗余：discuss about",
+    "description": "删去 “discuss” 后多余的 “about”。"
+  },
+  "DisjointPrefixes": {
+    "name": "合写词：被拆开的前缀",
+    "description": "查找前缀与词根之间被空格或连字符隔开、而本应连写的词。"
+  },
+  "DoIAdjective": {
+    "name": "结构：Am I + 形容词",
+    "description": "在 “Do I + 形容词” 疑问句中，将助动词 “do” 换成 “am”，使用正确的系动词。"
+  },
+  "DoMistake": {
+    "name": "固定搭配：make a mistake",
+    "description": "将 “do a mistake” 改为 “make a mistake”。"
+  },
+  "DoNotWant": {
+    "name": "拼写：want",
+    "description": "英语否定句仍需完整的动词形式 “want”，不要截短成 “wan”。"
+  },
+  "DoToDueTo": {
+    "name": "拼写：due to",
+    "description": "在表示原因的短语中，纠正把 “due to” 误写成 “do to” 的笔误。"
+  },
+  "DoesOrDose": {
+    "name": "拼写：does 与 dose",
+    "description": "尝试纠正把 “does” 误写成 “dose” 的笔误。"
+  },
+  "DontCan": {
+    "name": "结构：can't",
+    "description": "将 “don't can” 改为 “can't” 或 “cannot”。"
+  },
+  "DotInitialisms": {
+    "name": "标点：缩写中的点",
+    "description": "确保常见缩写（如 “i.e.”）正确地用点分隔。"
+  },
+  "DoubleCheckHyphen": {
+    "name": "连字符：double-check",
+    "description": "将常见的两词写法 “double check” 统一为 “double-check”。"
+  },
+  "DoubleClick": {
+    "name": "连字符：double-click",
+    "description": "建议 “double-click” 及其各种词形加连字符。"
+  },
+  "DoubleEdgedSword": {
+    "name": "习语：double-edged sword",
+    "description": "纠正 “double-edged sword” 的各种变体。"
+  },
+  "DoubleModal": {
+    "name": "结构：连用两个情态动词",
+    "description": "两个情态动词连用很少合乎语法，请删去其中一个。"
+  },
+  "DoubleNegative": {
+    "name": "否定：双重否定",
+    "description": "当限定词 “no” 位于助动词 “didn't/did not” 加实义动词（如 have、need、want、make、take、get）之后时，将其换成 “any”，使从句只保留一个否定。"
+  },
+  "DueDiligence": {
+    "name": "固定搭配：due diligence",
+    "description": "将 “do diligence” 改为 “due diligence”。"
+  },
+  "DuringAges": {
+    "name": "习语：for ages",
+    "description": "表示时长的地道说法是 “for ages”，当这些词泛指一段时间时替换开头的介词。"
+  },
+  "EachAndEveryOne": {
+    "name": "固定搭配：each and every one",
+    "description": "将 “each and everyone” 改为 “each and every one”。"
+  },
+  "EachOthersPossessive": {
+    "name": "所有格：each other's",
+    "description": "当 “each others” 修饰后面的名词短语时，改写为 “each other's”。"
+  },
+  "EagleEyed": {
+    "name": "连字符：eagle-eyed",
+    "description": "把该短语视为复合修饰语，用连字符代替空格，使其读作一个整体。"
+  },
+  "EasyGoingCompoundAdjective": {
+    "name": "连字符：easy-going",
+    "description": "当 “easy going” 直接修饰后面的名词时加连字符。"
+  },
+  "EggYolk": {
+    "name": "拼写：egg yolk",
+    "description": "将近音误写 “egg yoke” 改为标准烹饪用语 “egg yolk”。"
+  },
+  "EllipsisLength": {
+    "name": "标点：省略号",
+    "description": "确保省略号的点数正确。"
+  },
+  "ElsePossessive": {
+    "name": "所有格：else's",
+    "description": "发现 “someone elses book” 这类短语中缺少的撇号，建议改为正确的所有格 “else’s”。"
+  },
+  "EludedTo": {
+    "name": "用词：alluded to",
+    "description": "在表示间接提及的语境中，将 “eluded to” 改为 “alluded to”。"
+  },
+  "EnMasse": {
+    "name": "固定搭配：en masse",
+    "description": "发现 “on mass”、“in mass” 等变体，建议改为 “en masse”。"
+  },
+  "EnRoute": {
+    "name": "固定搭配：en route",
+    "description": "发现 “on route”、“in route” 等变体，建议改为 “en route”。"
+  },
+  "EnvironmentVariable": {
+    "name": "术语：environment variable",
+    "description": "将 “environmental variable(s)” 和 “environmental vars” 改为 “environment variable(s)” 和 “environment vars”。"
+  },
+  "EverEvery": {
+    "name": "拼写：ever 与 every",
+    "description": "尝试纠正本该用 “ever” 却写成 “every” 的笔误。"
+  },
+  "EverPresent": {
+    "name": "连字符：ever-present",
+    "description": "为 “ever present” 补上连字符，构成复合形容词 “ever-present”。"
+  },
+  "EverSince": {
+    "name": "固定搭配：ever since",
+    "description": "将 “every since” 改为 “ever since”。"
+  },
+  "EveryOnceAndAgain": {
+    "name": "固定搭配：every once in a while",
+    "description": "将 “every once and again” 改为 “every once in a while” 或 “once again”。"
+  },
+  "EverySingleOneOf": {
+    "name": "固定搭配：every single one of",
+    "description": "发现短语 “every single one of” 中缺少的 “one”。"
+  },
+  "EveryTime": {
+    "name": "分写：every time",
+    "description": "将 “everytime” 改为 “every time”。"
+  },
+  "Everybody": {
+    "name": "合写词：everybody",
+    "description": "检查合写词 “everybody” 是否被错误地拆开。"
+  },
+  "Everyday": {
+    "name": "用词：everyday 与 every day",
+    "description": "区分容易混淆的形容词 “everyday” 和副词短语 “every day”。"
+  },
+  "Everyone": {
+    "name": "合写词：everyone",
+    "description": "检查合写词 “everyone” 是否被错误地拆开。"
+  },
+  "Everywhere": {
+    "name": "合写词：everywhere",
+    "description": "检查合写词 “everywhere” 是否被错误地拆开。"
+  },
+  "Excellent": {
+    "name": "用词：excellent",
+    "description": "用 “excellent” 替换 “very good”，用词更有力，表达更清楚、更有强调意味。"
+  },
+  "ExceptOf": {
+    "name": "介词：except for",
+    "description": "将 “except of” 改为 “except for” 或 “exception of”。"
+  },
+  "ExitedExcitedContext": {
+    "name": "拼写：excited",
+    "description": "当句子表达热情或期待时，将 “exited” 改为 “excited”。"
+  },
+  "ExpandAlgorithm": {
+    "name": "缩写：algorithm",
+    "description": "为求清楚，将缩写 “algo” 展开为完整的 “algorithm”。"
+  },
+  "ExpandAlloc": {
+    "name": "缩写：allocate",
+    "description": "为求清楚，将缩写 “alloc” 展开为完整的 “allocate” 或 “allocation”。"
+  },
+  "ExpandArgument": {
+    "name": "缩写：argument",
+    "description": "为求清楚，将缩写 “arg” 展开为完整的 “argument”。"
+  },
+  "ExpandBecause": {
+    "name": "缩写：because",
+    "description": "为求正式，将非正式缩写 “cuz” 展开为完整的 “because”。"
+  },
+  "ExpandConfiguration": {
+    "name": "缩写：configuration",
+    "description": "为求清楚，将缩写 “config”、“conf” 及其复数展开为完整的 “configuration(s)”。"
+  },
+  "ExpandControl": {
+    "name": "缩写：control",
+    "description": "为求清楚，将非正式缩写 “ctrl” 展开为完整的 “control”。"
+  },
+  "ExpandCoordinate": {
+    "name": "缩写：coordinate",
+    "description": "为求清楚，将缩写 “coord” 展开为完整的 “coordinate”。"
+  },
+  "ExpandDecl": {
+    "name": "缩写：declaration",
+    "description": "为求清楚，将缩写 “decl” 展开为完整的 “declaration” 或 “declarator”。"
+  },
+  "ExpandDependencies": {
+    "name": "缩写：dependencies",
+    "description": "为求清楚，将缩写 “deps” 展开为完整的 “dependencies”。"
+  },
+  "ExpandDereference": {
+    "name": "缩写：dereference",
+    "description": "为求清楚，将缩写 “deref” 展开为完整的 “dereference”。"
+  },
+  "ExpandDirectory": {
+    "name": "缩写：directory",
+    "description": "为求清楚，将缩写 “dir” 展开为完整的 “directory”。"
+  },
+  "ExpandForward": {
+    "name": "缩写：forward",
+    "description": "为求清楚，将缩写 “fwd” 展开为完整的 “forward”。"
+  },
+  "ExpandGovt": {
+    "name": "缩写：government",
+    "description": "为求清楚，将缩写 “govt” 或 “govt.” 展开为完整的 “government”。"
+  },
+  "ExpandMemoryShorthands": {
+    "name": "缩写：存储容量单位",
+    "description": "将与存储容量有关的缩写（“B”、“kB”、“MB”、“GB”、“TB”、“PB”、“KiB”、“MiB”、“GiB”、“TiB”、“PiB” 等）展开为完整形式（“byte”、“kilobyte”、“megabyte”、“gigabyte”、“terabyte”、“petabyte”、“kibibyte”、“mebibyte”、“gibibyte”、“tebibyte”、“pebibyte” 等）。"
+  },
+  "ExpandMinimum": {
+    "name": "缩写：minimum",
+    "description": "为求清楚，将缩写 “min” 展开为完整的 “minimum”。"
+  },
+  "ExpandNotification": {
+    "name": "缩写：notification",
+    "description": "为求清楚，将缩写 “notif” 展开为完整的 “notification”。"
+  },
+  "ExpandParameter": {
+    "name": "缩写：parameter",
+    "description": "为求清楚，将缩写 “param” 展开为完整的 “parameter”。"
+  },
+  "ExpandPeople": {
+    "name": "缩写：people",
+    "description": "为求清楚，将缩写 “ppl” 展开为完整的 “people”。"
+  },
+  "ExpandPerformance": {
+    "name": "缩写：performance",
+    "description": "为求清楚，将缩写 “perf” 展开为完整的 “performance”。"
+  },
+  "ExpandPointer": {
+    "name": "缩写：pointer",
+    "description": "为求清楚，将缩写 “ptr” 展开为完整的 “pointer”。"
+  },
+  "ExpandPreference": {
+    "name": "缩写：preference",
+    "description": "为求清楚，将缩写 “pref” 及其复数 “prefs” 展开为完整的 “preference(s)”。"
+  },
+  "ExpandPrevious": {
+    "name": "缩写：previous",
+    "description": "为求清楚，将缩写 “prev” 展开为完整的 “previous”。"
+  },
+  "ExpandStandardInputAndOutput": {
+    "name": "缩写：standard input/output",
+    "description": "为求清楚，将缩写 “stdin”、“stdout” 和 “stderr” 展开为 “standard input” 等完整说法。"
+  },
+  "ExpandThough": {
+    "name": "缩写：though",
+    "description": "将非正式拼写 “tho” 展开为标准词 “though”。"
+  },
+  "ExpandThrough": {
+    "name": "缩写：through",
+    "description": "将非正式拼写 “thru” 展开为标准词 “through”。"
+  },
+  "ExpandTimeShorthands": {
+    "name": "缩写：时间单位",
+    "description": "将与时间有关的缩写（“hr”、“hrs”、“min”、“mins”、“sec”、“secs”、“ms”、“msec”、“msecs”）展开为完整形式（“hour”、“hours”、“minute”、“minutes”、“second”、“seconds”、“millisecond”、“milliseconds”）。"
+  },
+  "ExpandVulnerability": {
+    "name": "缩写：vulnerability",
+    "description": "为求清楚，将缩写 “vuln” 展开为完整的 “vulnerability”。"
+  },
+  "ExpandWith": {
+    "name": "缩写：with",
+    "description": "为求清楚，将缩写 “w/” 展开为完整的 “with”。"
+  },
+  "ExpandWithout": {
+    "name": "缩写：without",
+    "description": "为求清楚，将缩写 “w/o” 展开为完整的 “without”。"
+  },
+  "Expat": {
+    "name": "合写词：expat",
+    "description": "纠正把 “expat” 写成两个词的错误。"
+  },
+  "Expatriate": {
+    "name": "拼写：expatriate",
+    "description": "纠正对 “expatriate” 的误解误写，确保用正确的词指称旅居海外的人。"
+  },
+  "ExplainLikeImFive": {
+    "name": "首字母缩写：ELI5",
+    "description": "将首字母缩写 “ELI5” 展开为完整写法。"
+  },
+  "ExplanationMark": {
+    "name": "术语：exclamation mark",
+    "description": "将近音误写 “explanation mark/point” 改为 “exclamation mark/point”。"
+  },
+  "ExtendOrExtent": {
+    "name": "用词：extent 与 extend",
+    "description": "在名词语境中，将 “extend” 改为 “extent”。"
+  },
+  "FaceFirst": {
+    "name": "连字符：face-first",
+    "description": "在 “into” 之前使用时，确保 “face first” 正确地加连字符写作 “face-first”。"
+  },
+  "FairBit": {
+    "name": "固定搭配：a fair bit",
+    "description": "纠正 “a fair bit” 的误用变体。"
+  },
+  "FallBelow": {
+    "name": "冗余：fall below",
+    "description": "标出表示下落距离时多余的 “below”。"
+  },
+  "FarAndFewBetween": {
+    "name": "习语：few and far between",
+    "description": "将 “far and few between” 改为标准习语 “few and far between”。"
+  },
+  "FarBeIt": {
+    "name": "习语：far be it from",
+    "description": "标出 “far be it” 的误用；其后接 “for” 时，建议改用 “from”。"
+  },
+  "FascinatedBy": {
+    "name": "介词：fascinated by",
+    "description": "确保 “fascinated” 搭配正确的介词（如 “fascinated by” 或 “fascinated with”）。"
+  },
+  "FastPaste": {
+    "name": "拼写：fast-paced",
+    "description": "发现误用的 “fast paste” 或 “fast-paste”，建议改为正确的 “fast-paced”。"
+  },
+  "FatalOutcome": {
+    "name": "文体：death",
+    "description": "为求简洁，用更直接的 “death” 替换 “fatal outcome”。"
+  },
+  "FedUpWith": {
+    "name": "介词：fed up with",
+    "description": "在英式英语以外的方言中，将 “fed up of” 改为 “fed up with”。"
+  },
+  "FeelFell": {
+    "name": "拼写：feel 与 fell",
+    "description": "纠正本该用 “feel” 却写成 “fell” 的一些表达。"
+  },
+  "FellowCoRedundancy": {
+    "name": "冗余：fellow 与 co-",
+    "description": "纠正 “fellow” 与 “co-” 连用造成的冗余。"
+  },
+  "FetalPosition": {
+    "name": "固定搭配：fetal position",
+    "description": "确保正确使用 “fetal position”，避免与并非标准短语的 “feeble position” 混淆。"
+  },
+  "FewUnitsOfTimeAgo": {
+    "name": "冠词：a few … ago",
+    "description": "纠正本该用 “a few” 却写成 “few” 的一些表达。"
+  },
+  "FillerWords": {
+    "name": "文体：填充词",
+    "description": "删去填充词。"
+  },
+  "FindFine": {
+    "name": "拼写：fine 与 find",
+    "description": "纠正把 “fine” 误写成 “find” 的常见笔误。"
+  },
+  "FindOut": {
+    "name": "用词：find 与 find out",
+    "description": "当简单的 “find” 更合适时，标出 “find out”。"
+  },
+  "FirstAidKit": {
+    "name": "拼写：kit",
+    "description": "发现 “aid”、“starter”、“travel” 或 “tool” 后面本该是 “kit”（一套用品）却写成 “kid” 的情况。"
+  },
+  "FirstPersonModifierHyphen": {
+    "name": "连字符：first-person 等",
+    "description": "当 “first person” 这类人称修饰语直接修饰后面的名词时，加上连字符。"
+  },
+  "FishNorFowl": {
+    "name": "习语：neither fish nor fowl",
+    "description": "将 “neither fish nor foul” 和 “neither fish nor bird” 改为 “neither fish nor fowl”。"
+  },
+  "FlauntForFlout": {
+    "name": "用词：flout 与 flaunt",
+    "description": "与规则类名词搭配时，将 “flaunt” 改为 “flout”。"
+  },
+  "FleshOutVsFullFledged": {
+    "name": "用词：flesh out 与 full-fledged",
+    "description": "纠正 “flesh out” 与 “full fledged” 的混用。"
+  },
+  "FoamAtTheMouth": {
+    "name": "习语：foam at the mouth",
+    "description": "将习语 “foam out the mouth” 改为标准的 “foam at the mouth”。"
+  },
+  "FondOn": {
+    "name": "介词：fond of",
+    "description": "标出 “fond on”，建议改为 “found on” 或 “fond of”。"
+  },
+  "FootInchMinuteSecondSymbols": {
+    "name": "单位：角分符号",
+    "description": "将度量值中打字机式的撇号和引号改为 Unicode 的角分符号（′）和角秒符号（″）。"
+  },
+  "FootTheBill": {
+    "name": "习语：foot the bill",
+    "description": "将 “flip the bill” 改为 “foot the bill”。"
+  },
+  "ForALongTime": {
+    "name": "固定搭配：for a long time",
+    "description": "纠正 “for along time” 中被错误合写的部分。"
+  },
+  "ForAWhile": {
+    "name": "固定搭配：for a while",
+    "description": "补上 “for while” 中缺少的冠词，改为 “for a while”。"
+  },
+  "ForArgumentsSake": {
+    "name": "所有格：for argument's sake",
+    "description": "将 “for argument sake” 改为 “for argument's sake”。"
+  },
+  "ForFreeOfCharge": {
+    "name": "冗余：for free of charge",
+    "description": "将 “for free of charge” 改为 “for free” 或 “free of charge”。"
+  },
+  "ForNoun": {
+    "name": "拼写：for",
+    "description": "当后接名词时，将古旧或误写的 “fro” 改为 “for”。"
+  },
+  "ForTheMostPart": {
+    "name": "固定搭配：for the most part",
+    "description": "将 “for most part” 改为 “for the most part”。"
+  },
+  "ForTheNthTime": {
+    "name": "冠词：for the nth time",
+    "description": "为表示次数的说法补上缺少的 “the”，例如 “on third time” → “on the third time”。"
+  },
+  "ForWhatItsWorth": {
+    "name": "首字母缩写：FWIW",
+    "description": "将首字母缩写 “FWIW” 展开为完整写法。"
+  },
+  "ForYourInformation": {
+    "name": "首字母缩写：FYI",
+    "description": "将首字母缩写 “FYI” 展开为完整写法。"
+  },
+  "FormativeYears": {
+    "name": "用词：formative years",
+    "description": "当本意可能是 “formative years” 时，标出误用的 “formidable years”。这条规则区分塑造品格的 “formative” 与令人敬畏的 “formidable”。"
+  },
+  "FreePredicate": {
+    "name": "拼写：free",
+    "description": "当系动词后接名词 “fee” 时，帮你换成 “free”。"
+  },
+  "FreeRein": {
+    "name": "习语：free rein",
+    "description": "确保正确使用 “free rein”，避免与 “free reign” 混淆；后者错误地暗示了统治权，而非行动自由。"
+  },
+  "Freezing": {
+    "name": "用词：freezing",
+    "description": "鼓励生动的表达，建议用 “freezing” 代替 “very cold” 这类较弱的说法。"
+  },
+  "FriendOfMe": {
+    "name": "代词：a friend of mine",
+    "description": "纠正 “a friend of me” 这类结构中用错的代词。"
+  },
+  "FromTheGetGo": {
+    "name": "连字符：from the get-go",
+    "description": "确保 “from the get-go” 正确地加连字符，保留这一习语“从一开始”的意思。"
+  },
+  "FullToTheBrim": {
+    "name": "介词：full to the brim",
+    "description": "纠正习语 “full to the brim” 或 “filled to the brim” 中用错的介词。"
+  },
+  "Furthermore": {
+    "name": "合写词：furthermore",
+    "description": "检查合写词 “furthermore” 是否被错误地拆开。"
+  },
+  "GetRidOf": {
+    "name": "习语：get rid of",
+    "description": "纠正习语 “get rid of” 的常见误写。"
+  },
+  "GetUsedTo": {
+    "name": "介词：used to",
+    "description": "将 “used of” 改为 “used to”。"
+  },
+  "GildedAge": {
+    "name": "专有名词：Gilded Age",
+    "description": "若指那段经济繁荣时期，正确的说法是 “Gilded Age”。"
+  },
+  "GoSoFarAsTo": {
+    "name": "固定搭配：go so far as to",
+    "description": "表示做得超出预期时，标出应为 “go so far as to” 的 “go so far to”。"
+  },
+  "GoToWar": {
+    "name": "介词：go to war",
+    "description": "将 “go at war” 改为 “go to war”。"
+  },
+  "GoggleBrand": {
+    "name": "拼写：Google",
+    "description": "与知名 Google 服务连用时，替换误写的 “goggle”。"
+  },
+  "GoingTo": {
+    "name": "拼写：going to",
+    "description": "将 “gong to” 改为本意的 “going to”。"
+  },
+  "GoodAt": {
+    "name": "介词：good at",
+    "description": "检查描述技能熟练时误用 “good in” 而非 “good at” 的情况。"
+  },
+  "GoogleNames": {
+    "name": "专有名词：Google",
+    "description": "提及 Google 的产品和服务时，按专有名词书写。"
+  },
+  "GrindToAHalt": {
+    "name": "习语：grind to a halt",
+    "description": "将习语 “grind to halt” 改为标准的 “grind to a halt”。"
+  },
+  "GuineaBissau": {
+    "name": "专有名词：Guinea-Bissau",
+    "description": "检查这个非洲国家的正式名称是否写对。"
+  },
+  "HadOf": {
+    "name": "冗余：had of",
+    "description": "标出 “had” 后多余的 “of”，并建议正确的形式。"
+  },
+  "HalfAnHour": {
+    "name": "拼写：half an hour",
+    "description": "将近音误写 “half an our” 改为公认的 “half an hour”。"
+  },
+  "Handful": {
+    "name": "合写词：handful",
+    "description": "表示一小把数量的 “handful” 应写成一个词。"
+  },
+  "HandfulOfMore": {
+    "name": "冗余：a handful more",
+    "description": "删去 “a handful of more” 中不规范的 “of”。"
+  },
+  "Haphazard": {
+    "name": "拼写：haphazard",
+    "description": "将近音误写 “half hazard” 改为 “haphazard”，其正确含义是杂乱无章、随意。"
+  },
+  "HaveAHardTime": {
+    "name": "冠词：have a hard time",
+    "description": "将 “have hard time” 改为 “have a hard time”。"
+  },
+  "HaveNegNoAny": {
+    "name": "否定：haven't … any",
+    "description": "在 “haven't done no X” 这类从句中，将 “no” 改写为 “any”，使句子只保留一个清楚的否定。"
+  },
+  "HavePassed": {
+    "name": "用词：have passed",
+    "description": "本意是动词时，将 “have/has/had past” 中的 “past” 改为 “passed”。"
+  },
+  "HavePronoun": {
+    "name": "主谓一致：have 与 has",
+    "description": "标出以 “has” 加需要 “have” 的代词开头的问句（如 “Has we …”、“Has I …”），并建议正确的助动词。"
+  },
+  "HaveTakeALook": {
+    "name": "方言：have a look 与 take a look",
+    "description": "根据所选方言，将 “have a look” 与 “take a look” 互相改写。"
+  },
+  "Hazzle": {
+    "name": "拼写：hassle",
+    "description": "将误写的 “hazzle” 及其各种词形改为 “hassle”。"
+  },
+  "HeDos": {
+    "name": "拼写：does",
+    "description": "纠正 “he”、“she” 或 “it” 后误写的 “dos”。"
+  },
+  "HeartToHeard": {
+    "name": "拼写：heard",
+    "description": "在常见的 “have … heard of/about” 问句中，将 “heart” 或 “herd” 改为 “heard”。"
+  },
+  "Hedging": {
+    "name": "文体：模棱两可的措辞",
+    "description": "标出闪烁其词的表达（如 “I would argue that”、“…, so to speak”、“to a certain degree”）。"
+  },
+  "HelloGreeting": {
+    "name": "拼写：hello",
+    "description": "建议用 “hello” 打招呼，而不是同音词 “halo”。"
+  },
+  "HelpedPast": {
+    "name": "动词形式：helped + 原形",
+    "description": "在 “helped” 之后，将动词的过去式改为原形。"
+  },
+  "Henceforth": {
+    "name": "合写词：henceforth",
+    "description": "检查合写词 “henceforth” 是否被错误地拆开。"
+  },
+  "Hereby": {
+    "name": "合写词：hereby",
+    "description": "在某些语境中，“here by” 应写作 “hereby”。"
+  },
+  "HiddenIn": {
+    "name": "介词：hidden in",
+    "description": "将 “hidden into” 改为 “hidden in”。"
+  },
+  "HitTheNailOnTheHead": {
+    "name": "习语：hit the nail on the head",
+    "description": "将误写的 “hit the nail in the head” 改为标准的 “hit the nail on the head”。"
+  },
+  "Holidays": {
+    "name": "专有名词：节日",
+    "description": "提及节日时，按专有名词书写。"
+  },
+  "HolyWar": {
+    "name": "拼写：holy war",
+    "description": "纠正 “holy war” 的误写。"
+  },
+  "HomeInOn": {
+    "name": "习语：home in on",
+    "description": "将 “hone in on” 改为 “home in on”。"
+  },
+  "HopHope": {
+    "name": "拼写：hop 与 hope",
+    "description": "处理 “hop” 与 “hope” 的常见错误：确保 “hop on a bus” 等短语中正确使用 “hop”，并纠正本该用 “hop” 却写成 “hope” 的情况。"
+  },
+  "HowDoesCompared": {
+    "name": "动词形式：how does … compare",
+    "description": "纠正 “how do/does/did X compared/compares to Y”，改用原形 “compare”。"
+  },
+  "HowItLooksLike": {
+    "name": "结构：how … looks",
+    "description": "将 “how … looks like” 改为 “how … looks” 或 “what … looks like”。"
+  },
+  "HowMach": {
+    "name": "拼写：how much",
+    "description": "将 “how mach” 或 “how match” 换成正确的量词 “how much”。"
+  },
+  "HowTo": {
+    "name": "结构：how to",
+    "description": "发现 “how clone”、“how install” 这类结构中漏掉的 “to”，建议改为 “how to …”。"
+  },
+  "However": {
+    "name": "合写词：however",
+    "description": "检查合写词 “however” 是否被错误地拆开。"
+  },
+  "HumanBeings": {
+    "name": "固定搭配：human beings",
+    "description": "纠正 “human's beings” 或 “humans beings” 这类错误的所有格或复数用法。"
+  },
+  "HumanLife": {
+    "name": "拼写：human life",
+    "description": "将 “human live” 改为 “human life”。"
+  },
+  "HungerPang": {
+    "name": "固定搭配：hunger pang",
+    "description": "将 “hunger pain” 改为 “hunger pang”。"
+  },
+  "HyphenateNumberDay": {
+    "name": "连字符：X-day",
+    "description": "当 “X-day” 是复合形容词的一部分时（如 “4-day work week”），确保加上连字符。"
+  },
+  "IAm": {
+    "name": "拼写：I am",
+    "description": "修正 “I a m” 中错误的空格，改为 “I am”。"
+  },
+  "IAmAgreement": {
+    "name": "主谓一致：I am",
+    "description": "将 “I are” 改为 “I am”。"
+  },
+  "IDo": {
+    "name": "主谓一致：I do",
+    "description": "将 “I does” 改为 “I do”。"
+  },
+  "IDontKnow": {
+    "name": "首字母缩写：IDK",
+    "description": "将首字母缩写 “IDK” 展开为完整写法。"
+  },
+  "IfIRecallCorrectly": {
+    "name": "首字母缩写：IIRC",
+    "description": "将首字母缩写 “IIRC” 展开为完整写法。"
+  },
+  "IfIUnderstandCorrectly": {
+    "name": "首字母缩写：IIUC",
+    "description": "将首字母缩写 “IIUC” 展开为完整写法。"
+  },
+  "IfWouldve": {
+    "name": "虚拟语气：if I had done",
+    "description": "将 “if I would've done” 等改为 “if I had done” 等。"
+  },
+  "IfYouKnowYouKnow": {
+    "name": "首字母缩写：IYKYK",
+    "description": "将首字母缩写 “IYKYK” 展开为完整写法。"
+  },
+  "ImitateFrom": {
+    "name": "介词：imitation of",
+    "description": "在 “imitate …” 之后，地道的说法用 “of” 而不是 “from” 指出模仿的来源。"
+  },
+  "Impressed": {
+    "name": "介词：impressed by",
+    "description": "将 “impressed of” 改为 “impressed by” 或 “impressed with”。"
+  },
+  "InADifferentDirection": {
+    "name": "介词：in a different direction",
+    "description": "发现描述路径、策略或方向改变时误用的介词 “into”。方向是抽象的，应用 “in” 而不是 “into”。"
+  },
+  "InAHurry": {
+    "name": "冠词：in a hurry",
+    "description": "将 “in hurry” 改为 “in a hurry”。"
+  },
+  "InAWhile": {
+    "name": "冠词：in a while",
+    "description": "补上 “in while” 中缺少的冠词，改为 “in a while”。"
+  },
+  "InAnyWay": {
+    "name": "分写：in any way",
+    "description": "将不合语法的 “in anyway” 改为 “in any way”。"
+  },
+  "InCaseYouMissedIt": {
+    "name": "首字母缩写：ICYMI",
+    "description": "将首字母缩写 “ICYMI” 展开为完整写法。"
+  },
+  "InDemandInDepth": {
+    "name": "连字符：in-demand 与 in-depth",
+    "description": "检查用作形容词但没有加连字符的 “in-demand” 和 “in-depth”。"
+  },
+  "InDetail": {
+    "name": "固定搭配：in detail",
+    "description": "将不地道的复数说法 “in details” 改为 “in detail”。"
+  },
+  "InDueCourse": {
+    "name": "拼写：in due course",
+    "description": "将近音误写 “in do course” 中的 “do” 改为 “due”。"
+  },
+  "InFavourOfDoing": {
+    "name": "介词：in favor of doing",
+    "description": "补上 “in favor/favour of doing” 等说法中缺少的 “of”。"
+  },
+  "InHindsight": {
+    "name": "固定搭配：in hindsight",
+    "description": "将 “in hindsight” 的错误变体改为标准说法。"
+  },
+  "InLieuOf": {
+    "name": "拼写：in lieu of",
+    "description": "将误写的 “in lue of” 改为 “in lieu of”。"
+  },
+  "InMyHumbleOpinion": {
+    "name": "首字母缩写：IMHO",
+    "description": "将首字母缩写 “IMHO” 展开为完整写法。"
+  },
+  "InMyOpinion": {
+    "name": "首字母缩写：IMO",
+    "description": "将首字母缩写 “IMO” 展开为完整写法。"
+  },
+  "InNeedOf": {
+    "name": "介词：in need of",
+    "description": "将 “in need for” 改为 “in need of”。"
+  },
+  "InOfItself": {
+    "name": "固定搭配：in and of itself",
+    "description": "将不规范的 “in of itself” 改为标准的 “in itself” 或 “in and of itself”。"
+  },
+  "InOnTheCards": {
+    "name": "方言：in the cards 与 on the cards",
+    "description": "根据所选方言，将 “in the cards” 与 “on the cards” 互相改写。"
+  },
+  "InRealLife": {
+    "name": "首字母缩写：IRL",
+    "description": "将首字母缩写 “IRL” 展开为完整写法。"
+  },
+  "InRetaliationTo": {
+    "name": "介词：in retaliation for",
+    "description": "将 “in retaliation to” 改为 “in retaliation for” 或 “in response to”。"
+  },
+  "InStock": {
+    "name": "介词：in stock",
+    "description": "将 “on stock” 改为 “in stock”。"
+  },
+  "InThe": {
+    "name": "拼写：in the",
+    "description": "发现并纠正把 “in the” 误写成 “int he” 的空格错误。常见短语中正确的空格对可读性和语法都很重要。"
+  },
+  "InThisThatRegard": {
+    "name": "固定搭配：in this regard",
+    "description": "将 “in this/that regards” 改为 “in this/that regard”。"
+  },
+  "InTimeFromNow": {
+    "name": "冗余：in … from now",
+    "description": "检查 “in + 一段时间” 与其后 “from now” 同时出现造成的冗余。"
+  },
+  "IncidentReport": {
+    "name": "术语：incident report",
+    "description": "将 “incidence report(s)” 改为 “incident report(s)”。"
+  },
+  "IncludingButNotLimitedToPunctuation": {
+    "name": "标点：including, but not limited to",
+    "description": "当 “including, but not limited to,” 作插入语时，在其前后补上惯用的逗号。"
+  },
+  "InflectedVerbAfterTo": {
+    "name": "动词形式：to + 原形",
+    "description": "查找 “to + 动词” 中动词不是原形的情况。"
+  },
+  "InflectionPoint": {
+    "name": "术语：inflection point",
+    "description": "将 “infliction point” 改为 “inflection point”。"
+  },
+  "Initiatively": {
+    "name": "用词：initiatively",
+    "description": "纠正不规范的 “initiatively”。"
+  },
+  "Insensitive": {
+    "name": "用词：insensitive",
+    "description": "建议使用更标准、更常用的同义词 “insensitive”。"
+  },
+  "Insofar": {
+    "name": "合写词：insofar",
+    "description": "检查合写词 “insofar” 是否被错误地拆开。"
+  },
+  "InspiredBy": {
+    "name": "介词：inspired by",
+    "description": "将 “inspired from” 改为 “inspired by”；表示灵感来源时，标准介词是 “by”。"
+  },
+  "Instead": {
+    "name": "合写词：instead",
+    "description": "检查合写词 “instead” 是否被错误地拆开。"
+  },
+  "InsteadOf": {
+    "name": "合写词：instead of",
+    "description": "在日常用法中，将古旧或误分的 “in stead of” 改为 “instead of”。"
+  },
+  "Insurmountable": {
+    "name": "用词：insurmountable",
+    "description": "建议使用更标准、更常用的同义词 “insurmountable”。"
+  },
+  "Intact": {
+    "name": "合写词：intact",
+    "description": "检查合写词 “intact” 是否被错误地拆开。"
+  },
+  "InterestedIn": {
+    "name": "介词：interested in",
+    "description": "确保 “interested” 搭配正确的介词（如 “interested in”）。"
+  },
+  "IntroCueCommaBeforeThanks": {
+    "name": "标点：No, thanks",
+    "description": "在常见的婉拒用语中补上缺少的逗号。"
+  },
+  "InvestIn": {
+    "name": "介词：invest in",
+    "description": "“invest” 传统上接 “in”，而不是 “into”。"
+  },
+  "IsBeenAuxSequence": {
+    "name": "时态：is been",
+    "description": "将 “is been” 改写为标准的完成时被动形式。"
+  },
+  "IsKnownFor": {
+    "name": "拼写：known",
+    "description": "笔误：正确的过去分词是 “known”。"
+  },
+  "ItCan": {
+    "name": "拼写：it can",
+    "description": "将误写的 “It cam” 改为正确的 “It can”。"
+  },
+  "ItLooksLikeThat": {
+    "name": "冗余：it looks like",
+    "description": "将 “it looks like that” 改为 “it looks like”。"
+  },
+  "ItTimeAuxiliary": {
+    "name": "缩约形式：it's time",
+    "description": "在 “it time to/for …” 结构中补上缺少的助动词，改为缩约形式。"
+  },
+  "ItsContraction": {
+    "name": "缩约形式：it's",
+    "description": "找出应把所有格 “its” 改为缩约形式 “it's” 的地方，包括在动词或从句之前，以及表达看法的动词后接专有名词之前。"
+  },
+  "ItsPossessive": {
+    "name": "所有格：its",
+    "description": "英语的物主代词从不加撇号。表示所属用 “its”（如 “its texture”），不要和 “it's” 混淆，后者总是表示 “it is” 或 “it has”。"
+  },
+  "Itself": {
+    "name": "合写词：itself",
+    "description": "检查合写词 “itself” 是否被错误地拆开。"
+  },
+  "IveGotTo": {
+    "name": "固定搭配：I've got to",
+    "description": "将笔误 “I've go to” 改为地道的 “I've got to”。"
+  },
+  "JawDropping": {
+    "name": "拼写：jaw-dropping",
+    "description": "将 “jar-dropping” 改为 “jaw-dropping”，以准确表达“令人惊叹”之意。"
+  },
+  "JealousOf": {
+    "name": "介词：jealous of",
+    "description": "建议 “jealous” 后使用标准介词。"
+  },
+  "JetpackNames": {
+    "name": "专有名词：Jetpack",
+    "description": "确保 Jetpack 相关术语的大小写正确。"
+  },
+  "JohnsHopkins": {
+    "name": "专有名词：Johns Hopkins",
+    "description": "建议使用正确的拼写 “Johns Hopkins”。"
+  },
+  "JumpTheGun": {
+    "name": "习语：jump the gun",
+    "description": "发现习语 “jump the gun” 的错误用法。"
+  },
+  "JustDeserts": {
+    "name": "习语：just deserts",
+    "description": "确保正确使用 “just deserts”，保留其“罪有应得、得其应得”的含义。"
+  },
+  "Keystroke": {
+    "name": "合写词：keystroke",
+    "description": "检查合写词 “keystroke” 是否被错误地拆开。"
+  },
+  "Keystrokes": {
+    "name": "合写词：keystrokes",
+    "description": "检查合写词 “keystrokes” 是否被错误地拆开。"
+  },
+  "KindOf": {
+    "name": "固定搭配：kind of",
+    "description": "将 “kinda of” 改为 “kind of”。"
+  },
+  "KindRegards": {
+    "name": "拼写：kind regards",
+    "description": "将 “kid regards” 改为 “kind regards”。"
+  },
+  "KindSortOf": {
+    "name": "拼写：kind of 与 sort of",
+    "description": "标出位于修饰语前的 “kind if” 或 “sort off”，保证其中的 “of” 写对。"
+  },
+  "KnowNothingVerb": {
+    "name": "拼写：know nothing",
+    "description": "在常见的 “主语 + no nothing” 结构中，将 “no” 改为 “know”。"
+  },
+  "Koreas": {
+    "name": "专有名词：the Koreas",
+    "description": "指朝鲜半岛上的两个国家时，按专有名词书写。"
+  },
+  "Laos": {
+    "name": "专有名词：老挝地名",
+    "description": "提及老挝的省份和城市时，按专有名词书写。"
+  },
+  "Laptop": {
+    "name": "合写词：laptop",
+    "description": "检查合写词 “laptop” 是否被错误地拆开。"
+  },
+  "LastButNotLeast": {
+    "name": "固定搭配：last but not least",
+    "description": "纠正 “last but not least” 这一说法中的常见错误。"
+  },
+  "LastDitch": {
+    "name": "连字符：last-ditch",
+    "description": "纠正惯用形容词 “last-ditch” 的错误变体。"
+  },
+  "LastNight": {
+    "name": "固定搭配：last night",
+    "description": "标出 “yesterday night”，建议改用标准说法 “last night”。"
+  },
+  "LaughOfAt": {
+    "name": "介词：laugh at",
+    "description": "当 “laugh” 在人或代词前接 “of” 时给出提示，建议改用惯用的 “at”。"
+  },
+  "LayoutVerb": {
+    "name": "动词形式：lay out",
+    "description": "标出 “layout” 不规范的动词形式（如 “layouted”、“layouting”），建议改用标准的 “laid out”、“laying out”。"
+  },
+  "LeadRiseTo": {
+    "name": "固定搭配：give rise to",
+    "description": "将 “leads rise to” 改为 “gives rise to”。"
+  },
+  "LeaveToFor": {
+    "name": "介词：leave for",
+    "description": "描述包含目的地和时间的出行计划时，用 “leave for + 目的地”，而不是 “leave to + 目的地”。"
+  },
+  "LeavingInDroves": {
+    "name": "习语：in droves",
+    "description": "将 “leaving in drones” 改为 “leaving in droves”。"
+  },
+  "LeftRightHand": {
+    "name": "连字符：left-hand 与 right-hand",
+    "description": "当 “left hand” 和 “right hand” 作形容词修饰名词时（如 “left-hand side”、“right-hand corner”），确保加上连字符。"
+  },
+  "LessWorse": {
+    "name": "比较级：less worse",
+    "description": "为 “less/least worse/worst” 建议更标准、更清楚的比较说法。"
+  },
+  "LetAlone": {
+    "name": "固定搭配：let alone",
+    "description": "将 “let along” 改为 “let alone”。"
+  },
+  "LetMeKnow": {
+    "name": "首字母缩写：LMK",
+    "description": "将首字母缩写 “LMK” 展开为完整写法。"
+  },
+  "LetToDo": {
+    "name": "冗余：let … to do",
+    "description": "删去 “let” 后多余的 “to”。"
+  },
+  "LetsConfusion": {
+    "name": "用词：let 与 let's",
+    "description": "使用 “let” 时，主语该放在哪里常常难以判断。这条规则尝试找出由冗余和缩约形式引起、可能让读者困惑的常见错误。"
+  },
+  "LevelOfDetails": {
+    "name": "固定搭配：level of detail",
+    "description": "将 “level of details” 改为 “level of detail” 或 “levels of detail”。"
+  },
+  "LikeAsIf": {
+    "name": "冗余：like as if",
+    "description": "将重复的 “like as if” 改为 “like” 或 “as if”。"
+  },
+  "LikeThePlague": {
+    "name": "习语：like the plague",
+    "description": "将 “like a plague” 改为 “like the plague”。"
+  },
+  "LikeTheresNoTomorrow": {
+    "name": "习语：like there's no tomorrow",
+    "description": "将 “like no tomorrow” 改为 “like there's no tomorrow”。"
+  },
+  "LikelyHood": {
+    "name": "合写词：likelihood",
+    "description": "当形容词 “likely” 后跟 “hood” 时，把拆开的两部分视为一个合写词 “likelihood”。"
+  },
+  "Likewise": {
+    "name": "合写词：likewise",
+    "description": "检查合写词 “likewise” 是否被错误地拆开。"
+  },
+  "LinesOfCode": {
+    "name": "单复数：lines of code",
+    "description": "纠正 “lines of code” 中加错复数的名词。"
+  },
+  "LinkedList": {
+    "name": "术语：linked list",
+    "description": "将 “link list(s)” 改为 “linked list(s)”。"
+  },
+  "LitotesDirectPositive": {
+    "name": "文体：曲言法",
+    "description": "当双重否定显得累赘时，提供直接的肯定说法。"
+  },
+  "LittleKnown": {
+    "name": "冠词：little known",
+    "description": "纠正 “it's little known” 与 “it's a little known” 的混用，按需补上或删去不定冠词 “a”。"
+  },
+  "LongSentences": {
+    "name": "长句",
+    "description": "查找过长的句子，这类句子会让文章更难读懂。"
+  },
+  "LongTimeAgo": {
+    "name": "冠词：a long time ago",
+    "description": "补上 “long time ago” 中缺少的冠词 “a”。"
+  },
+  "LookDownOnesNose": {
+    "name": "习语：look down one's nose",
+    "description": "将 “look one's nose down” 改为 “look down one's nose”。"
+  },
+  "LookForwardTo": {
+    "name": "介词：look forward to",
+    "description": "将 “look forward for” 改为 “look forward to”。"
+  },
+  "LookInto": {
+    "name": "介词：look into",
+    "description": "当 look 类动词后接以疑问词开头的从句时，将拆开的介词合并。"
+  },
+  "LookingForwardTo": {
+    "name": "动词形式：looking forward to + -ing",
+    "description": "找出 “looking forward to” 后接动词原形、而非所需动名词（动词 + “-ing”）的情况。"
+  },
+  "LooksLikes": {
+    "name": "动词形式：look … like",
+    "description": "将 “looks likes”、“looked likes” 和 “looking likes” 改为地道的 “look … like”。"
+  },
+  "LowHangingFruit": {
+    "name": "习语：low-hanging fruit",
+    "description": "纠正 “low-hanging fruit” 的不规范变体。"
+  },
+  "MakeDoWith": {
+    "name": "习语：make do with",
+    "description": "当后接 “with” 时，将 “make due” 改为 “make do”。"
+  },
+  "MakeItSeem": {
+    "name": "动词形式：make it seem",
+    "description": "将 “make it seems” 改为 “make it seem”。"
+  },
+  "MakeSense": {
+    "name": "固定搭配：make sense",
+    "description": "将 “make senses” 改为 “make sense”。"
+  },
+  "MakeupCompoundNoun": {
+    "name": "合写词：makeup",
+    "description": "找出以限定词开头、却把该词拆开写的名词短语，并将其合写。"
+  },
+  "Malaysia": {
+    "name": "专有名词：马来西亚地名",
+    "description": "提及马来西亚各州及其首府时，按专有名词书写。"
+  },
+  "ManagerialReins": {
+    "name": "习语：managerial reins",
+    "description": "将近音误写 “managerial reigns” 改为地道的 “managerial reins”。"
+  },
+  "MassExodus": {
+    "name": "固定搭配：mass exodus",
+    "description": "将误写的 “max exodues” 改为地道的 “mass exodus”。"
+  },
+  "MassNouns": {
+    "name": "单复数：不可数名词",
+    "description": "发现被当作可数名词使用的不可数名词。"
+  },
+  "MayOfPronoun": {
+    "name": "拼写：many of",
+    "description": "将 “may of us/you/them” 改为 “many of us/you/them”。"
+  },
+  "MeansALotTo": {
+    "name": "介词：means a lot to",
+    "description": "将 “means a lot for [someone]” 等错误变体改为 “means a lot to [someone]”。"
+  },
+  "Meanwhile": {
+    "name": "合写词：meanwhile",
+    "description": "检查合写词 “meanwhile” 是否被错误地拆开。"
+  },
+  "MercedesBenzHyphen": {
+    "name": "连字符：Mercedes-Benz",
+    "description": "“Mercedes” 和 “Benz” 一起出现时将其连接，使品牌名与官方写法一致。"
+  },
+  "MergeWords": {
+    "name": "合写词：误加空格",
+    "description": "不小心在单词中间加了空格很常见。这条规则查找被空白拆开的有效单词。"
+  },
+  "MetaNames": {
+    "name": "专有名词：Meta",
+    "description": "提及 Meta 的产品和服务时，按专有名词书写。"
+  },
+  "MicrosoftNames": {
+    "name": "专有名词：Microsoft",
+    "description": "提及 Microsoft 的产品和服务时，按专有名词书写。"
+  },
+  "Middleware": {
+    "name": "合写词：middleware",
+    "description": "检查合写词 “middleware” 是否被错误地拆开。"
+  },
+  "MissingDeterminer": {
+    "name": "限定词：缺少限定词",
+    "description": "发现常见请求语句中可能缺少的限定词，并在需要时提供插入建议。"
+  },
+  "MissingPreposition": {
+    "name": "介词：缺少介词",
+    "description": "找出可能缺少的介词。"
+  },
+  "MissingTo": {
+    "name": "结构：缺少 to",
+    "description": "标出 “need”、“want”、“ready” 等动词和形容词后，不定式前缺少的 “to”。"
+  },
+  "Misspell": {
+    "name": "合写词：misspell",
+    "description": "确保 “misspell” 及其各种词形写成一个词。"
+  },
+  "Misunderstand": {
+    "name": "合写词：misunderstand",
+    "description": "检查合写词 “misunderstand” 是否被错误地拆开。"
+  },
+  "Misunderstood": {
+    "name": "合写词：misunderstood",
+    "description": "检查合写词 “misunderstood” 是否被错误地拆开。"
+  },
+  "Misuse": {
+    "name": "合写词：misuse",
+    "description": "检查合写词 “misuse” 是否被错误地拆开。"
+  },
+  "Misused": {
+    "name": "合写词：misused",
+    "description": "检查合写词 “misused” 是否被错误地拆开。"
+  },
+  "MixedBag": {
+    "name": "习语：mixed bag",
+    "description": "将误写的 “mixed bad” 改为 “mixed bag”。"
+  },
+  "ModalBeAdjective": {
+    "name": "结构：情态动词 + be + 形容词",
+    "description": "查找情态动词与形容词之间缺少的 “be”。"
+  },
+  "ModalOf": {
+    "name": "拼写：would have 等",
+    "description": "发现误与 “would”、“could”、“should” 等连用的 “of”（应为 “have”）。"
+  },
+  "ModalSeem": {
+    "name": "拼写：情态动词后的 seem",
+    "description": "发现情态动词后、形容词前误用的 “seen”，建议改为 “seem” 或 “be”。"
+  },
+  "Months": {
+    "name": "大小写：月份",
+    "description": "发现首字母小写的月份名称。"
+  },
+  "Monumentous": {
+    "name": "用词：momentous",
+    "description": "在正式用法中，建议用 “momentous” 或 “monumental” 代替 “monumentous”。"
+  },
+  "MootPoint": {
+    "name": "习语：moot point",
+    "description": "将短语 “moot point” 中的 “mute” 改为 “moot”。"
+  },
+  "MoreAdjective": {
+    "name": "比较级：more + 形容词",
+    "description": "查找可以改用词形变化（-er/-est）的 “more + 形容词” 比较结构。"
+  },
+  "MoreBetter": {
+    "name": "比较级：more better",
+    "description": "找出 “more” 或 “most” 与已是比较级或最高级的形容词连用的冗余搭配。"
+  },
+  "MoreThanMeetsTheEye": {
+    "name": "习语：more than meets the eye",
+    "description": "纠正 “more than meets the eye” 不规范、不地道的变体。"
+  },
+  "MoreThatLikely": {
+    "name": "拼写：more than likely",
+    "description": "将常见笔误 “more that likely” 改为 “more than likely”。"
+  },
+  "MostNumber": {
+    "name": "用词：most number",
+    "description": "纠正 “most number” 和 “most amount”。"
+  },
+  "MostOfTheTimes": {
+    "name": "固定搭配：most of the time",
+    "description": "将 “a lot of the times” 和 “most of the times” 改用单数 “time”。"
+  },
+  "Multicore": {
+    "name": "合写词：multicore",
+    "description": "检查合写词 “multicore” 是否被错误地拆开。"
+  },
+  "Multimedia": {
+    "name": "合写词：multimedia",
+    "description": "检查合写词 “multimedia” 是否被错误地拆开。"
+  },
+  "MultipleFrequencyAdverbs": {
+    "name": "冗余：频率副词连用",
+    "description": "查找相邻的频率副词，它们要么重复，要么互相矛盾。"
+  },
+  "MultipleSequentialPronouns": {
+    "name": "代词：连续多个代词",
+    "description": "修改文章人称（如第一人称改为第三人称）时，常会加上新代词却忘了删掉旧的。这条规则找出连续出现多个不同代词的情况。"
+  },
+  "Multithreading": {
+    "name": "合写词：multithreading",
+    "description": "检查合写词 “multithreading” 是否被错误地拆开。"
+  },
+  "MyHouse": {
+    "name": "拼写：my house",
+    "description": "将笔误 “mu house” 改为 “my house”。"
+  },
+  "Myself": {
+    "name": "合写词：myself",
+    "description": "检查合写词 “myself” 是否被错误地拆开。"
+  },
+  "NailOnTheHead": {
+    "name": "习语：nail on the head",
+    "description": "将习语 “nail on the head” 中误写的 hat/had/hit/hid 改为 “head”。"
+  },
+  "NakedEye": {
+    "name": "介词：to the naked eye",
+    "description": "纠正本该用 “to”、“with” 或 “by” 搭配 “the naked eye” 时用错的介词。"
+  },
+  "NationalCapitals": {
+    "name": "专有名词：国家首都",
+    "description": "提及国家首都时，按专有名词书写。"
+  },
+  "NeedHelp": {
+    "name": "拼写：need help",
+    "description": "将 “ned help” 改为正确的 “need help”。"
+  },
+  "NeedToNoun": {
+    "name": "结构：need to + 名词",
+    "description": "标出 “need to” 后直接接名词的情况，这通常意味着漏掉了不定式动词。"
+  },
+  "NeitherHereNorThere": {
+    "name": "习语：neither here nor there",
+    "description": "将 “it's/that's here nor there” 改为标准习语 “it's/that's neither here nor there”。"
+  },
+  "NerveRacking": {
+    "name": "连字符：nerve-racking",
+    "description": "纠正 “nerve-racking” 的常见误写和漏掉的连字符。"
+  },
+  "NervousWreck": {
+    "name": "习语：nervous wreck",
+    "description": "描述一个人的情绪状态时，建议使用 “nervous wreck”。"
+  },
+  "NeverMind": {
+    "name": "首字母缩写：NVM",
+    "description": "将首字母缩写 “NVM” 展开为完整写法。"
+  },
+  "NoFrenchSpaces": {
+    "name": "空格：句末双空格",
+    "description": "防止误输入法式空格（句末多打的空格）。"
+  },
+  "NoHarmNoFoul": {
+    "name": "习语：no harm, no foul",
+    "description": "纠正习语 “no harm, no foul” 的不规范变体。"
+  },
+  "NoLonger": {
+    "name": "固定搭配：no longer",
+    "description": "将应为 “no longer” 的 “not longer” 改正。"
+  },
+  "NoLongerPronoun": {
+    "name": "词序：no longer",
+    "description": "发现 “no longer” 错放在主格代词之前的词序错误。"
+  },
+  "NoMatchFor": {
+    "name": "习语：no match for",
+    "description": "若想表达这一习语，应写作 “no match for”，而不是 “no match against/to/of”。"
+  },
+  "NoOxfordComma": {
+    "name": "标点：不用牛津逗号",
+    "description": "牛津逗号是当今最具争议的常用规则之一。开启后，会检查列举三项及以上时，“and”、“or” 或 “nor” 前没有逗号。"
+  },
+  "NobelPeacePrize": {
+    "name": "专有名词：Nobel Peace Prize",
+    "description": "纠正提及该奖项时把 Nobel/Peace/Prize 拼错的常见笔误。"
+  },
+  "Nobody": {
+    "name": "合写词：nobody",
+    "description": "检查合写词 “nobody” 是否被错误地拆开。"
+  },
+  "NominalWants": {
+    "name": "主谓一致：want 与 wants",
+    "description": "确保名词性成分后使用正确的 “want” / “wants”。"
+  },
+  "Nonetheless": {
+    "name": "合写词：nonetheless",
+    "description": "检查合写词 “nonetheless” 是否被错误地拆开。"
+  },
+  "NorModalPronoun": {
+    "name": "词序：nor + 情态动词 + 代词",
+    "description": "纠正 “nor” 后代词与情态动词的顺序。"
+  },
+  "NotBeAfterNot": {
+    "name": "冗余：not 后多余的 be",
+    "description": "在已变位的 “be” 之后，删去插在 “not” 与表语之间多余的系动词。"
+  },
+  "NotIn": {
+    "name": "拼写：not in",
+    "description": "将 “no in” 改为 “not in”。"
+  },
+  "NotLongAfter": {
+    "name": "固定搭配：not long after",
+    "description": "将 “not along after(ward/wards)” 改为 “not long after(ward/wards)”。"
+  },
+  "NotOnly": {
+    "name": "拼写：not only",
+    "description": "在 be 动词各形式前，将 “no only” 改为 “not only”。"
+  },
+  "NotOnlyInversion": {
+    "name": "词序：not only is it",
+    "description": "将 “not only it is” 改为 “not only is it”。"
+  },
+  "NotTo": {
+    "name": "拼写：not to",
+    "description": "将 “no to” 改为 “not to”，确保否定正确。"
+  },
+  "NotablePlaces": {
+    "name": "专有名词：知名地点",
+    "description": "确保重要区域中心、旅游目的地或具有国际影响力的知名地点的大小写正确。"
+  },
+  "Nothing": {
+    "name": "合写词：nothing",
+    "description": "检查合写词 “nothing” 是否被错误地拆开。"
+  },
+  "Notwithstanding": {
+    "name": "合写词：notwithstanding",
+    "description": "检查合写词 “notwithstanding” 是否被错误地拆开。"
+  },
+  "NounVerbConfusion": {
+    "name": "词性：名词与动词混淆",
+    "description": "处理相关名词与动词之间的常见混淆（如 “advice/advise”、“breath/breathe”）。"
+  },
+  "NowKnownAs": {
+    "name": "拼写：now known as",
+    "description": "将 “now know as” 改为合乎语法的 “now known as”。"
+  },
+  "NowWay": {
+    "name": "拼写：no way",
+    "description": "在把握较大的语境中将 “now way” 改为 “no way”，同时避开 “now way too” 这类比较语境。"
+  },
+  "Nowadays": {
+    "name": "拼写：nowadays",
+    "description": "纠正 “nowadays” 的常见误写。"
+  },
+  "Nowhere": {
+    "name": "合写词：nowhere",
+    "description": "检查合写词 “nowhere” 是否被错误地拆开。"
+  },
+  "NumberSuffixCapitalization": {
+    "name": "大小写：序数词后缀",
+    "description": "序数词后缀（如 “st”、“nd”）不应大写。"
+  },
+  "NumericRangeEnDash": {
+    "name": "标点：数字范围的短破折号",
+    "description": "将孤立数字范围中的连字符和长破折号替换为短破折号，如 “12–14”。"
+  },
+  "ObsessPreposition": {
+    "name": "介词：obsess",
+    "description": "确保 “obsess” 搭配有效的介词。"
+  },
+  "OceansAndSeas": {
+    "name": "专有名词：大洋与海",
+    "description": "提及世界各大洋和海时，按专有名词书写。"
+  },
+  "OfCourse": {
+    "name": "拼写：of course",
+    "description": "纠正 “of course” 的常见误写，包括 “of curse”、“off course” 和 “ofcourse”，同时忽略 “kind of curse” 这类有效短语。"
+  },
+  "OffTheCuff": {
+    "name": "连字符：off-the-cuff",
+    "description": "确保 “off-the-cuff” 正确地加连字符。"
+  },
+  "OhMyGod": {
+    "name": "首字母缩写：OMG",
+    "description": "将首字母缩写 “OMG” 展开为完整写法。"
+  },
+  "OkToOkay": {
+    "name": "拼写：okay",
+    "description": "将 “ok” 改为 “okay”。"
+  },
+  "OldWivesTale": {
+    "name": "习语：old wives' tale",
+    "description": "将 “old wise tale” 改为 “old wives' tale”，保留其“无根据的老话、迷信说法”之意。"
+  },
+  "OldestInTheBook": {
+    "name": "习语：oldest … in the book",
+    "description": "发现习语 “oldest X in the books”，其中应使用单数 “book”。"
+  },
+  "OnFirstGlance": {
+    "name": "习语：at first glance",
+    "description": "表示快速判断的标准习语以 “at” 开头，替换介词以保持说法地道。"
+  },
+  "OnFloor": {
+    "name": "介词：on the floor",
+    "description": "找出指建筑物内楼层时误用的介词 “in” 或 “at”，建议改用 “on the floor”。"
+  },
+  "OnSecondThought": {
+    "name": "习语：on second thought",
+    "description": "将不规范的 “on second though” 改为表示“转念一想”的常用习语 “on second thought”。"
+  },
+  "OnTheSpurOfTheMoment": {
+    "name": "习语：on the spur of the moment",
+    "description": "确保正确使用 “on the spur of the moment”，避免不规范的变体。"
+  },
+  "OnTopOf": {
+    "name": "固定搭配：on top of",
+    "description": "将 “ontop of” 和 “in top of” 改为 “on top of”。"
+  },
+  "OnceInAWhile": {
+    "name": "固定搭配：once in a while",
+    "description": "纠正 “once in a while” 的两种常见误用变体。"
+  },
+  "OnceOrTwice": {
+    "name": "固定搭配：once or twice",
+    "description": "发现误写的 “once a twice”，建议改为 “once or twice”。"
+  },
+  "OneAndTheSame": {
+    "name": "固定搭配：one and the same",
+    "description": "提示不规范的说法 “one in the same”，更正确、更通行的形式是 “one and the same”。"
+  },
+  "OneFellSwoop": {
+    "name": "习语：one fell swoop",
+    "description": "将 “one foul swoop” 改为 “one fell swoop”，保留其“一举、一下子全部”的原意。"
+  },
+  "OneHanded": {
+    "name": "连字符：one-handed",
+    "description": "在名词前把 “one handed” 和 “two handed” 视为单个形容词，让数量词与 “handed” 连在一起。"
+  },
+  "OneOfTheSingular": {
+    "name": "单复数：one of the + 复数",
+    "description": "将 “one of the + 单数名词” 改为 “one of the + 复数名词”。"
+  },
+  "OnesOwnAccord": {
+    "name": "介词：of one's own accord",
+    "description": "发现误用的 “on one's own accord”，建议改为 “of one's own accord”。"
+  },
+  "OnesSelf": {
+    "name": "合写词：oneself",
+    "description": "将泛指的反身代词 “one's self” 改为 “oneself”。"
+  },
+  "OpenCompounds": {
+    "name": "分写：开放式复合词",
+    "description": "纠正本应分写成两个词的复合词。"
+  },
+  "OpenTheLight": {
+    "name": "用词：turn on the light",
+    "description": "纠正用 “open” 代替 “turn on” 或 “switch on” 的说法。"
+  },
+  "OperatingSystem": {
+    "name": "术语：operating system",
+    "description": "确保使用 “operating system”，而不是 “operative system”。"
+  },
+  "OrthographicConsistency": {
+    "name": "大小写：词典标准写法",
+    "description": "确保单词的大小写与词典中的标准写法一致。"
+  },
+  "OughtToBe": {
+    "name": "拼写：ought to be",
+    "description": "发现误写的 “out to be”，建议改为 “ought to be”，同时忽略 “turn out to be”、“make it out to be” 这类合法的短语动词用法。"
+  },
+  "OutOfDate": {
+    "name": "连字符：out-of-date",
+    "description": "当 “out of date” 用作复合形容词时，确保加连字符写作 “out-of-date”。"
+  },
+  "OutOfSync": {
+    "name": "拼写：out of sync",
+    "description": "将 “out of sink” 改为 “out of sync” 或 “out of synch”。"
+  },
+  "OutOfTheWindow": {
+    "name": "习语：out the window",
+    "description": "检查习语 “out (of) the window” 的用法。"
+  },
+  "OverPlus": {
+    "name": "冗余：over … plus",
+    "description": "发现 “over” 与 “plus” 一前一后修饰同一数字造成的冗余。"
+  },
+  "Overall": {
+    "name": "合写词：overall",
+    "description": "检查合写词 “overall” 是否被错误地拆开。"
+  },
+  "Overclocking": {
+    "name": "合写词：overclocking",
+    "description": "检查合写词 “overclocking” 是否被错误地拆开。"
+  },
+  "Overload": {
+    "name": "合写词：overload",
+    "description": "检查合写词 “overload” 是否被错误地拆开。"
+  },
+  "Overnight": {
+    "name": "合写词：overnight",
+    "description": "检查合写词 “overnight” 是否被错误地拆开。"
+  },
+  "OvertimeCompoundNoun": {
+    "name": "合写词：overtime",
+    "description": "在谈论工作时长的语境中找出拆开写的 “over time”，合并为标准的复合词。"
+  },
+  "OxfordComma": {
+    "name": "标点：牛津逗号",
+    "description": "牛津逗号是当今最具争议的常用规则之一。开启后，会检查列举三项及以上时，“and”、“or” 或 “nor” 前有逗号。"
+  },
+  "Oxymorons": {
+    "name": "用词：矛盾修饰",
+    "description": "标出自相矛盾的说法（如 “amateur expert”、“increasingly less” 等）。"
+  },
+  "PaleByComparison": {
+    "name": "习语：pale by comparison",
+    "description": "习语 “pale by/in comparison” 中的 “pale” 是动词而非形容词，据此纠正其前面的 be 动词。"
+  },
+  "PartsOfSpeech": {
+    "name": "单复数：parts of speech",
+    "description": "纠正 “part of speech” 中加错复数的名词。"
+  },
+  "PassersBy": {
+    "name": "单复数：passersby",
+    "description": "将 “passerbys” 和 “passer-bys” 改为 “passersby” 或 “passers-by”。"
+  },
+  "PassionateAbout": {
+    "name": "介词：passionate about",
+    "description": "将 “passionate of” 改为 “passionate about”。"
+  },
+  "PasswordProtectedHyphen": {
+    "name": "连字符：password-protected",
+    "description": "在文件夹、文件或网页等名词前，把这个复合形容词连在一起，使修饰关系清楚。"
+  },
+  "PayForPrice": {
+    "name": "冗余：pay a price",
+    "description": "谈论收费、费用、价格等时，删去多余的 “for”。"
+  },
+  "Payed": {
+    "name": "动词形式：paid",
+    "description": "将 “payed” 改为 “paid”，“overpayed” 改为 “overpaid”。"
+  },
+  "PeaceOfMind": {
+    "name": "习语：peace of mind",
+    "description": "将 “piece of mind” 改为 “peace of mind”。"
+  },
+  "PedalToTheMetal": {
+    "name": "习语：pedal to the metal",
+    "description": "将近音误写 “pedal to the medal” 改为标准习语 “pedal to the metal”，意为全速前进。"
+  },
+  "PeekBehindTheCurtain": {
+    "name": "习语：peek behind the curtain",
+    "description": "将 “peak behind the curtain” 改为 “peek behind the curtain”。"
+  },
+  "PerSe": {
+    "name": "拼写：per se",
+    "description": "纠正 “per se” 的常见误写。"
+  },
+  "PhrasalVerbAsCompoundNoun": {
+    "name": "词性：短语动词误作复合名词",
+    "description": "查找本应写作短语动词、却写成复合名词的情况（如把 “set up” 写成 “setup”）。"
+  },
+  "Piggyback": {
+    "name": "合写词：piggyback",
+    "description": "将近音误写 “piggy bag” 改为 “piggyback”，该词正确指骑在别人背上，或借用现有系统。"
+  },
+  "PiqueInterest": {
+    "name": "习语：pique interest",
+    "description": "发现本应是 “pique” 却误用 “peak” 或 “peek” 的情况，如 “you've peaked my interest”。"
+  },
+  "PleasRequestVerb": {
+    "name": "拼写：please",
+    "description": "当 “pleas” 作为请求语出现在常见动作动词前时，纠正这一笔误。"
+  },
+  "PleaseTakeALook": {
+    "name": "首字母缩写：PTAL",
+    "description": "将首字母缩写 “PTAL” 展开为完整写法。"
+  },
+  "PluralDecades": {
+    "name": "标点：年代复数中的撇号",
+    "description": "标出表示年代的复数在 “s” 前误加的撇号（如 “1990's”）。"
+  },
+  "PluralWrongWordOfPhrase": {
+    "name": "单复数：短语的中心名词",
+    "description": "纠正把最后一个名词变成复数、而非主名词的名词短语。"
+  },
+  "PocketCastsNames": {
+    "name": "专有名词：Pocket Casts",
+    "description": "确保品牌名 Pocket Casts 和 Pocket Casts Plus 的大小写正确。"
+  },
+  "PointsOfView": {
+    "name": "单复数：points of view",
+    "description": "纠正 “point of view” 中加错复数的名词。"
+  },
+  "PortAuPrince": {
+    "name": "专有名词：Port-au-Prince",
+    "description": "检查海地首都的正式名称是否写对。"
+  },
+  "PortoNovo": {
+    "name": "专有名词：Porto-Novo",
+    "description": "检查贝宁首都的正式名称是否写对。"
+  },
+  "PossessiveNoun": {
+    "name": "所有格：名词所有格",
+    "description": "用撇号加 “s” 构成名词的所有格。"
+  },
+  "PossessiveYour": {
+    "name": "所有格：your",
+    "description": "名词前更可能需要 “you” 的所有格形式 “your”。"
+  },
+  "PostItNoteHyphen": {
+    "name": "连字符：Post-it note",
+    "description": "将前两个词连起来，统一这一便利贴产品的写法。"
+  },
+  "Postpone": {
+    "name": "合写词：postpone",
+    "description": "检查合写词 “postpone” 是否被错误地拆开。"
+  },
+  "PrayingMantis": {
+    "name": "拼写：praying mantis",
+    "description": "将 “preying mantis” 改为 “praying mantis”，准确指称这种以祈祷般姿态著称的昆虫。"
+  },
+  "PrincipleToPrincipalRoleNoun": {
+    "name": "用词：principal 与 principle",
+    "description": "当 “principle” 作形容词出现在常见的职位、目标和优先事项名词前时（如 “my principle job”），改为 “principal”。"
+  },
+  "ProgressiveNeedsBe": {
+    "name": "时态：进行时缺少 be",
+    "description": "发现不合语法的 “代词 + have + …ing”（如 “I have …ing”）和 “代词 + 've + …ing”（如 “I've …ing”），建议改为现在进行时（如 “I'm/We're/You're/They're …”）或现在完成进行时（如 “I/We/You/They have been …” 或 “I've/We've/You've/They've been …”）。"
+  },
+  "PronounAre": {
+    "name": "拼写：are 与 you're",
+    "description": "发现在第一或第二人称复数代词后，用字母 “r” 代替 “are” 或 “you're” 的情况。"
+  },
+  "PronounContraction": {
+    "name": "缩约形式：代词缩约",
+    "description": "何时缩约代词是一门不易掌握的艺术。这条规则查找其中的错误。"
+  },
+  "PronounInflectionBe": {
+    "name": "主谓一致：be 动词",
+    "description": "检查动词 “be” 的主谓一致：第三人称单数代词（“he”、“she”、“it”）要用单数形式 “is”，复数代词 “they” 用 “are”。标出 “He are”、“They is” 这类不一致并给出正确形式。"
+  },
+  "PronounKnew": {
+    "name": "拼写：knew",
+    "description": "发现代词（可带副词）后的 “new” 实为过去式 “knew” 的笔误。"
+  },
+  "PronounVerbAgreement": {
+    "name": "主谓一致：代词与动词",
+    "description": "确保代词与动词保持一致。"
+  },
+  "Proofread": {
+    "name": "合写词：proofread",
+    "description": "检查合写词 “proofread” 是否被错误地拆开。"
+  },
+  "ProperNouns": {
+    "name": "专有名词：大小写",
+    "description": "确保专有名词的大小写正确。"
+  },
+  "QuantifierNeedsOf": {
+    "name": "结构：a couple of",
+    "description": "发现量词 “a couple” 后接复数名词时缺少的 “of”。"
+  },
+  "QuantifierNumeralConflict": {
+    "name": "数字：量词与数字冲突",
+    "description": "发现量词与数字相冲突的情况（如在数字前用 “each”，应改为 “every”）。"
+  },
+  "QuiteMany": {
+    "name": "固定搭配：quite a few",
+    "description": "将 “quite many” 改为 “quite a few”，后者在标准英语中更自然地道；“quite many” 被视为不规范用法。"
+  },
+  "QuiteQuiet": {
+    "name": "拼写：quiet 与 quite",
+    "description": "帮助区分 “quiet”（安静的）和 “quite”（相当）。"
+  },
+  "QuoteSpacing": {
+    "name": "空格：引号前后",
+    "description": "检查引号的前面或后面是否有空白。"
+  },
+  "RainbowColoredHyphen": {
+    "name": "连字符：rainbow-colored",
+    "description": "当 “rainbow colored” 或 “cream colored” 修饰名词时，用连字符代替颜色词之间的空格，使修饰语成为一个整体。"
+  },
+  "RallyToReally": {
+    "name": "拼写：really",
+    "description": "发现混入 “be + …ing” 结构（含常见缩约形式）中的笔误 “rally”。"
+  },
+  "RapidFire": {
+    "name": "连字符：rapid-fire",
+    "description": "检查 “rapid-fire” 是否加了连字符。"
+  },
+  "ReadsAndWrites": {
+    "name": "结构：read 与 write 并用",
+    "description": "纠正 “read” 与 “write” 并用时名词或动词形式不一致的情况。"
+  },
+  "RealTrouper": {
+    "name": "拼写：real trouper",
+    "description": "确保正确使用 “real trouper”，与指士兵或警察的 “trooper” 区分开。"
+  },
+  "Really": {
+    "name": "缩写：really",
+    "description": "将缩写 “rly” 展开为完整的 “really”。"
+  },
+  "ReasonForDoing": {
+    "name": "介词：reason for doing",
+    "description": "将 “reason of doing” 等改为 “reason for doing” 等。"
+  },
+  "RedundantAcronyms": {
+    "name": "冗余：缩写词后重复的词",
+    "description": "找出最后一个词重复了缩写最后一个字母含义的冗余说法（如 “ATM machine” → “ATM” 或 “automated teller machine”）。"
+  },
+  "RedundantAdditiveAdverbs": {
+    "name": "冗余：表示附加的副词",
+    "description": "发现重复使用的附加类副词。"
+  },
+  "RedundantFirsts": {
+    "name": "冗余：first",
+    "description": "查找与本身已含顺序意味的动词连用的多余 “first”。"
+  },
+  "RedundantIIRC": {
+    "name": "冗余：IIRC",
+    "description": "标出与 “IIRC” 连用的多余 “if” 或 “correctly”，因为 “IIRC” 本身就代表 “if I recall correctly”。"
+  },
+  "RedundantPretty": {
+    "name": "冗余：pretty decent",
+    "description": "修饰 “decent” 时 “pretty” 是多余的，单用 “decent” 即可。"
+  },
+  "RedundantProgressiveComparative": {
+    "name": "冗余：increasingly more",
+    "description": "发现 “increasingly more”、“increasingly less” 这类冗余的比较说法。"
+  },
+  "RedundantSelf": {
+    "name": "冗余：self- 与反身代词",
+    "description": "发现 “self-” 前缀与反身代词重复使用的情况（如 “self-host it themselves”）。"
+  },
+  "RedundantSuperlatives": {
+    "name": "冗余：重复最高级",
+    "description": "将 “most optimal” 这类重复的最高级简化为原形。"
+  },
+  "RedundantThat": {
+    "name": "冗余：that that",
+    "description": "“that that” 几乎总能精简为一个词。"
+  },
+  "Regardless": {
+    "name": "合写词：regardless",
+    "description": "检查合写词 “regardless” 是否被错误地拆开。"
+  },
+  "RegimenRegiment": {
+    "name": "用词：regimen 与 regiment",
+    "description": "纠正本意是 “regimen”（作息、疗程）却误用 “regiment”（军队编制单位）的情况。"
+  },
+  "Regionalisms": {
+    "name": "方言：地区性用词",
+    "description": "标出所选英语变体中不使用的地区性用词，并建议该变体的对应说法。"
+  },
+  "RegularIrregulars": {
+    "name": "动词形式：不规则变化",
+    "description": "将词语错误的规则变化形式替换为正确的不规则形式。"
+  },
+  "RelayOnForRely": {
+    "name": "拼写：rely on",
+    "description": "纠正短语 “relay on” 中把 “rely” 写成 “relay” 的常见笔误。"
+  },
+  "RepeatedWords": {
+    "name": "重复的词",
+    "description": "查找重复出现的词（同形异义词除外）。"
+  },
+  "Respond": {
+    "name": "词性：respond",
+    "description": "在助动词后需要动词 “respond” 时，标出误用的名词 “response”。"
+  },
+  "ResponsibilityFor": {
+    "name": "介词：responsibility for",
+    "description": "将 “take/assume/claim responsibility of” 改为 “take/assume/claim responsibility for”。"
+  },
+  "RifeWith": {
+    "name": "习语：rife with",
+    "description": "将 “ripe with” 改为 “rife with”，保留其“充斥着（多为不好的事物）”之意。"
+  },
+  "RightClick": {
+    "name": "连字符：right-click",
+    "description": "为 right-click 这类鼠标操作加上连字符。"
+  },
+  "RiseTheQuestion": {
+    "name": "用词：raise the question",
+    "description": "将 “rise the question” 改为 “raise the question”。"
+  },
+  "RiseTheRanks": {
+    "name": "固定搭配：rise through the ranks",
+    "description": "将不规范的 “rise the ranks” 改为标准的 “rise through the ranks” 或 “rise from the ranks”。"
+  },
+  "RoadMap": {
+    "name": "分写：road map",
+    "description": "发现用了 “roadmap” 而非 “road map” 的情况，提示改用正确的分写。"
+  },
+  "RollerSkated": {
+    "name": "连字符：roller-skated",
+    "description": "建议 “roller-skate” 的过去式加连字符。"
+  },
+  "RulesOfThumb": {
+    "name": "单复数：rules of thumb",
+    "description": "纠正 “rule of thumb” 中加错复数的名词。"
+  },
+  "RunIntoProblemsOrTrouble": {
+    "name": "固定搭配：run into problems",
+    "description": "纠正 “running into problems/trouble” 中用错的冠词或单复数形式。"
+  },
+  "SafeToSave": {
+    "name": "拼写：save 与 safe",
+    "description": "在 “could”、“should” 等情态动词后，发现本意是动词 “save” 却写成形容词 “safe” 的情况。"
+  },
+  "SameAs": {
+    "name": "固定搭配：same as",
+    "description": "将错误的 “same then” 改为标准的 “same as”。"
+  },
+  "SaveToSafe": {
+    "name": "拼写：safe to",
+    "description": "在 be 动词之后，将 “save to + 动词” 改为 “safe to + 动词”。"
+  },
+  "ScantilyClad": {
+    "name": "拼写：scantily clad",
+    "description": "将 “scandally clad” 改为 “scantily clad”，准确描述衣着暴露。"
+  },
+  "ScapeGoat": {
+    "name": "合写词：scapegoat",
+    "description": "将 “scape goat” 改为 “scapegoat”，该词指替别人的过失受过的人。"
+  },
+  "SeamToSeem": {
+    "name": "拼写：seem",
+    "description": "当表示“看起来、给人印象”的动词时，将 “seam” 改为 “seem”。"
+  },
+  "SendAnEmailTo": {
+    "name": "文体：email",
+    "description": "用简洁的动词 “email” 代替冗长的 “send an email to”。"
+  },
+  "SentenceCapitalization": {
+    "name": "大小写：句首",
+    "description": "句子的第一个词几乎总是应该大写。"
+  },
+  "ShootOneselfInTheFoot": {
+    "name": "习语：shoot oneself in the foot",
+    "description": "纠正 “shoot oneself in the foot” 的不规范变体。"
+  },
+  "Shortcoming": {
+    "name": "合写词：shortcoming",
+    "description": "检查合写词 “shortcoming” 是否被错误地拆开。"
+  },
+  "Shortcomings": {
+    "name": "合写词：shortcomings",
+    "description": "检查合写词 “shortcomings” 是否被错误地拆开。"
+  },
+  "ShutdownVerb": {
+    "name": "动词形式：shut down",
+    "description": "单独出现时保留名词 “shutdown”，前面有助动词时换成短语动词 “shut down”。"
+  },
+  "SideTangent": {
+    "name": "冗余：side tangent",
+    "description": "将冗余的 “side tangent(s)” 改为更简洁的说法。"
+  },
+  "SimilarLike": {
+    "name": "介词：similar to",
+    "description": "形容词 “similar” 搭配介词 “to”，后面不要接 “like”。"
+  },
+  "SimpleGrammatical": {
+    "name": "词性：simple grammatical",
+    "description": "将 “simply grammatical” 改为 “simple grammatical”，正确使用形容词。"
+  },
+  "SimplePastToPastParticiple": {
+    "name": "动词形式：过去分词",
+    "description": "在 “have” 或 “be” 等助动词后，将一般过去式改为过去分词。"
+  },
+  "SinceDuration": {
+    "name": "介词：since 与时长",
+    "description": "发现 “since” 后接一段时长、而不是时间点的情况。"
+  },
+  "SingleBe": {
+    "name": "冗余：重复的 be",
+    "description": "删去相邻重复的 be 动词形式，包括缩约形式后又跟 be 动词的情况。"
+  },
+  "SneakPeekPreview": {
+    "name": "拼写：sneak peek",
+    "description": "纠正 “sneak” 后把 “peek” 误写成 “peak” 的常见短语混淆。"
+  },
+  "SneakedSnuck": {
+    "name": "动词形式：sneaked 与 snuck",
+    "description": "按偏好统一使用 “sneaked” 或 “snuck”。"
+  },
+  "SneakingSuspicion": {
+    "name": "固定搭配：sneaking suspicion",
+    "description": "将 “sneaky suspicion” 改为 “sneaking suspicion”。"
+  },
+  "SomeOfThe": {
+    "name": "结构：some of the",
+    "description": "“some” 等数量词在定冠词前通常接 “of”。加上 “of” 表示指的是更大集合中的一部分，避免读者一时理解卡顿。"
+  },
+  "SomeWithoutArticle": {
+    "name": "冗余：some 前的冠词",
+    "description": "发现 “some” 前多余的冠词，并建议更自然的说法。"
+  },
+  "Somebody": {
+    "name": "合写词：somebody",
+    "description": "检查合写词 “somebody” 是否被错误地拆开。"
+  },
+  "SomebodyElses": {
+    "name": "所有格：somebody else's",
+    "description": "纠正 “somebody else's” 中位置放错的 “'s”。"
+  },
+  "Somehow": {
+    "name": "合写词：somehow",
+    "description": "检查合写词 “somehow” 是否被错误地拆开。"
+  },
+  "Someone": {
+    "name": "合写词：someone",
+    "description": "检查合写词 “someone” 是否被错误地拆开。"
+  },
+  "SomethingIs": {
+    "name": "缩约形式：something's",
+    "description": "标出进行时动词前的 “somethings” 等形式，建议改为 “something's” 或 “something is”。"
+  },
+  "SomewhatSomething": {
+    "name": "固定搭配：something of a",
+    "description": "建议用更传统的 “something of a” 代替 “somewhat of a”。"
+  },
+  "Somewhere": {
+    "name": "合写词：somewhere",
+    "description": "检查合写词 “somewhere” 是否被错误地拆开。"
+  },
+  "SoonToBe": {
+    "name": "连字符：soon-to-be",
+    "description": "“soon-to-be” 位于名词前时加连字符。"
+  },
+  "SoonerOrLater": {
+    "name": "固定搭配：sooner rather than later",
+    "description": "纠正不当的 “sooner than later”，并建议标准说法。"
+  },
+  "SoughtAfter": {
+    "name": "拼写：sought after",
+    "description": "将 “sort after” 改为 “sought after”。"
+  },
+  "Spaces": {
+    "name": "空格：多余空格",
+    "description": "单词之间最多只应有一个空格。"
+  },
+  "SpecialAttention": {
+    "name": "拼写：special attention",
+    "description": "将 “spacial attention” 改为 “special attention”。"
+  },
+  "SpellCheck": {
+    "name": "拼写检查",
+    "description": "查找拼错的单词并给出更正建议。"
+  },
+  "SpelledNumbers": {
+    "name": "文体：用单词写数字",
+    "description": "大多数文体指南建议，小于十的数字用英文单词拼写出来。"
+  },
+  "SpinalChord": {
+    "name": "拼写：cord 与 chord",
+    "description": "“spinal”、“vocal”、“umbilical” 和 “electrical” 后面应接 “cord”，替换误写的 “chord/chords”。"
+  },
+  "SplitWords": {
+    "name": "分写：缺少空格",
+    "description": "找出复合词中缺少的空格（把两个词错误地连写在一起）。"
+  },
+  "Starving": {
+    "name": "用词：starving",
+    "description": "鼓励生动的表达，建议用 “starving” 代替 “very hungry” 这类较弱的说法。"
+  },
+  "StateOfTheArt": {
+    "name": "固定搭配：state of the art",
+    "description": "发现误用的 “state of art”，建议改为正确的 “state of the art”。"
+  },
+  "StatuteOfLimitations": {
+    "name": "术语：statute of limitations",
+    "description": "将 “statue of limitations” 改为 “statute of limitations”。"
+  },
+  "StrikeChord": {
+    "name": "习语：strike a chord",
+    "description": "表示引起共鸣的这个习语用的是 “chord” 而不是 “cord”，纠正笔误以保持习语完整。"
+  },
+  "SubjectPronoun": {
+    "name": "代词：主格 I",
+    "description": "修正以 “me and X” 开头的句子：把名词放在前面，并改用 “I”。"
+  },
+  "SubjunctiveWasToWere": {
+    "name": "虚拟语气：were",
+    "description": "确保在以 “if only” 或 “I wish” 开头、与事实相反的条件句中正确使用虚拟语气。"
+  },
+  "SufficeItToSay": {
+    "name": "固定搭配：suffice it to say",
+    "description": "将 “suffice to say” 改为 “suffice it to say”。"
+  },
+  "SupposedTo": {
+    "name": "固定搭配：supposed to",
+    "description": "将 “suppose to” 改为正确的 “supposed to”。"
+  },
+  "TakeALookTo": {
+    "name": "介词：take a look at",
+    "description": "将 “take a look to” / “have a look to” 改为正确的 “at”。"
+  },
+  "TakeItPersonally": {
+    "name": "词性：take it personally",
+    "description": "将 “take it personal” 改为 “take it personally”。"
+  },
+  "TakeMedicine": {
+    "name": "固定搭配：take medicine",
+    "description": "建议药物类名词搭配 “take” 或 “swallow” 等动词，而不是 “eat”。"
+  },
+  "TalkToYouLater": {
+    "name": "首字母缩写：TTYL",
+    "description": "将首字母缩写 “TTYL” 展开为完整写法。"
+  },
+  "ThanksALot": {
+    "name": "冠词：thanks a lot",
+    "description": "补上 “thanks lot” 中缺少的冠词，改为 “thanks a lot”。"
+  },
+  "ThatChallenged": {
+    "name": "拼写：that challenged",
+    "description": "将 “the challenged” 改为 “that challenged”，正确使用关系从句。"
+  },
+  "ThatThan": {
+    "name": "拼写：than",
+    "description": "纠正比较句中把 “than” 误写成 “that” 的笔误。"
+  },
+  "ThatThis": {
+    "name": "拼写：that this",
+    "description": "将 “the this” 改为正确的 “that this”。"
+  },
+  "ThatWhich": {
+    "name": "文体：that which",
+    "description": "重复使用 “that” 往往是多余的，“that which” 更易读。"
+  },
+  "The": {
+    "name": "拼写：the",
+    "description": "纠正 “the” 这个词特别常见的误拼。"
+  },
+  "TheAnother": {
+    "name": "冠词：the another",
+    "description": "纠正 “the another”。"
+  },
+  "TheDifferenceBetween": {
+    "name": "词性：the difference between",
+    "description": "将 “the different(s) between” 改为 “the difference between”。"
+  },
+  "TheEntiretyOf": {
+    "name": "词性：the entirety of",
+    "description": "将 “the entire of” 改为 “the entirety of”。"
+  },
+  "TheHowWhy": {
+    "name": "冗余：the how",
+    "description": "删去 “the how” 这类说法中多余的 “the”，但不处理 “how to” 和 “who's who”。"
+  },
+  "TheLastDays": {
+    "name": "固定搭配：in the last few days",
+    "description": "将 “in the last days” 改为 “in the last few days”，并纠正相关错误。"
+  },
+  "TheMy": {
+    "name": "限定词：定冠词与物主词",
+    "description": "标出定冠词与物主限定词连用的情况（如 “the my”）。"
+  },
+  "ThePointFor": {
+    "name": "介词：the point of",
+    "description": "将 “the point for” 改为 “the point of”。"
+  },
+  "TheProperNounPossessive": {
+    "name": "冗余：专有名词所有格前的 the",
+    "description": "检查专有名词所有格前多余的 “the”，如 “The London's population”。"
+  },
+  "TheTheToThatThe": {
+    "name": "拼写：that the",
+    "description": "将 “the the” 改为 “that the” 或单个 “the”。"
+  },
+  "TheWhetherWeather": {
+    "name": "拼写：weather 与 whether",
+    "description": "纠正在 “the” 之后本意是名词 “weather” 却写成 “whether” 的常见混淆。"
+  },
+  "TheirToThere": {
+    "name": "拼写：there 与 their",
+    "description": "本意是 “there” 时，纠正误写的 “their”。"
+  },
+  "TheirToTheyre": {
+    "name": "拼写：they're 与 their",
+    "description": "本意是 “they're” 时，纠正误写的 “their”。"
+  },
+  "ThenThan": {
+    "name": "拼写：than 与 then",
+    "description": "纠正 “then” 与 “than” 的混用。"
+  },
+  "There": {
+    "name": "合写词：there",
+    "description": "检查合写词 “there” 是否被错误地拆开。"
+  },
+  "ThereAfterCompound": {
+    "name": "合写词：thereafter",
+    "description": "在作副词时，将拆开的 “there after” 统一为合写形式。"
+  },
+  "ThereIsAgreement": {
+    "name": "主谓一致：there is 与 there are",
+    "description": "检查 “is there” 及其变体是否与单数或复数主语一致。"
+  },
+  "ThereMissingIsClause": {
+    "name": "结构：there is",
+    "description": "在 “if there a …” 这类常见从句中补上省略的系动词 “is”。"
+  },
+  "ThereOwn": {
+    "name": "拼写：their own",
+    "description": "将 “there own”、“they're own” 和 “theyre own” 改为 “their own”。"
+  },
+  "ThereToTheir": {
+    "name": "拼写：their 与 there",
+    "description": "本意是 “their” 时，纠正误写的 “there”。"
+  },
+  "Therefore": {
+    "name": "合写词：therefore",
+    "description": "检查合写词 “therefore” 是否被错误地拆开。"
+  },
+  "Theres": {
+    "name": "缩约形式：there's",
+    "description": "将限定词前误用的所有格 “their's” 替换为缩约形式 “there's”。"
+  },
+  "Thereupon": {
+    "name": "合写词：thereupon",
+    "description": "检查合写词 “thereupon” 是否被错误地拆开。"
+  },
+  "ThesesThese": {
+    "name": "拼写：these",
+    "description": "纠正把 “these” 误拼为 “theses” 的常见错误。"
+  },
+  "TheyToThem": {
+    "name": "代词：宾格 them",
+    "description": "当代词在常见介词或及物动作之后作宾语时，将 “they” 改为 “them”。"
+  },
+  "TheyreConfusions": {
+    "name": "缩约形式：they're 的特殊情况",
+    "description": "发现标准缩约检查难以覆盖的撇号和方位词特殊情况。"
+  },
+  "TheyreToTheir": {
+    "name": "拼写：their 与 they're",
+    "description": "本意是 “their” 时，纠正误写的 “they're”。"
+  },
+  "ThieveNoun": {
+    "name": "词性：thief",
+    "description": "在本意是单数 “thief” 的名词短语中，纠正误写的 “thieve”。"
+  },
+  "ThingThink": {
+    "name": "拼写：think",
+    "description": "本应是 “think” 时，纠正误写的 “thing”。"
+  },
+  "ThinkKnowOff": {
+    "name": "介词：think of 与 know of",
+    "description": "当后面的词表明本意是 “of” 时，纠正 “know off”、“thought off” 等短语中 know、think 类动词后用混的介词。"
+  },
+  "ThisTypeOfThing": {
+    "name": "单复数：this type of thing",
+    "description": "检查 “this/these type(s) of thing(s)” 各部分的单复数是否一致。"
+  },
+  "ThoughThought": {
+    "name": "拼写：thought",
+    "description": "当 “though” 是 “thought” 的笔误时予以纠正。"
+  },
+  "ThoughtProcess": {
+    "name": "拼写：thought process",
+    "description": "将 “though process” 改为 “thought process”。"
+  },
+  "ThreatenVerb": {
+    "name": "词性：threaten",
+    "description": "在情态动词（或其缩约形式）之后，将被误当作动词的名词 “threat” 改为 “threaten”。"
+  },
+  "ThriveOn": {
+    "name": "介词：thrive on",
+    "description": "将 “thrive off” 和 “thrive off of” 改为 “thrive on”。"
+  },
+  "ThrowAway": {
+    "name": "拼写：throw away",
+    "description": "发现笔误 “through away”，建议改为 “throw away” 或 “threw away”。"
+  },
+  "ThrowBabyWithBathwater": {
+    "name": "习语：throw the baby out with the bathwater",
+    "description": "纠正习语 “to throw the baby out with the bathwater” 错误或不规范的变体。"
+  },
+  "ThrowRubbish": {
+    "name": "固定搭配：throw away rubbish",
+    "description": "检查只说 “throw rubbish”、而没有说 “throw it away” 的情况。"
+  },
+  "TickingTimeClock": {
+    "name": "习语：ticking time bomb",
+    "description": "将 “ticking time clock” 改为表示紧迫的习语 “ticking time bomb”，否则改为 “ticking clock”。"
+  },
+  "TillDate": {
+    "name": "方言：to date",
+    "description": "未选择印度英语时，将印度英语说法 “till date” 改为 “to date”。"
+  },
+  "ToAdverb": {
+    "name": "冗余：重复的 to",
+    "description": "标出某些副词前后重复的 “to”（如 “to never to”），并提供只保留一个 “to” 的修改。"
+  },
+  "ToBackOut": {
+    "name": "分写：to back out",
+    "description": "把 “to backout” 视为打错的不定式，建议改用两个词的动词 “back out”。"
+  },
+  "ToBeHonest": {
+    "name": "首字母缩写：TBH",
+    "description": "将首字母缩写 “TBH” 展开为完整写法。"
+  },
+  "ToDoHyphen": {
+    "name": "连字符：to-do",
+    "description": "确保 “to-do” 正确地加连字符。"
+  },
+  "ToGreatLengths": {
+    "name": "习语：to great lengths",
+    "description": "将 “through great lengths” 改为 “to great lengths”。"
+  },
+  "ToLoseTooLoose": {
+    "name": "拼写：to/too 与 lose/loose",
+    "description": "纠正 “to” 与 “too”、“lose” 与 “loose” 的混用。"
+  },
+  "ToSomeDegree": {
+    "name": "介词：to some degree",
+    "description": "将 “in some degree” 改为表示“在某种程度上”的 “to some degree”。"
+  },
+  "ToTheMannerBorn": {
+    "name": "习语：to the manner born",
+    "description": "将 “to the manor born” 改为 “to the manner born”，以准确表达天生适合某种生活方式之意。"
+  },
+  "ToTo": {
+    "name": "拼写：to do",
+    "description": "将可能是笔误的 “to to” 改为 “to do”，“to-to” 改为 “to-do”。"
+  },
+  "ToTooIdioms": {
+    "name": "拼写：too",
+    "description": "纠正本该用 “too” 却写成 “to” 的情况。"
+  },
+  "ToTwoToo": {
+    "name": "拼写：to、two 与 too",
+    "description": "纠正 “to” 与 “too” 等同音词的混淆。"
+  },
+  "ToWorryAbout": {
+    "name": "动词形式：to worry about",
+    "description": "纠正误用的 “to worried about”。"
+  },
+  "TomorrowPossessiveModifier": {
+    "name": "所有格：tomorrow's",
+    "description": "标出作定语的 “tomorrows”，建议改用所有格形式。"
+  },
+  "TongueInCheek": {
+    "name": "习语：tongue-in-cheek",
+    "description": "当所需的介词被 “and” 替代时，纠正这一习语。"
+  },
+  "TooTo": {
+    "name": "拼写：to",
+    "description": "纠正本该用 “to” 却写成 “too” 的情况。"
+  },
+  "Touristic": {
+    "name": "用词：tourist",
+    "description": "建议用 “tourist”、“tourism” 或 “touristy” 替换不常用的 “touristic”。"
+  },
+  "Towards": {
+    "name": "冗余：to towards",
+    "description": "删去 “towards” 前多余的 “to”。"
+  },
+  "TransposedSpace": {
+    "name": "空格：错位的空格",
+    "description": "查找词与词之间提前或推后了一个字符的空格。"
+  },
+  "TrialAndError": {
+    "name": "拼写：trial and error",
+    "description": "将 “trial and error” 中误写的 “trail” 改为 “trial”。"
+  },
+  "TrueToWord": {
+    "name": "习语：true to one's word",
+    "description": "规范 “true to + 所有格” 的说法，使其符合惯用的 “true to one's word”。"
+  },
+  "TruthToTheFact": {
+    "name": "冗余：truth to the fact",
+    "description": "标出冗余的说法 “truth to the fact”。"
+  },
+  "TryOnesHandAt": {
+    "name": "习语：try one's hand at",
+    "description": "将 “try one's hands at” 改为 “try one's hand at”。"
+  },
+  "TryOnesLuck": {
+    "name": "习语：try one's luck",
+    "description": "将 “try out one’s luck” 改为 “try one’s luck”。"
+  },
+  "TuffEnough": {
+    "name": "拼写：tough",
+    "description": "形容词 “tough” 常与 “enough” 或 “like” 搭配，纠正这些结构中的常见笔误 “tuff”。"
+  },
+  "TumblrNames": {
+    "name": "专有名词：Tumblr",
+    "description": "确保 Tumblr 相关术语的大小写正确。"
+  },
+  "TurnItOff": {
+    "name": "固定搭配：turn it off",
+    "description": "纠正短语 “turn it off” 中的错误。"
+  },
+  "USUniversities": {
+    "name": "专有名词：美国大学",
+    "description": "确保美国主要大学名称的大小写正确。"
+  },
+  "UnclosedQuotes": {
+    "name": "标点：未闭合的引号",
+    "description": "引号必须成对闭合，不成对的引号是粗心的典型标志。"
+  },
+  "Underclock": {
+    "name": "合写词：underclock",
+    "description": "检查合写词 “underclock” 是否被错误地拆开。"
+  },
+  "UnitedOrganizations": {
+    "name": "专有名词：组织机构",
+    "description": "提及国家或国际组织时，按专有名词书写。"
+  },
+  "Unless": {
+    "name": "冗余：unless if",
+    "description": "纠正 “unless if”。"
+  },
+  "UpdatePlaceNames": {
+    "name": "专有名词：旧地名",
+    "description": "查找已弃用的地名，并提供更新为现用名称的建议。"
+  },
+  "Upset": {
+    "name": "合写词：upset",
+    "description": "检查合写词 “upset” 是否被错误地拆开。"
+  },
+  "Upward": {
+    "name": "合写词：upward",
+    "description": "检查合写词 “upward” 是否被错误地拆开。"
+  },
+  "UseEllipsisCharacter": {
+    "name": "标点：省略号字符",
+    "description": "将三个句点组成的省略号替换为单个 Unicode 省略号字符（…）。"
+  },
+  "UseTitleCase": {
+    "name": "大小写：标题大小写",
+    "description": "提示在相关标题中使用标题式大小写（主要单词首字母大写）。"
+  },
+  "UseToUsedTo": {
+    "name": "固定搭配：used to",
+    "description": "表示“习惯于”时（在 be 或 get 的各种形式之后），将 “use to” 改为 “used to”。"
+  },
+  "VerbToAdjective": {
+    "name": "词性：形容词与副词",
+    "description": "查找以冠词开头的动名词短语（如 “a fully accounting of”），其中更可能需要形容词而非副词。"
+  },
+  "VerseAsVerb": {
+    "name": "用词：verse 作动词",
+    "description": "将源自 “versus”、被当作动词使用的不规范 “verse” 改为标准说法。"
+  },
+  "VeryKnown": {
+    "name": "固定搭配：well-known",
+    "description": "描述广为人知的事物时，标准说法是 “very well-known”（或 “well-known”），因此标出不常见的 “very known”。"
+  },
+  "VeryLess": {
+    "name": "用词：very less",
+    "description": "纠正 “very less”。"
+  },
+  "VeryUnique": {
+    "name": "用词：very unique",
+    "description": "标出 “very unique”、“pretty unique” 等说法，建议单用 “unique”，或改用 “special”、“rare”、“unusual” 等更精确的形容词。"
+  },
+  "ViceVersa": {
+    "name": "拼写：vice versa",
+    "description": "建议 “vice versa” 不加连字符。"
+  },
+  "ViciousCircle": {
+    "name": "习语：vicious circle",
+    "description": "纠正并统一 “vicious/virtuous circle” 的常见错误和变体。"
+  },
+  "ViciousCircleOrCycle": {
+    "name": "习语：vicious circle 或 cycle",
+    "description": "纠正 “vicious/virtuous circle/cycle” 中的常见错误。"
+  },
+  "ViciousCycle": {
+    "name": "习语：vicious cycle",
+    "description": "纠正并统一 “vicious/virtuous cycle” 的常见错误和变体。"
+  },
+  "WantBe": {
+    "name": "拼写：want to be",
+    "description": "发现误用的 “want be”，并根据语境建议改为 “won't be” 或 “want to be”。"
+  },
+  "WasAloud": {
+    "name": "拼写：was allowed",
+    "description": "在表示许可时，确保将 “was aloud” 和 “were aloud” 改为 “was allowed” 和 “were allowed”。"
+  },
+  "WasComprisedOf": {
+    "name": "用词：was comprised of",
+    "description": "将固定说法 “was comprised of” 改写为更被广泛接受的形式。"
+  },
+  "WaveFunction": {
+    "name": "分写：wave function",
+    "description": "找出把 “wave” 和 “function” 合成一个词的错误。在量子力学中，“wave function”（波函数，分写成两个词）是描述粒子或系统量子态的数学函数；正确用词对清晰准确的科学交流至关重要。"
+  },
+  "WayTooAdjective": {
+    "name": "拼写：way too",
+    "description": "在 “way” 后接形容词时，把介词 “to” 换成副词 “too”（如 “way too fast”）。"
+  },
+  "WebScraping": {
+    "name": "拼写：web scraping",
+    "description": "将网页的 “scrapping” 改为 “scraping”。"
+  },
+  "WellBeing": {
+    "name": "连字符：well-being",
+    "description": "确保 “well-being” 正确地加连字符。"
+  },
+  "WellEducated": {
+    "name": "用词：well-educated",
+    "description": "将 “good-educated” 替换为公认的复合词 “well-educated”。"
+  },
+  "WellKept": {
+    "name": "用词：well-kept",
+    "description": "标出 “highly-kept”，建议改用 “well-kept”。"
+  },
+  "WereWhere": {
+    "name": "拼写：were 与 where",
+    "description": "发现 “were” 与 “where” 的混用。"
+  },
+  "Whereas": {
+    "name": "合写词：whereas",
+    "description": "找出文中使用 “where as” 的地方，建议替换为单个词 “whereas”。"
+  },
+  "Whereupon": {
+    "name": "合写词：whereupon",
+    "description": "检查合写词 “whereupon” 是否被错误地拆开。"
+  },
+  "WhetYourAppetite": {
+    "name": "习语：whet your appetite",
+    "description": "确保正确使用 “whet your appetite”，与错误的 “wet” 写法区分开。"
+  },
+  "WholeEntire": {
+    "name": "冗余：whole entire",
+    "description": "将冗余的 “whole entire” 改为 “whole” 或 “entire”。"
+  },
+  "WhomSubjectOfVerb": {
+    "name": "代词：who 与 whom",
+    "description": "发现 “whom” 及其变体被用作动词主语、而应使用 “who” 的情况。"
+  },
+  "WidelyAccepted": {
+    "name": "词性：widely",
+    "description": "标出 “wide accepted”、“wide acceptable” 或 “wide used”，建议把 “wide” 换成副词 “widely”。"
+  },
+  "Widespread": {
+    "name": "合写词：widespread",
+    "description": "检查合写词 “widespread” 是否被错误地拆开。"
+  },
+  "WillContain": {
+    "name": "动词形式：will contain",
+    "description": "动词形式有误：“will” 后应接原形 “contain”。"
+  },
+  "WillNonLemma": {
+    "name": "动词形式：will + 原形",
+    "description": "标出 “will” 或 “shall” 后错误的动词形式。"
+  },
+  "WinPrize": {
+    "name": "拼写：win a prize",
+    "description": "发现动词 “win” 后把 “prize” 误写成 “price” 或 “prise” 的情况。"
+  },
+  "WishCould": {
+    "name": "虚拟语气：wish … could",
+    "description": "检查 “wish” 后本应用 “could” 却用了 “can” 的情况。"
+  },
+  "Without": {
+    "name": "合写词：without",
+    "description": "检查合写词 “without” 是否被错误地拆开。"
+  },
+  "WithoutOut": {
+    "name": "拼写：without",
+    "description": "误打成 “without out” 时，将这两个词合并回单个介词 “without”。"
+  },
+  "WokVerbTypo": {
+    "name": "拼写：work",
+    "description": "标出本应是动词 “work” 却写成 “wok” 的可能笔误。"
+  },
+  "WordPressDotcom": {
+    "name": "专有名词：WordPress.com",
+    "description": "确保 WordPress.com 的大小写正确：提及该托管服务商时，使用其官方写法。"
+  },
+  "Worldwide": {
+    "name": "合写词：worldwide",
+    "description": "检查合写词 “worldwide” 是否被错误地拆开。"
+  },
+  "WorseOrWorst": {
+    "name": "比较级：worse 与 worst",
+    "description": "纠正 “worse” 与 “worst” 用在对方语境中的情况。"
+  },
+  "WorstCaseScenario": {
+    "name": "连字符：worst-case scenario",
+    "description": "纠正 “worst-case scenario” 缺少连字符或把 “worst” 写成 “worse” 的情况。"
+  },
+  "WorthToDo": {
+    "name": "结构：worth doing",
+    "description": "将 “worth to + 动词” 改为 “worth + 动名词”。"
+  },
+  "Worthwhile": {
+    "name": "合写词：worthwhile",
+    "description": "检查合写词 “worthwhile” 是否被错误地拆开。"
+  },
+  "WouldNeverHave": {
+    "name": "词序：never would have",
+    "description": "将 “would/could have never” 改为 “never would/could have”。"
+  },
+  "WreakHavoc": {
+    "name": "习语：wreak havoc",
+    "description": "将近音误写 “wreck havoc” 改为表示造成混乱或破坏的正确说法 “wreak havoc”。"
+  },
+  "WrongApostrophe": {
+    "name": "标点：撇号",
+    "description": "纠正误用来代替撇号的分号、尖音符和反引号。"
+  },
+  "WroteToRote": {
+    "name": "拼写：by rote",
+    "description": "将 “by wrote” 改为 “by rote”。"
+  },
+  "WroughtIron": {
+    "name": "拼写：wrought iron",
+    "description": "“wrought iron”（熟铁）是用于装饰工艺的低碳、可锻铁；“rod iron”、“rot iron” 等变体是按发音拼错的写法，可能让读者困惑。"
+  },
+  "YeaToYeah": {
+    "name": "拼写：yeah（yea）",
+    "description": "将 “yea” 改为 “yeah”。"
+  },
+  "YehToYeah": {
+    "name": "拼写：yeah（yeh）",
+    "description": "将 “yeh” 改为 “yeah”。"
+  },
+  "YourOutClauseAgreement": {
+    "name": "缩约形式：you're out",
+    "description": "在 “out” 及其后的介词之前，本意是“主语 + 动词”的缩约形式时，纠正误写的 “your”。"
+  },
+  "YourPredicateAdjective": {
+    "name": "缩约形式：you're + 形容词",
+    "description": "发现 “your”、“yr”、“ur” 或 “ya” 后面接表语形容词的情况，建议改为正确的缩约形式，让句子表达某人的感受或状态。"
+  },
+  "Yourself": {
+    "name": "合写词：yourself",
+    "description": "检查合写词 “yourself” 是否被错误地拆开，但跳过带连字符的 “self-…” 复合词。"
+  }
+}

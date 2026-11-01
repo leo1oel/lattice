@@ -467,4 +467,29 @@ mod tests {
         }
         assert_eq!(reasons.matches(": msg`").count(), ACADEMIC_OFF.len());
     }
+
+    #[test]
+    fn every_rule_has_a_chinese_name_and_description() {
+        // Settings and the editor's grammar tooltips name rules from this
+        // table in Chinese (src/editor/grammar-rule-text.ts). A Harper upgrade
+        // that adds or renames rules fails here until they are translated.
+        let catalog: BTreeMap<String, BTreeMap<String, String>> =
+            serde_json::from_str(include_str!("../../src/locales/zh-CN/grammar-rules.json"))
+                .expect("src/locales/zh-CN/grammar-rules.json is not a table of rules");
+        let names: Vec<String> = rules().into_iter().map(|rule| rule.name).collect();
+        let untranslated: Vec<&String> =
+            names.iter().filter(|name| !catalog.contains_key(*name)).collect();
+        assert!(
+            untranslated.is_empty(),
+            "Harper rules with no Chinese name in src/locales/zh-CN/grammar-rules.json: {untranslated:?}"
+        );
+        let stale: Vec<&String> = catalog.keys().filter(|name| !names.contains(name)).collect();
+        assert!(stale.is_empty(), "rules Harper no longer has: {stale:?}");
+        let chinese = |text: &str| text.chars().any(|ch| ('\u{4e00}'..='\u{9fff}').contains(&ch));
+        for (name, entry) in &catalog {
+            let text = |field: &str| entry.get(field).map(String::as_str).unwrap_or_default();
+            assert!(chinese(text("name")) && chinese(text("description")), "{name}: {entry:?}");
+            assert_eq!(entry.len(), 2, "{name}: {entry:?}");
+        }
+    }
 }
