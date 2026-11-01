@@ -152,7 +152,9 @@ pub(super) fn is_html_path(path: &Path) -> bool {
 /// size and the limit, in bytes. The frontend matches this sentence
 /// (`src/app/file-open-failure.ts`) to say it in the interface language.
 pub(super) fn too_large(size: u64, limit: u64) -> String {
-    format!("This file is too large to open in the editor ({size} bytes; the limit is {limit} bytes).")
+    format!(
+        "This file is too large to open in the editor ({size} bytes; the limit is {limit} bytes)."
+    )
 }
 
 /// Whether a file past the text limits reads as text, judged by its start:
@@ -160,7 +162,9 @@ pub(super) fn too_large(size: u64, limit: u64) -> String {
 /// cut by the end of the window is still text.
 pub(super) fn starts_as_text(path: &Path) -> Result<bool, String> {
     let mut start = Vec::new();
-    fs::File::open(path).and_then(|file| file.take(TEXT_SNIFF_BYTES).read_to_end(&mut start)).map_err(err)?;
+    fs::File::open(path)
+        .and_then(|file| file.take(TEXT_SNIFF_BYTES).read_to_end(&mut start))
+        .map_err(err)?;
     Ok(!has_binary_marker(&start)
         && std::str::from_utf8(&start).map_or_else(|error| error.error_len().is_none(), |_| true))
 }

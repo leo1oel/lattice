@@ -5,7 +5,7 @@ import { i18n } from "../i18n";
 import { notifyError } from "../telemetry/app-notify";
 import { showError } from "./notify";
 
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched in backend text (src-tauri/src/project/tree.rs `too_large`)
+// Matched in backend text: src-tauri/src/project/tree.rs `too_large`.
 const TOO_LARGE = /^This file is too large to open in the editor \((\d+) bytes; the limit is (\d+) bytes\)\.$/;
 
 /**

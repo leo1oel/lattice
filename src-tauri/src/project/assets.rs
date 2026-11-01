@@ -94,7 +94,10 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     }
     // The tree files text past the editor's limit as binary, so a big `.bib`
     // is clicked into here: say it is too large rather than preview bytes.
-    if asset_mime_type(&path).is_none() && size > MAX_CLASSIFIED_TEXT_BYTES && starts_as_text(&path)? {
+    if asset_mime_type(&path).is_none()
+        && size > MAX_CLASSIFIED_TEXT_BYTES
+        && starts_as_text(&path)?
+    {
         return Err(too_large(size, MAX_CLASSIFIED_TEXT_BYTES));
     }
     if size > MAX_INLINE_ASSET_BYTES {
