@@ -4,8 +4,9 @@
  * AppCommand). The palette and the sheet are one overlay state here, which
  * app-command-overlays.tsx renders.
  */
-import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BROWSER_ENTRY_PORT } from "../platform/flavor";
 import { requestMarginReviewHere, setMarginReviewMode } from "../overleaf/margin-review-mode";
 import { welcomeDeskProjects } from "../project/first-pages";
@@ -14,6 +15,7 @@ import { loadRecentCommands, rememberRecentCommand, type ThemePreference } from 
 import type { SettingsSearchEntry } from "../settings/settings-search-index";
 import { REVEAL_IN_PDF_KEY } from "../pdf/pdf-keys";
 import type { TrellisController } from "../trellis/trellis-controller";
+import { closeDocumentTab } from "../trellis/close-document-tab";
 import { WORKSPACE_SHORTCUTS } from "../trellis/trellis-workspaces";
 import { FOCUS_MODE_KEY, FRAME_TOGGLE_KEY } from "../trellis/trellis-keymap";
 import { PANEL_TITLES, spaceMixedScript } from "../trellis/trellis-titles";
@@ -29,6 +31,8 @@ import { PANEL_TOGGLE_KEYS, SINGLETON_PANELS } from "./panel-toggles";
 import { projectPanelCommands } from "./project-panel-commands";
 import type { SearchDialog } from "./app-search-dialogs";
 import { collectFilePaths } from "./workspace-restore";
+import { subscribeTauriEvent } from "./effect-helpers";
+import { listenInThisWindow } from "./window-events";
 import { RUNNING_VERSION } from "./whats-new";
 import { commandCombo, commandShortcutText, useAppCommands, type AppCommand } from "./use-app-commands";
 import type { useAgentContext } from "./use-agent-context";
@@ -47,6 +51,9 @@ import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
 
 const loadTexlabLanguage = () => import("../build/texlab-language");
+
+/** What File ▸ Close Tab (⌘W) sends the window it was used in (native_locale.rs). */
+const CLOSE_TAB_EVENT = "close-tab";
 
 /** No revision in flight, for counting what the palette's Revise would ask about. */
 const NO_RUNNING_REVISIONS: ReadonlySet<string> = new Set();
@@ -201,6 +208,16 @@ export function useCommandTable({
     { id: "next-problem", label: t`Next build problem`, group: "navigate", key: "f8", mod: false, palette: false, run: () => cycleDiagnostic(1) },
     { id: "previous-problem", label: t`Previous build problem`, group: "navigate", key: "f8", shift: true, mod: false, palette: false, run: () => cycleDiagnostic(-1) },
     { id: "reopen-tab", when: inProject, label: t`Reopen the closed tab`, group: "navigate", key: "t", shift: true, palette: false, run: documents.reopenClosed },
+    // ⌘W closes a document tab, as in an editor or a browser, and the window
+    // once none is open; ⇧⌘W (File ▸ Close Window) closes the window outright.
+    // A browser tab's ⌘W is the browser's own, and Settings, over the
+    // documents, leaves them alone.
+    {
+      id: "close-tab", when: !browserHosted && !settingsOpen, label: t`Close the document tab, or the window when none is open`, group: "navigate", key: "w", palette: false,
+      run: () => {
+        if (!closeDocumentTab(trellis)) void getCurrentWindow().close();
+      },
+    },
     // ⌘K everywhere, the welcome screen included, and ⌘⇧P where it always was: one row in the sheet.
     { id: "palette", label: t`Command palette`, group: "project", key: "k", palette: false, run: openCommandPalette },
     { id: "palette-shift-p", label: t`Command palette`, group: "project", key: "p", shift: true, palette: false, run: openCommandPalette },
@@ -344,6 +361,13 @@ export function useCommandTable({
     { id: "settings", label: t`Open settings`, group: "project", key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
+  // The menu's ⌘W, for a click or a key nothing in the page took (focus in a
+  // frame that was never told the window's keys).
+  const runCommandRef = useLatestRef(runCommand);
+  useEffect(() => subscribeTauriEvent<string>(
+    (handler) => listenInThisWindow(CLOSE_TAB_EVENT, handler),
+    () => runCommandRef.current("close-tab"),
+  ), [runCommandRef]);
   // The titlebar's search field is the palette's visible home. The titlebar
   // only re-renders with the workspace, so it gets one stable opener.
   const openCommandPaletteRef = useLatestRef(openCommandPalette);

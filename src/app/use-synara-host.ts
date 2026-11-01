@@ -33,6 +33,7 @@ import {
 import { useSynaraConfirmationBridge } from "../agent/synara-confirmations";
 import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { useSynaraPopupDismissalBridge } from "../agent/synara-popup-dismissal";
+import { useSynaraHostShortcuts } from "../agent/synara-host-shortcuts";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { announceBibliographyWrite } from "../project/project-files-changed";
@@ -140,6 +141,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useSynaraConfirmationBridge({ frameRef: sourceControlFrameRef, origin });
   useSynaraPopupDismissalBridge({ frameRef, origin });
   useSynaraPopupDismissalBridge({ frameRef: sourceControlFrameRef, origin });
+  useSynaraHostShortcuts(origin);
   const [frameMounted, setFrameMounted] = useState(false);
   /** Part of the agent frame's key: Retry remounts a frame that never said it was ready. */
   const [frameAttempt, setFrameAttempt] = useState(0);

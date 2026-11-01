@@ -154,6 +154,7 @@ file:
 | `src/agent/agent-turn-activity.ts` | From the panel, `synara:turn-activity`; the decks its turn names are posted to the Open Slide runtime's `/__lattice/agent-activity` (`src/editor/presentation/open-slide-agent-presence.ts`), which lights them with Open Slide's agent presence (`tools/open-slide-runtime/agent-presence.mjs`) |
 | `src/app/use-synara-host.ts` | `lattice:request-agent-permission-mode`, `lattice:set-agent-permission-mode`, `lattice:agent-panel-opened`, `lattice:host-pointer` |
 | `src/settings/synara-settings-pane.tsx` | `lattice:set-settings-section`, `lattice:settings-layout` |
+| `src/agent/synara-host-shortcuts.ts` | To every Synara frame, `lattice:host-shortcuts` (the keys the window's commands can run now, answering `lattice:request-host-shortcuts`); from any of them, `synara:host-shortcut`, one of those keys pressed in the frame, dispatched again on its `<iframe>` |
 
 `rg '"lattice:' src` enumerates the whole protocol in one pass.
 

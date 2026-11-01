@@ -51,11 +51,6 @@ fn origin_of(url: &str) -> Option<String> {
     parsed.host_str().map(|host| format!("{}://{host}", parsed.scheme()))
 }
 
-fn is_workspace_window(label: &str) -> bool {
-    label == crate::MAIN_WINDOW_LABEL
-        || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
-}
-
 /// Refuse `caller` unless it is a workspace window's own page on Lattice's
 /// frontend (see the module notes).
 pub(crate) fn check(caller: &Caller<'_>, local: &[String]) -> Result<(), String> {
@@ -67,7 +62,7 @@ pub(crate) fn check(caller: &Caller<'_>, local: &[String]) -> Result<(), String>
         );
         Err("The terminal is only available in a Lattice window.".to_string())
     };
-    if !is_workspace_window(caller.window) {
+    if !crate::is_workspace_window(caller.window) {
         return refused("not a workspace window");
     }
     if caller.webview != caller.window {

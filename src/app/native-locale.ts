@@ -31,6 +31,8 @@ export type NativeMenuLabels = {
   window: string;
   minimize: string;
   zoom: string;
+  /** File ▸ Close Tab (⌘W), which closes a document tab, and the window once none is open. */
+  closeTab: string;
   closeWindow: string;
   help: string;
   whatsNew: string;
@@ -68,6 +70,7 @@ export function nativeMenuLabels(): NativeMenuLabels {
     window: i18n._(msg({ context: "macOS menu bar", message: "Window" })),
     minimize: i18n._(msg({ context: "macOS menu bar", message: "Minimize" })),
     zoom: i18n._(msg({ context: "macOS menu bar", message: "Zoom" })),
+    closeTab: i18n._(msg({ context: "macOS menu bar", message: "Close Tab" })),
     closeWindow: i18n._(msg({ context: "macOS menu bar", message: "Close Window" })),
     help: i18n._(msg({ context: "macOS menu bar", message: "Help" })),
     whatsNew: i18n._(msg({ context: "macOS menu bar", message: `What’s New in ${name}` })),

@@ -63,6 +63,10 @@ The pin also gives the agent `preview_latex_figure`: it sends a figure's body (w
 It rides the presentation channel as the action `preview_figure`, since that broker, its result route and the web relay already carry one rendered image back per request, and the broker's timeout message now names a preview rather than the presentation tool.
 The host policy tells the agent to preview every figure it draws or changes, fix what reads badly in the image, and insert the `figure` environment the tool returns with its ordinary file edit.
 
+Every embedded frame (the Agent panel, the Git drawer's views, Settings' pages) leaves Lattice's own shortcuts to Lattice. It asks for them with `lattice:request-host-shortcuts`; Lattice answers, and sends again whenever the set changes, `lattice:host-shortcuts` (version 1) with the keys its window's command table can run at that moment, each as `{key, mod, ctrl, shift, alt}`.
+A capture listener installed before the first render stops such a key ahead of every Synara binding and posts it back as `synara:host-shortcut` (`key`, `code` and the four modifier flags); Lattice dispatches it again on that frame's iframe element, so it runs as if pressed beside the frame, and drops one it does not run at that moment.
+So with focus in a frame ⌘P is quick open rather than Synara's file search, ⌘1 the first workspace rather than a thread, and ⌘K, ⌘S, ⌘, and ⌘W work at all; a key Lattice does not claim (⌘F, ⌘C, ⌘Z) keeps its meaning in the frame.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
@@ -164,7 +168,7 @@ The turn's diff is complete while the turn still runs: the live-changes capsule 
 Codex warnings that are not tied to a turn (approval-review and native runtime warnings) show in the chat, and a Codex chat whose resume falls back to a fresh session gets its transcript context back.
 Provider switches from the model picker go through Hand off, so a switch that cannot happen yet is refused with a localized notice that says why.
 At 768px and wider the panel's open-thread tabs gain a trailing + that starts a new chat in the same project (localized).
-Upstream also closes the active tab on Cmd/Ctrl+W, but the fork leaves that chord to Lattice in the embed at every width, so it still reaches Lattice's own Close Window, as it does in a narrow panel.
+Upstream also closes the active tab on Cmd/Ctrl+W, but the fork leaves that chord to Lattice in the embed at every width, so it still reaches Lattice's own File ▸ Close Tab, as it does in a narrow panel.
 The access-mode notices a Lattice permission change can raise are localized too.
 Upstream's Code OSS editor (Monaco with language services and a debugger) is Beta-only: the server refuses its RPCs and the web client keeps the Pierre engine on Stable, so Lattice never loads it. Its web client still ships in the bundle; the TypeScript compiler its language worker needs is pruned from the staged server.
 Hubs keeping requests and follow-ups together, Devin background work, the Environment panel's project actions and the top-bar visibility settings, Safari and Hyprland setup, and the sidebar and Spaces fixes are standalone surfaces that Lattice does not embed.

@@ -3080,6 +3080,15 @@ msgstr "关闭"
 msgid "Close settings"
 msgstr "关闭"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Close Tab"
+msgstr "关闭标签页"
+
+#: src/app/use-command-table.ts
+msgid "Close the document tab, or the window when none is open"
+msgstr "关闭文档标签，没有标签时关闭窗口"
+
 #: src/trellis/trellis-keymap.ts
 msgid "Close the tab"
 msgstr "关闭标签"
