@@ -11,7 +11,7 @@ const { renderApp } = appHarness();
 
 describe("project tree and projects", () => {
 
-  it.each(["fullscreen", "a browser tab"])("moves the navigator control to the left edge in %s", async (host) => {
+  it.each(["fullscreen", "a browser tab"])("marks the shell in %s, where the traffic lights are not beside the titlebar", async (host) => {
     if (host === "fullscreen") windowApi.isFullscreen.mockResolvedValue(true);
     else browserRuntime.hosted = true;
     renderApp(projectCommands(projectSnapshot({ files: [] })));

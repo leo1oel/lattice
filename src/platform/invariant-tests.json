@@ -1,6 +1,6 @@
 {
   "src/app/native-locale.test.ts": "menu-bar labels shared with Rust through a JSON fixture",
-  "src/app/window-layout.test.ts": "minimum width vs tauri.conf.json; narrow-pane CSS in jsdom",
+  "src/app/window-layout.test.ts": "minimum width vs tauri.conf.json; narrow-pane and traffic-light-space CSS in jsdom",
   "src/platform/tauri-security-config.test.ts": "CSP, capabilities, packaging: Rust, JSON, scripts",
   "src/platform/polyfills.test.ts": "public/polyfills.js loads from index.html before any module",
   "src/platform/clean-room-guard.test.ts": "every package.json's dependencies and license",

@@ -1,6 +1,6 @@
 // Vitest empties CSS imports, so read the stylesheets off disk.
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   APP_WINDOW_MIN_HEIGHT,
   APP_WINDOW_MIN_WIDTH,
@@ -122,5 +122,32 @@ describe("narrow pane chrome", () => {
       && rule.containerName === "pdf-toolbar" && rule.containerQuery === "(max-width: 640px)");
     expect(narrowToolbar.flatMap((rule) => rules(rule.cssRules))
       .some((rule) => rule instanceof CSSStyleRule && targets(rule, "pdf-overflow") && rule.style.display === "none")).toBe(true);
+  });
+});
+
+describe("the titlebar's traffic-light space", () => {
+  const style = document.createElement("style");
+  style.textContent = readFileSync("src/styles/app-shell.css", "utf8");
+  const trafficSpace = (shellClass: string) => {
+    const shell = document.createElement("div");
+    shell.className = `app-shell ${shellClass}`;
+    shell.innerHTML = `<header class="titlebar"><div class="traffic-space"></div></header>`;
+    document.body.append(shell);
+    try {
+      return getComputedStyle(shell.querySelector(".traffic-space")!).width;
+    } finally {
+      shell.remove();
+    }
+  };
+  beforeAll(() => { document.head.append(style); });
+  afterAll(() => { style.remove(); });
+
+  it("stays reserved in full screen, where AppKit reveals the lights over the bar's left end", () => {
+    expect(trafficSpace("")).toBe("var(--titlebar-traffic-space-width)");
+    expect(trafficSpace("fullscreen")).toBe(trafficSpace(""));
+  });
+
+  it("is dropped in a browser tab, which has no traffic lights", () => {
+    expect(trafficSpace("browser-hosted")).toBe("0px");
   });
 });

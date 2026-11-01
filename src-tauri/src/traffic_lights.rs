@@ -279,13 +279,25 @@ unsafe fn align_traffic_lights_on_main(window: &NSWindow) -> Option<f64> {
 }
 
 unsafe fn align_traffic_light_buttons(window: &NSWindow) -> Option<f64> {
-    use objc2_app_kit::{NSView, NSWindowButton};
+    use objc2_app_kit::{NSView, NSWindowButton, NSWindowStyleMask};
     use objc2_foundation::NSPoint;
 
     let close = window.standardWindowButton(NSWindowButton::CloseButton)?;
     let miniaturize = window.standardWindowButton(NSWindowButton::MiniaturizeButton)?;
     let zoom = window.standardWindowButton(NSWindowButton::ZoomButton)?;
     let button_superview = close.superview()?;
+    // Full screen (its transitions included) moves the buttons into AppKit's
+    // own title bar, a separate window that slides in with the menu bar, so
+    // they are not beside the web titlebar and AppKit's layout of that bar is
+    // the right one. The center below is measured from this window's top
+    // edge, the screen's top there: aligning to it put the close and minimize
+    // buttons 36 pt below AppKit's spot, out of that bar and over the web
+    // titlebar's left end, and left the green one behind.
+    let fullscreen = window.styleMask().contains(NSWindowStyleMask::FullScreen)
+        || close.window().is_some_and(|host| !std::ptr::eq(&*host, window));
+    if fullscreen {
+        return None;
+    }
 
     let center_from_top = TRAFFIC_LIGHT_CENTER_FROM_TOP
         .lock()

@@ -77,8 +77,11 @@ input[type="search"]:focus-visible {
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
-.app-shell:is(.fullscreen, .browser-hosted) .titlebar-navigator { width: var(--titlebar-navigator-width-fullscreen); padding: 0 var(--space-4); }
-.app-shell:is(.fullscreen, .browser-hosted) .traffic-space { width: 0; }
+/* A browser tab has no traffic lights. Full screen keeps their space: AppKit
+   reveals them at its own spot over the left end of the bar, and the bar's
+   content must not sit under them. */
+.app-shell.browser-hosted .titlebar-navigator { width: var(--titlebar-navigator-width-browser); padding: 0 var(--space-4); }
+.app-shell.browser-hosted .traffic-space { width: 0; }
 .icon-button { width: var(--titlebar-action-size); height: var(--titlebar-action-size); border-radius: var(--radius-chrome); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }
 .icon-button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 /* Soften the light/dark switch on the big themed surfaces (a rare action, so a
