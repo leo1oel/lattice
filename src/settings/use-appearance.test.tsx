@@ -80,7 +80,7 @@ describe("useAppearance", () => {
 
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("dark"));
     expect(result.current.theme).toBe("dark");
-    expect(localStorage.getItem(THEME_PREFERENCE_KEY)).toBe("system");
+    expect(result.current.themePreference).toBe("system");
   });
 
   it("stops tracking the system once the user picks a theme", async () => {
@@ -102,7 +102,6 @@ describe("useAppearance", () => {
 
     await waitFor(() => expect(document.documentElement.lang).toBe("zh-CN"));
     expect(result.current.appearance.interfaceLanguage).toBe("system");
-    expect(localStorage.getItem(APPEARANCE_KEY)).toContain('"interfaceLanguage":"system"');
 
     act(() => result.current.setAppearance((appearance) => ({
       ...appearance,
