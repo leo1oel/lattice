@@ -61,6 +61,7 @@ mod test_support;
 mod tex_setup;
 mod texcount;
 mod texlab;
+mod traffic_lights;
 mod util;
 mod web_metadata;
 mod wide_event;
@@ -124,7 +125,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
         });
     let builder = if center { builder.center() } else { builder };
     let window = overlay_title_bar(builder).build()?;
-    macos_window::install_traffic_light_alignment(&window);
+    traffic_lights::install_traffic_light_alignment(&window);
     macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());
     macos_window::render_at_display_refresh_rate(&window);
     #[cfg(feature = "perf-lab")]

@@ -3,7 +3,7 @@
 use super::run_blocking;
 use crate::app_state::AppState;
 use crate::browser_host;
-use crate::{fs_watch, macos_window, native_locale, project};
+use crate::{fs_watch, macos_window, native_locale, project, traffic_lights};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State, WebviewWindow, Window};
 use tauri_plugin_opener::OpenerExt;
@@ -210,7 +210,7 @@ pub fn align_traffic_lights(
 ) -> Result<Option<f64>, String> {
     // The window that measured its own titlebar, not "main" — a second
     // window used to move the first window's buttons and never its own.
-    Ok(macos_window::align_traffic_lights_to(&window, center_from_top))
+    Ok(traffic_lights::align_traffic_lights_to(&window, center_from_top))
 }
 
 #[tauri::command]
