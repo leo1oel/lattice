@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type { ProjectSnapshot } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage, toMessage } from "../app-utils";
 import { browserRuntimeDetached } from "../platform/browser-runtime";
 import {
   forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
@@ -308,7 +308,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       });
       updateCreateForm({ open: false });
       return snapshot.root;
-    }, (reason) => updateCreateForm({ error: toMessage(reason) }));
+    }, (reason) => updateCreateForm({ error: hostErrorMessage(reason) }));
   }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm, t]);
 
   const openTutorialProject = useCallback(async () => {
@@ -382,7 +382,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         // Folder gone, or on a drive that is not mounted: stay on the welcome
         // screen, which names it. It stays in the recent list, so the next
         // launch tries again.
-        const unopened = { ...lastProject, reason: toMessage(reason) };
+        const unopened = { ...lastProject, reason: hostErrorMessage(reason) };
         setRecents((current) => ({ ...current, unopened }));
         return false;
       }

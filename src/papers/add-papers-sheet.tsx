@@ -19,7 +19,7 @@ import { ResearchArt } from "../components/ui/research-art";
 import { CATALOGUE_DRAWER } from "../components/ui/research-art-catalogue-drawer";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { ResolvedCitationDraft } from "./bib-entry-dialog";
 import { CitationCandidates } from "./citation-candidates";
 import {
@@ -155,7 +155,7 @@ export function AddPapersSheet(props: {
       };
       onResolve(reference.input).then(
         (resolved) => answer({ state: "done", resolved }),
-        (reason: unknown) => answer({ state: "failed", error: toMessage(reason) }),
+        (reason: unknown) => answer({ state: "failed", error: hostErrorMessage(reason) }),
       );
     }
   }, [onResolve, rows]);

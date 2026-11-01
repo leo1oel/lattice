@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
-import { isBibFilePath, toMessage } from "../app-utils";
+import { isBibFilePath, hostErrorMessage } from "../app-utils";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import type { HistoryItem } from "../history/history-drawer";
 import { changesReach, onBibliographyWrite, onProjectFilesChanged } from "../project/project-files-changed";
@@ -164,7 +164,7 @@ export function useProjectLibrary(state: ProjectState) {
   /** A failed read leaves a library already shown as it was; an unread one says it failed. */
   const failPapers = useCallback((root: string, reason: unknown) => {
     setPaperLoad((current) => (
-      current.root === root && current.status === "ready" ? current : { root, status: "error", error: toMessage(reason) }
+      current.root === root && current.status === "ready" ? current : { root, status: "error", error: hostErrorMessage(reason) }
     ));
   }, []);
 
@@ -191,7 +191,7 @@ export function useProjectLibrary(state: ProjectState) {
   }, []);
   /** A citation or label read failed: the checks stay off and the toast offers a retry. */
   const failIndex = useCallback((part: "citations" | "references", reason: unknown) => {
-    dispatchIndexLoad({ type: "failed", part, error: toMessage(reason) });
+    dispatchIndexLoad({ type: "failed", part, error: hostErrorMessage(reason) });
   }, []);
 
   const applyBibliographyIndex = useCallback((

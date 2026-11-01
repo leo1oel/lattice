@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { DiffFileChange } from "../history/pierre-diff";
 import { useOverleafProjectSnapshot } from "./use-overleaf-project-snapshot";
 
@@ -120,7 +120,7 @@ export function useOverleafHistory(projectRoot: string) {
         ...snapshot, updates: merge(snapshot.updates, result.updates), nextBefore: result.nextBefore, [flag]: false,
       }));
     } catch (reason) {
-      publish((snapshot) => ({ ...snapshot, error: toMessage(reason), [flag]: false }));
+      publish((snapshot) => ({ ...snapshot, error: hostErrorMessage(reason), [flag]: false }));
     }
   }, [session]);
 
@@ -150,7 +150,7 @@ export function useOverleafHistory(projectRoot: string) {
     return invoke(command, { projectRoot, ...args })
       .then(() => refreshRef.current())
       .catch((reason: unknown) => {
-        current?.publish((snapshot) => ({ ...snapshot, error: toMessage(reason) }));
+        current?.publish((snapshot) => ({ ...snapshot, error: hostErrorMessage(reason) }));
         throw reason;
       })
       .finally(() => current?.publish((snapshot) => ({ ...snapshot, busy: false })));

@@ -5,7 +5,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { Input, type InputProps } from "../components/ui/input";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import { bibTextToPlain } from "./bib-document";
 import { BIB_ENTRY_TYPES, formatBibEntry, slugifyCitationKey, type BibEntryDraft, type BibEntryType } from "./bib-entry";
 import { VENUES, type Venue } from "./venues";
@@ -214,7 +214,7 @@ export function BibEntryDialog(props: {
         applyResolved(resolved);
       }
     } catch (reason) {
-      if (generation === requestGeneration.current) setLookupError(toMessage(reason));
+      if (generation === requestGeneration.current) setLookupError(hostErrorMessage(reason));
     } finally {
       if (generation === requestGeneration.current) {
         requestInFlight.current = false;

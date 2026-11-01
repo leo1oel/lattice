@@ -4,7 +4,7 @@
  * writing while the rest arrive. Only the sheet reads it (through
  * `useSyncExternalStore`), so App holds none of its state.
  */
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 
 /** One paper in the batch, as it moves through the import. */
 export type PaperAddItem = {
@@ -84,7 +84,7 @@ export async function runAddQueue(
           update(item.id, { state: "added", citationKey: result.citationKey, note });
         }
       } catch (reason) {
-        update(item.id, { state: "failed", note: toMessage(reason) });
+        update(item.id, { state: "failed", note: hostErrorMessage(reason) });
       }
     }
   } finally {

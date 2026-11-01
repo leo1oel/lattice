@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { AnnotationRounds, MappedPdfSelection } from "../app/annotation-rounds";
 import { useExitPicture } from "../components/ui/exit-picture";
 import { popupMotionClassName } from "../components/ui/popup-motion";
@@ -45,7 +45,7 @@ export function PdfAnnotationComposer(props: {
         if (!cancelled) setMapped(place);
       },
       (reason: unknown) => {
-        if (!cancelled) setError(toMessage(reason));
+        if (!cancelled) setError(hostErrorMessage(reason));
       },
     );
     return () => { cancelled = true; };

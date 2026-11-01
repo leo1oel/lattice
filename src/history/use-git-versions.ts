@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
 import type { GitLogEntry, GitStatus } from "../app-types";
-import { confirmAction, toMessage } from "../app-utils";
+import { confirmAction, hostErrorMessage } from "../app-utils";
 import { logAction } from "../telemetry/app-notify";
 import { onProjectFilesChanged } from "../project/project-files-changed";
 import { AUTO_COMMIT_MESSAGES } from "./version-messages";
@@ -75,7 +75,7 @@ export function useGitVersions(props: {
         setEntries(read.entries);
         setHasOlder(read.entries.length >= limit);
       } else {
-        setError(toMessage(read.reason));
+        setError(hostErrorMessage(read.reason));
       }
       setPhase("ready");
     } catch (reason) {
@@ -83,7 +83,7 @@ export function useGitVersions(props: {
       // The `git_*` commands themselves are missing or broken (e.g. an older
       // backend build). Say so where the versions would be, and let the drawer
       // fall back to the Activity view so it stays useful.
-      setError(toMessage(reason));
+      setError(hostErrorMessage(reason));
       setPhase("error");
       callbacksRef.current.onGitUnreachable?.();
     } finally {
