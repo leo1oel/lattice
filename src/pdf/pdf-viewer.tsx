@@ -73,7 +73,7 @@ import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./projec
 import { pdfSource, usePdfDocument, type PdfRenderCount } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { useCompositionGuard } from "../project/use-composition-guard";
+import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { usePdfLocationHistory, usePdfViewState, type ActiveViewerRef, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
 import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
@@ -516,7 +516,6 @@ export function PdfPreview({
     const next = parsePdfZoomPercent(draft);
     if (next !== null) applyManualScale(next);
   }, { readingTarget: getScrollViewport });
-  const searchComposition = useCompositionGuard();
 
   const loading = Boolean(loadKey && doc.loadedKey !== loadKey);
   const loadFeedback = doc.loadFeedback?.key === loadKey ? doc.loadFeedback : null;
@@ -665,10 +664,7 @@ export function PdfPreview({
               value={query}
               placeholder={t`Find in PDF`}
               onChange={(event) => search.setQuery(event.target.value)}
-              {...searchComposition.compositionProps}
               onKeyDown={(event) => {
-                // The Enter or Escape that accepts or dismisses an IME candidate is the IME's.
-                if (searchComposition.isComposing(event)) return;
                 if (event.key === "Enter" && query) {
                   event.preventDefault();
                   search.find(query, event.shiftKey, true);

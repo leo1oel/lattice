@@ -45,6 +45,17 @@ describe("SearchPickerDialog keyboard and pointer", () => {
   afterEach(cleanup);
   const many: SearchPickerItem[] = Array.from({ length: 30 }, (_, index) => ({ id: `c${index}`, label: `Command ${index}`, keys: index === 0 ? ["⌘", "⇧", "K"] : undefined }));
 
+  it("leaves the keys of an input method's composition to it: no step, no pick", () => {
+    const { input, onSelect } = renderPicker();
+    fireEvent.change(input, { target: { value: "find" } });
+    fireEvent.compositionStart(input);
+    // Arrows choose among the candidates; Enter puts the pinyin down as letters.
+    fireEvent.keyDown(input, { key: "ArrowDown", keyCode: 229, isComposing: true });
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: true });
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+  });
+
   it("draws a shortcut as one keycap per key", () => {
     render(<SearchPickerDialog open title="Commands" placeholder="Search" items={many} onClose={vi.fn()} onSelect={vi.fn()} />);
     const caps = screen.getAllByRole("option")[0]!.querySelectorAll(".ui-keycap");

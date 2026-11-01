@@ -20,7 +20,6 @@ import {
   groupPapers, paperFilter, paperOrder, paperReadingState, readablePaper, usePaperFacts,
   type PaperFilter, type PaperGroup, type PaperSort,
 } from "./paper-library-view";
-import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
@@ -155,7 +154,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   /** Moves the keyboard from the box to the first paper; false with nothing to move to. */
   const focusListRef = useRef<(() => boolean) | null>(null);
-  const { compositionProps, isComposing } = useCompositionGuard();
   const query = props.importInput.trim();
   const textSearch = usePaperTextSearch(props.importInput);
   const { hits: textHits, searchNow } = textSearch;
@@ -264,7 +262,6 @@ export function PaperLibrary(props: PaperLibraryProps) {
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
             onClear={fetching ? undefined : () => props.setImportInput("")}
-            {...compositionProps}
             // Enter adds an identifier the library does not hold yet, as the
             // add row under the box says it will. A title only searches: the
             // list already filters as you type, so Enter runs the full-text
@@ -276,16 +273,16 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 return;
               }
               // Escape empties the box; the down arrow goes on to the results.
-              if (event.key === "Escape" && !isComposing(event) && props.importInput && !fetching) {
+              if (event.key === "Escape" && props.importInput && !fetching) {
                 event.preventDefault();
                 props.setImportInput("");
                 return;
               }
-              if (event.key === "ArrowDown" && !isComposing(event) && focusListRef.current?.()) {
+              if (event.key === "ArrowDown" && focusListRef.current?.()) {
                 event.preventDefault();
                 return;
               }
-              if (event.key !== "Enter" || isComposing(event)) return;
+              if (event.key !== "Enter") return;
               event.preventDefault();
               if (kind && kind !== "title") addPaper();
               else if (!fetching) searchNow();

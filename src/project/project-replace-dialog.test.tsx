@@ -39,6 +39,14 @@ describe("ProjectReplaceDialog", () => {
   beforeEach(() => activateAppLocale("en"));
   afterEach(cleanup);
 
+  it("previews nothing for an Enter that ends an input method's composition", () => {
+    const view = renderReplace();
+    fireEvent.change(view.find(), { target: { value: "shiyan" } });
+    fireEvent.compositionStart(view.find());
+    fireEvent.keyDown(view.find(), { key: "Enter", keyCode: 229, isComposing: true });
+    expect(view.props.onPreview).not.toHaveBeenCalled();
+  });
+
   it("replaces only what the shown preview was asked for", () => {
     const view = renderReplace();
     fireEvent.change(view.find(), { target: { value: "token" } });
