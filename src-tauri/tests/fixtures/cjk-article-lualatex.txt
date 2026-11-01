@@ -1,0 +1,114 @@
+Rc files read (in order):
+  NONE
+Latexmk: This is Latexmk, John Collins, 9 March 2026. Version 4.88.
+Latexmk: Changing directory to './'
+Force everything to be remade.
+Latexmk: applying rule 'lualatex'...
+Rule 'lualatex':  Reasons for rerun
+Category 'other':
+  Rerun of 'lualatex' forced or previously required:
+    Reason or flag: 'go_mode'
+
+------------
+Run number 1 of rule 'lualatex'
+------------
+------------
+Running 'lualatex  -interaction=nonstopmode -synctex=1 -file-line-error -recorder  "main.tex"'
+------------
+This is LuaHBTeX, Version 1.24.0 (TeX Live 2026) 
+ restricted system commands enabled.
+(./main.tex
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+ (/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2025/01/22 v1.4n Standard LaTeX document class
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/size10.clo)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3backend/l3backend-luatex.def) (./main.aux)
+Missing character: There is no 我 (U+6211) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 的 (U+7684) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 论 (U+8BBA) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 我 (U+6211) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 的 (U+7684) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 论 (U+8BBA) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman17-regular]:+tlig;!
+
+LaTeX Warning: No \author given.
+
+Missing character: There is no 本 (U+672C) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 提 (U+63D0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 出 (U+51FA) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 了 (U+4E86) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 一 (U+4E00) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 种 (U+79CD) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 新 (U+65B0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 的 (U+7684) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 注 (U+6CE8) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 意 (U+610F) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 力 (U+529B) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 机 (U+673A) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 制 (U+5236) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 。 (U+3002) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 本 (U+672C) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 提 (U+63D0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 出 (U+51FA) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 了 (U+4E86) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 一 (U+4E00) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 种 (U+79CD) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 新 (U+65B0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 的 (U+7684) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 注 (U+6CE8) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 意 (U+610F) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 力 (U+529B) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 机 (U+673A) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 制 (U+5236) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 。 (U+3002) in font [lmroman10-regular]:+tlig;!
+[1
+Missing character: There is no 我 (U+6211) in font [lmroman17-regular]:+tlig;!
+{/Users/writer/Library/texlive/2026basic/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
+Missing character: There is no 的 (U+7684) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 论 (U+8BBA) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman17-regular]:+tlig;!
+Missing character: There is no 本 (U+672C) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 文 (U+6587) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 提 (U+63D0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 出 (U+51FA) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 了 (U+4E86) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 一 (U+4E00) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 种 (U+79CD) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 新 (U+65B0) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 的 (U+7684) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 注 (U+6CE8) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 意 (U+610F) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 力 (U+529B) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 机 (U+673A) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 制 (U+5236) in font [lmroman10-regular]:+tlig;!
+Missing character: There is no 。 (U+3002) in font [lmroman10-regular]:+tlig;!
+] (./main.aux))
+ 406 words of node memory still in use:
+   3 hlist, 1 vlist, 1 rule, 2 glue, 3 kern, 1 glyph, 4 attribute, 48 glue_spec, 4 attribute_list, 1 write nodes
+   avail lists: 2:76,3:16,4:3,5:29,6:8,7:254,8:1,9:44,10:2,11:6
+</usr/local/texlive/2026basic/texmf-dist/fonts/opentype/public/lm/lmroman10-regular.otf></usr/local/texlive/2026basic/texmf-dist/fonts/opentype/public/lm/lmroman12-regular.otf></usr/local/texlive/2026basic/texmf-dist/fonts/opentype/public/lm/lmroman17-regular.otf>
+Output written on main.pdf (1 page, 7622 bytes).
+SyncTeX written on main.synctex.gz.
+Transcript written on main.log.
+Latexmk: Getting log file 'main.log'
+Latexmk: Examining 'main.fls'
+Latexmk: Examining 'main.log'
+Latexmk: Log file says output to 'main.pdf'
+Latexmk: Summary of warnings from last run of *latex:
+  =====Latex reported missing or unavailable character(s).
+=====See log file for details.
+Latexmk: ====Problematic refs and citations with line #s in .tex file:
+  Missing character: There is no 我 (U+6211) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 的 (U+7684) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 论 (U+8BBA) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 文 (U+6587) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 我 (U+6211) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 的 (U+7684) in font [lmroman17-regular]:+tlig;!
+  Missing character: There is no 论 (U+8BBA) in font [lmroman17-regular]:+tlig;!
+ And 50 more --- see log file 'main.log'
+Latexmk: All targets (main.pdf) are up-to-date
+Latexmk: Undoing directory change
+

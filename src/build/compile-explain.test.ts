@@ -121,6 +121,19 @@ describe("explainDiagnostic", () => {
   ])("explains %s", (message, headline) => {
     expect(explainDiagnostic({ level: "error", message, file: "main.tex", line: 4 }, { log: "", source, afterError: true })?.headline).toBe(headline);
   });
+
+  it("explains pdfLaTeX's CJK Unicode error and leaves other characters to TeX", () => {
+    const refused = (character: string, code: string) => ({
+      level: "error", message: `LaTeX Error: Unicode character ${character} (U+${code})`, file: "main.tex", line: 1,
+    });
+    const chinese = explainDiagnostic(refused("论", "8BBA"), { log: "", source: "\\title{我的论文}", afterError: true });
+    expect(chinese?.headline).toBe("pdfLaTeX can’t typeset 论");
+    expect(chinese?.explanation).toBe("pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add \\usepackage{ctex} to the preamble and switch the project to XeLaTeX.");
+    const failing = chinese!.excerpt[0]!;
+    expect(failing.text.slice(failing.token!.start, failing.token!.end)).toBe("论");
+    expect(explainDiagnostic(refused("한", "D55C"), { log: "", source: null, afterError: true })?.headline).toBe("pdfLaTeX can’t typeset 한");
+    expect(explainDiagnostic(refused("☃", "2603"), { log: "", source: null, afterError: true })).toBeNull();
+  });
 });
 
 describe("replaceTokenOnLine", () => {

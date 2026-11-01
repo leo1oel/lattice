@@ -1,0 +1,234 @@
+Rc files read (in order):
+  NONE
+Latexmk: This is Latexmk, John Collins, 9 March 2026. Version 4.88.
+Latexmk: Changing directory to './'
+Force everything to be remade.
+Latexmk: applying rule 'pdflatex'...
+Rule 'pdflatex':  Reasons for rerun
+Category 'other':
+  Rerun of 'pdflatex' forced or previously required:
+    Reason or flag: 'go_mode'
+
+------------
+Run number 1 of rule 'pdflatex'
+------------
+------------
+Running 'pdflatex  -interaction=nonstopmode -synctex=1 -file-line-error -recorder  "main.tex"'
+------------
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex)
+ restricted \write18 enabled.
+entering extended mode
+(./main.tex
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2025/01/22 v1.4n Standard LaTeX document class
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/base/size10.clo)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def) (./main.aux)
+
+./main.tex:4: LaTeX Error: Unicode character 我 (U+6211)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.4 \maketitle
+              
+
+./main.tex:4: LaTeX Error: Unicode character 的 (U+7684)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.4 \maketitle
+              
+
+./main.tex:4: LaTeX Error: Unicode character 论 (U+8BBA)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.4 \maketitle
+              
+
+./main.tex:4: LaTeX Error: Unicode character 文 (U+6587)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.4 \maketitle
+              
+
+LaTeX Warning: No \author given.
+
+
+./main.tex:6: LaTeX Error: Unicode character 本 (U+672C)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本
+       文提出了一种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 文 (U+6587)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文
+          提出了一种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 提 (U+63D0)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提
+             出了一种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 出 (U+51FA)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出
+                了一种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 了 (U+4E86)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了
+                   一种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 一 (U+4E00)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一
+                      种新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 种 (U+79CD)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种
+                         新的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 新 (U+65B0)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新
+                            的注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 的 (U+7684)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的
+                               注意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 注 (U+6CE8)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注
+                                  意力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 意 (U+610F)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注意
+                                     力机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 力 (U+529B)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注意力
+                                        机制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 机 (U+673A)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注意力机
+                                           制。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 制 (U+5236)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注意力机制
+                                              。Attention works.
+
+./main.tex:6: LaTeX Error: Unicode character 。 (U+3002)
+               not set up for use with LaTeX.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.6 本文提出了一种新的注意力机制。
+                                                 Attention works.
+[1{/Users/writer/Library/texlive/2026basic/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] (./main.aux) )
+(see the transcript file for additional information)</usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texlive/2026basic/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb>
+Output written on main.pdf (1 page, 23525 bytes).
+SyncTeX written on main.synctex.gz.
+Transcript written on main.log.
+Latexmk: Getting log file 'main.log'
+Latexmk: Examining 'main.fls'
+Latexmk: Examining 'main.log'
+Latexmk: Log file says output to 'main.pdf'
+Latexmk: Errors, in force_mode: so I tried finishing targets
+Collected error summary (may duplicate other messages):
+  pdflatex: Command for 'pdflatex' gave return code 1
+      Refer to 'main.log' and/or above output for details
+Latexmk: Undoing directory change
+

@@ -13,6 +13,9 @@ describe("build log messages", () => {
       ["build-cancelled", { seconds: "2.5" }, "Build stopped after 2.5 s. The log below is how far it got."],
       ["pdf-fonts-not-times", { venue: "ICLR", fonts: "LMRoman10-Regular", cause: "lmodern" }, "PDF fonts are not the Times that ICLR requires (LMRoman10-Regular). The document loads lmodern after Times, which replaces it with Latin Modern: remove \\usepackage{lmodern}, then Build."],
       ["pdf-fonts-not-times", { venue: "NeurIPS", fonts: "Arial", cause: "unknown", upToDate: "true" }, "PDF fonts are not the Times that NeurIPS requires (Arial). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."],
+      ["cjk-glyphs-missing", { count: "17", sample: "我 的 论 文 本 …", script: "chinese" }, "The PDF is missing 17 Chinese characters (我 的 论 文 本 …): this document's fonts have none. Add \\usepackage{ctex} to the preamble, or start from the Chinese article template."],
+      ["cjk-glyphs-missing", { count: "2", sample: "あ 漢", script: "cjk" }, "The PDF is missing 2 Chinese, Japanese or Korean characters (あ 漢): this document's fonts have none. Add \\usepackage{ctex} to the preamble, or start from the Chinese article template."],
+      ["cjk-needs-unicode-engine", { sample: "我 的", script: "chinese" }, "pdfLaTeX cannot typeset Chinese characters (我 的). Add \\usepackage{ctex} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."],
     ];
     for (const [code, params, english] of cases) {
       expect(compileDiagnosticText({ message: "raw", code, params })).toBe(english);

@@ -13,7 +13,8 @@ type RootDocument = {
 };
 
 export type ProjectVenue =
-  | "neurips" | "icml" | "iclr" | "acl" | "cvpr" | "aaai" | "thuthesis" | "ustcthesis" | "blank" | `local:${string}`;
+  | "neurips" | "icml" | "iclr" | "acl" | "cvpr" | "aaai" | "thuthesis" | "ustcthesis" | "blank" | "chinese-article"
+  | `local:${string}`;
 
 export type ProjectManifest = {
   schemaVersion: number;

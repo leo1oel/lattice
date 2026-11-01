@@ -244,6 +244,10 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
+#: src/build/build-log-messages.ts
+msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
+msgstr "{advice}还没有安装 ctex：点“安装”会连同中文字体一起装上，约 90 MB。"
+
 #: src/telemetry/app-updater.tsx
 msgid "{agentTurns} Agent tasks"
 msgstr "{agentTurns} 个 Agent 任务"
@@ -2783,6 +2787,10 @@ msgstr "检查项"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "希"
+
+#: src/project/project-dialogs.tsx
+msgid "Chinese article (ctexart)"
+msgstr "中文文章（ctexart）"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose .bib file…"
@@ -9366,9 +9374,25 @@ msgstr "标出修改的 PDF"
 msgid "PDF zoom percentage"
 msgstr "PDF 缩放百分比"
 
+#: src/build/compile-explain.ts
+msgid "pdfLaTeX can’t typeset {character}"
+msgstr "pdfLaTeX 排不了“{character}”"
+
+#: src/build/build-log-messages.ts
+msgid "pdfLaTeX cannot typeset Chinese characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+msgstr "pdfLaTeX 排不了中文（{sample}）。在导言区加上 {command}，并把项目切换到 XeLaTeX；也可以改用“中文文章”模板新建项目。"
+
+#: src/build/build-log-messages.ts
+msgid "pdfLaTeX cannot typeset Chinese, Japanese or Korean characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+msgstr "pdfLaTeX 排不了中日韩文字（{sample}）。在导言区加上 {command}，并把项目切换到 XeLaTeX；也可以改用“中文文章”模板新建项目。"
+
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX 引擎"
+
+#: src/build/compile-explain.ts
+msgid "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add {command} to the preamble and switch the project to XeLaTeX."
+msgstr "pdfLaTeX 没有中日韩文字的字体。在导言区加上 {command}，并把项目切换到 XeLaTeX。"
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "People in this Overleaf project"
@@ -12697,6 +12721,14 @@ msgstr "已显示你输入的段落。分页和其后的内容稍后跟上。"
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "AI 助手读过之后这一段又改了。请重试，让它按现在的内容修改。"
+
+#: src/build/build-log-messages.ts
+msgid "The PDF is missing {count} Chinese characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
+msgstr "PDF 里缺了 {count} 个汉字（{sample}）：这篇文档用的字体里没有中文。在导言区加上 {command}，或改用“中文文章”模板新建项目。"
+
+#: src/build/build-log-messages.ts
+msgid "The PDF is missing {count} Chinese, Japanese or Korean characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
+msgstr "PDF 里缺了 {count} 个中日韩文字（{sample}）：这篇文档用的字体里没有这些字。在导言区加上 {command}，或改用“中文文章”模板新建项目。"
 
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."

@@ -260,7 +260,8 @@ export function CompileDiagnosticsPanel(props: {
                       const location = diagnosticLocationLabel(diagnostic);
                       const text = compileDiagnosticText(diagnostic);
                       const line = diagnostic.line;
-                      const missingFile = missingTexDependencyFile(diagnostic.message);
+                      // Lattice's advice can name the package it needs (ctex for CJK text).
+                      const missingFile = diagnostic.params?.missingFile ?? missingTexDependencyFile(diagnostic.message);
                       const previousEngine = diagnostic.params?.previous;
                       const explained = explainDiagnostic(diagnostic, {
                         log: props.log, source: props.sourceOf?.(diagnostic.file) ?? null, afterError: summary.error > 0,

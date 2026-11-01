@@ -187,6 +187,7 @@ pub(super) fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         !terminal_error
             && (diagnostic.level == "error" || !is_pass_noise_warning(&diagnostic.message))
     });
+    super::cjk_text::explain_cjk_text(log, &mut diagnostics);
     super::engine_mismatch::explain_pdftex_only_commands(log, &mut diagnostics);
     diagnostics
 }

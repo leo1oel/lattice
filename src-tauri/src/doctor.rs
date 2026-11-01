@@ -240,6 +240,12 @@ fn project_pdf_fonts(root: &Path) -> Option<DoctorCheck> {
     })
 }
 
+/// Whether TeX can find `name`, such as a package a build's advice may offer
+/// to install.
+pub(crate) fn tex_file_installed(name: &str) -> bool {
+    kpsewhich(name).is_some()
+}
+
 /// Where kpsewhich finds `name`, if that file can also be opened.
 fn kpsewhich(name: &str) -> Option<PathBuf> {
     let output = commands::command("kpsewhich").arg(name).output().ok()?;

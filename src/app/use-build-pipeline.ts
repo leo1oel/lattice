@@ -414,8 +414,9 @@ export function useBuildPipeline({
           (result.success || !shouldPlayCompletionSound)
             && diagnosticsFingerprint(result.diagnostics) === dismissedDiagnosticsRef.current,
         );
-        // A switch the writer did not ask for is shown open, with its undo.
-        setDiagnosticsExpanded(!result.success || switchedEngine || result.diagnostics.some((item) => item.level === "error"));
+        // A switch the writer did not ask for is shown open, with its undo, and
+        // so is CJK text the PDF dropped: the build succeeded, the page did not.
+        setDiagnosticsExpanded(!result.success || switchedEngine || result.diagnostics.some((item) => item.level === "error" || item.code === "cjk-glyphs-missing"));
         // The welcome screen's desk shows each recent project by its first page.
         if (pdfBytes && wrotePdf) scheduleFirstPage(projectRoot, pdfBytes, result.venue ?? null);
         // The debounce exists so a slow pdf.js load is not torn down by the

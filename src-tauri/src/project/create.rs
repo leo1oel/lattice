@@ -92,6 +92,8 @@ pub enum Venue {
     Thuthesis,
     Ustcthesis,
     Blank,
+    /// A blank `ctexart` article: Chinese text, headings, dates and numbering.
+    ChineseArticle,
 }
 
 impl Venue {
@@ -106,8 +108,9 @@ impl Venue {
             "thuthesis" => Ok(Self::Thuthesis),
             "ustcthesis" => Ok(Self::Ustcthesis),
             "blank" => Ok(Self::Blank),
+            "chinese-article" | "ctexart" => Ok(Self::ChineseArticle),
             other => Err(format!(
-                "Unknown venue “{other}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
+                "Unknown venue “{other}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
             )),
         }
     }
@@ -123,6 +126,7 @@ impl Venue {
             Self::Thuthesis => "thuthesis",
             Self::Ustcthesis => "ustcthesis",
             Self::Blank => "blank",
+            Self::ChineseArticle => "chinese-article",
         }
     }
 
@@ -134,7 +138,7 @@ impl Venue {
             Self::Neurips | Self::Iclr => Some(9),
             Self::Icml | Self::Acl | Self::Cvpr => Some(8),
             Self::Aaai => Some(7),
-            Self::Thuthesis | Self::Ustcthesis | Self::Blank => None,
+            Self::Thuthesis | Self::Ustcthesis | Self::Blank | Self::ChineseArticle => None,
         }
     }
 
@@ -144,12 +148,21 @@ impl Venue {
     /// blank article has no such constraint and gets LuaLaTeX: Unicode source
     /// without inputenc/fontenc, and the rtex live preview, which only runs on
     /// LuaLaTeX. Only new projects: an existing project keeps its manifest.
+    /// ctex builds with either Unicode engine, but under LuaLaTeX it loads
+    /// luatexja, which takes several times as long, so the Chinese article
+    /// gets XeLaTeX and gives up the live preview.
     fn engine(self) -> &'static str {
         match self {
             Self::Neurips | Self::Icml | Self::Iclr | Self::Acl | Self::Cvpr | Self::Aaai => "pdf",
-            Self::Thuthesis | Self::Ustcthesis => "xelatex",
+            Self::Thuthesis | Self::Ustcthesis | Self::ChineseArticle => "xelatex",
             Self::Blank => "lualatex",
         }
+    }
+
+    /// Whether the class loads CJK fonts, so the title can keep every
+    /// character of the project name.
+    fn loads_cjk_fonts(self) -> bool {
+        matches!(self, Self::Thuthesis | Self::Ustcthesis | Self::ChineseArticle)
     }
 
     fn template(self) -> TemplateFiles {
@@ -163,6 +176,7 @@ impl Venue {
             Self::Thuthesis => THUTHESIS_TEMPLATE,
             Self::Ustcthesis => USTCTHESIS_TEMPLATE,
             Self::Blank => &[("main.tex", b"\\documentclass{article}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
+            Self::ChineseArticle => &[("main.tex", b"\\documentclass{ctexart}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
         }
     }
 }
@@ -207,8 +221,10 @@ pub fn create(parent: &Path, name: &str) -> Result<PathBuf, String> {
 pub fn create_with_venue(parent: &Path, name: &str, venue: Venue) -> Result<PathBuf, String> {
     let (root, name) = prepare_project_skeleton(parent, name)?;
     write_manifest(&root, &default_manifest_with_venue(name, venue))?;
-    fs::write(root.join(".research/brief.md"), default_brief(name)).map_err(err)?;
-    let title = latex_title(name, matches!(venue, Venue::Thuthesis | Venue::Ustcthesis));
+    // A thesis class also takes English theses; the Chinese article is for Chinese.
+    let language = if venue == Venue::ChineseArticle { "Chinese" } else { "English" };
+    fs::write(root.join(".research/brief.md"), brief_in(name, language)).map_err(err)?;
+    let title = latex_title(name, venue.loads_cjk_fonts());
     for (relative, contents) in venue.template() {
         let path = root.join(relative);
         if let Some(parent) = path.parent() {
@@ -322,9 +338,9 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     Ok(root)
 }
 
-/// `name` as LaTeX title text. Only the Chinese thesis classes load fonts for
-/// every character a project name may hold, so they keep all of it; the other
-/// templates keep its ASCII characters.
+/// `name` as LaTeX title text. Only the Chinese classes (the theses and
+/// `ctexart`) load fonts for every character a project name may hold, so they
+/// keep all of it; the other templates keep its ASCII characters.
 fn latex_title(name: &str, any_script: bool) -> String {
     let kept =
         name.chars().filter(|character| any_script || character.is_ascii()).collect::<String>();
@@ -344,8 +360,13 @@ fn latex_title(name: &str, any_script: bool) -> String {
 }
 
 pub(super) fn default_brief(name: &str) -> String {
+    brief_in(name, "English")
+}
+
+/// The research brief the agent reads, asking for text in `language`.
+fn brief_in(name: &str, language: &str) -> String {
     format!(
-        "# {name}\n\n## Research question\n\nDescribe the central question.\n\n## Thesis\n\nState the current thesis.\n\n## Constraints\n\n- Write in English.\n- Ground factual claims in project evidence.\n\n## Open decisions\n\n- Add the first research decision.\n"
+        "# {name}\n\n## Research question\n\nDescribe the central question.\n\n## Thesis\n\nState the current thesis.\n\n## Constraints\n\n- Write in {language}.\n- Ground factual claims in project evidence.\n\n## Open decisions\n\n- Add the first research decision.\n"
     )
 }
 
@@ -367,7 +388,7 @@ mod tests {
         "ustcthesis.cls",
     ];
 
-    const ALL_VENUES: [Venue; 9] = [
+    const ALL_VENUES: [Venue; 10] = [
         Venue::Neurips,
         Venue::Icml,
         Venue::Iclr,
@@ -377,6 +398,7 @@ mod tests {
         Venue::Thuthesis,
         Venue::Ustcthesis,
         Venue::Blank,
+        Venue::ChineseArticle,
     ];
 
     fn read(root: &Path, relative: &str) -> String {
@@ -514,5 +536,26 @@ mod tests {
                 assert!(!log.contains("Missing character"), "{}: {log}", venue.as_str());
             }
         }
+    }
+
+    #[test]
+    fn the_chinese_article_keeps_its_chinese_title_and_builds_with_xelatex() {
+        let parent = Fixture::empty("chinese-article");
+        assert_eq!(Venue::parse("ctexart"), Ok(Venue::ChineseArticle));
+        let root = create_with_venue(&parent.root, "我的论文", Venue::ChineseArticle).unwrap();
+        let manifest = read_manifest(&root).unwrap();
+        assert_eq!(
+            (manifest.venue.as_str(), manifest.engine.as_str(), manifest.page_budget),
+            ("chinese-article", "xelatex", None)
+        );
+        let source = read(&root, "main.tex");
+        assert!(source.starts_with("\\documentclass{ctexart}\n"), "{source}");
+        assert!(source.contains("\\title{我的论文}"), "{source}");
+        assert!(read(&root, ".research/brief.md").contains("- Write in Chinese."));
+
+        // The plain blank article still has no CJK fonts, so its title stays ASCII.
+        let blank = create_with_venue(&parent.root, "空白", Venue::Blank).unwrap();
+        assert!(read(&blank, "main.tex").contains("\\title{Untitled research}"));
+        assert!(read(&blank, ".research/brief.md").contains("- Write in English."));
     }
 }
