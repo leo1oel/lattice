@@ -2,6 +2,7 @@
 // Slide deck shows for it. Synara posts `synara:turn-activity` from its
 // embedMode.ts on every turn state change and tool start and end: the field
 // names and states are that wire contract.
+import { invoke } from "@tauri-apps/api/core";
 import { deckIdFromOpenSlidePath, isRecord } from "../app-utils";
 import { boundedString, isWorkspaceRelativePath } from "./agent-protocol";
 
@@ -135,6 +136,11 @@ export function agentDeckPresence(): AgentDeckPresence | null {
 
 export function publishAgentDeckPresence(next: AgentDeckPresence | null) {
   if (next === presence) return;
+  // A turn running or waiting is what a restart into an update would stop,
+  // and the backend counts every window's (src-tauri/src/app_restart.rs).
+  if ((next === null) !== (presence === null)) {
+    void invoke("set_agent_turn_running", { running: next !== null }).catch(() => undefined);
+  }
   presence = next;
   for (const listener of listeners) listener();
 }

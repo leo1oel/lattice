@@ -185,6 +185,12 @@ impl AppState {
         }
     }
 
+    /// How many projects have a build running: a restart would stop them.
+    pub(crate) fn running_builds(&self) -> usize {
+        let projects = self.projects.lock().unwrap_or_else(PoisonError::into_inner);
+        projects.values().filter(|project| latex::is_running(&project.active_build)).count()
+    }
+
     /// Close every project's live channel.
     ///
     /// Only for signing out: the Overleaf session is shared by every window, so

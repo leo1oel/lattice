@@ -244,6 +244,10 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
+#: src/telemetry/app-updater.tsx
+msgid "{agentTurns} Agent tasks"
+msgstr "{agentTurns} 个 Agent 任务"
+
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words over"
 msgstr "超出 {amount} 词"
@@ -263,6 +267,10 @@ msgstr "{author} 建议插入文字"
 #: src/build/compile-explain.ts
 msgid "{begin} is closed by {end}"
 msgstr "{begin} 被 {end} 关闭"
+
+#: src/telemetry/app-updater.tsx
+msgid "{builds} compiles"
+msgstr "{builds} 次编译"
 
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
@@ -774,6 +782,10 @@ msgstr "还剩 {span}"
 msgid "{target} has not been changed."
 msgstr "{target} 未作任何改动。"
 
+#: src/telemetry/app-updater.tsx
+msgid "{terminalCommands} terminal commands"
+msgstr "{terminalCommands} 个终端命令"
+
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
 msgstr "{title} — 全文"
@@ -1053,6 +1065,10 @@ msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引
 msgid "A command is still running. Closing stops it."
 msgstr "仍有命令在运行，关闭会将其停止。"
 
+#: src/telemetry/app-updater.tsx
+msgid "a compile"
+msgstr "1 次编译"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
 msgstr "另一个窗口里开着别的项目的幻灯片"
@@ -1121,6 +1137,10 @@ msgstr "至少要有一张工作表"
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "工作表数量须在 1–200 之间"
+
+#: src/telemetry/app-updater.tsx
+msgid "a terminal command"
+msgstr "1 个终端命令"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1560,6 +1580,10 @@ msgstr "美式英语"
 msgid "An & outside a table"
 msgstr "表格外出现了 &"
 
+#: src/telemetry/app-updater.tsx
+msgid "an Agent task"
+msgstr "1 个 Agent 任务"
+
 #: src/app/use-save-before-close.ts
 msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
 msgstr "有修改没能保存，窗口先不关闭。再关闭或退出一次会丢弃这处修改。"
@@ -1682,6 +1706,10 @@ msgstr "已经在修复了，请等它完成"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "项目里另一个文件"
+
+#: src/telemetry/app-updater.tsx
+msgid "Another Lattice window is installing this update."
+msgstr "另一个 Lattice 窗口正在安装这个更新。"
 
 #: src/build/compile-explain.ts
 msgid "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
@@ -6577,6 +6605,10 @@ msgstr "latexmk 版本"
 msgid "Lattice"
 msgstr "Lattice"
 
+#: src/telemetry/app-updater.tsx
+msgid "Lattice {version} is ready"
+msgstr "Lattice {version} 已就绪"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
@@ -10435,10 +10467,32 @@ msgstr "正在查找文献信息…"
 msgid "Resolving…"
 msgstr "正在查找…"
 
+#: src/telemetry/app-updater.tsx
+msgid "Restart anyway"
+msgstr "仍然重启"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Restart Lattice"
 msgstr "重启 Lattice"
 
+#: src/telemetry/app-updater.tsx
+msgid "Restart Lattice now?"
+msgstr "现在重启 Lattice？"
+
+#: src/settings/settings-dialog.tsx
+#: src/telemetry/app-updater.tsx
+msgid "Restart now"
+msgstr "立即重启"
+
+#: src/telemetry/app-updater.tsx
+msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+msgstr "重启即可完成更新；不重启的话，下次打开 Lattice 时生效。"
+
+#: src/telemetry/app-updater.tsx
+msgid "Restarting now stops {running}."
+msgstr "现在重启会中断 {running}。"
+
+#: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restarting…"
 msgstr "正在重启…"
@@ -13533,6 +13587,11 @@ msgstr "正在检查…"
 #: src/settings/settings-search-index.ts
 msgid "Version"
 msgstr "版本"
+
+#. placeholder {0}: updater.version ?? ""
+#: src/settings/settings-dialog.tsx
+msgid "Version {0} is installed. Restart Lattice to start using it."
+msgstr "版本 {0} 已安装，重启 Lattice 后即可使用。"
 
 #. placeholder {0}: updater.version ?? ""
 #: src/settings/settings-dialog.tsx

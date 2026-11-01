@@ -244,6 +244,10 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
+#: src/telemetry/app-updater.tsx
+msgid "{agentTurns} Agent tasks"
+msgstr "{agentTurns} Agent tasks"
+
 #: src/project/manuscript-checklist.tsx
 msgid "{amount} words over"
 msgstr "{amount} words over"
@@ -263,6 +267,10 @@ msgstr "{author} suggests inserting text"
 #: src/build/compile-explain.ts
 msgid "{begin} is closed by {end}"
 msgstr "{begin} is closed by {end}"
+
+#: src/telemetry/app-updater.tsx
+msgid "{builds} compiles"
+msgstr "{builds} compiles"
 
 #: src/project/arxiv-export.ts
 msgid "{built}; arXiv builds with pdfLaTeX"
@@ -774,6 +782,10 @@ msgstr "{span} left"
 msgid "{target} has not been changed."
 msgstr "{target} has not been changed."
 
+#: src/telemetry/app-updater.tsx
+msgid "{terminalCommands} terminal commands"
+msgstr "{terminalCommands} terminal commands"
+
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
 msgstr "{title} — full text"
@@ -1053,6 +1065,10 @@ msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes
 msgid "A command is still running. Closing stops it."
 msgstr "A command is still running. Closing stops it."
 
+#: src/telemetry/app-updater.tsx
+msgid "a compile"
+msgstr "a compile"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
@@ -1121,6 +1137,10 @@ msgstr "A spreadsheet must contain at least one sheet"
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "A spreadsheet must contain between 1 and 200 sheets"
+
+#: src/telemetry/app-updater.tsx
+msgid "a terminal command"
+msgstr "a terminal command"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1560,6 +1580,10 @@ msgstr "American English"
 msgid "An & outside a table"
 msgstr "An & outside a table"
 
+#: src/telemetry/app-updater.tsx
+msgid "an Agent task"
+msgstr "an Agent task"
+
 #: src/app/use-save-before-close.ts
 msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
 msgstr "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
@@ -1682,6 +1706,10 @@ msgstr "Another compile repair is already starting for this project. Wait for it
 #: src/overleaf/overleaf-comments.tsx
 msgid "Another file in this project"
 msgstr "Another file in this project"
+
+#: src/telemetry/app-updater.tsx
+msgid "Another Lattice window is installing this update."
+msgstr "Another Lattice window is installing this update."
 
 #: src/build/compile-explain.ts
 msgid "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
@@ -6577,6 +6605,10 @@ msgstr "latexmk version"
 msgid "Lattice"
 msgstr "Lattice"
 
+#: src/telemetry/app-updater.tsx
+msgid "Lattice {version} is ready"
+msgstr "Lattice {version} is ready"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
@@ -10435,10 +10467,32 @@ msgstr "Resolving citation metadata…"
 msgid "Resolving…"
 msgstr "Resolving…"
 
+#: src/telemetry/app-updater.tsx
+msgid "Restart anyway"
+msgstr "Restart anyway"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Restart Lattice"
 msgstr "Restart Lattice"
 
+#: src/telemetry/app-updater.tsx
+msgid "Restart Lattice now?"
+msgstr "Restart Lattice now?"
+
+#: src/settings/settings-dialog.tsx
+#: src/telemetry/app-updater.tsx
+msgid "Restart now"
+msgstr "Restart now"
+
+#: src/telemetry/app-updater.tsx
+msgid "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+msgstr "Restart to finish updating. Otherwise the update applies the next time Lattice opens."
+
+#: src/telemetry/app-updater.tsx
+msgid "Restarting now stops {running}."
+msgstr "Restarting now stops {running}."
+
+#: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Restarting…"
 msgstr "Restarting…"
@@ -13533,6 +13587,11 @@ msgstr "Verifying installation…"
 #: src/settings/settings-search-index.ts
 msgid "Version"
 msgstr "Version"
+
+#. placeholder {0}: updater.version ?? ""
+#: src/settings/settings-dialog.tsx
+msgid "Version {0} is installed. Restart Lattice to start using it."
+msgstr "Version {0} is installed. Restart Lattice to start using it."
 
 #. placeholder {0}: updater.version ?? ""
 #: src/settings/settings-dialog.tsx

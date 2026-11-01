@@ -217,7 +217,9 @@ rather than a fact:
 | `macos_window.rs` | macOS window chrome: backing colours, AppKit event monitors, the colour sampler, the import panel. |
 | `traffic_lights.rs` | The traffic lights' compact-toolbar geometry and their alignment with the web titlebar. |
 | `native_locale.rs` | The native surfaces (menu bar, AppKit and WebKit panels) that follow Lattice's interface language. |
-| `save_before_close.rs` | Holding a window's close, and Lattice ▸ Quit, until each window's page has saved its open edits (or a few seconds pass). |
+| `save_before_close.rs` | Holding a window's close, quitting and restarting Lattice until each window's page has saved its open edits (or a few seconds pass). |
+| `app_terminate.rs` | AppKit's `terminate:` (Dock ▸ Quit, logging out, shutting down) waiting for `save_before_close`. |
+| `app_restart.rs` | Restarting into an update: which window installs it, and what a restart would stop. |
 | `perf_lab.rs` | The real-app measurement lab's native half, built only with the `perf-lab` feature (see [`driving-the-app.md`](driving-the-app.md)). |
 | `test_support.rs` | Fixtures shared by the crate's unit tests. |
 

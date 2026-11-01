@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerCrashEdits } from "./crash-save";
 import { RootErrorBoundary, RootErrorFallback } from "./root-error-boundary";
 
-const relaunch = vi.hoisted(() => vi.fn());
-vi.mock("@tauri-apps/plugin-process", () => ({ relaunch }));
+const invoke = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
 afterEach(() => {
   cleanup();
@@ -46,7 +46,7 @@ function Crashing(): never {
 }
 
 describe("RootErrorBoundary", () => {
-  it("starts writing the open edits as the crash page replaces the window, and Restart waits for the write", async () => {
+  it("starts writing the open edits as the crash page replaces the window, and Restart waits for the write and for every other window", async () => {
     // React reports the caught render error on the console; this test causes it on purpose.
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const order: string[] = [];
@@ -55,7 +55,7 @@ describe("RootErrorBoundary", () => {
       flush: () => { order.push("flush"); return true; },
       save: () => new Promise<boolean>((resolve) => { finishSave = resolve; }).then((saved) => { order.push("written"); return saved; }),
     });
-    relaunch.mockImplementation(async () => { order.push("relaunch"); });
+    invoke.mockImplementation(async (command: string) => { order.push(command); });
 
     render(<RootErrorBoundary><Crashing /></RootErrorBoundary>);
     expect(screen.getByRole("alert")).toHaveAccessibleName("Lattice couldn’t open this window");
@@ -64,9 +64,27 @@ describe("RootErrorBoundary", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Restart Lattice" }));
     await act(async () => { await Promise.resolve(); });
-    expect(relaunch).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
     act(() => finishSave(true));
-    await waitFor(() => expect(order).toEqual(["flush", "written", "relaunch"]));
+    // Before, Restart was Tauri's own relaunch, which ended every other
+    // window without asking it to save; `restart_lattice` asks each first.
+    await waitFor(() => expect(order).toEqual(["flush", "written", "restart_lattice"]));
     unregister();
+  });
+});
+
+describe("Restart Lattice", () => {
+  it("starts this window over when Lattice stayed open", async () => {
+    // Another window could not save an edit, so `restart_lattice` called the
+    // restart off; this window's edits were written before it asked.
+    invoke.mockRejectedValue("A window could not save its edits, so Lattice did not restart.");
+    const reload = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, reload });
+
+    render(<RootErrorFallback error={new Error("renderer failed")} />);
+    fireEvent.click(screen.getByRole("button", { name: "Restart Lattice" }));
+
+    await waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(invoke).toHaveBeenCalledWith("restart_lattice");
   });
 });

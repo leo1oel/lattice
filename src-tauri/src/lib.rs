@@ -10,7 +10,9 @@
 mod agent_literature;
 mod alphaxiv;
 mod app_identity;
+mod app_restart;
 mod app_state;
+mod app_terminate;
 mod browser_host;
 mod citation_audit;
 mod citation_batch;
@@ -149,7 +151,7 @@ fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn shutdown_child_runtimes(app: &AppHandle) {
+fn shutdown_child_runtimes<R: Runtime>(app: &AppHandle<R>) {
     app.state::<synara::SynaraRuntime>().shutdown();
     app.state::<presentation::PresentationRuntime>().shutdown();
     app.state::<AppState>().stop_all_live_previews();
@@ -171,6 +173,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     // and a later window reusing the label inherits a stale binding.
     if matches!(event, tauri::WindowEvent::Destroyed) {
         save_before_close::forget(window.app_handle(), window.label());
+        window.state::<app_restart::AppRestart>().forget(window.label());
         macos_window::clear_pdf_copy_text(window.label());
         macos_window::forget_window_material(window.label());
         // Its page never ran the cleanup that releases a deck's lease, which
@@ -194,6 +197,9 @@ fn on_page_load<R: Runtime>(
     if payload.event() == tauri::webview::PageLoadEvent::Started {
         // The new page enables saving before close again once it can.
         save_before_close::forget(webview.app_handle(), webview.label());
+        if let Some(restart) = webview.try_state::<app_restart::AppRestart>() {
+            restart.forget(webview.label());
+        }
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
         }
@@ -215,6 +221,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
     app.manage(save_before_close::SaveBeforeClose::default());
+    app.manage(app_restart::AppRestart::default());
+    app_terminate::install(app.handle());
     app.manage(synara::SynaraRuntime::new(app)?);
     app.manage(presentation::PresentationRuntime::new(app)?);
     let background = browser_host_launch();
@@ -407,7 +415,11 @@ pub fn run() {
             ipc::windows::return_to_desktop,
             ipc::windows::get_app_log_dir,
             ipc::windows::open_app_log_dir,
-            ipc::windows::restart_after_update,
+            save_before_close::restart_lattice,
+            app_restart::claim_update_install,
+            app_restart::finish_update_install,
+            app_restart::set_agent_turn_running,
+            app_restart::restart_impact,
             ipc::windows::set_window_material,
             ipc::windows::set_native_locale,
             ipc::windows::native_edit_history,
@@ -593,6 +605,7 @@ pub fn run() {
             ipc::terminal::terminal_running_command,
             ipc::terminal::terminal_close,
             save_before_close::enable_save_before_close,
+            save_before_close::disable_save_before_close,
             save_before_close::finish_save_before_close,
         ])
         .build(context)

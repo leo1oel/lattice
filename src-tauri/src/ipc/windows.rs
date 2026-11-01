@@ -146,19 +146,6 @@ pub fn open_app_log_dir(app: AppHandle) -> Result<(), String> {
         .map_err(|error| format!("Could not open the log folder: {error}"))
 }
 
-/// Finish an installed update without relying on an event-loop restart
-/// request forwarded through the browser bridge. The direct main-thread path
-/// is why this command cannot return on success: it replaces this process.
-#[tauri::command]
-pub fn restart_after_update(app: AppHandle) -> Result<(), String> {
-    let restarting = app.clone();
-    app.run_on_main_thread(move || {
-        crate::shutdown_child_runtimes(&restarting);
-        restarting.restart();
-    })
-    .map_err(|error| format!("Could not schedule the updated Lattice app to restart: {error}"))
-}
-
 /// Keep the native window's appearance and backing in step with the web
 /// app's theme; answers what the window's backing became.
 #[tauri::command]

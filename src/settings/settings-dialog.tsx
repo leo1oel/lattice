@@ -445,6 +445,8 @@ function useUpdateStatus(updater: UpdaterApi): { title: string | undefined; deta
     available: t`Version ${updater.version ?? ""} is ready to install`,
     downloading: t`Downloading update…`,
     installing: t`Installing update…`,
+    ready: t`Version ${updater.version ?? ""} is installed. Restart Lattice to start using it.`,
+    restarting: t`Restarting…`,
     // `errorKind` distinguishes the two failures that both land on phase
     // "error": a check that never reached the release feed, and a
     // download/install that started and then failed. Reporting one as the
@@ -466,7 +468,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
   const updater = useUpdater();
   const updateStatus = useUpdateStatus(updater);
   const projectSpellingWords = props.project?.manifest.spellingWords ?? [];
-  const updateBusy = ["checking", "downloading", "installing"].includes(updater.phase);
+  const updateBusy = ["checking", "downloading", "installing", "restarting"].includes(updater.phase);
   const addProjectSpellingWord = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const word = projectWordDraft.trim();
@@ -606,9 +608,13 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           onChange={updater.setMode}
         />
         <SettingsRow data-setting="version" label={t`Version`} description={updateStatus.title}>
-          <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
-            {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
-          </ReloadButton>
+          {updater.phase === "ready" ? (
+            <Button size="compact" onClick={() => void updater.restart()}>{t`Restart now`}</Button>
+          ) : (
+            <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
+              {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
+            </ReloadButton>
+          )}
         </SettingsRow>
       </SettingsGroup>
     </div>

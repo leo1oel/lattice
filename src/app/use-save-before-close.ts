@@ -54,10 +54,18 @@ export function useSaveBeforeClose({ browserHosted, ...edits }: Edits & { browse
     const listening = listenInThisWindow<number>(SAVE_BEFORE_CLOSE_EVENT, (event) => {
       void answer(event.payload).catch(() => undefined);
     });
+    let disposed = false;
     // Only once the request can arrive: a window that asked before would wait
     // out the backend's timeout for an answer nobody sends.
-    void listening.then(() => invoke("enable_save_before_close")).catch(() => undefined);
-    return disposeWhenSettled(listening);
+    void listening.then(() => disposed ? undefined : invoke("enable_save_before_close")).catch(() => undefined);
+    const unlisten = disposeWhenSettled(listening);
+    return () => {
+      disposed = true;
+      unlisten();
+      // Nothing here answers any more (the crash page replaced App, whose
+      // crash save already ran): a quit or restart must not wait on it.
+      void invoke("disable_save_before_close").catch(() => undefined);
+    };
   }, [browserHosted, editsRef, warningRef]);
 
   useEffect(() => {

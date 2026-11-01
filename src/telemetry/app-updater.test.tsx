@@ -78,6 +78,9 @@ function pausedDownload() {
 
 const run = (action: () => Promise<void>) => act(async () => { await action(); });
 
+/** The backend commands the updater called, in order. */
+const commands = () => plugins.invoke.mock.calls.map(([command]) => command as string);
+
 function renderUpdater(options?: { autoCheck?: boolean; intervalMs?: number }) {
   return renderHook(() => useUpdater(), {
     wrapper: ({ children }) => (
@@ -255,21 +258,30 @@ describe("useUpdater / install", () => {
     expect(result.current.progress).toBe(1);
 
     await act(async () => { download.finish(); });
-    await waitFor(() => expect(result.current.phase).toBe("ready"));
-    expect(plugins.invoke).toHaveBeenCalledWith("restart_after_update");
+    await waitFor(() => expect(result.current.phase).toBe("restarting"));
+    // Every window saves before the backend restarts (save_before_close.rs).
+    expect(commands()).toEqual([
+      "claim_update_install", "finish_update_install", "restart_impact", "restart_lattice",
+    ]);
+    expect(plugins.invoke).toHaveBeenCalledWith("finish_update_install", { version: "0.1.230", installed: true });
     expect(plugins.relaunch).not.toHaveBeenCalled();
   });
 
-  it("falls back to the process plugin after an older backend installs the new frontend", async () => {
+  it.each([
+    ["v0.1.251 through v0.13", ["restart_lattice"], "restart_after_update", 0],
+    ["older", ["restart_lattice", "restart_after_update"], "restart_after_update", 1],
+  ])("falls back for an %s backend that installed the new frontend", async (_, missing, called, relaunches) => {
     offerUpdate();
-    plugins.invoke.mockRejectedValue("Command restart_after_update not found");
+    plugins.invoke.mockImplementation(async (command: string) => {
+      if (missing.includes(command)) throw `Command ${command} not found`;
+    });
     const result = await renderChecked();
 
     await run(() => result.current.install());
 
-    expect(plugins.invoke).toHaveBeenCalledWith("restart_after_update");
-    expect(plugins.relaunch).toHaveBeenCalledOnce();
-    expect(result.current.phase).toBe("ready");
+    expect(plugins.invoke).toHaveBeenCalledWith(called);
+    expect(plugins.relaunch).toHaveBeenCalledTimes(relaunches);
+    expect(result.current.phase).toBe("restarting");
     expect(result.current.error).toBeNull();
   });
 
@@ -298,14 +310,15 @@ describe("useUpdater / install", () => {
     expect(addAppLog).toHaveBeenCalledWith(expect.objectContaining({
       level: "error", source: "App updater", title: "Lattice update failed", detail: "signature mismatch", dedupeKey: "app-update",
     }));
-    expect(plugins.invoke).not.toHaveBeenCalled();
+    expect(commands()).toEqual(["claim_update_install", "finish_update_install"]);
+    expect(plugins.invoke).toHaveBeenCalledWith("finish_update_install", { version: "0.1.230", installed: false });
 
     // The in-flight guard has to be released on the way out, or "Update now"
     // is dead for the rest of the session after one transient failure.
     update.downloadAndInstall.mockResolvedValueOnce(undefined);
     await run(() => result.current.install());
     expect(update.downloadAndInstall).toHaveBeenCalledTimes(2);
-    expect(result.current.phase).toBe("ready");
+    expect(result.current.phase).toBe("restarting");
   });
 
   it("ignores a second install, and a switch to automatic, while one is in flight", async () => {
@@ -369,6 +382,8 @@ describe("useUpdater / mode", () => {
 
     await waitFor(() => expect(result.current.phase).toBe(phase));
     expect(update.downloadAndInstall).toHaveBeenCalledTimes(installs);
+    // Before, automatic mode restarted the moment the install finished.
+    expect(commands()).not.toContain("restart_lattice");
   });
 
   it("installs what a check finds after the mode was switched this session", async () => {
@@ -474,5 +489,99 @@ describe("the update toast", () => {
     await waitFor(() => expect(updateToast()).toBeNull());
     expect(api.current.phase).toBe("idle");
     expect(api.current.error).toBeNull();
+  });
+});
+
+describe("restarting into an installed update", () => {
+  it("never restarts by itself in automatic mode, and offers the restart instead", async () => {
+    // The audit's reproduction: an automatic install restarted at once, with
+    // no save and no question, whatever was being typed or run.
+    localStorage.setItem(MODE_KEY, "auto");
+    offerUpdate();
+    render(<UpdaterProvider intervalMs={60_000}><ToastStack /></UpdaterProvider>);
+
+    await waitFor(() => expect(updateToast()).toHaveTextContent("Lattice 0.1.230 is ready"));
+    expect(updateToast()).toHaveTextContent("Otherwise the update applies the next time Lattice opens.");
+    expect(commands()).toEqual(["claim_update_install", "finish_update_install"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Restart now" }));
+    await waitFor(() => expect(commands()).toContain("restart_lattice"));
+    expect(updateToast()).toHaveTextContent("Restarting…");
+  });
+
+  it("warns about running agent tasks, terminal commands and compiles, and restarts only when confirmed", async () => {
+    plugins.invoke.mockImplementation(async (command: string) => (
+      command === "restart_impact" ? { agentTurns: 1, terminalCommands: 2, builds: 1 } : undefined
+    ));
+    offerUpdate();
+    const api = renderToasts();
+    await run(() => api.current.check());
+
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }));
+
+    await waitFor(() => expect(updateToast()).toHaveTextContent("Restart Lattice now?"));
+    expect(updateToast()).toHaveTextContent("Restarting now stops an Agent task, 2 terminal commands, and a compile.");
+    expect(commands()).not.toContain("restart_lattice");
+    expect(api.current.phase).toBe("ready");
+
+    fireEvent.click(screen.getByRole("button", { name: "Restart anyway" }));
+    await waitFor(() => expect(commands()).toContain("restart_lattice"));
+    expect(commands().filter((command) => command === "restart_impact")).toHaveLength(1);
+  });
+
+  it("stays open, still offering the restart, when a window could not save", async () => {
+    plugins.invoke.mockImplementation(async (command: string) => {
+      if (command === "restart_lattice") throw "A window could not save its edits, so Lattice did not restart.";
+    });
+    offerUpdate();
+    const api = renderToasts();
+    await run(() => api.current.check());
+
+    await run(() => api.current.install());
+
+    expect(api.current.phase).toBe("ready");
+    expect(updateToast()).toHaveTextContent("Lattice 0.1.230 is ready");
+    await run(() => api.current.restart());
+    expect(commands().filter((command) => command === "restart_lattice")).toHaveLength(2);
+  });
+});
+
+describe("one install across windows", () => {
+  /** The backend's lease (app_restart.rs), shared by every window's updater. */
+  function sharedLease() {
+    let install: { version: string; done: boolean } | null = null;
+    plugins.invoke.mockImplementation(async (command: string, args?: { version: string; installed?: boolean }) => {
+      if (command === "claim_update_install") {
+        if (install && !install.done) return "busy";
+        if (install?.version === args!.version) return "installed";
+        install = { version: args!.version, done: false };
+        return "claimed";
+      }
+      if (command === "finish_update_install") install = args!.installed ? { version: args!.version, done: true } : null;
+    });
+  }
+
+  it("lets one window install, and the other restart into what it installed", async () => {
+    // Before, Update now in two windows ran two installs over the same app.
+    sharedLease();
+    const download = pausedDownload();
+    offerUpdate({ downloadAndInstall: download.downloadAndInstall });
+    const first = await renderChecked();
+    const second = await renderChecked();
+
+    act(() => { void first.current.install(); });
+    await waitFor(() => expect(first.current.phase).toBe("downloading"));
+    await run(() => second.current.install());
+
+    expect(download.downloadAndInstall).toHaveBeenCalledOnce();
+    expect(second.current.phase).toBe("idle");
+
+    await act(async () => download.finish());
+    await waitFor(() => expect(first.current.phase).toBe("restarting"));
+    // The second window's next check finds the release already installed.
+    await run(() => second.current.check());
+    await run(() => second.current.install());
+    expect(download.downloadAndInstall).toHaveBeenCalledOnce();
+    expect(second.current.phase).toBe("restarting");
   });
 });
