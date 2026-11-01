@@ -153,15 +153,26 @@ See `docs/design-system.md`, "Private interface fonts".
 
 ## Conference LaTeX templates (`src-tauri/templates/`)
 
-`iclr-2026/`, `icml-2026/` and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects.
+`iclr-2026/`, `icml-2026/`, `neurips-2026/`, `acl/`, `cvpr-2027/` and `aaai-2027/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects.
 Each directory's `UPSTREAM.md` records the source URL, fetch date and SHA-256 of every copied file.
-None of the three packages ships a separate license file. What the files themselves carry:
+None of the six packages ships a separate license file. What the files themselves carry:
 
 - `iclr2026_conference.bst` and `icml2026.bst` derive from the natbib `plainnat` family and state that they "can be redistributed and/or modified under the terms of the LaTeX Project Public License" (version 1 or later; https://www.latex-project.org/lppl/), with copyright notices for Patrick W Daly (1993-2007) and Hal Daumé III (2010) and modification credits for J. Fürnkranz and, in the ICML file, Iain Murray.
+- `acl_natbib.bst` (Copyright 1994-2011 Patrick W Daly; urlbst modifications Copyright 2002–23 Norman Gray), `ieeenat_fullname.bst` (derived from `abbrvnat.bst`, Copyright 1993-2007 Patrick W Daly) and `aaai2027.bst` (generated from Patrick W Daly's `merlin.mbs`) carry the same LPPL grant, version 1 or later.
 - `iclr2026_conference.sty`, `icml2026.sty` and `neurips_2026.sty` carry author credits in their header comments (Hugo Larochelle and the NIPS style authors; the ICML program chairs listed in the file; Roman Garnett and the `nips15submit_e.sty` authors) but no license grant.
+- `acl.sty` (from the Association for Computational Linguistics' `acl-style-files`), `cvpr.sty` (from the CVPR author kit) and `aaai2027.sty` (from the AAAI-27 author kit, which warns that an AAAI paper may not modify it) carry no license grant either.
 
-All five files are shipped byte-for-byte, so every notice and credit in them reaches users intact. Do not edit or strip their header comments; the LPPL in particular requires a modified `.bst` to be renamed and its changes identified.
-The project keeps these templates bundled. The absence of a license grant on the three `.sty` files remains recorded in the [gaps](#known-attribution-gaps-todo) below.
+All twelve files are shipped byte-for-byte, so every notice and credit in them reaches users intact. Do not edit or strip their header comments; the LPPL in particular requires a modified `.bst` to be renamed and its changes identified.
+The project keeps these templates bundled. The absence of a license grant on the six `.sty` files remains recorded in the [gaps](#known-attribution-gaps-todo) below.
+
+## Chinese university thesis templates (`src-tauri/templates/thuthesis/`, `src-tauri/templates/ustcthesis/`)
+
+Both directories bundle files copied unchanged from the templates' official releases, and the app copies them into new projects. Each directory's `UPSTREAM.md` records the release, its SHA-256 and the SHA-256 of every copied file.
+
+- **ThuThesis** 7.7.1 (https://github.com/tuna/thuthesis, also on CTAN as `thuthesis`): `thuthesis.cls`, Copyright (C) 2005-2026 by Tsinghua University TUNA Association, and `thuthesis-numeric.bst` and `thuthesis-author-year.bst`, Copyright (C) 2016--2024 by Zeping Lee. All three may be distributed and/or modified under the LaTeX Project Public License, version 1.3c or later (https://www.latex-project.org/lppl.txt). The release also ships `thu-fig-logo.pdf` and `thu-text-logo.pdf`, which the class draws on undergraduate thesis covers. They carry the emblem and name of Tsinghua University, taken unmodified (apart from cropping) from the university's visual identity system; the ThuThesis README notes that they are registered trademarks of Tsinghua University, to be used only for this template.
+- **ustcthesis** 5.0.2 (https://github.com/ustctug/ustcthesis): `ustcthesis.cls`, Copyright (C) 2015-2026 by USTC TeX Users Group, and `ustcthesis-numeric.bst` and `ustcthesis-authoryear.bst`, Copyright (C) 2016-2026 by Zeping Lee, under the LaTeX Project Public License, version 1.3c or later; the repository is licensed LPPL 1.3c as a whole. The four PDFs under `figures/` (`ustc-logo.pdf`, `ustc-name.pdf`, `ustc-name-stxingkai.pdf`, `ustc-title-page-heading.pdf`) are the cover artwork the class draws at those fixed paths and carry the emblem and name of the University of Science and Technology of China.
+
+Every file ships byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
 
 ## Realtime TeX live preview renderer (`src/live-preview/`)
 
@@ -291,7 +302,7 @@ Items that used to be on this list and are now covered by the generated section
 rather than kept as reassurance. What remains is what a machine reading the
 installed packages cannot answer.
 
-- **Conference LaTeX template style files** (`src-tauri/templates/*/*.sty`). Attribution is now recorded in the [section above](#conference-latex-templates-src-tauritemplates): the files ship unmodified with every in-file credit, and the two `.bst` files carry an LPPL grant. What stays open is that the three `.sty` files carry **no license grant at all**, so nothing on disk records permission to redistribute them. The project has chosen to keep them bundled; fetching them on demand or obtaining permission from the conference organisers would close this entry. (`tutorial/` is Lattice's own content and is not affected.)
+- **Conference LaTeX template style files** (`src-tauri/templates/*/*.sty`). Attribution is now recorded in the [section above](#conference-latex-templates-src-tauritemplates): the files ship unmodified with every in-file credit, and the five `.bst` files carry an LPPL grant. What stays open is that the six `.sty` files (ICLR, ICML, NeurIPS, ACL, CVPR and AAAI) carry **no license grant at all**, so nothing on disk records permission to redistribute them. The project has chosen to keep them bundled; fetching them on demand or obtaining permission from the conference organisers would close this entry. (`tutorial/` is Lattice's own content, and the LPPL thesis templates are licensed; neither is affected.)
 - **The Synara web client bundle.** `generate-notices` scans the Synara sidecar's `node_modules`, but the prebuilt web client under `synara-runtime/server/dist/client` bundles its own third-party code, and none of that is attributed here yet. Known items, from an audit of Lattice 0.1.341 and the pinned Synara source (`scripts/synara-runtime.json`):
   - Synara's web app depends on `react-icons` (and `@tabler/icons-react`). At the pinned revision it imports eleven `react-icons` packs: `fa6`, `fi`, `go`, `hi2`, `io`, `lu`, `pi`, `ri`, `si`, `tb` and `vsc`. The two packs with **CC BY 4.0** icons, Font Awesome Free (`fa6`) and VS Code Codicons (`vsc`), are now attributed in the [section above](#font-awesome-free-and-vs-code-codicons-icons-bundled-in-the-synara-web-client). The rest are under the MIT, ISC, Apache-2.0 or CC0 licenses of their icon sets and still need their notices reproduced; the Simple Icons brand logos (`si`) are CC0 but remain their owners' trademarks.
   - The client ships raw SVGs from `apps/web/public/central-icons-fill/` and `central-icons-reversed/` ("Central icons", rendered by `apps/web/src/lib/central-icons.tsx`). The Synara repository records **no license or provenance** for them. If they are the commercial Central Icon System, redistributing the raw SVGs may not be permitted. This needs an answer from the Synara upstream.

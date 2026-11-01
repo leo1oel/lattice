@@ -12,7 +12,8 @@ type RootDocument = {
   isDefault: boolean;
 };
 
-export type ProjectVenue = "neurips" | "icml" | "iclr" | "blank" | `local:${string}`;
+export type ProjectVenue =
+  | "neurips" | "icml" | "iclr" | "acl" | "cvpr" | "aaai" | "thuthesis" | "ustcthesis" | "blank" | `local:${string}`;
 
 export type ProjectManifest = {
   schemaVersion: number;
