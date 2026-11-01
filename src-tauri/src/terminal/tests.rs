@@ -107,9 +107,11 @@ fn closing_a_terminal_ends_its_shell_and_the_command_it_runs() {
     let id = terminals.insert(session);
     terminals.with("main", id, |session| session.write(b"sleep 300\n".to_vec())).unwrap().unwrap();
     let mut job = None;
+    // The shell forks before it execs `sleep`, so the new foreground group
+    // is briefly named `bash`: wait for the command itself, not any job.
     wait_for("sleep to run", || {
         job = terminals.with("main", id, Session::running_command).unwrap();
-        job.is_some()
+        job.as_deref() == Some("sleep")
     });
     assert_eq!(job.as_deref(), Some("sleep"));
     let sleep = terminals.with("main", id, Session::foreground_group).unwrap().unwrap();
