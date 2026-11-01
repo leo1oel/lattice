@@ -14767,8 +14767,8 @@ msgid "Unknown source response"
 msgstr "Unknown source response"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
-msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

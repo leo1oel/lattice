@@ -14767,8 +14767,8 @@ msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
-msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、aaai、thuthesis、ustcthesis 或 blank"
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、aaai、thuthesis、ustcthesis、blank 或 chinese-article"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
