@@ -230,9 +230,6 @@ export function loadThemePreference(): ThemePreference {
   return loadChoice(THEME_PREFERENCE_KEY, ["system", "light", "dark"], "system");
 }
 
-export const persistThemePreference = (preference: ThemePreference) =>
-  persistSetting(THEME_PREFERENCE_KEY, preference);
-
 export function loadBuildPreferences(): BuildPreferences {
   const stored = safely(() => JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null"), null);
   return { autoBuildMode: oneOf<AutoBuildMode>(stored?.autoBuildMode, ["manual"], "automatic") };
@@ -538,9 +535,6 @@ export function loadAppearance(): AppearanceSettings {
     };
   }, defaults);
 }
-
-export const persistAppearance = (appearance: AppearanceSettings) =>
-  persistSetting(APPEARANCE_KEY, JSON.stringify(appearance));
 
 /**
  * How a project linked to Overleaf stays in step with it.

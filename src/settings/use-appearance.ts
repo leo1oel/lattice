@@ -5,14 +5,15 @@ import {
   type AppearanceSettings,
   type Theme,
   type ThemePreference,
+  APPEARANCE_KEY,
   SYSTEM_DARK_QUERY,
+  THEME_PREFERENCE_KEY,
   loadAppearance,
   loadThemePreference,
-  persistAppearance,
-  persistThemePreference,
   resolveAppLocale,
   systemTheme,
 } from "./app-settings";
+import { changedFields, sharedSetting, useSharedSetting } from "./shared-setting";
 import { fitAccent, isCustomAccent } from "./theme-customization";
 import { codeThemeProperties, resolveCodeThemeKind } from "./code-themes";
 import { activateAppLocale, i18n } from "../i18n";
@@ -35,16 +36,23 @@ export type Appearance = {
  */
 export type WindowBacking = "translucent" | "opaque" | "reducedTransparency" | "unsupported";
 
+// Shared by every window: a choice made in one shows in all of them, and one
+// window's change never writes back another's older choices (shared-setting.ts).
+const themePreferenceSetting = sharedSetting(THEME_PREFERENCE_KEY, loadThemePreference, {
+  serialize: (preference) => preference,
+});
+const appearanceSetting = sharedSetting(APPEARANCE_KEY, loadAppearance, { merge: changedFields });
+
 /**
  * Owns the light/dark theme and the appearance settings (fonts, sizes, zoom,
  * tint, accent, translucency, code theme), keeping each mirrored to the document, to the
- * native window and to localStorage. Everything else only reads the returned
- * values, so this stays free of project/agent state.
+ * native window and, through localStorage, to the other windows. Everything else only
+ * reads the returned values, so this stays free of project/agent state.
  */
 export function useAppearance(): Appearance {
-  const [themePreference, setThemePreference] = useState<ThemePreference>(loadThemePreference);
+  const [themePreference, setThemePreference] = useSharedSetting(themePreferenceSetting);
   const [osTheme, setOsTheme] = useState<Theme>(systemTheme);
-  const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearance);
+  const [appearance, setAppearance] = useSharedSetting(appearanceSetting);
   const [windowBacking, setWindowBacking] = useState<WindowBacking>("unsupported");
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   const theme = themePreference === "system" ? osTheme : themePreference;
@@ -58,8 +66,6 @@ export function useAppearance(): Appearance {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-
-  useEffect(() => { persistThemePreference(themePreference); }, [themePreference]);
 
   // Before paint, so a theme change never shows one frame of the old palette.
   useLayoutEffect(() => {
@@ -124,8 +130,7 @@ export function useAppearance(): Appearance {
 
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
-    persistAppearance(appearance);
-  }, [appearance]);
+  }, [appearance.editorFontSize]);
 
   useEffect(() => { syncNativeLocaleIfChanged(); }, [appearance.interfaceLanguage]);
 

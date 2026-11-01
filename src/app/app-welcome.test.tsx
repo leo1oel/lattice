@@ -182,7 +182,9 @@ describe("welcome screen", () => {
     expect(section("Appearance")).not.toHaveAttribute("aria-current");
     expect(section("Editor & builds")).toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
-    await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
+    // An untouched default is not written: storing it at startup could undo
+    // another window's choice (settings/shared-setting.ts).
+    expect(localStorage.getItem("lattice.build-preferences.v2")).toBeNull();
     expect(synaraHook.enabledCalls).not.toContain(true);
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     await waitFor(() => expect(synaraHook.enabledCalls).toContain(true));

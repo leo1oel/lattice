@@ -107,7 +107,12 @@ export function syncNativeLocale(preference: InterfaceLanguage = loadAppearance(
   return invoke("set_native_locale", { menu, bundleLanguage: bundleLanguage(preference) });
 }
 
+// The last locale and preference sent while the sync is installed; `null`
+// when it is not.
+let lastSentLocaleKey: string | null = null;
+
 function syncQuietly(): void {
+  lastSentLocaleKey = currentLocaleKey();
   void syncNativeLocale().catch(() => {
     // Tests and browser previews have no native host.
   });
@@ -118,21 +123,20 @@ function syncQuietly(): void {
 const currentLocaleKey = () =>
   `${i18n.locale}|${loadAppearance().interfaceLanguage}|${marginReviewAvailable() ? marginReviewMode() : ""}`;
 
-// The last locale and preference sent while the sync is installed; `null`
-// when it is not.
-let lastSentLocaleKey: string | null = null;
-
 /**
  * Resend when the locale, the saved preference or this window's margin review
  * switch moved since the last send.
  * Switching between "system" and an explicit language that resolves to the
  * same locale changes only the preference, so no catalog change reports it.
+ * A language chosen in another window reaches this one too (settings are
+ * shared), but only the focused window sends: the menu bar is app-wide, and a
+ * window in the background would put its own margin review item there. This
+ * one sends when it comes forward.
  */
 export function syncNativeLocaleIfChanged(): void {
-  if (lastSentLocaleKey === null) return;
+  if (lastSentLocaleKey === null || !document.hasFocus()) return;
   const key = currentLocaleKey();
   if (key === lastSentLocaleKey) return;
-  lastSentLocaleKey = key;
   syncQuietly();
 }
 
@@ -144,7 +148,6 @@ export function syncNativeLocaleIfChanged(): void {
 export function installNativeLocaleSync(): () => void {
   // Lingui also reports catalog loads as changes; only a new locale or
   // preference needs a rebuild.
-  lastSentLocaleKey = currentLocaleKey();
   syncQuietly();
   const stopLocale = i18n.on("change", syncNativeLocaleIfChanged);
   const stopMarginReview = subscribeMarginReview(syncNativeLocaleIfChanged);

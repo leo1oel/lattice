@@ -424,7 +424,6 @@
         "src/app/use-agent-checkpoints.ts",
         "src/app/use-agent-context.ts",
         "src/app/use-build-pipeline.ts",
-        "src/app/use-build-preferences.ts",
         "src/app/use-canvas-requests.ts",
         "src/app/use-command-table.ts",
         "src/app/use-comment-author.ts",

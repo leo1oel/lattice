@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { invoke } from "@tauri-apps/api/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { invokeCalls, mockInvoke } from "../platform/tauri-test-mocks";
-import { loadAppearance, persistAppearance } from "../settings/app-settings";
+import { APPEARANCE_KEY, type AppearanceSettings, loadAppearance } from "../settings/app-settings";
 import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -13,9 +13,17 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 vi.mock("../platform/browser-runtime", () => ({ isBrowserHosted: vi.fn(() => false) }));
 
+const persistAppearance = (appearance: AppearanceSettings) =>
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+
+beforeEach(() => {
+  vi.spyOn(document, "hasFocus").mockReturnValue(true);
+});
+
 afterEach(() => {
   vi.mocked(invoke).mockReset();
   vi.mocked(isBrowserHosted).mockReturnValue(false);
+  vi.restoreAllMocks();
 });
 
 describe("native locale", () => {
@@ -77,6 +85,23 @@ describe("native locale", () => {
     persistAppearance({ ...original, interfaceLanguage: "en" });
     syncNativeLocaleIfChanged();
     expect(invokeCalls("set_native_locale")).toHaveLength(2);
+    persistAppearance(original);
+  });
+
+  it("leaves the menu bar to the focused window when another window changes the language", () => {
+    mockInvoke({ set_native_locale: null });
+    const original = loadAppearance();
+    persistAppearance({ ...original, interfaceLanguage: "en" });
+    const stop = installNativeLocaleSync();
+    vi.mocked(document.hasFocus).mockReturnValue(false);
+    persistAppearance({ ...original, interfaceLanguage: "zh-CN" });
+    syncNativeLocaleIfChanged();
+    expect(invokeCalls("set_native_locale")).toHaveLength(1);
+    // In front, it sends what it skipped.
+    vi.mocked(document.hasFocus).mockReturnValue(true);
+    syncNativeLocaleIfChanged();
+    expect(invokeCalls("set_native_locale")).toHaveLength(2);
+    stop();
     persistAppearance(original);
   });
 });
