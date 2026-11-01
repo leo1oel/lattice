@@ -181,14 +181,15 @@ describe("send-time comment refresh", () => {
   });
 
   // Each of these used to return without a reply, so the panel held the send until it timed out.
-  it.each([
+  type Overrides = Partial<Parameters<typeof answerHostContextRefresh<{ workspaceRoot: string }>>[0]>;
+  it.each<[string, Overrides]>([
     ["there is no host context yet", { context: null }],
     ["the request is for another project", { workspaceRoot: "/tmp/other" }],
     ["the project has no comment source", { commentsOptions: () => null }],
     ["the comment source belongs to another project", { commentsOptions: () => ({ workspaceRoot: "/tmp/other" }) }],
     ["reading the comments fails", { readComments: () => Promise.reject(new Error("Overleaf is down")) }],
     ["the window moved to another project meanwhile", { stillCurrent: () => false }],
-  ] as const)("reports a failure when %s", async (_case, overrides) => {
+  ])("reports a failure when %s", async (_case, overrides) => {
     const post = answer(overrides);
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith(failed));
     expect(post).toHaveBeenCalledTimes(1);
