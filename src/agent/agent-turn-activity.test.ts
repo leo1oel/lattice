@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  contextDeck, nextAgentDeckPresence, parseAgentTurnActivity, type AgentTurnActivity,
+  contextDeck, nextAgentDeckPresence, parseAgentTurnActivity, publishAgentDeckPresence, type AgentTurnActivity,
 } from "./agent-turn-activity";
+
+const invoke = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => undefined));
+vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
 const ROOT = "/tmp/lattice-paper";
 
@@ -85,5 +88,20 @@ describe("contextDeck", () => {
     expect(contextDeck(context, "/tmp/other")).toBeNull();
     expect(contextDeck({ workspaceRoot: ROOT }, ROOT)).toBeNull();
     expect(contextDeck(null, ROOT)).toBeNull();
+  });
+});
+
+describe("publishAgentDeckPresence", () => {
+  it("tells the backend when the window's turn starts and ends, for a restart to warn about", () => {
+    const running = nextAgentDeckPresence(null, activity(), null)!;
+    publishAgentDeckPresence(running);
+    publishAgentDeckPresence(nextAgentDeckPresence(running, activity({ state: "waiting" }), null));
+    publishAgentDeckPresence(null);
+    publishAgentDeckPresence(null);
+
+    expect(invoke.mock.calls).toEqual([
+      ["set_agent_turn_running", { running: true }],
+      ["set_agent_turn_running", { running: false }],
+    ]);
   });
 });

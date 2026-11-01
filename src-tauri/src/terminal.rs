@@ -91,6 +91,13 @@ impl Terminals {
         self.retain(|window, _| window != label);
     }
 
+    /// How many terminals have a command running rather than a shell waiting
+    /// at its prompt: a restart would stop them.
+    pub(crate) fn running_commands(&self) -> usize {
+        let sessions = self.sessions.lock().unwrap_or_else(PoisonError::into_inner);
+        sessions.values().filter(|session| session.running_command().is_some()).count()
+    }
+
     /// End every terminal and wait for them: Lattice is quitting, and a
     /// thread left to finish the grace period would die with it.
     pub(crate) fn close_all_and_wait(&self) {

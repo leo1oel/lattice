@@ -14,7 +14,9 @@ import { SAVE_BEFORE_CLOSE_EVENT } from "./use-save-before-close";
 const { renderApp } = appHarness({ documentCanvas });
 
 /** The page enables its close guard as it starts, and answers each request it receives. */
-const closeCommands = { enable_save_before_close: undefined, finish_save_before_close: undefined } satisfies Record<string, CommandResult>;
+const closeCommands = {
+  enable_save_before_close: undefined, disable_save_before_close: undefined, finish_save_before_close: undefined,
+} satisfies Record<string, CommandResult>;
 const written = (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false });
 
 /** The writes of `path`, and the save-before-close answers, in the order the page sent them. */
@@ -77,5 +79,15 @@ describe("saving before the window closes or Lattice quits", () => {
     await openWithTyping();
     act(() => { window.dispatchEvent(new Event("pagehide")); });
     await waitFor(() => expect(closeTimeline("main.tex")).toEqual([`${SOURCE} last words`]));
+  });
+
+  it("stops holding quits and restarts once App is gone", async () => {
+    // The crash page replaces App after its own crash save; a restart from it
+    // would otherwise wait out the backend's timeout for an answer nobody sends.
+    const { unmount } = renderApp({ ...projectCommands(projectSnapshot(), SOURCE), ...closeCommands });
+    await expectEditorText(SOURCE, SOURCE_EDITOR, { timeout: 10_000 });
+    await waitFor(() => expect(invokeCalls("enable_save_before_close")).toHaveLength(1));
+    unmount();
+    expect(invokeCalls("disable_save_before_close")).toHaveLength(1);
   });
 });

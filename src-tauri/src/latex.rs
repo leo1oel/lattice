@@ -50,7 +50,7 @@ pub use arxiv::{
 /// process they own — abort signals a whole process group.
 #[cfg(test)]
 pub(crate) use build::begin_active as begin_for_test;
-pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
+pub use build::{abort, build, classify_build_error, clean, is_running, ActiveBuild};
 pub(crate) use build_log::{is_pass_noise_warning, unwrap_log_lines};
 pub use build_steps::{BuildStep, BuildSteps};
 pub use changes::{export_changes_pdf, ChangesPdf, ChangesPdfOptions};

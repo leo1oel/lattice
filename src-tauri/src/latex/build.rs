@@ -58,6 +58,11 @@ pub fn abort(active: &ActiveBuild) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Whether latexmk is running for this project: a restart would stop it.
+pub fn is_running(active: &ActiveBuild) -> bool {
+    state(active).pid.is_some()
+}
+
 /// latexmk and every pass it starts share the process group made at spawn.
 fn terminate(pid: u32) {
     commands::signal_process_group(pid, libc::SIGTERM);

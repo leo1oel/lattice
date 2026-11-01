@@ -1,6 +1,7 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Button } from "../components/ui/button";
 import { addAppLog } from "./app-log-store";
@@ -48,12 +49,15 @@ type RootErrorFallbackProps = {
 };
 
 async function restartApplication() {
-  // Relaunching ends this page: let the edits the crash started writing land first.
+  // Restarting ends this page: let the edits the crash started writing land first.
   await crashSaveSettled();
   try {
-    const { relaunch } = await import("@tauri-apps/plugin-process");
-    await relaunch();
+    // Every other window saves its open edits before Lattice restarts
+    // (src-tauri/src/save_before_close.rs); this one has, above. Returns only
+    // when one of them could not, and Lattice stayed open.
+    await invoke("restart_lattice");
   } catch {
+    // That, or no Tauri runtime: this window alone starts over.
     window.location.reload();
   }
 }
