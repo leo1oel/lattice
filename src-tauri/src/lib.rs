@@ -595,6 +595,8 @@ pub fn run() {
             synara::synara_ensure_ready,
             synara::synara_open_skills_folder,
             synara::synara_open_log_folder,
+            synara::restart::synara_agent_environment,
+            synara::restart::synara_restart,
             presentation::presentation_ensure_ready,
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,

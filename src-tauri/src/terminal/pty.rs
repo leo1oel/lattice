@@ -21,7 +21,7 @@ pub(super) struct Shell {
 
 /// The writer's login shell, as a terminal app runs it: from the account
 /// record, else `$SHELL`, else zsh (macOS's default).
-pub(super) fn login_shell() -> PathBuf {
+pub(crate) fn login_shell() -> PathBuf {
     let usable = |path: &Path| path.is_absolute() && path.is_file();
     // SAFETY: getpwuid_r writes only into `record` and `buffer`, both sized
     // here, and the shell string it points at lives in `buffer`.

@@ -1,0 +1,19 @@
+.agent-environment-name,
+.agent-environment-value {
+  font-family: var(--editor-font);
+  font-size: var(--type-caption-size);
+}
+
+.agent-environment-name {
+  overflow-wrap: anywhere;
+}
+
+/* A long endpoint shows its start, the full (redacted) text on hover. */
+.agent-environment-value {
+  display: block;
+  max-width: var(--settings-control-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
