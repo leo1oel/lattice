@@ -3,6 +3,7 @@ import { msg } from "@lingui/core/macro";
 import { ViewType } from "@danfessler/trellis-react";
 import type { MenuEntry } from "@danfessler/trellis";
 import { i18n } from "../i18n";
+import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { TrellisController } from "../trellis/trellis-controller";
 import { PANEL_TITLES } from "../trellis/trellis-titles";
 import { TERMINAL_ICON } from "./terminal-icon";
@@ -25,7 +26,7 @@ export function terminalViewType(controller: TrellisController) {
       key="terminal" id="terminal" title={i18n._(PANEL_TITLES.terminal)} singleton icon={TERMINAL_ICON} minSize={MIN_SIZE} scaling={false}
       accessory={<TerminalActions />} menu={menu}
     >
-      <TerminalView controller={controller} />
+      <PanelErrorBoundary name="terminal"><TerminalView controller={controller} /></PanelErrorBoundary>
     </ViewType>
   );
 }

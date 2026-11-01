@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { registerCrashEdits } from "../telemetry/crash-save";
 import { showWarning } from "./notify";
 import { disposeWhenSettled } from "./effect-helpers";
 import { listenInThisWindow } from "./window-events";
@@ -27,6 +28,8 @@ type Edits = {
  *   the window open once, with a warning; closing again closes anyway.
  * - A reload, and a browser tab closing: the save starts as the page goes, and
  *   a browser tab also asks the writer to stay while it runs.
+ * - A render error: the error boundary that catches it starts the save
+ *   (telemetry/crash-save.ts), and the crash page's Restart waits for it.
  */
 export function useSaveBeforeClose({ browserHosted, ...edits }: Edits & { browserHosted: boolean }) {
   const { t } = useLingui();
@@ -75,9 +78,17 @@ export function useSaveBeforeClose({ browserHosted, ...edits }: Edits & { browse
     const pageHide = () => saveLeavingPage();
     window.addEventListener("beforeunload", saveLeavingPage);
     window.addEventListener("pagehide", pageHide);
+    // A render error is the page going away too, or the panel holding the
+    // editor (see telemetry/crash-save.ts). In this effect rather than its own:
+    // App renders this hook on startup, and each hook there is counted.
+    const unregisterCrash = registerCrashEdits({
+      flush: () => editsRef.current.flush(),
+      save: () => editsRef.current.save(),
+    });
     return () => {
       window.removeEventListener("beforeunload", saveLeavingPage);
       window.removeEventListener("pagehide", pageHide);
+      unregisterCrash();
     };
   }, [browserHosted, editsRef]);
 }

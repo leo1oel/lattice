@@ -1085,6 +1085,10 @@ msgstr "还有修改没传到 Overleaf，暂时不能重新载入"
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "A panel crashed"
+msgstr "有个面板崩溃了"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
 msgstr "找到的记录和这条文献对不上"
@@ -9968,6 +9972,10 @@ msgstr "松开放大{title}"
 msgid "reload files folders sync disk"
 msgstr "刷新 重新载入 文件 文件夹 同步 磁盘 reload files folders sync disk"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "Reload panel"
+msgstr "重新载入面板"
+
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -12144,6 +12152,7 @@ msgstr "陶"
 msgid "Teal"
 msgstr "青色"
 
+#: src/telemetry/panel-error-boundary.tsx
 #: src/telemetry/root-error-boundary.tsx
 msgid "Technical details"
 msgstr "详细信息"
@@ -12520,6 +12529,10 @@ msgstr "修复服务没响应"
 msgid "The required tools"
 msgstr "所需工具"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "The rest of the window keeps working."
+msgstr "窗口的其他部分不受影响。"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "校对时文字被改了，请重新校对"
@@ -12751,6 +12764,10 @@ msgstr "这一行在 $…$ 之外用了只能在数学模式中使用的命令�
 #: src/settings/acknowledgements-settings.tsx
 msgid "This package ships no license text of its own"
 msgstr "这个软件包没有附带自己的许可证文本"
+
+#: src/telemetry/panel-error-boundary.tsx
+msgid "This panel stopped working"
+msgstr "这个面板出错了"
 
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
@@ -13071,6 +13088,7 @@ msgstr "排版标题区"
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."
 msgstr "正在对整篇文档排版一次。完成后，你的输入会立即显示在这里。"
 
+#: src/telemetry/panel-error-boundary.tsx
 #: src/telemetry/root-error-boundary.tsx
 msgid "UI"
 msgstr "界面"

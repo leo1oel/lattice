@@ -1085,6 +1085,10 @@ msgstr "A local edit has not settled on Overleaf yet, so this document cannot be
 msgid "a over b"
 msgstr "a over b"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "A panel crashed"
+msgstr "A panel crashed"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
 msgstr "A possible record conflicts with this reference"
@@ -9968,6 +9972,10 @@ msgstr "Release to focus {title}"
 msgid "reload files folders sync disk"
 msgstr "reload files folders sync disk"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "Reload panel"
+msgstr "Reload panel"
+
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
@@ -12144,6 +12152,7 @@ msgstr "Tau"
 msgid "Teal"
 msgstr "Teal"
 
+#: src/telemetry/panel-error-boundary.tsx
 #: src/telemetry/root-error-boundary.tsx
 msgid "Technical details"
 msgstr "Technical details"
@@ -12520,6 +12529,10 @@ msgstr "The repair service did not return a task."
 msgid "The required tools"
 msgstr "The required tools"
 
+#: src/telemetry/panel-error-boundary.tsx
+msgid "The rest of the window keeps working."
+msgstr "The rest of the window keeps working."
+
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "The selected text changed while it was being proofread. Proofread it again to review the current text."
@@ -12751,6 +12764,10 @@ msgstr "This line uses a math-only command or character, such as _ or ^, outside
 #: src/settings/acknowledgements-settings.tsx
 msgid "This package ships no license text of its own"
 msgstr "This package ships no license text of its own"
+
+#: src/telemetry/panel-error-boundary.tsx
+msgid "This panel stopped working"
+msgstr "This panel stopped working"
 
 #: src/app/use-paper-actions.ts
 msgid "This paper has no local reading or downloadable source."
@@ -13071,6 +13088,7 @@ msgstr "Typeset the title block"
 msgid "Typesetting the whole document once. Typing shows here as soon as it finishes."
 msgstr "Typesetting the whole document once. Typing shows here as soon as it finishes."
 
+#: src/telemetry/panel-error-boundary.tsx
 #: src/telemetry/root-error-boundary.tsx
 msgid "UI"
 msgstr "UI"

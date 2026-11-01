@@ -41,6 +41,7 @@ import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import { AgentView, HostSlot, NavigatorView, PdfView, SlotView, ToolView, WorkspaceEmpty } from "./trellis-panel-views";
 import { FileView } from "./trellis-document-views";
+import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import { installLayoutHandlers, RESET_UNDO_TOAST, type ResetUndo } from "./trellis-layout-handlers";
 import { useTabSync } from "./use-tab-sync";
 import { useHibernation } from "./use-hibernation";
@@ -551,7 +552,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           accessory={<FileHeaderTools controller={controller} />}
           menu={(view) => withTabItems(controller, view, fileMenu(view))}
         >
-          <FileView controller={controller} />
+          {/* The read-only snapshots drawn here; the live editor's own boundary is App's (use-document-surfaces.tsx). */}
+          <PanelErrorBoundary name="document"><FileView controller={controller} /></PanelErrorBoundary>
         </ViewType>
         {/* Its tab carries the empty state's icon, as every other tab carries one. */}
         <ViewType id="slot" title={t`Empty`} icon={<FileText size={14} />} minSize={MIN_SIZE.file} scaling={false}>

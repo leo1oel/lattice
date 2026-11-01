@@ -4,6 +4,7 @@ import { msg } from "@lingui/core/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Button } from "../components/ui/button";
 import { addAppLog } from "./app-log-store";
+import { crashSaveSettled, saveOnCrash } from "./crash-save";
 import { translateOr } from "./early-i18n";
 
 /*
@@ -47,6 +48,8 @@ type RootErrorFallbackProps = {
 };
 
 async function restartApplication() {
+  // Relaunching ends this page: let the edits the crash started writing land first.
+  await crashSaveSettled();
   try {
     const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
@@ -113,6 +116,10 @@ export class RootErrorBoundary extends Component<{ children: ReactNode }, { erro
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
+    // The crash page replaces App, and with it whatever edit autosave had not
+    // written yet. Started here, while App is still mounted, for the reason
+    // PanelErrorBoundary gives.
+    void saveOnCrash();
     return { error };
   }
 

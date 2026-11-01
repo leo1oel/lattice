@@ -19,6 +19,7 @@ import type { useTexlabDiagnostics } from "../build/use-texlab-diagnostics";
 import type { DocumentCanvasProps } from "../canvas/canvas-model";
 import type { SaveSlot } from "../canvas/save-slot";
 import { ChunkGate } from "../components/chunk-gate";
+import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import type { LivePreview } from "../live-preview/use-live-preview";
 import { citationSourceUrl } from "../papers/paper-source";
@@ -416,18 +417,25 @@ export function useDocumentSurfaces({
     />
   );
 
+  // Each in its own error boundary, whose card takes the panel's host: both
+  // portal their content there, so a card rendered in place would sit outside
+  // the workspace. Opening another document gives a crashed canvas another try.
   return (
     <>
-      <ChunkGate chunk={loadDocumentCanvas}>
-        <Suspense fallback={null}>
-          {documentCanvas}
-        </Suspense>
-      </ChunkGate>
-      <ChunkGate chunk={loadProjectPdfPanel}>
-        <Suspense fallback={null}>
-          {projectPdfPanel}
-        </Suspense>
-      </ChunkGate>
+      <PanelErrorBoundary name="editor" host={trellis.hosts.editor} resetKey={`${project.root}/${documents.canvas.path}`}>
+        <ChunkGate chunk={loadDocumentCanvas}>
+          <Suspense fallback={null}>
+            {documentCanvas}
+          </Suspense>
+        </ChunkGate>
+      </PanelErrorBoundary>
+      <PanelErrorBoundary name="pdf" host={trellis.hosts.pdf} resetKey={project.root}>
+        <ChunkGate chunk={loadProjectPdfPanel}>
+          <Suspense fallback={null}>
+            {projectPdfPanel}
+          </Suspense>
+        </ChunkGate>
+      </PanelErrorBoundary>
     </>
   );
 }
