@@ -1,11 +1,11 @@
 import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import type { ProofreadMode } from "../agent/agent-proofread";
+import type { ProofreadAsk } from "../agent/agent-proofread";
 import { proofreadExtension, type ProofreadKeyHandlers } from "../editor/proofread-anchor";
 
-/** The layer's handlers: the keys', with a request that may ask for Polish. */
+/** The layer's handlers: the keys', with a request that may ask for Polish or an instruction. */
 type ProofreadHandlers = Omit<ProofreadKeyHandlers, "request"> & {
-  request: (view: EditorView, mode?: ProofreadMode) => boolean;
+  request: (view: EditorView, ask?: ProofreadAsk) => boolean;
 };
 
 /**
@@ -16,8 +16,8 @@ type ProofreadHandlers = Omit<ProofreadKeyHandlers, "request"> & {
  */
 export type ProofreadBridge = {
   extension: Extension;
-  /** Proofread (or polish) `view`'s selection; false when nothing is connected or selected. */
-  start: (view: EditorView, mode?: ProofreadMode) => boolean;
+  /** Proofread, polish or rewrite `view`'s selection; false when nothing is connected or selected. */
+  start: (view: EditorView, ask?: ProofreadAsk) => boolean;
   /** Route the keys and requests to `handlers` until the returned disconnect runs. */
   connect: (handlers: ProofreadHandlers) => () => void;
 };
@@ -31,7 +31,7 @@ export function createProofreadBridge(): ProofreadBridge {
       accept: (view) => connected?.accept(view) ?? false,
       dismiss: (view) => connected?.dismiss(view) ?? false,
     }),
-    start: (view, mode) => connected?.request(view, mode) ?? false,
+    start: (view, ask) => connected?.request(view, ask) ?? false,
     connect: (handlers) => {
       connected = handlers;
       return () => {

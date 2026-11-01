@@ -113,6 +113,16 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .link-menu input:focus { border-color: var(--field-control-interactive-border-color); box-shadow: none; }
 .link-menu > button { width: auto; flex: none; padding: 0 var(--pad-inline-control); background: var(--control-tinted-surface); color: var(--text-primary); }
 .link-menu > button:hover:not(:disabled) { background: var(--control-tinted-hover-surface); }
+/* Rewrite with an instruction (selection-instruction-menu.tsx): the field and
+   its button, then the recent instructions, or starting points before any. */
+.instruction-menu { width: 280px; display: grid; gap: var(--space-2); }
+.instruction-menu-form { display: flex; align-items: center; gap: var(--gap-inline-tight); }
+.instruction-menu-form input { flex: 1; min-width: 0; }
+.instruction-menu-form > button { width: auto; flex: none; padding: 0 var(--pad-inline-control); background: var(--control-tinted-surface); color: var(--text-primary); }
+.instruction-menu-form > button:hover:not(:disabled) { background: var(--control-tinted-hover-surface); }
+.instruction-menu-choices { display: grid; }
+.instruction-menu-heading { padding: var(--space-1) var(--pad-inline-control-tight); color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.instruction-menu-choices button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-comment-popover {
   position: absolute;
   z-index: var(--z-editor-popover);
@@ -217,6 +227,8 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .proofread-card-summary-text,
 .proofread-card-model { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .proofread-card-model::before { content: "·"; margin-inline-end: var(--gap-inline-tight); }
+/* A rewrite's own instruction, where the strength switch would be. */
+.proofread-card-instruction { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-weight: var(--weight-medium); }
 /* The selection read in place (components/ui/inline-edits.tsx). */
 .proofread-card-text { padding-inline: var(--gap-tight); }
 .proofread-card-held,

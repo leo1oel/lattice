@@ -76,6 +76,17 @@ describe("reviewProofread", () => {
     });
   });
 
+  it("offers a translation around kept LaTeX and holds one that drops a citation", () => {
+    const original = "我们提出 $f(x)$ 方法 \\cite{li2024}。";
+    const translated = "We propose the $f(x)$ method \\cite{li2024}.";
+    const review = reviewProofread(original, translated, none);
+    expect(review.held).toEqual([]);
+    expect(applyProofreadEdits(original, review.edits)).toBe(translated);
+    const dropped = reviewProofread(original, "We propose the $f(x)$ method.", none);
+    expect(dropped.held.map((edit) => edit.kind)).toEqual(["reference"]);
+    expect(applyProofreadEdits(original, dropped.edits)).toContain("\\cite{li2024}");
+  });
+
   it("offers nothing for an unchanged suggestion", () => {
     expect(reviewProofread("Fine as is.", "Fine as is.", none)).toEqual({ edits: [], held: [] });
   });

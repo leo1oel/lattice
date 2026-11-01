@@ -20,7 +20,7 @@ export function editAndFocus(view: EditorView, spec: TransactionSpec) {
 }
 
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "unhighlight">, (value?: string) => [string, string] | null> = {
+const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish" | "rewrite" | "unhighlight">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
   underline: () => ["\\underline{", "}"],
@@ -37,8 +37,8 @@ const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofre
   },
 };
 
-/** Apply a formatting `action` (not comment, proofread or polish) to the main selection. */
-export function applySourceSelectionEdit(view: EditorView, action: Exclude<SourceSelectionAction, "comment" | "proofread" | "polish">, value?: string) {
+/** Apply a formatting `action` (not comment, proofread, polish or rewrite) to the main selection. */
+export function applySourceSelectionEdit(view: EditorView, action: Exclude<SourceSelectionAction, "comment" | "proofread" | "polish" | "rewrite">, value?: string) {
   if (typeof action === "object") {
     const spec = "format" in action ? toggleMarkdownInline(view.state, action.format) : setMarkdownBlock(view.state, action.block);
     if (spec) editAndFocus(view, spec);

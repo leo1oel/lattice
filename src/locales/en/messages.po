@@ -3685,6 +3685,10 @@ msgstr "Could not render this file: {0}"
 msgid "Could not revise"
 msgstr "Could not revise"
 
+#: src/canvas/proofread-card.tsx
+msgid "Could not rewrite"
+msgstr "Could not rewrite"
+
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
@@ -6240,6 +6244,10 @@ msgstr "Installing update…"
 #: src/telemetry/app-updater.tsx
 msgid "Installing…"
 msgstr "Installing…"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Instruction"
+msgstr "Instruction"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
@@ -9875,6 +9883,7 @@ msgid "Rebuttal"
 msgstr "Rebuttal"
 
 #: src/app/app-command-overlays.tsx
+#: src/editor/latex/selection-instruction-menu.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
@@ -9882,6 +9891,10 @@ msgstr "Recent"
 #: src/app/command-palette.tsx
 msgid "Recent files"
 msgstr "Recent files"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Recent instructions"
+msgstr "Recent instructions"
 
 #: src/project/project-dialogs.tsx
 #: src/project/welcome-desk.tsx
@@ -10759,6 +10772,23 @@ msgstr "Revision rounds"
 msgid "Rewrite"
 msgstr "Rewrite"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgctxt "selection instruction"
+msgid "Rewrite"
+msgstr "Rewrite"
+
+#: src/canvas/proofread-card.tsx
+msgid "Rewrite suggestion"
+msgstr "Rewrite suggestion"
+
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Rewrite with an instruction"
+msgstr "Rewrite with an instruction"
+
+#: src/canvas/proofread-card.tsx
+msgid "Rewriting…"
+msgstr "Rewriting…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "Rho"
@@ -11420,6 +11450,10 @@ msgstr "shortcuts"
 msgid "Shorten"
 msgstr "Shorten"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Shorten to about 100 words"
+msgstr "Shorten to about 100 words"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Show"
 msgstr "Show"
@@ -12029,6 +12063,10 @@ msgstr "Success"
 msgid "Suggested change"
 msgstr "Suggested change"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Suggested instructions"
+msgstr "Suggested instructions"
+
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "Overleaf tracked changes"
 msgid "Suggestions"
@@ -12361,6 +12399,14 @@ msgstr "The agent could not revise this passage: {detail}"
 msgid "The agent could not revise this passage."
 msgstr "The agent could not revise this passage."
 
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not rewrite the selection: {detail}"
+msgstr "The agent could not rewrite the selection: {detail}"
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not rewrite the selection."
+msgstr "The agent could not rewrite the selection."
+
 #: src/app/use-synara-host.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "The agent could not send the request. It is waiting in the agent's composer."
@@ -12380,6 +12426,10 @@ msgstr "The agent suggests leaving the passage as it is."
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "The agent's reply did not contain a proofread version of the selection."
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent's reply did not contain a rewritten version of the selection."
+msgstr "The agent's reply did not contain a rewritten version of the selection."
 
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
@@ -13094,6 +13144,18 @@ msgstr "Top-level section heading"
 msgid "Tour progress"
 msgstr "Tour progress"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Translate into academic English"
+msgstr "Translate into academic English"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Translate into Chinese"
+msgstr "Translate into Chinese"
+
+#: src/canvas/proofread-card.tsx
+msgid "translation"
+msgstr "translation"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Translucency"
@@ -13114,6 +13176,10 @@ msgstr "Triangle left"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "Triangle right"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Try"
+msgstr "Try"
 
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
@@ -13545,6 +13611,10 @@ msgstr "Use the dark theme"
 msgid "Use the light theme"
 msgstr "Use the light theme"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Use the passive voice"
+msgstr "Use the passive voice"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Use this record"
@@ -13828,6 +13898,7 @@ msgid "What should change here?"
 msgstr "What should change here?"
 
 #: src/canvas/annotation-review.tsx
+#: src/editor/latex/selection-instruction-menu.tsx
 msgid "What should the agent change?"
 msgstr "What should the agent change?"
 
