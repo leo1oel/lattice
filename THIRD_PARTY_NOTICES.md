@@ -544,11 +544,11 @@ license named here is the one their upstream states:
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**587 packages.**
+**588 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 486 |
+| `MIT` | 487 |
 | `Apache-2.0` | 31 |
 | `ISC` | 25 |
 | `BSD-3-Clause` | 18 |
@@ -633,7 +633,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (64 distinct texts across 587 packages)
+### License texts (64 distinct texts across 588 packages)
 
 #### 1. MIT (+1 other declarations) — 236 package(s), from `LICENSE`
 
@@ -734,7 +734,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`bail@2.0.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `character-entities@2.0.2`, `collapse-white-space@2.1.0`, `comma-separated-tokens@2.0.3`, `commander@15.0.0`, `debug@4.4.3`, `decode-named-character-reference@1.3.0`, `devlop@1.1.0`, `franc-min@6.2.0`, `fs-extra@11.3.1`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `jsonfile@6.2.1`, `longest-streak@3.1.0`, `lowlight@3.3.0`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm-autolink-literal@2.0.1`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-gfm-strikethrough@2.0.0`, `mdast-util-gfm-table@2.0.0`, `mdast-util-gfm-task-list-item@2.0.0`, `mdast-util-gfm@3.1.0`, `mdast-util-math@3.0.0`, `mdast-util-phrasing@4.1.0`, `mdast-util-to-hast@13.2.1`, `mdast-util-to-markdown@2.1.2`, `mdast-util-to-string@4.0.0`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-autolink-literal@2.1.0`, `micromark-extension-gfm-footnote@2.1.0`, `micromark-extension-gfm-strikethrough@2.1.0`, `micromark-extension-gfm-table@2.1.1`, `micromark-extension-gfm-tagfilter@2.0.0`, `micromark-extension-gfm-task-list-item@2.1.0`, `micromark-extension-gfm@3.0.0`, `micromark-extension-math@3.1.0`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `micromark@4.0.2`, `n-gram@2.0.2`, `property-information@7.2.0`, `remark-gfm@4.0.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trigram-utils@2.0.1`, `trim-lines@3.0.1`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-remove-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `vfile-message@4.0.3`, `zwitch@2.0.4`
+`bail@2.0.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `character-entities@2.0.2`, `collapse-white-space@2.1.0`, `comma-separated-tokens@2.0.3`, `commander@8.3.0`, `debug@4.4.3`, `decode-named-character-reference@1.3.0`, `devlop@1.1.0`, `franc-min@6.2.0`, `fs-extra@11.3.1`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `jsonfile@6.2.1`, `longest-streak@3.1.0`, `lowlight@3.3.0`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm-autolink-literal@2.0.1`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-gfm-strikethrough@2.0.0`, `mdast-util-gfm-table@2.0.0`, `mdast-util-gfm-task-list-item@2.0.0`, `mdast-util-gfm@3.1.0`, `mdast-util-math@3.0.0`, `mdast-util-phrasing@4.1.0`, `mdast-util-to-hast@13.2.1`, `mdast-util-to-markdown@2.1.2`, `mdast-util-to-string@4.0.0`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-autolink-literal@2.1.0`, `micromark-extension-gfm-footnote@2.1.0`, `micromark-extension-gfm-strikethrough@2.1.0`, `micromark-extension-gfm-table@2.1.1`, `micromark-extension-gfm-tagfilter@2.0.0`, `micromark-extension-gfm-task-list-item@2.1.0`, `micromark-extension-gfm@3.0.0`, `micromark-extension-math@3.1.0`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `micromark@4.0.2`, `n-gram@2.0.2`, `property-information@7.2.0`, `remark-gfm@4.0.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trigram-utils@2.0.1`, `trim-lines@3.0.1`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-remove-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `vfile-message@4.0.3`, `zwitch@2.0.4`
 
 </details>
 
@@ -861,11 +861,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 4. MIT — 43 package(s), from `license`
+#### 4. MIT — 44 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `buffer@5.7.1`, `classnames@2.5.1`, `color-name@1.1.4`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `eventemitter3@4.0.7`, `exceljs@4.4.0`, `extend@3.0.2`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `is-plain-object@5.0.0`, `isomorphic.js@0.2.5`, `js-tokens@4.0.0`, `katex@0.19.0`, `lib0@0.2.117`, `loose-envify@1.4.0`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@4.0.5`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `uuid@8.3.2`
+`@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `buffer@5.7.1`, `classnames@2.5.1`, `color-name@1.1.4`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `eventemitter3@4.0.7`, `exceljs@4.4.0`, `extend@3.0.2`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `is-plain-object@5.0.0`, `isomorphic.js@0.2.5`, `js-tokens@4.0.0`, `katex@0.16.47`, `katex@0.17.0`, `lib0@0.2.117`, `loose-envify@1.4.0`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@4.0.5`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `uuid@8.3.2`
 
 </details>
 
