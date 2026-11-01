@@ -42,6 +42,9 @@ pub(crate) struct MenuLabels {
     window: String,
     minimize: String,
     zoom: String,
+    /// File ▸ Close Tab (⌘W): the page closes its document tab, and its
+    /// window once none is open (src/app/use-command-table.ts).
+    close_tab: String,
     close_window: String,
     help: String,
     /// Help ▸ What's New in Lattice, which opens the release notes sheet
@@ -91,6 +94,32 @@ const WHATS_NEW: &str = "whats-new";
 /// The menu id of Lattice ▸ Quit, which saves every window before it exits.
 const QUIT: &str = "quit";
 
+/// The menu id of File ▸ Close Tab, and the event it sends to the focused
+/// workspace window.
+const CLOSE_TAB: &str = "close-tab";
+/// The menu id of Close Window (⇧⌘W), which closes the focused window as its
+/// close button does: the page saves first (save_before_close.rs).
+const CLOSE_WINDOW: &str = "close-window";
+
+/// What a Close Tab or Close Window chosen in the menu does to the focused
+/// window labelled `label`.
+#[derive(Debug, PartialEq, Eq)]
+enum CloseAction {
+    /// A workspace window's page closes its document tab, or else itself.
+    AskPage,
+    /// Close the window.
+    Window,
+}
+
+fn close_action(id: &str, label: &str) -> Option<CloseAction> {
+    match id {
+        CLOSE_TAB if crate::is_workspace_window(label) => Some(CloseAction::AskPage),
+        // A window without Lattice's page (the Overleaf sign-in) has no tabs.
+        CLOSE_TAB | CLOSE_WINDOW => Some(CloseAction::Window),
+        _ => None,
+    }
+}
+
 /// The attribution Trellis's license asks shipped apps to show.
 pub(crate) const TRELLIS_ATTRIBUTION: &str =
     "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
@@ -131,11 +160,21 @@ pub(crate) fn build_menu<R: Runtime>(
             &MenuItem::with_id(app, QUIT, &labels.quit, true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
+    // ⌘W closes a tab, as in a browser or an editor, and ⇧⌘W the window.
+    // Not the predefined Close Window, whose ⌘W closed the whole project when
+    // a tab was meant. The page binds ⌘W too and sees it first; this runs for
+    // a click, or for a ⌘W no page listener took.
+    let close_window = || {
+        MenuItem::with_id(app, CLOSE_WINDOW, &labels.close_window, true, Some("CmdOrCtrl+Shift+W"))
+    };
     let file_menu = Submenu::with_items(
         app,
         &labels.file,
         true,
-        &[&PredefinedMenuItem::close_window(app, Some(labels.close_window.as_str()))?],
+        &[
+            &MenuItem::with_id(app, CLOSE_TAB, &labels.close_tab, true, Some("CmdOrCtrl+W"))?,
+            &close_window()?,
+        ],
     )?;
     let edit_menu = Submenu::with_items(
         app,
@@ -219,7 +258,7 @@ pub(crate) fn build_menu<R: Runtime>(
             &PredefinedMenuItem::minimize(app, Some(labels.minimize.as_str()))?,
             &PredefinedMenuItem::maximize(app, Some(labels.zoom.as_str()))?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::close_window(app, Some(labels.close_window.as_str()))?,
+            &close_window()?,
         ],
     )?;
     let help_menu = Submenu::with_id_and_items(
@@ -240,11 +279,26 @@ pub(crate) fn build_menu<R: Runtime>(
 /// to the focused window's focused editor, and an interface size change and
 /// What's New to the focused window. Quit asks every window to save first.
 pub(crate) fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
-    use tauri::Emitter;
+    use tauri::{Emitter, Manager};
 
     let id = event.id().as_ref();
     if id == QUIT {
         crate::save_before_close::quit(app);
+        return;
+    }
+    if id == CLOSE_TAB || id == CLOSE_WINDOW {
+        let Some(label) = crate::macos_window::focused_window_label() else { return };
+        match close_action(id, &label) {
+            Some(CloseAction::AskPage) => {
+                let _ = app.emit_to(tauri::EventTarget::webview_window(&label), CLOSE_TAB, ());
+            }
+            Some(CloseAction::Window) => {
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.close();
+                }
+            }
+            None => {}
+        }
         return;
     }
     let (name, payload) = if let Some(mode) = id.strip_prefix(MARGIN_REVIEW_PREFIX) {
@@ -382,6 +436,15 @@ mod tests {
             .find(|line| line.starts_with("tauri = "))
             .expect("the tauri dependency line");
         assert!(!tauri.contains("\"unstable\""), "{tauri}");
+    }
+
+    #[test]
+    fn close_tab_asks_a_workspace_page_and_close_window_closes_the_window() {
+        assert_eq!(close_action(CLOSE_TAB, "project-2"), Some(CloseAction::AskPage));
+        assert_eq!(close_action(CLOSE_TAB, "main"), Some(CloseAction::AskPage));
+        assert_eq!(close_action(CLOSE_TAB, "overleaf-login"), Some(CloseAction::Window));
+        assert_eq!(close_action(CLOSE_WINDOW, "project-2"), Some(CloseAction::Window));
+        assert_eq!(close_action(QUIT, "main"), None);
     }
 
     #[test]

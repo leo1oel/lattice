@@ -72,6 +72,22 @@ use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
 
 /// Label Tauri gives the window declared in tauri.conf.json.
 const MAIN_WINDOW_LABEL: &str = "main";
+
+/// A desktop window running Lattice's own page (`workspace_window`): the
+/// launch window or a project window, not a browser host, a presenter popup
+/// or the Overleaf sign-in page.
+pub(crate) fn is_workspace_window(label: &str) -> bool {
+    label == MAIN_WINDOW_LABEL
+        || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
+}
+
+/// Whether Lattice keeps running once its last window has closed. A Mac app
+/// outlives its windows until ⌘Q (the Dock icon opens a window again,
+/// `reopen`); a browser tab that still needs the host keeps it running
+/// anywhere.
+fn keeps_running_without_windows(browser_resident: bool) -> bool {
+    cfg!(target_os = "macos") || browser_resident
+}
 const BROWSER_HOST_ARG: &str = "--browser-host";
 
 fn browser_host_launch() -> bool {
@@ -600,9 +616,12 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
         tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
-        // `code` is None only when the last window closed.
+        // `code` is None only when the last window closed; ⌘Q and a restart
+        // exit with a code.
         tauri::RunEvent::ExitRequested { code: None, api, .. }
-            if app_handle.state::<browser_host::BrowserHost>().is_resident() =>
+            if keeps_running_without_windows(
+                app_handle.state::<browser_host::BrowserHost>().is_resident(),
+            ) =>
         {
             api.prevent_exit()
         }
@@ -612,7 +631,27 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_open_slide_presenter_url, log_level};
+    use super::{
+        is_open_slide_presenter_url, is_workspace_window, keeps_running_without_windows, log_level,
+    };
+
+    #[test]
+    fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
+        // Before: only a browser-resident host stayed, so ⌘W on the last
+        // window quit Lattice outright.
+        assert_eq!(keeps_running_without_windows(false), cfg!(target_os = "macos"));
+        assert!(keeps_running_without_windows(true));
+    }
+
+    #[test]
+    fn workspace_windows_are_the_launch_and_project_windows() {
+        for label in ["main", "project-1", "project-12"] {
+            assert!(is_workspace_window(label), "{label}");
+        }
+        for label in ["project-", "browser-1", "overleaf-login", "presenter", "mainly"] {
+            assert!(!is_workspace_window(label), "{label}");
+        }
+    }
 
     #[test]
     fn lattice_log_overrides_the_build_default_level() {

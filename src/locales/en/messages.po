@@ -3048,6 +3048,15 @@ msgstr "Close search"
 msgid "Close settings"
 msgstr "Close settings"
 
+#: src/app/native-locale.ts
+msgctxt "macOS menu bar"
+msgid "Close Tab"
+msgstr "Close Tab"
+
+#: src/app/use-command-table.ts
+msgid "Close the document tab, or the window when none is open"
+msgstr "Close the document tab, or the window when none is open"
+
 #: src/trellis/trellis-keymap.ts
 msgid "Close the tab"
 msgstr "Close the tab"
