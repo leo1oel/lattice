@@ -5,6 +5,8 @@
 import { t } from "@lingui/core/macro";
 import type { HostErrorEntry } from "./host-error-text";
 
+/* eslint-disable lingui/no-unlocalized-strings -- the host's English is matched as data; each translation is the t`` beside it */
+
 /** The nouns Rust names an unnamed path by (`file_name` and `display_name` in project/paths.rs). */
 function unnamedPath(what: string): string {
   switch (what) {

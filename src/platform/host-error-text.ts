@@ -62,6 +62,7 @@ export function rustLiteralPattern(literal: string): { pattern: RegExp; specific
       // text (an OS error, an upstream reason); the others stop at the
       // first place the fixed text after them fits.
       const atEnd = index === tokens.length - 1 && token.index + token[0].length === literal.length;
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- regular expression source
       source += atEnd ? "([\\s\\S]+)" : "([\\s\\S]+?)";
     }
     last = token.index + token[0].length;

@@ -6,6 +6,8 @@
 import { t } from "@lingui/core/macro";
 import type { HostErrorEntry } from "./host-error-text";
 
+/* eslint-disable lingui/no-unlocalized-strings -- the host's English is matched as data; each translation is the t`` beside it */
+
 /**
  * The `io::Error` text Rust appends to a failed file operation ("Permission
  * denied (os error 13)"), by macOS errno. Other numbers keep their English.
