@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
-import { beginWindowDrag, toggleWindowFullscreen } from "../../app-utils";
+import { beginWindowDrag, titleBarDoubleClick } from "../../app-utils";
 import { PanelErrorBoundary } from "../../telemetry/panel-error-boundary";
 import { toolKindForDrawer, useTrellisController, type TrellisController, type TrellisToolKind } from "../../trellis/trellis-controller";
 import "./scroll-area.css";
@@ -151,7 +151,7 @@ function OverlayDrawer(props: ResizableDrawerProps) {
           event.stopPropagation();
           beginWindowDrag(event);
         }}
-        onDoubleClick={toggleWindowFullscreen}
+        onDoubleClick={titleBarDoubleClick}
       />
       <aside
         className={`history-drawer resizable-drawer native-hover-scrollbar ${props.className ?? ""}`.trim()}

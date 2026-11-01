@@ -4,6 +4,7 @@
  * changes, and the confirmation prompts.
  */
 import { msg } from "@lingui/core/macro";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import type {
@@ -189,23 +190,26 @@ export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
   if (event.buttons !== 1 || event.detail > 1 || isWindowDragExcluded(event.target)) return;
   event.preventDefault();
   clearTimeout(windowDragTimer);
-  // Delay drag so a second click can still register as double-click → fullscreen.
+  // Delay drag so a second click can still register as a title-bar double-click.
   windowDragTimer = setTimeout(() => {
     windowDragTimer = undefined;
     void getCurrentWindow().startDragging();
   }, 180);
 }
 
-export function toggleWindowFullscreen(event: React.MouseEvent<HTMLElement>) {
-  if ((event.target as Element).closest(windowControlSelector)) return;
+/**
+ * A double-click on a title bar does what macOS's "Double-click a window's
+ * title bar to" setting says (fill, minimize or nothing), as in every native
+ * app; full screen stays the green button's. A double-click on a control in
+ * the bar is that control's, like its drag.
+ */
+export function titleBarDoubleClick(event: React.MouseEvent<HTMLElement>) {
+  if (isWindowDragExcluded(event.target)) return;
   event.preventDefault();
   clearTimeout(windowDragTimer);
   windowDragTimer = undefined;
-  const appWindow = getCurrentWindow();
-  if (typeof appWindow.isFullscreen !== "function" || typeof appWindow.setFullscreen !== "function") return;
-  void appWindow.isFullscreen()
-    .then((value) => appWindow.setFullscreen(!value))
-    .catch(() => undefined);
+  // Browser tabs have no window to zoom; the browser runtime ignores it.
+  void invoke("title_bar_double_click").catch(() => undefined);
 }
 
 export function toMessage(reason: unknown): string {

@@ -3,7 +3,7 @@
 use super::run_blocking;
 use crate::app_state::AppState;
 use crate::browser_host;
-use crate::{fs_watch, macos_window, native_locale, project, traffic_lights};
+use crate::{fs_watch, macos_window, native_locale, project, title_bar, traffic_lights};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State, WebviewWindow, Window};
 use tauri_plugin_opener::OpenerExt;
@@ -211,6 +211,12 @@ pub fn align_traffic_lights(
     // The window that measured its own titlebar, not "main" — a second
     // window used to move the first window's buttons and never its own.
     Ok(traffic_lights::align_traffic_lights_to(&window, center_from_top))
+}
+
+/// A double-click on the web title bar: the system's title-bar action.
+#[tauri::command]
+pub fn title_bar_double_click(window: WebviewWindow) {
+    title_bar::perform_double_click(&window);
 }
 
 #[tauri::command]

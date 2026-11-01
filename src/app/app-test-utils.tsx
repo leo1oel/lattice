@@ -35,7 +35,7 @@ import { mockAppCommand } from "./app-test-startup-commands";
 
 
 const windowApi = vi.hoisted(() => ({
-  label: "main", setFocus: vi.fn(async () => {}), startDragging: vi.fn(), isFullscreen: vi.fn(), setFullscreen: vi.fn(),
+  label: "main", setFocus: vi.fn(async () => {}), startDragging: vi.fn(), isFullscreen: vi.fn(),
   setMinSize: vi.fn(), onResized: vi.fn(), close: vi.fn(async () => {}),
 }));
 const webviewApi = vi.hoisted(() => ({
@@ -491,7 +491,6 @@ beforeEach(() => {
   vi.mocked(writeText).mockResolvedValue(undefined);
   vi.mocked(readText).mockResolvedValue("");
   windowApi.isFullscreen.mockResolvedValue(false);
-  windowApi.setFullscreen.mockResolvedValue(undefined);
   windowApi.setMinSize.mockResolvedValue(undefined);
   windowApi.onResized.mockResolvedValue(() => undefined);
   mockCommands({ initial_project: null });

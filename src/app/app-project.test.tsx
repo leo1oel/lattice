@@ -60,11 +60,12 @@ describe("project tree and projects", () => {
     });
   });
 
-  it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
+  it("asks for the system's title-bar action on a double-click of the bar, never full screen, and leaves its controls alone", async () => {
     renderApp(projectCommands(projectSnapshot({ files: [] })));
-    await screen.findByRole("button", { name: "Switch project" });
+    fireEvent.doubleClick(await screen.findByRole("button", { name: "Switch project" }));
+    expect(invokeCalls("title_bar_double_click")).toHaveLength(0);
     fireEvent.doubleClick(document.querySelector(".titlebar-drag-area")!);
-    await waitFor(() => expect(windowApi.setFullscreen).toHaveBeenCalledWith(true));
+    await expectInvoked("title_bar_double_click");
   });
 
   it("automatically refreshes the project tree when files appear on disk", async () => {

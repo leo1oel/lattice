@@ -5,7 +5,7 @@ import { TrellisController, TrellisControllerContext } from "../../trellis/trell
 import { ResizableDrawer } from "./resizable-drawer";
 
 const windowApi = vi.hoisted(() => ({
-  startDragging: vi.fn(), isFullscreen: vi.fn(async () => false), setFullscreen: vi.fn(async () => undefined),
+  startDragging: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
 

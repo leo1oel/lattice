@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import type { ProjectVenue, RenameTarget } from "../app-types";
 import type { RecentProject } from "../settings/app-settings";
-import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
+import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { LatticeMark } from "../components/ui/lattice-mark";
@@ -69,7 +69,7 @@ export function Welcome(props: {
   const unopenedReason = unopened?.reason ?? "";
   return (
     <div className="welcome-screen">
-      <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
+      <div className="welcome-titlebar" onMouseDown={beginWindowDrag} onDoubleClick={titleBarDoubleClick}>
         <button className="icon-button" onClick={props.onSettings} title={t`Settings`}><Settings size={16} /></button>
       </div>
       <WelcomeLattice />
