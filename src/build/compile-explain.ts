@@ -93,6 +93,8 @@ function closestCommand(token: string, source: string): { name: string; uses: nu
 const BRACE_OPEN = "{";
 const BRACE_CLOSE = "}";
 const BEGIN_DOCUMENT = "\\begin{document}";
+/** Han, kana, Hangul and CJK punctuation: the text latex/cjk_text.rs counts as CJK. */
+const CJK_CHARACTER = /^(?:[\u1100-\u11FF\u3000-\u30FF\u3130-\u318F\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\uFF00-\uFFEF]|[\u{20000}-\u{3134F}])$/u;
 
 type Entry = { pattern: RegExp; explain: (match: RegExpExecArray, context: ExplainContext) => Explanation | null };
 
@@ -211,6 +213,20 @@ const ENTRIES: Entry[] = [
       headline: i18n._(msg`File not found: ${file}`),
       explanation: i18n._(msg`Nothing in the project is called ${file}. Check the path and its letter case; paths are relative to the root document.`),
       token: file,
+    },
+  },
+  {
+    // pdfLaTeX stops at each character it has no font for; for CJK text no
+    // inputenc option helps, only ctex under a Unicode engine.
+    pattern: /^Unicode character (\S+) \(U\+[0-9A-Fa-f]+\)/,
+    explain: ([, character = ""]) => {
+      if (!CJK_CHARACTER.test(character)) return null;
+      const command = "\\usepackage{ctex}";
+      return {
+        headline: i18n._(msg`pdfLaTeX can’t typeset ${character}`),
+        explanation: i18n._(msg`pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add ${command} to the preamble and switch the project to XeLaTeX.`),
+        token: character,
+      };
     },
   },
   {

@@ -237,3 +237,48 @@ describe("explained build errors", () => {
     expect(screen.queryByRole("button", { name: /Replace with/ })).toBeNull();
   });
 });
+
+describe("CJK text the build could not set", () => {
+  afterEach(cleanup);
+
+  const dropped = {
+    level: "warning", message: "The PDF is missing 17 Chinese characters …", code: "cjk-glyphs-missing",
+    params: { count: "17", sample: "我 的 论 文 本 …", script: "chinese", missingFile: "ctex.sty" },
+  };
+
+  it("says how many characters the PDF lost and offers ctex when it is not installed", () => {
+    const onInstallDependency = vi.fn();
+    render(<CompileDiagnosticsPanel {...props} expanded success log="Build output" diagnostics={[dropped]} onInstallDependency={onInstallDependency} />);
+    screen.getByRole("button", { name: /^Build log The PDF is missing 17 Chinese characters \(我 的 论 文 本 …\): .+ctex is not installed yet/ });
+    fireEvent.click(screen.getByRole("button", { name: "Install" }));
+    expect(onInstallDependency).toHaveBeenCalledWith("ctex.sty");
+
+    cleanup();
+    const { missingFile: _installed, ...params } = dropped.params;
+    render(<CompileDiagnosticsPanel {...props} expanded success log="Build output" diagnostics={[{ ...dropped, params }]} />);
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    expect(screen.getByRole("button", { name: /The PDF is missing/ }).textContent).not.toContain("ctex is not installed");
+  });
+
+  it("says it in Chinese in the Chinese interface", async () => {
+    await activateAppLocale("zh-CN");
+    try {
+      render(<CompileDiagnosticsPanel {...props} expanded success log="Build output" diagnostics={[dropped]} />);
+      expect(screen.getByRole("button", { name: /PDF 里缺了 17 个汉字（我 的 论 文 本 …）/ }).textContent)
+        .toContain("新建项目。还没有安装 ctex");
+      screen.getByRole("button", { name: "安装" });
+    } finally {
+      cleanup();
+      await activateAppLocale("en");
+    }
+  });
+
+  it("explains pdfLaTeX's error on the line that holds the character", () => {
+    const source = "\\documentclass{article}\n\\begin{document}\n\\title{我的论文}\n\\maketitle\n\\end{document}";
+    const refused = { level: "error", message: "LaTeX Error: Unicode character 我 (U+6211)", file: "main.tex", line: 3 };
+    render(<CompileDiagnosticsPanel {...props} expanded log="./main.tex:3: LaTeX Error: Unicode character 我 (U+6211)" diagnostics={[refused]} sourceOf={() => source} />);
+    screen.getByRole("button", { name: "main.tex:3 pdfLaTeX can’t typeset 我" });
+    expect(document.querySelector(".compile-excerpt-line[data-failing] mark")?.textContent).toBe("我");
+    screen.getByText(/Add \\usepackage\{ctex\} to the preamble and switch the project to XeLaTeX/);
+  });
+});

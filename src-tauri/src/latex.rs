@@ -6,7 +6,7 @@
 //!   passes skip loading it; `build_steps` times the passes it runs.
 //! - `changes` builds the PDF with the changes between two versions marked.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
-//!   copy for the Log tab.
+//!   copy for the Log tab; `cjk_text` explains CJK text the build dropped.
 //! - `synctex` maps positions between the compiled PDF and its sources;
 //!   `shown_pdf` puts the last PDF and its map back when a build leaves none.
 //! - `venue` reads which conference template a document's preamble loads.
@@ -31,6 +31,7 @@ mod build;
 mod build_log;
 mod build_steps;
 mod changes;
+mod cjk_text;
 mod diagnostic_paths;
 mod engine_mismatch;
 mod figure_preview;

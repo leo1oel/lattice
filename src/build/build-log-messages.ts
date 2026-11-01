@@ -49,6 +49,9 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       const { command = "", from = "" } = params;
       return i18n._(msg`Switched this project from ${from} to pdfLaTeX: the document uses \`${command}\`, which only works in pdfLaTeX, and loads nothing that needs ${from}.`);
     }
+    case "cjk-glyphs-missing":
+    case "cjk-needs-unicode-engine":
+      return cjkTextAdvice(diagnostic.code, params);
     case "stale-build":
       return i18n._(msg`Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again.`);
     case "build-cancelled": {
@@ -102,4 +105,26 @@ function timesFixText(cause: string | undefined): string {
     default:
       return i18n._(msg`Expected NimbusRomNo9L-*.`);
   }
+}
+
+/**
+ * CJK text the build could not set (latex/cjk_text.rs): the fonts had no
+ * glyphs for it, or pdfLaTeX refused it. `missingFile` is there when ctex is
+ * not installed, and the panel offers to install it.
+ */
+function cjkTextAdvice(code: string, params: Record<string, string>): string {
+  const { count = "", sample = "" } = params;
+  // The LaTeX goes in as a parameter: its braces would read as placeholders.
+  const command = "\\usepackage{ctex}";
+  const chinese = params.script === "chinese";
+  const advice = code === "cjk-glyphs-missing"
+    ? chinese
+      ? i18n._(msg`The PDF is missing ${count} Chinese characters (${sample}): this document's fonts have none. Add ${command} to the preamble, or start from the Chinese article template.`)
+      : i18n._(msg`The PDF is missing ${count} Chinese, Japanese or Korean characters (${sample}): this document's fonts have none. Add ${command} to the preamble, or start from the Chinese article template.`)
+    : chinese
+      ? i18n._(msg`pdfLaTeX cannot typeset Chinese characters (${sample}). Add ${command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template.`)
+      : i18n._(msg`pdfLaTeX cannot typeset Chinese, Japanese or Korean characters (${sample}). Add ${command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template.`);
+  return params.missingFile
+    ? i18n._(msg`${advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB.`)
+    : advice;
 }

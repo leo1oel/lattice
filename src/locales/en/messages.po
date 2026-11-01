@@ -244,6 +244,10 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
+#: src/build/build-log-messages.ts
+msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
+msgstr "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
+
 #: src/telemetry/app-updater.tsx
 msgid "{agentTurns} Agent tasks"
 msgstr "{agentTurns} Agent tasks"
@@ -2765,6 +2769,10 @@ msgstr "Checks"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "Chi"
+
+#: src/project/project-dialogs.tsx
+msgid "Chinese article (ctexart)"
+msgstr "Chinese article (ctexart)"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose .bib file…"
@@ -9308,9 +9316,25 @@ msgstr "PDF with changes marked"
 msgid "PDF zoom percentage"
 msgstr "PDF zoom percentage"
 
+#: src/build/compile-explain.ts
+msgid "pdfLaTeX can’t typeset {character}"
+msgstr "pdfLaTeX can’t typeset {character}"
+
+#: src/build/build-log-messages.ts
+msgid "pdfLaTeX cannot typeset Chinese characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+msgstr "pdfLaTeX cannot typeset Chinese characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+
+#: src/build/build-log-messages.ts
+msgid "pdfLaTeX cannot typeset Chinese, Japanese or Korean characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+msgstr "pdfLaTeX cannot typeset Chinese, Japanese or Korean characters ({sample}). Add {command} to the preamble and switch the project to XeLaTeX, or start from the Chinese article template."
+
 #: src/build/tex-doctor-messages.ts
 msgid "pdfLaTeX engine"
 msgstr "pdfLaTeX engine"
+
+#: src/build/compile-explain.ts
+msgid "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add {command} to the preamble and switch the project to XeLaTeX."
+msgstr "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add {command} to the preamble and switch the project to XeLaTeX."
 
 #: src/overleaf/overleaf-presence.tsx
 msgid "People in this Overleaf project"
@@ -12607,6 +12631,14 @@ msgstr "The paragraph you typed is shown. Page breaks and what follows it catch 
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "The passage changed after the agent read it. Try again to have it read the passage as it is now."
+
+#: src/build/build-log-messages.ts
+msgid "The PDF is missing {count} Chinese characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
+msgstr "The PDF is missing {count} Chinese characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
+
+#: src/build/build-log-messages.ts
+msgid "The PDF is missing {count} Chinese, Japanese or Korean characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
+msgstr "The PDF is missing {count} Chinese, Japanese or Korean characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
 
 #: src/app/use-synctex-navigation.ts
 msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."

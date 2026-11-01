@@ -173,6 +173,7 @@ export function CreateProjectDialog(props: {
             </SelectTrigger>
             <SelectContent className="venue-picker-content" position="popper" align="start">
               <SelectItem value="blank">{t`Blank article`}</SelectItem>
+              <SelectItem value="chinese-article">{t`Chinese article (ctexart)`}</SelectItem>
               {PROJECT_VENUES.map(({ id, label: name, edition, preprint }) => (
                 // The trigger shows the chosen item, so its edition and draft
                 // mode are part of the name: ICLR's and CVPR's styles have no
