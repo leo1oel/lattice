@@ -114,6 +114,7 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["ipc/windows.rs", "This workspace is already open in the Lattice app.", () => t`This workspace is already open in the Lattice app.`],
   ["ipc/windows.rs", "Could not open a new Lattice window: {error}", ([error]) => t`Could not open a new Lattice window: ${error}`],
   ["ipc/windows.rs", "Could not open the log folder: {error}", ([error]) => t`Could not open the log folder: ${error}`],
+  ["save_before_close.rs", "A window could not save its edits, so Lattice did not restart.", () => t`A window could not save its edits, so Lattice did not restart.`],
   ["ipc/terminal.rs", "Too much to type into the terminal at once.", () => t`Too much to type into the terminal at once.`],
   ["ipc/build.rs", "Choose where to save the PDF.", () => t`Choose where to save the PDF.`],
 

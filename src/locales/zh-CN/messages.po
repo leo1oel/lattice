@@ -1294,6 +1294,10 @@ msgstr "工作表数量须在 1–200 之间"
 msgid "a terminal command"
 msgstr "1 个终端命令"
 
+#: src/platform/host-errors-workspace.ts
+msgid "A window could not save its edits, so Lattice did not restart."
+msgstr "有窗口没能保存修改，Lattice 没有重启"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "About"
@@ -14763,8 +14767,8 @@ msgid "Unknown source response"
 msgstr "来源返回未知结果"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, or iclr."
-msgstr "未知的会议模板“{venue}”，请选择 neurips、icml 或 iclr"
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
+msgstr "未知的模板“{venue}”，请选择 neurips、icml、iclr、acl、cvpr、aaai、thuthesis、ustcthesis 或 blank"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"

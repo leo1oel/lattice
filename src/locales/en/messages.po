@@ -1294,6 +1294,10 @@ msgstr "A spreadsheet must contain between 1 and 200 sheets"
 msgid "a terminal command"
 msgstr "a terminal command"
 
+#: src/platform/host-errors-workspace.ts
+msgid "A window could not save its edits, so Lattice did not restart."
+msgstr "A window could not save its edits, so Lattice did not restart."
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "About"
@@ -14763,8 +14767,8 @@ msgid "Unknown source response"
 msgstr "Unknown source response"
 
 #: src/platform/host-errors-project.ts
-msgid "Unknown venue “{venue}”. Choose neurips, icml, or iclr."
-msgstr "Unknown venue “{venue}”. Choose neurips, icml, or iclr."
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
+msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
