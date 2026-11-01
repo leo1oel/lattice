@@ -10,7 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Button } from "../components/ui/button";
 import { SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { LivePreview, LivePreviewInstall } from "./use-live-preview";
 
 export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview }) {
@@ -46,7 +46,7 @@ export function LivePreviewSettings({ livePreview }: { livePreview: LivePreview 
     setRemoving(true);
     setRemoveError(null);
     livePreview.remove()
-      .then(setInstall, (reason: unknown) => setRemoveError(toMessage(reason)))
+      .then(setInstall, (reason: unknown) => setRemoveError(hostErrorMessage(reason)))
       .finally(() => setRemoving(false));
   };
   return (

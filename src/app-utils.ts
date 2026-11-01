@@ -13,6 +13,7 @@ import type {
   ProjectSnapshot,
 } from "./app-types";
 import { i18n } from "./i18n";
+import { hostErrorText } from "./platform/host-error-text";
 
 /** A cited-only work may have no arXiv id, so identity falls back to its key. */
 export function paperKey(paper: PaperSummary): string {
@@ -214,6 +215,15 @@ export function titleBarDoubleClick(event: React.MouseEvent<HTMLElement>) {
 
 export function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+/**
+ * A rejection as a person reads it where it is shown in place: `toMessage`,
+ * with a host error in the interface language (`platform/host-error-text.ts`).
+ * Logic that recognizes an error by its text keeps reading `toMessage`.
+ */
+export function hostErrorMessage(reason: unknown): string {
+  return hostErrorText(toMessage(reason));
 }
 
 /** A plain object (not null, not an array), narrowed for field access. */

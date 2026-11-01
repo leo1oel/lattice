@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
 import type { RenameSymbolResult, RenameTarget } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { SymbolOccurrence } from "../project/references-panel";
 import { loadBibliographyIndex } from "./use-project-library";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
@@ -59,6 +59,6 @@ export async function submitSymbolRename(target: RenameTarget, name: string, {
     setRenameError(null);
     setRenameTarget(null);
   } catch (reason) {
-    setRenameError(toMessage(reason));
+    setRenameError(hostErrorMessage(reason));
   }
 }

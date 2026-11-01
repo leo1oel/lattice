@@ -585,6 +585,42 @@ msgid "{installedProduct} finished installing, but Lattice could not verify:\n"
 msgstr "{installedProduct} finished installing, but Lattice could not verify:\n"
 "{0}"
 
+#: src/platform/host-errors-project.ts
+msgid "{item} has an invalid file name."
+msgstr "{item} has an invalid file name."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is a symbolic link and cannot be imported."
+msgstr "{item} is a symbolic link and cannot be imported."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is larger than the 10 MB source-file limit."
+msgstr "{item} is larger than the 10 MB source-file limit."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is larger than the 64 MB limit for agent attachments."
+msgstr "{item} is larger than the 64 MB limit for agent attachments."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is not a regular file Lattice can import."
+msgstr "{item} is not a regular file Lattice can import."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is not a regular file or folder Lattice can import."
+msgstr "{item} is not a regular file or folder Lattice can import."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is not a supported image or PDF file."
+msgstr "{item} is not a supported image or PDF file."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is not a supported source file."
+msgstr "{item} is not a supported source file."
+
+#: src/platform/host-errors-project.ts
+msgid "{item} is not an image, PDF, or text file the agent can read."
+msgstr "{item} is not an image, PDF, or text file the agent can read."
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "{label} · {place} — click to jump there"
 msgstr "{label} · {place} — click to jump there"
@@ -657,6 +693,10 @@ msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 #: src/build/compile-explain.ts
 msgid "{name} is loaded twice with different options"
 msgstr "{name} is loaded twice with different options"
+
+#: src/platform/host-errors-project.ts
+msgid "{name} is not a UTF-8 text file."
+msgstr "{name} is not a UTF-8 text file."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
@@ -740,6 +780,30 @@ msgstr "{passing} of {0} checks pass"
 #: src/overleaf/overleaf-presence.tsx
 msgid "{path} · line {line}"
 msgstr "{path} · line {line}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "{path} disappeared during sync"
+msgstr "{path} disappeared during sync"
+
+#: src/platform/host-errors-project.ts
+msgid "{path} is already a file in this project."
+msgstr "{path} is already a file in this project."
+
+#: src/platform/host-errors-project.ts
+msgid "{path} is already a folder in this project."
+msgstr "{path} is already a folder in this project."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "{path} is not a folder on Overleaf."
+msgstr "{path} is not a folder on Overleaf."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "{path} is not a folder."
+msgstr "{path} is not a folder."
+
+#: src/platform/host-errors-workspace.ts
+msgid "{path} is not a UTF-8 path."
+msgstr "{path} is not a UTF-8 path."
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -1085,13 +1149,25 @@ msgstr "A citation key cannot be empty or contain spaces, commas, braces, quotes
 msgid "A command is still running. Closing stops it."
 msgstr "A command is still running. Closing stops it."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "A comment cannot be empty. Delete it instead."
+msgstr "A comment cannot be empty. Delete it instead."
+
 #: src/telemetry/app-updater.tsx
 msgid "a compile"
 msgstr "a compile"
 
+#: src/platform/host-errors-workspace.ts
+msgid "A copy must keep a text file's extension, such as .tex or .txt."
+msgstr "A copy must keep a text file's extension, such as .tex or .txt."
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "A deck from another project is open in another window"
 msgstr "A deck from another project is open in another window"
+
+#: src/platform/host-errors-project.ts
+msgid "A dropped file"
+msgstr "A dropped file"
 
 #: src/build/compile-explain.ts
 msgid "A figure or table is {points} pt taller than the page"
@@ -1100,6 +1176,30 @@ msgstr "A figure or table is {points} pt taller than the page"
 #: src/project/submission-items.tsx
 msgid "A file in this project"
 msgstr "A file in this project"
+
+#: src/platform/host-errors-project.ts
+msgid "A file or folder already exists at that path."
+msgstr "A file or folder already exists at that path."
+
+#: src/platform/host-errors-project.ts
+msgid "A file or folder already exists with that name."
+msgstr "A file or folder already exists with that name."
+
+#: src/platform/host-errors-workspace.ts
+msgid "A file with that name already exists."
+msgstr "A file with that name already exists."
+
+#: src/platform/host-errors-project.ts
+msgid "A folder cannot be copied inside itself."
+msgstr "A folder cannot be copied inside itself."
+
+#: src/platform/host-errors-project.ts
+msgid "A folder cannot be moved inside itself."
+msgstr "A folder cannot be moved inside itself."
+
+#: src/platform/host-errors-project.ts
+msgid "A folder named “{name}” already exists in Lattice Tutorials. Move it, then try again."
+msgstr "A folder named “{name}” already exists in Lattice Tutorials. Move it, then try again."
 
 #: src/build/compile-explain.ts
 msgid "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing."
@@ -1113,9 +1213,17 @@ msgstr "A length without a unit"
 msgid "A line runs {points} pt into the margin"
 msgstr "A line runs {points} pt into the margin"
 
+#: src/platform/host-errors-workspace.ts
+msgid "A linked library must be a .bib file."
+msgstr "A linked library must be a .bib file."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "A newer Overleaf connection replaced this one."
+msgstr "A newer Overleaf connection replaced this one."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
@@ -1124,6 +1232,14 @@ msgstr "a over b"
 #: src/telemetry/panel-error-boundary.tsx
 msgid "A panel crashed"
 msgstr "A panel crashed"
+
+#: src/platform/host-errors-workspace.ts
+msgid "A part of the path is not a folder."
+msgstr "A part of the path is not a folder."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "A pending Overleaf move also changes its name."
+msgstr "A pending Overleaf move also changes its name."
 
 #: src/papers/bibliography-audit.tsx
 msgid "A possible record conflicts with this reference"
@@ -1138,6 +1254,10 @@ msgstr "A preamble command inside the document"
 msgid "A project latexmkrc overrides this"
 msgstr "A project latexmkrc overrides this"
 
+#: src/platform/host-errors-project.ts
+msgid "A project path component is not a folder."
+msgstr "A project path component is not a folder."
+
 #: src/papers/bibliography-audit.tsx
 msgid "A published version is available."
 msgstr "A published version is available."
@@ -1145,6 +1265,18 @@ msgstr "A published version is available."
 #: src/papers/audit-messages.ts
 msgid "A published version of this preprint exists. Inline references are edited by hand."
 msgstr "A published version of this preprint exists. Inline references are edited by hand."
+
+#: src/platform/host-errors-workspace.ts
+msgid "A revision round is numbered from 1."
+msgstr "A revision round is numbered from 1."
+
+#: src/platform/host-errors-workspace.ts
+msgid "A selected source file has disappeared. Review the source again."
+msgstr "A selected source file has disappeared. Review the source again."
+
+#: src/platform/host-errors-project.ts
+msgid "A slide deck already exists with that id."
+msgstr "A slide deck already exists with that id."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "A source file changed. Refresh and preview the replacement again."
@@ -1161,6 +1293,10 @@ msgstr "A spreadsheet must contain between 1 and 200 sheets"
 #: src/telemetry/app-updater.tsx
 msgid "a terminal command"
 msgstr "a terminal command"
+
+#: src/platform/host-errors-workspace.ts
+msgid "A window could not save its edits, so Lattice did not restart."
+msgstr "A window could not save its edits, so Lattice did not restart."
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -1609,6 +1745,10 @@ msgstr "An & outside a table"
 msgid "an Agent task"
 msgstr "an Agent task"
 
+#: src/platform/host-errors-papers.ts
+msgid "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead."
+msgstr "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead."
+
 #: src/app/use-save-before-close.ts
 msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
 msgstr "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
@@ -1629,6 +1769,22 @@ msgstr "An edit is still on its way to Overleaf. Try rejecting again in a moment
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "An existing bibliography entry has an invalid citation key."
 
+#: src/platform/host-errors-project.ts
+msgid "An imported file"
+msgstr "An imported file"
+
+#: src/platform/host-errors-project.ts
+msgid "An imported folder contains an invalid file name."
+msgstr "An imported folder contains an invalid file name."
+
+#: src/platform/host-errors-project.ts
+msgid "An imported image"
+msgstr "An imported image"
+
+#: src/platform/host-errors-project.ts
+msgid "An imported source"
+msgstr "An imported source"
+
 #: src/papers/bibliography-audit.tsx
 msgid "An index matched, but the official proceedings could not be reached"
 msgstr "An index matched, but the official proceedings could not be reached"
@@ -1644,6 +1800,14 @@ msgstr "An item with this name is already in the project root"
 #: src/overleaf/ot.ts
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "An update from Overleaf did not fit this document; it needs to be reloaded."
+
+#: src/platform/host-errors-papers.ts
+msgid "An upgrade cannot add or remove citations."
+msgstr "An upgrade cannot add or remove citations."
+
+#: src/platform/host-errors-papers.ts
+msgid "An upgrade must preserve the unique citation key ''{key}''."
+msgstr "An upgrade must preserve the unique citation key ''{key}''."
 
 #: src/project/import-conflict-dialog.tsx
 msgid "and {hidden} more"
@@ -2147,6 +2311,10 @@ msgstr "binary"
 msgid "Binary file changed"
 msgstr "Binary file changed"
 
+#: src/platform/host-errors-project.ts
+msgid "Binary files written this way must be 15 MB or smaller."
+msgstr "Binary files written this way must be 15 MB or smaller."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Binomial coefficient"
 msgstr "Binomial coefficient"
@@ -2344,6 +2512,22 @@ msgstr "Build the paper so it has one; arXiv doesn’t run BibTeX"
 msgid "Build the PDF to export a review copy"
 msgstr "Build the PDF to export a review copy"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Build the project before counting its pages."
+msgstr "Build the project before counting its pages."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Build the project before locating its sections."
+msgstr "Build the project before locating its sections."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Build the project before locating PDF source."
+msgstr "Build the project before locating PDF source."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Build the project before locating source in the PDF."
+msgstr "Build the project before locating source in the PDF."
+
 #: src/project/submission-review.tsx
 msgid "Build to check"
 msgstr "Build to check"
@@ -2427,6 +2611,10 @@ msgstr "By T3 Tools Inc. and Emanuele Di Pietro"
 #: src/project/citation-health.ts
 msgid "cached"
 msgstr "cached"
+
+#: src/platform/host-errors-papers.ts
+msgid "Cached paper has no full-text body."
+msgstr "Cached paper has no full-text body."
 
 #: src/project/submission-items.tsx
 msgid "Call for papers URL or note"
@@ -2521,9 +2709,29 @@ msgstr "Candidate record considered, not verified"
 msgid "Candidate record considered, not verified · cached record"
 msgstr "Candidate record considered, not verified · cached record"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Cannot apply the change because {path} changed. Try again."
+msgstr "Cannot apply the change because {path} changed. Try again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Cannot apply the live update because {path} changed outside live editing."
+msgstr "Cannot apply the live update because {path} changed outside live editing."
+
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Cannot remove the reference because {path} changed. Try again."
+msgstr "Cannot remove the reference because {path} changed. Try again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Cannot restore {path} because it changed after this history entry. Review the newer changes first."
+msgstr "Cannot restore {path} because it changed after this history entry. Review the newer changes first."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Cannot save {path} because it was deleted outside the editor."
+msgstr "Cannot save {path} because it was deleted outside the editor."
 
 #: src/build/tex-doctor-messages.ts
 msgid "Cannot verify fonts (kpsewhich missing). Install BasicTeX from Lattice."
@@ -2796,21 +3004,89 @@ msgstr "Chinese article (ctexart)"
 msgid "Choose .bib file…"
 msgstr "Choose .bib file…"
 
+#: src/platform/host-errors-project.ts
+msgid "Choose a binary project file or an HTML preview resource."
+msgstr "Choose a binary project file or an HTML preview resource."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a binary project file."
+msgstr "Choose a binary project file."
+
 #: src/project/project-dialogs.tsx
 msgid "Choose a built-in template"
 msgstr "Choose a built-in template"
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a different {name}."
+msgstr "Choose a different {name}."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a file or folder to move."
+msgstr "Choose a file or folder to move."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a file to save the PDF to."
+msgstr "Choose a file to save the PDF to."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose a folder or ZIP containing LaTeX source files."
+msgstr "Choose a folder or ZIP containing LaTeX source files."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose a folder to extract the project into."
+msgstr "Choose a folder to extract the project into."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Choose a project image"
 msgstr "Choose a project image"
 
+#: src/platform/host-errors-project.ts
+msgid "Choose a project-relative path outside .research."
+msgstr "Choose a project-relative path outside .research."
+
 #: src/project/local-templates.tsx
 msgid "Choose a saved template"
 msgstr "Choose a saved template"
 
+#: src/platform/host-errors-project.ts
+msgid "Choose a simple image file name."
+msgstr "Choose a simple image file name."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a simple name without folders or a leading dot."
+msgstr "Choose a simple name without folders or a leading dot."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a simple project name without path separators."
+msgstr "Choose a simple project name without path separators."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a source file or folder."
+msgstr "Choose a source file or folder."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose a source line before locating it in the PDF."
+msgstr "Choose a source line before locating it in the PDF."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose a valid project-relative path."
+msgstr "Choose a valid project-relative path."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose a ZIP file to import."
+msgstr "Choose a ZIP file to import."
+
 #: src/app/use-synara-host.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "Choose an AI provider in the agent panel, then send the request waiting in its composer."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose an existing project folder."
+msgstr "Choose an existing project folder."
+
+#: src/platform/host-errors-project.ts
+msgid "Choose an image or PDF from the project."
+msgstr "Choose an image or PDF from the project."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose another…"
@@ -2853,13 +3129,37 @@ msgstr "Choose template source"
 msgid "Choose the document class"
 msgstr "Choose the document class"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Choose the library's .bib file by its full path."
+msgstr "Choose the library's .bib file by its full path."
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Choose where to export the Excel workbook."
+msgstr "Choose where to export the Excel workbook."
+
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose where to save the copy."
+msgstr "Choose where to save the copy."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose where to save the PDF."
+msgstr "Choose where to save the PDF."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Choose where to save the visual."
+msgstr "Choose where to save the visual."
+
+#: src/platform/host-errors-papers.ts
+msgid "Choose whether to keep or remove manuscript citations."
+msgstr "Choose whether to keep or remove manuscript citations."
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Choose your library's .bib file"
@@ -2898,6 +3198,10 @@ msgstr "citation"
 msgid "Citation"
 msgstr "Citation"
 
+#: src/platform/host-errors-papers.ts
+msgid "Citation ''{key}'' has the same identifier but conflicting metadata. Review it before importing."
+msgstr "Citation ''{key}'' has the same identifier but conflicting metadata. Review it before importing."
+
 #: src/project/references-panel.tsx
 msgid "Citation <0>{symbol}</0>"
 msgstr "Citation <0>{symbol}</0>"
@@ -2905,6 +3209,10 @@ msgstr "Citation <0>{symbol}</0>"
 #: src/papers/citation-candidates.tsx
 msgid "Citation candidates"
 msgstr "Citation candidates"
+
+#: src/platform/host-errors-project.ts
+msgid "citation key"
+msgstr "citation key"
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bib-visual-editor.tsx
@@ -2919,6 +3227,10 @@ msgstr "Citation key ''{key}'' already exists. Choose a different key or edit th
 msgid "Citation key {key}"
 msgstr "Citation key {key}"
 
+#: src/platform/host-errors-papers.ts
+msgid "Citation key `{key}` is not in the primary bibliography."
+msgstr "Citation key `{key}` is not in the primary bibliography."
+
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
 msgid "Citation only"
@@ -2932,6 +3244,22 @@ msgstr "Citation only"
 #: src/project/paper-row.tsx
 msgid "Citation only, no full text"
 msgstr "Citation only, no full text"
+
+#: src/platform/host-errors-papers.ts
+msgid "Citation resolution did not return the requested DOI {doi}."
+msgstr "Citation resolution did not return the requested DOI {doi}."
+
+#: src/platform/host-errors-papers.ts
+msgid "Citation resolution must return exactly one complete record."
+msgstr "Citation resolution must return exactly one complete record."
+
+#: src/platform/host-errors-papers.ts
+msgid "Citation resolution must return exactly one entry with its reported key."
+msgstr "Citation resolution must return exactly one entry with its reported key."
+
+#: src/platform/host-errors-papers.ts
+msgid "Citation resolution returned a different paper than arXiv:{id}. No citation was added."
+msgstr "Citation resolution returned a different paper than arXiv:{id}. No citation was added."
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
@@ -3058,6 +3386,10 @@ msgstr "Click to keep the original"
 #: src/telemetry/app-notify.ts
 msgid "Clipboard"
 msgstr "Clipboard"
+
+#: src/platform/host-errors-project.ts
+msgid "Clipboard images must be saved as PNG, JPEG, or WebP."
+msgstr "Clipboard images must be saved as PNG, JPEG, or WebP."
 
 #: src/editor/codemirror-host.tsx
 #: src/overleaf/overleaf-margin-review.tsx
@@ -3307,6 +3639,10 @@ msgstr "Comments removed"
 #: src/project/arxiv-export.ts
 msgid "Comments will be published"
 msgstr "Comments will be published"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Commit message cannot be empty."
+msgstr "Commit message cannot be empty."
 
 #: src/app/annotation-rounds.ts
 msgid "Compare"
@@ -3599,6 +3935,10 @@ msgstr "Core components"
 msgid "Correction/update"
 msgstr "Correction/update"
 
+#: src/platform/host-errors-project.ts
+msgid "Could not allocate a temporary project file."
+msgstr "Could not allocate a temporary project file."
+
 #: src/app/project-index-load.ts
 msgid "Could not be read: {failed}"
 msgstr "Could not be read: {failed}"
@@ -3607,13 +3947,37 @@ msgstr "Could not be read: {failed}"
 msgid "Could not change Overleaf sync"
 msgstr "Could not change Overleaf sync"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not check for same-title records: {error}. Retry or supply a DOI."
+msgstr "Could not check for same-title records: {error}. Retry or supply a DOI."
+
 #: src/telemetry/app-log.tsx
 msgid "Could not collect runtime logs."
 msgstr "Could not collect runtime logs."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not create the ZIP archive: {error}"
+msgstr "Could not create the ZIP archive: {error}"
+
+#: src/platform/host-errors-project.ts
+msgid "Could not decode file bytes: {error}"
+msgstr "Could not decode file bytes: {error}"
+
+#: src/platform/host-errors-project.ts
+msgid "Could not decode the clipboard image: {error}"
+msgstr "Could not decode the clipboard image: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not delete {path}: {error}"
+msgstr "Could not delete {path}: {error}"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not disconnect from Overleaf"
 msgstr "Could not disconnect from Overleaf"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not download the project from Overleaf: {error}"
+msgstr "Could not download the project from Overleaf: {error}"
 
 #: src/editor/insert/clipboard-image.ts
 msgid "Could not encode PNG."
@@ -3627,6 +3991,10 @@ msgstr "Could not encode the clipboard image."
 msgid "Could not export for arXiv"
 msgstr "Could not export for arXiv"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not extract the ZIP archive: {error}"
+msgstr "Could not extract the ZIP archive: {error}"
+
 #: src/app/use-source-navigation.ts
 msgid "Could not find figure “{path}”."
 msgstr "Could not find figure “{path}”."
@@ -3639,18 +4007,42 @@ msgstr "Could not find included file “{path}”."
 msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not install rtex: {error}"
+msgstr "Could not install rtex: {error}"
+
 #: src/canvas/paper-reader.tsx
 msgid "Could not load PDF"
 msgstr "Could not load PDF"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not locate {path} on Overleaf to sync its move. No files were deleted."
+msgstr "Could not locate {path} on Overleaf to sync its move. No files were deleted."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not open a new Lattice window: {error}"
+msgstr "Could not open a new Lattice window: {error}"
 
 #: src/canvas/use-paper-pdf.ts
 #: src/project/paper-library.tsx
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not open the log folder: {error}"
+msgstr "Could not open the log folder: {error}"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not open the Overleaf project"
 msgstr "Could not open the Overleaf project"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not open the Overleaf realtime connection: {error}"
+msgstr "Could not open the Overleaf realtime connection: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not open the Overleaf sign-in window: {error}"
+msgstr "Could not open the Overleaf sign-in window: {error}"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project because its Overleaf host is invalid."
@@ -3668,17 +4060,42 @@ msgstr "Could not parse {count} bibliography construct(s)."
 msgid "Could not polish"
 msgstr "Could not polish"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not prepare {path} for Overleaf: {error}"
+msgstr "Could not prepare {path} for Overleaf: {error}"
+
 #: src/canvas/proofread-card.tsx
 msgid "Could not proofread"
 msgstr "Could not proofread"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not reach Overleaf ({error})."
+msgstr "Could not reach Overleaf ({error})."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not reach Overleaf while reading the project download: {error}"
+msgstr "Could not reach Overleaf while reading the project download: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not reach Overleaf while reading the project list: {error}"
+msgstr "Could not reach Overleaf while reading the project list: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not reach Overleaf: {error}"
+msgstr "Could not reach Overleaf: {error}"
 
 #: src/build/tex-setup.ts
 msgid "Could not reach the TeX Live package repository. Check the network connection, then try again."
 msgstr "Could not reach the TeX Live package repository. Check the network connection, then try again."
 
 #: src/build/tex-doctor-messages.ts
+#: src/platform/host-errors-workspace.ts
 msgid "Could not read {path}: {error}"
 msgstr "Could not read {path}: {error}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Could not read the arXiv title lookup: {error}"
+msgstr "Could not read the arXiv title lookup: {error}"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Could not read:"
@@ -3688,8 +4105,12 @@ msgstr "Could not read:"
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 msgstr "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not record the sync base for {path}: {error}"
+msgstr "Could not record the sync base for {path}: {error}"
+
 #. placeholder {0}: entry.path
-#. placeholder {1}: toMessage(reason)
+#. placeholder {1}: hostErrorMessage(reason)
 #: src/app/use-overleaf-remote-deletes.ts
 msgid "Could not remove {0} from Overleaf: {1}"
 msgstr "Could not remove {0} from Overleaf: {1}"
@@ -3697,6 +4118,14 @@ msgstr "Could not remove {0} from Overleaf: {1}"
 #: src/app/remove-reference-action.ts
 msgid "Could not remove {citationCommand}."
 msgstr "Could not remove {citationCommand}."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not remove rtex: {error}"
+msgstr "Could not remove rtex: {error}"
+
+#: src/platform/host-errors-project.ts
+msgid "Could not rename “{old}” in {path}; the file changed."
+msgstr "Could not rename “{old}” in {path}; the file changed."
 
 #. placeholder {0}: resources.error.message
 #: src/history/history-drawer.tsx
@@ -3724,6 +4153,14 @@ msgstr "Could not revise"
 msgid "Could not rewrite"
 msgstr "Could not rewrite"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not run git: {error}"
+msgstr "Could not run git: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not run latexdiff: {error}"
+msgstr "Could not run latexdiff: {error}"
+
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
@@ -3745,13 +4182,37 @@ msgstr "Could not save the report on this device. Keep this window open to retai
 msgid "Could not show that item in Finder. {message}"
 msgstr "Could not show that item in Finder. {message}"
 
+#: src/platform/host-errors-papers.ts
+msgid "Could not start {tool}: {error}"
+msgstr "Could not start {tool}: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not start SyncTeX: {error}"
+msgstr "Could not start SyncTeX: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not start the live preview engine: {error}"
+msgstr "Could not start the live preview engine: {error}"
+
 #: src/live-preview/live-preview-settings.tsx
 msgid "Could not start: {message}"
 msgstr "Could not start: {message}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not unpack the rtex archive: {error}"
+msgstr "Could not unpack the rtex archive: {error}"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not upload the project to Overleaf"
 msgstr "Could not upload the project to Overleaf"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not upload the project to Overleaf: {error}"
+msgstr "Could not upload the project to Overleaf: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Could not write {path}: {error}"
+msgstr "Could not write {path}: {error}"
 
 #: src/papers/add-papers-sheet.tsx
 msgid "Couldn't add"
@@ -3993,6 +4454,10 @@ msgstr "Deadline for"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Decimal places"
 msgstr "Decimal places"
+
+#: src/platform/host-errors-project.ts
+msgid "Deck ids must use kebab-case letters and numbers."
+msgstr "Deck ids must use kebab-case letters and numbers."
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
@@ -4418,6 +4883,30 @@ msgstr "draft pass {run}"
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "Drop figures onto a TeX or Markdown editor, or the Project pane"
 
+#: src/platform/host-errors-project.ts
+msgid "Drop files and folders onto a project folder."
+msgstr "Drop files and folders onto a project folder."
+
+#: src/platform/host-errors-project.ts
+msgid "Drop images onto a project folder."
+msgstr "Drop images onto a project folder."
+
+#: src/platform/host-errors-project.ts
+msgid "Drop one or more files first."
+msgstr "Drop one or more files first."
+
+#: src/platform/host-errors-project.ts
+msgid "Drop one or more files or folders first."
+msgstr "Drop one or more files or folders first."
+
+#: src/platform/host-errors-project.ts
+msgid "Drop one or more image files first."
+msgstr "Drop one or more image files first."
+
+#: src/platform/host-errors-project.ts
+msgid "Drop one or more source files first."
+msgstr "Drop one or more source files first."
+
 #: src/app/use-project-tree.ts
 msgid "Drop source files and figures separately"
 msgstr "Drop source files and figures separately"
@@ -4700,6 +5189,18 @@ msgstr "English variant"
 msgid "Enter 6 hex digits"
 msgstr "Enter 6 hex digits"
 
+#: src/platform/host-errors-project.ts
+msgid "Enter a {name} name."
+msgstr "Enter a {name} name."
+
+#: src/platform/host-errors-papers.ts
+msgid "Enter a citation key to remove."
+msgstr "Enter a citation key to remove."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Enter a DOI, arXiv id, or paper title."
+msgstr "Enter a DOI, arXiv id, or paper title."
+
 #: src/app/use-project-lifecycle.ts
 msgid "Enter a project name."
 msgstr "Enter a project name."
@@ -4708,9 +5209,29 @@ msgstr "Enter a project name."
 msgid "Enter a replacement key"
 msgstr "Enter a replacement key"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Enter a template name and a short version."
+msgstr "Enter a template name and a short version."
+
+#: src/platform/host-errors-papers.ts
+msgid "Enter a valid arXiv id or URL."
+msgstr "Enter a valid arXiv id or URL."
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage"
 msgstr "Enter a zoom percentage"
+
+#: src/platform/host-errors-papers.ts
+msgid "Enter an arXiv id, a DOI, a URL, or a paper title."
+msgstr "Enter an arXiv id, a DOI, a URL, or a paper title."
+
+#: src/platform/host-errors-papers.ts
+msgid "Enter an http(s) PDF URL."
+msgstr "Enter an http(s) PDF URL."
+
+#: src/platform/host-errors-papers.ts
+msgid "Enter an http(s) URL."
+msgstr "Enter an http(s) URL."
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4721,6 +5242,10 @@ msgstr "Enter Full Screen"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Enter manually"
 msgstr "Enter manually"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Enter text to find."
+msgstr "Enter text to find."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
@@ -4950,6 +5475,14 @@ msgstr "Expression of concern"
 msgid "Failed"
 msgstr "Failed"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Failed to send \"{path}\" to Overleaf: {error}"
+msgstr "Failed to send \"{path}\" to Overleaf: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Failed to upload \"{path}\" to Overleaf: {cause}"
+msgstr "Failed to upload \"{path}\" to Overleaf: {cause}"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fenced code block with monospace text."
 msgstr "Fenced code block with monospace text."
@@ -5038,6 +5571,10 @@ msgstr "file upload"
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "Files"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Files cannot be moved across disks this way."
+msgstr "Files cannot be moved across disks this way."
 
 #: src/project/arxiv-export-dialog.tsx
 msgid "Files in the package"
@@ -5702,6 +6239,10 @@ msgstr "Hidden files, project history, comments, sessions and credentials are ex
 msgid "Hidden panels"
 msgstr "Hidden panels"
 
+#: src/platform/host-errors-project.ts
+msgid "Hidden paths outside .research cannot be written."
+msgstr "Hidden paths outside .research cannot be written."
+
 #: src/trellis/trellis-labels.ts
 msgid "Hide"
 msgstr "Hide"
@@ -5785,6 +6326,10 @@ msgstr "Highlights"
 #: src/trellis/trellis-titles.ts
 msgid "History"
 msgstr "History"
+
+#: src/platform/host-errors-project.ts
+msgid "History records cannot edit themselves."
+msgstr "History records cannot edit themselves."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
@@ -6353,9 +6898,45 @@ msgstr "Intersection of a family of sets"
 msgid "Invalid .lattice-sheet document"
 msgstr "Invalid .lattice-sheet document"
 
+#: src/platform/host-errors-papers.ts
+msgid "Invalid alphaXiv citation."
+msgstr "Invalid alphaXiv citation."
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid arXiv id."
+msgstr "Invalid arXiv id."
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid arXiv identity."
+msgstr "Invalid arXiv identity."
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid citation entry."
+msgstr "Invalid citation entry."
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid citation key."
+msgstr "Invalid citation key."
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid existing bibliography entry."
+msgstr "Invalid existing bibliography entry."
+
 #: src/papers/audit-messages.ts
 msgid "Invalid literal year; expected four digits."
 msgstr "Invalid literal year; expected four digits."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Invalid Overleaf host: {error}"
+msgstr "Invalid Overleaf host: {error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Invalid PDF source position."
+msgstr "Invalid PDF source position."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Invalid regular expression: {error}"
+msgstr "Invalid regular expression: {error}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Invalid response from source"
@@ -6364,6 +6945,10 @@ msgstr "Invalid response from source"
 #: src/papers/bibliography-audit-storage.ts
 msgid "Invalid saved bibliography audit report."
 msgstr "Invalid saved bibliography audit report."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Invalid transaction id."
+msgstr "Invalid transaction id."
 
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Invalid worksheet: {name}"
@@ -6487,6 +7072,10 @@ msgstr "Keep open"
 msgid "Keep Overleaf's version"
 msgstr "Keep Overleaf's version"
 
+#: src/platform/host-errors-project.ts
+msgid "Keep the {name} under 120 characters."
+msgstr "Keep the {name} under 120 characters."
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep this computer's version"
 msgstr "Keep this computer's version"
@@ -6543,6 +7132,10 @@ msgstr "Key saved to the keychain"
 #: src/app/use-command-table.ts
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
+
+#: src/platform/host-errors-project.ts
+msgid "label"
+msgstr "label"
 
 #: src/app/app-search-dialogs.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
@@ -6719,6 +7312,14 @@ msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to this file ({detail}). Syncing is paused for this file while Lattice checks."
 
+#: src/platform/host-errors-project.ts
+msgid "Lattice could not convert this figure for LaTeX."
+msgstr "Lattice could not convert this figure for LaTeX."
+
+#: src/platform/host-errors-project.ts
+msgid "Lattice could not convert this figure for LaTeX. {detail}"
+msgstr "Lattice could not convert this figure for LaTeX. {detail}"
+
 #. placeholder {0}: target.path
 #: src/app/annotation-rounds.ts
 msgid "Lattice could not read {0}."
@@ -6760,6 +7361,10 @@ msgstr "Lattice update failed"
 #: src/trellis/trellis-workspace.tsx
 msgid "Lattice workspace"
 msgstr "Lattice workspace"
+
+#: src/platform/host-errors-papers.ts
+msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX doctor → Install required tools, then try again."
+msgstr "Lattice's required `uv` tool is not available yet. Open Settings → TeX doctor → Install required tools, then try again."
 
 #: src/app/palette-sections.ts
 #: src/trellis/trellis-titlebar.tsx
@@ -7069,6 +7674,14 @@ msgstr "Live preview engine"
 #: src/live-preview/live-preview-settings.tsx
 msgid "Live preview needs a Mac with Apple silicon"
 msgstr "Live preview needs a Mac with Apple silicon"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Live preview needs a Mac with Apple silicon."
+msgstr "Live preview needs a Mac with Apple silicon."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Live preview needs LuaLaTeX, and Lattice could not run it."
+msgstr "Live preview needs LuaLaTeX, and Lattice could not run it."
 
 #: src/live-preview/live-preview-settings.tsx
 msgid "Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again"
@@ -7651,6 +8264,10 @@ msgstr "Mu"
 msgid "Multi-line aligned equations"
 msgstr "Multi-line aligned equations"
 
+#: src/platform/host-errors-papers.ts
+msgid "Multiple existing citations match this paper. Resolve the duplicates before importing."
+msgstr "Multiple existing citations match this paper. Resolve the duplicates before importing."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "Multiset union"
@@ -7824,6 +8441,10 @@ msgstr "New presentation"
 msgid "New project"
 msgstr "New project"
 
+#: src/platform/host-errors-project.ts
+msgid "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
+msgstr "New source files must use .tex, .bib, .md, .sty, .cls, .txt, .html, .tsx, .ts, .jsx, .js, .tldr, or .lattice-sheet."
+
 #: src/trellis/trellis-labels.ts
 msgid "New split below"
 msgstr "New split below"
@@ -7954,6 +8575,10 @@ msgstr "No changes since the last version."
 msgid "No changes suggested"
 msgstr "No changes suggested"
 
+#: src/platform/host-errors-papers.ts
+msgid "No citation was returned."
+msgstr "No citation was returned."
+
 #: src/app/command-palette.tsx
 msgid "No commands or settings match “{query}”"
 msgstr "No commands or settings match “{query}”"
@@ -8025,6 +8650,10 @@ msgstr "No independent metadata to verify a possible record"
 #: src/build/compile-explain.ts
 msgid "No label {label}"
 msgstr "No label {label}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "No LaTeX source was found for this PDF position."
+msgstr "No LaTeX source was found for this PDF position."
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "No license declared"
@@ -8130,6 +8759,10 @@ msgstr "No notices · checked {date}"
 msgid "No occurrences"
 msgstr "No occurrences"
 
+#: src/platform/host-errors-project.ts
+msgid "No occurrences of “{old}” were found."
+msgstr "No occurrences of “{old}” were found."
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No open annotations"
 msgstr "No open annotations"
@@ -8141,6 +8774,14 @@ msgstr "No open comments"
 #: src/overleaf/overleaf-history.tsx
 msgid "No Overleaf history yet"
 msgstr "No Overleaf history yet"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "No Overleaf host configured."
+msgstr "No Overleaf host configured."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "No Overleaf project selected."
+msgstr "No Overleaf project selected."
 
 #: src/project/project-find-dialog.tsx
 msgid "No papers match “{trimmedQuery}”"
@@ -8223,6 +8864,10 @@ msgstr "No sections yet"
 #: src/app/shortcut-sheet.tsx
 msgid "No shortcut matches “{0}”"
 msgstr "No shortcut matches “{0}”"
+
+#: src/platform/host-errors-workspace.ts
+msgid "No such file or folder."
+msgstr "No such file or folder."
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this file"
@@ -8328,6 +8973,14 @@ msgstr "Not cited in this paper yet"
 #: src/project/paper-list-toolbar.tsx
 msgid "Not cited yet"
 msgstr "Not cited yet"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Not connected to Overleaf. Connect in Settings → Overleaf."
+msgstr "Not connected to Overleaf. Connect in Settings → Overleaf."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Not connected to Overleaf's live editing channel."
+msgstr "Not connected to Overleaf's live editing channel."
 
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
@@ -8567,6 +9220,10 @@ msgstr "On this Mac"
 msgid "One record matches"
 msgstr "One record matches"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Only a LaTeX document can be exported with its changes marked."
+msgstr "Only a LaTeX document can be exported with its changes marked."
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change"
 msgstr "Only binary files would change"
@@ -8587,6 +9244,18 @@ msgstr "Only operation metadata and counts. Nothing leaves this Mac until you co
 #: src/history/export-changes-dialog.tsx
 msgid "Only pages with changes"
 msgstr "Only pages with changes"
+
+#: src/platform/host-errors-project.ts
+msgid "Only project PDFs are read in ranges."
+msgstr "Only project PDFs are read in ranges."
+
+#: src/platform/host-errors-project.ts
+msgid "Only project PDFs are saved as copies."
+msgstr "Only project PDFs are saved as copies."
+
+#: src/platform/host-errors-project.ts
+msgid "Only project sidecar files can be written under .research."
+msgstr "Only project sidecar files can be written under .research."
 
 #: src/settings/grammar-settings.tsx
 msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
@@ -8642,6 +9311,14 @@ msgstr "Open a file to see its suggestions"
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "Open a LaTeX project"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Open a project before exporting."
+msgstr "Open a project before exporting."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Open a project first."
+msgstr "Open a project first."
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open a project from Overleaf"
@@ -8953,6 +9630,10 @@ msgstr "Overleaf comments and chat"
 msgid "Overleaf comments and chat · {count} waiting"
 msgstr "Overleaf comments and chat · {count} waiting"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf could not create the project ({status}): {detail}"
+msgstr "Overleaf could not create the project ({status}): {detail}"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
 msgstr "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file."
@@ -8961,6 +9642,18 @@ msgstr "Overleaf could not replay enough history to confirm the last edit to {ac
 msgid "Overleaf could not replay from the last version Lattice trusts"
 msgstr "Overleaf could not replay from the last version Lattice trusts"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf created {host}/project/{id}, but Lattice could not link this folder: {error}"
+msgstr "Overleaf created {host}/project/{id}, but Lattice could not link this folder: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf did not report that document in this project."
+msgstr "Overleaf did not report that document in this project."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf disconnected this session."
+msgstr "Overleaf disconnected this session."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "Overleaf doesn’t support live editing for this file, so it will use regular sync."
@@ -8968,6 +9661,10 @@ msgstr "Overleaf doesn’t support live editing for this file, so it will use re
 #: src/app/overleaf-sync-warnings.ts
 msgid "Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both."
 msgstr "Overleaf has names that differ only in capitalization, which this Mac treats as the same name: {pairs}. Only the first of each pair syncs here. Rename one of them on Overleaf to sync both."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf has sent nothing for {seconds}s, so the connection is presumed lost."
+msgstr "Overleaf has sent nothing for {seconds}s, so the connection is presumed lost."
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Overleaf history"
@@ -8978,15 +9675,19 @@ msgstr "Overleaf history"
 msgid "Overleaf history keeps a copy"
 msgstr "Overleaf history keeps a copy"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf is still preparing file uploads. Try syncing again in a moment."
+msgstr "Overleaf is still preparing file uploads. Try syncing again in a moment."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 msgstr "Overleaf keeps refusing live editing for this project, though you are still signed in. Check that the project still opens on Overleaf."
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
 msgstr "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds} s…"
 
-#: src/overleaf/use-overleaf-realtime.ts
+#: src/overleaf/overleaf-realtime-model.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 
@@ -9002,6 +9703,10 @@ msgstr "Overleaf project actions"
 msgid "Overleaf projects"
 msgstr "Overleaf projects"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf refused the realtime handshake (HTTP {status})."
+msgstr "Overleaf refused the realtime handshake (HTTP {status})."
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf refused this project"
 msgstr "Overleaf refused this project"
@@ -9014,6 +9719,22 @@ msgstr "Overleaf rejected a live update ({detail})."
 msgid "Overleaf rejected a live update ({detail}). Falling back to syncing."
 msgstr "Overleaf rejected a live update ({detail}). Falling back to syncing."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf rejected that cookie. Copy a fresh session cookie from a logged-in browser and try again."
+msgstr "Overleaf rejected that cookie. Copy a fresh session cookie from a logged-in browser and try again."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf rejected the edit."
+msgstr "Overleaf rejected the edit."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf rejected the realtime connection."
+msgstr "Overleaf rejected the realtime connection."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf rejected the upload"
+msgstr "Overleaf rejected the upload"
+
 #: src/history/conflict-resolver.tsx
 msgid "Overleaf removed this part."
 msgstr "Overleaf removed this part."
@@ -9022,6 +9743,14 @@ msgstr "Overleaf removed this part."
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 msgstr "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf returned HTTP {status} during upload"
+msgstr "Overleaf returned HTTP {status} during upload"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf sent an unreadable zip archive: {error}"
+msgstr "Overleaf sent an unreadable zip archive: {error}"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
 msgstr "Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
@@ -9029,6 +9758,10 @@ msgstr "Overleaf sent these empty or much smaller, but its history does not conf
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf sent version {version} while this document is at {current}."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf session expired. Reconnect in Settings → Overleaf."
+msgstr "Overleaf session expired. Reconnect in Settings → Overleaf."
 
 #: src/app/use-command-table.ts
 msgid "Overleaf source pack"
@@ -9051,6 +9784,14 @@ msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 msgid "Overleaf sync paused"
 msgstr "Overleaf sync paused"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf turned this request away, though the session is still valid."
+msgstr "Overleaf turned this request away, though the session is still valid."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf write access is required to sync moved files. Local moves have been kept."
+msgstr "Overleaf write access is required to sync moved files. Local moves have been kept."
+
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: already up to date."
 msgstr "Overleaf: already up to date."
@@ -9062,6 +9803,14 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}, merged {merged}."
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's full history needs a paid plan on this project."
+msgstr "Overleaf's full history needs a paid plan on this project."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's history since the last sync is longer than Lattice reads at once."
+msgstr "Overleaf's history since the last sync is longer than Lattice reads at once."
 
 #: src/project/paper-library.tsx
 msgid "Overview"
@@ -9160,6 +9909,10 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 #: src/app/use-reference-import.ts
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
+
+#: src/platform/host-errors-papers.ts
+msgid "Paper import cancelled."
+msgstr "Paper import cancelled."
 
 #: src/app/open-document-intents.ts
 msgid "Paper switch"
@@ -9261,6 +10014,10 @@ msgstr "Paste or type a link"
 msgid "Paste references"
 msgstr "Paste references"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Paste the Overleaf session cookie first."
+msgstr "Paste the Overleaf session cookie first."
+
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
 msgstr "Paste your API key"
@@ -9292,6 +10049,10 @@ msgstr "Pause syncing"
 msgid "PDF"
 msgstr "PDF"
 
+#: src/platform/host-errors-papers.ts
+msgid "PDF conversion failed: {error}"
+msgstr "PDF conversion failed: {error}"
+
 #: src/pdf/use-pdf-document.ts
 msgid "PDF could not be loaded"
 msgstr "PDF could not be loaded"
@@ -9300,6 +10061,10 @@ msgstr "PDF could not be loaded"
 #: src/pdf/review-pdf-sheet.tsx
 msgid "PDF document"
 msgstr "PDF document"
+
+#: src/platform/host-errors-papers.ts
+msgid "PDF download failed: {error}"
+msgstr "PDF download failed: {error}"
 
 #: src/build/tex-doctor-messages.ts
 msgid "PDF embedded fonts"
@@ -9397,6 +10162,10 @@ msgstr "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add {command
 #: src/overleaf/overleaf-presence.tsx
 msgid "People in this Overleaf project"
 msgstr "People in this Overleaf project"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Permission denied."
+msgstr "Permission denied."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Perpendicular"
@@ -9804,6 +10573,10 @@ msgstr "Public daily quota exhausted"
 #: src/papers/bibliography-audit.tsx
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
+
+#: src/platform/host-errors-papers.ts
+msgid "Publication metadata for ''{key}'' could not be independently confirmed."
+msgstr "Publication metadata for ''{key}'' could not be independently confirmed."
 
 #: src/papers/audit-messages.ts
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
@@ -10578,6 +11351,10 @@ msgstr "Resolve changes to {path}"
 #: src/history/conflict-resolver.tsx
 msgid "Resolve conflicts in {path}"
 msgstr "Resolve conflicts in {path}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Resolve the conflict markers before publishing: {files}."
+msgstr "Resolve the conflict markers before publishing: {files}."
 
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -11444,6 +12221,10 @@ msgstr "Select text, then choose Comment"
 msgid "Select the compile root in the file list to continue."
 msgstr "Select the compile root in the file list to continue."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Select the compile root, preview and reusable files, and a supported engine."
+msgstr "Select the compile root, preview and reusable files, and a supported engine."
+
 #: src/editor/latex/latex-shortcuts.ts
 msgid "Select the environment"
 msgstr "Select the environment"
@@ -11902,6 +12683,10 @@ msgstr "Source changes"
 msgid "Source control"
 msgstr "Source control"
 
+#: src/platform/host-errors-papers.ts
+msgid "Source download failed: {error}"
+msgstr "Source download failed: {error}"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Source editor font size"
@@ -11910,6 +12695,10 @@ msgstr "Source editor font size"
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Source path is outside this project."
+msgstr "Source path is outside this project."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source rate limit reached"
@@ -12203,6 +12992,10 @@ msgstr "Superset or equal"
 msgid "Surface / area integral"
 msgstr "Surface / area integral"
 
+#: src/platform/host-errors-project.ts
+msgid "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
+msgstr "SVG insertion needs rsvg-convert or ImageMagick. The figure can still be previewed in Lattice."
+
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "Switch project"
@@ -12242,6 +13035,14 @@ msgstr "Switching project…"
 #: src/project/references-panel.tsx
 msgid "Symbol references"
 msgstr "Symbol references"
+
+#: src/platform/host-errors-project.ts
+msgid "Symbolic links cannot be moved or renamed."
+msgstr "Symbolic links cannot be moved or renamed."
+
+#: src/platform/host-errors-project.ts
+msgid "Symbolic links cannot be used for project file operations."
+msgstr "Symbolic links cannot be used for project file operations."
 
 #: src/settings/synara-settings-pane.tsx
 msgid "Synara {synaraSettingsLabel} settings"
@@ -12284,6 +13085,10 @@ msgstr "Sync now"
 msgid "Sync paused"
 msgstr "Sync paused"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Sync pending file moves with Overleaf before comparing file contents."
+msgstr "Sync pending file moves with Overleaf before comparing file contents."
+
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
@@ -12292,6 +13097,10 @@ msgstr "Sync with Overleaf"
 #: src/canvas/status-save-state.tsx
 msgid "Synced {synced}"
 msgstr "Synced {synced}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Syncing is paused for this project. Resume it in Settings → Overleaf."
+msgstr "Syncing is paused for this project. Resume it in Settings → Overleaf."
 
 #: src/project/paper-library-status.tsx
 msgid "Syncing references…"
@@ -12314,6 +13123,14 @@ msgstr "Syncing…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
+#: src/platform/host-errors-workspace.ts
+msgid "SyncTeX could not locate this PDF position."
+msgstr "SyncTeX could not locate this PDF position."
+
+#: src/platform/host-errors-workspace.ts
+msgid "SyncTeX could not locate this source line."
+msgstr "SyncTeX could not locate this source line."
+
 #: src/pdf/review-pdf-sheet.tsx
 msgid "SyncTeX does not place this passage on the PDF. Build the project again, then export."
 msgstr "SyncTeX does not place this passage on the PDF. Build the project again, then export."
@@ -12322,6 +13139,10 @@ msgstr "SyncTeX does not place this passage on the PDF. Build the project again,
 #: src/app/annotation-rounds.ts
 msgid "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
 msgstr "SyncTeX placed this text outside {0}. Build the PDF again, then annotate."
+
+#: src/platform/host-errors-workspace.ts
+msgid "SyncTeX returned a source file outside this project."
+msgstr "SyncTeX returned a source file outside this project."
 
 #. Search words for the Code theme setting, space-separated
 #: src/settings/settings-search-index.ts
@@ -12391,10 +13212,26 @@ msgstr "Technical details"
 msgid "Technical writing uses nouns like “setup” and “rollout” on purpose."
 msgstr "Technical writing uses nouns like “setup” and “rollout” on purpose."
 
+#: src/platform/host-errors-workspace.ts
+msgid "Template files are missing."
+msgstr "Template files are missing."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Template identity does not match its folder."
+msgstr "Template identity does not match its folder."
+
 #: src/project/local-templates.tsx
 #: src/project/submission-items.tsx
 msgid "Template name"
 msgstr "Template name"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Template paths must be UTF-8."
+msgstr "Template paths must be UTF-8."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Templates are limited to 2,000 files and 100 MB."
+msgstr "Templates are limited to 2,000 files and 100 MB."
 
 #: src/trellis/trellis-titles.ts
 msgid "Terminal"
@@ -12468,9 +13305,53 @@ msgstr "Text to find"
 msgid "Textual citation"
 msgstr "Textual citation"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
+msgstr "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
+
 #: src/settings/literature-settings.tsx
 msgid "That didn’t work. Check the input and keychain access"
 msgstr "That didn’t work. Check the input and keychain access"
+
+#: src/platform/host-errors-workspace.ts
+msgid "That file is not part of this history entry."
+msgstr "That file is not part of this history entry."
+
+#: src/platform/host-errors-project.ts
+msgid "That file or folder no longer exists."
+msgstr "That file or folder no longer exists."
+
+#: src/platform/host-errors-project.ts
+msgid "That folder already exists and is not empty."
+msgstr "That folder already exists and is not empty."
+
+#: src/platform/host-errors-workspace.ts
+msgid "That history entry no longer exists."
+msgstr "That history entry no longer exists."
+
+#: src/platform/host-errors-workspace.ts
+msgid "That is a folder."
+msgstr "That is a folder."
+
+#: src/platform/host-errors-project.ts
+msgid "That item"
+msgstr "That item"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "That Overleaf document is no longer open live."
+msgstr "That Overleaf document is no longer open live."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "That Overleaf project name cannot be used as a folder name."
+msgstr "That Overleaf project name cannot be used as a folder name."
+
+#: src/platform/host-errors-project.ts
+msgid "That path cannot be written directly."
+msgstr "That path cannot be written directly."
+
+#: src/platform/host-errors-project.ts
+msgid "The {name} “{value}” already exists."
+msgstr "The {name} “{value}” already exists."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the acknowledgement did not arrive in time"
@@ -12549,6 +13430,14 @@ msgstr "The agent's reply did not contain a rewritten version of the selection."
 msgid "The agent's reply held neither a revision nor a question."
 msgstr "The agent's reply held neither a revision nor a question."
 
+#: src/platform/host-errors-papers.ts
+msgid "The alphaXiv paper was not found."
+msgstr "The alphaXiv paper was not found."
+
+#: src/platform/host-errors-papers.ts
+msgid "The alphaXiv PDF has no readable text."
+msgstr "The alphaXiv PDF has no readable text."
+
 #: src/canvas/annotation-review.tsx
 msgid "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
 msgstr "The annotated passage changed or moved, so its proposal cannot be placed. Ask the agent again from the Annotations panel."
@@ -12565,9 +13454,21 @@ msgstr "The argument of {command} contains a blank line, which usually means a m
 msgid "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
 msgstr "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing."
 
+#: src/platform/host-errors-papers.ts
+msgid "The bibliography already contains duplicate citation keys. Resolve them before importing."
+msgstr "The bibliography already contains duplicate citation keys. Resolve them before importing."
+
 #: src/app/remove-reference-action.ts
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
 msgstr "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
+
+#: src/platform/host-errors-papers.ts
+msgid "The bibliography changed while resolving the citation. Retry the import."
+msgstr "The bibliography changed while resolving the citation. Retry the import."
+
+#: src/platform/host-errors-papers.ts
+msgid "The bibliography changed while upgrading. Retry the operation."
+msgstr "The bibliography changed while upgrading. Retry the operation."
 
 #: src/papers/audit-messages.ts
 msgid "The bibliography entry changed after the scan."
@@ -12585,6 +13486,26 @@ msgstr "The bibliography has no .bbl"
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "The bundled Agent service did not report a valid local address."
 
+#: src/platform/host-errors-papers.ts
+msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
+msgstr "The candidate's title or authors conflict with its source metadata. No citation was added."
+
+#: src/platform/host-errors-papers.ts
+msgid "The citation contains conflicting arXiv identifiers."
+msgstr "The citation contains conflicting arXiv identifiers."
+
+#: src/platform/host-errors-papers.ts
+msgid "The citation DOI conflicts with its DOI URL."
+msgstr "The citation DOI conflicts with its DOI URL."
+
+#: src/platform/host-errors-project.ts
+msgid "The clipboard data is not a valid image."
+msgstr "The clipboard data is not a valid image."
+
+#: src/platform/host-errors-project.ts
+msgid "The clipboard image was empty."
+msgstr "The clipboard image was empty."
+
 #: src/app/use-command-table.ts
 msgid "the comment or suggestion by the caret"
 msgstr "the comment or suggestion by the caret"
@@ -12592,6 +13513,10 @@ msgstr "the comment or suggestion by the caret"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The commented file is no longer open live with Overleaf. Try again."
 msgstr "The commented file is no longer open live with Overleaf. Try again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The compiled output is not a valid PDF."
+msgstr "The compiled output is not a valid PDF."
 
 #. placeholder {0}: result.disagreements.map(fieldText).join(", ")
 #: src/papers/bibliography-audit.tsx
@@ -12602,6 +13527,10 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
 
+#: src/platform/host-errors-workspace.ts
+msgid "The copy is not UTF-8 text."
+msgstr "The copy is not UTF-8 text."
+
 #: src/editor/grammar-rule-text.ts
 msgid "The correct idiom is “{idiom}”."
 msgstr "The correct idiom is “{idiom}”."
@@ -12609,6 +13538,18 @@ msgstr "The correct idiom is “{idiom}”."
 #: src/editor/grammar-rule-text.ts
 msgid "The correct plural is “{plural}”."
 msgstr "The correct plural is “{plural}”."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The disk is full."
+msgstr "The disk is full."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The disk is read-only."
+msgstr "The disk is read-only."
+
+#: src/platform/host-errors-project.ts
+msgid "The document being compiled and its bibliography cannot be deleted."
+msgstr "The document being compiled and its bibliography cannot be deleted."
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
@@ -12638,6 +13579,22 @@ msgstr "The document never loads Times: add {command} after the template, then B
 msgid "the documents area"
 msgstr "the documents area"
 
+#: src/platform/host-errors-workspace.ts
+msgid "The Excel workbook is too large to export."
+msgstr "The Excel workbook is too large to export."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The exported data is not a valid Excel workbook."
+msgstr "The exported data is not a valid Excel workbook."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The exported paper must use the .pdf extension."
+msgstr "The exported paper must use the .pdf extension."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The exported workbook must use the .xlsx extension."
+msgstr "The exported workbook must use the .xlsx extension."
+
 #: src/project/figure-inventory.ts
 msgid "The figure source changed. Refresh and preview again."
 msgstr "The figure source changed. Refresh and preview again."
@@ -12646,6 +13603,10 @@ msgstr "The figure source changed. Refresh and preview again."
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
 
+#: src/platform/host-errors-workspace.ts
+msgid "The file name is too long."
+msgstr "The file name is too long."
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "The files already read as {name}."
 msgstr "The files already read as {name}."
@@ -12653,6 +13614,10 @@ msgstr "The files already read as {name}."
 #: src/app/remove-reference-action.ts
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The folder is not empty."
+msgstr "The folder is not empty."
 
 #: src/live-preview/live-preview-status.tsx
 msgid "The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes."
@@ -12678,6 +13643,18 @@ msgstr "The LaTeX logo"
 msgid "The LaTeX tool ''{tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice."
 msgstr "The LaTeX tool ''{tool}'' was not found. Install MacTeX or TeX Live, then restart Lattice."
 
+#: src/platform/host-errors-workspace.ts
+msgid "The linked library is larger than 16 MB."
+msgstr "The linked library is larger than 16 MB."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The linked library is not a file."
+msgstr "The linked library is not a file."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The linked library is not UTF-8 text."
+msgstr "The linked library is not UTF-8 text."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "the linked Overleaf host"
 msgstr "the linked Overleaf host"
@@ -12686,9 +13663,45 @@ msgstr "the linked Overleaf host"
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "The linked Overleaf project changed. Try commenting again."
 
+#: src/platform/host-errors-workspace.ts
+msgid "The live preview engine has stopped."
+msgstr "The live preview engine has stopped."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The live preview engine is not installed. Turn live preview on again."
+msgstr "The live preview engine is not installed. Turn live preview on again."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The live preview has stopped."
+msgstr "The live preview has stopped."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "the network became available"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The operation is not permitted."
+msgstr "The operation is not permitted."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf connection changed during the document join."
+msgstr "The Overleaf connection changed during the document join."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf document is no longer joined."
+msgstr "The Overleaf document is no longer joined."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf document ownership changed before it could be released."
+msgstr "The Overleaf document ownership changed before it could be released."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf live connection belongs to a different project."
+msgstr "The Overleaf live connection belongs to a different project."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf project changed before the document joined."
+msgstr "The Overleaf project changed before the document joined."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the Overleaf project connection is no longer active"
@@ -12697,6 +13710,34 @@ msgstr "the Overleaf project connection is no longer active"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The Overleaf project connection is no longer active."
 msgstr "The Overleaf project connection is no longer active."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf realtime connection closed before the server answered."
+msgstr "The Overleaf realtime connection closed before the server answered."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf realtime connection closed."
+msgstr "The Overleaf realtime connection closed."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf realtime connection failed: {error}"
+msgstr "The Overleaf realtime connection failed: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf realtime connection is closed."
+msgstr "The Overleaf realtime connection is closed."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf realtime server returned an error: {error}"
+msgstr "The Overleaf realtime server returned an error: {error}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf server closed the connection: {reason}"
+msgstr "The Overleaf server closed the connection: {reason}"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf server closed the connection."
+msgstr "The Overleaf server closed the connection."
 
 #: src/project/arxiv-export.ts
 msgid "The package did not finish building"
@@ -12710,6 +13751,10 @@ msgstr "The package does not build alone"
 msgid "The package repository does not have this package."
 msgstr "The package repository does not have this package."
 
+#: src/platform/host-errors-papers.ts
+msgid "The page has no readable citation metadata; it may require JavaScript."
+msgstr "The page has no readable citation metadata; it may require JavaScript."
+
 #: src/project/arxiv-export.ts
 msgid "The paper has no figures"
 msgstr "The paper has no figures"
@@ -12721,6 +13766,14 @@ msgstr "The paragraph you typed is shown. Page breaks and what follows it catch 
 #: src/canvas/annotation-review.tsx
 msgid "The passage changed after the agent read it. Try again to have it read the passage as it is now."
 msgstr "The passage changed after the agent read it. Try again to have it read the passage as it is now."
+
+#: src/platform/host-errors-papers.ts
+msgid "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
+msgstr "The PDF has almost no text layer; a scanned paper needs OCR, which is not available."
+
+#: src/platform/host-errors-papers.ts
+msgid "The PDF is larger than the 100 MB conversion limit."
+msgstr "The PDF is larger than the 100 MB conversion limit."
 
 #: src/build/build-log-messages.ts
 msgid "The PDF is missing {count} Chinese characters ({sample}): this document's fonts have none. Add {command} to the preamble, or start from the Chinese article template."
@@ -12743,9 +13796,29 @@ msgstr "The PDF took too long to load. Try again, or open the article in your br
 msgid "The PDF was built on {0}."
 msgstr "The PDF was built on {0}."
 
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build: {detail}"
+msgstr "The PDF with changes marked did not build: {detail}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The PDF with changes marked did not build."
+msgstr "The PDF with changes marked did not build."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "The previous Overleaf document could not be released. Syncing remains paused."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The project changed before Overleaf could connect."
+msgstr "The project changed before Overleaf could connect."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The project changed before Overleaf could finish connecting."
+msgstr "The project changed before Overleaf could finish connecting."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The project changed before the action could start."
+msgstr "The project changed before the action could start."
 
 #: src/app/use-apply-open-slide-mutation.ts
 msgid "The project closed before the Open Slide edit could be saved."
@@ -12779,6 +13852,14 @@ msgstr "The realtime connection closed."
 msgid "The reference is verified"
 msgstr "The reference is verified"
 
+#: src/platform/host-errors-project.ts
+msgid "The rename did not change any files."
+msgstr "The rename did not change any files."
+
+#: src/platform/host-errors-papers.ts
+msgid "The rendered page still has no reliable citation metadata. Supply its official BibTeX or DOI instead."
+msgstr "The rendered page still has no reliable citation metadata. Supply its official BibTeX or DOI instead."
+
 #: src/build/compile-repair-messages.ts
 msgid "The repair agent needs an answer. Open the repair thread to respond."
 msgstr "The repair agent needs an answer. Open the repair thread to respond."
@@ -12791,9 +13872,17 @@ msgstr "The repair request failed."
 msgid "The repair service did not return a task."
 msgstr "The repair service did not return a task."
 
+#: src/platform/host-errors-project.ts
+msgid "The requested path is outside the project."
+msgstr "The requested path is outside the project."
+
 #: src/build/tex-setup-wizard.tsx
 msgid "The required tools"
 msgstr "The required tools"
+
+#: src/platform/host-errors-papers.ts
+msgid "The resolved title differs from the requested title. Supply its DOI or arXiv URL instead."
+msgstr "The resolved title differs from the requested title. Supply its DOI or arXiv URL instead."
 
 #: src/telemetry/panel-error-boundary.tsx
 msgid "The rest of the window keeps working."
@@ -12802,6 +13891,18 @@ msgstr "The rest of the window keeps working."
 #: src/settings/agent-environment-settings.tsx
 msgid "The running agent started with different values. Restarting it stops any running turns."
 msgstr "The running agent started with different values. Restarting it stops any running turns."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The saved visual must use the .html extension."
+msgstr "The saved visual must use the .html extension."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The selected files are already at the requested state."
+msgstr "The selected files are already at the requested state."
+
+#: src/platform/host-errors-project.ts
+msgid "The selected path is not a folder."
+msgstr "The selected path is not a folder."
 
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
@@ -12815,6 +13916,10 @@ msgstr "The selected text changed. Select it again before commenting."
 #: src/settings/grammar-rule-reasons.ts
 msgid "The serial comma is a house-style choice that venues and authors set differently."
 msgstr "The serial comma is a house-style choice that venues and authors set differently."
+
+#: src/platform/host-errors-papers.ts
+msgid "The server returned HTTP {status} for the PDF."
+msgstr "The server returned HTTP {status} for the PDF."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -12832,9 +13937,17 @@ msgstr "The shell exited with code {code}"
 msgid "The shell was stopped"
 msgstr "The shell was stopped"
 
+#: src/platform/host-errors-papers.ts
+msgid "The source archive is larger than the 100 MB conversion limit."
+msgstr "The source archive is larger than the 100 MB conversion limit."
+
 #: src/canvas/pdf-annotation-composer.tsx
 msgid "The source changed since the PDF was built. Build again, then annotate."
 msgstr "The source changed since the PDF was built. Build again, then annotate."
+
+#: src/platform/host-errors-papers.ts
+msgid "The source gzip is unreadable: {error}"
+msgstr "The source gzip is unreadable: {error}"
 
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
@@ -12843,6 +13956,10 @@ msgstr "The source spells file names in another case"
 #: src/agent/agent-environment.ts
 msgid "The system proxy changed"
 msgstr "The system proxy changed"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The template contains duplicate file paths."
+msgstr "The template contains duplicate file paths."
 
 #: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
@@ -12856,17 +13973,45 @@ msgstr "The template's options were not found"
 msgid "The terminal is in the Lattice window"
 msgstr "The terminal is in the Lattice window"
 
+#: src/platform/host-errors-workspace.ts
+msgid "The text is too large to save as a copy."
+msgstr "The text is too large to save as a copy."
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "The third-party notices could not be read from the app bundle."
 msgstr "The third-party notices could not be read from the app bundle."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The transaction contains no edits."
+msgstr "The transaction contains no edits."
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "The two versions read the same"
 msgstr "The two versions read the same"
 
+#: src/platform/host-errors-papers.ts
+msgid "The upgrade changes the identity of ''{key}''. No changes were saved."
+msgstr "The upgrade changes the identity of ''{key}''. No changes were saved."
+
+#: src/platform/host-errors-papers.ts
+msgid "The URL did not return a PDF document."
+msgstr "The URL did not return a PDF document."
+
 #: src/papers/audit-messages.ts
 msgid "The verified record differs from this inline reference. Inline references are edited by hand."
 msgstr "The verified record differs from this inline reference. Inline references are edited by hand."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The visual is not UTF-8 text."
+msgstr "The visual is not UTF-8 text."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The visual is too large to save."
+msgstr "The visual is too large to save."
+
+#: src/platform/host-errors-papers.ts
+msgid "The webpage HTML exceeds the 4 MB citation extraction limit."
+msgstr "The webpage HTML exceeds the 4 MB citation extraction limit."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
@@ -12875,6 +14020,10 @@ msgstr "The worksheet and all of its contents will be removed and cannot be reco
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed."
 msgstr "The worksheet and all of its contents will be removed."
+
+#: src/platform/host-errors-workspace.ts
+msgid "The ZIP has too many entries."
+msgstr "The ZIP has too many entries."
 
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
@@ -12897,6 +14046,10 @@ msgstr "There exists"
 #: src/build/tex-setup.ts
 msgid "There is not enough disk space to install the package. Free up some space, then try again."
 msgstr "There is not enough disk space to install the package. Free up some space, then try again."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "These files are too large for Overleaf: {files}."
+msgstr "These files are too large for Overleaf: {files}."
 
 #: src/history/compare-versions.tsx
 msgid "These two versions have the same files."
@@ -12939,9 +14092,21 @@ msgstr "This bibliography can't be shown as a list until it reads as BibTeX."
 msgid "This bibliography entry has no citation key to remove."
 msgstr "This bibliography entry has no citation key to remove."
 
+#: src/platform/host-errors-workspace.ts
+msgid "This bibliography entry is not included in the compiled PDF."
+msgstr "This bibliography entry is not included in the compiled PDF."
+
 #: src/papers/audit-messages.ts
 msgid "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
 msgstr "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
+
+#: src/platform/host-errors-project.ts
+msgid "This byte range cannot be read."
+msgstr "This byte range cannot be read."
+
+#: src/platform/host-errors-project.ts
+msgid "This byte range is outside the file."
+msgstr "This byte range is outside the file."
 
 #: src/agent/synara-confirmations.ts
 msgid "This cannot be undone."
@@ -12991,6 +14156,10 @@ msgstr "This entry is cited in {count} places."
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
 
+#: src/platform/host-errors-project.ts
+msgid "This figure is too large to preview inside Lattice (50 MB maximum)."
+msgstr "This figure is too large to preview inside Lattice (50 MB maximum)."
+
 #: src/project/figure-inventory.ts
 msgid "This figure path cannot be inserted safely."
 msgstr "This figure path cannot be inserted safely."
@@ -13003,9 +14172,17 @@ msgstr "This file"
 msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
 msgstr "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
 
+#: src/platform/host-errors-project.ts
+msgid "This file is not a PDF."
+msgstr "This file is not a PDF."
+
 #: src/app/use-editor-comments.ts
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
+
+#: src/platform/host-errors-project.ts
+msgid "This file is not UTF-8 text, so Lattice cannot open it. Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again."
+msgstr "This file is not UTF-8 text, so Lattice cannot open it. Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again."
 
 #: src/app/use-project-tree.ts
 msgid "This file type can’t be opened in an editor"
@@ -13018,6 +14195,14 @@ msgstr "This format cannot be rendered in the preview"
 #: src/trellis/trellis-labels.ts
 msgid "this group"
 msgstr "this group"
+
+#: src/platform/host-errors-project.ts
+msgid "This HTML file is too large to open (32 MB maximum)."
+msgstr "This HTML file is too large to open (32 MB maximum)."
+
+#: src/platform/host-errors-project.ts
+msgid "This is a binary or unsupported file and cannot be opened in the source editor."
+msgstr "This is a binary or unsupported file and cannot be opened in the source editor."
 
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
@@ -13039,6 +14224,10 @@ msgstr "This line uses a math-only command or character, such as _ or ^, outside
 msgid "This looks like a typo. Did you mean “{word}”?"
 msgstr "This looks like a typo. Did you mean “{word}”?"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "This Overleaf account can no longer open the project. It may have been removed from the project, or the project deleted."
+msgstr "This Overleaf account can no longer open the project. It may have been removed from the project, or the project deleted."
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "This package ships no license text of its own"
 msgstr "This package ships no license text of its own"
@@ -13051,9 +14240,21 @@ msgstr "This panel stopped working"
 msgid "This paper has no local reading or downloadable source."
 msgstr "This paper has no local reading or downloadable source."
 
+#: src/platform/host-errors-project.ts
+msgid "This PDF changed on disk."
+msgstr "This PDF changed on disk."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This PDF has no SyncTeX data, so Lattice cannot match it to the source. A PDF compiled outside Lattice leaves it out, and latexmk then reports nothing to do — press Build once to write it."
+msgstr "This PDF has no SyncTeX data, so Lattice cannot match it to the source. A PDF compiled outside Lattice leaves it out, and latexmk then reports nothing to do — press Build once to write it."
+
 #: src/canvas/project-asset-preview.tsx
 msgid "This PDF was removed from the project."
 msgstr "This PDF was removed from the project."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project has no files that can be uploaded to Overleaf."
+msgstr "This project has no files that can be uploaded to Overleaf."
 
 #: src/app/use-build-pipeline.ts
 msgid "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
@@ -13064,6 +14265,26 @@ msgstr "This project has no LaTeX document to build yet. Add a .tex file, or set
 #: src/papers/linked-library-sheet.tsx
 msgid "This project has no primary bibliography."
 msgstr "This project has no primary bibliography."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project is already linked to an Overleaf project."
+msgstr "This project is already linked to an Overleaf project."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This project is already open in another Lattice window. Open it in the browser from that window instead."
+msgstr "This project is already open in another Lattice window. Open it in the browser from that window instead."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project is linked to {host}. Sign out and connect to that Overleaf host to continue."
+msgstr "This project is linked to {host}. Sign out and connect to that Overleaf host to continue."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This project is not inside a Git repository."
+msgstr "This project is not inside a Git repository."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "This project is not linked to an Overleaf project."
+msgstr "This project is not linked to an Overleaf project."
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -13110,6 +14331,10 @@ msgstr "This table has source edits or unsupported structure. Continue editing i
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 
+#: src/platform/host-errors-papers.ts
+msgid "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."
+msgstr "This title has no independently verifiable identifier. Supply its official BibTeX or URL instead."
+
 #: src/papers/bib-visual-editor.tsx
 msgid "This value joins strings with #; keep it valid BibTeX."
 msgstr "This value joins strings with #; keep it valid BibTeX."
@@ -13121,6 +14346,10 @@ msgstr "This version of the agent runtime cannot proofread yet. Update Lattice t
 #: src/app/annotation-rounds.ts
 msgid "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
 msgstr "This version of the agent runtime cannot revise annotations yet. Update Lattice to use revisions."
+
+#: src/platform/host-errors-workspace.ts
+msgid "This workspace is already open in the Lattice app."
+msgstr "This workspace is already open in the Lattice app."
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -13243,6 +14472,10 @@ msgstr "Too large for Overleaf, so left on this machine: {files}."
 #: src/build/compile-explain.ts
 msgid "Too many & in a table row"
 msgstr "Too many & in a table row"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Too much to type into the terminal at once."
+msgstr "Too much to type into the terminal at once."
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"
@@ -13533,6 +14766,10 @@ msgstr "Unknown owner"
 msgid "Unknown source response"
 msgstr "Unknown source response"
 
+#: src/platform/host-errors-project.ts
+msgid "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+msgstr "Unknown venue “{venue}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, blank, or chinese-article."
+
 #: src/papers/linked-library-sheet.tsx
 msgid "Unlink"
 msgstr "Unlink"
@@ -13576,6 +14813,10 @@ msgstr "Unpin tab"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Unsafe ZIP entry path."
+msgstr "Unsafe ZIP entry path."
 
 #: src/trellis/trellis-document-views.tsx
 #: src/trellis/trellis-workspace-switch.tsx
@@ -13732,6 +14973,14 @@ msgstr "URL"
 #: src/editor/grammar-rule-text.ts
 msgid "Use “{word}” instead of “{original}”."
 msgstr "Use “{word}” instead of “{original}”."
+
+#: src/platform/host-errors-workspace.ts
+msgid "Use an HTTP(S) source URL without credentials."
+msgstr "Use an HTTP(S) source URL without credentials."
+
+#: src/platform/host-errors-project.ts
+msgid "Use letters, numbers, and :_-.+ in the {name}."
+msgstr "Use letters, numbers, and :_-.+ in the {name}."
 
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"
@@ -13984,6 +15233,10 @@ msgstr "Waiting"
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Waiting for Overleaf's live file tree before syncing moved files."
+msgstr "Waiting for Overleaf's live file tree before syncing moved files."
+
 #: src/papers/bibliography-audit.tsx
 msgid "Waiting for Semantic Scholar…"
 msgstr "Waiting for Semantic Scholar…"
@@ -14198,6 +15451,14 @@ msgstr "Wrap in table float"
 msgid "Wreath product"
 msgstr "Wreath product"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Write a message first."
+msgstr "Write a message first."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Write a reply first."
+msgstr "Write a reply first."
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Write, then build"
 msgstr "Write, then build"
@@ -14247,6 +15508,10 @@ msgstr "You are still signed in. Check that the project still opens on Overleaf;
 #: src/overleaf/overleaf-connect.tsx
 msgid "You can close this once the transfer finishes"
 msgstr "You can close this once the transfer finishes"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "You have read-only access to this Overleaf project, so edits stay on this machine."
+msgstr "You have read-only access to this Overleaf project, so edits stay on this machine."
 
 #: src/papers/bibliography-audit.tsx
 msgid "You kept your entry over an unverified record"

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, RefreshProject } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage, toMessage } from "../app-utils";
 import { isMissingPaperToolsError } from "../build/tex-setup";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
@@ -331,7 +331,7 @@ export function useReferenceImport({
       setBibEntry({ open: false });
       if (insertCite) onCite(draft.key);
     } catch (reason) {
-      setBibEntry({ error: toMessage(reason) });
+      setBibEntry({ error: hostErrorMessage(reason) });
     } finally {
       setBibEntry({ busy: false });
     }

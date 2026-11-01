@@ -7,6 +7,7 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
 import { CopyButton } from "../components/copy-button";
 import type { ToastPosition } from "../settings/app-settings";
+import { hostErrorText } from "../platform/host-error-text";
 import {
   dismissAppToast,
   getVisibleAppToastIds,
@@ -41,6 +42,15 @@ const STACK_LIMIT = 4;
 
 type ToastData = { view: AppToastView };
 type StackToast = Toast.Root.ToastObject<ToastData>;
+
+/**
+ * What a toast says. A failure's text is often the host's English error
+ * verbatim; it reads in the interface language here, on screen only, while
+ * the log and the Copy button keep the English a report is searched by.
+ */
+function toastText(entry: AppToastView["entry"]): { title: string; detail: string } {
+  return { title: hostErrorText(entry.title), detail: hostErrorText(visibleToastDetail(entry.detail)) };
+}
 
 function toastTimeout({ entry, options }: AppToastView): number {
   // A running operation is settled by its owner, never by the clock.
@@ -88,11 +98,12 @@ function ToastList({ views, at }: { views: readonly AppToastView[]; at: ToastPos
       const { entry } = view;
       const current = toasts.find((toast) => toast.id === entry.id);
       if (current?.data?.view === view && current.transitionStatus !== "ending") continue;
+      const { title, detail } = toastText(entry);
       add({
         id: entry.id,
-        title: entry.title,
+        title,
         // Title and description are also what an urgent toast announces.
-        description: visibleToastDetail(entry.detail) || undefined,
+        description: detail || undefined,
         type: entry.level,
         priority: entry.level === "error" ? "high" : "low",
         // Re-adding an id updates it in place and restarts its clock, which is
@@ -115,7 +126,7 @@ function ToastList({ views, at }: { views: readonly AppToastView[]; at: ToastPos
 function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppToastView; at: ToastPosition; onClose: () => void }) {
   const { t } = useLingui();
   const { entry, options } = view;
-  const detail = visibleToastDetail(entry.detail);
+  const { title, detail } = toastText(entry);
   const progress = options?.progress;
   const Icon = LEVEL_ICON[entry.level];
   const actions = [options?.primaryAction, options?.secondaryAction].flatMap((action) => action ? [action] : []);
@@ -123,7 +134,7 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
   // Messages migrated off the old one-line banners arrive as a title with no
   // detail, so length has to be judged across both — a 200-character title
   // clipped to one line is the failure this replaced.
-  const multiline = detail.length > 72 || entry.title.length > 72 || hasActions || progress !== undefined;
+  const multiline = detail.length > 72 || title.length > 72 || hasActions || progress !== undefined;
   return (
     <Toast.Root
       toast={toast}
@@ -142,9 +153,9 @@ function AppToast({ toast, view, at, onClose }: { toast: StackToast; view: AppTo
           {progress !== undefined ? <InfinityLoader size={16} /> : <Icon size={16} aria-hidden="true" />}
         </span>
         <div className="app-toast-body">
-          <Toast.Title className="app-toast-title">{entry.title}</Toast.Title>
+          <Toast.Title className="app-toast-title">{title}</Toast.Title>
           {detail && <Toast.Description className="app-toast-description" title={detail}>{detail}</Toast.Description>}
-          {progress !== undefined && <ToastProgress progress={progress} label={entry.title} />}
+          {progress !== undefined && <ToastProgress progress={progress} label={title} />}
           {hasActions && (
             <div className="app-toast-actions">
               {options?.copyText && (

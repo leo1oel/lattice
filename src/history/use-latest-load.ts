@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 
 type LatestLoad<T> = { key: string | null; value: T | null; error: string; loading: boolean };
 
@@ -20,7 +20,7 @@ export function useLatestLoad<T>() {
     setState({ key, value: null, error: "", loading: true });
     void request().then(
       (value) => { if (generation.current === current) setState({ key, value, error: "", loading: false }); },
-      (reason) => { if (generation.current === current) setState({ key, value: null, error: toMessage(reason), loading: false }); },
+      (reason) => { if (generation.current === current) setState({ key, value: null, error: hostErrorMessage(reason), loading: false }); },
     );
   }, []);
   /**
@@ -43,7 +43,7 @@ export function useLatestLoad<T>() {
       },
       (reason) => {
         if (generation.current !== current) return;
-        setState((shown) => ({ ...shown, key, error: toMessage(reason), loading: false }));
+        setState((shown) => ({ ...shown, key, error: hostErrorMessage(reason), loading: false }));
       },
     );
   }, [load]);

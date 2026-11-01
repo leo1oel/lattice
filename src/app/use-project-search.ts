@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot, ReplaceResult } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import type { ProjectFindHit } from "../project/project-find-dialog";
 import type { ReplaceOptions, ReplacePreviewResult } from "../project/project-replace-dialog";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -72,7 +72,7 @@ export function useProjectSearch(deps: {
         if (!superseded()) setFind({ hits });
       },
       (reason) => {
-        if (!superseded()) setFind({ hits: [], error: toMessage(reason) });
+        if (!superseded()) setFind({ hits: [], error: hostErrorMessage(reason) });
       },
     );
     if (generation === searchGenerationRef.current) setFind({ busy: false });
@@ -108,7 +108,7 @@ export function useProjectSearch(deps: {
     })().catch((reason: unknown) => {
       if (!isCurrent()) return;
       onError?.();
-      setReplace({ error: toMessage(reason) });
+      setReplace({ error: hostErrorMessage(reason) });
     });
     if (generation === replaceGenerationRef.current) setReplace({ busy: false });
   }, [depsRef, setReplace]);

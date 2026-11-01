@@ -11,6 +11,9 @@ import {
   useAppToastsSnapshot,
   type AppLogEntry,
 } from "./app-log-store";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { showError } from "../app/notify";
+import { activateAppLocale } from "../i18n";
 import { playInterfaceSound } from "./interface-sounds";
 import { configureToastPosition } from "./toast-position";
 import { ToastStack } from "./toast-stack";
@@ -221,6 +224,18 @@ describe("ToastStack", () => {
     act(() => { vi.advanceTimersByTime(200); });
     expect(onDismiss).toHaveBeenCalledOnce();
     expect(getVisibleAppToastIds()).toEqual([]);
+  });
+
+  it("shows a host error in the interface language, and logs and copies its English", async () => {
+    await activateAppLocale("zh-CN");
+    render(<ToastStack />);
+    // What a double-click on a PDF margin rejects with (latex/synctex.rs).
+    act(() => showError("SyncTeX could not locate this PDF position."));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("SyncTeX 无法定位 PDF 中的这个位置");
+    expect(formatAppLogs()).toContain("SyncTeX could not locate this PDF position.");
+    fireEvent.click(button("复制"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("SyncTeX could not locate this PDF position."));
   });
 
   it("announces an urgent failure and stands where Settings put it", () => {

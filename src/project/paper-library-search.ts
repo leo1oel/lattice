@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { paperKey, toMessage } from "../app-utils";
+import { paperKey, hostErrorMessage } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { baseArxivId } from "../papers/arxiv-id";
 
@@ -136,7 +136,7 @@ export function usePaperTextSearch(text: string): {
         .catch((reason: unknown) => {
           // Metadata filtering remains useful if the cache cannot be read,
           // but the list must not read as the whole answer.
-          if (!disposed) setSettled({ query, attempt, hits: [], error: toMessage(reason) });
+          if (!disposed) setSettled({ query, attempt, hits: [], error: hostErrorMessage(reason) });
         });
     };
     const timer = window.setTimeout(run, 120);

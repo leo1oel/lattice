@@ -2,7 +2,7 @@ import { useCallback, useRef, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafRemoteDelete } from "../settings/app-settings";
-import { confirmAction, toMessage } from "../app-utils";
+import { confirmAction, hostErrorMessage } from "../app-utils";
 import { showError, showNotice } from "./notify";
 
 /**
@@ -57,7 +57,7 @@ export function useOverleafRemoteDeletes(
       try {
         await invoke("overleaf_delete_entity", { projectRoot, kind: entry.entity.kind, entityId: entry.entity.id });
       } catch (reason) {
-        if (stillCurrent()) showError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
+        if (stillCurrent()) showError(t({ message: `Could not remove ${entry.path} from Overleaf: ${hostErrorMessage(reason)}` }), "Overleaf");
         return;
       }
     }

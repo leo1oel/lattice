@@ -3,7 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { ProjectVenue } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -36,7 +36,7 @@ export function LocalTemplates({ selected, onSelect, currentProject = false }: {
     let disposed = false;
     void invoke<LocalTemplate[]>("list_local_templates").then((value) => {
       if (!disposed) setItems((previous) => [...value, ...previous.filter((item) => !value.some((saved) => saved.id === item.id))]);
-    }).catch((reason) => { if (!disposed) setError(toMessage(reason)); });
+    }).catch((reason) => { if (!disposed) setError(hostErrorMessage(reason)); });
     return () => { disposed = true; };
   }, []);
   const active = items.find((item) => selected === `local:${item.id}`);
@@ -83,7 +83,7 @@ function SaveTemplateDialog({ currentProject, onClose, onSaved }: {
       if (!mounted.current) return;
       setSource(path as string | null); setReview(result);
       update({ files: [], root: result.root, engine: result.engine, preview: null });
-    }, (reason) => { if (mounted.current) setError(toMessage(reason)); },
+    }, (reason) => { if (mounted.current) setError(hostErrorMessage(reason)); },
     () => { if (mounted.current) setBusy(false); });
   };
   const save = () => {
@@ -91,7 +91,7 @@ function SaveTemplateDialog({ currentProject, onClose, onSaved }: {
     return templateTask(async () => {
       const result = await invoke<LocalTemplate>("save_local_template", { source, template: draft });
       if (mounted.current) onSaved(result);
-    }, (reason) => { if (mounted.current) setError(toMessage(reason)); },
+    }, (reason) => { if (mounted.current) setError(hostErrorMessage(reason)); },
     () => { if (mounted.current) setBusy(false); });
   };
   return <ModalDialog label={t`Save a local template`} onClose={onClose} closeDisabled={busy} keepOnOutsideClick>

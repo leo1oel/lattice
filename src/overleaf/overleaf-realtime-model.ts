@@ -5,6 +5,9 @@
  * failed connection is worth retrying. The hook owns every piece of state;
  * nothing here does.
  */
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
+import { hostErrorText } from "../platform/host-error-text";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 import { transformSpan, type OtDocument, type OtOp } from "./ot";
 import { changesAfter, type Suggester } from "./overleaf-suggestions";
@@ -101,6 +104,18 @@ export function shouldRetryConnection(reason: string): boolean {
   // turns away an account removed from the project, or a deleted project.
   return !mentionsAny(reason, [OVERLEAF_NOT_CONNECTED, PROJECT_CHANGED, PROJECT_NOT_LINKED, NEWER_OVERLEAF_CONNECTION, OVERLEAF_PROJECT_ACCESS_LOST])
     && !/session expired|cookie|sign.?in|authentication|unauthori[sz]ed|not authori[sz]ed|forbidden|permission|invalid project|project not found/i.test(reason);
+}
+
+/**
+ * What the channel shows while it waits `delayMs` to reconnect. The cause is
+ * usually the host's English, so it reads in the interface language too.
+ */
+export function reconnectingDetail(cause: string, delayMs: number): string {
+  const reason = hostErrorText(cause);
+  const seconds = Math.ceil(delayMs / 1_000);
+  return delayMs === 0
+    ? i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting now…`)
+    : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds} s…`);
 }
 
 /**

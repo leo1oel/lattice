@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
-import { toMessage } from "../app-utils";
+import { hostErrorMessage } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { whenIdle } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -101,7 +101,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
         try {
           await invoke("live_preview_install", { onProgress });
         } catch (reason) {
-          if (!cancelled) setState({ kind: "download-failed", message: toMessage(reason) });
+          if (!cancelled) setState({ kind: "download-failed", message: hostErrorMessage(reason) });
           return;
         }
       }
@@ -118,7 +118,7 @@ export function useLivePreview({ project, activeFile, source, savedSource }: {
     })().catch((reason: unknown) => {
       session?.dispose();
       buildHooks.current = null;
-      if (!cancelled) setState({ kind: "failed", message: toMessage(reason) });
+      if (!cancelled) setState({ kind: "failed", message: hostErrorMessage(reason) });
     });
     return () => {
       cancelled = true;

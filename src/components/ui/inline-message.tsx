@@ -1,6 +1,7 @@
 import { CheckCircle2, CircleAlert, Info } from "lucide-react";
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { hostErrorText } from "../../platform/host-error-text";
 import "./chrome.css";
 
 /**
@@ -15,6 +16,9 @@ import "./chrome.css";
  * Same icons and same status colours as the toast, so the two read as one
  * system. A form control's own caption stays as it is — a caption under a
  * single control is a label, not a message, and does not want an icon beside it.
+ *
+ * A failure shown here is often a host error verbatim, so text reads in the
+ * interface language, as in the toast (`platform/host-error-text.ts`).
  */
 const LEVEL_ICONS = {
   info: Info,
@@ -39,7 +43,7 @@ export function InlineMessage({ level = "info", className, children }: {
       role={level === "error" ? "alert" : "status"}
     >
       <Icon className="ui-inline-message-icon" size={13} aria-hidden="true" />
-      <span className="ui-inline-message-copy">{children}</span>
+      <span className="ui-inline-message-copy">{typeof children === "string" ? hostErrorText(children) : children}</span>
     </p>
   );
 }

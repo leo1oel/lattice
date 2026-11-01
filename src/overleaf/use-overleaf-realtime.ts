@@ -18,6 +18,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
 import { useStoreSlice } from "../hooks/use-store-slice";
 import { i18n } from "../i18n";
+import { hostErrorText } from "../platform/host-error-text";
 import { OtDocument, type OtOp } from "./ot";
 import { channelFields, projectAccess, type OverleafConnectionStore } from "./overleaf-connection-store";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
@@ -25,7 +26,8 @@ import type { Suggester } from "./overleaf-suggestions";
 import { useOpenDocReview } from "./use-open-doc-review";
 import { useOverleafDocumentTree } from "./use-overleaf-document-tree";
 import {
-  isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, shouldRetryConnection,
+  isOverleafProjectRefusal, isOwnUpdate, OVERLEAF_REFUSAL_RETRIES, overleafDocHash, promoteShared, reconnectingDetail,
+  shouldRetryConnection,
   type CommentRange, type DocumentProof, type DocUpdateEvent, type JoinedDoc,
   type JoinedProject, type OverleafCommentTarget, type OverleafRemoteTextContext,
   type ReplayedUpdate, type ReservedOperation, type TrackedChange,
@@ -653,10 +655,7 @@ export function useOverleafRealtime(options: {
       const delay = immediate ? 0 : Math.min(RECONNECT_BASE_MS * 2 ** retryAttempt, RECONNECT_MAX_MS);
       if (!immediate) retryAttempt += 1;
       setStatus("connecting");
-      const seconds = Math.ceil(delay / 1_000);
-      setDetail(delay === 0
-        ? i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting now…`)
-        : i18n._(msg`Overleaf live editing disconnected (${reason}). Reconnecting in ${seconds} s…`));
+      setDetail(reconnectingDetail(reason, delay));
       retryTimer = setTimeout(() => {
         retryTimer = null;
         void connect();
@@ -982,7 +981,8 @@ export function useOverleafRealtime(options: {
     status,
     detail: options.documents && status === "live" && options.activeFile && !activeDocId
       ? t`Overleaf doesn’t support live editing for this file, so it will use regular sync.`
-      : detail,
+      // Often a host error verbatim, so shown in the interface language.
+      : detail && hostErrorText(detail),
     /** True when the open file is being edited through the live channel. */
     liveFile,
     /**
