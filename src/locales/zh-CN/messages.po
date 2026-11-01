@@ -778,6 +778,10 @@ msgstr "{revisableAnnotations} 条批注"
 msgid "{seconds} s"
 msgstr "{seconds} 秒"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "{shell} did not finish starting within 5 seconds, so its settings are missing. Check your shell startup files."
+msgstr "{shell} 在 5 秒内没有启动完成，因此没有读到其中的设置。请检查 shell 的启动文件。"
+
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}"
 msgstr "{size}，上限 {limit}"
@@ -1421,6 +1425,7 @@ msgstr "已调整，链接和选中文字的对比度为 {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
 
+#: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
@@ -1444,6 +1449,10 @@ msgstr "AI 权限：{label}"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Agent runtime"
 msgstr "AI 助手组件"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Agent service"
+msgstr "AI 助手服务"
 
 #: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
@@ -3796,6 +3805,10 @@ msgstr "连不上服务"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "读取钥匙串失败，请重开设置"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "Couldn’t read the settings {shell} exports, so they are missing."
+msgstr "无法读取 {shell} 导出的设置，因此这些设置缺失。"
+
 #: src/project/paper-library-status.tsx
 msgid "Couldn’t read your references"
 msgstr "未能读取参考文献"
@@ -4720,6 +4733,12 @@ msgstr "类型"
 msgid "environment"
 msgstr "环境"
 
+#: src/settings/agent-environment-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Environment"
+msgstr "环境变量"
+
 #: src/canvas/proofread-card.tsx
 msgid "environments"
 msgstr "环境"
@@ -5330,9 +5349,21 @@ msgstr "从“{name}”起"
 msgid "From folder"
 msgstr "从文件夹"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "From the environment Lattice was opened with"
+msgstr "来自启动 Lattice 时的环境"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "From the macOS proxy settings"
+msgstr "来自 macOS 代理设置"
+
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "取自会议官方作者模板包，原样内置，保留作者署名"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "From your login shell"
+msgstr "来自登录 shell"
 
 #: src/project/local-templates.tsx
 msgid "From ZIP"
@@ -8240,6 +8271,10 @@ msgstr "无"
 msgid "None"
 msgstr "无"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "None found"
+msgstr "未找到"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "右上箭头"
@@ -9721,6 +9756,15 @@ msgstr "推出 / 断言符"
 msgid "Providers"
 msgstr "模型"
 
+#. Search words for the agent Environment settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "proxy key endpoint shell restart"
+msgstr "代理 密钥 端点 接口地址 shell 重启 环境变量"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Proxy settings and provider endpoints and keys, read from your login shell and the macOS network settings as a terminal would see them. Keys are shown shortened."
+msgstr "代理设置，以及模型服务的接口地址和密钥。和终端里看到的一样，从登录 shell 和 macOS 网络设置中读取。密钥只显示末尾几位。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Psi"
 msgstr "普西"
@@ -10535,6 +10579,12 @@ msgstr "正在查找文献信息…"
 msgid "Resolving…"
 msgstr "正在查找…"
 
+#: src/agent/agent-environment.ts
+#: src/settings/agent-environment-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Restart agent"
+msgstr "重启 AI 助手"
+
 #: src/telemetry/app-updater.tsx
 msgid "Restart anyway"
 msgstr "仍然重启"
@@ -10559,6 +10609,10 @@ msgstr "重启即可完成更新；不重启的话，下次打开 Lattice 时生
 #: src/telemetry/app-updater.tsx
 msgid "Restarting now stops {running}."
 msgstr "现在重启会中断 {running}。"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Restarting the agent stops any running turns."
+msgstr "重启 AI 助手会中断正在进行的对话。"
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -11440,6 +11494,10 @@ msgstr "分隔线"
 msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "服务"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
+msgstr "在 shell 启动文件中设置 HTTPS_PROXY 或 ANTHROPIC_BASE_URL，或在 macOS 中开启代理，然后重启 AI 助手。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
@@ -12439,9 +12497,17 @@ msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "AI 助手正在等你回答。请求已放进输入框，回答后再发送。"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "The agent reads these each time it starts."
+msgstr "AI 助手每次启动时都会重新读取这些设置。"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "AI 助手暂不可用"
+
+#: src/agent/agent-environment.ts
+msgid "The agent still uses the proxy it started with. Restarting it stops any running turns."
+msgstr "AI 助手仍在使用启动时的代理。重启会中断正在进行的对话。"
 
 #: src/canvas/annotation-review.tsx
 msgid "The agent suggests leaving the passage as it is."
@@ -12701,6 +12767,10 @@ msgstr "所需工具"
 msgid "The rest of the window keeps working."
 msgstr "窗口的其他部分不受影响。"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "The running agent started with different values. Restarting it stops any running turns."
+msgstr "正在运行的 AI 助手启动时用的是另一组设置。重启会中断正在进行的对话。"
+
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "校对时文字被改了，请重新校对"
@@ -12737,6 +12807,10 @@ msgstr "PDF 构建之后源码有改动。请重新构建后再批注。"
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "源文件里的文件名和磁盘上的大小写不一致"
+
+#: src/agent/agent-environment.ts
+msgid "The system proxy changed"
+msgstr "系统代理已更改"
 
 #: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
@@ -13663,6 +13737,10 @@ msgstr "中国科学技术大学学位论文 · {name}"
 #: src/papers/bib-visual-editor.tsx
 msgid "Value"
 msgstr "值"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Variables the agent receives"
+msgstr "AI 助手收到的变量"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"

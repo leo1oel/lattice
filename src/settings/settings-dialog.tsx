@@ -29,6 +29,7 @@ import { LiteratureSettings } from "./literature-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
+import { AgentEnvironmentSettings } from "./agent-environment-settings";
 import { SelectRow, SliderRow } from "./settings-controls";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep } from "./interface-scale";
@@ -130,6 +131,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "agent", label: t`Providers`, icon: "robot" },
       { tab: "mcp", label: t`MCP`, icon: "plugs" },
       { tab: "api", label: t`Skills`, icon: "package" },
+      { tab: "environment", label: t`Environment`, icon: "api-key" },
     ] },
     { label: t`Integrations`, items: [
       { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
@@ -245,6 +247,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
+    environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
       <OverleafSettingsSection
         projectRoot={props.project?.root ?? null}

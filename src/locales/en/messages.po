@@ -778,6 +778,10 @@ msgstr "{revisableAnnotations} annotations"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "{shell} did not finish starting within 5 seconds, so its settings are missing. Check your shell startup files."
+msgstr "{shell} did not finish starting within 5 seconds, so its settings are missing. Check your shell startup files."
+
 #: src/project/arxiv-export.ts
 msgid "{size} of {limit}"
 msgstr "{size} of {limit}"
@@ -1421,6 +1425,7 @@ msgstr "Adjusted so links and selected text read at {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
 
+#: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
 #: src/history/history-drawer.tsx
@@ -1444,6 +1449,10 @@ msgstr "Agent permissions: {label}"
 #: src/settings/acknowledgements-settings.tsx
 msgid "Agent runtime"
 msgstr "Agent runtime"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Agent service"
+msgstr "Agent service"
 
 #: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
@@ -3796,6 +3805,10 @@ msgstr "Couldn’t reach the service"
 msgid "Couldn’t read the keychain. Reopen Settings to retry"
 msgstr "Couldn’t read the keychain. Reopen Settings to retry"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "Couldn’t read the settings {shell} exports, so they are missing."
+msgstr "Couldn’t read the settings {shell} exports, so they are missing."
+
 #: src/project/paper-library-status.tsx
 msgid "Couldn’t read your references"
 msgstr "Couldn’t read your references"
@@ -4720,6 +4733,12 @@ msgstr "Entry type"
 msgid "environment"
 msgstr "environment"
 
+#: src/settings/agent-environment-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Environment"
+msgstr "Environment"
+
 #: src/canvas/proofread-card.tsx
 msgid "environments"
 msgstr "environments"
@@ -5330,9 +5349,21 @@ msgstr "From {name}"
 msgid "From folder"
 msgstr "From folder"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "From the environment Lattice was opened with"
+msgstr "From the environment Lattice was opened with"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "From the macOS proxy settings"
+msgstr "From the macOS proxy settings"
+
 #: src/settings/acknowledged-software.ts
 msgid "From the official conference author kits, bundled unmodified with their authors' credits"
 msgstr "From the official conference author kits, bundled unmodified with their authors' credits"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "From your login shell"
+msgstr "From your login shell"
 
 #: src/project/local-templates.tsx
 msgid "From ZIP"
@@ -8240,6 +8271,10 @@ msgstr "none"
 msgid "None"
 msgstr "None"
 
+#: src/settings/agent-environment-settings.tsx
+msgid "None found"
+msgstr "None found"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "North-east arrow"
@@ -9721,6 +9756,15 @@ msgstr "Proves / turnstile"
 msgid "Providers"
 msgstr "Providers"
 
+#. Search words for the agent Environment settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "proxy key endpoint shell restart"
+msgstr "proxy key endpoint shell restart"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Proxy settings and provider endpoints and keys, read from your login shell and the macOS network settings as a terminal would see them. Keys are shown shortened."
+msgstr "Proxy settings and provider endpoints and keys, read from your login shell and the macOS network settings as a terminal would see them. Keys are shown shortened."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Psi"
 msgstr "Psi"
@@ -10535,6 +10579,12 @@ msgstr "Resolving citation metadata…"
 msgid "Resolving…"
 msgstr "Resolving…"
 
+#: src/agent/agent-environment.ts
+#: src/settings/agent-environment-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Restart agent"
+msgstr "Restart agent"
+
 #: src/telemetry/app-updater.tsx
 msgid "Restart anyway"
 msgstr "Restart anyway"
@@ -10559,6 +10609,10 @@ msgstr "Restart to finish updating. Otherwise the update applies the next time L
 #: src/telemetry/app-updater.tsx
 msgid "Restarting now stops {running}."
 msgstr "Restarting now stops {running}."
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Restarting the agent stops any running turns."
+msgstr "Restarting the agent stops any running turns."
 
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/app-updater.tsx
@@ -11440,6 +11494,10 @@ msgstr "Separator"
 msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "Services"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
+msgstr "Set HTTPS_PROXY or ANTHROPIC_BASE_URL in your shell startup file, or turn on a proxy in macOS, then restart the agent."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
@@ -12439,9 +12497,17 @@ msgstr "The agent could not send the request. It is waiting in the agent's compo
 msgid "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 msgstr "The agent is waiting for your answer. The request is in its composer; send it once you have answered."
 
+#: src/settings/agent-environment-settings.tsx
+msgid "The agent reads these each time it starts."
+msgstr "The agent reads these each time it starts."
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
+
+#: src/agent/agent-environment.ts
+msgid "The agent still uses the proxy it started with. Restarting it stops any running turns."
+msgstr "The agent still uses the proxy it started with. Restarting it stops any running turns."
 
 #: src/canvas/annotation-review.tsx
 msgid "The agent suggests leaving the passage as it is."
@@ -12701,6 +12767,10 @@ msgstr "The required tools"
 msgid "The rest of the window keeps working."
 msgstr "The rest of the window keeps working."
 
+#: src/settings/agent-environment-settings.tsx
+msgid "The running agent started with different values. Restarting it stops any running turns."
+msgstr "The running agent started with different values. Restarting it stops any running turns."
+
 #: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "The selected text changed while it was being proofread. Proofread it again to review the current text."
@@ -12737,6 +12807,10 @@ msgstr "The source changed since the PDF was built. Build again, then annotate."
 #: src/project/arxiv-export.ts
 msgid "The source spells file names in another case"
 msgstr "The source spells file names in another case"
+
+#: src/agent/agent-environment.ts
+msgid "The system proxy changed"
+msgstr "The system proxy changed"
 
 #: src/project/submission-review.tsx
 msgid "The template's option prints the authors; remove it for review"
@@ -13663,6 +13737,10 @@ msgstr "USTC thesis · {name}"
 #: src/papers/bib-visual-editor.tsx
 msgid "Value"
 msgstr "Value"
+
+#: src/settings/agent-environment-settings.tsx
+msgid "Variables the agent receives"
+msgstr "Variables the agent receives"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"

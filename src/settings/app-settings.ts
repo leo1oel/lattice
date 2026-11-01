@@ -207,7 +207,7 @@ export const recordGuidedTourOutcome = (outcome: "completed" | "skipped") => {
 };
 
 const SETTINGS_TABS: readonly SettingsTab[] = [
-  "appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
+  "appearance", "editor", "agent", "mcp", "environment", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements",
 ];
 
 /** Settings reopens on the page it was last left on. */

@@ -20,6 +20,7 @@ describe("settings search", () => {
     ["emacs", ["editor-keymap"]],
     ["xelatex", ["compile-engine"]],
     ["api key", ["literature-openalex", "literature-semanticscholar", "literature-firecrawl"]],
+    ["proxy", ["page:environment"]],
     ["latexmkrc", ["compile-engine"]],
     // A cut description's words live on in the row's terms.
     ["source editor", ["editor-font-size"]],

@@ -3,11 +3,16 @@
 //! The sidecar is a loopback Node service started on demand by
 //! [`SynaraRuntime::ensure_ready`]. On macOS it runs inside the bibliography
 //! sandbox with Lattice's own `ps` replacement (`process_inspector`); the
-//! provider CLIs it spawns inherit the system proxy (`proxy`) and a default-off
-//! research-writing skill (`preferences`).
+//! provider CLIs it spawns inherit the writer's proxy and provider settings
+//! (`environment`, from the login shell and the system proxy), which a
+//! restart picks up again (`restart`), and a default-off research-writing
+//! skill (`preferences`).
 
+mod environment;
 mod preferences;
 mod proxy;
+pub(crate) mod restart;
+mod shell_env;
 
 use crate::sidecar::{terminate_process_group, NodeRuntime};
 use crate::wide_event::{self, Failure};
@@ -18,7 +23,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::net::{Ipv4Addr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -67,6 +72,7 @@ struct RunningSynara {
     child: Child,
     /// What `ensure_ready` reports while the child is alive.
     info: SynaraRuntimeInfo,
+    environment: environment::AgentEnvironment,
 }
 
 struct LogTail {
@@ -85,6 +91,10 @@ pub struct SynaraRuntime {
     version: Option<String>,
     revision: Option<String>,
     running: Mutex<Option<RunningSynara>>,
+    /// None only in tests.
+    app: Option<tauri::AppHandle>,
+    shell_prefetch: Arc<shell_env::Prefetch>,
+    proxy_watch: OnceLock<()>,
 }
 
 impl SynaraRuntime {
@@ -113,6 +123,10 @@ impl SynaraRuntime {
                 .map(|runtime| runtime.port);
         let (version, revision) = manifest
             .map_or((None, None), |manifest| (manifest.synara_version, manifest.synara_revision));
+        let shell_prefetch = Arc::<shell_env::Prefetch>::default();
+        if external_origin.is_none() {
+            shell_prefetch.start(restart::read_login_shell);
+        }
         Ok(Self {
             node: NodeRuntime::resolve(&runtime_root.join("bin")),
             server_entry: runtime_root.join("server/dist/index.mjs"),
@@ -123,6 +137,9 @@ impl SynaraRuntime {
             version,
             revision,
             running: Mutex::default(),
+            app: Some(app.handle().clone()),
+            shell_prefetch,
+            proxy_watch: OnceLock::new(),
         })
     }
 
@@ -162,21 +179,32 @@ impl SynaraRuntime {
         }
         let info = operation.run_sync(|| {
             let started = Instant::now();
-            let (mut child, auth_token, startup_logs) = self.spawn()?;
+            let environment = environment::AgentEnvironment::resolve(
+                self.shell_prefetch.take_or_read(restart::read_login_shell),
+            );
+            wide_event::record("inherited_env_vars", environment.len() as u64);
+            if let Some(error) = environment.shell_error() {
+                wide_event::record("login_shell_env", error.code());
+            }
+            let (mut child, auth_token, startup_logs) = self.spawn(&environment)?;
             let origin = wait_until_ready(&mut child, &startup_logs, &self.home_dir, started)
                 .inspect_err(|_| terminate_process_group(&mut child))?;
             let startup_ms = started.elapsed().as_millis() as u64;
             let info = self.ready_info(&origin, Some(&auth_token), startup_ms);
-            Ok((child, info))
+            Ok((child, info, environment))
         });
-        let (child, info) = info?;
-        *running = Some(RunningSynara { child, info: info.clone() });
+        let (child, info, environment) = info?;
+        *running = Some(RunningSynara { child, info: info.clone(), environment });
+        drop(running);
+        self.proxy_watch.get_or_init(|| restart::watch_system_proxy(self.app.clone()));
         Ok(info)
     }
 
     /// Start the sidecar; returns its auth token and the stdout and stderr
     /// logs, with their lengths before this attempt started.
-    fn spawn(&self) -> Result<(Child, String, [LogTail; 2]), String> {
+    fn spawn(
+        &self, environment: &environment::AgentEnvironment,
+    ) -> Result<(Child, String, [LogTail; 2]), String> {
         for (path, what) in
             [(&self.node.executable, "JavaScript runtime"), (&self.server_entry, "Synara service")]
         {
@@ -256,7 +284,7 @@ impl SynaraRuntime {
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr));
-        proxy::apply_system_proxy_environment(&mut command);
+        environment.apply(&mut command);
         let child = command
             .spawn()
             .map_err(|error| format!("Could not start the built-in agent service: {error}"))?;

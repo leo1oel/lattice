@@ -19,6 +19,7 @@ pub(crate) mod caller;
 mod pty;
 mod session;
 
+pub(crate) use pty::login_shell;
 pub(crate) use session::Session;
 
 use std::collections::HashMap;

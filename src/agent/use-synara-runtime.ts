@@ -8,6 +8,7 @@ import {
   normalizeSynaraOrigin,
   type SynaraRuntimeInfo,
 } from "./synara-runtime";
+import { subscribeAgentEnvironment } from "./agent-environment";
 
 const DEVELOPMENT_ORIGIN = normalizeSynaraOrigin(
   import.meta.env.VITE_SYNARA_EMBED_URL?.trim(),
@@ -55,5 +56,12 @@ export function useSynaraRuntime(enabled: boolean) {
     setRuntime((current) => ({ ...current, state: "starting", message: null }));
     setAttempt((value) => value + 1);
   }, []);
+
+  // A restart from any window stops the one shared service; each window
+  // using it asks for the new one, whose token its frames need.
+  useEffect(() => {
+    if (DEVELOPMENT_RUNTIME || !enabled) return;
+    return subscribeAgentEnvironment(retry);
+  }, [enabled, retry]);
   return { runtime, retry };
 }
