@@ -1,0 +1,98 @@
+{
+  "version": "0.13.0",
+  "date": "2026-11-01",
+  "highlights": [
+    {
+      "icon": "bot",
+      "title": {
+        "en": "The agent looks at a figure before inserting it",
+        "zh": "Agent 插入图表前会先看一眼"
+      },
+      "body": {
+        "en": "When the agent draws a TikZ or PGFPlots figure, it now typesets it with your paper's preamble at column width and checks the picture, so labels over curves, legends over data and plots wider than the column are fixed before the figure reaches your paper. Your build, PDF and SyncTeX are left alone, and the insertion can be reviewed and undone like any agent edit.",
+        "zh": "Agent 绘制 TikZ 或 PGFPlots 图表时，会先用论文自己的导言区按栏宽排版并检查图像，在图表进入论文之前修正标签压住曲线、图例遮挡数据或图宽超出栏宽等问题。你的编译、PDF 和 SyncTeX 都不受影响，插入操作也能像其他 Agent 编辑一样审阅和撤销。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Smoother LaTeX input",
+        "zh": "更顺手的 LaTeX 输入"
+      },
+      "body": {
+        "en": "Enter on an \\item line starts the next item, and on an empty item leaves the list. Typing \\left( or \\bigl[ writes the matching \\right) or \\bigr]. Hovering a \\ref or \\eqref shows the equation with its number and page. %novalidate lines and regions get no LaTeX diagnostics, and ⌥⌘M opens a searchable math symbol palette.",
+        "zh": "在 \\item 行按回车会开始下一项，在空项上按回车则退出列表。输入 \\left( 或 \\bigl[ 会自动写好对应的 \\right) 或 \\bigr]。悬停在 \\ref 或 \\eqref 上会显示公式及其编号和页码。%novalidate 行和区域不再显示 LaTeX 诊断，⌥⌘M 可打开可搜索的数学符号面板。"
+      }
+    },
+    {
+      "title": {
+        "en": "Submission checks for double-blind venues",
+        "zh": "面向双盲会议的投稿检查"
+      },
+      "body": {
+        "en": "The submission checklist flags what reviewers would catch: a template option that prints the authors, acknowledgements or \\thanks left in, links to your own code accounts, author names in the PDF's metadata, and Type 3 or unembedded fonts.",
+        "zh": "投稿检查清单会标出审稿人可能发现的问题：会打印作者信息的模板选项、遗留的致谢或 \\thanks、指向你自己代码账号的链接、PDF 元数据中的作者姓名，以及 Type 3 字体或未嵌入的字体。"
+      }
+    },
+    {
+      "title": {
+        "en": "Grammar checks tuned for papers",
+        "zh": "为论文调校的语法检查"
+      },
+      "body": {
+        "en": "LaTeX is checked with an academic profile that accepts common paper usage and abbreviations. Choose American or British English and switch single rules in Settings, and ignore a sentence or a rule for the whole project from a suggestion.",
+        "zh": "LaTeX 文档使用学术配置进行检查，接受论文中常见的用法和缩写。可在设置中选择美式或英式英语并单独开关各条规则，也可以从建议中忽略某个句子，或在整个项目中忽略某条规则。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "A double-click in the PDF lands on the word you clicked, not just its line.",
+      "zh": "在 PDF 中双击会定位到你点击的那个词，而不只是那一行。"
+    },
+    {
+      "en": "Your last edits are saved before a window closes, Lattice quits, or the page reloads, and an error in one panel stays in that panel instead of taking down the window.",
+      "zh": "窗口关闭、Lattice 退出或页面重新加载前，会保存你最后的编辑；某个面板出错时只影响该面板，不会导致整个窗口崩溃。"
+    },
+    {
+      "en": "The outline reads headings the way TeX does, skipping comments, verbatim and macro bodies.",
+      "zh": "大纲会按 TeX 的方式读取标题，跳过注释、verbatim 和宏定义内容。"
+    },
+    {
+      "en": "Label and citation checks keep working when a project has unreadable files, and citations update when a .bib changes outside the editor.",
+      "zh": "项目中存在无法读取的文件时，标签和引用检查仍能正常工作；在编辑器外修改 .bib 后，引用也会随之更新。"
+    },
+    {
+      "en": "A compile error opens the exact file it names, and a path whose letter case differs from the file on disk is reported as such, including before arXiv export.",
+      "zh": "编译错误会打开它所指的那个文件；路径大小写与磁盘上的文件不一致时会如实提示，arXiv 导出前也会检查这一点。"
+    },
+    {
+      "en": "Files with Windows (CRLF) line breaks keep them when saved.",
+      "zh": "使用 Windows (CRLF) 换行符的文件在保存后会保留原有换行符。"
+    },
+    {
+      "en": "Edit › Select All selects the whole document.",
+      "zh": "编辑 › 全选会选中整个文档。"
+    },
+    {
+      "en": "Typing \" or ' in LaTeX inserts one character instead of an auto-closed pair.",
+      "zh": "在 LaTeX 中输入 \" 或 ' 只会插入一个字符，不再自动补全成一对。"
+    },
+    {
+      "en": "Words with TeX accents, such as na\\\"ive, are no longer flagged as misspellings.",
+      "zh": "带 TeX 重音的单词（如 na\\\"ive）不再被标为拼写错误。"
+    },
+    {
+      "en": "Overleaf: files whose paths differ only in letter case are set aside instead of one being silently dropped.",
+      "zh": "Overleaf：仅大小写不同的路径会被单独放在一边，而不是悄悄丢掉其中一个。"
+    },
+    {
+      "en": "The PDF redraws sharply after the window moves to a display with a different pixel density.",
+      "zh": "窗口移到像素密度不同的显示器后，PDF 会重新清晰绘制。"
+    },
+    {
+      "en": "Background git reads no longer run programs named in a project's .git/config.",
+      "zh": "后台 git 读取不再运行项目 .git/config 中指定的程序。"
+    }
+  ]
+}
