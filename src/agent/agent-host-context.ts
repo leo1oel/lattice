@@ -5,6 +5,8 @@ import { agentPaperPath } from "./agent-paper-library";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
 export const LATTICE_HOST_CONTEXT_REQUEST = "lattice:request-host-context";
+/** Answers a comment refresh Lattice cannot serve, so the panel sends without waiting. */
+export const LATTICE_HOST_CONTEXT_REFRESH_FAILED = "lattice:host-context-refresh-failed";
 export const LATTICE_HOST_CONTEXT_SELECTION_CLEAR =
   "lattice:clear-host-context-selection";
 
@@ -209,4 +211,35 @@ export function buildAgentHostContext(input: {
     ...(presentation ? { presentation } : {}),
     pdf,
   };
+}
+
+/**
+ * Answers the panel's send-time comment refresh. The panel holds a send for
+ * this answer, so every request it can address gets one: the context with
+ * freshly read comments, or a refresh failure that lets it send its cached
+ * context at once instead of waiting out its timer.
+ */
+export function answerHostContextRefresh<Options extends { workspaceRoot: string }>(input: {
+  requestId: unknown;
+  workspaceRoot: unknown;
+  context: AgentHostContextSnapshot | null;
+  /** Read after the request is validated; it may flush pending editor state. */
+  commentsOptions: () => Options | null;
+  readComments: (options: Options, context: AgentHostContextSnapshot) => Promise<AgentCommentsCollection>;
+  /** False once the window moved to another project while comments loaded. */
+  stillCurrent: () => boolean;
+  post: (message: object) => void;
+}): void {
+  const { requestId, context } = input;
+  // A request without a usable id cannot be matched to an answer.
+  if (typeof requestId !== "string" || requestId.length === 0 || requestId.length > 128) return;
+  const fail = () => input.post({ type: LATTICE_HOST_CONTEXT_REFRESH_FAILED, requestId });
+  if (!context || input.workspaceRoot !== context.workspaceRoot) return fail();
+  const options = input.commentsOptions();
+  if (!options || options.workspaceRoot !== context.workspaceRoot) return fail();
+  void input.readComments(options, context).then((editorComments) => {
+    // Never publish a previous project's comments after navigation.
+    if (!input.stillCurrent()) return fail();
+    input.post({ ...context, requestId, editorComments });
+  }, fail);
 }

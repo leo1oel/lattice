@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildAgentHostContext, LATTICE_HOST_CONTEXT, selectedMarkdownImageProjectPath } from "./agent-host-context";
+import {
+  answerHostContextRefresh, buildAgentHostContext, LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REFRESH_FAILED,
+  selectedMarkdownImageProjectPath,
+} from "./agent-host-context";
+import type { AgentCommentsCollection } from "./agent-editor-comments";
 
 describe("selected Markdown image context", () => {
   // Markdown and HTML image blocks resolve relative to their document; prose,
@@ -149,5 +153,50 @@ describe("agent host context", () => {
     });
     // An editor selection keeps the compiled preview's place.
     expect(buildAgentHostContext({ ...fromDocument, selectionSource: "editor" }).pdf).toEqual({ page: 2, pageCount: 4 });
+  });
+});
+
+describe("send-time comment refresh", () => {
+  const context = buildAgentHostContext(baseInput);
+  const comments = { workspaceRoot: "/tmp/paper", comments: [] } as unknown as AgentCommentsCollection;
+  const failed = { type: LATTICE_HOST_CONTEXT_REFRESH_FAILED, requestId: "r1" };
+  function answer(overrides: Partial<Parameters<typeof answerHostContextRefresh>[0]> = {}) {
+    const post = vi.fn();
+    answerHostContextRefresh({
+      requestId: "r1",
+      workspaceRoot: "/tmp/paper",
+      context,
+      commentsOptions: () => ({ workspaceRoot: "/tmp/paper" }),
+      readComments: () => Promise.resolve(comments),
+      stillCurrent: () => true,
+      post,
+      ...overrides,
+    });
+    return post;
+  }
+
+  it("answers with the context and its freshly read comments", async () => {
+    const post = answer();
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith({ ...context, requestId: "r1", editorComments: comments }));
+  });
+
+  // Each of these used to return without a reply, so the panel held the send until it timed out.
+  type Overrides = Partial<Parameters<typeof answerHostContextRefresh<{ workspaceRoot: string }>>[0]>;
+  it.each<[string, Overrides]>([
+    ["there is no host context yet", { context: null }],
+    ["the request is for another project", { workspaceRoot: "/tmp/other" }],
+    ["the project has no comment source", { commentsOptions: () => null }],
+    ["the comment source belongs to another project", { commentsOptions: () => ({ workspaceRoot: "/tmp/other" }) }],
+    ["reading the comments fails", { readComments: () => Promise.reject(new Error("Overleaf is down")) }],
+    ["the window moved to another project meanwhile", { stillCurrent: () => false }],
+  ])("reports a failure when %s", async (_case, overrides) => {
+    const post = answer(overrides);
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith(failed));
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("cannot answer a request without a usable id", () => {
+    expect(answer({ requestId: undefined })).not.toHaveBeenCalled();
+    expect(answer({ requestId: "x".repeat(129) })).not.toHaveBeenCalled();
   });
 });

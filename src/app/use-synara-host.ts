@@ -13,7 +13,8 @@ import {
 } from "../agent/agent-composer-prompt";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
-  LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, type AgentHostContextSnapshot,
+  LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, answerHostContextRefresh,
+  type AgentHostContextSnapshot,
 } from "../agent/agent-host-context";
 import { LATTICE_HOST_THEME_REQUEST, readAgentHostTheme, type AgentHostThemeSnapshot } from "../agent/agent-host-theme";
 import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from "../agent/agent-paper-library";
@@ -303,22 +304,24 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       },
       [LATTICE_HOST_CONTEXT_REQUEST]: (data, host) => {
         const context = host.hostContext;
-        if (!context) return;
-        const { requestId, workspaceRoot, refreshComments } = data;
-        if (refreshComments !== true) {
-          post(context);
+        if (data.refreshComments !== true) {
+          if (context) post(context);
           return;
         }
-        if (typeof requestId !== "string" || requestId.length > 128 || workspaceRoot !== context.workspaceRoot) return;
-        host.bridge.flushVisualMarkdown();
-        const options = host.bridge.agentCommentsOptions();
-        if (!options || options.workspaceRoot !== workspaceRoot) return;
-        void loadAgentEditorComments().then(({ readAgentCommentsSnapshot }) => readAgentCommentsSnapshot({
-          ...options, path: context.paper?.path ?? context.editor?.path, limit: 10,
-        })).then((editorComments) => {
-          // Never publish a previous project's comments after navigation.
-          if (projectRootRef.current !== workspaceRoot || latest.current.hostContext?.workspaceRoot !== workspaceRoot) return;
-          post({ ...context, requestId, editorComments });
+        answerHostContextRefresh({
+          requestId: data.requestId,
+          workspaceRoot: data.workspaceRoot,
+          context,
+          commentsOptions: () => {
+            host.bridge.flushVisualMarkdown();
+            return host.bridge.agentCommentsOptions();
+          },
+          readComments: (options, current) => loadAgentEditorComments().then(({ readAgentCommentsSnapshot }) => (
+            readAgentCommentsSnapshot({ ...options, path: current.paper?.path ?? current.editor?.path, limit: 10 })
+          )),
+          stillCurrent: () => projectRootRef.current === context?.workspaceRoot
+            && latest.current.hostContext?.workspaceRoot === context?.workspaceRoot,
+          post,
         });
       },
       [LATTICE_PAPER_LIBRARY_REQUEST]: (_data, host) => {
