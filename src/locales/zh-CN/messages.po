@@ -2615,7 +2615,7 @@ msgstr "章标题"
 msgid "Chat"
 msgstr "聊天"
 
-#. placeholder {0}: grammarRuleLabel(rule)
+#. placeholder {0}: ruleName(rule)
 #: src/settings/grammar-settings.tsx
 msgid "Check {0} again"
 msgstr "重新检查“{0}”"
@@ -4097,6 +4097,22 @@ msgstr "菱形运算符"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond suit"
 msgstr "方块"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean “{first}” or “{second}”?"
+msgstr "你是想写 “{first}” 还是 “{second}”？"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean “{word}”?"
+msgstr "你是想写 “{word}” 吗？"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean the closed compound “{word}”?"
+msgstr "你是想写合写词 “{word}” 吗？"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean to repeat this word?"
+msgstr "这个词是有意重复的吗？"
 
 #. placeholder {0}: props.change.path
 #: src/history/file-diff-view.tsx
@@ -5960,6 +5976,10 @@ msgstr "记录不全"
 msgid "Inconclusive"
 msgstr "没有结论"
 
+#: src/editor/grammar-rule-text.ts
+msgid "Incorrect indefinite article."
+msgstr "不定冠词用错了。"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
 msgstr "年份加一"
@@ -6254,6 +6274,10 @@ msgstr "无效的工作表：{name}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "约塔"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Is “{word}” misspelled?"
+msgstr "“{word}” 是否拼错了？"
 
 #: src/settings/grammar-rule-reasons.ts
 msgid "It flags phrases like “most early in training”, which it says are not errors."
@@ -8453,6 +8477,10 @@ msgstr "只含操作记录和计数。复制或下载前不会离开这台 Mac"
 #: src/history/export-changes-dialog.tsx
 msgid "Only pages with changes"
 msgstr "只含有改动的页"
+
+#: src/settings/grammar-settings.tsx
+msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
+msgstr "这里只列出语法风格或你改动过的规则。共有 {ruleCount} 条规则，在筛选框中输入即可搜索全部规则。"
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
@@ -12352,6 +12380,14 @@ msgstr "会议官方导出的引用与 Crossref 在这些字段上不一致：{0
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "缺少连接信息"
 
+#: src/editor/grammar-rule-text.ts
+msgid "The correct idiom is “{idiom}”."
+msgstr "正确的习语是 “{idiom}”。"
+
+#: src/editor/grammar-rule-text.ts
+msgid "The correct plural is “{plural}”."
+msgstr "正确的复数形式是 “{plural}”。"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "文档正文"
@@ -12761,6 +12797,10 @@ msgstr "这一行关闭了一个从未打开的分组，或在 $ 之前用 {BRAC
 msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 msgstr "这一行在 $…$ 之外用了只能在数学模式中使用的命令或字符，比如 _ 或 ^。把数学内容放进 $…$，或用 \\_ 输出下划线。"
 
+#: src/editor/grammar-rule-text.ts
+msgid "This looks like a typo. Did you mean “{word}”?"
+msgstr "这里似乎有笔误，你是想写 “{word}” 吗？"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "This package ships no license text of its own"
 msgstr "这个软件包没有附带自己的许可证文本"
@@ -12811,6 +12851,14 @@ msgstr "无法更新这条引用"
 #: src/build/compile-explain.ts
 msgid "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
 msgstr "这一行的单元格比表格的列多。删掉一个 &，或在表格的列格式里加一列。"
+
+#: src/editor/grammar-rule-text.ts
+msgid "This sentence does not start with a capital letter."
+msgstr "句首字母没有大写。"
+
+#: src/editor/grammar-rule-text.ts
+msgid "This sentence is {count} words long."
+msgstr "这个句子有 {count} 个词。"
 
 #: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
@@ -13422,6 +13470,10 @@ msgstr "宇普西龙"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Use “{word}” instead of “{original}”."
+msgstr "用 “{word}” 代替 “{original}”。"
 
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"

@@ -5,10 +5,11 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
+import { grammarRuleLabel, grammarRuleText, loadGrammarRuleCatalog } from "../editor/grammar-rule-text";
 import { grammarSettingsStore, type GrammarSettings } from "../editor/grammar-settings-store";
 import type { GrammarIgnores } from "../editor/harper-spellcheck";
 import { useStoreSlice } from "../hooks/use-store-slice";
-import { ACADEMIC_RULE_REASONS, grammarRuleLabel } from "./grammar-rule-reasons";
+import { ACADEMIC_RULE_REASONS } from "./grammar-rule-reasons";
 import { SelectRow } from "./settings-controls";
 import "./grammar-settings.css";
 
@@ -20,20 +21,32 @@ const MATCH_LIMIT = 40;
 
 const selectSettings = ({ dialect, profile, rules }: GrammarSettings) => ({ dialect, profile, rules });
 
-type RulesState = { rules: HarperRule[] | null; filter: string };
-type RulesAction = { rules: HarperRule[] } | { filter: string };
+/**
+ * `catalog` is the interface language whose rule names and descriptions
+ * have loaded (see grammar-rule-text.ts); until then rules read in English.
+ */
+type RulesState = { rules: HarperRule[] | null; filter: string; catalog: string };
+type RulesAction = { rules: HarperRule[] } | { filter: string } | { catalog: string };
 const rulesReducer = (state: RulesState, action: RulesAction): RulesState => ({ ...state, ...action });
 
 /**
- * The rules a filter finds, or with no filter the ones worth seeing: those
- * the academic profile turns off and those the writer changed.
+ * The rules a filter finds, in English or the interface language, or with
+ * no filter the ones worth seeing: those the grammar style turns off and
+ * those the writer changed.
  */
-function shownRules(all: readonly HarperRule[], filter: string, changed: Readonly<Record<string, boolean>>): HarperRule[] {
+function shownRules(all: readonly HarperRule[], { filter, academic, catalog, changed }: {
+  filter: string;
+  academic: boolean;
+  catalog: string;
+  changed: Readonly<Record<string, boolean>>;
+}): HarperRule[] {
   const query = filter.trim().toLocaleLowerCase();
-  if (!query) return all.filter((rule) => rule.academicOff || rule.name in changed);
+  if (!query) return all.filter((rule) => (academic && rule.academicOff) || rule.name in changed);
   const words = query.split(/\s+/);
   return all.filter((rule) => {
-    const haystack = `${rule.name} ${grammarRuleLabel(rule.name)} ${rule.description}`.toLocaleLowerCase();
+    const translated = grammarRuleText(rule.name, "", catalog);
+    const haystack = `${rule.name} ${grammarRuleLabel(rule.name)} ${rule.description} ${translated.name} ${translated.description}`
+      .toLocaleLowerCase();
     return words.every((word) => haystack.includes(word));
   });
 }
@@ -49,7 +62,7 @@ export function GrammarSettingsGroup({ ignores, onIgnoresChange }: {
 }) {
   const { t, i18n } = useLingui();
   const settings = useStoreSlice(grammarSettingsStore, selectSettings);
-  const [{ rules, filter }, dispatch] = useReducer(rulesReducer, { rules: null, filter: "" });
+  const [{ rules, filter, catalog }, dispatch] = useReducer(rulesReducer, { rules: null, filter: "", catalog: "en" });
   useEffect(() => {
     let disposed = false;
     void invoke<HarperRule[]>("harper_rules").then((loaded) => {
@@ -57,15 +70,24 @@ export function GrammarSettingsGroup({ ignores, onIgnoresChange }: {
     }, () => undefined);
     return () => { disposed = true; };
   }, []);
+  const locale = i18n.locale;
+  useEffect(() => {
+    let disposed = false;
+    void loadGrammarRuleCatalog(locale).then(() => {
+      if (!disposed) dispatch({ catalog: locale });
+    });
+    return () => { disposed = true; };
+  }, [locale]);
   const { setDialect, setProfile, setRule, resetRules } = grammarSettingsStore.getState();
-  const shown = rules ? shownRules(rules, filter, settings.rules) : [];
-  const changedCount = Object.keys(settings.rules).length;
   // The switch shows what LaTeX is checked with: the profile Automatic picks there.
   const academic = settings.profile !== "standard";
+  const shown = rules ? shownRules(rules, { filter, academic, catalog, changed: settings.rules }) : [];
+  const changedCount = Object.keys(settings.rules).length;
+  const ruleCount = rules?.length ?? 0;
   const describe = (rule: HarperRule) => {
     const reason = ACADEMIC_RULE_REASONS[rule.name];
     if (rule.academicOff && academic && reason) return t`Off for academic writing: ${i18n._(reason)}`;
-    return rule.description.replace(/`/g, "");
+    return grammarRuleText(rule.name, rule.description, catalog).description;
   };
 
   return (
@@ -111,29 +133,36 @@ export function GrammarSettingsGroup({ ignores, onIgnoresChange }: {
           <SwitchField
             key={rule.name}
             className="settings-grammar-rule"
-            label={grammarRuleLabel(rule.name)}
+            label={grammarRuleText(rule.name, "", catalog).name}
             description={describe(rule)}
             checked={settings.rules[rule.name] ?? profileOn}
             onChange={(enabled) => setRule(rule.name, enabled === profileOn ? null : enabled)}
           />
         );
       })}
+      {rules && !filter.trim() && (
+        <p className="settings-grammar-note">
+          {t`Only rules the grammar style or you changed are listed. There are ${ruleCount} rules in all; type in the filter to search every one.`}
+        </p>
+      )}
       {rules && filter.trim() && shown.length === 0 && (
         <p className="settings-grammar-note">{t`No rule matches “${filter.trim()}”`}</p>
       )}
       {shown.length > MATCH_LIMIT && (
         <p className="settings-grammar-note">{t`Showing ${MATCH_LIMIT} of ${shown.length} rules; type more to narrow the list`}</p>
       )}
-      <ProjectGrammarIgnores ignores={ignores} onIgnoresChange={onIgnoresChange} />
+      <ProjectGrammarIgnores ignores={ignores} onIgnoresChange={onIgnoresChange} catalog={catalog} />
     </SettingsGroup>
   );
 }
 
-function ProjectGrammarIgnores({ ignores, onIgnoresChange }: {
+function ProjectGrammarIgnores({ ignores, onIgnoresChange, catalog }: {
   ignores: GrammarIgnores | null;
   onIgnoresChange: (ignores: GrammarIgnores) => void;
+  catalog: string;
 }) {
   const { t } = useLingui();
+  const ruleName = (rule: string) => grammarRuleText(rule, "", catalog).name;
   const empty = !ignores || (ignores.rules.length === 0 && ignores.sentences.length === 0);
   return (
     <SettingsRow
@@ -150,11 +179,11 @@ function ProjectGrammarIgnores({ ignores, onIgnoresChange }: {
             <div className="settings-project-dictionary-terms" role="list" aria-label={t`Ignored grammar rules`}>
               {ignores.rules.map((rule) => (
                 <span className="settings-project-dictionary-term" role="listitem" key={rule}>
-                  <span>{grammarRuleLabel(rule)}</span>
+                  <span>{ruleName(rule)}</span>
                   <button
                     type="button"
                     className="settings-project-dictionary-remove"
-                    aria-label={t`Check ${grammarRuleLabel(rule)} again`}
+                    aria-label={t`Check ${ruleName(rule)} again`}
                     onClick={() => onIgnoresChange({ ...ignores, rules: ignores.rules.filter((existing) => existing !== rule) })}
                   >
                     <span aria-hidden="true">×</span>

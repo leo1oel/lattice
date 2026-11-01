@@ -2615,7 +2615,7 @@ msgstr "Chapter heading"
 msgid "Chat"
 msgstr "Chat"
 
-#. placeholder {0}: grammarRuleLabel(rule)
+#. placeholder {0}: ruleName(rule)
 #: src/settings/grammar-settings.tsx
 msgid "Check {0} again"
 msgstr "Check {0} again"
@@ -4097,6 +4097,22 @@ msgstr "Diamond operator"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond suit"
 msgstr "Diamond suit"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean “{first}” or “{second}”?"
+msgstr "Did you mean “{first}” or “{second}”?"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean “{word}”?"
+msgstr "Did you mean “{word}”?"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean the closed compound “{word}”?"
+msgstr "Did you mean the closed compound “{word}”?"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Did you mean to repeat this word?"
+msgstr "Did you mean to repeat this word?"
 
 #. placeholder {0}: props.change.path
 #: src/history/file-diff-view.tsx
@@ -5960,6 +5976,10 @@ msgstr "Incomplete history"
 msgid "Inconclusive"
 msgstr "Inconclusive"
 
+#: src/editor/grammar-rule-text.ts
+msgid "Incorrect indefinite article."
+msgstr "Incorrect indefinite article."
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Increment year"
 msgstr "Increment year"
@@ -6254,6 +6274,10 @@ msgstr "Invalid worksheet: {name}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "Iota"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Is “{word}” misspelled?"
+msgstr "Is “{word}” misspelled?"
 
 #: src/settings/grammar-rule-reasons.ts
 msgid "It flags phrases like “most early in training”, which it says are not errors."
@@ -8453,6 +8477,10 @@ msgstr "Only operation metadata and counts. Nothing leaves this Mac until you co
 #: src/history/export-changes-dialog.tsx
 msgid "Only pages with changes"
 msgstr "Only pages with changes"
+
+#: src/settings/grammar-settings.tsx
+msgid "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
+msgstr "Only rules the grammar style or you changed are listed. There are {ruleCount} rules in all; type in the filter to search every one."
 
 #: src/project/figure-inventory-dialog.tsx
 msgid "Only the listed graphics arguments will change. Image files stay in place."
@@ -12352,6 +12380,14 @@ msgstr "The conference's own citation export and Crossref disagree on: {0}. The 
 msgid "the connection id needed to classify replayed updates is not available"
 msgstr "the connection id needed to classify replayed updates is not available"
 
+#: src/editor/grammar-rule-text.ts
+msgid "The correct idiom is “{idiom}”."
+msgstr "The correct idiom is “{idiom}”."
+
+#: src/editor/grammar-rule-text.ts
+msgid "The correct plural is “{plural}”."
+msgstr "The correct plural is “{plural}”."
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "The document body"
@@ -12761,6 +12797,10 @@ msgstr "This line closes a group that was never opened, or leaves math mode with
 msgid "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 msgstr "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore."
 
+#: src/editor/grammar-rule-text.ts
+msgid "This looks like a typo. Did you mean “{word}”?"
+msgstr "This looks like a typo. Did you mean “{word}”?"
+
 #: src/settings/acknowledgements-settings.tsx
 msgid "This package ships no license text of its own"
 msgstr "This package ships no license text of its own"
@@ -12811,6 +12851,14 @@ msgstr "This reference cannot be updated."
 #: src/build/compile-explain.ts
 msgid "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
 msgstr "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec."
+
+#: src/editor/grammar-rule-text.ts
+msgid "This sentence does not start with a capital letter."
+msgstr "This sentence does not start with a capital letter."
+
+#: src/editor/grammar-rule-text.ts
+msgid "This sentence is {count} words long."
+msgstr "This sentence is {count} words long."
 
 #: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
@@ -13422,6 +13470,10 @@ msgstr "Upsilon"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
+
+#: src/editor/grammar-rule-text.ts
+msgid "Use “{word}” instead of “{original}”."
+msgstr "Use “{word}” instead of “{original}”."
 
 #: src/app/use-command-table.ts
 msgid "Use the dark theme"

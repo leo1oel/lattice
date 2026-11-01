@@ -4,6 +4,7 @@ import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
+import { grammarFinding, loadGrammarRuleCatalog } from "./grammar-rule-text";
 import { grammarSettingsStore } from "./grammar-settings-store";
 
 type HarperSuggestionSnapshot = {
@@ -371,8 +372,38 @@ export function createHarperDiagnostic(input: {
     severity: isSpellingKind(input.kind) ? "error" : "warning",
     source: "Harper",
     message: input.message,
+    // Read when the tooltip opens, so it follows the interface language.
+    ...(rule && { renderMessage: () => renderHarperMessage(rule, input.message) }),
     actions,
   };
+}
+
+/**
+ * Harper's sentence in English; in another language the rule's translated
+ * name and description over the finding (see `grammarFinding`).
+ */
+function renderHarperMessage(rule: string, message: string): Node {
+  const finding = grammarFinding(rule, message);
+  if (!finding) {
+    void loadGrammarRuleCatalog();
+    return document.createTextNode(message);
+  }
+  const root = document.createElement("span");
+  root.className = "cm-harper-message";
+  const part = (className: string, text: string) => {
+    const element = root.appendChild(document.createElement("span"));
+    element.className = className;
+    element.textContent = text;
+    return element;
+  };
+  part("cm-harper-rule", finding.name);
+  part("cm-harper-rule-description", finding.description);
+  const detail = part("cm-harper-detail", finding.detail);
+  if (!finding.translated) {
+    detail.classList.add("cm-harper-detail-original");
+    detail.lang = "en";
+  }
+  return root;
 }
 
 let loadFailureReported = false;
@@ -406,6 +437,9 @@ async function computeHarperDiagnostics(source: string, options: HarperDiagnosti
   if (source.trim().length === 0) return [];
   try {
     const { prose, syntaxMask } = maskLatexForHarper(source);
+    // A finding's tooltip names its rule in the interface language, from a
+    // table loaded on first use; have it ready before the first tooltip.
+    void loadGrammarRuleCatalog();
     // The engine is harper-core on the Rust side (src-tauri/src/harper.rs) —
     // the same engine harper.js wrapped, but off the WebView thread entirely.
     // Masking stays here so spans keep matching the document.

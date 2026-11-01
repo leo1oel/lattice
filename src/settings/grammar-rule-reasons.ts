@@ -18,8 +18,3 @@ export const ACADEMIC_RULE_REASONS: Readonly<Record<string, MessageDescriptor>> 
   ToTwoToo: msg`It reads ranges and quantities like “from easy to hard” or “sum to one” as a misspelled “too”.`,
 };
 
-/** How Settings names a Harper rule: "PhrasalVerbAsCompoundNoun" → "Phrasal verb as compound noun". */
-export function grammarRuleLabel(name: string): string {
-  const words = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-  return words.charAt(0) + words.slice(1).toLowerCase();
-}
