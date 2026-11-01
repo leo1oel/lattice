@@ -18,7 +18,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { ProjectMenu } from "../project/project-dialogs";
-import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
+import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import type { ProjectSnapshot } from "../app-types";
 
 export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar, focusBar }: {
@@ -45,14 +45,14 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
   const triggerRef = useRef<HTMLButtonElement>(null);
   if (focusBar) {
     return (
-      <header className="titlebar titlebar-focus" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
+      <header className="titlebar titlebar-focus" onMouseDown={beginWindowDrag} onDoubleClick={titleBarDoubleClick}>
         <div className="traffic-space" />
         {focusBar}
       </header>
     );
   }
   return (
-    <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
+    <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={titleBarDoubleClick}>
       <div className="titlebar-sidebar">
         <div className="titlebar-navigator">
           <div className="traffic-space" />

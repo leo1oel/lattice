@@ -322,7 +322,7 @@
      the project switcher at its own width, then the panel controls. */
   --titlebar-sidebar-width: auto;
   --titlebar-navigator-width: auto;
-  --titlebar-navigator-width-fullscreen: auto;
+  --titlebar-navigator-width-browser: auto;
   /* Fallback until AppKit reports the green button's right edge at runtime:
      72px in a native compact-toolbar titlebar. */
   --titlebar-traffic-space-width: 72px;

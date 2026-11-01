@@ -646,15 +646,13 @@ const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown
   ["plugin:window|set_min_size", ignored],
   ["plugin:window|start_dragging", ignored],
   ["align_traffic_lights", () => null],
+  // A tab has no window to zoom or minimize from its title bar.
+  ["title_bar_double_click", ignored],
   ["plugin:window|scale_factor", () => window.devicePixelRatio],
   ["plugin:window|inner_size", physicalWindowSize],
   ["plugin:window|outer_size", physicalWindowSize],
   ["plugin:window|is_focused", () => document.hasFocus()],
   ["plugin:window|is_fullscreen", () => Boolean(document.fullscreenElement)],
-  ["plugin:window|set_fullscreen", ({ value }) => {
-    if (value && !document.fullscreenElement) void document.documentElement.requestFullscreen();
-    else if (!value && document.fullscreenElement) void document.exitFullscreen();
-  }],
   ["plugin:window|set_title", ({ value }) => {
     if (typeof value === "string") document.title = value;
   }],

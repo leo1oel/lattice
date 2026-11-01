@@ -77,7 +77,7 @@ const PERF_EVIDENCE_INPUTS = /^(docs\/performance(\.md|-data\/.*)|scripts\/check
 /**
  * Files outside src-tauri/ that the Rust crate compiles in through
  * `include_str!`/`include_bytes!`, mapped to the .rs files that do: editing
- * one changes what `cargo test` asserts (macos_window.rs pins the title-bar
+ * one changes what `cargo test` asserts (traffic_lights.rs pins the title-bar
  * stylesheets this way). A `concat!` path keeps only its literal prefix,
  * which then names a directory.
  */

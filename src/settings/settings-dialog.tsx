@@ -23,7 +23,7 @@ import {
   resolveAppLocale,
 } from "./app-settings";
 import type { ProjectSnapshot, SettingsTab } from "../app-types";
-import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
+import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
@@ -267,7 +267,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       returnFocus={props.returnFocus}
       covered={props.covered}
       backdropClassName={replacesShell ? "settings-replaces-shell" : undefined}
-      windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
+      windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: titleBarDoubleClick }}
       onEscapeKeyDown={(event) => {
         if (!narrow || !narrowPage) return;
         event.preventDefault();
@@ -283,7 +283,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
           className="settings-drag-strip"
           aria-hidden="true"
           onMouseDown={beginWindowDrag}
-          onDoubleClick={toggleWindowFullscreen}
+          onDoubleClick={titleBarDoubleClick}
         />
         <CloseButton className="settings-close" label={t`Close settings`} tooltip={false} onClick={props.onClose} />
         <div className="settings-body" data-narrow-view={narrowPage ? "page" : "root"}>
