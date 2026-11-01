@@ -14,21 +14,18 @@ use std::sync::{Mutex, PoisonError, TryLockError};
 use std::time::Duration;
 use tauri::ipc::Channel;
 
-/// The Apple Silicon build of rtex, the only Macs Lattice runs on, from the
-/// leo1oel fork: 0.0.5 with a main document in a subfolder typeset as
-/// `latexmk -cd` does (HenryXiaoYang/realtime-tex#18, not yet released
-/// upstream). The digest is the one the release's SHA256SUMS lists.
+/// The Apple Silicon build of rtex, the only Macs Lattice runs on. The digest
+/// is the one the release's SHA256SUMS lists.
 const RTEX: PinnedDownload = PinnedDownload {
-    url: "https://github.com/leo1oel/realtime-tex/releases/download/v0.0.5-cd.1/rtex-aarch64-apple-darwin.tar.gz",
-    sha256: "4ca6681d7786e17f493ad035c10e9f3a413158a52424f525a9b4535b08ea4bba",
+    url: "https://github.com/HenryXiaoYang/realtime-tex/releases/download/v0.0.6/rtex-aarch64-apple-darwin.tar.gz",
+    sha256: "99f56b8cde472de0c4c3b4814f7453e97f789ace9e3114a9d7e9f9df2cb68864",
     timeout: Duration::from_secs(10 * 60),
     name: "rtex",
     source: "the rtex live preview engine",
     artifact: "rtex archive",
 };
-/// The folder the archive unpacks into, named for the 0.0.5 its `rtex`
-/// reports rather than the fork's tag.
-const ARCHIVE_ROOT: &str = "rtex-0.0.5-aarch64-apple-darwin";
+/// The folder the archive unpacks into.
+const ARCHIVE_ROOT: &str = "rtex-0.0.6-aarch64-apple-darwin";
 
 /// Where the verified release lives: `bin/rtex`, and `share/rtex/tex` beside
 /// it, where rtex looks for its TeX and Lua support files.
@@ -305,11 +302,10 @@ mod tests {
     #[test]
     fn the_pin_is_an_https_github_release_with_a_full_digest() {
         assert!(RTEX.url.starts_with(&format!(
-            "https://github.com/leo1oel/realtime-tex/releases/download/v{RTEX_VERSION}/"
+            "https://github.com/HenryXiaoYang/realtime-tex/releases/download/v{RTEX_VERSION}/"
         )));
         assert!(RTEX.url.ends_with("/rtex-aarch64-apple-darwin.tar.gz"));
-        let release = RTEX_VERSION.split('-').next().unwrap();
-        assert_eq!(ARCHIVE_ROOT, format!("rtex-{release}-aarch64-apple-darwin"));
+        assert_eq!(ARCHIVE_ROOT, format!("rtex-{RTEX_VERSION}-aarch64-apple-darwin"));
         assert_eq!(RTEX.sha256.len(), 64);
         assert!(RTEX.sha256.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }

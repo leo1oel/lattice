@@ -23,7 +23,7 @@ vi.mock("./live-preview-chunk", () => ({
   },
 }));
 
-const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.5-cd.1" };
+const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.6" };
 let install: LivePreviewInstall;
 let download: () => Promise<unknown>;
 

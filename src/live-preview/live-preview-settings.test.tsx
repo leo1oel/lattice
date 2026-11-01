@@ -7,7 +7,7 @@ import type { LivePreview, LivePreviewInstall, LivePreviewState } from "./use-li
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(cleanup);
 
-const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.5-cd.1" };
+const READY: LivePreviewInstall = { supported: true, lualatex: true, installed: false, version: "0.0.6" };
 beforeEach(() => { vi.mocked(invoke).mockReset().mockResolvedValue(READY); });
 
 function settings(state: LivePreviewState, overrides: Partial<LivePreview> = {}) {
