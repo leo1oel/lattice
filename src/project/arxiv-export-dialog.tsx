@@ -22,11 +22,11 @@ import { Button } from "../components/ui/button";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { SwitchField } from "../components/ui/switch-field";
-import { toMessage } from "../app-utils";
+import { formatSize, toMessage } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { notifyCopied, notifyError, notifySuccess } from "../telemetry/app-notify";
 import {
-  archiveName, checkRows, formatSize, leftOutLine, pendingRows, summaryLine,
+  archiveName, checkRows, leftOutLine, pendingRows, summaryLine,
   type ArxivCheck, type ArxivOptions, type CheckState,
 } from "./arxiv-export";
 

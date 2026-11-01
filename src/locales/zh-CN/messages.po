@@ -650,6 +650,10 @@ msgstr "{name} 当前没在看任何文件"
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} 仍在运行，关闭会将其停止。"
 
+#: src/app/file-open-failure.ts
+msgid "{name} is too large to open in the editor"
+msgstr "{name} 太大，无法在编辑器中打开"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name}设置"
@@ -729,6 +733,10 @@ msgstr "第 {position} / {0} 条"
 #: src/canvas/annotation-review.tsx
 msgid "{position} of {total}"
 msgstr "第 {position}/{total} 条"
+
+#: src/app/app-titlebar.tsx
+msgid "{projectName} — {documentTitle}"
+msgstr "{projectName} — {documentTitle}"
 
 #: src/project/references-panel.tsx
 msgid "{references} reference"
@@ -1712,6 +1720,7 @@ msgstr "AoE 时间（UTC−12）"
 msgid "API key"
 msgstr "API 密钥"
 
+#: src/app/file-open-failure.ts
 #: src/app/notify.ts
 #: src/telemetry/app-log-store.ts
 #: src/telemetry/global-error-capture.ts
@@ -3669,6 +3678,7 @@ msgstr "项目没保存成功"
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "报告没能保存，请别关窗口以保留结果"
 
+#: src/app/file-open-failure.ts
 #: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "无法在访达中显示。{message}"
@@ -6282,6 +6292,10 @@ msgstr "“{word}” 是否拼错了？"
 #: src/settings/grammar-rule-reasons.ts
 msgid "It flags phrases like “most early in training”, which it says are not errors."
 msgstr "它会标出 “most early in training” 这类短语，而它自己也说明这些并不是错误。"
+
+#: src/app/file-open-failure.ts
+msgid "It is {size}; the editor opens files up to {limit}. Open it in another app instead."
+msgstr "文件大小为 {size}，编辑器最多只能打开 {limit} 的文件，请改用其他应用打开。"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "It is still cited in the manuscript ({cited})."
@@ -11418,6 +11432,7 @@ msgstr "显示大纲"
 msgid "Show hidden files"
 msgstr "显示隐藏文件"
 
+#: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-row.tsx

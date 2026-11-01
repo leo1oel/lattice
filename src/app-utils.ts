@@ -235,6 +235,14 @@ export function relativeTime(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+/** A file size in decimal units, as Finder and arXiv (50 MB) state them, in the reader's locale. */
+export function formatSize(bytes: number, locale = i18n.locale || "en") {
+  const [value, unit] = bytes < 1_000_000
+    ? [Math.max(1, Math.round(bytes / 1_000)), "kilobyte"]
+    : [bytes / 1_000_000, "megabyte"];
+  return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "short", maximumFractionDigits: 1 }).format(value);
+}
+
 /** Like absoluteProjectPath, except the empty path names the project root itself. */
 export function projectItemPath(root: string, relativePath: string): string {
   return relativePath ? absoluteProjectPath(root, relativePath) : root;

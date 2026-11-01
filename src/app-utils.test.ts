@@ -7,6 +7,7 @@ import {
   dropCanvasAt,
   dropDirectoryAt,
   dropEditorAt,
+  formatSize,
   deckIdFromOpenSlidePath,
   isHarperProseFilePath,
   isOpenSlideDeckPath,
@@ -372,5 +373,16 @@ describe("project path changes", () => {
     const moveSections = [{ previousPath: "sections", nextPath: "drafts/sections" }];
     expect(remapProjectPath("sections/intro.tex", moveSections)).toBe("drafts/sections/intro.tex");
     expect(remapProjectPath("main.tex", moveSections)).toBe("main.tex");
+  });
+});
+
+describe("formatSize", () => {
+  it("formats sizes in decimal units, as Finder and arXiv state them", () => {
+    expect(formatSize(400)).toBe("1 kB");
+    expect(formatSize(48_200)).toBe("48 kB");
+    expect(formatSize(1_940_000)).toBe("1.9 MB");
+    expect(formatSize(2_010_000)).toBe("2 MB");
+    expect(formatSize(50_000_000)).toBe("50 MB");
+    expect(formatSize(1_940_000, "zh-CN")).toBe("1.9 MB");
   });
 });

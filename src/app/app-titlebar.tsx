@@ -20,9 +20,13 @@ import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-men
 import { ProjectMenu } from "../project/project-dialogs";
 import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import type { ProjectSnapshot } from "../app-types";
+import type { OpenDocuments } from "./use-open-documents";
+import { useWindowTitle } from "./use-native-window";
 
-export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar, focusBar }: {
+export function AppTitlebar({ project, documents, projectMenu, panelControls, canvasToolbar, focusBar }: {
   project: ProjectSnapshot;
+  /** The file or Paper in front, whose name the window's title and the focus bar carry. */
+  documents: Pick<OpenDocuments, "paper" | "activeTab">;
   /** The project switcher's menu, plus whether it is open and what may disable it. */
   projectMenu: Omit<ComponentProps<typeof ProjectMenu>, "currentPath" | "onSettings"> & {
     /** Settings, opened from the menu, returns focus to `returnFocus`: the menu's trigger. */
@@ -35,19 +39,23 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
   /** The Panels menu, the layout switch, search and the hidden-panel chips. */
   panelControls: ReactNode;
   canvasToolbar: ReactNode;
-  /** Focus mode's bar, which stands in for everything after the traffic lights. */
-  focusBar?: ReactNode;
+  /** Focus mode's bar, given the front document's name, which stands in for everything after the traffic lights. */
+  focusBar?: (documentTitle: string) => ReactNode;
 }) {
   const { t } = useLingui();
   const { open: menuOpen, setOpen: setMenuOpen, importing, building, onSettings, ...menu } = projectMenu;
   // The menu item that opens Settings closes with the menu, so Settings is
   // handed the trigger to return focus to instead.
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const projectName = project.manifest.name;
+  const documentTitle = documents.paper?.title ?? documents.activeTab.split("/").pop() ?? "";
+  // Project first: where the system shortens a title, the project is what tells windows apart.
+  useWindowTitle(documentTitle ? t`${projectName} — ${documentTitle}` : projectName);
   if (focusBar) {
     return (
       <header className="titlebar titlebar-focus" onMouseDown={beginWindowDrag} onDoubleClick={titleBarDoubleClick}>
         <div className="traffic-space" />
-        {focusBar}
+        {focusBar(documentTitle)}
       </header>
     );
   }
@@ -66,7 +74,7 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
                 aria-label={t`Switch project`}
                 disabled={building || importing}
               >
-                <span>{project.manifest.name}</span>
+                <span>{projectName}</span>
                 <ChevronDown size={12} />
               </button>
             </DropdownMenuTrigger>

@@ -3,8 +3,8 @@
 
 use super::paths::{extension, safe_path, source_kind, NOT_FOUND};
 use super::tree::{
-    classify_file_bytes, is_html_path, is_non_utf8_text, is_supported_asset, ContentKind,
-    MAX_CLASSIFIED_TEXT_BYTES, MAX_LOCAL_HTML_BYTES, NOT_UTF8,
+    classify_file_bytes, is_html_path, is_non_utf8_text, is_supported_asset, starts_as_text,
+    too_large, ContentKind, MAX_CLASSIFIED_TEXT_BYTES, MAX_LOCAL_HTML_BYTES, NOT_UTF8,
 };
 use crate::commands;
 use crate::util::err;
@@ -91,6 +91,11 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
                 version: file_version(&metadata),
             },
         });
+    }
+    // The tree files text past the editor's limit as binary, so a big `.bib`
+    // is clicked into here: say it is too large rather than preview bytes.
+    if asset_mime_type(&path).is_none() && size > MAX_CLASSIFIED_TEXT_BYTES && starts_as_text(&path)? {
+        return Err(too_large(size, MAX_CLASSIFIED_TEXT_BYTES));
     }
     if size > MAX_INLINE_ASSET_BYTES {
         return Err(
