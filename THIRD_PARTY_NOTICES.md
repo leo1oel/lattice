@@ -177,7 +177,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-The engine itself, [rtex (realtime-tex)](https://github.com/HenryXiaoYang/realtime-tex) 0.0.5 (the [leo1oel/realtime-tex](https://github.com/leo1oel/realtime-tex) build `v0.0.5-cd.1`), is not shipped with Lattice: turning the live preview on downloads its release archive (verified by SHA-256) into Lattice's Application Support folder, together with the archive's own `LICENSE`. It is licensed MIT, Copyright (c) 2026 Henry Yang and the realtime-tex contributors.
+The engine itself, [rtex (realtime-tex)](https://github.com/HenryXiaoYang/realtime-tex) 0.0.6, is not shipped with Lattice: turning the live preview on downloads its release archive (verified by SHA-256) into Lattice's Application Support folder, together with the archive's own `LICENSE`. It is licensed MIT, Copyright (c) 2026 Henry Yang and the realtime-tex contributors.
 
 ## Claude Agent SDK (bundled in the Synara sidecar)
 
