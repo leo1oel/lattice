@@ -111,7 +111,7 @@
     "exceljs": "4.4.0",
     "frimousse": "^0.3.0",
     "highlight.js": "^11.11.1",
-    "katex": "^0.17.0",
+    "katex": "0.19.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.24.0",
     "mdast-util-from-markdown": "^2.0.3",
@@ -190,7 +190,8 @@
       "@tiptap/extension-node-range": "3.32.2",
       "@tiptap/extension-ordered-list": "3.32.2",
       "@tiptap/extensions": "3.32.2",
-      "exceljs>unzipper": "^0.12.3"
+      "exceljs>unzipper": "^0.12.3",
+      "micromark-extension-math>katex": "0.19.0"
     },
     "patchedDependencies": {
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",

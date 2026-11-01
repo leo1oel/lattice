@@ -232,7 +232,10 @@ pub(super) fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>
             continue;
         }
         let name = crate::project::safe_zip_entry_name(&file).ok_or_else(|| {
-            format!("Refusing unsafe path in Overleaf zip: {}", file.name().replace('\\', "/"))
+            format!(
+                "Refusing unsafe path in Overleaf zip: {}",
+                crate::project::zip_entry_display_name(&file)
+            )
         })?;
         let mut data = Vec::new();
         file.read_to_end(&mut data).map_err(err)?;

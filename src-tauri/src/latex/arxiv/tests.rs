@@ -51,7 +51,7 @@ fn zip_entries(path: &Path) -> BTreeMap<String, String> {
             let mut entry = archive.by_index(index).unwrap();
             let mut text = String::new();
             entry.read_to_string(&mut text).unwrap();
-            (entry.name().to_string(), text)
+            (entry.name().unwrap().into_owned(), text)
         })
         .collect()
 }

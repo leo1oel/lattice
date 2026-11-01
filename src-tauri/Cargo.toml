@@ -80,7 +80,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["r
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
 tar = "0.4"
-zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 # 0.10 matches the version tauri and its plugins already compile in; 0.11
 # shipped a second copy of the whole digest stack for one Sha256::digest call.
 sha2 = "0.10"

@@ -544,11 +544,11 @@ license named here is the one their upstream states:
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**588 packages.**
+**587 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 487 |
+| `MIT` | 486 |
 | `Apache-2.0` | 31 |
 | `ISC` | 25 |
 | `BSD-3-Clause` | 18 |
@@ -633,7 +633,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (64 distinct texts across 588 packages)
+### License texts (64 distinct texts across 587 packages)
 
 #### 1. MIT (+1 other declarations) — 236 package(s), from `LICENSE`
 
@@ -734,7 +734,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`bail@2.0.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `character-entities@2.0.2`, `collapse-white-space@2.1.0`, `comma-separated-tokens@2.0.3`, `commander@8.3.0`, `debug@4.4.3`, `decode-named-character-reference@1.3.0`, `devlop@1.1.0`, `franc-min@6.2.0`, `fs-extra@11.3.1`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `jsonfile@6.2.1`, `longest-streak@3.1.0`, `lowlight@3.3.0`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm-autolink-literal@2.0.1`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-gfm-strikethrough@2.0.0`, `mdast-util-gfm-table@2.0.0`, `mdast-util-gfm-task-list-item@2.0.0`, `mdast-util-gfm@3.1.0`, `mdast-util-math@3.0.0`, `mdast-util-phrasing@4.1.0`, `mdast-util-to-hast@13.2.1`, `mdast-util-to-markdown@2.1.2`, `mdast-util-to-string@4.0.0`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-autolink-literal@2.1.0`, `micromark-extension-gfm-footnote@2.1.0`, `micromark-extension-gfm-strikethrough@2.1.0`, `micromark-extension-gfm-table@2.1.1`, `micromark-extension-gfm-tagfilter@2.0.0`, `micromark-extension-gfm-task-list-item@2.1.0`, `micromark-extension-gfm@3.0.0`, `micromark-extension-math@3.1.0`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `micromark@4.0.2`, `n-gram@2.0.2`, `property-information@7.2.0`, `remark-gfm@4.0.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trigram-utils@2.0.1`, `trim-lines@3.0.1`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-remove-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `vfile-message@4.0.3`, `zwitch@2.0.4`
+`bail@2.0.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `character-entities@2.0.2`, `collapse-white-space@2.1.0`, `comma-separated-tokens@2.0.3`, `commander@15.0.0`, `debug@4.4.3`, `decode-named-character-reference@1.3.0`, `devlop@1.1.0`, `franc-min@6.2.0`, `fs-extra@11.3.1`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `jsonfile@6.2.1`, `longest-streak@3.1.0`, `lowlight@3.3.0`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm-autolink-literal@2.0.1`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-gfm-strikethrough@2.0.0`, `mdast-util-gfm-table@2.0.0`, `mdast-util-gfm-task-list-item@2.0.0`, `mdast-util-gfm@3.1.0`, `mdast-util-math@3.0.0`, `mdast-util-phrasing@4.1.0`, `mdast-util-to-hast@13.2.1`, `mdast-util-to-markdown@2.1.2`, `mdast-util-to-string@4.0.0`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-autolink-literal@2.1.0`, `micromark-extension-gfm-footnote@2.1.0`, `micromark-extension-gfm-strikethrough@2.1.0`, `micromark-extension-gfm-table@2.1.1`, `micromark-extension-gfm-tagfilter@2.0.0`, `micromark-extension-gfm-task-list-item@2.1.0`, `micromark-extension-gfm@3.0.0`, `micromark-extension-math@3.1.0`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `micromark@4.0.2`, `n-gram@2.0.2`, `property-information@7.2.0`, `remark-gfm@4.0.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trigram-utils@2.0.1`, `trim-lines@3.0.1`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-remove-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `vfile-message@4.0.3`, `zwitch@2.0.4`
 
 </details>
 
@@ -861,11 +861,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 4. MIT — 44 package(s), from `license`
+#### 4. MIT — 43 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
-`@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `buffer@5.7.1`, `classnames@2.5.1`, `color-name@1.1.4`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `eventemitter3@4.0.7`, `exceljs@4.4.0`, `extend@3.0.2`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `is-plain-object@5.0.0`, `isomorphic.js@0.2.5`, `js-tokens@4.0.0`, `katex@0.16.47`, `katex@0.17.0`, `lib0@0.2.117`, `loose-envify@1.4.0`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@4.0.5`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `uuid@8.3.2`
+`@lingui/babel-plugin-lingui-macro@6.6.0`, `@lingui/conf@6.6.0`, `@lingui/core@6.6.0`, `@lingui/message-utils@6.6.0`, `@lingui/react@6.6.0`, `@shikijs/vscode-textmate@10.0.2`, `async-lock@1.4.1`, `base64-js@1.5.1`, `bluebird@3.7.2`, `buffer@5.7.1`, `classnames@2.5.1`, `color-name@1.1.4`, `dequal@2.0.3`, `dom-helpers@5.2.1`, `end-of-stream@1.4.5`, `eventemitter3@4.0.7`, `exceljs@4.4.0`, `extend@3.0.2`, `framer-motion@12.43.0`, `fs-constants@1.0.0`, `is-plain-object@5.0.0`, `isomorphic.js@0.2.5`, `js-tokens@4.0.0`, `katex@0.19.0`, `lib0@0.2.117`, `loose-envify@1.4.0`, `motion-dom@12.43.0`, `motion-utils@12.39.0`, `motion@12.42.2`, `ms@2.1.3`, `normalize-path@3.0.0`, `object-assign@4.1.1`, `path-is-absolute@1.0.1`, `picomatch@4.0.5`, `preact-render-to-string@6.6.5`, `preact@11.0.0-beta.0`, `require-directory@2.1.1`, `reselect@5.2.0`, `safe-buffer@5.1.2`, `safe-buffer@5.2.1`, `tar-stream@2.2.0`, `tmp@0.2.7`, `uuid@8.3.2`
 
 </details>
 
@@ -7854,12 +7854,12 @@ the licensed code:
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**973 packages.**
+**975 packages.**
 
 | Declared license | Packages |
 | --- | --- |
 | `MIT OR Apache-2.0` | 459 |
-| `MIT` | 242 |
+| `MIT` | 244 |
 | `Apache-2.0 OR MIT` | 64 |
 | `MIT/Apache-2.0` | 43 |
 | `Apache-2.0` | 23 |
@@ -7901,7 +7901,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 | `zlib-acknowledgement OR MIT` | 1 |
 
-### License texts (111 distinct texts across 973 packages)
+### License texts (111 distinct texts across 975 packages)
 
 #### 1. MIT OR Apache-2.0 (+18 other declarations) — 498 package(s), from `licenses/upstream/crates/tracel-llvm-bundler@20.1.4-7/LICENSE-MIT`
 
@@ -8709,15 +8709,15 @@ Apache License
    END OF TERMS AND CONDITIONS
 ```
 
-#### 5. MIT (+4 other declarations) — 69 package(s), from `LICENSE`
+#### 5. MIT (+4 other declarations) — 71 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`aho-corasick@1.1.4` (`Unlicense OR MIT`), `async-broadcast@0.7.2` (`MIT OR Apache-2.0`), `base64@0.21.7` (`MIT OR Apache-2.0`), `base64@0.22.1` (`MIT OR Apache-2.0`), `base64@0.23.1` (`MIT OR Apache-2.0`), `bincode@2.0.1`, `bon-macros@3.10.3` (`MIT OR Apache-2.0`), `bon@3.10.3` (`MIT OR Apache-2.0`), `byteorder-lite@0.1.0` (`Unlicense OR MIT`), `byteorder@1.5.0` (`Unlicense OR MIT`), `calamine@0.36.1`, `combine@4.6.7`, `crossbeam-channel@0.5.16` (`MIT OR Apache-2.0`), `crossbeam-deque@0.8.7` (`MIT OR Apache-2.0`), `crossbeam-epoch@0.9.20` (`MIT OR Apache-2.0`), `crossbeam-utils@0.8.22` (`MIT OR Apache-2.0`), `crunchy@0.2.4`, `csv-core@0.1.13` (`Unlicense/MIT`), `csv@1.4.0` (`Unlicense/MIT`), `data-encoding@2.11.0`, `derive_more-impl@1.0.0`, `derive_more-impl@2.1.1`, `derive_more@1.0.0`, `derive_more@2.1.1`, `derive-new@0.7.0`, `embed-resource@3.0.11`, `fsevent-sys@4.1.0`, `fst@0.4.7` (`Unlicense/MIT`), `generic-array@0.14.7`, `javascriptcore-rs-sys@1.1.1`, `javascriptcore-rs@1.1.2`, `jiff-core@0.1.0` (`Unlicense OR MIT`), `jiff-static@0.2.35` (`Unlicense OR MIT`), `jiff-tzdb-platform@0.1.3` (`Unlicense OR MIT`), `jiff-tzdb@0.1.8` (`Unlicense OR MIT`), `jiff@0.2.35` (`Unlicense OR MIT`), `jni-macros@0.22.4` (`MIT OR Apache-2.0`), `jni@0.21.1` (`MIT/Apache-2.0`), `jni@0.22.4` (`MIT OR Apache-2.0`), `memchr@2.8.3` (`Unlicense OR MIT`), `mime_guess@2.0.5`, `os_pipe@1.2.3`, `pretty_assertions@1.4.1` (`MIT OR Apache-2.0`), `quick-xml@0.39.4`, `quick-xml@0.41.0`, `raw-cpuid@11.6.0`, `redox_users@0.5.2`, `same-file@1.0.6` (`Unlicense/MIT`), `shlex@1.3.0` (`MIT OR Apache-2.0`), `shlex@2.0.1` (`MIT OR Apache-2.0`), `soup3-sys@0.5.0`, `soup3@0.5.0`, `spin@0.10.1`, `strsim@0.11.1`, `sysctl@0.6.0`, `sysinfo@0.36.1`, `tantivy-fst@0.5.0` (`Unlicense/MIT`), `tauri-winres@0.3.6`, `termcolor@1.4.1` (`Unlicense OR MIT`), `typenum@1.20.1` (`MIT OR Apache-2.0`), `utf8-ranges@1.0.5` (`Unlicense/MIT`), `vswhom-sys@0.1.3`, `vswhom@0.1.0`, `walkdir@2.5.0` (`Unlicense/MIT`), `weezl@0.1.12` (`MIT OR Apache-2.0`), `winapi-util@0.1.11` (`Unlicense OR MIT`), `xml-rs@0.8.29`, `zip@8.6.0`, `zstd@0.13.3`
+`aho-corasick@1.1.4` (`Unlicense OR MIT`), `async-broadcast@0.7.2` (`MIT OR Apache-2.0`), `base64@0.21.7` (`MIT OR Apache-2.0`), `base64@0.22.1` (`MIT OR Apache-2.0`), `base64@0.23.1` (`MIT OR Apache-2.0`), `bincode@2.0.1`, `bon-macros@3.10.3` (`MIT OR Apache-2.0`), `bon@3.10.3` (`MIT OR Apache-2.0`), `byteorder-lite@0.1.0` (`Unlicense OR MIT`), `byteorder@1.5.0` (`Unlicense OR MIT`), `calamine@0.36.1`, `combine@4.6.7`, `crossbeam-channel@0.5.16` (`MIT OR Apache-2.0`), `crossbeam-deque@0.8.7` (`MIT OR Apache-2.0`), `crossbeam-epoch@0.9.20` (`MIT OR Apache-2.0`), `crossbeam-utils@0.8.22` (`MIT OR Apache-2.0`), `crunchy@0.2.4`, `csv-core@0.1.13` (`Unlicense/MIT`), `csv@1.4.0` (`Unlicense/MIT`), `data-encoding@2.11.0`, `derive_more-impl@1.0.0`, `derive_more-impl@2.1.1`, `derive_more@1.0.0`, `derive_more@2.1.1`, `derive-new@0.7.0`, `embed-resource@3.0.11`, `fsevent-sys@4.1.0`, `fst@0.4.7` (`Unlicense/MIT`), `generic-array@0.14.7`, `javascriptcore-rs-sys@1.1.1`, `javascriptcore-rs@1.1.2`, `jiff-core@0.1.0` (`Unlicense OR MIT`), `jiff-static@0.2.35` (`Unlicense OR MIT`), `jiff-tzdb-platform@0.1.3` (`Unlicense OR MIT`), `jiff-tzdb@0.1.8` (`Unlicense OR MIT`), `jiff@0.2.35` (`Unlicense OR MIT`), `jni-macros@0.22.4` (`MIT OR Apache-2.0`), `jni@0.21.1` (`MIT/Apache-2.0`), `jni@0.22.4` (`MIT OR Apache-2.0`), `memchr@2.8.3` (`Unlicense OR MIT`), `mime_guess@2.0.5`, `nix@0.31.3`, `os_pipe@1.2.3`, `pretty_assertions@1.4.1` (`MIT OR Apache-2.0`), `quick-xml@0.39.4`, `quick-xml@0.41.0`, `raw-cpuid@11.6.0`, `redox_users@0.5.2`, `same-file@1.0.6` (`Unlicense/MIT`), `shlex@1.3.0` (`MIT OR Apache-2.0`), `shlex@2.0.1` (`MIT OR Apache-2.0`), `soup3-sys@0.5.0`, `soup3@0.5.0`, `spin@0.10.1`, `strsim@0.11.1`, `sysctl@0.6.0`, `sysinfo@0.36.1`, `tantivy-fst@0.5.0` (`Unlicense/MIT`), `tauri-winres@0.3.6`, `termcolor@1.4.1` (`Unlicense OR MIT`), `typenum@1.20.1` (`MIT OR Apache-2.0`), `utf8-ranges@1.0.5` (`Unlicense/MIT`), `vswhom-sys@0.1.3`, `vswhom@0.1.0`, `walkdir@2.5.0` (`Unlicense/MIT`), `weezl@0.1.12` (`MIT OR Apache-2.0`), `winapi-util@0.1.11` (`Unlicense OR MIT`), `xml-rs@0.8.29`, `zip@8.6.0`, `zip@9.0.5`, `zstd@0.13.3`
 
 </details>
 
-Copyright notices (41):
+Copyright notices (42):
 
 ```text
 Copyright (c) 2013-2017, The Gtk-rs Project Developers.
@@ -8730,6 +8730,7 @@ Copyright (c) 2015 Alice Maz
 Copyright (c) 2015 Andrew Gallant
 Copyright (c) 2015 Austin Bonander
 Copyright (c) 2015 Bartłomiej Kamiński
+Copyright (c) 2015 Carl Lerche + nix-rust Authors
 Copyright (c) 2015 Danny Guo
 Copyright (c) 2015 Gerd Zellweger
 Copyright (c) 2015 Guillaume Gomez

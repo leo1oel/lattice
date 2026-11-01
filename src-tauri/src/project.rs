@@ -53,7 +53,7 @@ pub use annotations::{
     AnnotationRound, Annotations, EditorComment,
 };
 pub use archive::{export_project_zip, import_project_zip};
-pub(crate) use archive::{safe_zip_entry_name, zip_time};
+pub(crate) use archive::{safe_zip_entry_name, zip_entry_display_name, zip_time};
 pub use assets::AssetPreview;
 pub use assets::{prepare_latex_figure, read_asset, read_asset_range, save_asset_copy};
 pub use bibliography::{

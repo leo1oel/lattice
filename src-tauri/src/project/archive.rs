@@ -155,16 +155,26 @@ fn system_time(time: zip::DateTime) -> Option<SystemTime> {
 
 /// The entry's name, `/`-separated, when it stays inside the folder it is
 /// extracted to: relative, no `..` or empty segments, not a symbolic link.
+/// A name the archive's declared encoding cannot decode counts as unsafe.
 pub(crate) fn safe_zip_entry_name<R: Read + ?Sized>(
     file: &zip::read::ZipFile<'_, R>,
 ) -> Option<String> {
-    let name = file.name().replace('\\', "/");
+    let name = file.name().ok()?.replace('\\', "/");
     let trimmed = name.strip_suffix('/').filter(|_| file.is_dir()).unwrap_or(&name);
     let unsafe_path = file.is_symlink()
         || file.enclosed_name().is_none()
         || trimmed.starts_with('/')
         || trimmed.split('/').any(|part| part == ".." || part.is_empty());
     (!unsafe_path).then(|| trimmed.to_string())
+}
+
+/// The entry's name for messages: decoded when possible, otherwise the raw
+/// bytes read as lossy UTF-8, so an undecodable name still says which entry.
+pub(crate) fn zip_entry_display_name<R: Read + ?Sized>(file: &zip::read::ZipFile<'_, R>) -> String {
+    match file.name() {
+        Ok(name) => name.replace('\\', "/"),
+        Err(_) => String::from_utf8_lossy(file.name_raw()).replace('\\', "/"),
+    }
 }
 
 /// Extract an Overleaf (or similar) ZIP into `parent` and open it as a Lattice project.
@@ -202,11 +212,11 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(err)?;
         if file.is_symlink() {
-            log::warn!(target: "lattice::project", "Skipping symbolic link {} in the ZIP import", file.name());
+            log::warn!(target: "lattice::project", "Skipping symbolic link {} in the ZIP import", zip_entry_display_name(&file));
             continue;
         }
         let name = safe_zip_entry_name(&file)
-            .ok_or_else(|| format!("refusing unsafe path {}", file.name()))?;
+            .ok_or_else(|| format!("refusing unsafe path {}", zip_entry_display_name(&file)))?;
         let target = dest.join(&name);
         if file.is_dir() {
             fs::create_dir_all(&target).map_err(err)?;
@@ -261,7 +271,8 @@ mod tests {
 
     fn names(zip_path: &Path) -> Vec<String> {
         let archive = ZipArchive::new(File::open(zip_path).unwrap()).unwrap();
-        let mut names = archive.file_names().map(str::to_string).collect::<Vec<_>>();
+        let mut names =
+            archive.file_names().map(|name| name.unwrap().into_owned()).collect::<Vec<_>>();
         names.sort();
         names
     }
