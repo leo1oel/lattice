@@ -1,6 +1,6 @@
 import { useMemo, type KeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
-import type { ProofreadCategory, ProofreadMode } from "../agent/agent-proofread";
+import type { ProofreadAsk, ProofreadCategory, ProofreadMode } from "../agent/agent-proofread";
 import { chosenEdits, type ProofreadReview } from "../agent/proofread-edits";
 import { comboText, parseKeyName } from "../app/key-combos";
 import type { ProtectedKind } from "../editor/latex/latex-protected";
@@ -33,11 +33,12 @@ const DISMISS_KEYS = comboText(parseKeyName("Escape"));
  * the reason it gave. Clicking an edit keeps the original; ⌘↩ applies the
  * edits still made and Esc discards them all. Edits Lattice held back,
  * because they would have changed protected LaTeX, show where they were,
- * locked.
+ * locked. A rewrite by the writer's own instruction shows that instruction
+ * where the strength switch would be.
  */
 export function ProofreadCard(props: {
   original: string;
-  mode: ProofreadMode;
+  ask: ProofreadAsk;
   state: ProofreadCardState;
   editable: boolean;
   onAccept: () => void;
@@ -48,7 +49,8 @@ export function ProofreadCard(props: {
   onChoose: (id: number, accepted: boolean) => void;
 }) {
   const { t } = useLingui();
-  const { mode, original, state } = props;
+  const { ask, original, state } = props;
+  const instruction = typeof ask === "string" ? null : ask.instruction;
   const ready = state.status === "ready" ? state : null;
   const offered = ready?.review.edits.length ?? 0;
   const held = ready?.review.held ?? [];
@@ -62,6 +64,7 @@ export function ProofreadCard(props: {
     concision: t`concision`,
     flow: t`flow`,
     consistency: t`consistency`,
+    translation: t`translation`,
   }), [t]);
   // A held edit's tag names what it would have changed, in a word.
   const heldTags = useMemo((): Record<ProtectedKind, string> => ({
@@ -89,9 +92,9 @@ export function ProofreadCard(props: {
     }),
     ...heldRuns(original, ready.review).map((edit): InlineEdit => ({ ...edit, status: "held", tag: heldTags[edit.kind] })),
   ] : [], [categories, heldTags, keepHint, original, ready]);
-  const polishing = mode === "polish";
-  const summary = state.status === "loading" ? polishing ? t`Polishing…` : t`Proofreading…`
-    : state.status === "error" ? polishing ? t`Could not polish` : t`Could not proofread`
+  const polishing = ask === "polish";
+  const summary = state.status === "loading" ? instruction !== null ? t`Rewriting…` : polishing ? t`Polishing…` : t`Proofreading…`
+    : state.status === "error" ? instruction !== null ? t`Could not rewrite` : polishing ? t`Could not polish` : t`Could not proofread`
       : offered === 0 ? held.length ? t`No safe edits` : t`No changes suggested`
         : offered === 1 ? t`1 edit` : t`${offered} edits`;
   // Focus inside the card (an edit reached with Tab) is out of the editor's
@@ -109,25 +112,29 @@ export function ProofreadCard(props: {
     <div
       className="proofread-card"
       role="group"
-      aria-label={polishing ? t`Polish suggestion` : t`Proofread suggestion`}
+      aria-label={instruction !== null ? t`Rewrite suggestion` : polishing ? t`Polish suggestion` : t`Proofread suggestion`}
       aria-busy={state.status === "loading"}
       data-status={state.status}
-      data-mode={mode}
+      data-mode={instruction !== null ? "custom" : ask}
       onKeyDown={onKeyDown}
     >
       <div className="proofread-card-header">
-        <SegmentedControl
-          value={mode}
-          onChange={(next) => {
-            if (next !== mode) props.onMode(next);
-          }}
-          items={[
-            { value: "proofread", label: t`Proofread` },
-            { value: "polish", label: t`Polish` },
-          ]}
-          ariaLabel={t`Editing strength`}
-          className="proofread-card-mode"
-        />
+        {typeof ask === "string" ? (
+          <SegmentedControl
+            value={ask}
+            onChange={(next) => {
+              if (next !== ask) props.onMode(next);
+            }}
+            items={[
+              { value: "proofread", label: t`Proofread` },
+              { value: "polish", label: t`Polish` },
+            ]}
+            ariaLabel={t`Editing strength`}
+            className="proofread-card-mode"
+          />
+        ) : (
+          <span className="proofread-card-instruction" title={ask.instruction}>{ask.instruction}</span>
+        )}
         <span className="proofread-card-summary" role="status">
           {state.status === "loading" && <InfinityLoader size={12} />}
           <span className="proofread-card-summary-text">{summary}</span>

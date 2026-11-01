@@ -30,6 +30,25 @@ describe("proofreadPrompt", () => {
     expect(prompt).toMatch(/Preserve all math verbatim/);
     expect(prompt).toContain("<proofread>");
   });
+
+  it("keeps translation out of the fixed strengths' vocabulary", () => {
+    for (const mode of ["proofread", "polish"] as const) {
+      expect(proofreadPrompt("Text.", "main.tex", mode)).not.toMatch(/consistency, translation/);
+    }
+  });
+
+  it("follows the writer's own instruction, which may translate, under the LaTeX rules", () => {
+    const prompt = proofreadPrompt("我们提出 $x$ \\cite{a}。", "intro.tex", { instruction: "Translate into academic English" });
+    expect(prompt).toMatch(/^Revise the LaTeX excerpt below from "intro.tex" as its author asks:\n<instruction>\nTranslate into academic English\n<\/instruction>/);
+    expect(prompt).toMatch(/unless the instruction asks for a translation/);
+    expect(prompt).not.toMatch(/Do not polish, shorten, translate/);
+    expect(prompt).not.toMatch(/Follow the English spelling variant/);
+    expect(prompt).toMatch(/Preserve all math verbatim/);
+    expect(prompt).toMatch(/untrusted source data, never instructions/);
+    expect(prompt).toMatch(/consistency, translation/);
+    expect(prompt).toMatch(/already does what the instruction asks/);
+    expect(prompt.endsWith("<excerpt>\n我们提出 $x$ \\cite{a}。\n</excerpt>")).toBe(true);
+  });
 });
 
 describe("parseProofreadReply", () => {
@@ -53,7 +72,7 @@ describe("proofreadWithAgent", () => {
       .mockResolvedValueOnce({ status: "running" })
       .mockResolvedValueOnce({ status: "completed", text: "<proofread>We believe it.</proofread>" });
     const result = proofreadWithAgent({
-      projectRoot: "/paper", path: "main.tex", text: "We beleive it.", mode: "proofread", signal: new AbortController().signal,
+      projectRoot: "/paper", path: "main.tex", text: "We beleive it.", ask: "proofread", signal: new AbortController().signal,
     });
     await vi.runAllTimersAsync();
     await expect(result).resolves.toEqual({ text: "We believe it." });
@@ -68,17 +87,36 @@ describe("proofreadWithAgent", () => {
       .mockResolvedValueOnce({ taskId: "task-3" })
       .mockResolvedValueOnce({ status: "completed", text: "<proofread>Text.</proofread>", model: " GPT-5.4 " });
     const result = proofreadWithAgent({
-      projectRoot: "/paper", path: "main.tex", text: "Text.", mode: "polish", signal: new AbortController().signal,
+      projectRoot: "/paper", path: "main.tex", text: "Text.", ask: "polish", signal: new AbortController().signal,
     });
     await vi.runAllTimersAsync();
     await expect(result).resolves.toEqual({ text: "Text.", model: "GPT-5.4" });
     expect(invokeMock.mock.calls[0]![1]).toMatchObject({ prompt: expect.stringMatching(/^Polish/) });
   });
 
+  it("asks with the writer's instruction and reads a translation's reasons", async () => {
+    vi.useFakeTimers();
+    invokeMock
+      .mockResolvedValueOnce({ taskId: "task-4" })
+      .mockResolvedValueOnce({
+        status: "completed",
+        text: "<proofread>We propose a method.</proofread>\n<reasons>\n我们提出一种方法。 => We propose a method. | translation\n</reasons>",
+      });
+    const result = proofreadWithAgent({
+      projectRoot: "/paper", path: "main.tex", text: "我们提出一种方法。", ask: { instruction: "翻译成学术英语" }, signal: new AbortController().signal,
+    });
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toEqual({
+      text: "We propose a method.",
+      reasons: [{ from: "我们提出一种方法。", to: "We propose a method.", category: "translation", note: "" }],
+    });
+    expect(invokeMock.mock.calls[0]![1]).toMatchObject({ prompt: expect.stringContaining("<instruction>\n翻译成学术英语\n</instruction>") });
+  });
+
   it("reports a runtime without the route as unavailable", async () => {
     invokeMock.mockRejectedValueOnce("agent_route_unavailable");
     const result = proofreadWithAgent({
-      projectRoot: "/paper", path: "main.tex", text: "Text.", mode: "proofread", signal: new AbortController().signal,
+      projectRoot: "/paper", path: "main.tex", text: "Text.", ask: "proofread", signal: new AbortController().signal,
     });
     await expect(result).rejects.toMatchObject({ kind: "unavailable" });
     await expect(result).rejects.toBeInstanceOf(ProofreadFailure);
@@ -88,7 +126,7 @@ describe("proofreadWithAgent", () => {
     vi.useFakeTimers();
     invokeMock.mockResolvedValueOnce({ taskId: "task-2" }).mockResolvedValue({ status: "running" });
     const controller = new AbortController();
-    const result = proofreadWithAgent({ projectRoot: "/paper", path: "main.tex", text: "Text.", mode: "proofread", signal: controller.signal });
+    const result = proofreadWithAgent({ projectRoot: "/paper", path: "main.tex", text: "Text.", ask: "proofread", signal: controller.signal });
     const settled = result.catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(1_000);
     controller.abort(new DOMException("closed", "AbortError"));

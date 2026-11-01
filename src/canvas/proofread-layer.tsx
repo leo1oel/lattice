@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
-import { PROOFREAD_MAX_LENGTH, ProofreadFailure, proofreadWithAgent, type ProofreadMode } from "../agent/agent-proofread";
+import { PROOFREAD_MAX_LENGTH, ProofreadFailure, proofreadWithAgent, type ProofreadAsk } from "../agent/agent-proofread";
 import {
   applyProofreadEdits,
   chosenEdits,
@@ -20,14 +20,14 @@ import { ProofreadCard, type ProofreadCardState } from "./proofread-card";
 
 /**
  * One open proofread: the text it was asked about with the source around it
- * that its LaTeX check reads, the strength asked for, and the element its
- * card renders into.
+ * that its LaTeX check reads, the strength or instruction asked for, and the
+ * element its card renders into.
  */
 type ProofreadSession = {
   path: string;
   original: string;
   context: ProofreadContext;
-  mode: ProofreadMode;
+  ask: ProofreadAsk;
   host: HTMLElement;
   state: ProofreadCardState;
 };
@@ -65,9 +65,9 @@ export const ProofreadLayer = memo(function ProofreadLayer(props: ProofreadLayer
   useLayoutEffect(() => {
     if (active) return;
     return bridge.connect({
-      request: (view, mode = "proofread") => {
+      request: (view, ask = "proofread") => {
         if (!editable || !projectRoot || view.state.selection.main.empty) return false;
-        pendingRef.current = { view, mode };
+        pendingRef.current = { view, ask };
         setActive(true);
         return true;
       },
@@ -79,7 +79,7 @@ export const ProofreadLayer = memo(function ProofreadLayer(props: ProofreadLayer
 });
 
 /** The request that mounted the session, before its first render. */
-type PendingRequest = { view: EditorView; mode: ProofreadMode };
+type PendingRequest = { view: EditorView; ask: ProofreadAsk };
 
 /**
  * The card opens under the selection while the agent works and lists its
@@ -99,20 +99,24 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
   const optionsRef = useLatestRef(options);
   const runRef = useRef<{ controller: AbortController; resize: ResizeObserver } | null>(null);
 
-  const failureMessage = useCallback((error: unknown) => {
+  const failureMessage = useCallback((error: unknown, ask: ProofreadAsk) => {
     if (error instanceof ProofreadFailure && error.kind === "unavailable") {
       return t`This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading.`;
     }
+    const rewrite = typeof ask !== "string";
     if (error instanceof ProofreadFailure && error.kind === "unreadable") {
-      return t`The agent's reply did not contain a proofread version of the selection.`;
+      return rewrite
+        ? t`The agent's reply did not contain a rewritten version of the selection.`
+        : t`The agent's reply did not contain a proofread version of the selection.`;
     }
     const detail = error instanceof ProofreadFailure ? error.detail : String(error);
+    if (rewrite) return detail ? t`The agent could not rewrite the selection: ${detail}` : t`The agent could not rewrite the selection.`;
     return detail ? t`The agent could not proofread the selection: ${detail}` : t`The agent could not proofread the selection.`;
   }, [t]);
 
   /** Ask the agent about `original`, reporting into the session that owns `host`. */
   const run = useCallback((request: Omit<ProofreadSession, "state">) => {
-    const { context, host, mode, original, path } = request;
+    const { ask, context, host, original, path } = request;
     runRef.current?.controller.abort();
     const controller = new AbortController();
     // CodeMirror measures block widgets when it lays out, not when their
@@ -132,7 +136,7 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
       return;
     }
     const { projectRoot } = optionsRef.current;
-    proofreadWithAgent({ projectRoot, path, text: original, mode, language, signal: controller.signal }).then(
+    proofreadWithAgent({ projectRoot, path, text: original, ask, language, signal: controller.signal }).then(
       ({ text, reasons = [], model }) => settle({
         status: "ready",
         review: withReasons(reviewProofread(original, text, context), original, reasons),
@@ -143,7 +147,7 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
         if (controller.signal.aborted) return;
         // Asking again cannot help a runtime that has no text tasks.
         const retryable = !(error instanceof ProofreadFailure && error.kind === "unavailable");
-        settle({ status: "error", message: failureMessage(error), retryable });
+        settle({ status: "error", message: failureMessage(error, ask), retryable });
       },
     );
   }, [failureMessage, language, optionsRef, t, viewRef]);
@@ -158,8 +162,8 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
     setSession(null);
   }, [viewRef]);
 
-  /** Proofread or polish `view`'s selection; false when there is nothing to proofread. */
-  const start = useCallback((view: EditorView, mode: ProofreadMode = "proofread") => {
+  /** Proofread, polish or rewrite `view`'s selection; false when there is nothing to proofread. */
+  const start = useCallback((view: EditorView, ask: ProofreadAsk = "proofread") => {
     const { activeFile, editable, projectRoot } = optionsRef.current;
     const range = view.state.selection.main;
     const { original, context } = anchoredText(view, range.from, range.to);
@@ -171,7 +175,7 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
       effects: setProofreadAnchorEffect.of({ from: range.from, to: range.to, host }),
       selection: { anchor: range.to },
     });
-    run({ path: activeFile, original, context, mode, host });
+    run({ path: activeFile, original, context, ask, host });
     return true;
   }, [optionsRef, run]);
 
@@ -221,13 +225,13 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
   const accept = useCallback(() => apply(false), [apply]);
   const acceptAll = useCallback(() => apply(true), [apply]);
 
-  /** Ask again about the span as it reads now, in `mode` (the session's own by default). */
-  const retry = useCallback((mode?: ProofreadMode) => {
+  /** Ask again about the span as it reads now, with `ask` (the session's own by default). */
+  const retry = useCallback((ask?: ProofreadAsk) => {
     const view = viewRef.current;
     const current = sessionRef.current;
     const anchor = view && proofreadAnchor(view.state);
     if (!view || !current || anchor?.host !== current.host) return;
-    run({ ...current, ...anchoredText(view, anchor.from, anchor.to), mode: mode ?? current.mode });
+    run({ ...current, ...anchoredText(view, anchor.from, anchor.to), ask: ask ?? current.ask });
   }, [run, sessionRef, viewRef]);
 
   const choose = useCallback((id: number, accepted: boolean) => {
@@ -248,13 +252,13 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
   useLayoutEffect(() => {
     const pending = pendingRef.current;
     pendingRef.current = null;
-    if (pending) start(pending.view, pending.mode);
+    if (pending) start(pending.view, pending.ask);
   }, [pendingRef, start]);
 
   return session && session.path === options.activeFile ? createPortal(
     <ProofreadCard
       original={session.original}
-      mode={session.mode}
+      ask={session.ask}
       state={session.state}
       editable={options.editable}
       onAccept={accept}

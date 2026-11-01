@@ -25,6 +25,7 @@ const openPicker = async () => {
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
+  localStorage.clear();
 });
 
 describe("LaTeX selection toolbar", () => {
@@ -72,6 +73,45 @@ describe("LaTeX selection toolbar", () => {
     fireEvent.change(input, { target: { value: "https://example.com/paper" } });
     fireEvent.click(button("Apply link"));
     await waitFor(() => expect(onAction).toHaveBeenCalledWith("link", "https://example.com/paper"));
+  });
+
+  it("rewrites by a typed instruction and offers it again among the recent ones", async () => {
+    const first = renderToolbar({ canProofread: true });
+    fireEvent.click(button("Rewrite with an instruction"));
+    // Before the writer has instructions of their own, it suggests some.
+    expect(await screen.findByRole("group", { name: "Suggested instructions" })).toBeInTheDocument();
+    const field = screen.getByRole("textbox", { name: "Instruction" });
+    expect(field).toHaveFocus();
+    expect(button("Rewrite")).toBeDisabled();
+    fireEvent.change(field, { target: { value: "  Cut to   100 words " } });
+    fireEvent.submit(field.closest("form")!);
+    expect(first.onAction).toHaveBeenCalledWith("rewrite", "Cut to 100 words");
+    cleanup();
+
+    const second = renderToolbar({ canProofread: true });
+    fireEvent.click(button("Rewrite with an instruction"));
+    const recent = await screen.findByRole("group", { name: "Recent instructions" });
+    fireEvent.click(within(recent).getByRole("button", { name: "Cut to 100 words" }));
+    expect(second.onAction).toHaveBeenCalledWith("rewrite", "Cut to 100 words");
+  });
+
+  it("sends a suggested instruction as it reads", async () => {
+    const { onAction } = renderToolbar({ canProofread: true });
+    fireEvent.click(button("Rewrite with an instruction"));
+    const suggested = await screen.findByRole("group", { name: "Suggested instructions" });
+    fireEvent.click(within(suggested).getByRole("button", { name: "Translate into academic English" }));
+    expect(onAction).toHaveBeenCalledWith("rewrite", "Translate into academic English");
+  });
+
+  it("offers rewriting only where proofreading is", () => {
+    renderToolbar();
+    expect(screen.queryByRole("button", { name: "Rewrite with an instruction" })).not.toBeInTheDocument();
+    cleanup();
+    renderToolbar({ canProofread: true, commentOnly: true });
+    expect(screen.queryByRole("button", { name: "Rewrite with an instruction" })).not.toBeInTheDocument();
+    cleanup();
+    renderToolbar({ canProofread: true });
+    expect(button("Polish").closest(".latex-selection-tool")!.nextElementSibling).toContainElement(button("Rewrite with an instruction"));
   });
 
   it("omits comments where the secondary editor cannot attach them", () => {

@@ -420,8 +420,10 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
       return;
     }
     if (!props.document.editorEditable) return;
-    if (action === "proofread" || action === "polish") {
-      proofread.start(view, action);
+    if (action === "proofread" || action === "polish" || action === "rewrite") {
+      const instruction = value?.trim();
+      if (action !== "rewrite") proofread.start(view, action);
+      else if (instruction) proofread.start(view, { instruction });
       dismissSelectionToolbar();
       return;
     }

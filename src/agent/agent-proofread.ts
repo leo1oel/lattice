@@ -49,14 +49,26 @@ const POLL_MS = 700;
 export type ProofreadMode = "proofread" | "polish";
 
 /**
+ * What the agent is asked to do with a selection: one of the two fixed
+ * strengths, or the writer's own instruction from the selection toolbar
+ * ("translate into academic English", "cut to 100 words"), which may change
+ * the excerpt's language when it asks for a translation.
+ */
+export type ProofreadAsk = ProofreadMode | { instruction: string };
+
+/**
  * What an edit is for, as the agent names it; the card shows each as a short
  * tag in the interface language. The model writes these English words.
  */
 /* eslint-disable lingui/no-unlocalized-strings -- the vocabulary the model writes */
 const PROOFREAD_CATEGORIES = [
-  "spelling", "grammar", "punctuation", "word choice", "clarity", "concision", "flow", "consistency",
+  "spelling", "grammar", "punctuation", "word choice", "clarity", "concision", "flow", "consistency", "translation",
 ] as const;
 /* eslint-enable lingui/no-unlocalized-strings */
+/** The fixed strengths never translate, so their prompts do not offer that category. */
+const categoriesFor = (ask: ProofreadAsk) => typeof ask === "string"
+  ? PROOFREAD_CATEGORIES.filter((category) => category !== "translation")
+  : PROOFREAD_CATEGORIES;
 export type ProofreadCategory = (typeof PROOFREAD_CATEGORIES)[number];
 
 /**
@@ -67,7 +79,7 @@ export type ProofreadCategory = (typeof PROOFREAD_CATEGORIES)[number];
 export type ProofreadReasonLine = { from: string; to: string; category: ProofreadCategory | null; note: string };
 
 /* eslint-disable lingui/no-unlocalized-strings -- model input, not interface copy */
-const TASKS: Record<ProofreadMode, (path: string) => string[]> = {
+const FIXED_TASKS: Record<ProofreadMode, (path: string) => string[]> = {
   proofread: (path) => [
     `Proofread the LaTeX excerpt below from ${JSON.stringify(path)}.`,
     "Make the smallest changes needed to correct grammar, spelling, punctuation,",
@@ -83,9 +95,27 @@ const TASKS: Record<ProofreadMode, (path: string) => string[]> = {
   ],
 };
 
-/** What both modes keep: the author's meaning and voice, and every LaTeX construct. */
-const preservationRules = (mode: ProofreadMode, language: string) => [
-  "",
+/**
+ * The writer's own instruction. It comes from the writer, not the excerpt, so
+ * it is the one place the prompt takes orders from; it may ask for a
+ * translation, which the fixed strengths forbid.
+ */
+const customTask = (path: string, instruction: string) => [
+  `Revise the LaTeX excerpt below from ${JSON.stringify(path)} as its author asks:`,
+  "<instruction>",
+  instruction,
+  "</instruction>",
+  "Apply the instruction to the excerpt's prose and change nothing it does not call for.",
+  "Keep the excerpt's language unless the instruction asks for a translation or",
+  "another language; when translating, use the established term for each technical",
+  "concept in the target language and write as an academic paper in that language would.",
+];
+
+const taskLines = (ask: ProofreadAsk, path: string) =>
+  typeof ask === "string" ? FIXED_TASKS[ask](path) : customTask(path, ask.instruction);
+
+/** What the author's meaning keeps under each ask: the fixed strengths keep the voice too. */
+const meaningRules = (ask: ProofreadAsk) => typeof ask === "string" ? [
   "Preserve the author's meaning, voice, tone, and scientific terminology.",
   "Preserve claims, uncertainty and hedging, negation, causal/comparative language,",
   "numbers, units, names, abbreviations, and deliberate repetition of key terms.",
@@ -94,9 +124,20 @@ const preservationRules = (mode: ProofreadMode, language: string) => [
   "valid British and American spellings. If mixed or uncertain, leave them alone.",
   "If intended meaning is ambiguous, leave that wording unchanged.",
   "The selection may start or end mid-sentence or mid-command: do not complete it.",
-  mode === "proofread"
+  ask === "proofread"
     ? "Do not add, remove, split, join, or reorder sentences."
     : "You may split, join, or reorder clauses within a sentence; do not reorder sentences.",
+] : [
+  "Unless the instruction asks otherwise, preserve the author's meaning, claims,",
+  "uncertainty and hedging, negation, numbers, units, names, and abbreviations.",
+  "The selection may start or end mid-sentence or mid-command: do not complete it.",
+  "Restructure sentences only as far as the instruction requires.",
+];
+
+/** What every ask keeps: the author's meaning, and every LaTeX construct. */
+const preservationRules = (ask: ProofreadAsk, language: string) => [
+  "",
+  ...meaningRules(ask),
   "",
   "Edit prose only. Preserve LaTeX command names, delimiters, braces, options,",
   "environment names and structure, escapes, and non-prose arguments exactly.",
@@ -116,27 +157,27 @@ const preservationRules = (mode: ProofreadMode, language: string) => [
   `${REASONS_CLOSE}, one line per change in the excerpt's order, written as:`,
   "original words => revised words | category | note",
   "Quote only the few words around the change. The category is one of:",
-  `${PROOFREAD_CATEGORIES.join(", ")}. The note says why in at most eight words,`,
+  `${categoriesFor(ask).join(", ")}. The note says why in at most eight words,`,
   `in ${language}; leave it empty when the category says enough.`,
   "No Markdown fences, headings, or other text outside the two blocks.",
-  mode === "proofread"
-    ? "If no correction is needed, return the excerpt unchanged and no reasons."
-    : "If the excerpt already reads well, return it unchanged and no reasons.",
+  ask === "proofread" ? "If no correction is needed, return the excerpt unchanged and no reasons."
+    : ask === "polish" ? "If the excerpt already reads well, return it unchanged and no reasons."
+      : "If the excerpt already does what the instruction asks, return it unchanged and no reasons.",
   "",
 ];
 /* eslint-enable lingui/no-unlocalized-strings */
 
 /**
  * The instruction for one selection. The excerpt is data: the agent edits
- * language only, keeps every LaTeX construct byte for byte, and answers
- * between the markers so commentary around them never reaches the document.
- * Lattice still checks the answer: see `reviewProofread`. `language` names
- * the interface language the agent writes its notes in.
+ * prose only, keeps every LaTeX construct byte for byte, and answers between
+ * the markers so commentary around them never reaches the document. Lattice
+ * still checks the answer: see `reviewProofread`. `language` names the
+ * interface language the agent writes its notes in.
  */
 // eslint-disable-next-line lingui/no-unlocalized-strings -- model input, not interface copy
-export function proofreadPrompt(excerpt: string, path: string, mode: ProofreadMode = "proofread", language = "English"): string {
+export function proofreadPrompt(excerpt: string, path: string, ask: ProofreadAsk = "proofread", language = "English"): string {
   // eslint-disable-next-line lingui/no-unlocalized-strings -- model input, not interface copy
-  return [...TASKS[mode](path), ...preservationRules(mode, language), "<excerpt>", excerpt, "</excerpt>"].join("\n");
+  return [...taskLines(ask, path), ...preservationRules(ask, language), "<excerpt>", excerpt, "</excerpt>"].join("\n");
 }
 
 /**
@@ -245,7 +286,7 @@ export async function runAgentTextTask(request: {
 }
 
 /**
- * Proofread or polish `text` through the embedded agent's provider: one
+ * Proofread, polish or rewrite `text` through the embedded agent's provider: one
  * read-only task on the agent service, polled until it settles. Aborting
  * cancels the task. Resolves to the revised text; rejects with a
  * `ProofreadFailure`, or with the signal's reason once aborted.
@@ -254,13 +295,13 @@ export async function proofreadWithAgent(request: {
   projectRoot: string;
   path: string;
   text: string;
-  mode: ProofreadMode;
+  ask: ProofreadAsk;
   /** The interface language, in English words, for the agent's notes. */
   language?: string;
   signal: AbortSignal;
 }): Promise<ProofreadResult> {
   const { projectRoot, signal } = request;
-  const prompt = proofreadPrompt(request.text, request.path, request.mode, request.language);
+  const prompt = proofreadPrompt(request.text, request.path, request.ask, request.language);
   const { text: reply, model } = await runAgentTextTask({ projectRoot, prompt, signal });
   const proofread = parseProofreadReply(reply, request.text);
   if (proofread === null) throw new ProofreadFailure("unreadable");

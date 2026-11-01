@@ -6,6 +6,7 @@ import {
   Italic,
   Link,
   MessageSquareText,
+  PencilLine,
   Quote,
   SpellCheck,
   Strikethrough,
@@ -13,7 +14,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
@@ -26,6 +27,7 @@ import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 import { selectionToolbarMenuClassName } from "../../components/ui/menu-surface";
+import { chunk, lazyChunk } from "../../lib/lazy-chunk";
 
 export type LatexSelectionAction =
   | "bold"
@@ -39,7 +41,9 @@ export type LatexSelectionAction =
   | "unhighlight"
   | "comment"
   | "proofread"
-  | "polish";
+  | "polish"
+  /** Rewrite by the writer's own instruction, which is the value. */
+  | "rewrite";
 
 /** The toolbar and the menus it opens: pointer or focus there keeps it open. */
 export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker, .lx-md-toolbar-layer";
@@ -62,6 +66,13 @@ const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: t
   { action: "polish", label: msg`Polish`, icon: WandSparkles },
 ];
 
+// The Rewrite menu is its own chunk: most selections never open it. Pointing
+// at the button starts the import, so the menu usually renders on the click
+// without a Suspense round.
+const loadInstructionMenu = chunk(() => import("./selection-instruction-menu"));
+const SelectionInstructionMenu = lazyChunk(loadInstructionMenu, (module) => module.SelectionInstructionMenu);
+const warmInstructionMenu = () => void loadInstructionMenu().catch(() => { /* The open reports a failed chunk. */ });
+
 const headingLevels: { command: string; label: MessageDescriptor }[] = [
   { command: "part", label: msg`Part` },
   { command: "chapter", label: msg`Chapter` },
@@ -74,7 +85,7 @@ export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
   canComment: boolean;
   commentOnly?: boolean;
-  /** Offer the agent's proofread and polish (an editable LaTeX source with a project). */
+  /** Offer the agent's proofread, polish and rewrite (an editable LaTeX source with a project). */
   canProofread?: boolean;
   /** The colour of the highlight around the selection (`latex-highlights.ts`), or null outside one. */
   highlight?: string | null;
@@ -103,8 +114,9 @@ export function LatexSelectionToolbar(props: {
     props.onAction("highlight", color);
     setHighlightOpen(false);
   };
+  const canAskAgent = Boolean(props.canProofread) && !props.commentOnly;
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
-    : action === "proofread" || action === "polish" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
+    : action === "proofread" || action === "polish" ? canAskAgent : !props.commentOnly);
   const onDismiss = props.onDismiss;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
@@ -145,6 +157,24 @@ export function LatexSelectionToolbar(props: {
             </span>
           );
         })}
+        {canAskAgent && (
+          <span className="latex-selection-tool">
+            <Popover>
+              <Tip label={t`Rewrite with an instruction`} side="top">
+                <PopoverTrigger asChild>
+                  <button type="button" aria-label={t`Rewrite with an instruction`} onPointerEnter={warmInstructionMenu} onFocus={warmInstructionMenu}>
+                    <PencilLine size={14} strokeWidth={1.8} />
+                  </button>
+                </PopoverTrigger>
+              </Tip>
+              <PopoverContent side="top" sideOffset={8} className={`latex-tool-menu instruction-menu ${selectionToolbarMenuClassName}`}>
+                <Suspense fallback={null}>
+                  <SelectionInstructionMenu onSubmit={(instruction) => props.onAction("rewrite", instruction)} />
+                </Suspense>
+              </PopoverContent>
+            </Popover>
+          </span>
+        )}
         {!props.commentOnly && <>
         <span className="latex-selection-tool separated">
           <Popover open={linkOpen} onOpenChange={setLinkOpen}>

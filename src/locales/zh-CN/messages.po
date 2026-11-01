@@ -3653,6 +3653,10 @@ msgstr "无法显示：{0}"
 msgid "Could not revise"
 msgstr "未能修改"
 
+#: src/canvas/proofread-card.tsx
+msgid "Could not rewrite"
+msgstr "改写失败"
+
 #: src/papers/audit-messages.ts
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "无法安全保留此条目中的 BibTeX 表达式。"
@@ -6188,6 +6192,10 @@ msgstr "正在安装更新…"
 #: src/telemetry/app-updater.tsx
 msgid "Installing…"
 msgstr "正在安装…"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Instruction"
+msgstr "指令"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
@@ -9811,6 +9819,7 @@ msgid "Rebuttal"
 msgstr "作者回复"
 
 #: src/app/app-command-overlays.tsx
+#: src/editor/latex/selection-instruction-menu.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Recent"
 msgstr "最近"
@@ -9818,6 +9827,10 @@ msgstr "最近"
 #: src/app/command-palette.tsx
 msgid "Recent files"
 msgstr "最近文件"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Recent instructions"
+msgstr "最近用过的指令"
 
 #: src/project/project-dialogs.tsx
 #: src/project/welcome-desk.tsx
@@ -10673,6 +10686,23 @@ msgstr "修改轮次"
 msgid "Rewrite"
 msgstr "重写"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgctxt "selection instruction"
+msgid "Rewrite"
+msgstr "改写"
+
+#: src/canvas/proofread-card.tsx
+msgid "Rewrite suggestion"
+msgstr "改写建议"
+
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Rewrite with an instruction"
+msgstr "按指令改写"
+
+#: src/canvas/proofread-card.tsx
+msgid "Rewriting…"
+msgstr "正在改写…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "柔"
@@ -11334,6 +11364,10 @@ msgstr "快捷键"
 msgid "Shorten"
 msgstr "缩短"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Shorten to about 100 words"
+msgstr "缩写到 100 词左右"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Show"
 msgstr "显示"
@@ -11943,6 +11977,10 @@ msgstr "成功"
 msgid "Suggested change"
 msgstr "修改建议"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Suggested instructions"
+msgstr "建议的指令"
+
 #: src/overleaf/overleaf-collab.tsx
 msgctxt "Overleaf tracked changes"
 msgid "Suggestions"
@@ -12275,6 +12313,14 @@ msgstr "AI 助手没能修改这一段：{detail}"
 msgid "The agent could not revise this passage."
 msgstr "AI 助手没能修改这一段。"
 
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not rewrite the selection: {detail}"
+msgstr "AI 改写失败：{detail}"
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not rewrite the selection."
+msgstr "AI 改写失败"
+
 #: src/app/use-synara-host.ts
 msgid "The agent could not send the request. It is waiting in the agent's composer."
 msgstr "AI 助手未能发送这条请求，它仍在输入框中等待发送。"
@@ -12294,6 +12340,10 @@ msgstr "AI 助手建议这一段保持不变。"
 #: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "AI 没返回校对结果"
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent's reply did not contain a rewritten version of the selection."
+msgstr "AI 没返回改写结果"
 
 #: src/app/annotation-rounds.ts
 msgid "The agent's reply held neither a revision nor a question."
@@ -12988,6 +13038,18 @@ msgstr "顶级章节标题"
 msgid "Tour progress"
 msgstr "导览进度"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Translate into academic English"
+msgstr "翻译成学术英语"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Translate into Chinese"
+msgstr "翻译成中文"
+
+#: src/canvas/proofread-card.tsx
+msgid "translation"
+msgstr "翻译"
+
 #: src/settings/settings-search-index.ts
 #: src/settings/theme-settings.tsx
 msgid "Translucency"
@@ -13008,6 +13070,10 @@ msgstr "左三角形"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "右三角形"
+
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Try"
+msgstr "试试"
 
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
@@ -13431,6 +13497,10 @@ msgstr "深色"
 msgid "Use the light theme"
 msgstr "浅色"
 
+#: src/editor/latex/selection-instruction-menu.tsx
+msgid "Use the passive voice"
+msgstr "改用被动语态"
+
 #: src/papers/add-papers-sheet.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Use this record"
@@ -13705,6 +13775,7 @@ msgid "What should change here?"
 msgstr "这里要怎么改？"
 
 #: src/canvas/annotation-review.tsx
+#: src/editor/latex/selection-instruction-menu.tsx
 msgid "What should the agent change?"
 msgstr "要 AI 助手怎么改？"
 
