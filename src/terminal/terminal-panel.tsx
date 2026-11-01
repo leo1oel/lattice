@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import type { TrellisController } from "../trellis/trellis-controller";
 import type { TerminalSession } from "./terminal-sessions";
@@ -60,10 +61,12 @@ function useAppearance(panel: RefObject<HTMLDivElement | null>, sessions: readon
   }, [panel, sessions, revision]);
 }
 
-function TerminalTab({ session, selected, label }: { session: Session; selected: boolean; label: string }) {
+export function TerminalTab({ session, selected, label }: { session: Session; selected: boolean; label: string }) {
   const { t } = useLingui();
   const [renaming, setRenaming] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The bare input keeps the tab's own look, so it guards its keys itself.
+  const { compositionProps, isComposing } = useCompositionGuard();
   useEffect(() => {
     if (renaming) inputRef.current?.select();
   }, [renaming]);
@@ -73,6 +76,7 @@ function TerminalTab({ session, selected, label }: { session: Session; selected:
     session.screen.focus();
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposing(event)) return;
     if (event.key === "Enter") finish(true);
     else if (event.key === "Escape") finish(false);
     else return;
@@ -88,6 +92,7 @@ function TerminalTab({ session, selected, label }: { session: Session; selected:
           defaultValue={label}
           aria-label={t`Terminal name`}
           maxLength={40}
+          {...compositionProps}
           onKeyDown={onKeyDown}
           onBlur={() => finish(true)}
         />

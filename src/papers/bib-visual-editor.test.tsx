@@ -73,3 +73,37 @@ describe("BibVisualEditor / drawn rows", () => {
     expect(drawn().at(-1)).toBe(`bib-row-${ENTRIES - 1}`);
   });
 });
+
+describe("BibVisualEditor / citation key under an input method", () => {
+  it("keeps the key being composed: neither Enter nor Escape ends the edit", () => {
+    const onChange = vi.fn(() => true);
+    render(
+      <BibVisualEditor
+        path="references.bib"
+        source={"@article{key0,\n  title = {Attention},\n  year = {2017}\n}\n"}
+        projectRoot="/project"
+        editable
+        papers={[]}
+        usageRevision={0}
+        onChange={onChange}
+        onUndo={() => false}
+        onRedo={() => false}
+        onOpenLine={vi.fn()}
+        onOpenPaper={vi.fn()}
+        onOpenUrl={vi.fn()}
+        onResolveCitation={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("option"));
+    const key = screen.getByRole("textbox", { name: "Citation key" }) as HTMLInputElement;
+    key.focus();
+    fireEvent.change(key, { target: { value: "vaswani" } });
+    fireEvent.compositionStart(key);
+    // Enter puts the pinyin down as letters; Escape drops the candidates.
+    fireEvent.keyDown(key, { key: "Enter", keyCode: 229, isComposing: true });
+    fireEvent.keyDown(key, { key: "Escape", keyCode: 229, isComposing: true });
+    expect(document.activeElement).toBe(key);
+    expect(key.value).toBe("vaswani");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

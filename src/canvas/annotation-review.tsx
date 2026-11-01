@@ -251,18 +251,22 @@ function AnnotationReviewCard(props: {
     setGuidance("");
   };
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLTextAreaElement) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        setRetrying(false);
-      } else if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        askAgain();
-      }
-      return;
+  // The guidance's own Enter and Escape: on the Textarea, which leaves the
+  // keys of an input method's composition to it (writing in Chinese, Enter
+  // puts the pinyin down as letters and Escape drops the candidates).
+  const onGuidanceKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setRetrying(false);
+    } else if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      askAgain();
     }
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    // Typing in the guidance is not a command to the card.
+    if (event.target instanceof HTMLTextAreaElement) return;
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
@@ -335,6 +339,7 @@ function AnnotationReviewCard(props: {
             placeholder={t`What should the agent change? (optional)`}
             aria-label={t`What should the agent change?`}
             onChange={(event) => setGuidance(event.target.value)}
+            onKeyDown={onGuidanceKeyDown}
           />
           <div className="annotation-review-actions">
             <Button size="compact" variant="tinted" onClick={askAgain}>{t`Ask again`}</Button>

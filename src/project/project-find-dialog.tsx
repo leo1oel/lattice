@@ -12,7 +12,6 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { fileIcon } from "../trellis/trellis-icons";
-import { useCompositionGuard } from "./use-composition-guard";
 
 export type ProjectFindHit = {
   kind: string;
@@ -78,7 +77,6 @@ export function ProjectFindDialog(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [debouncing, setDebouncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { compositionProps, isComposing } = useCompositionGuard();
   // Kept out of the debounce effect's deps so a new callback identity does not
   // restart the timer mid-typing.
   const onSearchRef = useLatestRef(props.onSearch);
@@ -262,9 +260,7 @@ export function ProjectFindDialog(props: {
         }}
         onClear={clearSearch}
         placeholder={t`Search files and papers…`}
-        {...compositionProps}
         onKeyDown={(event) => {
-          if (isComposing(event)) return;
           const count = selectableHits.length;
           switch (event.key) {
             case "ArrowDown":

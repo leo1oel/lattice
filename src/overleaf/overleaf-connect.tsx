@@ -21,7 +21,7 @@ import { Input } from "../components/ui/input";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
-import { useCompositionGuard } from "../project/use-composition-guard";
+import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { rowClassName } from "../components/ui/row";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
