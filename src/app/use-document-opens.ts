@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, OpenFileOptions, PaperSummary } from "../app-types";
 import { paperTabKey, toMessage } from "../app-utils";
 import { afterNextPaintOpportunity } from "./effect-helpers";
+import { showFileOpenFailure } from "./file-open-failure";
 import { showError, showNotice } from "./notify";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { readDocumentText } from "./read-document";
@@ -73,7 +74,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       readDocumentText(path, expectedRoot),
       options?.gate ?? Promise.resolve(true),
     ]).then(commitLoaded).catch((reason: unknown) => {
-      if (isLatestLoad()) showError(toMessage(reason));
+      if (isLatestLoad()) showFileOpenFailure(reason, expectedRoot, path);
       return false;
     });
   }, [
@@ -130,7 +131,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
         }
       };
       await refresh().catch((reason: unknown) => {
-        if (intentRef.current === loadGeneration) showError(toMessage(reason));
+        if (intentRef.current === loadGeneration) showFileOpenFailure(reason, current?.root, path);
       });
       return;
     }
@@ -317,12 +318,12 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       return true;
     };
     return read().catch((reason: unknown) => {
-      if (isLatestLoad()) showError(toMessage(reason));
+      if (isLatestLoad()) showFileOpenFailure(reason, projectRef.current?.root, path);
       return false;
     });
   }, [
-    captureProjectScope, closePaper, flushAndCheckDirty, flushRef, intentRef, renderedRef, save, setAsset, setMode,
-    setOpening, showTab,
+    captureProjectScope, closePaper, flushAndCheckDirty, flushRef, intentRef, projectRef, renderedRef, save, setAsset,
+    setMode, setOpening, showTab,
   ]);
 
   return { loadFile, openFile, choosePaperView, openPaper, openAsset };

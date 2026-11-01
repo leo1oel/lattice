@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ArxivExportDialog from "./arxiv-export-dialog";
-import { archiveName, formatSize, topLevelNames, type ArxivCheck, type ArxivPackage } from "./arxiv-export";
+import { archiveName, topLevelNames, type ArxivCheck, type ArxivPackage } from "./arxiv-export";
 
 type Channel = { onmessage: ((message: unknown) => void) | null };
 const tauri = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as Channel | null, save: vi.fn() }));
@@ -216,15 +216,6 @@ describe("Export for arXiv", () => {
 });
 
 describe("Export for arXiv helpers", () => {
-  it("formats sizes in decimal units, as arXiv states its limit", () => {
-    expect(formatSize(400)).toBe("1 kB");
-    expect(formatSize(48_200)).toBe("48 kB");
-    expect(formatSize(1_940_000)).toBe("1.9 MB");
-    expect(formatSize(2_010_000)).toBe("2 MB");
-    expect(formatSize(50_000_000)).toBe("50 MB");
-    expect(formatSize(1_940_000, "zh-CN")).toBe("1.9 MB");
-  });
-
   it("names the pack's top level, files before folders, and the archive after the project", () => {
     expect(topLevelNames(["figures/a.pdf", "main.tex", "figures/b.pdf", "main.bbl"])).toEqual(["main.bbl", "main.tex", "figures/"]);
     expect(archiveName("A/B: draft")).toBe("A-B- draft-arxiv.zip");

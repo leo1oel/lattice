@@ -105,6 +105,7 @@ describe("Tauri security boundary", () => {
       "core:window:allow-destroy",
       "core:window:allow-start-dragging",
       "core:window:allow-set-min-size",
+      "core:window:allow-set-title",
       "core:webview:allow-set-webview-zoom",
       "clipboard-manager:allow-write-text",
       "clipboard-manager:allow-read-text",

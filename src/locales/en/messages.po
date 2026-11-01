@@ -662,6 +662,10 @@ msgstr "{name} is not in a file right now."
 msgid "{name} is still running. Closing stops it."
 msgstr "{name} is still running. Closing stops it."
 
+#: src/app/file-open-failure.ts
+msgid "{name} is too large to open in the editor"
+msgstr "{name} is too large to open in the editor"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "{name} properties"
 msgstr "{name} properties"
@@ -741,6 +745,10 @@ msgstr "{position} of {0}"
 #: src/canvas/annotation-review.tsx
 msgid "{position} of {total}"
 msgstr "{position} of {total}"
+
+#: src/app/app-titlebar.tsx
+msgid "{projectName} — {documentTitle}"
+msgstr "{projectName} — {documentTitle}"
 
 #: src/project/references-panel.tsx
 msgid "{references} reference"
@@ -1744,6 +1752,7 @@ msgstr "AoE (UTC−12)"
 msgid "API key"
 msgstr "API key"
 
+#: src/app/file-open-failure.ts
 #: src/app/notify.ts
 #: src/telemetry/app-log-store.ts
 #: src/telemetry/global-error-capture.ts
@@ -3714,6 +3723,7 @@ msgstr "Could not save the project"
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
+#: src/app/file-open-failure.ts
 #: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "Could not show that item in Finder. {message}"
@@ -6331,6 +6341,10 @@ msgstr "Is “{word}” misspelled?"
 #: src/settings/grammar-rule-reasons.ts
 msgid "It flags phrases like “most early in training”, which it says are not errors."
 msgstr "It flags phrases like “most early in training”, which it says are not errors."
+
+#: src/app/file-open-failure.ts
+msgid "It is {size}; the editor opens files up to {limit}. Open it in another app instead."
+msgstr "It is {size}; the editor opens files up to {limit}. Open it in another app instead."
 
 #: src/papers/bib-visual-editor.tsx
 msgid "It is still cited in the manuscript ({cited})."
@@ -11519,6 +11533,7 @@ msgstr "Show document outline"
 msgid "Show hidden files"
 msgstr "Show hidden files"
 
+#: src/app/file-open-failure.ts
 #: src/history/export-changes-dialog.tsx
 #: src/project/arxiv-export-dialog.tsx
 #: src/project/paper-row.tsx

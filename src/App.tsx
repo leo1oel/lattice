@@ -805,6 +805,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
       </Suspense>
       <AppTitlebar
         project={project}
+        documents={documents}
         projectMenu={{
           open: projectMenuOpen,
           setOpen: setProjectMenuOpen,
@@ -822,10 +823,10 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
         panelControls={<TrellisTitlebar controller={trellis} onSearch={openPaletteFromTitlebar} searchShortcut={paletteShortcut} />}
-        focusBar={focusMode ? (
+        focusBar={focusMode ? (title) => (
           <FocusModeBar
             controller={trellis}
-            title={activePaper ? activePaper.title : documents.activeTab.split("/").pop() ?? ""}
+            title={title}
             pdf={focusPdf}
             onPdfChange={(pdf) => trellis.setFocusPdf(pdf)}
             onExit={() => trellis.setFocus(false)}

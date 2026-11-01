@@ -66,6 +66,33 @@ export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: Liv
   }, [interfaceScale, layoutMinWidth]);
 }
 
+/** The title Rust gave this window (the product name, which differs per build flavor), read before the first rename. */
+let launchTitle: Promise<string> | null = null;
+/** Title writes run one after another: two IPC calls in flight may land in either order, and the last asked for must stick. */
+let titleWrites: Promise<unknown> = Promise.resolve();
+
+function writeWindowTitle(titleFor: (launch: string) => string) {
+  const appWindow = getCurrentWindowSafely();
+  if (typeof appWindow?.setTitle !== "function") return;
+  launchTitle ??= Promise.resolve().then(() => appWindow.title()).then((name) => name || document.title, () => document.title);
+  const launch = launchTitle;
+  titleWrites = titleWrites.then(async () => appWindow.setTitle(titleFor(await launch))).catch(() => {
+    // Browser previews and runtimes without the window API keep their title.
+  });
+}
+
+/**
+ * Name the native window `title` while mounted, and give it back its launch
+ * title after. The title bar is drawn by the web content, but the Window
+ * menu, the Dock menu, Mission Control and VoiceOver still list windows by
+ * this name; in the browser host it is the tab's title.
+ */
+export function useWindowTitle(title: string) {
+  useEffect(() => writeWindowTitle(() => title), [title]);
+  // Apart from the effect above, so a new title replaces the old one without the launch title in between.
+  useEffect(() => () => writeWindowTitle((launch) => launch), []);
+}
+
 export function useFullscreen(): boolean {
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {

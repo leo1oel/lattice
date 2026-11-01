@@ -7,6 +7,7 @@ use crate::util::err;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::SystemTime;
@@ -17,6 +18,8 @@ pub(super) const MAX_CLASSIFIED_TEXT_BYTES: u64 = 8 * 1024 * 1024;
 /// Standalone HTML often embeds Plotly or image data and legitimately exceeds
 /// the general text-scan limit. Keep its local editor/preview path bounded too.
 pub(super) const MAX_LOCAL_HTML_BYTES: u64 = 32 * 1024 * 1024;
+/// How much of a file past those limits is read to tell text from binary.
+const TEXT_SNIFF_BYTES: u64 = 64 * 1024;
 
 /// Extensions of the files a LaTeX run leaves beside its source and nobody
 /// edits by hand. The `.gitignore` lines of new and adopted projects, the
@@ -143,6 +146,27 @@ Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) an
 
 pub(super) fn is_html_path(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("html"))
+}
+
+/// Why a file over the editor's limit does not open, when it is text: its
+/// size and the limit, in bytes. The frontend matches this sentence
+/// (`src/app/file-open-failure.ts`) to say it in the interface language.
+pub(super) fn too_large(size: u64, limit: u64) -> String {
+    format!(
+        "This file is too large to open in the editor ({size} bytes; the limit is {limit} bytes)."
+    )
+}
+
+/// Whether a file past the text limits reads as text, judged by its start:
+/// the tree and the editor never read that much to classify it. A character
+/// cut by the end of the window is still text.
+pub(super) fn starts_as_text(path: &Path) -> Result<bool, String> {
+    let mut start = Vec::new();
+    fs::File::open(path)
+        .and_then(|file| file.take(TEXT_SNIFF_BYTES).read_to_end(&mut start))
+        .map_err(err)?;
+    Ok(!has_binary_marker(&start)
+        && std::str::from_utf8(&start).map_or_else(|error| error.error_len().is_none(), |_| true))
 }
 
 /// Largest file the local editor and tree treat as text.
@@ -373,8 +397,17 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     let path = safe_path(root, relative)?;
     // One read serves classification and content.
     let metadata = fs::symlink_metadata(&path).map_err(err)?;
-    if !metadata.file_type().is_file() || metadata.len() > local_text_limit(&path) {
+    if !metadata.file_type().is_file() {
         return Err(NOT_EDITABLE.to_string());
+    }
+    let limit = local_text_limit(&path);
+    if metadata.len() > limit {
+        // A big `.bib` export is text, not a broken file: say what is wrong.
+        return Err(if starts_as_text(&path)? {
+            too_large(metadata.len(), limit)
+        } else {
+            NOT_EDITABLE.to_string()
+        });
     }
     let bytes = fs::read(&path).map_err(err)?;
     if is_non_utf8_text(&bytes) {
@@ -461,6 +494,34 @@ mod tests {
         }
         assert_eq!(read_file(root, "bom.txt").unwrap().as_bytes(), b"\xef\xbb\xbfhello\r\n");
         assert!(read_file(root, "nul.txt").is_err());
+    }
+
+    #[test]
+    fn text_over_the_editor_limit_is_too_large_not_binary() {
+        // A full Zotero export with abstracts easily passes 8 MB.
+        let fixture = Fixture::empty("oversized-text");
+        // A character across the end of the window sniffed for text is still text.
+        let mut bib = vec![b'%'; TEXT_SNIFF_BYTES as usize - 1];
+        bib.extend_from_slice("文\n".as_bytes());
+        let entry = "@article{key, title={Title}, abstract={文本 text}}\n".as_bytes();
+        while bib.len() <= 9 * 1024 * 1024 {
+            bib.extend_from_slice(entry);
+        }
+        fixture.write("library.bib", &bib);
+        let size = bib.len();
+        let limit = MAX_CLASSIFIED_TEXT_BYTES;
+        let too_large = format!(
+            "This file is too large to open in the editor ({size} bytes; the limit is {limit} bytes)."
+        );
+        assert_eq!(read_file(&fixture.root, "library.bib"), Err(too_large.clone()));
+        // The tree files it as binary, so a click asks for a preview instead.
+        let preview = super::super::assets::read_asset(&fixture.root, "library.bib");
+        assert_eq!(preview.err(), Some(too_large));
+
+        // Binary content past the limit is still not editable.
+        bib[0] = 0;
+        fixture.write("archive.dat", &bib);
+        assert_eq!(read_file(&fixture.root, "archive.dat"), Err(NOT_EDITABLE.to_string()));
     }
 
     #[test]

@@ -9,6 +9,7 @@
  * over arXiv's limit) does.
  */
 import { msg } from "@lingui/core/macro";
+import { formatSize } from "../app-utils";
 import { i18n } from "../i18n";
 
 export type ArxivOptions = { stripComments: boolean; mergeInputs: boolean };
@@ -61,14 +62,6 @@ const ENGINE_NAMES: Record<string, string> = { pdf: "pdfLaTeX", pdflatex: "pdfLa
 
 function engineName(engine: string) {
   return ENGINE_NAMES[engine.trim().toLowerCase()] ?? "pdfLaTeX";
-}
-
-/** Decimal units, as arXiv states its limit (50 MB), in the reader's locale. */
-export function formatSize(bytes: number, locale = i18n.locale || "en") {
-  const [value, unit] = bytes < 1_000_000
-    ? [Math.max(1, Math.round(bytes / 1_000)), "kilobyte"]
-    : [bytes / 1_000_000, "megabyte"];
-  return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "short", maximumFractionDigits: 1 }).format(value);
 }
 
 /** The pack's top level: files by name, folders as `figures/`. */
