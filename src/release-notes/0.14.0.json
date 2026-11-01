@@ -1,0 +1,78 @@
+{
+  "version": "0.14.0",
+  "date": "2026-11-01",
+  "highlights": [
+    {
+      "title": {
+        "en": "Chinese papers typeset and checked",
+        "zh": "中文论文排版与检查"
+      },
+      "body": {
+        "en": "A new Chinese article template starts a ctex paper ready to compile, and when Chinese, Japanese or Korean text is missing from the PDF, the build says so and names the fix instead of leaving blank space. New templates also cover ACL/ARR, CVPR 2027, AAAI-27, ThuThesis and ustcthesis.",
+        "zh": "新的中文文章模板开箱即可编译 ctex 论文；当 PDF 中缺少中文、日文或韩文文字时，编译会明确指出并给出修复方法，而不是留下空白。新增模板还涵盖 ACL/ARR、CVPR 2027、AAAI-27、ThuThesis 和 ustcthesis。"
+      }
+    },
+    {
+      "icon": "feather",
+      "title": {
+        "en": "Rewrite a selection your own way",
+        "zh": "按你的指令改写选中文字"
+      },
+      "body": {
+        "en": "Besides the built-in rewrites, you can now type any instruction for the selected text, such as \"translate into academic English\" or \"shorten to about 100 words\", and review the result before it replaces your text.",
+        "zh": "除了内置的改写方式，现在还可以为选中的文字输入任意指令，例如“翻译成学术英文”或“缩写到 100 词左右”，并在替换原文之前审阅结果。"
+      }
+    },
+    {
+      "icon": "bot",
+      "title": {
+        "en": "The agent uses your proxy",
+        "zh": "Agent 使用你的代理"
+      },
+      "body": {
+        "en": "The agent now starts with the proxy and model-provider settings from your login shell, so it works on networks that need a proxy without extra setup. When the system proxy changes, Lattice offers to restart the agent with the new one.",
+        "zh": "Agent 现在会沿用登录 shell 中的代理和模型服务商设置，在需要代理的网络下无需额外配置即可使用。系统代理变化时，Lattice 会提示用新的代理重启 Agent。"
+      }
+    },
+    {
+      "title": {
+        "en": "Grammar rules and errors in Chinese",
+        "zh": "中文的语法规则与错误提示"
+      },
+      "body": {
+        "en": "With the interface in Chinese, every grammar rule is named and explained in Chinese, and errors from the app itself are shown in Chinese too.",
+        "zh": "界面为中文时，每条语法规则都有中文名称和说明，应用本身的错误信息也以中文显示。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Every way out of Lattice saves your work first, and an update never restarts the app on its own.",
+      "zh": "退出 Lattice 的每种方式都会先保存你的工作，更新也不会再自行重启应用。"
+    },
+    {
+      "en": "Lattice's shortcuts work in the Agent panel and Git drawer, and ⌘W closes a tab.",
+      "zh": "Lattice 的快捷键在 Agent 面板和 Git 抽屉中同样有效，⌘W 可关闭标签页。"
+    },
+    {
+      "en": "Pressing Enter or Escape to finish an input-method composition no longer submits, picks or cancels.",
+      "zh": "用回车或 Esc 结束输入法组字时，不再误触提交、选择或取消。"
+    },
+    {
+      "en": "Appearance, theme and build settings changed in one window apply to every open window right away.",
+      "zh": "在一个窗口中更改的外观、主题和编译设置会立即应用到所有打开的窗口。"
+    },
+    {
+      "en": "Each window is named for its project, and a large text file is called too large rather than binary.",
+      "zh": "每个窗口以其项目命名，过大的文本文件会提示为“文件过大”而非“二进制文件”。"
+    },
+    {
+      "en": "Double-clicking the title bar follows your macOS setting, and full screen keeps the window buttons in place.",
+      "zh": "双击标题栏遵循 macOS 的系统设置，全屏时窗口按钮保持原位。"
+    },
+    {
+      "en": "Updated the zip and KaTeX libraries past published security advisories.",
+      "zh": "将 zip 和 KaTeX 库更新到已修复公开安全公告的版本。"
+    }
+  ]
+}
