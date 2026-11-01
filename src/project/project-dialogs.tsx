@@ -173,10 +173,16 @@ export function CreateProjectDialog(props: {
             </SelectTrigger>
             <SelectContent className="venue-picker-content" position="popper" align="start">
               <SelectItem value="blank">{t`Blank article`}</SelectItem>
-              {PROJECT_VENUES.map(({ id, label: name }) => (
+              {PROJECT_VENUES.map(({ id, label: name, edition, preprint }) => (
                 // The trigger shows the chosen item, so its edition and draft
-                // mode are part of the name: ICLR's style has no preprint mode.
-                <SelectItem key={id} value={id}>{id === "iclr" ? t`${name} 2026` : t`${name} 2026 · preprint`}</SelectItem>
+                // mode are part of the name: ICLR's and CVPR's styles have no
+                // preprint mode, and a thesis is named by its university.
+                <SelectItem key={id} value={id}>
+                  {id === "thuthesis" ? t`Tsinghua University thesis · ${name}`
+                    : id === "ustcthesis" ? t`USTC thesis · ${name}`
+                      : edition === undefined ? t`${name} · preprint`
+                        : preprint ? t`${name} ${edition} · preprint` : t`${name} ${edition}`}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

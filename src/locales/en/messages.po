@@ -614,17 +614,21 @@ msgstr "{minutes}m ago"
 msgid "{more} more replies"
 msgstr "{more} more replies"
 
+#: src/project/project-dialogs.tsx
+msgid "{name} · preprint"
+msgstr "{name} · preprint"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name} (reconnecting…)"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} 2026"
-msgstr "{name} 2026"
+msgid "{name} {edition}"
+msgstr "{name} {edition}"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} 2026 · preprint"
-msgstr "{name} 2026 · preprint"
+msgid "{name} {edition} · preprint"
+msgstr "{name} {edition} · preprint"
 
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
@@ -13087,6 +13091,10 @@ msgstr "Try now"
 msgid "Try that again now"
 msgstr "Try that again now"
 
+#: src/project/project-dialogs.tsx
+msgid "Tsinghua University thesis · {name}"
+msgstr "Tsinghua University thesis · {name}"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
 msgstr "TSV (tab)"
@@ -13499,6 +13507,10 @@ msgstr "Using environment key"
 #: src/settings/literature-settings.tsx
 msgid "Using shared quota"
 msgstr "Using shared quota"
+
+#: src/project/project-dialogs.tsx
+msgid "USTC thesis · {name}"
+msgstr "USTC thesis · {name}"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Value"

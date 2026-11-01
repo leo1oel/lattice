@@ -1,0 +1,64 @@
+% !TEX program = xelatex
+% ThuThesis, the Tsinghua University thesis template. Compile with XeLaTeX.
+% degree: doctor | master | bachelor | postdoc; language: chinese | english.
+% The full option list and the cover fields are documented in thuthesis.pdf
+% (texdoc thuthesis).
+\documentclass[degree=master]{thuthesis}
+
+\thusetup{
+  output = electronic,
+  title  = {LATTICE_PROJECT_TITLE},
+  title* = {Thesis Title in English},
+  degree-category  = {工学硕士},
+  degree-category* = {Master of Science},
+  department = {院系名称},
+  discipline  = {学科名称},
+  discipline* = {Discipline},
+  author  = {作者姓名},
+  author* = {Author Name},
+  supervisor  = {导师姓名, 教授},
+  supervisor* = {Professor Supervisor Name},
+  math-font = xits,
+}
+
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage[sort]{natbib}
+\bibliographystyle{thuthesis-numeric}
+\usepackage{hyperref}
+
+\begin{document}
+
+\maketitle
+\copyrightpage
+
+\frontmatter
+\begin{abstract}
+  概括论文的研究问题、方法和主要结论。
+  \thusetup{keywords = {关键词 1, 关键词 2, 关键词 3}}
+\end{abstract}
+
+\begin{abstract*}
+  Summarize the research question, method and main conclusions.
+  \thusetup{keywords* = {keyword 1, keyword 2, keyword 3}}
+\end{abstract*}
+
+\tableofcontents
+
+\mainmatter
+\chapter{引言}
+说明研究背景、问题和本文的主要贡献。
+
+\chapter{结论}
+总结研究结果和局限。
+
+\bibliography{references}
+
+\backmatter
+\begin{acknowledgements}
+  感谢……
+\end{acknowledgements}
+
+\statement
+
+\end{document}

@@ -1,0 +1,58 @@
+% !TEX program = xelatex
+% ustcthesis, the University of Science and Technology of China thesis
+% template. Compile with XeLaTeX.
+% degree: doctor | master | bachelor; language: chinese | english.
+% The full option list and the cover fields are documented in ustcthesis-doc.pdf
+% (https://github.com/ustctug/ustcthesis).
+\documentclass[degree=master]{ustcthesis}
+
+\ustcsetup{
+  title      = {LATTICE_PROJECT_TITLE},
+  title*     = {Thesis Title in English},
+  author     = {作者姓名},
+  student-id = {学号},
+  discipline = {学科专业},
+  supervisor = {导师姓名~教授},
+  department = {院系},
+  research-direction = {研究方向},
+  keywords   = {关键词 1, 关键词 2, 关键词 3},
+  keywords*  = {keyword 1, keyword 2, keyword 3},
+}
+
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage[sort]{natbib}
+\bibliographystyle{ustcthesis-numeric}
+\usepackage{hyperref}
+
+\begin{document}
+
+\maketitle
+\declarationoforiginality
+
+\frontmatter
+\begin{abstract}
+  概括论文的研究问题、方法和主要结论。
+\end{abstract}
+
+\begin{abstract*}
+  Summarize the research question, method and main conclusions.
+\end{abstract*}
+
+\tableofcontents
+
+\mainmatter
+\chapter{引言}
+说明研究背景、问题和本文的主要贡献。
+
+\chapter{结论}
+总结研究结果和局限。
+
+\bibliography{references}
+
+\backmatter
+\begin{acknowledgments}
+  感谢……
+\end{acknowledgments}
+
+\end{document}

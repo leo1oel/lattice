@@ -614,17 +614,21 @@ msgstr "{minutes} 分钟前"
 msgid "{more} more replies"
 msgstr "另有 {more} 条回复"
 
+#: src/project/project-dialogs.tsx
+msgid "{name} · preprint"
+msgstr "{name} · 预印本"
+
 #: src/overleaf/overleaf-presence.tsx
 msgid "{name} (reconnecting…)"
 msgstr "{name}（正在重新连接…）"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} 2026"
-msgstr "{name} 2026"
+msgid "{name} {edition}"
+msgstr "{name} {edition}"
 
 #: src/project/project-dialogs.tsx
-msgid "{name} 2026 · preprint"
-msgstr "{name} 2026 · 预印本"
+msgid "{name} {edition} · preprint"
+msgstr "{name} {edition} · 预印本"
 
 #: src/papers/linked-library.ts
 msgid "{name} can't be read. {reason}"
@@ -13087,6 +13091,10 @@ msgstr "立即重试"
 msgid "Try that again now"
 msgstr "现在可以再试一次了"
 
+#: src/project/project-dialogs.tsx
+msgid "Tsinghua University thesis · {name}"
+msgstr "清华大学学位论文 · {name}"
+
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "TSV (tab)"
 msgstr "TSV（制表符分隔）"
@@ -13499,6 +13507,10 @@ msgstr "使用系统环境的密钥"
 #: src/settings/literature-settings.tsx
 msgid "Using shared quota"
 msgstr "使用共享额度"
+
+#: src/project/project-dialogs.tsx
+msgid "USTC thesis · {name}"
+msgstr "中国科学技术大学学位论文 · {name}"
 
 #: src/papers/bib-visual-editor.tsx
 msgid "Value"

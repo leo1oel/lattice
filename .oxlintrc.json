@@ -223,7 +223,7 @@
         "lingui/no-unlocalized-strings": ["error", {
           "ignore": [
             // Product, service, and format names read the same in every locale.
-            "^(?:Lattice|LATTICE|Overleaf|Synara|TexLab|Harper|Vim|Emacs|MCP|BasicTeX|TeX Live|MacTeX|pdfLaTeX|XeLaTeX|LuaLaTeX|BibTeX|biber|LaTeX|TeX|PDF|HTML|URL|DOI|arXiv|NeurIPS|ICML|ICLR|OpenAlex|Crossref|DBLP|Unpaywall|Semantic Scholar|Google Scholar|Firecrawl|Open Slide|Mermaid|KaTeX|Markdown|GitHub|Git)$",
+            "^(?:Lattice|LATTICE|Overleaf|Synara|TexLab|Harper|Vim|Emacs|MCP|BasicTeX|TeX Live|MacTeX|pdfLaTeX|XeLaTeX|LuaLaTeX|BibTeX|biber|LaTeX|TeX|PDF|HTML|URL|DOI|arXiv|NeurIPS|ICML|ICLR|ACL / ARR|CVPR|AAAI|ThuThesis|OpenAlex|Crossref|DBLP|Unpaywall|Semantic Scholar|Google Scholar|Firecrawl|Open Slide|Mermaid|KaTeX|Markdown|GitHub|Git)$",
             // Identifiers (including camelCase keys and ids), event names, MIME
             // types, and relative paths.
             "^[a-z][a-z0-9:+./_-]*$",

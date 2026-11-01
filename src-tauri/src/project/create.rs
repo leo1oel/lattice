@@ -13,21 +13,47 @@ pub(super) const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncheckpoints/\n
 
 const NEURIPS_2026_STYLE: &str = include_str!("../../templates/neurips-2026/neurips_2026.sty");
 
-/// Each venue's `main.tex` (titled on creation) and the style files beside it.
-const NEURIPS_TEMPLATE: &[(&str, &str)] = &[
-    ("main.tex", include_str!("../../templates/neurips-2026/main.tex")),
-    ("neurips_2026.sty", NEURIPS_2026_STYLE),
-];
-const ICML_TEMPLATE: &[(&str, &str)] = &[
-    ("main.tex", include_str!("../../templates/icml-2026/main.tex")),
-    ("icml2026.sty", include_str!("../../templates/icml-2026/icml2026.sty")),
-    ("icml2026.bst", include_str!("../../templates/icml-2026/icml2026.bst")),
-];
-const ICLR_TEMPLATE: &[(&str, &str)] = &[
-    ("main.tex", include_str!("../../templates/iclr-2026/main.tex")),
-    ("iclr2026_conference.sty", include_str!("../../templates/iclr-2026/iclr2026_conference.sty")),
-    ("iclr2026_conference.bst", include_str!("../../templates/iclr-2026/iclr2026_conference.bst")),
-];
+/// A venue's bundled files, written at the same paths they have under
+/// `templates/<dir>`: its `main.tex` (titled on creation) first, then the
+/// style files, bibliography styles and cover artwork beside it.
+macro_rules! venue_template {
+    ($dir:literal: $($path:literal),+ $(,)?) => {
+        &[$(($path, include_bytes!(concat!("../../templates/", $dir, "/", $path)))),+]
+    };
+}
+
+type TemplateFiles = &'static [(&'static str, &'static [u8])];
+
+const NEURIPS_TEMPLATE: TemplateFiles =
+    venue_template!("neurips-2026": "main.tex", "neurips_2026.sty");
+const ICML_TEMPLATE: TemplateFiles =
+    venue_template!("icml-2026": "main.tex", "icml2026.sty", "icml2026.bst");
+const ICLR_TEMPLATE: TemplateFiles = venue_template!("iclr-2026":
+    "main.tex", "iclr2026_conference.sty", "iclr2026_conference.bst");
+const ACL_TEMPLATE: TemplateFiles = venue_template!("acl": "main.tex", "acl.sty", "acl_natbib.bst");
+const CVPR_TEMPLATE: TemplateFiles =
+    venue_template!("cvpr-2027": "main.tex", "cvpr.sty", "ieeenat_fullname.bst");
+const AAAI_TEMPLATE: TemplateFiles =
+    venue_template!("aaai-2027": "main.tex", "aaai2027.sty", "aaai2027.bst");
+// The classes draw their covers from these PDFs at fixed paths.
+const THUTHESIS_TEMPLATE: TemplateFiles = venue_template!("thuthesis":
+    "main.tex",
+    "thuthesis.cls",
+    "thuthesis-numeric.bst",
+    "thuthesis-author-year.bst",
+    "thu-fig-logo.pdf",
+    "thu-text-logo.pdf",
+);
+const USTCTHESIS_TEMPLATE: TemplateFiles = venue_template!("ustcthesis":
+    "main.tex",
+    "ustcthesis.cls",
+    "ustcthesis-numeric.bst",
+    "ustcthesis-authoryear.bst",
+    "figures/ustc-logo.pdf",
+    "figures/ustc-name.pdf",
+    "figures/ustc-name-stxingkai.pdf",
+    "figures/ustc-title-page-heading.pdf",
+);
 
 const TUTORIAL_PROJECT_NAME: &str = "Understanding Attention";
 
@@ -60,6 +86,11 @@ pub enum Venue {
     Neurips,
     Icml,
     Iclr,
+    Acl,
+    Cvpr,
+    Aaai,
+    Thuthesis,
+    Ustcthesis,
     Blank,
 }
 
@@ -69,8 +100,15 @@ impl Venue {
             "" | "neurips" | "nips" => Ok(Self::Neurips),
             "icml" => Ok(Self::Icml),
             "iclr" => Ok(Self::Iclr),
+            "acl" | "arr" => Ok(Self::Acl),
+            "cvpr" => Ok(Self::Cvpr),
+            "aaai" => Ok(Self::Aaai),
+            "thuthesis" => Ok(Self::Thuthesis),
+            "ustcthesis" => Ok(Self::Ustcthesis),
             "blank" => Ok(Self::Blank),
-            other => Err(format!("Unknown venue “{other}”. Choose neurips, icml, or iclr.")),
+            other => Err(format!(
+                "Unknown venue “{other}”. Choose neurips, icml, iclr, acl, cvpr, aaai, thuthesis, ustcthesis, or blank."
+            )),
         }
     }
 
@@ -79,38 +117,52 @@ impl Venue {
             Self::Neurips => "neurips",
             Self::Icml => "icml",
             Self::Iclr => "iclr",
+            Self::Acl => "acl",
+            Self::Cvpr => "cvpr",
+            Self::Aaai => "aaai",
+            Self::Thuthesis => "thuthesis",
+            Self::Ustcthesis => "ustcthesis",
             Self::Blank => "blank",
         }
     }
 
-    /// The main-text page limit the venue's call for papers sets. None of them
-    /// limits words, so a new project has no word budget until the writer sets one.
-    fn page_budget(self) -> u32 {
+    /// The main-text page limit the venue's call for papers sets (ACL's is the
+    /// long-paper one). None of them limits words, so a new project has no
+    /// word budget until the writer sets one; a thesis has neither.
+    fn page_budget(self) -> Option<u32> {
         match self {
-            Self::Neurips | Self::Iclr => 9,
-            Self::Icml => 8,
-            Self::Blank => 0,
+            Self::Neurips | Self::Iclr => Some(9),
+            Self::Icml | Self::Acl | Self::Cvpr => Some(8),
+            Self::Aaai => Some(7),
+            Self::Thuthesis | Self::Ustcthesis | Self::Blank => None,
         }
     }
 
-    /// The engine a new project builds with. The venue styles are written for
-    /// pdfLaTeX (and arXiv compiles submissions with it), so they keep it. A
+    /// The engine a new project builds with. The conference styles are written
+    /// for pdfLaTeX (and arXiv compiles submissions with it), so they keep it;
+    /// AAAI's refuses any other. The Chinese thesis classes require XeLaTeX. A
     /// blank article has no such constraint and gets LuaLaTeX: Unicode source
     /// without inputenc/fontenc, and the rtex live preview, which only runs on
     /// LuaLaTeX. Only new projects: an existing project keeps its manifest.
     fn engine(self) -> &'static str {
         match self {
-            Self::Neurips | Self::Icml | Self::Iclr => "pdf",
+            Self::Neurips | Self::Icml | Self::Iclr | Self::Acl | Self::Cvpr | Self::Aaai => "pdf",
+            Self::Thuthesis | Self::Ustcthesis => "xelatex",
             Self::Blank => "lualatex",
         }
     }
 
-    fn template(self) -> &'static [(&'static str, &'static str)] {
+    fn template(self) -> TemplateFiles {
         match self {
             Self::Neurips => NEURIPS_TEMPLATE,
             Self::Icml => ICML_TEMPLATE,
             Self::Iclr => ICLR_TEMPLATE,
-            Self::Blank => &[("main.tex", "\\documentclass{article}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
+            Self::Acl => ACL_TEMPLATE,
+            Self::Cvpr => CVPR_TEMPLATE,
+            Self::Aaai => AAAI_TEMPLATE,
+            Self::Thuthesis => THUTHESIS_TEMPLATE,
+            Self::Ustcthesis => USTCTHESIS_TEMPLATE,
+            Self::Blank => &[("main.tex", b"\\documentclass{article}\n\\begin{document}\n\\title{LATTICE_PROJECT_TITLE}\n\\maketitle\n\n\\end{document}\n")],
         }
     }
 }
@@ -136,7 +188,7 @@ fn default_manifest_with_venue(name: &str, venue: Venue) -> ProjectManifest {
         stop_on_first_error: false,
         venue: venue.as_str().to_string(),
         word_budget: None,
-        page_budget: (venue != Venue::Blank).then(|| venue.page_budget()),
+        page_budget: venue.page_budget(),
         deadline: None,
         spelling_words: Vec::new(),
         grammar_ignored_rules: Vec::new(),
@@ -156,10 +208,18 @@ pub fn create_with_venue(parent: &Path, name: &str, venue: Venue) -> Result<Path
     let (root, name) = prepare_project_skeleton(parent, name)?;
     write_manifest(&root, &default_manifest_with_venue(name, venue))?;
     fs::write(root.join(".research/brief.md"), default_brief(name)).map_err(err)?;
-    let title = latex_title(name);
-    for (relative, body) in venue.template() {
-        fs::write(root.join(relative), body.replace("LATTICE_PROJECT_TITLE", &title))
-            .map_err(err)?;
+    let title = latex_title(name, matches!(venue, Venue::Thuthesis | Venue::Ustcthesis));
+    for (relative, contents) in venue.template() {
+        let path = root.join(relative);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
+        }
+        if *relative == "main.tex" {
+            let body = std::str::from_utf8(contents).map_err(err)?;
+            fs::write(path, body.replace("LATTICE_PROJECT_TITLE", &title)).map_err(err)?;
+        } else {
+            fs::write(path, contents).map_err(err)?;
+        }
     }
     fs::write(root.join("references.bib"), "").map_err(err)?;
     Ok(root)
@@ -262,9 +322,13 @@ pub fn create_tutorial(parent: &Path) -> Result<PathBuf, String> {
     Ok(root)
 }
 
-fn latex_title(name: &str) -> String {
-    let ascii = name.chars().filter(char::is_ascii).collect::<String>();
-    let title = match ascii.trim() {
+/// `name` as LaTeX title text. Only the Chinese thesis classes load fonts for
+/// every character a project name may hold, so they keep all of it; the other
+/// templates keep its ASCII characters.
+fn latex_title(name: &str, any_script: bool) -> String {
+    let kept =
+        name.chars().filter(|character| any_script || character.is_ascii()).collect::<String>();
+    let title = match kept.trim() {
         "" => "Untitled research",
         value => value,
     };
@@ -291,8 +355,29 @@ mod tests {
     use crate::project::manifest::read_manifest;
     use crate::project::test_support::Fixture;
 
-    const VENUE_STYLES: [&str; 4] =
-        ["neurips.sty", "neurips_2026.sty", "icml2026.sty", "iclr2026_conference.sty"];
+    const VENUE_STYLES: [&str; 9] = [
+        "neurips.sty",
+        "neurips_2026.sty",
+        "icml2026.sty",
+        "iclr2026_conference.sty",
+        "acl.sty",
+        "cvpr.sty",
+        "aaai2027.sty",
+        "thuthesis.cls",
+        "ustcthesis.cls",
+    ];
+
+    const ALL_VENUES: [Venue; 9] = [
+        Venue::Neurips,
+        Venue::Icml,
+        Venue::Iclr,
+        Venue::Acl,
+        Venue::Cvpr,
+        Venue::Aaai,
+        Venue::Thuthesis,
+        Venue::Ustcthesis,
+        Venue::Blank,
+    ];
 
     fn read(root: &Path, relative: &str) -> String {
         fs::read_to_string(root.join(relative)).unwrap()
@@ -353,28 +438,45 @@ mod tests {
 
     #[test]
     fn new_projects_use_the_bundled_venue_templates_with_safe_titles() {
-        assert_eq!(latex_title("R&D_100%"), "R\\&D\\_100\\%");
-        assert_eq!(latex_title("科研"), "Untitled research");
+        assert_eq!(latex_title("R&D_100%", false), "R\\&D\\_100\\%");
+        assert_eq!(latex_title("科研", false), "Untitled research");
+        assert_eq!(latex_title("科研 R&D", true), "科研 R\\&D");
         let parent = Fixture::empty("venue-templates");
-        for (venue, name, usepackage) in [
-            (Venue::Neurips, "neurips-paper", "\\usepackage[preprint]{neurips_2026}"),
-            (Venue::Icml, "icml-paper", "\\usepackage[preprint]{icml2026}"),
-            (Venue::Iclr, "iclr-paper", "\\usepackage{iclr2026_conference,times}"),
+        for (venue, name, engine, loads, budget) in [
+            (Venue::Neurips, "neurips-paper", "pdf", "[preprint]{neurips_2026}", Some(9)),
+            (Venue::Icml, "icml-paper", "pdf", "[preprint]{icml2026}", Some(8)),
+            (Venue::Iclr, "iclr-paper", "pdf", "{iclr2026_conference,times}", Some(9)),
+            (Venue::Acl, "acl-paper", "pdf", "[preprint]{acl}", Some(8)),
+            (Venue::Cvpr, "cvpr-paper", "pdf", "package{cvpr}", Some(8)),
+            (Venue::Aaai, "aaai-paper", "pdf", "[preprint]{aaai2027}", Some(7)),
+            // The thesis classes require XeLaTeX.
+            (Venue::Thuthesis, "thu-thesis", "xelatex", "[degree=master]{thuthesis}", None),
+            (Venue::Ustcthesis, "ustc-thesis", "xelatex", "[degree=master]{ustcthesis}", None),
         ] {
             let root = create_with_venue(&parent.root, name, venue).unwrap();
             let manifest = read_manifest(&root).unwrap();
-            assert_eq!(manifest.venue, venue.as_str());
-            // Venue styles and arXiv expect pdfLaTeX.
-            assert_eq!(manifest.engine, "pdf", "{name}");
-            assert!(read(&root, "main.tex").contains(usepackage), "{name}");
+            assert_eq!(Venue::parse(&manifest.venue), Ok(venue));
+            assert_eq!(manifest.engine, engine, "{name}");
+            assert_eq!(manifest.page_budget, budget, "{name}");
+            let main = read(&root, "main.tex");
+            assert!(main.contains(loads), "{name}");
+            assert!(main.contains(name) && !main.contains("LATTICE_PROJECT_TITLE"), "{name}");
+            // Style files and cover artwork are copied byte for byte.
+            assert_eq!(venue.template()[0].0, "main.tex");
             for (file, contents) in &venue.template()[1..] {
-                assert_eq!(read(&root, file), *contents, "{file}");
+                assert_eq!(fs::read(root.join(file)).unwrap(), *contents, "{file}");
             }
             let own = |file: &str| venue.template().iter().any(|(template, _)| *template == file);
             for style in VENUE_STYLES {
                 assert_eq!(root.join(style).exists(), own(style), "{name}: {style}");
             }
         }
+        let chinese = create_with_venue(&parent.root, "清华论文", Venue::Thuthesis).unwrap();
+        assert!(read(&chinese, "main.tex").contains("title  = {清华论文},"));
+        for venue in ALL_VENUES {
+            assert_eq!(Venue::parse(venue.as_str()), Ok(venue));
+        }
+        assert_eq!(Venue::parse("ARR"), Ok(Venue::Acl));
 
         // The default is NeurIPS, without the template's instructions or any
         // legacy agent state.
@@ -390,6 +492,27 @@ mod tests {
         }
         for ignore in [".gitignore", ".research/.gitignore"] {
             assert!(!read(&neurips, ignore).contains("omp-"), "{ignore}");
+        }
+    }
+
+    /// Builds every bundled template the way the app does. Needs latexmk and
+    /// the packages `tex_setup/basictex.sh` installs: Lattice's base set plus
+    /// newtx, kastrup, ctex, xecjk, zhnumber, bibunits, xits and stix2-otf.
+    #[test]
+    #[ignore = "requires latexmk, pdfLaTeX, XeLaTeX and the template packages basictex.sh installs"]
+    fn every_bundled_template_builds_a_pdf() {
+        use crate::latex::{build, read_compiled_pdf, ActiveBuild, BuildSteps};
+        let parent = Fixture::empty("template-builds");
+        for venue in ALL_VENUES {
+            let root = create_with_venue(&parent.root, venue.as_str(), venue).unwrap();
+            let result =
+                build(&root, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+            assert!(result.success, "{}: {}", venue.as_str(), result.log);
+            assert!(read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"), "{}", venue.as_str());
+            if venue.engine() == "xelatex" {
+                let log = fs::read_to_string(root.join("main.log")).unwrap();
+                assert!(!log.contains("Missing character"), "{}: {log}", venue.as_str());
+            }
         }
     }
 }
