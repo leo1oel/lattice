@@ -53,9 +53,10 @@ export const SETUP_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["tex_setup/installer.rs", "The uv archive contained an invalid {name} entry.", ([name]) => t`The uv archive contained an invalid ${name} entry.`],
   ["tex_setup/installer.rs", "The uv archive did not contain the expected executables.", () => t`The uv archive did not contain the expected executables.`],
 
-  // The document a build compiles (latex/build.rs; latex/pinned.rs and
-  // texcount.rs write the same sentence)
-  ["latex/build.rs", "Root document not found: {}", ([path]) => t`Root document not found: ${path}`],
+  // The document a build compiles (latex/build.rs names its argument;
+  // latex/pinned.rs and texcount.rs write the positional form)
+  ["latex/build.rs", "Root document not found: {document}", ([path]) => t`Root document not found: ${path}`],
+  ["latex/pinned.rs", "Root document not found: {}", ([path]) => t`Root document not found: ${path}`],
 
   // The built-in agent's startup (synara.rs). The startup log is the
   // sidecar's own output and stays as written.
