@@ -1,0 +1,32 @@
+{
+  "version": "0.14.1",
+  "date": "2026-11-02",
+  "highlights": [
+    {
+      "title": {
+        "en": "A faster agent panel",
+        "zh": "更快的智能体面板"
+      },
+      "body": {
+        "en": "The agent panel now starts Claude before you send your first message, keeps open threads running while they sit idle, and no longer waits for Overleaf comments to refresh before sending. A new thread answers about 2 seconds sooner, and a reply after a pause comes in about half the time. Claude is now the panel's default agent.",
+        "zh": "智能体面板现在会在你发送第一条消息前就启动 Claude，打开的对话在空闲时也会保持运行，发送消息时也不再等待 Overleaf 评论刷新。新对话的首次回答快了约 2 秒，停顿后的回复用时约减半。Claude 现在是面板的默认智能体。"
+      }
+    },
+    {
+      "title": {
+        "en": "Your own MCP servers are off in the panel by default",
+        "zh": "面板默认不再加载你自己的 MCP 服务器"
+      },
+      "body": {
+        "en": "The agent panel now loads only Lattice's own tools, which is part of what makes it start faster. If you use your own MCP servers with Claude, turn on Load my MCP servers in Claude in Settings to bring them back.",
+        "zh": "智能体面板现在只加载 Lattice 自带的工具，这也是它启动更快的原因之一。如果你在 Claude 中使用自己的 MCP 服务器，请在设置中打开“Load my MCP servers in Claude”（在 Claude 中加载我的 MCP 服务器）以恢复它们。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "The effort level shown in the agent panel is now the one actually sent to the agent.",
+      "zh": "智能体面板中显示的推理强度现在就是实际发送给智能体的强度。"
+    }
+  ]
+}
