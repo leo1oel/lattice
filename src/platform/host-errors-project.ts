@@ -28,6 +28,17 @@ function symbolName(kind: string): string {
   }
 }
 
+/** The checklist fields `set_submission_items` in project/manifest_settings.rs limits. */
+function checklistField(what: string): string {
+  switch (what) {
+    case "file path": return t({ message: "file path", context: "submission checklist field" });
+    case "checked date": return t({ message: "checked date", context: "submission checklist field" });
+    case "source": return t({ message: "source", context: "submission checklist field" });
+    case "owner": return t({ message: "owner", context: "submission checklist field" });
+    default: return what;
+  }
+}
+
 export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   // Paths (project/paths.rs, project_fs.rs)
   ["project/paths.rs", "The requested path is outside the project.", () => t`The requested path is outside the project.`],
@@ -160,4 +171,21 @@ export const PROJECT_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["project/imports.rs", "Only project sidecar files can be written under .research.", () => t`Only project sidecar files can be written under .research.`],
   ["project/imports.rs", "Could not decode file bytes: {error}", ([error]) => t`Could not decode file bytes: ${error}`],
   ["project/imports.rs", "Binary files written this way must be 15 MB or smaller.", () => t`Binary files written this way must be 15 MB or smaller.`],
+
+  // Project settings, the deadline and the submission checklist (project/manifest_settings.rs)
+  ["project/manifest_settings.rs", "Choose pdf, xelatex, or lualatex.", () => t`Choose pdf, xelatex, or lualatex.`],
+  ["project/manifest_settings.rs", "Name the deadline in at most 80 characters.", () => t`Name the deadline in at most 80 characters.`],
+  ["project/manifest_settings.rs", "Choose abstract, paper, or rebuttal.", () => t`Choose abstract, paper, or rebuttal.`],
+  ["project/manifest_settings.rs", "Give the deadline as a date and a time.", () => t`Give the deadline as a date and a time.`],
+  ["project/manifest_settings.rs", "Keep the {what} to at most {limit} characters.", ([what, limit]) => t`Keep the ${checklistField(what)} to at most ${limit} characters.`],
+  ["project/manifest_settings.rs", "A checklist holds at most 200 items.", () => t`A checklist holds at most 200 items.`],
+  ["project/manifest_settings.rs", "Each checklist item needs its own id.", () => t`Each checklist item needs its own id.`],
+  ["project/manifest_settings.rs", "Name each checklist item in at most 200 characters.", () => t`Name each checklist item in at most 200 characters.`],
+  ["project/manifest_settings.rs", "Choose to do, to check, or confirmed.", () => t`Choose to do, to check, or confirmed.`],
+  ["project/manifest_settings.rs", "Link a file inside the project.", () => t`Link a file inside the project.`],
+  ["project/manifest_settings.rs", "Give the checked date as a day.", () => t`Give the checked date as a day.`],
+  ["project/manifest_settings.rs", "Project dictionary terms must be single words of at most 80 characters.", () => t`Project dictionary terms must be single words of at most 80 characters.`],
+  ["project/manifest_settings.rs", "A project ignores at most 1000 rules and 1000 sentences.", () => t`A project ignores at most 1000 rules and 1000 sentences.`],
+  ["project/manifest_settings.rs", "Name each ignored grammar rule by its Harper name.", () => t`Name each ignored grammar rule by its Harper name.`],
+  ["project/manifest_settings.rs", "Ignored sentences must hold at most 2000 characters.", () => t`Ignored sentences must hold at most 2000 characters.`],
 ];
