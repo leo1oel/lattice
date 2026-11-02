@@ -14,6 +14,13 @@ export type OpenDocumentsState = {
   file: string;
   text: string;
   savedText: string;
+  /**
+   * The file's text as it last came from outside the writer's own editing: a
+   * disk read (an agent, another app, a reload), an Overleaf collaborator, a
+   * save that merged edits made outside. The source editor takes that text
+   * without an undo step, so ⌘Z never takes back someone else's edit.
+   */
+  outsideText: string | null;
   /** An asset preview in front of the file. */
   asset: AssetPreview | null;
   /** A Paper in front of the file, and which of its reading files is shown. */
@@ -50,8 +57,10 @@ export type OpenDocumentsState = {
 type Setters = { [K in keyof OpenDocumentsState as `set${Capitalize<K>}`]: (next: SetStateAction<OpenDocumentsState[K]>) => void };
 
 type OpenDocumentsActions = Setters & {
-  /** Replace the file's buffer with durable content (live and saved agree). */
+  /** Replace the file's buffer with durable content from outside (live and saved agree). */
   commitFileText: (content: string) => void;
+  /** Replace the file's buffer with text that merged in edits from outside; it stays unsaved. */
+  takeOutsideText: (content: string) => void;
   /** Load `content` as `path`'s durable text. */
   showFileText: (path: string, content: string) => void;
   /** Both of the open Paper's reading buffers, as read from disk. */
@@ -68,7 +77,7 @@ type OpenDocumentsActions = Setters & {
 export type OpenDocumentsStore = StoreApi<OpenDocumentsState & OpenDocumentsActions>;
 
 const initialState = (): OpenDocumentsState => ({
-  file: "", text: "", savedText: "", asset: null,
+  file: "", text: "", savedText: "", outsideText: null, asset: null,
   paper: null, paperView: "blog", paperMarkdown: "", savedPaperMarkdown: "", paperBlog: null, savedPaperBlog: null,
   tabs: [], revealRequest: 0, mode: "split", opening: null, navStack: [], navIndex: -1,
   persistenceReadyRoot: null, tabsSettledRoot: null,
@@ -91,8 +100,9 @@ export function createOpenDocumentsStore(): OpenDocumentsStore {
     return {
       ...initialState(),
       ...setters,
-      commitFileText: (content) => set({ text: content, savedText: content }),
-      showFileText: (path, content) => set({ file: path, text: content, savedText: content }),
+      commitFileText: (content) => set({ text: content, savedText: content, outsideText: content }),
+      takeOutsideText: (content) => set({ text: content, outsideText: content }),
+      showFileText: (path, content) => set({ file: path, text: content, savedText: content, outsideText: content }),
       setPaperBuffers: (markdown, blog) => set({
         paperMarkdown: markdown, savedPaperMarkdown: markdown, paperBlog: blog, savedPaperBlog: blog,
       }),

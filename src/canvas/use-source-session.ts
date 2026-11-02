@@ -170,6 +170,7 @@ export function useSourceSession(props: DocumentCanvasProps, options: SourceSess
       reportPosition(created, path);
     },
     onChange,
+    isOutsideValue: (value: string) => latestRef.current.document.isOutsideSource?.(value) ?? false,
     onUpdate: (update: ViewUpdate) => {
       // "pending" keeps the last answer. In LaTeX every typed letter queries the
       // completion sources (pending) and usually finds nothing (null), and

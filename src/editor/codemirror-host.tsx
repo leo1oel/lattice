@@ -12,7 +12,10 @@
  * replace only the text that differs, so the caret and the place stay with
  * their text (see text-change.ts). They are annotated `hostExternalChange`, so
  * they never echo back through `onChange`, and wait out active typing as the
- * wrapper did.
+ * wrapper did. Those `isOutsideValue` claims (a disk read, an Overleaf
+ * collaborator, a save that merged outside edits) are no undo step either:
+ * the writer's ⌘Z takes back only their own edits, mapped through them. The
+ * writer's own edits that arrive as a value (an inserted figure) stay undoable.
  *
  * Given `park`, a view parks its state and scroll when it is destroyed and
  * the next mount of the same document resumes from them (see parked-editors.ts).
@@ -20,7 +23,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { Annotation, Compartment, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
 import {
   EditorView, crosshairCursor, drawSelection, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
@@ -107,6 +110,11 @@ type CodeMirrorHostProps = {
   /** The textbox's accessible name: which document this is, such as "main.tex — LaTeX source". */
   label: string;
   value: string;
+  /**
+   * Whether `value` came from outside the writer's own editing, so the editor
+   * takes it without an undo step. Asked when a new value is applied.
+   */
+  isOutsideValue?: (value: string) => boolean;
   editable?: boolean;
   extensions: Extension[];
   onChange: (value: string) => void;
@@ -245,7 +253,11 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
       const current = view.state.doc.toString();
       const text = documentText(next);
       if (text !== current) {
-        view.dispatch({ changes: textChange(current, text), annotations: [hostExternalChange.of(true)] });
+        const outside = propsRef.current.isOutsideValue?.(next) ?? false;
+        view.dispatch({
+          changes: textChange(current, text),
+          annotations: outside ? [hostExternalChange.of(true), Transaction.addToHistory.of(false)] : [hostExternalChange.of(true)],
+        });
       }
       lastEmittedRef.current = next;
     };

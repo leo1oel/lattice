@@ -18,7 +18,7 @@ import type { DocumentStore } from "./use-document-store";
 export function useDocumentSave(store: DocumentStore) {
   const { t } = useLingui();
   const {
-    depsRef, projectRoot, renderedRef, fileRef, textRef, savedRef, setText, setSavedText,
+    depsRef, projectRoot, renderedRef, fileRef, textRef, savedRef, setText, takeOutsideText, setSavedText,
     paperMarkdownRef, savedPaperMarkdownRef, setSavedPaperMarkdown, paperBlogRef, savedPaperBlogRef, setSavedPaperBlog,
     diskMtimeRef,
   } = store;
@@ -56,7 +56,8 @@ export function useDocumentSave(store: DocumentStore) {
         });
         const writtenSource = writeResult?.content ?? content;
         const sameFile = fileRef.current === primaryPath;
-        if (writtenSource !== content && sameFile && textRef.current === content) setText(writtenSource);
+        // A merge brought in edits made outside: not the writer's to undo.
+        if (writtenSource !== content && sameFile && textRef.current === content) takeOutsideText(writtenSource);
         if (writeResult?.hadConflicts) {
           const path = primaryPath;
           showWarning(t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }));
@@ -105,7 +106,7 @@ export function useDocumentSave(store: DocumentStore) {
     });
   }, [
     depsRef, diskMtimeRef, fileRef, paperBlogRef, paperMarkdownRef, renderedRef, savedPaperBlogRef, savedPaperMarkdownRef,
-    savedRef, setSavedText, setSavedPaperBlog, setSavedPaperMarkdown, setText, t, textRef,
+    savedRef, setSavedText, setSavedPaperBlog, setSavedPaperMarkdown, setText, t, takeOutsideText, textRef,
   ]);
   const save = useCallback(
     () => trackSave(saveActivityRef.current, renderedRef.current.project?.root, setSaveStatus, saveContents),
