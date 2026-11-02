@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-10-26 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-02 against upstream
 `v1.0.9` (`ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`), the current integration changes
-**768 files, +87,015 / −8,468 lines**. It carries embedded-workspace UI, a skills manager,
+**784 files, +89,717 / −8,638 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -44,6 +44,10 @@ Providers, MCP and Skills follow the native Settings layout (a serif page title,
 The pin also carries `amp/lattice-cursor-no-autologin`: Cursor's startup model discovery and background text generation use ACP `authPolicy: "never"`, so a signed-out Cursor CLI no longer opens its sign-in page when Lattice starts (discovery falls back to `cursor-agent models`).
 
 On WebKit the composer draws its own caret (`ComposerDrawnCaretPlugin`): WebKit stretches the native caret on every line after a paragraph's first up through the leading above it, so in Lexical's one-paragraph composer it stood a full line pitch tall. The drawn 2px bar takes the glyph height of the text at the caret, hides for range selections, and gives the native caret back during IME composition; Chromium keeps the native caret.
+
+The agent panel keeps Claude Code warm only while Lattice shows it. Lattice posts `lattice:agent-panel-visibility` `{visible}` when the frame is ready and on every change (the panel behind another tab, collapsed or hidden), because the frame stays mounted and its own `visibilityState` follows only the window.
+Only a panel that is shown, in a visible window, reports its thread to the server (which keeps that thread out of the idle stop) and starts Claude ahead of Send; a panel hidden for 30 seconds gives its thread up, which stops an unused warm runtime, and the frame treats itself as hidden until Lattice first says otherwise.
+A new chat's warm runtime is adopted by its first send only while every setting Claude Code reads at spawn (`claudeLaunchSettings`: "Load my MCP servers" and process priority) still matches; otherwise the send starts a fresh one, and the panel's next report re-warms the draft under the new settings.
 
 The panel answers `lattice:composer-prompt` (version 1), which lets Lattice put a prompt in the agent composer or send it, in the active chat or a new one, for Open Slide's in-canvas agent buttons.
 A draft fills an empty composer or goes on a new line under the user's text, and focuses the composer; an empty draft only focuses it.

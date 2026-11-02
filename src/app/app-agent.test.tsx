@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, chooseLayoutPreset, mockAppCommand, projectCommands, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, buildButton, waitForBuildIdle, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem } from "./app-test-utils";
+import { windowApi, synaraHook, chooseLayoutPreset, mockAppCommand, projectCommands, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, buildButton, waitForBuildIdle, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem, selectPanelTab } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -41,6 +41,25 @@ describe("Agent panel", () => {
     postWindowMessage(window, { type: "synara:layout-metrics", minimumSidebarWidth: 560 });
     await pause(50);
     expect(minimumWidth()).toBe(before);
+  });
+
+  // The frame stays mounted behind another tab, where its own visibilityState
+  // still says visible: only the host can tell it to stop keeping Claude warm.
+  it("tells the Agent's frame whenever its panel is shown or hidden", async () => {
+    renderApp(projectCommands());
+    await screen.findByRole("button", { name: "Switch project" });
+    const { postMessage } = await openAgentFrame({ ready: true });
+    const visibility = () => postedOfType<{ visible: boolean }>(postMessage, "lattice:agent-panel-visibility").map(({ visible }) => visible);
+    await waitFor(() => expect(visibility().at(-1)).toBe(true));
+    await selectPanelTab("Project");
+    await waitFor(() => expect(visibility().at(-1)).toBe(false));
+    await selectPanelTab("Agent");
+    await waitFor(() => expect(visibility().at(-1)).toBe(true));
+    // A frame that reloads (a thread opened from elsewhere) hears it afresh.
+    const before = visibility().length;
+    postWindowMessage((await findFrame()).contentWindow, { type: "synara:embed-ready" });
+    await waitFor(() => expect(visibility().length).toBe(before + 1));
+    expect(visibility().at(-1)).toBe(true);
   });
 
   it("keeps the Agent's frame, and its running turn, through the Writing and Reading layouts", async () => {
