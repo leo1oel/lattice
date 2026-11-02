@@ -487,6 +487,8 @@ pub(super) fn cancelled_build(
 mod diagnostics_tests;
 #[cfg(test)]
 mod error_mode_tests;
+#[cfg(test)]
+mod latexmkrc_tests;
 
 #[cfg(test)]
 mod tests {
