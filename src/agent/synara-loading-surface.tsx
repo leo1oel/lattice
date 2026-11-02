@@ -7,6 +7,7 @@ import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
+import { hostErrorText } from "../platform/host-error-text";
 import { redactLogText } from "../telemetry/app-log-store";
 import { LoadingAnnouncement } from "../components/ui/loading-status";
 import { AgentPanelSkeleton } from "./agent-panel-skeleton";
@@ -150,7 +151,8 @@ function SynaraFailureActions(props: { runtime: SynaraRuntimeInfo; onRetry: () =
             {t({ message: "Details", context: "error disclosure" })}
           </summary>
           <div className="synara-failure-detail">
-            <pre>{message}</pre>
+            {/* Read in the interface language; the copy stays the host's English for a report. */}
+            <pre>{hostErrorText(message)}</pre>
             <CopyButton
               className="synara-failure-copy"
               text={copied}

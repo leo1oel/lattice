@@ -153,4 +153,26 @@ export const WORKSPACE_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["live_preview/session.rs", "The live preview engine is not installed. Turn live preview on again.", () => t`The live preview engine is not installed. Turn live preview on again.`],
   ["live_preview/session.rs", "Could not start the live preview engine: {error}", ([error]) => t`Could not start the live preview engine: ${error}`],
   ["live_preview/session.rs", "The live preview engine has stopped.", () => t`The live preview engine has stopped.`],
+  ["live_preview/install.rs", "The rtex archive did not contain the live preview engine.", () => t`The rtex archive did not contain the live preview engine.`],
+  ["live_preview/install.rs", "Could not inspect the installed rtex: {error}", ([error]) => t`Could not inspect the installed rtex: ${error}`],
+  ["live_preview/install.rs", "Could not replace the installed rtex: {error}", ([error]) => t`Could not replace the installed rtex: ${error}`],
+  ["live_preview/install.rs", "The rtex archive contained an invalid path: {error}", ([error]) => t`The rtex archive contained an invalid path: ${error}`],
+  ["live_preview/install.rs", "The rtex archive contained an unexpected entry: {}", ([path]) => t`The rtex archive contained an unexpected entry: ${path}`],
+  ["live_preview/install.rs", "The rtex archive contained an unsafe path: {}", ([path]) => t`The rtex archive contained an unsafe path: ${path}`],
+  ["live_preview/install.rs", "The rtex archive contained a link at {}", ([path]) => t`The rtex archive contained a link at ${path}`],
+  ["live_preview/resources.rs", "The live preview PDF is not in its build folder.", () => t`The live preview PDF is not in its build folder.`],
+
+  // The browser workspace (browser_host.rs, browser_host/dialogs.rs)
+  ["browser_host.rs", "This workspace is already open in your browser.", () => t`This workspace is already open in your browser.`],
+  ["browser_host.rs", "This browser workspace is no longer active.", () => t`This browser workspace is no longer active.`],
+  ["browser_host.rs", "This Lattice window is already opening in your browser.", () => t`This Lattice window is already opening in your browser.`],
+  ["browser_host/dialogs.rs", "Browser dialogs are only available to a browser workspace.", () => t`Browser dialogs are only available to a browser workspace.`],
+
+  // Formatting, the arXiv export, PDF review and the language server
+  ["format_latex.rs", "Format currently supports .tex, .cls, and .sty files.", () => t`Format currently supports .tex, .cls, and .sty files.`],
+  ["latex/arxiv.rs", "The paper changed after it was checked. Check it again, then export.", () => t`The paper changed after it was checked. Check it again, then export.`],
+  ["review_pdf.rs", "An encrypted PDF cannot be annotated.", () => t`An encrypted PDF cannot be annotated.`],
+  ["texlab.rs", "TexLab initialize failed: {error}", ([error]) => t`TexLab initialize failed: ${error}`],
+  ["texlab.rs", "TexLab timed out during initialize.", () => t`TexLab timed out during initialize.`],
+  ["texlab.rs", "TexLab closed stdout.", () => t`TexLab closed stdout.`],
 ];

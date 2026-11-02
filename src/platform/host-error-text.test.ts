@@ -21,6 +21,33 @@ describe("hostErrorText", () => {
     expect(hostErrorText("The label “fig:model” already exists.")).toBe("标签“fig:model”已存在");
   });
 
+  // The third audit's sample: each was still English in a Chinese interface.
+  it("shows the setup, agent, build-root, terminal, PDF and settings errors in Chinese", async () => {
+    await activateAppLocale("zh-CN");
+    for (const english of [
+      "Root document not found: main.tex",
+      "The built-in agent did not become ready within 30 seconds.",
+      "TeX Live's package manager is not installed.",
+      "No supported LaTeX engine could be run as your macOS user.",
+      "This terminal has closed.",
+      "An encrypted PDF cannot be annotated.",
+      "Name the deadline in at most 80 characters.",
+      "No TeX Live package provides neurips_2026.sty. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder.",
+    ]) {
+      expect(hostErrorText(english)).toMatch(/\p{Script=Han}/u);
+    }
+    expect(hostErrorText("Root document not found: main.tex")).toBe("找不到主文档：main.tex");
+    expect(hostErrorText("Keep the owner to at most 80 characters.")).toBe("负责人最多 80 个字符");
+  });
+
+  it("reads an argument Rust leaves empty", async () => {
+    await activateAppLocale("zh-CN");
+    expect(hostErrorText("The built-in agent stopped during startup with status exit status: 1."))
+      .toBe("内置 AI 助手启动时退出（exit status: 1）");
+    expect(hostErrorText("The built-in agent stopped during startup with status exit status: 1. Startup log: EADDRINUSE"))
+      .toBe("内置 AI 助手启动时退出（exit status: 1）。启动日志：EADDRINUSE");
+  });
+
   it("translates a host message nested in another, down to the operating system's error", async () => {
     await activateAppLocale("zh-CN");
     expect(hostErrorText("Could not read refs.bib: No such file or directory (os error 2)")).toBe("无法读取 refs.bib：文件或文件夹不存在");

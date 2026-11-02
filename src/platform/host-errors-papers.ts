@@ -71,4 +71,35 @@ export const PAPERS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["papers/bibliography.rs", "An upgrade must preserve the unique citation key '{key}'.", ([key]) => t`An upgrade must preserve the unique citation key ''${key}''.`],
   ["papers/bibliography.rs", "The upgrade changes the identity of '{key}'. No changes were saved.", ([key]) => t`The upgrade changes the identity of ''${key}''. No changes were saved.`],
   ["ipc/bibliography.rs", "Choose whether to keep or remove manuscript citations.", () => t`Choose whether to keep or remove manuscript citations.`],
+
+  // A cached paper that no longer checks out (papers/bundle.rs, alphaxiv.rs)
+  ["papers/bundle.rs", "The cached paper was produced by an unsupported converter.", () => t`The cached paper was produced by an unsupported converter.`],
+  ["papers/bundle.rs", "The cached paper markdown does not match its metadata.", () => t`The cached paper markdown does not match its metadata.`],
+  ["papers/bundle.rs", "Unsupported paper asset manifest version.", () => t`Unsupported paper asset manifest version.`],
+  ["papers/bundle.rs", "Unsafe paper asset path: {}", ([path]) => t`Unsafe paper asset path: ${path}`],
+  ["papers/bundle.rs", "Unsupported paper asset type: {}", ([type]) => t`Unsupported paper asset type: ${type}`],
+  ["papers/bundle.rs", "Paper asset is missing: {}", ([path]) => t`Paper asset is missing: ${path}`],
+  ["papers/bundle.rs", "Paper asset failed integrity validation: {}", ([path]) => t`Paper asset failed integrity validation: ${path}`],
+  ["alphaxiv.rs", "Invalid alphaXiv paper id.", () => t`Invalid alphaXiv paper id.`],
+  ["alphaxiv.rs", "Invalid alphaXiv response identity.", () => t`Invalid alphaXiv response identity.`],
+  ["alphaxiv.rs", "Unsupported alphaXiv overview component syntax.", () => t`Unsupported alphaXiv overview component syntax.`],
+  ["paper_pdf_proxy.rs", "PDF URL must use HTTP or HTTPS", () => t`PDF URL must use HTTP or HTTPS`],
+  ["paper_pdf_proxy.rs", "PDF URL must not contain credentials", () => t`PDF URL must not contain credentials`],
+
+  // Web pages and literature services (firecrawl.rs, literature_service.rs, openalex.rs, citation_health.rs)
+  ["firecrawl.rs", "Firecrawl could not scrape the page: {}", ([reason]) => t`Firecrawl could not scrape the page: ${reason}`],
+  ["firecrawl.rs", "The page yielded almost no content (it may require sign-in or block scraping).", () => t`The page yielded almost no content (it may require sign-in or block scraping).`],
+  ["literature_service.rs", "Semantic Scholar requires a personal API key.", () => t`Semantic Scholar requires a personal API key.`],
+  ["openalex.rs", "OpenAlex returned HTTP {}.", ([status]) => t`OpenAlex returned HTTP ${status}.`],
+  ["citation_health.rs", "Crossref lookup did not run", () => t`Crossref lookup did not run`],
+  ["citation_health.rs", "Crossref lookup is still under way", () => t`Crossref lookup is still under way`],
+  ["citation_health.rs", "Crossref lookup stopped", () => t`Crossref lookup stopped`],
+
+  // Applying a reference check (citation_audit/apply.rs, citation_audit/proposal.rs)
+  ["citation_audit/apply.rs", "The bibliography entry changed after the preview. Scan it again.", () => t`The bibliography entry changed after the preview. Scan it again.`],
+  ["citation_audit/apply.rs", "The proposed replacement must be exactly one entry with the same citation key.", () => t`The proposed replacement must be exactly one entry with the same citation key.`],
+  ["citation_audit/apply.rs", "The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.", () => t`The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually.`],
+  ["citation_audit/apply.rs", "That update would give this entry the DOI already used by '{conflict}', so it describes a different paper. Check the record before applying it.", ([key]) => t`That update would give this entry the DOI already used by ''${key}'', so it describes a different paper. Check the record before applying it.`],
+  ["citation_audit/apply.rs", "Duplicate citation key in this file; fix it before checking or applying updates.", () => t`Duplicate citation key in this file; fix it before checking or applying updates.`],
+  ["citation_audit/proposal.rs", "A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.", ([doi, source]) => t`A published record was found (${doi}, from ${source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added.`],
 ];

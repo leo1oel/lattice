@@ -90,4 +90,17 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["ipc/overleaf_realtime.rs", "The Overleaf project changed before the document joined.", () => t`The Overleaf project changed before the document joined.`],
   ["ipc/overleaf_realtime.rs", "The Overleaf connection changed during the document join.", () => t`The Overleaf connection changed during the document join.`],
   ["ipc/overleaf_realtime.rs", "That Overleaf document is no longer open live.", () => t`That Overleaf document is no longer open live.`],
+
+  // Overleaf's own replies (overleaf/api.rs, overleaf/link.rs, overleaf/files.rs, overleaf_rt/)
+  // What was being asked for is Rust's English ("for the project chat"), so
+  // the translation names only the status.
+  ["overleaf/api.rs", "Overleaf returned {} {what}.", ([status]) => t`Overleaf returned ${status} for the request.`],
+  ["overleaf/link.rs", "Overleaf's project join returned no root folder id.", () => t`Overleaf's project join returned no root folder id.`],
+  ["overleaf/files.rs", "Invalid authoritative inventory path: {path}", ([path]) => t`Invalid authoritative inventory path: ${path}`],
+  ["overleaf_rt/codec.rs", "Overleaf does not offer the websocket transport (offers {transports:?})", ([transports]) => t`Overleaf does not offer the websocket transport (offers ${transports})`],
+  ["overleaf_rt/codec.rs", "Overleaf rejected {what}: {message}", ([what, message]) => t`Overleaf rejected ${what}: ${message}`],
+  ["overleaf_rt/codec.rs", "The Overleaf host must start with http:// or https:// (got {host:?})", ([host]) => t`The Overleaf host must start with http:// or https:// (got ${host})`],
+  ["overleaf_rt/tree.rs", "Overleaf's project has an empty rootFolder.", () => t`Overleaf's project has an empty rootFolder.`],
+  ["overleaf_rt/tree.rs", "Overleaf's project has an unexpected rootFolder.", () => t`Overleaf's project has an unexpected rootFolder.`],
+  ["overleaf_rt/tree.rs", "Overleaf's root folder has no id.", () => t`Overleaf's root folder has no id.`],
 ];

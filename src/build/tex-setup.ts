@@ -1,5 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { hostErrorText } from "../platform/host-error-text";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 
 type DoctorCheckLike = { name: string; detail: string; ok: boolean };
@@ -109,5 +110,10 @@ const TEX_DEPENDENCY_FAILURES = new Map([
 export function texDependencyInstallFailure(message: string): { summary: string; detail: string } {
   const [first = "", ...rest] = message.split("\n");
   const known = TEX_DEPENDENCY_FAILURES.get(first);
-  return { summary: known ? i18n._(known) : first, detail: rest.join("\n").trim() };
+  if (known) return { summary: i18n._(known), detail: rest.join("\n").trim() };
+  // Any other failure is a host message ("No TeX Live package provides …"),
+  // some with tool output on the lines after it, so the whole message is
+  // translated before its first line is split off.
+  const [summary = "", ...detail] = hostErrorText(message).split("\n");
+  return { summary, detail: detail.join("\n").trim() };
 }

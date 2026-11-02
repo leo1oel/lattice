@@ -17,6 +17,10 @@ msgstr ""
 msgid " et al."
 msgstr " 等"
 
+#: src/platform/host-errors-setup.ts
+msgid " Startup log: {excerpt}"
+msgstr "启动日志：{excerpt}"
+
 #. Ends the sentence listing a release's highlights
 #: src/app/whats-new.ts
 msgid "."
@@ -1141,6 +1145,10 @@ msgstr "多出一个 {BRACE_CLOSE}，前面没有对应的 {BRACE_OPEN}"
 msgid "A {BRACE_OPEN} is never closed"
 msgstr "有一个 {BRACE_OPEN} 没有闭合"
 
+#: src/platform/host-errors-project.ts
+msgid "A checklist holds at most 200 items."
+msgstr "清单最多 200 项"
+
 #: src/papers/bib-visual-editor.tsx
 msgid "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
 msgstr "引用名不能为空，也不能包含空格、逗号、花括号、引号或 %。"
@@ -1249,6 +1257,10 @@ msgstr "找到的记录和这条文献对不上"
 msgid "A preamble command inside the document"
 msgstr "导言区命令写在了正文里"
 
+#: src/platform/host-errors-project.ts
+msgid "A project ignores at most 1000 rules and 1000 sentences."
+msgstr "一个项目最多忽略 1000 条规则和 1000 个句子"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "A project latexmkrc overrides this"
@@ -1257,6 +1269,10 @@ msgstr "项目自带的 latexmkrc 优先"
 #: src/platform/host-errors-project.ts
 msgid "A project path component is not a folder."
 msgstr "路径中有一项不是文件夹"
+
+#: src/platform/host-errors-papers.ts
+msgid "A published record was found ({doi}, from {source}), but its title or authors differ from the fetched record. Compare the two before adding either; no citation was added."
+msgstr "找到了正式发表的记录（{doi}，来自 {source}），但它的标题或作者与获取到的记录不一致。请先比对两者再选择添加；尚未添加任何引用"
 
 #: src/papers/bibliography-audit.tsx
 msgid "A published version is available."
@@ -1765,6 +1781,10 @@ msgstr "还有修改正在传到 Overleaf，请稍后再试"
 msgid "An edit is still on its way to Overleaf. Try rejecting again in a moment."
 msgstr "修改还在传，请稍后再拒绝"
 
+#: src/platform/host-errors-workspace.ts
+msgid "An encrypted PDF cannot be annotated."
+msgstr "加密的 PDF 无法添加批注"
+
 #: src/papers/bib-format.ts
 msgid "An existing bibliography entry has an invalid citation key."
 msgstr "有一条文献的引用名无效"
@@ -2147,6 +2167,10 @@ msgstr "“自动”会把 LaTeX 按学术写作检查，其他文件按日常�
 msgid "Automatic updates"
 msgstr "自动更新"
 
+#: src/platform/host-errors-setup.ts
+msgid "Automatic uv installation is not available for this Mac architecture ({arch})."
+msgstr "这台 Mac 的架构（{arch}）不支持自动安装 uv"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Auxiliary files"
@@ -2194,6 +2218,16 @@ msgstr "页边竖线"
 msgid "Basic blocks"
 msgstr "基础"
 
+#: src/platform/host-errors-setup.ts
+msgid "BasicTeX installation failed.\n"
+"{detail}"
+msgstr "BasicTeX 安装失败。\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "BasicTeX installation failed. Please try again."
+msgstr "BasicTeX 安装失败，请重试"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installation progress"
 msgstr "BasicTeX 安装进度"
@@ -2201,6 +2235,24 @@ msgstr "BasicTeX 安装进度"
 #: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installed"
 msgstr "BasicTeX 已安装"
+
+#: src/platform/host-errors-setup.ts
+msgid "BasicTeX is installed, but Lattice could not finish installing the required LaTeX packages.\n"
+"{detail}"
+msgstr "BasicTeX 已安装，但 Lattice 没能装完必需的 LaTeX 组件。\n"
+"{detail}"
+
+#: src/platform/host-errors-setup.ts
+msgid "BasicTeX was installed, but Lattice could not look up required file {file}.\n"
+"{error}"
+msgstr "BasicTeX 已安装，但 Lattice 无法查找必需的文件 {file}。\n"
+"{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "BasicTeX was installed, but required file {file} could not be found.\n"
+"{detail}"
+msgstr "BasicTeX 已安装，但找不到必需的文件 {file}。\n"
+"{detail}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Batch result reused"
@@ -2435,6 +2487,10 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Browser dialogs are only available to a browser workspace."
+msgstr "浏览器对话框只能在浏览器工作区中使用"
 
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -2954,6 +3010,11 @@ msgstr "核对于 {checked}"
 msgid "Checked against it on"
 msgstr "核对日期"
 
+#: src/platform/host-errors-project.ts
+msgctxt "submission checklist field"
+msgid "checked date"
+msgstr "核实日期"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Checking {completed} of {progressTotal}…"
 msgstr "正在检查 {completed} / {progressTotal}…"
@@ -3076,6 +3137,10 @@ msgstr "请选择项目内的有效路径"
 msgid "Choose a ZIP file to import."
 msgstr "请选择要导入的 ZIP 文件"
 
+#: src/platform/host-errors-project.ts
+msgid "Choose abstract, paper, or rebuttal."
+msgstr "请选择摘要、全文或作者回复"
+
 #: src/app/use-synara-host.ts
 msgid "Choose an AI provider in the agent panel, then send the request waiting in its composer."
 msgstr "请先在 AI 助手面板中选择 AI 提供商，再发送输入框里待发的请求。"
@@ -3117,6 +3182,10 @@ msgstr "选择位置"
 msgid "Choose one"
 msgstr "需要选择"
 
+#: src/platform/host-errors-project.ts
+msgid "Choose pdf, xelatex, or lualatex."
+msgstr "请选择 pdf、xelatex 或 lualatex"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Choose Reading in Panels"
 msgstr "在“面板”里选阅读"
@@ -3132,6 +3201,10 @@ msgstr "选择文档类"
 #: src/platform/host-errors-workspace.ts
 msgid "Choose the library's .bib file by its full path."
 msgstr "请用完整路径选择文献库的 .bib 文件"
+
+#: src/platform/host-errors-project.ts
+msgid "Choose to do, to check, or confirmed."
+msgstr "请选择未完成、待核实或已确认"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
@@ -3975,6 +4048,10 @@ msgstr "无法删除 {path}：{error}"
 msgid "Could not disconnect from Overleaf"
 msgstr "断开失败"
 
+#: src/platform/host-errors-setup.ts
+msgid "Could not download {what}: {error}"
+msgstr "无法下载 {what}：{error}"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "Could not download the project from Overleaf: {error}"
 msgstr "无法从 Overleaf 下载项目：{error}"
@@ -4008,6 +4085,10 @@ msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remain
 msgstr "此文件暂停同步（{detail}）"
 
 #: src/platform/host-errors-workspace.ts
+msgid "Could not inspect the installed rtex: {error}"
+msgstr "无法检查已安装的 rtex：{error}"
+
+#: src/platform/host-errors-workspace.ts
 msgid "Could not install rtex: {error}"
 msgstr "无法安装 rtex：{error}"
 
@@ -4018,6 +4099,10 @@ msgstr "PDF 打不开"
 #: src/platform/host-errors-overleaf.ts
 msgid "Could not locate {path} on Overleaf to sync its move. No files were deleted."
 msgstr "在 Overleaf 上找不到 {path}，无法同步它的移动。没有删除任何文件"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not locate your macOS Application Support folder."
+msgstr "找不到 macOS 的“Application Support”文件夹"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open a new Lattice window: {error}"
@@ -4145,6 +4230,14 @@ msgstr "无法显示改动：{errorMessage}"
 msgid "Could not render this file: {0}"
 msgstr "无法显示：{0}"
 
+#: src/platform/host-errors-workspace.ts
+msgid "Could not replace the installed rtex: {error}"
+msgstr "无法替换已安装的 rtex：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not request permission to install {what}: {error}"
+msgstr "无法请求安装 {what} 所需的权限：{error}"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Could not revise"
 msgstr "未能修改"
@@ -4176,6 +4269,10 @@ msgstr "项目没保存成功"
 #: src/papers/bibliography-audit.tsx
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "报告没能保存，请别关窗口以保留结果"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not search the TeX Live repository: {error}"
+msgstr "无法搜索 TeX Live 组件仓库：{error}"
 
 #: src/app/file-open-failure.ts
 #: src/app/use-project-tree.ts
@@ -4209,6 +4306,10 @@ msgstr "上传失败"
 #: src/platform/host-errors-overleaf.ts
 msgid "Could not upload the project to Overleaf: {error}"
 msgstr "无法把项目上传到 Overleaf：{error}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Could not verify {file}: {error}"
+msgstr "无法验证 {file}：{error}"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not write {path}: {error}"
@@ -4342,6 +4443,18 @@ msgstr "Crossref / 官方会议论文集"
 #: src/project/citation-health.ts
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref 暂时查不到撤稿信息"
+
+#: src/platform/host-errors-papers.ts
+msgid "Crossref lookup did not run"
+msgstr "Crossref 查询没有运行"
+
+#: src/platform/host-errors-papers.ts
+msgid "Crossref lookup is still under way"
+msgstr "Crossref 查询仍在进行"
+
+#: src/platform/host-errors-papers.ts
+msgid "Crossref lookup stopped"
+msgstr "Crossref 查询已停止"
 
 #: src/project/citation-health.ts
 msgid "Crossref reports update type: {updateType}"
@@ -4927,6 +5040,10 @@ msgstr "引用名“{key}”重复"
 msgid "Duplicate citation key across bibliography files."
 msgstr "多个文献文件里有重复的引用名"
 
+#: src/platform/host-errors-papers.ts
+msgid "Duplicate citation key in this file; fix it before checking or applying updates."
+msgstr "此文件中有重复的引用名，请先修正，再检查或应用更新"
+
 #: src/papers/audit-messages.ts
 msgid "Duplicate DOI across bibliography files."
 msgstr "多个文献文件里有重复的 DOI"
@@ -4979,6 +5096,10 @@ msgstr "例如 Lattice"
 #: src/project/deadline-card.tsx
 msgid "e.g. NeurIPS 2027"
 msgstr "例如 NeurIPS 2027"
+
+#: src/platform/host-errors-project.ts
+msgid "Each checklist item needs its own id."
+msgstr "每个清单项都需要唯一的 ID"
 
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
@@ -5553,6 +5674,11 @@ msgstr "找不到文件：{file}"
 msgid "File order"
 msgstr "文件顺序"
 
+#: src/platform/host-errors-project.ts
+msgctxt "submission checklist field"
+msgid "file path"
+msgstr "文件路径"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "file restore"
 msgstr "恢复文件"
@@ -5727,6 +5853,10 @@ msgstr "快好了…"
 msgid "Firecrawl"
 msgstr "Firecrawl"
 
+#: src/platform/host-errors-papers.ts
+msgid "Firecrawl could not scrape the page: {reason}"
+msgstr "Firecrawl 无法抓取该网页：{reason}"
+
 #: src/project/paper-list-toolbar.tsx
 msgid "First author"
 msgstr "第一作者"
@@ -5847,6 +5977,10 @@ msgstr "对每个同名项目"
 #: src/app/use-command-table.ts
 msgid "Format"
 msgstr "排版"
+
+#: src/platform/host-errors-workspace.ts
+msgid "Format currently supports .tex, .cls, and .sty files."
+msgstr "格式化目前只支持 .tex、.cls 和 .sty 文件"
 
 #: src/app/use-command-table.ts
 msgid "Format document"
@@ -6010,6 +6144,14 @@ msgstr "Git 工作区"
 #: src/app/git-workspace-frames.tsx
 msgid "Git workspace didn’t load"
 msgstr "Git 没加载出来"
+
+#: src/platform/host-errors-project.ts
+msgid "Give the checked date as a day."
+msgstr "核实日期请填写到某一天"
+
+#: src/platform/host-errors-project.ts
+msgid "Give the deadline as a date and a time."
+msgstr "请填写截止日期和时间"
 
 #: src/trellis/trellis-build-sequence.tsx
 msgid "glossary"
@@ -6421,6 +6563,10 @@ msgstr "本项目中已忽略"
 #: src/settings/settings-search-index.ts
 msgid "Ignored sentences"
 msgstr "已忽略的句子"
+
+#: src/platform/host-errors-project.ts
+msgid "Ignored sentences must hold at most 2000 characters."
+msgstr "忽略的句子最多 2000 个字符"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
@@ -6903,12 +7049,24 @@ msgid "Invalid alphaXiv citation."
 msgstr "alphaXiv 引用无效"
 
 #: src/platform/host-errors-papers.ts
+msgid "Invalid alphaXiv paper id."
+msgstr "alphaXiv 论文 ID 无效"
+
+#: src/platform/host-errors-papers.ts
+msgid "Invalid alphaXiv response identity."
+msgstr "alphaXiv 返回的论文标识无效"
+
+#: src/platform/host-errors-papers.ts
 msgid "Invalid arXiv id."
 msgstr "arXiv 编号无效"
 
 #: src/platform/host-errors-papers.ts
 msgid "Invalid arXiv identity."
 msgstr "arXiv 标识无效"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Invalid authoritative inventory path: {path}"
+msgstr "Overleaf 文件清单中的路径无效：{path}"
 
 #: src/platform/host-errors-papers.ts
 msgid "Invalid citation entry."
@@ -6925,6 +7083,10 @@ msgstr "已有的参考文献条目无效"
 #: src/papers/audit-messages.ts
 msgid "Invalid literal year; expected four digits."
 msgstr "年份应是四位数"
+
+#: src/platform/host-errors-setup.ts
+msgid "Invalid missing TeX dependency name."
+msgstr "缺失的 TeX 组件名称无效"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Invalid Overleaf host: {error}"
@@ -7000,6 +7162,10 @@ msgstr "事项"
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
 msgstr "原文已删除，找不到对应文件"
 
+#: src/platform/host-errors-setup.ts
+msgid "JavaScript runtime"
+msgstr "JavaScript 运行时"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "journal"
 msgstr "期刊"
@@ -7071,6 +7237,11 @@ msgstr "保持打开"
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "用 Overleaf 的"
+
+#. placeholder {0}: checklistField(what)
+#: src/platform/host-errors-project.ts
+msgid "Keep the {0} to at most {limit} characters."
+msgstr "{0}最多 {limit} 个字符"
 
 #: src/platform/host-errors-project.ts
 msgid "Keep the {name} under 120 characters."
@@ -7362,6 +7533,12 @@ msgstr "更新失败"
 msgid "Lattice workspace"
 msgstr "Lattice 工作区"
 
+#: src/platform/host-errors-setup.ts
+msgid "Lattice's managed {tool} failed user-level verification.\n"
+"{error}"
+msgstr "Lattice 管理的 {tool} 未通过用户级验证。\n"
+"{error}"
+
 #: src/platform/host-errors-papers.ts
 msgid "Lattice's required `uv` tool is not available yet. Open Settings → TeX doctor → Install required tools, then try again."
 msgstr "Lattice 需要的 `uv` 工具还不可用。请打开 设置 → TeX 检查 → 安装所需工具，然后再试"
@@ -7580,6 +7757,10 @@ msgstr "表达式下方加横线"
 #: src/papers/linked-library-sheet.tsx
 msgid "Link"
 msgstr "链接"
+
+#: src/platform/host-errors-project.ts
+msgid "Link a file inside the project."
+msgstr "请关联项目内的文件"
 
 #: src/papers/linked-library-sheet.tsx
 msgid "Link a Zotero or Paperpile export"
@@ -8224,6 +8405,10 @@ msgstr "更多状态"
 msgid "More PDF actions"
 msgstr "更多"
 
+#: src/platform/host-errors-setup.ts
+msgid "More than one TeX Live package provides {file}: {packages}. Nothing was installed automatically."
+msgstr "TeX Live 中有多个组件提供 {file}：{packages}。未自动安装任何组件"
+
 #: src/project/paper-list-toolbar.tsx
 msgid "Most cited here"
 msgstr "本文引用最多"
@@ -8287,6 +8472,18 @@ msgstr "名称"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Name already used"
 msgstr "名称已存在"
+
+#: src/platform/host-errors-project.ts
+msgid "Name each checklist item in at most 200 characters."
+msgstr "每个清单项的名称最多 200 个字符"
+
+#: src/platform/host-errors-project.ts
+msgid "Name each ignored grammar rule by its Harper name."
+msgstr "请用 Harper 的规则名称指明要忽略的语法规则"
+
+#: src/platform/host-errors-project.ts
+msgid "Name the deadline in at most 80 characters."
+msgstr "截止时间的名称最多 80 个字符"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version"
@@ -8873,6 +9070,10 @@ msgstr "文件或文件夹不存在"
 msgid "No suggestions in this file"
 msgstr "这个文件没有修订建议"
 
+#: src/platform/host-errors-setup.ts
+msgid "No supported LaTeX engine could be run as your macOS user."
+msgstr "以你的 macOS 用户身份无法运行任何受支持的 LaTeX 引擎"
+
 #: src/editor/latex/symbol-palette.ts
 msgid "No symbol matches “{query}”."
 msgstr "没有与“{query}”匹配的符号。"
@@ -8880,6 +9081,10 @@ msgstr "没有与“{query}”匹配的符号。"
 #: src/terminal/terminal-panel.tsx
 msgid "No terminal open"
 msgstr "没有打开的终端"
+
+#: src/platform/host-errors-setup.ts
+msgid "No TeX Live package provides {file}. It may be a custom project or conference-template file; sync or copy it from Overleaf into the project folder."
+msgstr "TeX Live 中没有提供 {file} 的组件。它可能是项目或会议模板自带的文件，请从 Overleaf 同步，或复制到项目文件夹中"
 
 #: src/history/compare-versions.tsx
 #: src/history/file-diff-view.tsx
@@ -9466,6 +9671,14 @@ msgstr "Open Slide 桥接返回了 {status}"
 msgid "Open Slide could not start"
 msgstr "幻灯片编辑器没能启动"
 
+#: src/platform/host-errors-setup.ts
+msgid "Open Slide did not become ready within 30 seconds."
+msgstr "Open Slide 在 30 秒内未能就绪"
+
+#: src/platform/host-errors-setup.ts
+msgid "Open Slide did not expose readiness output"
+msgstr "Open Slide 没有给出就绪信号"
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Open Slide editor for {deckId}"
 msgstr "{deckId} 的 Open Slide 编辑器"
@@ -9477,6 +9690,14 @@ msgstr "Open Slide 事件桥接返回了 {status}"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Open Slide is not ready"
 msgstr "幻灯片编辑器还没就绪"
+
+#: src/platform/host-errors-setup.ts
+msgid "Open Slide refresh failed ({status}): {reply}"
+msgstr "Open Slide 刷新失败（{status}）：{reply}"
+
+#: src/platform/host-errors-setup.ts
+msgid "Open Slide returned invalid readiness data."
+msgstr "Open Slide 返回的就绪数据无效"
 
 #: src/app/open-slide-writes.ts
 msgid "Open Slide sent an incomplete edit for {path}."
@@ -9529,6 +9750,10 @@ msgstr "在 GitHub 打开"
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
 msgstr "OpenAlex"
+
+#: src/platform/host-errors-papers.ts
+msgid "OpenAlex returned HTTP {status}."
+msgstr "OpenAlex 返回了 HTTP {status}"
 
 #. When a recent project was last opened: “Opened yesterday”, “Opened 3 days ago”.
 #: src/project/welcome-desk.tsx
@@ -9654,6 +9879,10 @@ msgstr "Overleaf 没有在这个项目中列出该文档"
 msgid "Overleaf disconnected this session."
 msgstr "Overleaf 断开了这次会话"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf does not offer the websocket transport (offers {transports})"
+msgstr "Overleaf 不提供 WebSocket 连接方式（只提供 {transports}）"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf doesn’t support live editing for this file, so it will use regular sync."
 msgstr "此文件不支持实时协作，改用普通同步"
@@ -9711,6 +9940,10 @@ msgstr "Overleaf 拒绝了实时连接握手（HTTP {status}）"
 msgid "Overleaf refused this project"
 msgstr "Overleaf 拒绝访问这个项目"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf rejected {what}: {message}"
+msgstr "Overleaf 拒绝了 {what}：{message}"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf rejected a live update ({detail})."
 msgstr "Overleaf 没接受这次更新（{detail}）"
@@ -9742,6 +9975,10 @@ msgstr "Overleaf 删了这段"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 msgstr "此文件暂停同步，Lattice 正在核对"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf returned {status} for the request."
+msgstr "Overleaf 返回了 {status}"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf returned HTTP {status} during upload"
@@ -9812,6 +10049,22 @@ msgstr "这个项目需要 Overleaf 付费方案才能查看完整历史"
 msgid "Overleaf's history since the last sync is longer than Lattice reads at once."
 msgstr "自上次同步以来的 Overleaf 历史太长，Lattice 无法一次读完"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's project has an empty rootFolder."
+msgstr "Overleaf 项目的根文件夹为空"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's project has an unexpected rootFolder."
+msgstr "Overleaf 项目的根文件夹格式异常"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's project join returned no root folder id."
+msgstr "加入 Overleaf 项目时没有返回根文件夹 ID"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Overleaf's root folder has no id."
+msgstr "Overleaf 的根文件夹没有 ID"
+
 #: src/project/paper-library.tsx
 msgid "Overview"
 msgstr "导读"
@@ -9823,6 +10076,11 @@ msgstr "只有概览"
 #: src/project/import-conflict-dialog.tsx
 msgid "Overwrite files of the same name; merge folders"
 msgstr "覆盖同名文件，合并同名文件夹"
+
+#: src/platform/host-errors-project.ts
+msgctxt "submission checklist field"
+msgid "owner"
+msgstr "负责人"
 
 #: src/editor/latex/latex-outline-rail.tsx
 msgid "p.{page}"
@@ -9893,6 +10151,14 @@ msgstr "纸张"
 #: src/canvas/paper-reader.tsx
 msgid "Paper actions"
 msgstr "论文选项"
+
+#: src/platform/host-errors-papers.ts
+msgid "Paper asset failed integrity validation: {path}"
+msgstr "论文资源未通过完整性校验：{path}"
+
+#: src/platform/host-errors-papers.ts
+msgid "Paper asset is missing: {path}"
+msgstr "缺少论文资源：{path}"
 
 #: src/editor/markdown/engine/chrome/references.tsx
 msgid "Paper citation suggestions"
@@ -10130,6 +10396,14 @@ msgstr "PDF 已暂停"
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF 加载超时。请再点“编译”，或用“预览”打开"
+
+#: src/platform/host-errors-papers.ts
+msgid "PDF URL must not contain credentials"
+msgstr "PDF 链接中不能包含账号或密码"
+
+#: src/platform/host-errors-papers.ts
+msgid "PDF URL must use HTTP or HTTPS"
+msgstr "PDF 链接必须使用 HTTP 或 HTTPS"
 
 #: src/history/export-changes-dialog.tsx
 msgid "PDF with changes marked"
@@ -10453,6 +10727,10 @@ msgstr "项目词库"
 #: src/settings/settings-dialog.tsx
 msgid "Project dictionary terms"
 msgstr "项目词典术语"
+
+#: src/platform/host-errors-project.ts
+msgid "Project dictionary terms must be single words of at most 80 characters."
+msgstr "项目词库的词条必须是单个词，最多 80 个字符"
 
 #: src/editor/latex/latex-text.ts
 msgid "project environment"
@@ -10868,6 +11146,10 @@ msgstr "刷新文件树"
 msgid "Refresh history"
 msgstr "刷新历史"
 
+#: src/platform/host-errors-setup.ts
+msgid "Refusing to install uv into an invalid managed tools folder: {path}"
+msgstr "托管工具文件夹无效，已拒绝在其中安装 uv：{path}"
+
 #: src/project/project-replace-dialog.tsx
 msgid "Regex"
 msgstr "高级匹配"
@@ -11266,6 +11548,10 @@ msgstr "请求被拦"
 #: src/build/tex-setup-wizard.tsx
 msgid "Required paper tools installed"
 msgstr "论文工具已装好"
+
+#: src/platform/host-errors-setup.ts
+msgid "Required setup is already running in another Lattice window."
+msgstr "另一个 Lattice 窗口正在安装必需的工具"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Required tools installation progress"
@@ -11722,6 +12008,10 @@ msgstr "罗马体文本"
 #: src/build/tex-doctor-messages.ts
 msgid "Root document"
 msgstr "主文档"
+
+#: src/platform/host-errors-setup.ts
+msgid "Root document not found: {path}"
+msgstr "找不到主文档：{path}"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Root document only, estimated without texcount"
@@ -12270,6 +12560,10 @@ msgstr "Semantic Scholar 请求太频繁，已跳过"
 msgid "Semantic Scholar request timed out; subsequent queries skipped"
 msgstr "Semantic Scholar 超时，已跳过"
 
+#: src/platform/host-errors-papers.ts
+msgid "Semantic Scholar requires a personal API key."
+msgstr "Semantic Scholar 需要个人 API 密钥"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Semantic Scholar returned an invalid response; subsequent queries skipped"
 msgstr "Semantic Scholar 返回出错，已跳过"
@@ -12650,6 +12944,11 @@ msgstr "文献排序：{order}"
 #: src/settings/settings-search-index.ts
 msgid "sound"
 msgstr "声音 提示音"
+
+#: src/platform/host-errors-project.ts
+msgctxt "submission checklist field"
+msgid "source"
+msgstr "来源"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 #: src/history/compare-versions.tsx
@@ -13052,6 +13351,10 @@ msgstr "{synaraSettingsLabel}设置"
 msgid "Synara agent"
 msgstr "AI 助手"
 
+#: src/platform/host-errors-setup.ts
+msgid "Synara service"
+msgstr "Synara 服务"
+
 #: src/settings/synara-settings-pane.tsx
 msgid "Synara settings"
 msgstr "AI 助手设置"
@@ -13263,6 +13566,10 @@ msgstr "TeX 检查"
 msgid "TeX Live’s package manager could not install the package."
 msgstr "TeX Live 组件管理器未能安装此组件。"
 
+#: src/platform/host-errors-setup.ts
+msgid "TeX Live's package manager is not installed."
+msgstr "未安装 TeX Live 的组件管理器（tlmgr）"
+
 #: src/build/tex-setup.ts
 msgid "TeX Live’s package manager needs an update, and the update did not finish."
 msgstr "TeX Live 组件管理器需要更新，但更新未能完成。"
@@ -13276,9 +13583,21 @@ msgstr "TeX 原文：{0}"
 msgid "TeXcount body word counts (optional status bar)"
 msgstr "TeXcount 正文词数统计（可选，显示在状态栏）"
 
+#: src/platform/host-errors-workspace.ts
+msgid "TexLab closed stdout."
+msgstr "TexLab 关闭了标准输出"
+
+#: src/platform/host-errors-workspace.ts
+msgid "TexLab initialize failed: {error}"
+msgstr "TexLab 初始化失败：{error}"
+
 #: src/build/tex-doctor-messages.ts
 msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
+
+#: src/platform/host-errors-workspace.ts
+msgid "TexLab timed out during initialize."
+msgstr "TexLab 初始化超时"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
 #: src/history/versions-timeline.tsx
@@ -13349,9 +13668,17 @@ msgstr "这个 Overleaf 项目名不能用作文件夹名"
 msgid "That path cannot be written directly."
 msgstr "不能直接写入该路径"
 
+#: src/platform/host-errors-papers.ts
+msgid "That update would give this entry the DOI already used by ''{key}'', so it describes a different paper. Check the record before applying it."
+msgstr "这次更新会让该条目使用“{key}”已经在用的 DOI，说明它对应的是另一篇论文。请先核对记录再应用"
+
 #: src/platform/host-errors-project.ts
 msgid "The {name} “{value}” already exists."
 msgstr "{name}“{value}”已存在"
+
+#: src/platform/host-errors-setup.ts
+msgid "The {what} download was interrupted: {error}"
+msgstr "{what} 下载中断：{error}"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the acknowledgement did not arrive in time"
@@ -13409,6 +13736,10 @@ msgstr "AI 助手每次启动时都会重新读取这些设置。"
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "AI 助手暂不可用"
+
+#: src/platform/host-errors-setup.ts
+msgid "The agent service returned {status}."
+msgstr "AI 助手服务返回了 {status}"
 
 #: src/agent/agent-environment.ts
 msgid "The agent still uses the proxy it started with. Restarting it stops any running turns."
@@ -13470,6 +13801,10 @@ msgstr "解析引用时参考文献文件被修改了，请重新导入"
 msgid "The bibliography changed while upgrading. Retry the operation."
 msgstr "升级时参考文献文件被修改了，请重试"
 
+#: src/platform/host-errors-papers.ts
+msgid "The bibliography entry changed after the preview. Scan it again."
+msgstr "预览之后这条参考文献已被修改，请重新检查"
+
 #: src/papers/audit-messages.ts
 msgid "The bibliography entry changed after the scan."
 msgstr "扫描后这条又改了"
@@ -13482,9 +13817,34 @@ msgstr "这条已不存在"
 msgid "The bibliography has no .bbl"
 msgstr "参考文献缺少 .bbl"
 
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent did not become ready within {seconds} seconds."
+msgstr "内置 AI 助手在 {seconds} 秒内未能就绪"
+
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent stopped during startup with status {status}."
+msgstr "内置 AI 助手启动时退出（{status}）"
+
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent stopped during startup with status {status}.{detail}"
+msgstr "内置 AI 助手启动时退出（{status}）。{detail}"
+
+#. placeholder {0}: bundledPart(what)
+#: src/platform/host-errors-setup.ts
+msgid "The bundled {0} is missing at {path}."
+msgstr "找不到内置的 {0}：{path}"
+
 #: src/agent/use-synara-runtime.ts
 msgid "The bundled Agent service did not report a valid local address."
 msgstr "AI 助手没能启动"
+
+#: src/platform/host-errors-papers.ts
+msgid "The cached paper markdown does not match its metadata."
+msgstr "缓存论文的 Markdown 与其元数据不符"
+
+#: src/platform/host-errors-papers.ts
+msgid "The cached paper was produced by an unsupported converter."
+msgstr "缓存的论文由不受支持的转换器生成"
 
 #: src/platform/host-errors-papers.ts
 msgid "The candidate's title or authors conflict with its source metadata. No citation was added."
@@ -13578,6 +13938,10 @@ msgstr "文档没有加载 Times：在模板之后加上 {command}，再点“�
 #: src/trellis/trellis-labels.ts
 msgid "the documents area"
 msgstr "文档区"
+
+#: src/platform/host-errors-setup.ts
+msgid "The downloaded {what} failed its security check."
+msgstr "下载的 {what} 未通过安全校验"
 
 #: src/platform/host-errors-workspace.ts
 msgid "The Excel workbook is too large to export."
@@ -13675,6 +14039,10 @@ msgstr "实时预览引擎没有安装，请重新打开实时预览"
 msgid "The live preview has stopped."
 msgstr "实时预览已停止"
 
+#: src/platform/host-errors-workspace.ts
+msgid "The live preview PDF is not in its build folder."
+msgstr "实时预览的 PDF 不在它的构建文件夹中"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "网络已恢复"
@@ -13694,6 +14062,10 @@ msgstr "已不在该 Overleaf 文档的实时协作中"
 #: src/platform/host-errors-overleaf.ts
 msgid "The Overleaf document ownership changed before it could be released."
 msgstr "释放前该 Overleaf 文档的归属已发生变化"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "The Overleaf host must start with http:// or https:// (got {host})"
+msgstr "Overleaf 地址必须以 http:// 或 https:// 开头（当前为 {host}）"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "The Overleaf live connection belongs to a different project."
@@ -13747,6 +14119,12 @@ msgstr "提交包未能完成编译"
 msgid "The package does not build alone"
 msgstr "提交包无法独立编译"
 
+#: src/platform/host-errors-setup.ts
+msgid "The package installation finished, but {file} is still unavailable.\n"
+"{detail}"
+msgstr "组件已安装完成，但仍找不到 {file}。\n"
+"{detail}"
+
 #: src/build/tex-setup.ts
 msgid "The package repository does not have this package."
 msgstr "组件仓库中没有此组件。"
@@ -13754,6 +14132,14 @@ msgstr "组件仓库中没有此组件。"
 #: src/platform/host-errors-papers.ts
 msgid "The page has no readable citation metadata; it may require JavaScript."
 msgstr "网页中没有可读取的引用信息，可能需要 JavaScript 才能显示"
+
+#: src/platform/host-errors-papers.ts
+msgid "The page yielded almost no content (it may require sign-in or block scraping)."
+msgstr "该网页几乎没有抓取到内容（可能需要登录，或禁止抓取）"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The paper changed after it was checked. Check it again, then export."
+msgstr "检查之后论文已被修改，请重新检查后再导出"
 
 #: src/project/arxiv-export.ts
 msgid "The paper has no figures"
@@ -13804,6 +14190,10 @@ msgstr "标注修改的 PDF 编译失败：{detail}"
 msgid "The PDF with changes marked did not build."
 msgstr "标注修改的 PDF 编译失败"
 
+#: src/platform/host-errors-setup.ts
+msgid "The presentation project must be a directory."
+msgstr "演示文稿项目必须是一个文件夹"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "上一个文档没能释放，同步仍暂停"
@@ -13831,6 +14221,14 @@ msgstr "项目已变化，请重新检查引用"
 #: src/build/build-log-messages.ts
 msgid "The project's .latexmkrc runs Playwright, and the Chromium this Playwright version needs is not downloaded, so latexmk stopped before LaTeX ran. Run `{command}` in Terminal, then build again."
 msgstr "该项目的 .latexmkrc 会运行 Playwright，但尚未下载此 Playwright 版本所需的 Chromium，因此 latexmk 在运行 LaTeX 之前就已停止。请在终端中运行 `{command}`，然后重新编译。"
+
+#: src/platform/host-errors-papers.ts
+msgid "The proposed metadata conflicts with this reference's identity. Check the title, authors, identifiers, year, and venue manually."
+msgstr "建议的元数据与这条文献的身份不符，请手动核对标题、作者、标识符、年份和发表处"
+
+#: src/platform/host-errors-papers.ts
+msgid "The proposed replacement must be exactly one entry with the same citation key."
+msgstr "建议的替换内容必须恰好是一个条目，且引用名不变"
 
 #: src/papers/bibliography-audit.tsx
 msgid "The publication lookup could not be completed. Try again later."
@@ -13887,6 +14285,26 @@ msgstr "解析到的标题与所请求的不同，请改为提供 DOI 或 arXiv 
 #: src/telemetry/panel-error-boundary.tsx
 msgid "The rest of the window keeps working."
 msgstr "窗口的其他部分不受影响。"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The rtex archive contained a link at {path}"
+msgstr "rtex 安装包中的 {path} 是一个链接"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The rtex archive contained an invalid path: {error}"
+msgstr "rtex 安装包中有无效路径：{error}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The rtex archive contained an unexpected entry: {path}"
+msgstr "rtex 安装包中有意外的条目：{path}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The rtex archive contained an unsafe path: {path}"
+msgstr "rtex 安装包中有不安全的路径：{path}"
+
+#: src/platform/host-errors-workspace.ts
+msgid "The rtex archive did not contain the live preview engine."
+msgstr "rtex 安装包中没有实时预览引擎"
 
 #: src/settings/agent-environment-settings.tsx
 msgid "The running agent started with different values. Restarting it stops any running turns."
@@ -13973,6 +14391,16 @@ msgstr "未找到模板的选项"
 msgid "The terminal is in the Lattice window"
 msgstr "终端位于 Lattice 窗口中"
 
+#: src/platform/host-errors-setup.ts
+msgid "The terminal is only available in a Lattice window."
+msgstr "终端只能在 Lattice 窗口中使用"
+
+#: src/platform/host-errors-setup.ts
+msgid "The TeX Live repository could not be searched.\n"
+"{detail}"
+msgstr "无法搜索 TeX Live 组件仓库。\n"
+"{detail}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The text is too large to save as a copy."
 msgstr "文本太大，无法另存为副本"
@@ -13996,6 +14424,22 @@ msgstr "升级会改变“{key}”对应的文献，没有保存任何更改"
 #: src/platform/host-errors-papers.ts
 msgid "The URL did not return a PDF document."
 msgstr "该网址返回的不是 PDF 文档"
+
+#: src/platform/host-errors-setup.ts
+msgid "The uv archive contained an invalid {name} entry."
+msgstr "uv 安装包中的 {name} 条目无效"
+
+#: src/platform/host-errors-setup.ts
+msgid "The uv archive contained an invalid root entry."
+msgstr "uv 安装包的根条目无效"
+
+#: src/platform/host-errors-setup.ts
+msgid "The uv archive contained an unexpected entry: {entry}"
+msgstr "uv 安装包中有意外的条目：{entry}"
+
+#: src/platform/host-errors-setup.ts
+msgid "The uv archive did not contain the expected executables."
+msgstr "uv 安装包中缺少预期的可执行文件"
 
 #: src/papers/audit-messages.ts
 msgid "The verified record differs from this inline reference. Inline references are edited by hand."
@@ -14099,6 +14543,10 @@ msgstr "编译出的 PDF 中没有这条参考文献"
 #: src/papers/audit-messages.ts
 msgid "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references."
 msgstr "文献文件有 Overleaf 同步冲突，请先处理"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This browser workspace is no longer active."
+msgstr "此浏览器工作区已失效"
 
 #: src/platform/host-errors-project.ts
 msgid "This byte range cannot be read."
@@ -14211,6 +14659,14 @@ msgstr "这不是 Lattice 幻灯片文件"
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "This is the earliest version"
 msgstr "这是最早的版本"
+
+#: src/platform/host-errors-setup.ts
+msgid "This Lattice version includes BasicTeX {year}. Update Lattice to install the current BasicTeX release."
+msgstr "此版本的 Lattice 内置的是 BasicTeX {year}。请先更新 Lattice，再安装最新版 BasicTeX"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This Lattice window is already opening in your browser."
+msgstr "此 Lattice 窗口正在浏览器中打开"
 
 #: src/build/compile-explain.ts
 msgid "This line closes a group that was never opened, or leaves math mode with a {BRACE_CLOSE} before its $. Remove the extra {BRACE_CLOSE}, or add the {BRACE_OPEN} it closes."
@@ -14327,6 +14783,10 @@ msgstr "这一行在 PDF 里找不到对应位置"
 msgid "This table has source edits or unsupported structure. Continue editing it in the source editor."
 msgstr "此表格的源码已被修改，或包含不支持的结构。请继续在源码编辑器中编辑。"
 
+#: src/platform/host-errors-setup.ts
+msgid "This terminal has closed."
+msgstr "此终端已关闭"
+
 #: src/build/tex-setup.ts
 msgid "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
 msgstr "当前 TeX Live 版本早于组件仓库的版本。请安装最新的 TeX Live 后重试。"
@@ -14350,6 +14810,10 @@ msgstr "当前版本的 AI 助手运行时还不能根据批注修改。请更�
 #: src/platform/host-errors-workspace.ts
 msgid "This workspace is already open in the Lattice app."
 msgstr "这个工作区已在 Lattice 应用中打开"
+
+#: src/platform/host-errors-workspace.ts
+msgid "This workspace is already open in your browser."
+msgstr "此工作区已在浏览器中打开"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -14814,6 +15278,10 @@ msgstr "取消固定"
 msgid "Unresolved"
 msgstr "未解决"
 
+#: src/platform/host-errors-papers.ts
+msgid "Unsafe paper asset path: {path}"
+msgstr "论文资源路径不安全：{path}"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Unsafe ZIP entry path."
 msgstr "ZIP 中有不安全的路径"
@@ -14822,6 +15290,18 @@ msgstr "ZIP 中有不安全的路径"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Unsaved changes"
 msgstr "未保存"
+
+#: src/platform/host-errors-papers.ts
+msgid "Unsupported alphaXiv overview component syntax."
+msgstr "alphaXiv 概述中有不受支持的组件语法"
+
+#: src/platform/host-errors-papers.ts
+msgid "Unsupported paper asset manifest version."
+msgstr "论文资源清单的版本不受支持"
+
+#: src/platform/host-errors-papers.ts
+msgid "Unsupported paper asset type: {type}"
+msgstr "论文资源类型不受支持：{type}"
 
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
