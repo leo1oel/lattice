@@ -36,6 +36,8 @@ mod history;
 mod imports;
 mod index_sources;
 mod linked_bibliography;
+#[cfg(test)]
+mod linked_sources_tests;
 mod manifest;
 mod manifest_settings;
 mod paths;

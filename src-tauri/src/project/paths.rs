@@ -15,13 +15,33 @@ pub(crate) const NOT_FOUND: &str = "That file or folder no longer exists.";
 /// Resolve `relative` beneath `root`, refusing traversal, absolute paths, and
 /// symbolic links on any component.
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
-    resolve_project_path(root, relative, false)
+    resolve_project_path(root, relative, Resolve::Existing)
 }
 
 /// [`safe_path`] for a file about to be written: missing parent folders are created.
 pub(crate) fn creation_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
-    resolve_project_path(root, relative, true)
+    resolve_project_path(root, relative, Resolve::Create)
 }
+
+/// [`safe_path`] for a read-only bibliography lookup, where the file itself
+/// may be a symbolic link. A Zotero / Better BibTeX export linked into each
+/// paper is a common layout and TeX follows the link, so the citation index
+/// must too; refusing it failed the whole index. Folders on the way must
+/// still be real, and the returned path is the link itself, so nothing may
+/// write through it: every write resolves with [`safe_path`] or
+/// [`creation_path`], which keep refusing the link.
+pub(crate) fn linked_read_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    resolve_project_path(root, relative, Resolve::FollowFinalLink)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Resolve {
+    Existing,
+    Create,
+    FollowFinalLink,
+}
+
+const SYMLINK_REFUSED: &str = "Symbolic links cannot be used for project file operations.";
 
 /// Non-empty, relative, and made only of plain names (and `.`).
 pub(crate) fn stays_inside(relative: &Path) -> bool {
@@ -32,9 +52,7 @@ pub(crate) fn stays_inside(relative: &Path) -> bool {
             .all(|part| matches!(part, Component::Normal(_) | Component::CurDir))
 }
 
-fn resolve_project_path(
-    root: &Path, relative: &str, create_parents: bool,
-) -> Result<PathBuf, String> {
+fn resolve_project_path(root: &Path, relative: &str, mode: Resolve) -> Result<PathBuf, String> {
     let relative_path = Path::new(relative);
     if !stays_inside(relative_path) {
         return Err(OUTSIDE_PROJECT.to_string());
@@ -49,14 +67,16 @@ fn resolve_project_path(
         let is_parent = index + 1 < components.len();
         match fs::symlink_metadata(&cursor) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
-                return Err("Symbolic links cannot be used for project file operations.".to_string())
+                if is_parent || mode != Resolve::FollowFinalLink {
+                    return Err(SYMLINK_REFUSED.to_string());
+                }
             }
             Ok(metadata) if is_parent && !metadata.is_dir() => {
                 return Err("A project path component is not a folder.".to_string())
             }
             Ok(_) => {}
             Err(error) if error.kind() == ErrorKind::NotFound && !is_parent => {}
-            Err(error) if error.kind() == ErrorKind::NotFound && create_parents => {
+            Err(error) if error.kind() == ErrorKind::NotFound && mode == Resolve::Create => {
                 fs::create_dir(&cursor).map_err(err)?
             }
             Err(error) if error.kind() == ErrorKind::NotFound => return Err(NOT_FOUND.to_string()),

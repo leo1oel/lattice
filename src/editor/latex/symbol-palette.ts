@@ -123,7 +123,25 @@ function paletteDom(view: EditorView, close: () => void): { dom: HTMLElement; in
   input.addEventListener("input", render);
   const columns = 8;
   const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
+  // While an input method composes in the search field, Enter, Escape and the
+  // arrows belong to its candidates, not the grid. WebKit sends the Enter that
+  // commits a candidate right after compositionend, with isComposing false and
+  // keyCode 229, so keys stay the IME's for the rest of that event turn (as in
+  // `useCommitKeys`); that Enter used to insert the highlighted symbol.
+  let composing = false;
+  let justComposed = false;
+  input.addEventListener("compositionstart", () => {
+    composing = true;
+  });
+  input.addEventListener("compositionend", () => {
+    composing = false;
+    justComposed = true;
+    setTimeout(() => {
+      justComposed = false;
+    }, 0);
+  });
   dom.addEventListener("keydown", (event) => {
+    if (composing || justComposed || event.isComposing || event.keyCode === 229 || event.key === "Process") return;
     if (event.key in moves) highlight(active + moves[event.key]);
     else if (event.key === "Enter" && shown[active]) insertSymbol(view, shown[active]);
     else if (event.key === "Escape") {

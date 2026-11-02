@@ -4,7 +4,7 @@
 use super::clip_line;
 use super::history::apply_transaction;
 use super::paths::{extension, safe_path, source_kind};
-use super::tree::{scan_tree, tree_files, TreeView};
+use super::tree::{is_link, scan_tree, tree_files, TreeView};
 use crate::models::{FileNode, ProjectSearchResult};
 use crate::util::err;
 use crate::util::truncate_chars;
@@ -74,6 +74,10 @@ fn search_nodes(
     for node in nodes {
         if node.kind == "directory" {
             search_nodes(root, &node.children, terms, results)?;
+            continue;
+        }
+        // Matches the index's file list (`tree_files`): a link opens nowhere.
+        if is_link(node) {
             continue;
         }
         let content = if searchable_text_path(&node.path) {

@@ -17,6 +17,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } 
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, X } from "lucide-react";
 import { IconButton } from "../../../../components/ui/icon-button";
+import { useCompositionGuard } from "../../../../hooks/use-composition-guard";
 import { popupMotionClassName } from "../../../../components/ui/popup-motion";
 import { drawnRanges, revealPosition } from "../block-window";
 import { changedBlockRanges } from "../changed-ranges";
@@ -229,6 +230,8 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
   const [replacement, setReplacement] = useState("");
   const [, rerender] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  // One guard serves both fields: only the focused one composes.
+  const { compositionProps, isComposing } = useCompositionGuard();
 
   // A find request (Mod-F, Mod-Alt-F) opens the bar and hands it the seed.
   useEffect(() => host.subscribe(() => {
@@ -298,8 +301,9 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
           value={query}
           spellCheck={false}
           onChange={(event) => setQuery(event.target.value)}
+          {...compositionProps}
           onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing) return;
+            if (isComposing(event)) return;
             if (event.key === "Enter") {
               event.preventDefault();
               step(event.shiftKey ? -1 : 1);
@@ -333,11 +337,15 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
             value={replacement}
             spellCheck={false}
             onChange={(event) => setReplacement(event.target.value)}
+            {...compositionProps}
             onKeyDown={(event) => {
+              // Enter puts down a candidate and Escape drops the candidates;
+              // neither may replace a match or close the bar mid-composition.
+              if (isComposing(event)) return;
               if (event.key === "Escape") {
                 event.preventDefault();
                 close();
-              } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              } else if (event.key === "Enter") {
                 event.preventDefault();
                 replaceCurrent();
               }

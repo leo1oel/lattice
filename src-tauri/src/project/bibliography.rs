@@ -6,8 +6,8 @@ use super::citation_lookup::citation_from_bibtex;
 use super::history::{apply_citation_transaction, current_text};
 use super::index_sources::{IndexSources, SkippedSource};
 use super::manifest::read_manifest;
-use super::paths::{extension, safe_path};
-use super::tree::{scan_tree, tree_files, TreeView};
+use super::paths::{extension, linked_read_path, safe_path};
+use super::tree::{scan_tree, tree_leaves, TreeView};
 use super::{line_number_at, skip_bytes};
 use crate::models::{CitationInfo, ResolvedCitation, SyncTexTarget};
 use crate::util::err;
@@ -279,12 +279,14 @@ pub(crate) fn iter_bibliography_sources(root: &Path) -> Result<Vec<(String, Stri
 /// The readable `.bib` files, in [`iter_bibliography_sources`] order, and the
 /// ones that could not be read. A `.bib` is picked by its extension rather
 /// than the tree's `bib` kind: the tree classifies a Latin-1 export as binary,
-/// and selecting by kind dropped its keys without a word.
+/// and selecting by kind dropped its keys without a word. A linked `.bib` (a
+/// Zotero export shared by several papers) is read through its link, as TeX
+/// does; renaming one of its keys still refuses, because every write does.
 fn read_bibliography_sources(root: &Path) -> Result<IndexSources, String> {
     let manifest = read_manifest(root)?;
     let scanned = scan_tree(root, TreeView::Inventory)?;
     let candidates = std::iter::once(manifest.primary_bibliography).chain(
-        tree_files(&scanned)
+        tree_leaves(&scanned)
             .into_iter()
             .filter(|node| extension(&node.path).as_deref() == Some("bib"))
             .map(|node| node.path.clone()),
@@ -292,7 +294,7 @@ fn read_bibliography_sources(root: &Path) -> Result<IndexSources, String> {
     let mut seen = BTreeSet::new();
     let mut sources = IndexSources::default();
     for relative in candidates.filter(|relative| seen.insert(relative.clone())) {
-        let path = safe_path(root, &relative)?;
+        let path = linked_read_path(root, &relative)?;
         if path.is_file() {
             sources.read(relative, &path);
         }

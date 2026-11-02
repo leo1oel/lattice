@@ -21,6 +21,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import { SlidingTabPill } from "../components/ui/motion";
 import { notifyInfo } from "../telemetry/app-notify";
+import { useCompositionGuard } from "../hooks/use-composition-guard";
 import { useCurrentWorkspace, useTrellisUi, useWorkspaces, type TrellisController } from "./trellis-controller";
 import { spaceMixedScript } from "./trellis-titles";
 import { WORKSPACE_NAME_MAX, workspaceShortcut, type WorkspaceSummary } from "./trellis-workspaces";
@@ -413,6 +414,7 @@ function NameField({ controller, entry }: { controller: TrellisController; entry
   const [draft, setDraft] = useState(entry.name);
   const [taken, setTaken] = useState(false);
   const doneRef = useRef(false);
+  const { compositionProps, isComposing } = useCompositionGuard();
   const finish = (field: HTMLInputElement, refocus: boolean) => {
     if (doneRef.current) return;
     doneRef.current = true;
@@ -442,8 +444,14 @@ function NameField({ controller, entry }: { controller: TrellisController; entry
           setDraft(event.target.value);
           setTaken(false);
         }}
+        {...compositionProps}
         onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
+          // The strip's arrow keys move between tabs; here they move the caret
+          // or, while an input method composes, its candidates.
+          event.stopPropagation();
+          // WebKit sends the Enter that commits a candidate after
+          // compositionend; it must not keep half-typed pinyin as the name.
+          if (isComposing(event)) return;
           if (event.key === "Escape") {
             event.preventDefault();
             finish(event.currentTarget, true);
@@ -452,8 +460,6 @@ function NameField({ controller, entry }: { controller: TrellisController; entry
             if (controller.workspaces.rename(entry.id, draft) === "taken") setTaken(true);
             else finish(event.currentTarget, true);
           }
-          // The strip's arrow keys move between tabs; here they move the caret.
-          event.stopPropagation();
         }}
         onBlur={(event) => {
           if (doneRef.current) return;

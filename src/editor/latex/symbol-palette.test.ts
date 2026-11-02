@@ -58,4 +58,27 @@ describe("math symbol palette", () => {
     expect(view.dom.querySelector(".symbol-palette")).toBeNull();
     expect(view.hasFocus).toBe(true);
   });
+
+  // WebKit sends the Enter that commits a candidate right after
+  // compositionend, with isComposing false and keyCode 229. That Enter once
+  // inserted the highlighted symbol, and the arrows moved the highlight while
+  // they should have moved among the candidates.
+  it("leaves Enter, Escape and the arrows to an input method composing in the search", async () => {
+    const { view, input, search } = paletteView("$$", 1);
+    const selected = () => view.dom.querySelector(".symbol-palette [aria-selected=true]")?.id;
+    search("frac");
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: "ArrowRight", keyCode: 229 });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(selected()).toBe("symbol-palette-option-0");
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(view.dom.querySelector(".symbol-palette")).not.toBeNull();
+    fireEvent.compositionEnd(input);
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
+    expect(view.state.doc.toString()).toBe("$$");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
+    expect(view.state.doc.toString()).toBe("$\\frac{}{}$");
+  });
 });
