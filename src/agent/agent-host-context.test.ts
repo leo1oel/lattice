@@ -55,6 +55,7 @@ describe("agent host context", () => {
         nativeEntryPattern: "slides/<deck-id>/index.tsx",
         nativeFormat: "open_slide_tsx",
         skill: "authoring-presentations",
+        claudeSkill: "lattice:authoring-presentations",
         defaultWhenOutputFormatUnspecified: true,
         unsupportedPptx: true,
         supportsHtmlExport: true,
