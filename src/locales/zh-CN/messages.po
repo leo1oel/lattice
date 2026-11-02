@@ -797,6 +797,10 @@ msgstr "{path} 在项目中已经是一个文件"
 msgid "{path} is already a folder in this project."
 msgstr "{path} 在项目中已经是一个文件夹"
 
+#: src/app/vanished-file.ts
+msgid "{path} is no longer on disk"
+msgstr "{path} 已不在磁盘上"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
 msgstr "{path} 在 Overleaf 上不是文件夹"
@@ -808,6 +812,14 @@ msgstr "{path} 不是文件夹"
 #: src/platform/host-errors-workspace.ts
 msgid "{path} is not a UTF-8 path."
 msgstr "{path} 不是 UTF-8 路径"
+
+#: src/app/vanished-file.ts
+msgid "{path} was deleted"
+msgstr "{path} 已被删除"
+
+#: src/app/vanished-file.ts
+msgid "{path} was moved to {moved}"
+msgstr "{path} 已被移到 {moved}"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -4262,6 +4274,10 @@ msgstr "无法安全保留此条目中的 BibTeX 表达式。"
 msgid "Could not save {failedPath}"
 msgstr "{failedPath} 没保存成功"
 
+#: src/app/vanished-file.ts
+msgid "Could not save {name}"
+msgstr "无法保存 {name}"
+
 #: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "项目没保存成功"
@@ -7143,6 +7159,18 @@ msgstr "它会把 “from easy to hard”、“sum to one” 这类表示范围�
 #: src/settings/grammar-rule-reasons.ts
 msgid "It splits technical terms such as “softmax” and “sublayer”."
 msgstr "它会把 “softmax”、“sublayer” 这类技术术语拆成两个词。"
+
+#: src/app/vanished-file.ts
+msgid "It was deleted or moved outside Lattice. Your unsaved edits are still open: recreate the file, save them elsewhere, or close its tab to discard them."
+msgstr "它在 Lattice 之外被删除或移走了。未保存的修改仍在编辑器里：可以重新创建这个文件、把修改另存到别处，或者关闭它的标签页来放弃这些修改。"
+
+#: src/app/vanished-file.ts
+msgid "It was deleted outside Lattice and had no unsaved edits, so its tab closed."
+msgstr "它在 Lattice 之外被删除了，而且没有未保存的修改，所以标签页已关闭。"
+
+#: src/app/vanished-file.ts
+msgid "It was moved outside Lattice, and its tab followed it."
+msgstr "它在 Lattice 之外被移动了，标签页已跟到新位置。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -11067,6 +11095,14 @@ msgstr "记录"
 msgid "Record identity"
 msgstr "文献身份"
 
+#: src/app/vanished-file.ts
+msgid "Recreate"
+msgstr "重新创建"
+
+#: src/app/vanished-file.ts
+msgid "Recreated {path}"
+msgstr "已重新创建 {path}"
+
 #: src/components/ui/color-picker.tsx
 msgid "Red"
 msgstr "红色"
@@ -12101,6 +12137,7 @@ msgstr "饱和度与亮度"
 
 #: src/app/save-source-copy.ts
 #: src/app/use-document-save.ts
+#: src/app/vanished-file.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
@@ -12109,6 +12146,10 @@ msgstr "饱和度与亮度"
 #: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "保存"
+
+#: src/app/vanished-file.ts
+msgid "Save {name} As"
+msgstr "将 {name} 另存为"
 
 #: src/app/save-source-copy.ts
 msgid "Save a copy"
@@ -12141,6 +12182,10 @@ msgstr "保存并立即修改"
 #: src/history/conflict-resolver.tsx
 msgid "Save and upload"
 msgstr "保存并上传"
+
+#: src/app/vanished-file.ts
+msgid "Save As…"
+msgstr "另存为…"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
@@ -12289,6 +12334,14 @@ msgstr "已保存到 {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "手动保存"
+
+#: src/app/vanished-file.ts
+msgid "Saved your edits as {nextPath}"
+msgstr "修改已保存为 {nextPath}"
+
+#: src/app/vanished-file.ts
+msgid "Saved your edits to {written}"
+msgstr "修改已保存到 {written}"
 
 #: src/project/paper-library-status.tsx
 msgid "Saved-text search unavailable"
@@ -13635,6 +13688,10 @@ msgstr "没成功，请检查输入和钥匙串权限"
 #: src/platform/host-errors-workspace.ts
 msgid "That file is not part of this history entry."
 msgstr "该文件不属于这条历史记录"
+
+#: src/app/vanished-file.ts
+msgid "That file is outside this project, so the tab closed."
+msgstr "该文件不在这个项目里，所以标签页已关闭。"
 
 #: src/platform/host-errors-project.ts
 msgid "That file or folder no longer exists."

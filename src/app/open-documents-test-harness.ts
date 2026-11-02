@@ -3,6 +3,7 @@
  * useOpenDocuments and the hooks it composes. Import it before anything that
  * imports `@tauri-apps/api/core`, so its `vi.mock` is registered first.
  */
+/* eslint-disable lingui/no-unlocalized-strings -- test-only code: fixture text and backend errors, not interface copy */
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -39,7 +40,7 @@ export function snapshotOf(paths: string[], root = ROOT): ProjectSnapshot {
   } as ProjectSnapshot;
 }
 
-export function deferred<T>() {
+function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason: unknown) => void;
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
@@ -75,6 +76,11 @@ export function renderDocuments(disk: Record<string, string>, {
 } = {}) {
   const files = new Map(Object.entries(disk));
   const mtimes = new Map<string, number>();
+  // Each file's identity (device and inode): a rename keeps it; a write, as
+  // the backend's atomic one, makes a new file.
+  const ids = new Map<string, string>();
+  let lastId = 0;
+  const idOf = (path: string) => ids.get(path) ?? ids.set(path, `1:${++lastId}`).get(path)!;
   const held = new Map<string, { parked: ReturnType<typeof deferred<unknown>>; stage: "call" | "answer" }>();
   let snapshot = snapshotOf(paths);
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -100,15 +106,27 @@ export function renderDocuments(disk: Record<string, string>, {
         // Like the backend, merge with a disk that moved on since `baseContent`
         // (line by line here; see `mergeLines`).
         const disk = files.get(path!);
+        if (disk === undefined && baseContent !== undefined) {
+          throw new Error(`Cannot save ${path} because it was deleted outside the editor.`);
+        }
         const written = baseContent === undefined || disk === undefined || disk === baseContent
           ? { content: content!, hadConflicts: false }
           : mergeLines(baseContent, content!, disk);
         files.set(path!, written.content);
         mtimes.set(path!, (mtimes.get(path!) ?? 1) + 1);
+        ids.delete(path!);
         return written;
       }
       case "stat_project_file":
-        return { exists: files.has(path!), mtimeMs: mtimes.get(path!) ?? 1 };
+        return files.has(path!)
+          ? { exists: true, mtimeMs: mtimes.get(path!) ?? 1, size: files.get(path!)!.length, fileId: idOf(path!) }
+          : { exists: false, mtimeMs: 0, size: 0, fileId: "" };
+      case "find_moved_project_file": {
+        const { fileId, text } = args as { fileId: string; text: string | null };
+        const live = [...files.keys()];
+        const sameText = live.filter((candidate) => text && files.get(candidate) === text);
+        return live.find((candidate) => ids.get(candidate) === fileId) ?? (sameText.length === 1 ? sameText[0] : null);
+      }
       case "read_project_asset":
         return { path, mimeType: "image/png", base64: "AA==" };
       case "read_paper":
@@ -168,6 +186,23 @@ export function renderDocuments(disk: Record<string, string>, {
     touch: (path: string, content: string) => {
       files.set(path, content);
       mtimes.set(path, (mtimes.get(path) ?? 1) + 10);
+    },
+    /** `mv backup path` (a new file) or `cp -p backup path` (`sameFile`): an older mtime comes back. */
+    restoreOlder: (path: string, content: string, { sameFile = false } = {}) => {
+      files.set(path, content);
+      mtimes.set(path, (mtimes.get(path) ?? 1) - 5);
+      if (!sameFile) ids.delete(path);
+    },
+    /** `mv`/`git mv` in a shell: the file, its mtime and identity go to `to`. */
+    renameOutside: (from: string, to: string) => {
+      idOf(from);
+      for (const map of [files, mtimes, ids] as Map<string, unknown>[]) {
+        if (map.has(from)) map.set(to, map.get(from));
+        map.delete(from);
+      }
+    },
+    deleteOutside: (path: string) => {
+      for (const map of [files, mtimes, ids]) map.delete(path);
     },
   };
 }

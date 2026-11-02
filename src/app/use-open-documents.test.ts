@@ -1,6 +1,6 @@
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { PAPER, PAPER_TAB, ROOT, deferred, renderDocuments, snapshotOf } from "./open-documents-test-harness";
+import { PAPER, PAPER_TAB, ROOT, renderDocuments, snapshotOf } from "./open-documents-test-harness";
 import { invoke } from "@tauri-apps/api/core";
 import { loadWorkspaceLayout, type WorkspaceLayout } from "../settings/app-settings";
 import { paperDocumentPath } from "./use-open-documents";

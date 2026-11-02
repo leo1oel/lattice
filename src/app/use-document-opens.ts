@@ -27,7 +27,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     depsRef, projectRef, projectOperationGenerationRef, captureProjectScope, renderedRef,
     fileRef, textRef, savedRef, setAsset, setPaper, setPaperView, setMode, setOpening, pushNavigation: recordNavigation,
     intentRef, navLockRef, flushRef, viewStateRef, setTabsSettledRoot, viewModes,
-    showFileText, setPaperBuffers, closePaper, paperBuffersDirty, addTab, showTab, flushAndCheckDirty, markDiskMtime,
+    showFileText, setPaperBuffers, closePaper, paperBuffersDirty, addTab, showTab, flushAndCheckDirty, recordDiskVersion,
     requestLine, accept,
   } = store;
 
@@ -67,7 +67,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       // The restore used to wait behind this stat; it has no bearing on
       // cursor or scroll, so let it land whenever it lands (mayApply already
       // discards stale completions).
-      void markDiskMtime(path, isLatestLoad);
+      void recordDiskVersion(path, isLatestLoad);
       return true;
     };
     return Promise.all([
@@ -78,7 +78,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       return false;
     });
   }, [
-    addTab, closePaper, depsRef, fileRef, intentRef, markDiskMtime, projectOperationGenerationRef, projectRef,
+    addTab, closePaper, depsRef, fileRef, intentRef, projectOperationGenerationRef, projectRef, recordDiskVersion,
     requestLine, setAsset, setMode, showFileText, viewModes, viewStateRef,
   ]);
 
@@ -127,7 +127,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
         const content = await invoke<string>("read_project_file", { path, projectRoot: current?.root });
         if (intentRef.current === loadGeneration && fileRef.current === path && content !== textRef.current) {
           accept(path, content);
-          await markDiskMtime(path);
+          await recordDiskVersion(path);
         }
       };
       await refresh().catch((reason: unknown) => {
@@ -208,8 +208,8 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
       pushNavigation(path, 1);
     }
   }, [
-    accept, depsRef, fileRef, flushAndCheckDirty, flushRef, intentRef, loadFile, markDiskMtime, paperBuffersDirty,
-    projectRef, pushNavigation, renderedRef, requestLine, save, savedRef, setMode, setOpening, setTabsSettledRoot,
+    accept, depsRef, fileRef, flushAndCheckDirty, flushRef, intentRef, loadFile, paperBuffersDirty,
+    projectRef, pushNavigation, recordDiskVersion, renderedRef, requestLine, save, savedRef, setMode, setOpening, setTabsSettledRoot,
     showTab, textRef, viewStateRef,
   ]);
 

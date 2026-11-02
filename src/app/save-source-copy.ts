@@ -17,13 +17,18 @@ export async function saveSourceCopy(path: string, text: string): Promise<void> 
   try {
     const destination = await saveDialog({ title: i18n._(msg`Save a copy of ${name}`), defaultPath: name });
     if (!destination) return;
-    const written = await invoke<string>("save_source_copy", new TextEncoder().encode(text), {
-      headers: { "x-copy-destination": utf8ToBase64(destination) },
-    });
+    const written = await writeSourceCopy(destination, text);
     trace.ok(i18n._(msg`Saved a copy to ${written}`));
   } catch (reason) {
     trace.fail(reason);
   } finally {
     trace.finish("cancelled");
   }
+}
+
+/** Write `text` to `destination`, anywhere on disk; the path written (a missing extension becomes `.txt`). */
+export function writeSourceCopy(destination: string, text: string): Promise<string> {
+  return invoke<string>("save_source_copy", new TextEncoder().encode(text), {
+    headers: { "x-copy-destination": utf8ToBase64(destination) },
+  });
 }

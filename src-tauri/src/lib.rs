@@ -444,6 +444,7 @@ pub fn run() {
             ipc::windows::sample_screen_color,
             ipc::files::list_project_tree_with_hidden,
             ipc::files::stat_project_file,
+            ipc::files::find_moved_project_file,
             ipc::files::read_project_file,
             ipc::files::write_project_file,
             ipc::files::create_project_entry,

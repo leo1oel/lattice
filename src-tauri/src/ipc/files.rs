@@ -31,6 +31,19 @@ pub async fn stat_project_file(
         .await
 }
 
+/// Where an open file was renamed to outside the editor: the file whose
+/// identity is `file_id` (see `stat_project_file`), else the one holding
+/// exactly `text`; `None` when it was deleted.
+#[tauri::command]
+pub async fn find_moved_project_file(
+    state: State<'_, AppState>, window: Window, file_id: String, text: Option<String>,
+) -> Result<Option<String>, String> {
+    in_project(&state, &window, "Moved file lookup", move |root| {
+        project::find_moved_file(root, &file_id, text.as_deref())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn read_project_file(
     state: State<'_, AppState>, window: Window, path: String, project_root: Option<String>,

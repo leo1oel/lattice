@@ -10,7 +10,7 @@
 //! - [`paths`] — the path guards every file operation goes through, and the
 //!   table of text source kinds.
 //! - [`tree`] — file-tree views, content classification, and reading text
-//!   files.
+//!   files; [`moved_file`] finds where an open file was renamed to.
 //! - [`bibliography`] — BibTeX parsing, entry editing, and SyncTeX hops
 //!   between `.bib` and `.bbl`; [`citation_lookup`] resolves new citations.
 //! - [`symbols`] and [`references`] — `\label`/`\cite` find, rename, and
@@ -40,6 +40,7 @@ mod linked_bibliography;
 mod linked_sources_tests;
 mod manifest;
 mod manifest_settings;
+mod moved_file;
 mod paths;
 mod references;
 mod search;
@@ -93,6 +94,7 @@ pub use manifest_settings::{
     set_deadline, set_grammar_ignores, set_spelling_words, set_submission_items,
     update_manifest_settings, ManifestSettings,
 };
+pub use moved_file::find_moved_file;
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};
 pub use references::references;
