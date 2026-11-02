@@ -1,34 +1,53 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview } from "../app-types";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
 import { PDF_RECHECK_MS, useProjectPdfWatch } from "../pdf/use-project-pdf-watch";
 import type { SaveActivity } from "./save-activity";
-import type { DocumentStore } from "./use-document-store";
+import { sameDiskVersion, type DiskStat } from "./read-document";
+import { isVanished, type DocumentStore } from "./use-document-store";
+import type { DocumentTreeChanges } from "./use-document-tree-changes";
+import { loadVanishedFile, settleVanished } from "./vanished-file-wait";
 
 /** How often the open file is checked for an edit made behind the editor. */
 const DISK_POLL_MS = 2500;
 
 /**
  * Keep the open documents in step with disk: an external edit reloads a clean
- * text buffer, and a rewritten project PDF swaps to its new version.
+ * text buffer, a file deleted or moved behind the editor is followed, closed or
+ * held (vanished-file-wait.ts), and a rewritten project PDF swaps to its new
+ * version.
  */
-export function useDocumentDiskSync(store: DocumentStore, saveActivityRef: RefObject<SaveActivity>) {
+export function useDocumentDiskSync(
+  store: DocumentStore, saveActivityRef: RefObject<SaveActivity>, save: () => Promise<boolean>, tree: DocumentTreeChanges,
+) {
+  // Left to React: every callback here is an explicit useCallback, the effects
+  // list their own deps, and the caller destructures the result at once, so
+  // compiling it memoized nothing new while doubling each dep check in eager JS.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
+  "use no memo";
   const {
-    depsRef, autoBuildEnabled, project, file, asset, paper, savedRef, textRef, diskMtimeRef, accept,
+    depsRef, autoBuildEnabled, project, file, asset, paper, savedRef, textRef, diskVersionRef, vanishedRef, accept,
     assetRef, setAsset, captureProjectScope,
   } = store;
+  // What a missing file's handling works with, as of the poll that finds it.
+  const vanishedContextRef = useLatestRef({ store, save, tree });
   // A PDF removed from the project while it is open.
   const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
   const viewerRecheckAtRef = useRef(0);
 
-  // An external edit to the open file: record its mtime the first time, then
-  // reload a newer version into a clean buffer.
+  // An external edit to the open file: record its version the first time, then
+  // reload any other version into a clean buffer.
   useEffect(() => {
     if (!project || !file || asset || paper) return;
     let cancelled = false;
+    // The file last seen at the path, for finding it once it is gone; and a
+    // missing file still being looked into, which later ticks leave alone.
+    let lastFileId = "";
+    let lookingForFile = false;
     const poll = async () => {
-      if (saveActivityRef.current.pending) return;
+      if (saveActivityRef.current.pending || lookingForFile) return;
       const saveGenerationAtStart = saveActivityRef.current.generation;
       // Disk reads may finish after our own autosave or a live delivery.
       // Such a snapshot is not a new external edit and must not rewind the
@@ -37,16 +56,31 @@ export function useDocumentDiskSync(store: DocumentStore, saveActivityRef: RefOb
         && !saveActivityRef.current.pending
         && saveActivityRef.current.generation === saveGenerationAtStart;
       const saved = savedRef.current;
-      const stat = await invoke<{ exists: boolean; mtimeMs: number }>("stat_project_file", { path: file });
-      if (!readIsCurrent() || !stat.exists || savedRef.current !== saved) return;
-      if (diskMtimeRef.current == null) {
-        diskMtimeRef.current = stat.mtimeMs;
+      const stat = await invoke<DiskStat>("stat_project_file", { path: file });
+      // Whether the file is still there does not depend on a save racing the
+      // read: a save of a missing file only fails, so it must not hold this up.
+      if (cancelled) return;
+      if (!stat.exists) {
+        lookingForFile = true;
+        const fileId = lastFileId || diskVersionRef.current?.fileId || "";
+        await loadVanishedFile()
+          .then(({ handleMissingFile }) => handleMissingFile(vanishedContextRef.current, file, fileId, () => !cancelled))
+          .finally(() => { lookingForFile = false; });
         return;
       }
-      if (stat.mtimeMs <= diskMtimeRef.current) return;
+      lastFileId = stat.fileId;
+      // A file that vanished holding edits came back: they save into it again.
+      const waiting = vanishedRef.current;
+      if (waiting && isVanished(waiting, project.root, file)) settleVanished(vanishedRef, waiting);
+      if (!readIsCurrent() || savedRef.current !== saved) return;
+      if (diskVersionRef.current == null) {
+        diskVersionRef.current = stat;
+        return;
+      }
+      if (sameDiskVersion(stat, diskVersionRef.current)) return;
       const content = await invoke<string>("read_project_file", { path: file });
       if (!readIsCurrent() || savedRef.current !== saved) return;
-      diskMtimeRef.current = stat.mtimeMs;
+      diskVersionRef.current = stat;
       if (content === saved) return;
       depsRef.current.onDiskEdit(file);
       if (textRef.current !== savedRef.current) return;
@@ -62,7 +96,10 @@ export function useDocumentDiskSync(store: DocumentStore, saveActivityRef: RefOb
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [accept, asset, autoBuildEnabled, depsRef, diskMtimeRef, file, paper, project, saveActivityRef, savedRef, textRef]);
+  }, [
+    accept, asset, autoBuildEnabled, depsRef, diskVersionRef, file, paper, project, saveActivityRef, savedRef, textRef,
+    vanishedContextRef, vanishedRef,
+  ]);
 
   // A rewrite on disk hands the open project PDF the new version, keeping its
   // page and zoom across the swap (see useProjectPdfWatch). The viewer also

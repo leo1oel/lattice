@@ -73,3 +73,5 @@ export function useDocumentTreeChanges(store: DocumentStore, loadFile: DocumentO
 
   return { remove, move };
 }
+
+export type DocumentTreeChanges = ReturnType<typeof useDocumentTreeChanges>;

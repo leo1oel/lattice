@@ -797,6 +797,10 @@ msgstr "{path} is already a file in this project."
 msgid "{path} is already a folder in this project."
 msgstr "{path} is already a folder in this project."
 
+#: src/app/vanished-file.ts
+msgid "{path} is no longer on disk"
+msgstr "{path} is no longer on disk"
+
 #: src/platform/host-errors-overleaf.ts
 msgid "{path} is not a folder on Overleaf."
 msgstr "{path} is not a folder on Overleaf."
@@ -808,6 +812,14 @@ msgstr "{path} is not a folder."
 #: src/platform/host-errors-workspace.ts
 msgid "{path} is not a UTF-8 path."
 msgstr "{path} is not a UTF-8 path."
+
+#: src/app/vanished-file.ts
+msgid "{path} was deleted"
+msgstr "{path} was deleted"
+
+#: src/app/vanished-file.ts
+msgid "{path} was moved to {moved}"
+msgstr "{path} was moved to {moved}"
 
 #. placeholder {0}: peers.length
 #: src/papers/bibliography-audit.tsx
@@ -4262,6 +4274,10 @@ msgstr "Could not safely preserve this entry's BibTeX expressions."
 msgid "Could not save {failedPath}"
 msgstr "Could not save {failedPath}"
 
+#: src/app/vanished-file.ts
+msgid "Could not save {name}"
+msgstr "Could not save {name}"
+
 #: src/app/use-document-save.ts
 msgid "Could not save the project"
 msgstr "Could not save the project"
@@ -7143,6 +7159,18 @@ msgstr "It reads ranges and quantities like “from easy to hard” or “sum to
 #: src/settings/grammar-rule-reasons.ts
 msgid "It splits technical terms such as “softmax” and “sublayer”."
 msgstr "It splits technical terms such as “softmax” and “sublayer”."
+
+#: src/app/vanished-file.ts
+msgid "It was deleted or moved outside Lattice. Your unsaved edits are still open: recreate the file, save them elsewhere, or close its tab to discard them."
+msgstr "It was deleted or moved outside Lattice. Your unsaved edits are still open: recreate the file, save them elsewhere, or close its tab to discard them."
+
+#: src/app/vanished-file.ts
+msgid "It was deleted outside Lattice and had no unsaved edits, so its tab closed."
+msgstr "It was deleted outside Lattice and had no unsaved edits, so its tab closed."
+
+#: src/app/vanished-file.ts
+msgid "It was moved outside Lattice, and its tab followed it."
+msgstr "It was moved outside Lattice, and its tab followed it."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar-items.ts
@@ -11067,6 +11095,14 @@ msgstr "Record"
 msgid "Record identity"
 msgstr "Record identity"
 
+#: src/app/vanished-file.ts
+msgid "Recreate"
+msgstr "Recreate"
+
+#: src/app/vanished-file.ts
+msgid "Recreated {path}"
+msgstr "Recreated {path}"
+
 #: src/components/ui/color-picker.tsx
 msgid "Red"
 msgstr "Red"
@@ -12101,6 +12137,7 @@ msgstr "Saturation and brightness"
 
 #: src/app/save-source-copy.ts
 #: src/app/use-document-save.ts
+#: src/app/vanished-file.ts
 #: src/canvas/annotation-composer.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
@@ -12109,6 +12146,10 @@ msgstr "Saturation and brightness"
 #: src/settings/literature-settings.tsx
 msgid "Save"
 msgstr "Save"
+
+#: src/app/vanished-file.ts
+msgid "Save {name} As"
+msgstr "Save {name} As"
 
 #: src/app/save-source-copy.ts
 msgid "Save a copy"
@@ -12141,6 +12182,10 @@ msgstr "Save and revise now"
 #: src/history/conflict-resolver.tsx
 msgid "Save and upload"
 msgstr "Save and upload"
+
+#: src/app/vanished-file.ts
+msgid "Save As…"
+msgstr "Save As…"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
@@ -12289,6 +12334,14 @@ msgstr "Saved to {path}"
 #: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "Saved version"
+
+#: src/app/vanished-file.ts
+msgid "Saved your edits as {nextPath}"
+msgstr "Saved your edits as {nextPath}"
+
+#: src/app/vanished-file.ts
+msgid "Saved your edits to {written}"
+msgstr "Saved your edits to {written}"
 
 #: src/project/paper-library-status.tsx
 msgid "Saved-text search unavailable"
@@ -13635,6 +13688,10 @@ msgstr "That didn’t work. Check the input and keychain access"
 #: src/platform/host-errors-workspace.ts
 msgid "That file is not part of this history entry."
 msgstr "That file is not part of this history entry."
+
+#: src/app/vanished-file.ts
+msgid "That file is outside this project, so the tab closed."
+msgstr "That file is outside this project, so the tab closed."
 
 #: src/platform/host-errors-project.ts
 msgid "That file or folder no longer exists."

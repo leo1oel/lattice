@@ -7,8 +7,9 @@ import { useDocumentAutosave } from "./use-document-autosave";
 import { useDocumentDiskSync } from "./use-document-disk-sync";
 import { useDocumentOpens } from "./use-document-opens";
 import { useDocumentSave } from "./use-document-save";
-import { useDocumentStore, type OpenDocumentsDeps } from "./use-document-store";
+import { isVanished, useDocumentStore, type OpenDocumentsDeps } from "./use-document-store";
 import { useDocumentTreeChanges } from "./use-document-tree-changes";
+import { settleVanished } from "./vanished-file-wait";
 import { useWorkspaceLayout } from "./use-workspace-layout";
 
 export { paperDocumentPath, readPaperDocuments, type PaperView } from "./paper-documents";
@@ -48,22 +49,31 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     tabs, setTabs, tabsRef, closedRef, activeTab, assetPaths, revealRequest,
     mode, setMode, htmlModesRef, documentModeRef, bibModeRef, viewModeFor,
     intentRef, viewIntentRef, setOpening, setNavIndex, navLockRef,
-    persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates,
-    showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, markDiskMtime, accept, isOutsideText,
+    persistenceReadyRoot, tabsSettledRoot, flushRef, captureViewportRef, viewStates, vanishedRef,
+    showFileText, closePaper, paperBuffersDirty, addTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, accept, isOutsideText,
   } = store;
   const { save, saveStatus, saveActivityRef } = useDocumentSave(store);
   const opens = useDocumentOpens(store, save);
   const { loadFile, openFile, choosePaperView, openPaper, openAsset } = opens;
-  const { onAssetChanged, assetMissing } = useDocumentDiskSync(store, saveActivityRef);
+  const treeChanges = useDocumentTreeChanges(store, loadFile);
+  const { remove, move } = treeChanges;
+  const { onAssetChanged, assetMissing } = useDocumentDiskSync(store, saveActivityRef, save, treeChanges);
   const { onEditorLeave, onLeaveForPdf, onCompletionActiveChange, registerCompletionClose } = useDocumentAutosave(store, save);
   const enter = useWorkspaceLayout(store, opens);
-  const { remove, move } = useDocumentTreeChanges(store, loadFile);
 
   const close = useCallback(async (key: string) => {
     const { file: activeFile, paper: openPaperNow, asset: openAsset, assetPaths: assets } = renderedRef.current;
     // The writer already closed the document's panel: the last document does
     // not hold it open (its panel closes and the neighbours fill in).
     if (!tabsRef.current.includes(key)) return;
+    // A file deleted behind the editor has nowhere to save: closing it is
+    // the writer's choice to drop its edits (see vanished-file-wait.ts).
+    const vanished = vanishedRef.current;
+    if (vanished && isVanished(vanished, renderedRef.current.project?.root, key)) {
+      settleVanished(vanishedRef, vanished);
+      await remove([key]);
+      return;
+    }
     const remaining = tabsRef.current.filter((tab) => tab !== key);
     const finishClose = () => {
       setTabs((current) => current.filter((tab) => tab !== key));
@@ -109,7 +119,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     if (key === activeFile && fileFallback) await openFile(fileFallback);
   }, [
     closePaper, closedRef, flushAndCheckDirty, flushRef, intentRef, loadFile, openFile, paperBuffersDirty, renderedRef,
-    save, setAsset, setMode, setOpening, setTabs, tabsRef,
+    remove, save, setAsset, setMode, setOpening, setTabs, tabsRef, vanishedRef,
   ]);
 
   /** Bring `key` in front through its own reader. A Paper that left the library closes its tab instead. */
@@ -207,8 +217,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
 
   /** Record the open file's current disk version, so a rewrite of our own does not read as someone else's edit. */
   const markDiskVersion = useCallback(() => (
-    fileRef.current ? markDiskMtime(fileRef.current) : Promise.resolve()
-  ), [fileRef, markDiskMtime]);
+    fileRef.current ? recordDiskVersion(fileRef.current) : Promise.resolve()
+  ), [fileRef, recordDiskVersion]);
 
   /** Supersede every open in flight, for an open whose document resolves later. */
   const claim = useCallback((): OpenClaim => {

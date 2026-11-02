@@ -9,7 +9,7 @@ import type { ProjectState } from "./use-project-state";
 import { collectAssetPaths } from "./workspace-restore";
 import { paperDocumentPath } from "./paper-documents";
 import { createOpenDocumentsStore, type OpenDocumentsState, type OpenDocumentsStore } from "./open-documents-store";
-import { readDiskMtime } from "./read-document";
+import { readDiskVersion, type DiskVersion } from "./read-document";
 import { panelViewMode, setsDocumentMode, type RememberedViewModes } from "./document-view-modes";
 import { publishDeferredEdits, type SurfaceOwner } from "./open-document-intents";
 
@@ -36,6 +36,20 @@ export type OpenDocumentsDeps = {
     afterDiskEdit: () => void;
   };
 };
+
+/**
+ * The open file left its path in the project at `root` behind the editor
+ * (deleted, or moved where it could not be followed) while holding unsaved
+ * edits. Its saves wait for the writer's choice, which `announce` offers
+ * again; `recreate` lets the next save write the file anew at `path` (see
+ * vanished-file-wait.ts).
+ */
+export type VanishedFile = { root: string; path: string; announce: () => void; recreate: boolean };
+
+/** Whether `vanished` is the file open in the project at `root` as `path`. */
+export const isVanished = (vanished: VanishedFile | null, root: string | undefined, path: string) => (
+  vanished?.root === root && vanished?.path === path
+);
 
 /** The state behind the open-documents store, shared by the hooks that carry out its commands. */
 export type DocumentStore = ReturnType<typeof useDocumentStore>;
@@ -104,8 +118,10 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const viewIntentRef = useRef(0);
   const navLockRef = useRef(false);
 
-  // ---- Disk: the open file's last-seen mtime (-1: inspect the next version).
-  const diskMtimeRef = useRef<number | null>(null);
+  // ---- Disk: the open file's last-seen version (UNREAD_DISK_VERSION: inspect
+  // the next one), and the file when it left its path holding unsaved edits.
+  const diskVersionRef = useRef<DiskVersion | null>(null);
+  const vanishedRef = useRef<VanishedFile | null>(null);
 
   // ---- The canvas's side: deferred visual edits, the Markdown viewport.
   const flushRef = useRef<(() => boolean) | null>(null);
@@ -150,9 +166,9 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     return owner === "paper" && paperBuffersDirty();
   }, [paperBuffersDirty, savedRef, textRef]);
 
-  const markDiskMtime = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
-    const mtime = await readDiskMtime(path);
-    if (mayApply()) diskMtimeRef.current = mtime;
+  const recordDiskVersion = useCallback(async (path: string, mayApply: () => boolean = () => true) => {
+    const version = await readDiskVersion(path);
+    if (mayApply()) diskVersionRef.current = version;
   }, []);
 
   const requestLine = useCallback((path: string, line: number, word?: SyncTexWord | null) => {
@@ -205,10 +221,10 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     intentRef, viewIntentRef, setOpening,
     setNavStack, setNavIndex, pushNavigation, navLockRef,
     persistenceReadyRoot, setPersistenceReadyRoot, tabsSettledRoot, setTabsSettledRoot,
-    diskMtimeRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
+    diskVersionRef, vanishedRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
     // Primitives.
     commitFileText, takeOutsideText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
-    addTab, showTab, flush, bufferText, flushAndCheckDirty, markDiskMtime, requestLine, accept,
+    addTab, showTab, flush, bufferText, flushAndCheckDirty, recordDiskVersion, requestLine, accept,
   };
 }
 

@@ -7,8 +7,9 @@ import { notifyError } from "../telemetry/app-notify";
 import { showWarning } from "./notify";
 import type { EditorWriteResult } from "./open-slide-writes";
 import { paperDocumentPath } from "./paper-documents";
+import { UNREAD_DISK_VERSION } from "./read-document";
 import { createSaveActivity, NOTHING_SAVED, trackSave, type SaveStatus } from "./save-activity";
-import type { DocumentStore } from "./use-document-store";
+import { isVanished, type DocumentStore } from "./use-document-store";
 
 /**
  * Write the document in front to disk: the text file's buffer, or both of the
@@ -16,11 +17,16 @@ import type { DocumentStore } from "./use-document-store";
  * `saveStatus` is the last write's outcome in the current project.
  */
 export function useDocumentSave(store: DocumentStore) {
+  // Left to React: both callbacks are explicit useCallbacks and the caller
+  // destructures the result at once, so compiling it memoized nothing new
+  // while doubling each dep check in eager JS.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a React Compiler directive
+  "use no memo";
   const { t } = useLingui();
   const {
     depsRef, projectRoot, renderedRef, fileRef, textRef, savedRef, setText, takeOutsideText, setSavedText,
     paperMarkdownRef, savedPaperMarkdownRef, setSavedPaperMarkdown, paperBlogRef, savedPaperBlogRef, setSavedPaperBlog,
-    diskMtimeRef,
+    diskVersionRef, vanishedRef,
   } = store;
   // Saves in flight, which the disk poll waits out.
   const saveActivityRef = useRef(createSaveActivity());
@@ -45,6 +51,15 @@ export function useDocumentSave(store: DocumentStore) {
       ] as const;
       const writtenPaths: string[] = [];
       if (!openPaper && !openAsset && primaryPath && primarySource !== primarySavedSource) {
+        // The file left its path while these edits were unsaved. Writing them
+        // waits for the writer's choice, offered again here rather than as a
+        // failure each autosave repeats, unless they chose to recreate it:
+        // then there is no file to merge with (see vanished-file-wait.ts).
+        const vanished = isVanished(vanishedRef.current, current.root, primaryPath) ? vanishedRef.current : null;
+        if (vanished && !vanished.recreate) {
+          vanished.announce();
+          return false;
+        }
         // Only what this save changed: the writer's layout of every other entry stays.
         const content = /\.bib$/i.test(primaryPath) ? formatBibDocument(primarySource, primarySavedSource) : primarySource;
         // Format before awaiting disk I/O: subsequent typing must remain a dirty
@@ -52,8 +67,9 @@ export function useDocumentSave(store: DocumentStore) {
         if (content !== primarySource) setText(content);
         writing = primaryPath;
         const writeResult = await invoke<EditorWriteResult>("write_project_file", {
-          path: primaryPath, content, baseContent: primarySavedSource, projectRoot: current.root,
+          path: primaryPath, content, baseContent: vanished ? undefined : primarySavedSource, projectRoot: current.root,
         });
+        if (vanished && vanishedRef.current === vanished) vanishedRef.current = null;
         const writtenSource = writeResult?.content ?? content;
         const sameFile = fileRef.current === primaryPath;
         // A merge brought in edits made outside: not the writer's to undo.
@@ -75,7 +91,7 @@ export function useDocumentSave(store: DocumentStore) {
         // may finish another atomic write after the backend response but before
         // a post-save stat; recording that newer mtime without reading it would
         // hide the Agent edit indefinitely.
-        diskMtimeRef.current = -1;
+        diskVersionRef.current = UNREAD_DISK_VERSION;
         writtenPaths.push(primaryPath);
       }
       for (const [view, content, savedContent] of openPaper ? paperBuffers : []) {
@@ -105,8 +121,8 @@ export function useDocumentSave(store: DocumentStore) {
       return false;
     });
   }, [
-    depsRef, diskMtimeRef, fileRef, paperBlogRef, paperMarkdownRef, renderedRef, savedPaperBlogRef, savedPaperMarkdownRef,
-    savedRef, setSavedText, setSavedPaperBlog, setSavedPaperMarkdown, setText, t, takeOutsideText, textRef,
+    depsRef, diskVersionRef, fileRef, paperBlogRef, paperMarkdownRef, renderedRef, savedPaperBlogRef, savedPaperMarkdownRef,
+    savedRef, setSavedText, setSavedPaperBlog, setSavedPaperMarkdown, setText, t, takeOutsideText, textRef, vanishedRef,
   ]);
   const save = useCallback(
     () => trackSave(saveActivityRef.current, renderedRef.current.project?.root, setSaveStatus, saveContents),

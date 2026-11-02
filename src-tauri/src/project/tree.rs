@@ -430,22 +430,42 @@ pub fn read_file(root: &Path, relative: &str) -> Result<String, String> {
     String::from_utf8(bytes).map_err(|_| NOT_UTF8.to_string())
 }
 
+/// One version of a file on disk. A version differs from another when any
+/// field does: a restored backup (`mv`, `cp -p`, `rsync -a`, an unzip, Time
+/// Machine) keeps an older mtime than the version it replaced.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectFileStat {
     pub exists: bool,
     pub mtime_ms: u128,
+    pub size: u64,
+    /// See [`file_identity`]; empty when the file does not exist.
+    pub file_id: String,
 }
 
 pub fn stat_file(root: &Path, relative: &str) -> Result<ProjectFileStat, String> {
     let path = safe_path(root, relative)?;
     if !path.is_file() {
-        return Ok(ProjectFileStat { exists: false, mtime_ms: 0 });
+        return Ok(ProjectFileStat { exists: false, mtime_ms: 0, size: 0, file_id: String::new() });
     }
-    let modified = path.metadata().and_then(|meta| meta.modified()).map_err(err)?;
+    let metadata = path.metadata().map_err(err)?;
+    let modified = metadata.modified().map_err(err)?;
     let mtime_ms =
         modified.duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
-    Ok(ProjectFileStat { exists: true, mtime_ms })
+    Ok(ProjectFileStat {
+        exists: true,
+        mtime_ms,
+        size: metadata.len(),
+        file_id: file_identity(&metadata),
+    })
+}
+
+/// The file itself rather than its name: device and inode, which a rename
+/// (`mv`, `git mv`) keeps and a new file at the same path does not. A string,
+/// so a 64-bit inode reaches JavaScript exactly.
+pub(super) fn file_identity(metadata: &fs::Metadata) -> String {
+    use std::os::unix::fs::MetadataExt;
+    format!("{}:{}", metadata.dev(), metadata.ino())
 }
 
 #[cfg(test)]
