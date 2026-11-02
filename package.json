@@ -120,7 +120,7 @@
     "micromark-util-types": "^2.0.2",
     "motion": "^12.42.2",
     "opentype.js": "2.0.0",
-    "pdfjs-dist": "6.4.299",
+    "pdfjs-dist": "6.5.438",
     "pele": "^1.6.0",
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
@@ -197,7 +197,7 @@
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
       "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch",
       "@pdfslick/core@4.0.2": "patches/@pdfslick__core@4.0.2.patch",
-      "pdfjs-dist@6.4.299": "patches/pdfjs-dist@6.4.299.patch",
+      "pdfjs-dist@6.5.438": "patches/pdfjs-dist@6.5.438.patch",
       "@tiptap/react@3.32.2": "patches/@tiptap__react@3.32.2.patch",
       "prosemirror-view@1.42.6": "patches/prosemirror-view@1.42.6.patch"
     }
