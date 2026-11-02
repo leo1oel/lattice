@@ -496,7 +496,7 @@ Chromium's per-element style cost. On the bench page in Playwright's WebKit
 the longest frame of a 20-notch zoom gesture took 124–150 ms.
 
 PDF.js now keeps only the pages near the view in the DOM (`PDFPageWindow` in
-`patches/pdfjs-dist@6.4.299.patch`, switched on by `pageWindowMinScale` in
+`patches/pdfjs-dist@*.patch`, switched on by `pageWindowMinScale` in
 `pdf/pdf-slick.ts`). A spacer stands in for each run of the other pages, sized
 from their page boxes, so the scroll extent, every page's offset, page numbers
 and jumps are what they were with all of them there. The window reaches as far
