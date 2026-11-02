@@ -4,8 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createEditorComment,
   createEditorCommentReply,
-  loadAuthorNameSetting,
-  persistAuthorNameSetting,
+  authorNameSetting,
   resolveAuthorName,
   resolveCommentAnchor,
   type EditorComment,
@@ -52,13 +51,13 @@ describe("comment author name", () => {
   });
 
   it("keeps a name set in the retired Shares dialog until the setting is saved", () => {
-    expect(loadAuthorNameSetting()).toBe("");
     localStorage.setItem("lattice.collab.name", "Grace");
-    expect(loadAuthorNameSetting()).toBe("Grace");
-    persistAuthorNameSetting("  Ada Lovelace ");
-    expect(loadAuthorNameSetting()).toBe("Ada Lovelace");
-    persistAuthorNameSetting("");
-    expect(loadAuthorNameSetting()).toBe("");
+    expect(authorNameSetting.get()).toBe("Grace");
+    authorNameSetting.set("  Ada Lovelace ");
+    expect(localStorage.getItem("lattice.author-name.v1")).toBe("  Ada Lovelace ");
+    authorNameSetting.set("");
+    expect(localStorage.getItem("lattice.author-name.v1")).toBe("");
+    expect(authorNameSetting.get()).toBe("");
   });
 });
 

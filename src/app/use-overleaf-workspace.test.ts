@@ -305,6 +305,42 @@ describe("external edit Overleaf handoff", () => {
   });
 });
 
+/** Settings in another window: it writes the storage every window shares, and this window hears of it. */
+function chooseInAnotherWindow(key: string, value: string) {
+  const oldValue = localStorage.getItem(key);
+  localStorage.setItem(key, value);
+  act(() => { window.dispatchEvent(new StorageEvent("storage", { key, oldValue, newValue: value })); });
+}
+
+describe("Overleaf choices made in another window", () => {
+  it("stops syncing live once another window switches to manual", async () => {
+    const { fixture, view, realtime, advance, suspend, synced } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
+    chooseInAnotherWindow("lattice.overleaf.sync-mode.v1", "manual");
+    expect(view.result.current.overleafSyncMode).toBe("manual");
+    // In live mode this edit would be on its way to Overleaf by now.
+    fixture.edit("agent caption and new section");
+    suspend();
+    await advance(31_000);
+    expect(synced()).toBe(false);
+  });
+
+  it("leaves a deleted file on Overleaf once another window chose never", async () => {
+    localStorage.setItem("lattice.overleaf.remote-delete.v1", "always");
+    const { view, realtime } = mountWorkspace("live", () => {
+      // The channel knows section.tex, so nothing but the setting stops its removal.
+      const answer = vi.mocked(invoke).getMockImplementation()!;
+      vi.mocked(invoke).mockImplementation(async (command, args) => command === "overleaf_rt_connect"
+        ? { ...realtimeReply(command, ""), entities: [{ id: "entity-section", path: "section.tex", kind: "doc" }] }
+        : answer(command, args));
+    });
+    await waitFor(() => expect(realtime().status).toBe("live"));
+    chooseInAnotherWindow("lattice.overleaf.remote-delete.v1", "never");
+    await act(async () => { await view.result.current.settleRemoteDeletes(["section.tex"], "/project", 1); });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_delete_entity", expect.anything());
+  });
+});
+
 function thread(id: string): OverleafThread {
   return {
     id, resolved: false, resolvedBy: null, resolvedAt: null,

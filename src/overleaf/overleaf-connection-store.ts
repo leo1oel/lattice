@@ -1,7 +1,6 @@
 import type { SetStateAction } from "react";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { OverleafLink } from "../app-types";
-import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDelete, type OverleafSyncMode } from "../settings/app-settings";
 import type { OverleafCollabTab } from "./overleaf-collab";
 import type { OverleafEvent } from "./overleaf-realtime-listen";
 import type { DocEntry, EntityEntry, OverleafPermission, RealtimeStatus } from "./overleaf-realtime-model";
@@ -20,8 +19,6 @@ export type OverleafConnectionState = {
   linkFor: OverleafLinkFor | null;
   /** A sync (or publish) owns the project. */
   syncing: boolean;
-  syncMode: OverleafSyncMode;
-  remoteDelete: OverleafRemoteDelete;
   /** Manual mode's badge: Overleaf has work this project has not pulled. */
   remoteChanges: boolean;
   pickerOpen: boolean;
@@ -88,9 +85,9 @@ export function projectAccess(scoped: OverleafConnectionState["projectPermission
 
 /** The fields the bridge renders from, picked whole so a write elsewhere re-renders nothing. */
 export const bridgeFields = ({
-  linkFor, syncing, syncMode, remoteDelete, remoteChanges, pickerOpen, reviewOpen, collabOpen, collabTab, conflictPath, selfId, docPaths,
+  linkFor, syncing, remoteChanges, pickerOpen, reviewOpen, collabOpen, collabTab, conflictPath, selfId, docPaths,
 }: OverleafConnectionState) => ({
-  linkFor, syncing, syncMode, remoteDelete, remoteChanges, pickerOpen, reviewOpen, collabOpen, collabTab, conflictPath, selfId, docPaths,
+  linkFor, syncing, remoteChanges, pickerOpen, reviewOpen, collabOpen, collabTab, conflictPath, selfId, docPaths,
 });
 
 /** The live channel's rendered fields; the tree is useOverleafDocumentTree's. */
@@ -101,8 +98,7 @@ export const channelFields = ({ status, detail, liveFile, unacknowledged, projec
 export type OverleafConnectionStore = StoreApi<OverleafConnectionState & OverleafConnectionActions>;
 
 const initialState = (): OverleafConnectionState => ({
-  linkFor: null, syncing: false, syncMode: loadOverleafSyncMode(), remoteDelete: loadOverleafRemoteDelete(),
-  remoteChanges: false, pickerOpen: false, reviewOpen: false, collabOpen: false, collabTab: "comments",
+  linkFor: null, syncing: false, remoteChanges: false, pickerOpen: false, reviewOpen: false, collabOpen: false, collabTab: "comments",
   conflictPath: null, selfId: null, docPaths: new Map(),
   status: "off", detail: null, liveFile: false, unacknowledged: false,
   projectPermission: { projectRoot: null, permission: "unknown" },

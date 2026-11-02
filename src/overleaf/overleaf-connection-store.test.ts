@@ -1,15 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createOverleafConnectionStore, projectAccess } from "./overleaf-connection-store";
 
 const ROOT = "/tmp/project";
 
 describe("Overleaf connection store", () => {
-  afterEach(() => localStorage.clear());
-
   it("starts disconnected with nothing linked, and keeps each window's store apart", () => {
     const store = createOverleafConnectionStore();
     expect(store.getState()).toMatchObject({
-      linkFor: null, syncing: false, syncMode: "live", remoteDelete: "ask", remoteChanges: false,
+      linkFor: null, syncing: false, remoteChanges: false,
       pickerOpen: false, reviewOpen: false, collabOpen: false, collabTab: "comments", conflictPath: null, selfId: null,
       status: "off", detail: null, liveFile: false, unacknowledged: false,
       projectPermission: { projectRoot: null, permission: "unknown" }, livePaths: [],
@@ -17,12 +15,6 @@ describe("Overleaf connection store", () => {
     expect(store.getState().docs.size).toBe(0);
     store.getState().setStatus("live");
     expect(createOverleafConnectionStore().getState().status).toBe("off");
-  });
-
-  it("starts from the sync and remote-delete choices saved in Settings", () => {
-    localStorage.setItem("lattice.overleaf.sync-mode.v1", "manual");
-    localStorage.setItem("lattice.overleaf.remote-delete.v1", "never");
-    expect(createOverleafConnectionStore().getState()).toMatchObject({ syncMode: "manual", remoteDelete: "never" });
   });
 
   it("lands every write at once, so async work reads the latest without waiting for a render", () => {

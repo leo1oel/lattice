@@ -5,13 +5,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
+  authorNameSetting, loadEditorCommentAuthorId, resolveAuthorName,
 } from "../editor/comments/editor-comment-data";
+import { useSharedSetting } from "../settings/shared-setting";
 import type { OverleafStatus } from "../app-types";
 
 export function useCommentAuthor(projectRoot: string | undefined, settingsOpen: boolean) {
   const id = useMemo(() => loadEditorCommentAuthorId(), []);
-  const [setting, setSetting] = useState(loadAuthorNameSetting);
+  // Every window's: a name saved in one signs the comments written in all.
+  const [setting, changeSetting] = useSharedSetting(authorNameSetting);
   // The writer's name as Git and the Overleaf session know it, which sign
   // comments ahead of the "Your name" setting.
   const [knownNames, setKnownNames] = useState<{ git: string | null; overleaf: string | null }>({
@@ -45,10 +47,7 @@ export function useCommentAuthor(projectRoot: string | undefined, settingsOpen: 
     name: resolveAuthorName({ ...knownNames, setting }),
     /** The "Your name" setting, as Settings edits it. */
     setting,
-    changeSetting: (name: string) => {
-      setSetting(name);
-      persistAuthorNameSetting(name);
-    },
+    changeSetting,
     /** The name Git or Overleaf knows, which Settings and the palette suggest. */
     knownName: knownNames.git || knownNames.overleaf || null,
   };

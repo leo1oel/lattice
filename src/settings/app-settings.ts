@@ -41,8 +41,8 @@ export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
 const GUIDED_TOUR_KEY = "lattice.guided-tour.v1";
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
-const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
-const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
+export const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
+export const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
 const PAPER_TOOLS_DEFERRED_KEY = "lattice.paper-tools-deferred.v1";
@@ -555,8 +555,6 @@ export type OverleafSyncMode = "live" | "manual";
 export type OverleafRemoteDelete = "never" | "ask" | "always";
 
 export const loadOverleafSyncMode = () => loadChoice<OverleafSyncMode>(OVERLEAF_SYNC_MODE_KEY, ["manual"], "live");
-export const persistOverleafSyncMode = (mode: OverleafSyncMode) => persistSetting(OVERLEAF_SYNC_MODE_KEY, mode);
 export const loadOverleafRemoteDelete = () =>
   loadChoice<OverleafRemoteDelete>(OVERLEAF_REMOTE_DELETE_KEY, ["never", "always"], "ask");
-export const persistOverleafRemoteDelete = (mode: OverleafRemoteDelete) => persistSetting(OVERLEAF_REMOTE_DELETE_KEY, mode);
 

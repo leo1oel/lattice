@@ -7,13 +7,15 @@ import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { showError, showNotice, showWarning } from "./notify";
 import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { liveField, useStoreSlice } from "../hooks/use-store-slice";
+import { useStoreSlice } from "../hooks/use-store-slice";
+import { useSharedSetting } from "../settings/shared-setting";
 import { isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
 import { useOverleafRemoteDeletes } from "./use-overleaf-remote-deletes";
 import { onOverleafEvent, onOverleafSessionChanged } from "../overleaf/overleaf-realtime-listen";
 import {
   bridgeFields, createOverleafConnectionStore, type OverleafConnectionStore, type OverleafLinkFor,
 } from "../overleaf/overleaf-connection-store";
+import { overleafRemoteDeletePolicy, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import {
   isOverleafProjectRefusal,
@@ -227,21 +229,21 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   // Made once per mount and kept: nothing is ever dispatched to this reducer.
   const [overleafStore] = useReducer(keepStore, null, createOverleafConnectionStore);
   const {
-    linkFor: overleafLinkFor, syncing: overleafSyncing, syncMode: overleafSyncMode, remoteDelete: overleafRemoteDelete,
-    remoteChanges: overleafRemoteChanges, pickerOpen: overleafPickerOpen, reviewOpen: overleafReviewOpen,
-    collabOpen: overleafCollabOpen, collabTab: overleafCollabTab, conflictPath, selfId: overleafSelfId, docPaths: overleafDocPaths,
+    linkFor: overleafLinkFor, syncing: overleafSyncing, remoteChanges: overleafRemoteChanges,
+    pickerOpen: overleafPickerOpen, reviewOpen: overleafReviewOpen, collabOpen: overleafCollabOpen,
+    collabTab: overleafCollabTab, conflictPath, selfId: overleafSelfId, docPaths: overleafDocPaths,
   } = useStoreSlice(overleafStore, bridgeFields);
+  // Every window's, so a switch to manual in one stops live syncing in all.
+  const [overleafSyncMode] = useSharedSetting(overleafSyncModeSetting);
   const {
-    setLinkFor: setOverleafLinkFor, setSyncing: setOverleafSyncing, setSyncMode: setOverleafSyncMode,
-    setRemoteDelete: setOverleafRemoteDelete, setRemoteChanges: setOverleafRemoteChanges, setPickerOpen: setOverleafPickerOpen,
-    setReviewOpen: setOverleafReviewOpen, setCollabOpen: setOverleafCollabOpen, setCollabTab: setOverleafCollabTab,
-    setConflictPath, noteChannelEvent, forgetChannel,
+    setLinkFor: setOverleafLinkFor, setSyncing: setOverleafSyncing, setRemoteChanges: setOverleafRemoteChanges,
+    setPickerOpen: setOverleafPickerOpen, setReviewOpen: setOverleafReviewOpen, setCollabOpen: setOverleafCollabOpen,
+    setCollabTab: setOverleafCollabTab, setConflictPath, noteChannelEvent, forgetChannel,
   } = overleafStore.getState();
   const overleafLinkLoadGenerationRef = useRef(0);
   const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
   const overleafLink = currentOverleafLink?.active ? currentOverleafLink.link : null;
   const overleafProjectLinked = currentOverleafLink !== null;
-  const overleafRemoteDeleteRef = useMemo(() => liveField(overleafStore, "remoteDelete"), [overleafStore]);
   const overleafStartupCheckedRoot = useRef<string | null>(null);
   const overleafSyncRef = useRef<(options?: OverleafSyncOptions) => Promise<void>>(async () => {});
   const overleafTransportRetryRef = useRef(false);
@@ -360,7 +362,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }
   }, [overleafLink, t]);
 
-  const settleRemoteDeletes = useOverleafRemoteDeletes(overleafRemoteDeleteRef, overleafEntitiesRef, projectGuard);
+  const settleRemoteDeletes = useOverleafRemoteDeletes(overleafRemoteDeletePolicy, overleafEntitiesRef, projectGuard);
 
   const runOverleafSync = useCallback(async (options?: OverleafSyncOptions) => {
     if (!project || overleafSyncingRef.current) return;
@@ -949,8 +951,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,
-    overleafSyncMode, setOverleafSyncMode,
-    overleafRemoteDelete, setOverleafRemoteDelete,
+    overleafSyncMode,
     overleafRemoteChanges, setOverleafRemoteChanges,
     overleafPickerOpen, setOverleafPickerOpen,
     overleafReviewOpen, setOverleafReviewOpen,

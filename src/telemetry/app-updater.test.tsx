@@ -360,8 +360,8 @@ describe("useUpdater / mode", () => {
     const denied = () => { throw new Error("storage denied"); };
     const read = vi.spyOn(window.localStorage, "getItem").mockImplementation(denied);
     const write = vi.spyOn(window.localStorage, "setItem").mockImplementation(denied);
+    const result = renderUpdater();
     try {
-      const result = renderUpdater();
       expect(result.current.mode).toBe("manual");
 
       act(() => result.current.setMode("auto"));
@@ -369,6 +369,9 @@ describe("useUpdater / mode", () => {
     } finally {
       read.mockRestore();
       write.mockRestore();
+      // The mode is every window's, held by the module past this test: an
+      // unsaved choice would otherwise outlive it, as it does the session.
+      act(() => result.current.setMode("manual"));
     }
   });
 
@@ -397,6 +400,24 @@ describe("useUpdater / mode", () => {
     await run(() => result.current.check());
 
     await waitFor(() => expect(update.downloadAndInstall).toHaveBeenCalledOnce());
+  });
+
+  it("follows the mode another window chose, so an open window stops installing by itself", async () => {
+    localStorage.setItem(MODE_KEY, "auto");
+    const result = renderUpdater();
+    expect(result.current.mode).toBe("auto");
+
+    // Settings in another window, writing the storage every window shares.
+    localStorage.setItem(MODE_KEY, "manual");
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: MODE_KEY, oldValue: "auto", newValue: "manual" }));
+    });
+    expect(result.current.mode).toBe("manual");
+
+    const update = offerUpdate();
+    await run(() => result.current.check());
+    await waitFor(() => expect(result.current.phase).toBe("available"));
+    expect(update.downloadAndInstall).not.toHaveBeenCalled();
   });
 
   it("installs an already-offered update when switched to automatic", async () => {
