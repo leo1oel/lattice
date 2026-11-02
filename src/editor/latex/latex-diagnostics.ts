@@ -8,7 +8,7 @@ import {
   CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, miscasedProjectPath, resolveProjectPath, unwrapLatexPath,
   type KeySpan,
 } from "./latex-symbols";
-import { LABEL, type ReferenceInfo } from "./latex-text";
+import { LABEL, normalizeProjectPath, rootFolder, type ReferenceInfo } from "./latex-text";
 import { unclosedMathDiagnostics } from "./math-region";
 
 const BIB_ENTRY = /@\w+\s*\{\s*([^,\s}]+)/g;
@@ -51,10 +51,11 @@ function duplicateKeyWarnings(spans: KeySpan[], source: Source, message: (key: s
   });
 }
 
-function missingIncludeCreatePath(raw: string): string | null {
+/** Where TeX looks for a missing include: beside the root document `rootPath`. */
+function missingIncludeCreatePath(raw: string, rootPath: string): string | null {
   const path = unwrapLatexPath(raw);
-  if (!path || path.startsWith("/") || path.includes("..") || path.includes(":")) return null;
-  return path.endsWith(".tex") ? path : `${path}.tex`;
+  if (!path || path.startsWith("/") || path.includes(":")) return null;
+  return normalizeProjectPath(`${rootFolder(rootPath)}${path.endsWith(".tex") ? path : `${path}.tex`}`) || null;
 }
 
 /**
@@ -91,18 +92,19 @@ export function pathDiagnostics(
   projectPaths: string[],
   graphicsRoots: string[] = [],
   onCreateMissingFile?: (path: string) => void,
+  rootPath = "",
 ): Diagnostic[] {
   if (!projectPaths.length) return [];
   const diagnostics: Diagnostic[] = [];
   for (const { from, content } of argumentsOf(text, INCLUDE)) {
     const path = content.trim();
-    if (!path || resolveProjectPath(path, projectPaths, "tex")) continue;
-    const miscased = miscasedProjectPath(path, projectPaths, "tex");
+    if (!path || resolveProjectPath(path, projectPaths, "tex", [], rootPath)) continue;
+    const miscased = miscasedProjectPath(path, projectPaths, "tex", [], rootPath);
     if (miscased) {
       diagnostics.push(caseDiagnostic(from, content, miscased));
       continue;
     }
-    const createPath = missingIncludeCreatePath(path);
+    const createPath = missingIncludeCreatePath(path, rootPath);
     diagnostics.push({
       ...warning(from, from + content.length, "paths", i18n._(msg`Missing file “${path}”.`)),
       actions: createPath && onCreateMissingFile
@@ -196,6 +198,8 @@ export type LatexIndex = {
   unusedCitations?: string[];
   projectPaths?: string[];
   graphicsRoots?: string[];
+  /** The project's root document, whose folder TeX reads `\input` paths from. */
+  rootDocumentPath?: string;
 };
 
 export function indexDiagnostics(
@@ -207,7 +211,7 @@ export function indexDiagnostics(
   const text = withoutNovalidate(source);
   const fileDiagnostics = [
     ...structureDiagnostics(text),
-    ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),
+    ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile, index.rootDocumentPath),
   ];
   if (index.indexPending) return fileDiagnostics;
   const citationKeys = new Set(index.citationKeys);

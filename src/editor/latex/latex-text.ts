@@ -95,24 +95,78 @@ export function foldCase(path: string): string {
 const foldedPaths = new WeakMap<readonly string[], string[]>();
 
 /**
- * `findProjectPath` with letter case ignored, as macOS's disk ignores it.
- * The index hands every lint run the same `projectPaths` array, so it is
- * folded once, not once per unresolved argument.
+ * `projectPaths` folded by `foldCase`. The index hands every lint run the
+ * same array, so it is folded once, not once per unresolved argument.
  */
-export function findProjectPathIgnoringCase(candidate: string, projectPaths: readonly string[]): string | null {
+function foldedProjectPaths(projectPaths: readonly string[]): string[] {
   let folded = foldedPaths.get(projectPaths);
   if (!folded) foldedPaths.set(projectPaths, folded = projectPaths.map(foldCase));
+  return folded;
+}
+
+/** `findProjectPath` with letter case ignored, as macOS's disk ignores it. */
+export function findProjectPathIgnoringCase(candidate: string, projectPaths: readonly string[]): string | null {
+  const folded = foldedProjectPaths(projectPaths);
   const wanted = foldCase(candidate);
   const index = folded.findIndex((path) => path === wanted || path.endsWith(`/${wanted}`));
   return index < 0 ? null : projectPaths[index];
 }
 
-/** The project `.tex` file an `\input`/`\include` argument names. */
-export function resolveTexPath(raw: string, projectPaths: string[]): string | null {
+/** `path` with `.` and `..` collapsed; null when `..` climbs out of the project folder. */
+export function normalizeProjectPath(path: string): string | null {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part !== "..") parts.push(part);
+    else if (parts.pop() === undefined) return null;
+  }
+  return parts.join("/");
+}
+
+/** The folder holding the root document, with its trailing `/`; empty at the top. */
+export function rootFolder(rootPath: string): string {
+  return rootPath.slice(0, rootPath.lastIndexOf("/") + 1);
+}
+
+/**
+ * The project file an `\input`/`\include` path names. TeX (latexmk `-cd`)
+ * reads it relative to the root document's folder, whichever file holds the
+ * command, so that comes first and is the only place a `..` path can mean.
+ * The project folder comes next, then any one file the path ends — a copy in
+ * `arxiv-v1/` must not stand in for the one the build reads, so when several
+ * end with it, none is chosen. `ignoreCase` matches as macOS's disk does.
+ */
+export function findTexPath(
+  candidate: string,
+  projectPaths: readonly string[],
+  rootPath = "",
+  ignoreCase = false,
+): string | null {
+  const paths = ignoreCase ? foldedProjectPaths(projectPaths) : projectPaths;
+  const fold = (path: string) => (ignoreCase ? foldCase(path) : path);
+  const indexOf = (path: string | null) => (path ? paths.indexOf(fold(path)) : -1);
+  const fromRoot = indexOf(normalizeProjectPath(`${rootFolder(rootPath)}${candidate}`));
+  if (fromRoot >= 0) return projectPaths[fromRoot];
+  const fromProject = normalizeProjectPath(candidate);
+  if (!fromProject || candidate.split("/").includes("..")) return null;
+  const inProject = indexOf(fromProject);
+  if (inProject >= 0) return projectPaths[inProject];
+  const suffix = fold(`/${fromProject}`);
+  let found = -1;
+  for (const [index, path] of paths.entries()) {
+    if (!path.endsWith(suffix)) continue;
+    if (found >= 0) return null;
+    found = index;
+  }
+  return found < 0 ? null : projectPaths[found];
+}
+
+/** The project `.tex` file an `\input`/`\include` argument names, read from the root document `rootPath`. */
+export function resolveTexPath(raw: string, projectPaths: string[], rootPath = ""): string | null {
   const path = raw.trim();
   if (!path) return null;
   for (const candidate of path.endsWith(".tex") ? [path] : [path, `${path}.tex`]) {
-    const found = findProjectPath(candidate, projectPaths);
+    const found = findTexPath(candidate, projectPaths, rootPath);
     if (found) return found;
   }
   return null;

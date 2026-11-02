@@ -218,6 +218,7 @@ export function useDocumentSurfaces({
         compiledBuild: lastBuild?.hasPdf ? lastBuild : undefined,
         projectPaths: latex.projectPaths,
         graphicsRoots: latex.graphicsRoots,
+        rootDocumentPath: latex.rootDocumentPath,
       }}
       navigation={{
         requests: canvasRequests.requests,

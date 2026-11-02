@@ -140,7 +140,7 @@ export function useBuildPipeline({
    * edit moves every line below it, and the jump lands on another passage.
    */
   const inputRevisionRef = useRef(0);
-  const compiledRef = useRef<{ revision: number; rootDocument: string | null } | null>(null);
+  const compiledRef = useRef<{ revision: number; rootDocument: string | null; oneOff: boolean } | null>(null);
   /** The last compiled PDF read from disk, so a failed pass can tell whether it wrote a new one. */
   const readPdfFingerprintRef = useRef<string | null>(null);
   const runningBuildRef = useRef<RunningBuild | null>(null);
@@ -156,9 +156,12 @@ export function useBuildPipeline({
   const compiledIsCurrent = useCallback(() => {
     const compiled = compiledRef.current;
     if (!compiled || compiled.revision !== inputRevisionRef.current) return false;
+    // A one-off build (a standalone figure) answers for that file alone: from
+    // any other, the next build compiles the root document instead.
+    if (compiled.oneOff) return compiled.rootDocument === activeFileRef.current;
     const rootDocument = projectRef.current?.manifest.rootDocuments.find((document) => document.isDefault)?.path;
     return !rootDocument || !compiled.rootDocument || rootDocument === compiled.rootDocument;
-  }, [projectRef]);
+  }, [activeFileRef, projectRef]);
 
   const replacePdfUrl = useCallback((nextUrl: string | null) => setPdfUrl((previous) => {
     if (previous) URL.revokeObjectURL(previous);
@@ -389,9 +392,12 @@ export function useBuildPipeline({
         const wrotePdf = fingerprint !== null && !cancelled
           && (result.success || fingerprint !== readPdfFingerprintRef.current);
         if (fingerprint !== null) readPdfFingerprintRef.current = fingerprint;
-        compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
+        compiledRef.current = wrotePdf
+          ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null, oneOff: !!result.oneOff }
+          : null;
         setOutcome(buildOutcome(result, cancelled, quietRef.current, wrotePdf));
-        const { rootDocument } = result;
+        // A one-off root compiled this once; the backend left the manifest as it was.
+        const rootDocument = result.oneOff ? null : result.rootDocument;
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
         }

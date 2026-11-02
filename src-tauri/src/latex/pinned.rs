@@ -114,6 +114,7 @@ pub fn build_pinned(root: &Path, options: &PinnedBuild) -> Result<BuildResult, S
         log: trim_log(&log),
         duration_ms: steps.started().elapsed().as_millis(),
         root_document: options.document.to_string(),
+        one_off: false,
         venue: log_conference_template(&tex_log).or_else(|| log_conference_template(&log)),
         steps: steps.take(),
         pages: pages_written(&tex_log),

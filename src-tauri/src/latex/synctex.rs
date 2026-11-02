@@ -2,7 +2,7 @@
 
 mod records;
 
-use super::{default_root_document, synctex_missing};
+use super::{compiled_document, synctex_missing};
 use crate::commands;
 use crate::latex::PdfSyncTarget;
 use crate::models::SyncTexTarget;
@@ -196,11 +196,11 @@ pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<
     }))
 }
 
-/// The default root document and its PDF (relative to `root`), once that PDF
-/// exists and has SyncTeX data to search.
+/// The compiled document (a one-off root, else the default) and its PDF
+/// (relative to `root`), once that PDF exists and has SyncTeX data to search.
 fn synced_pdf(root: &Path, unbuilt: &str) -> Result<(String, PathBuf), String> {
     let manifest = project::read_manifest(root)?;
-    let document = default_root_document(&manifest)?.path.clone();
+    let document = compiled_document(root, &manifest)?;
     let pdf = Path::new(&document).with_extension("pdf");
     if !root.join(&pdf).is_file() {
         return Err(unbuilt.to_string());

@@ -7,7 +7,7 @@
 
 use super::build::{cancelled_build, run_tracked, ActiveBuild};
 use super::build_steps::BuildSteps;
-use super::default_root_document;
+use super::compiled_document;
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::ProjectManifest;
@@ -82,9 +82,9 @@ pub(super) fn prewarm_cold_pdf_build(
     root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
 ) -> Result<Option<BuildResult>, String> {
     let manifest = project::read_manifest(root)?;
-    let document = default_root_document(&manifest)?;
-    let root_document = project::safe_path(root, &document.path)?;
-    if !is_candidate(root, &root_document, &document.path, &manifest, force)
+    let document = compiled_document(root, &manifest)?;
+    let root_document = project::safe_path(root, &document)?;
+    if !is_candidate(root, &root_document, &document, &manifest, force)
         || !commands::available("pdflatex")
         || !commands::available("bibtex")
         || !has_large_graphics_payload(root)
@@ -94,7 +94,7 @@ pub(super) fn prewarm_cold_pdf_build(
 
     let step = wide_event::step("prewarm");
     let mut passes =
-        DraftPasses { root, document_path: &document.path, active, steps, log: String::new() };
+        DraftPasses { root, document_path: &document, active, steps, log: String::new() };
     let stopped = passes.run(&root_document.with_extension("aux"));
     drop(step);
     let prewarm = match &stopped {
@@ -107,7 +107,7 @@ pub(super) fn prewarm_cold_pdf_build(
         // latexmk produces and verifies the final PDF from the warmed state.
         Ok(()) => {}
         Err(Stop::Cancelled) => {
-            return Ok(Some(cancelled_build(steps.started(), &passes.log, &document.path)))
+            return Ok(Some(cancelled_build(steps.started(), &passes.log, &document)))
         }
         Err(Stop::Abandoned) => {
             for extension in ARTIFACTS.split_whitespace() {

@@ -110,7 +110,7 @@ export function useLatexStructure({
         return;
       }
       sources[path] = text;
-      for (const included of includedPathsIn(text, projectPaths)) visit(included, depth + 1);
+      for (const included of includedPathsIn(text, projectPaths, rootDocumentPath)) visit(included, depth + 1);
     };
     if (rootDocumentPath) visit(rootDocumentPath, 0);
     const complete = !missing.length && !unreadable.some((path) => (

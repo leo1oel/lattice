@@ -63,7 +63,7 @@ export function findBodyEnd(
       const end = BODY_END.exec(line)?.index ?? Infinity;
       // The line's includes before the end are read first, and may end the body themselves.
       const ended = [...line.matchAll(INCLUDE)].some((match) => {
-        const included = match.index < end ? resolveTexPath(match[1], projectPaths) : null;
+        const included = match.index < end ? resolveTexPath(match[1], projectPaths, rootPath) : null;
         return included !== null && walk(included, depth + 1);
       }) || end !== Infinity;
       if (ended) {
@@ -78,8 +78,9 @@ export function findBodyEnd(
   return unread ? "unread" : ended ? spans : null;
 }
 
-export function includedPathsIn(source: string, projectPaths: string[]): string[] {
-  const paths = [...visibleLatexSource(source).matchAll(INCLUDE)].map((match) => resolveTexPath(match[1], projectPaths));
+/** The project files `source` includes, read from the root document `rootPath`'s folder as TeX reads them. */
+export function includedPathsIn(source: string, projectPaths: string[], rootPath = ""): string[] {
+  const paths = [...visibleLatexSource(source).matchAll(INCLUDE)].map((match) => resolveTexPath(match[1], projectPaths, rootPath));
   return [...new Set(paths.filter((path): path is string => path !== null))];
 }
 
@@ -267,7 +268,7 @@ export function parseProjectOutline(
         stack.push(node);
         continue;
       }
-      const included = resolveTexPath(event.raw, projectPaths);
+      const included = resolveTexPath(event.raw, projectPaths, rootPath);
       if (!included || !(included in sources)) continue;
       const previousStack = [...stack];
       // Keep included sections under the current semantic parent without adding

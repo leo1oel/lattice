@@ -4,7 +4,7 @@
  * file an argument names.
  */
 import {
-  LABEL, findProjectPath, findProjectPathIgnoringCase, foldCase, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
+  LABEL, findProjectPath, findProjectPathIgnoringCase, findTexPath, foldCase, normalizeProjectPath, rootFolder, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
 } from "./latex-text";
 
 /* eslint-disable lingui/no-unlocalized-strings -- regular-expression alternations of LaTeX command names */
@@ -116,17 +116,21 @@ function pathCandidates(path: string, kind: "tex" | "graphics", graphicsRoots: s
   })));
 }
 
-/** A URL resolves to itself; anything else must name a project file. */
+/**
+ * A URL resolves to itself; anything else must name a project file. A `.tex`
+ * path is read from the root document `rootPath`'s folder, as TeX reads it.
+ */
 export function resolveProjectPath(
   raw: string,
   projectPaths: string[],
   kind: "tex" | "graphics",
   graphicsRoots: string[] = [],
+  rootPath = "",
 ): string | null {
   const path = unwrapLatexPath(raw);
   if (!path || /^https?:/.test(path)) return path || null;
   for (const { candidate } of pathCandidates(path, kind, graphicsRoots)) {
-    const found = findProjectPath(candidate, projectPaths);
+    const found = kind === "tex" ? findTexPath(candidate, projectPaths, rootPath) : findProjectPath(candidate, projectPaths);
     if (found) return found;
   }
   return null;
@@ -144,11 +148,14 @@ export function miscasedProjectPath(
   projectPaths: string[],
   kind: "tex" | "graphics",
   graphicsRoots: string[] = [],
+  rootPath = "",
 ): { file: string; path: string | null } | null {
   const path = unwrapLatexPath(raw);
   if (!path || /^https?:/.test(path)) return null;
   for (const { candidate, extension } of pathCandidates(path, kind, graphicsRoots)) {
-    const file = findProjectPathIgnoringCase(candidate, projectPaths);
+    const file = kind === "tex"
+      ? findTexPath(candidate, projectPaths, rootPath, true)
+      : findProjectPathIgnoringCase(candidate, projectPaths);
     if (!file) continue;
     // The file ends with the candidate, folded, and folding keeps lengths,
     // so the written path sits just before the extension the lookup added.
@@ -172,6 +179,7 @@ export function definitionTargetAt(
   references: ReferenceInfo[],
   projectPaths: string[] = [],
   graphicsRoots: string[] = [],
+  rootPath = "",
 ): DefinitionTarget | null {
   const label = referenceHoverTarget(text, position)?.key ?? argumentAt(text, LABEL, position, trim);
   const reference = label && references.find((item) => item.label === label);
@@ -182,5 +190,10 @@ export function definitionTargetAt(
   if (figure) return { kind: "asset", path: resolveProjectPath(figure, projectPaths, "graphics", graphicsRoots) ?? figure };
   const include = argumentAt(text, INCLUDE, position, trim);
   if (!include) return null;
-  return { kind: "include", path: resolveProjectPath(include, projectPaths, "tex") ?? (include.endsWith(".tex") ? include : `${include}.tex`) };
+  const file = include.endsWith(".tex") ? include : `${include}.tex`;
+  return {
+    kind: "include",
+    path: resolveProjectPath(include, projectPaths, "tex", [], rootPath)
+      ?? normalizeProjectPath(`${rootFolder(rootPath)}${file}`) ?? file,
+  };
 }
