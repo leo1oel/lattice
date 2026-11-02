@@ -182,3 +182,5 @@ Stop retries stay attached to their original runtime and turn, interrupt-only co
 OpenCode sign-in and cold model discovery use private servers, pre-migration SQLite backups are compressed, and local project favicons become project glyphs in the standalone sidebar.
 Hub workers omit Snooze and Hub actions, and the landing pattern runs continuous beneath the composer, both standalone surfaces.
 The toolchain moves to Bun 1.4.4; Lattice's pin, release workflows and preparation message follow.
+A new chat pre-warms Claude before its first send creates the thread. The gateway lets that draft's own credential initialize and list the `lattice` tools until then, and refuses its tool calls until the thread exists. Before this, the warm session had no `mcp__lattice__*` tools for the whole chat.
+Claude's policy now gets the `show_visual` line whenever Codex's does, and the `<lattice_active_context>` block no longer carries the refresh `requestId`.
