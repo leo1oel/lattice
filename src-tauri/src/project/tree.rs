@@ -357,17 +357,28 @@ fn scan_directory(root: &Path, directory: &Path, view: TreeView) -> Result<Vec<F
     Ok(nodes)
 }
 
-/// Every non-directory node of a scanned tree, depth first in tree order.
+/// Every regular file of a scanned tree, depth first in tree order. Symbolic
+/// links are left out: [`safe_path`] refuses them, and one linked file used
+/// to fail every project-wide search, replace and TODO scan outright.
 pub(crate) fn tree_files(nodes: &[FileNode]) -> Vec<&FileNode> {
+    tree_leaves(nodes).into_iter().filter(|node| !is_link(node)).collect()
+}
+
+/// Every non-directory node of a scanned tree, symbolic links included.
+pub(super) fn tree_leaves(nodes: &[FileNode]) -> Vec<&FileNode> {
     let mut files = Vec::new();
     for node in nodes {
         if node.kind == "directory" {
-            files.extend(tree_files(&node.children));
+            files.extend(tree_leaves(&node.children));
         } else {
             files.push(node);
         }
     }
     files
+}
+
+pub(super) fn is_link(node: &FileNode) -> bool {
+    node.content_kind == "symlink"
 }
 
 fn file_kind(path: &Path) -> &'static str {
