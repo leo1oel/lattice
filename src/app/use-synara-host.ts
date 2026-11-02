@@ -46,6 +46,13 @@ import { showError, showWarning } from "./notify";
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
 const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
+/**
+ * `{ visible }`: whether the Agent panel is on screen. Its frame stays mounted
+ * while the panel is behind another tab, collapsed or hidden, where the
+ * frame's own visibilityState still says visible; only a panel shown here
+ * keeps its thread's Claude out of the idle stop and starts one ahead of Send.
+ */
+const LATTICE_AGENT_PANEL_VISIBILITY = "lattice:agent-panel-visibility";
 const LATTICE_HOST_POINTER = "lattice:host-pointer";
 /**
  * Bounds for the width the agent's composer reports it needs (its controls
@@ -221,6 +228,11 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   // The decks light up only for this frame's turn: a frame that is replaced,
   // retried or gone reports nothing more, so its last turn must not linger.
   useEffect(() => () => publishAgentDeckPresence(null), [frameAttempt, frameKey]);
+  // Every change, and the state at ready (the embed-ready handler below, also
+  // for a frame that reloads without changing its key).
+  useEffect(() => {
+    if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_VISIBILITY, visible: agentVisible });
+  }, [agentVisible, frameReady, postMessage]);
   const notifyPanelOpened = useCallback(() => {
     if (frameReady) void postMessage({ type: LATTICE_AGENT_PANEL_OPENED });
   }, [frameReady, postMessage]);
@@ -272,6 +284,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         if (host.hostContext) post(host.hostContext);
         if (host.paperLibrary) post(host.paperLibrary);
         if (host.hostTheme) post(host.hostTheme);
+        post({ type: LATTICE_AGENT_PANEL_VISIBILITY, visible: host.agentVisible });
         if (host.agentVisible) post({ type: LATTICE_AGENT_PANEL_OPENED });
       },
       "synara:open-settings": (data, host) => {
