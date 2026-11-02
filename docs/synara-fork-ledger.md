@@ -9,17 +9,17 @@ measurements; re-run the commands rather than quoting them.
 ## The current pin
 
 The fork as a whole is **not** small. Measured on 2026-11-02 against upstream
-`v1.0.9` (`ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`), the current integration changes
-**788 files, +90,268 / −8,653 lines**. It carries embedded-workspace UI, a skills manager,
+`v1.1.0` (`b6aa37bc82eec649dd527c5956fdccc2c63d3b24`), the current integration changes
+**697 files, +66,729 / −8,037 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git diff --shortstat v1.0.9 HEAD
+git diff --shortstat v1.1.0 HEAD
 ```
 
-The current pin is the upstream **1.0.9 stable release**, merged with the complete previous
-`amp/lattice-v1.0.8-sync` history (which carries the earlier `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
+The current pin is the upstream **1.1.0 stable release**, merged with the complete previous
+`amp/lattice-v1.0.9-sync` history (which carries the earlier `amp/lattice-v1.0.8-sync`, `amp/lattice-v1.0.7-sync`, `amp/lattice-v1.0.6-sync`, `amp/lattice-v1.0.5-sync`, `amp/lattice-v1.0.4-sync`, `amp/lattice-v1.0.3-sync`, `amp/lattice-v1.0.1-sync` and `amp/lattice-v1.0.0-sync` histories). Upstream's account-aware provider configuration and standalone
 Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
 waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
 Its requests reach only that project's repositories. Authored and review-requested filters recover
@@ -29,7 +29,7 @@ Both Git views send `synara:embed-ready`; missing CLI/authentication shows its u
 sign-in state without query retries.
 In the embed, Changes composes the commit message in the panel (with `git.generateCommitMessage` behind "Write the message for me"), stages by checkbox and reads a paper's change as sentences; Pull requests groups the project's pull requests by what needs the writer and says why an empty list is empty; a pull request opens on "In the paper", a red-pen reading of its changed sentences with Comment, Approve and Merge.
 The fork's `docs/lattice-git-embed.md` describes these views and the data they read. The inbox, its filters and the item detail follow the host
-locale through the fork's Lingui catalogs (zh-CN included); GitHub content and agent prompts stay
+locale through upstream's interface catalogs (see the 1.1.0 entry); GitHub content and agent prompts stay
 as written. The narrow model picker retains account selection in upstream’s
 new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
 The inbox, detail panes, sidechat dock, and portalled menus inherit Lattice's embed-theme surface
@@ -194,3 +194,16 @@ Hub workers omit Snooze and Hub actions, and the landing pattern runs continuous
 The toolchain moves to Bun 1.4.4; Lattice's pin, release workflows and preparation message follow.
 A new chat pre-warms Claude before its first send creates the thread. The gateway lets that draft's own credential initialize and list the `lattice` tools until then, and refuses its tool calls until the thread exists. Before this, the warm session had no `mcp__lattice__*` tools for the whole chat.
 Claude's policy now gets the `show_visual` line whenever Codex's does, and the `<lattice_active_context>` block no longer carries the refresh `requestId`.
+
+## Synara 1.1.0 compatibility
+
+1.1.0 ships its own interface catalogs (i18next, English, Spanish and Simplified Chinese; Chinese is Beta-only in upstream's desktop builds, gated by desktop flavor). The panel now uses them: the fork's Lingui catalog (2,289 zh-CN entries) is gone, and strings whose English matches an upstream message take upstream's key and Chinese.
+What upstream does not translate (Lattice's Git, pull request, Skills, MCP, empty-thread and provider-usage adaptations, about 800 messages) lives in a `lattice` namespace beside upstream's catalogs (`packages/shared/src/locales/<locale>/lattice.json`; Spanish repeats the English, since Lattice ships no Spanish).
+`apps/web/src/i18n/latticeZhOverrides.json` (38 entries) keeps Lattice's wording where upstream's Chinese contradicts Lattice's terminology (PR rather than 拉取请求, AI 助手 and 子助手 rather than 智能体, 工作树 rather than worktree, Skills rather than 技能) or the meaning in context (PR **Approve**, "Never" used, the PR **Conversation** tab, "pull/rebase", and Synara named inside Lattice).
+The panel follows the language Lattice puts in the handshake (`?locale=`), whatever the OS language or a saved preference says; upstream's new Settings → General → Language row is hidden in the embed. Upstream's `bun run i18n:check` and `i18n:extract --check` pass with the overlay.
+Upstream's "Resume after usage limits" (off by default) appears in the Providers pane's Performance group. Its waits are server-owned: a restarted Lattice restores them, and Stop cancels them.
+Upstream now continues chats interrupted by an unexpected server shutdown on its own. Lattice stops its service with SIGTERM whenever the writer quits, so under the Lattice host profile an orphaned turn keeps the manual "Continue task" instead.
+Narration renders as prose with compact tool rows, subagent rows show model and effort, the right dock remembers its width per thread, and folders dragged from an editor tree attach to the composer. The task-list row reads "1 of 3 tasks".
+Pi 1.4 adds `providers/azure` and `utils/model-operations` imports; both load through the on-demand provider runtime, so Pi still installs on first use.
+Offline `synara-compact-database` maintenance, Claude Stop and steer ownership fences, SDK error results, crash and queue recovery, photo-draft preservation and Cursor safe-storage tokens are server-side or standalone changes with no embedded surface.
+

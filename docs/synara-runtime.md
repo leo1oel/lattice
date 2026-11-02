@@ -395,8 +395,8 @@ here would be worse than useless. A pre-merge run is the only trustworthy baseli
 Two environment traps that are stable enough to record:
 
 - **Use the web workspace's test script: `bun run --cwd apps/web test`.**
-  Its `vitest.config.ts` loads both the Vite/Lingui transforms and `vitest.setup.ts`, which installs in-memory `localStorage` and activates the test translation catalog.
-  Running `vitest apps/web/src` with the root config bypasses those transforms, so PO imports and Lingui macros fail before the tests execute.
+  Its `vitest.config.ts` loads both the Vite transforms and `vitest.setup.ts`, which installs in-memory `localStorage`.
+  Running `vitest apps/web/src` with the root config bypasses them, so `~/` imports fail before the tests execute.
   Node 24+ exposes an experimental `localStorage` getter that resolves to `undefined` without `--localstorage-file`; keep the workspace setup so Zustand does not capture that missing value at import time.
 - **Run the server and web suites sequentially.**
   `apps/server/src/provider/acp/AcpSdkConformance.test.ts` has a 90-second timeout that CPU
