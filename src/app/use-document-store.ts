@@ -61,7 +61,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
   const {
     setFile, setText, setSavedText, setAsset, setPaper, setPaperView, setPaperMarkdown, setSavedPaperMarkdown,
     setPaperBlog, setSavedPaperBlog, setTabs, setMode, setOpening, setNavStack, setNavIndex,
-    setPersistenceReadyRoot, setTabsSettledRoot, commitFileText, showFileText, setPaperBuffers, closePaper,
+    setPersistenceReadyRoot, setTabsSettledRoot, commitFileText, takeOutsideText, showFileText, setPaperBuffers, closePaper,
     addTab, showTab, pushNavigation,
   } = documentsStore.getState();
   // Ref-shaped views for async work: they read the store, so they hold every write at once.
@@ -180,6 +180,16 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     return true;
   }, [commitFileText, fileRef, savedRef, textRef]);
 
+  /**
+   * Whether the canvas's `value` is the file's text as it came from outside
+   * the writer's editing (see `outsideText`). Read when the editor applies a
+   * new value, so it answers for the buffer then, never a render's snapshot.
+   */
+  const isOutsideText = useCallback((value: string) => {
+    const state = documentsStore.getState();
+    return !state.paper && state.outsideText === value;
+  }, [documentsStore]);
+
   return {
     depsRef, autoBuildEnabled: deps.autoBuild.enabled, documentsStore,
     project, projectRoot, projectRef, projectOperationGenerationRef, captureProjectScope,
@@ -197,7 +207,7 @@ export function useDocumentStore(deps: OpenDocumentsDeps) {
     persistenceReadyRoot, setPersistenceReadyRoot, tabsSettledRoot, setTabsSettledRoot,
     diskMtimeRef, flushRef, captureViewportRef, viewStates, viewStateRef, renderedRef,
     // Primitives.
-    commitFileText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
+    commitFileText, takeOutsideText, isOutsideText, showFileText, setPaperBuffers, closePaper, paperBuffersDirty, setPaperText,
     addTab, showTab, flush, bufferText, flushAndCheckDirty, markDiskMtime, requestLine, accept,
   };
 }

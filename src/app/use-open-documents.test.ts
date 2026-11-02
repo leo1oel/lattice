@@ -366,6 +366,36 @@ describe("durable text and disk", () => {
     expect(docs.current().text).toBe("Mine");
   });
 
+  it("tells the source editor which text came from outside the writer's editing, to keep it out of their undo", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
+    const docs = renderDocuments({ "main.tex": "a\nb\nc" });
+    await docs.enter();
+    const fromOutside = () => docs.current().canvas.isOutsideText(docs.current().canvas.text);
+    expect(fromOutside()).toBe(true);
+    docs.type("a\nb\nC");
+    expect(fromOutside()).toBe(false);
+
+    // A save that merged in a collaborator's line hands back text the writer never typed.
+    docs.files.set("main.tex", "A\nb\nc");
+    await act(async () => { await docs.current().save(); });
+    expect(docs.current().canvas.text).toBe("A\nb\nC");
+    expect(fromOutside()).toBe(true);
+
+    // An agent's edit on disk, reloaded into the clean buffer.
+    await act(() => vi.advanceTimersByTimeAsync(2_600));
+    docs.touch("main.tex", "A\nAgent\nC");
+    await act(() => vi.advanceTimersByTimeAsync(2_600));
+    expect(docs.current().canvas.text).toBe("A\nAgent\nC");
+    expect(fromOutside()).toBe(true);
+
+    // An Overleaf collaborator's live text.
+    act(() => { docs.current().accept("main.tex", "Remote", { text: "A\nAgent\nC", saved: "A\nAgent\nC" }); });
+    expect(fromOutside()).toBe(true);
+    // The writer's own edits, figures and Markdown publications included, are theirs to undo.
+    docs.type("Remote, mine");
+    expect(fromOutside()).toBe(false);
+  });
+
   it("keeps an outside edit a save merged in while typing went on behind it", async () => {
     // During an Overleaf sync a save waits until the sync is done; the sync
     // pulls a collaborator's line 1 meanwhile, and the writer keeps typing.

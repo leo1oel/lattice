@@ -51,6 +51,8 @@ type CanvasDocument = Readonly<{
   markdownPreviewSource?: string;
   activeFile: string;
   setSource: (value: string) => void;
+  /** Whether `value` is the source as it came from outside the writer's editing (an agent, a collaborator), which is no undo step. */
+  isOutsideSource?: (value: string) => boolean;
   onSave: () => Promise<boolean>;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;

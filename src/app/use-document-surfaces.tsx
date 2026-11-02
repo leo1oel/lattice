@@ -172,6 +172,7 @@ export function useDocumentSurfaces({
         markdownPreviewSource: documents.canvas.previewText,
         activeFile: documents.canvas.path,
         setSource: documents.canvas.setText,
+        isOutsideSource: documents.canvas.isOutsideText,
         onSave: save,
         onVisualMarkdownFlushChange: documents.canvas.registerFlush,
         onMarkdownModeViewportCaptureChange: documents.canvas.registerViewportCapture,
