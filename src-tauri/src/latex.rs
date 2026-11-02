@@ -85,12 +85,24 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
 /// here reads them. From `root` instead, a document in a subfolder left its
 /// fresh PDF at the top while the preview showed whatever stale one sat
 /// beside it. latexmk still reads `root`'s rc file before it changes folder.
+///
+/// That rc file, and the user's own `~/.latexmkrc`, may move the output or
+/// start a previewer, which nothing here can follow: `$out_dir`/`$aux_dir`
+/// built the PDF into a subfolder while the preview kept the stale one beside
+/// the document, and `$preview_continuous_mode` kept latexmk watching for
+/// edits so the build never ended. Command-line options outrank every rc
+/// file, so `LATEXMK_OVERRIDES` pin those back and leave the rc's other rules
+/// (engines, custom dependencies) in force.
 fn latexmk(root: &Path) -> Command {
     let mut command = commands::command("latexmk");
-    command.current_dir(root).arg("-cd");
+    command.current_dir(root).arg("-cd").args(LATEXMK_OVERRIDES);
     unwrapped_log(&mut command);
     command
 }
+
+/// Output beside the document (relative to it, after `-cd`), no previewer,
+/// no watching for changes. See `latexmk`.
+const LATEXMK_OVERRIDES: [&str; 4] = ["-outdir=.", "-auxdir=.", "-pv-", "-pvc-"];
 
 /// TeX breaks its terminal output and log at `max_print_line`, 79 characters
 /// by default, mid-path and mid-message: a long file name reached the
