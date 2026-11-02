@@ -348,6 +348,10 @@ Keep the previous checkout available until the upgrade audit passes.
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx src/components/chat/MessageTrail.browser.tsx
    ```
+   Then run the server regressions for the embedded panel. The first two check that a pre-warmed new chat's first turn still lists the `lattice` tools; the third checks Claude's harness policy:
+   ```sh
+   bun run --cwd apps/server test -- src/agentGateway/mcpTransport.test.ts src/orchestration/Layers/ProviderCommandReactor.test.ts src/provider/Layers/ClaudeAdapter.test.ts -t "pre-warmed draft|panel prewarm|Claude Synara harness policy"
+   ```
    The fork's `ChatView.browser.tsx` no longer has its `embedded sidebar` checks, so verify the narrow-panel behavior in the app instead. It must cover widening and shrinking the same mounted view, loaded and loading model controls, responsive history popups, and attachment minimums.
    Verify minimum-width reports against rendered geometry; unused toolbar space must remain compressible, without clipping the send control.
    A closed history menu must not reserve its preferred width, and Lattice must accept measured widths below its bootstrap minimum.
