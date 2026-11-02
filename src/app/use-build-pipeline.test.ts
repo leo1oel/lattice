@@ -39,9 +39,10 @@ let pdfWrites = 0;
 /** The pipeline over one project, with `build_project` answered by `answer`. */
 function renderPipeline(
   answer: () => Promise<BuildResult>,
-  { openDiagnostic = async () => {}, activeFile = "main.tex" }: {
+  { openDiagnostic = async () => {}, activeFile = "main.tex", setProject = vi.fn() }: {
     openDiagnostic?: (diagnostic: CompileDiagnostic) => Promise<void>;
     activeFile?: string;
+    setProject?: (update: (current: ProjectSnapshot | null) => ProjectSnapshot | null) => void;
   } = {},
 ) {
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -54,7 +55,7 @@ function renderPipeline(
   });
   const ref = <T,>(current: T) => ({ current });
   return renderHook(() => useBuildPipeline({
-    project: PROJECT, projectRef: ref(PROJECT), setProject: vi.fn(), projectGenerationRef: ref(1),
+    project: PROJECT, projectRef: ref(PROJECT), setProject, projectGenerationRef: ref(1),
     activeFileRef: ref(activeFile), sourceRef: ref("\\documentclass{article}"), savedSourceRef: ref("\\documentclass{article}"),
     agent: { takePendingCompiles: () => [], reportCompiles: vi.fn() },
     openDiagnosticRef: ref(openDiagnostic), onMissingTex: vi.fn(), autoBuildModeRef: ref("automatic" as const),
@@ -197,6 +198,31 @@ describe("the build outcome the Build button reports", () => {
     vi.mocked(invoke).mockImplementation(async () => { throw new Error("no cached PDF"); });
     act(() => view.result.current.resetForProject("/other"));
     expect(view.result.current.outcome).toBeNull();
+  });
+});
+
+describe("the root document a build compiled", () => {
+  const defaultsAfter = async (built: Partial<BuildResult>, activeFile: string) => {
+    const setProject = vi.fn();
+    const view = renderPipeline(async () => result({ hasPdf: true, ...built }), { activeFile, setProject });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    const project = setProject.mock.calls.reduce<ProjectSnapshot | null>((current, [update]) => update(current), PROJECT);
+    return { view, defaults: project?.manifest.rootDocuments.filter((document) => document.isDefault).map(({ path }) => path) };
+  };
+
+  it("adopts a root the backend recorded as the default", async () => {
+    expect((await defaultsAfter({ rootDocument: "thesis.tex" }, "thesis.tex")).defaults).toEqual(["thesis.tex"]);
+  });
+
+  // A standalone figure compiled once must not become the root that every
+  // later build, the outline and SyncTeX follow.
+  it("keeps the root document after a one-off build of a standalone figure", async () => {
+    const { view, defaults } = await defaultsAfter({ rootDocument: "figures/plot.tex", oneOff: true }, "figures/plot.tex");
+    expect(defaults).toEqual(["main.tex"]);
+    // Its PDF answers for the figure while it stays open: no rebuild first.
+    const builds = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").length;
+    await act(async () => expect(await view.result.current.ensureCompiled()).toBe(true));
+    expect(builds()).toBe(1);
   });
 });
 

@@ -5,6 +5,8 @@
 //!   `preamble_format` keeps a pdfLaTeX format of the document's preamble so
 //!   passes skip loading it; `build_steps` times the passes it runs.
 //! - `changes` builds the PDF with the changes between two versions marked.
+//! - `compile_root` picks the document a build compiles: the manifest
+//!   default, or a standalone figure open in the editor, built once.
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab; `cjk_text` explains CJK text the build dropped.
 //! - `synctex` maps positions between the compiled PDF and its sources;
@@ -20,6 +22,7 @@
 
 use crate::models::{Diagnostic, ProjectManifest, RootDocument};
 use crate::{commands, project};
+use compile_root::compiled_document;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,6 +35,7 @@ mod build_log;
 mod build_steps;
 mod changes;
 mod cjk_text;
+mod compile_root;
 mod diagnostic_paths;
 mod engine_mismatch;
 mod figure_preview;
@@ -102,8 +106,8 @@ fn unwrapped_log(command: &mut Command) -> &mut Command {
 
 fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
     let manifest = project::read_manifest(root)?;
-    let document = default_root_document(&manifest)?;
-    Ok(project::safe_path(root, &document.path)?.with_extension("pdf"))
+    let document = compiled_document(root, &manifest)?;
+    Ok(project::safe_path(root, &document)?.with_extension("pdf"))
 }
 
 /// Whether the compiled PDF is missing the SyncTeX file that pairs with it.
@@ -138,6 +142,10 @@ pub struct BuildResult {
     /// may have re-targeted onto the open file (Overleaf's rule), and the
     /// frontend needs to know without re-reading the manifest.
     pub root_document: String,
+    /// `root_document` compiled this once (a standalone figure, a subfiles
+    /// chapter) and is not the manifest default: the frontend must not adopt
+    /// it as one.
+    pub one_off: bool,
     /// The conference template the typeset document loaded ("NeurIPS"), by
     /// the log rather than the manifest: the welcome screen's badge on the
     /// project's first page.

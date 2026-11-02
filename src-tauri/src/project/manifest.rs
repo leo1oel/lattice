@@ -313,12 +313,23 @@ fn normalize_relative(path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
+/// A document a build compiles in place of the manifest default.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileRoot {
+    pub path: String,
+    /// A `standalone` figure or a `subfiles` chapter, built on its own for
+    /// this compile only. Recorded as the default, it would keep compiling
+    /// while the writer moved on to an ordinary chapter, whose build — and the
+    /// outline, word count and SyncTeX — would all follow the figure.
+    pub one_off: bool,
+}
+
 /// Which document should a build compile while `open_path` is the file in the
 /// editor? Overleaf's rule, extended with TeX magic comments: a `% !TEX root=`
 /// in the open file wins, then the open file itself if it declares a document
 /// class. `None` means the open file casts no vote (a chapter, a style file,
 /// Markdown) and the manifest default stands.
-pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<String> {
+pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<CompileRoot> {
     let relative = open_path.trim().replace('\\', "/");
     if !relative.to_ascii_lowercase().ends_with(".tex") {
         return None;
@@ -339,10 +350,44 @@ pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<String> {
             candidate.to_ascii_lowercase().ends_with(".tex")
                 && safe_path(root, candidate).is_ok_and(|path| path.is_file())
         }) {
-            return Some(candidate);
+            return Some(CompileRoot { path: candidate, one_off: false });
         }
     }
-    declares_document_class(&content).then_some(relative)
+    if !declares_document_class(&content) {
+        return None;
+    }
+    // A standalone poster the writer chose as the root builds as the default
+    // it already is, and one in a project with no root yet becomes the root.
+    let default = read_manifest(root).ok().and_then(|manifest| {
+        default_root_document(&manifest).map(|document| document.path.clone())
+    });
+    let one_off = compiles_alone(&content) && default.is_some_and(|default| default != relative);
+    Some(CompileRoot { path: relative, one_off })
+}
+
+/// Whether the document class is one made for typesetting a piece of a
+/// document by itself: `standalone` (a figure, a TikZ picture) or `subfiles`
+/// (a chapter that names its main document in the class option). The option
+/// list may span lines, so the uncommented text is read as one.
+fn compiles_alone(content: &str) -> bool {
+    let code: String = content
+        .lines()
+        .map(|line| line.split('%').next().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let Some(at) = code.find("\\documentclass") else { return false };
+    let rest = code[at + "\\documentclass".len()..].trim_start();
+    let rest = match rest.strip_prefix('[') {
+        Some(options) => match options.find(']') {
+            Some(end) => options[end + 1..].trim_start(),
+            None => return false,
+        },
+        None => rest,
+    };
+    let Some(name) = rest.strip_prefix('{').and_then(|name| name.split_once('}')) else {
+        return false;
+    };
+    matches!(name.0.trim(), "standalone" | "subfiles")
 }
 
 /// A `\documentclass` on any line, ignoring what follows an unescaped `%` so a
@@ -520,28 +565,49 @@ mod tests {
         // `../main.tex` is the TeX convention: relative to the declaring file.
         // `safe_path` alone refuses `..`, which is why this needs its own case.
         fixture.write("chapters/one.tex", "% !TEX root = ../main.tex\n\\section{One}\n");
+        // Classes made to typeset a piece alone compile, but only this once.
+        fixture.write(
+            "figures/plot.tex",
+            "\\documentclass[tikz]{standalone}\n\\begin{document}x\\end{document}\n",
+        );
+        fixture.write(
+            "chapters/sub.tex",
+            "\\documentclass[\n  ../main.tex\n]{subfiles}\n\\begin{document}x\\end{document}\n",
+        );
+        // A class whose name merely starts like one is a real root.
+        fixture.write("third.tex", "\\documentclass{standalonepaper} % {standalone}\n");
         open(&fixture.root).unwrap();
 
+        let target = |path: &str, one_off| Some(CompileRoot { path: path.to_string(), one_off });
         for (open_path, compiled) in [
             // The open file declares a document class: it is the compile target.
-            ("second.tex", Some("second.tex")),
+            ("second.tex", target("second.tex", false)),
+            ("third.tex", target("third.tex", false)),
+            ("figures/plot.tex", target("figures/plot.tex", true)),
+            ("chapters/sub.tex", target("chapters/sub.tex", true)),
             // A chapter casts no vote; the manifest default stands.
             ("chapters/intro.tex", None),
             ("chapters/outro.tex", None),
             // Non-.tex files never vote.
             ("notes.md", None),
-            ("chapters/one.tex", Some("main.tex")),
+            ("chapters/one.tex", target("main.tex", false)),
         ] {
-            assert_eq!(
-                resolve_compile_root(&fixture.root, open_path).as_deref(),
-                compiled,
-                "{open_path}"
-            );
+            assert_eq!(resolve_compile_root(&fixture.root, open_path), compiled, "{open_path}");
         }
+        // A standalone document the writer chose as the root builds as the default.
+        set_compile_root(&fixture.root, "figures/plot.tex").unwrap();
+        assert_eq!(
+            resolve_compile_root(&fixture.root, "figures/plot.tex"),
+            target("figures/plot.tex", false)
+        );
+        set_compile_root(&fixture.root, "main.tex").unwrap();
 
         // Recording the compiled document upserts it as the only default.
         let manifest = set_compile_root(&fixture.root, "second.tex").unwrap();
-        assert_eq!(root_paths(&manifest), vec![("main.tex", false), ("second.tex", true)]);
+        assert_eq!(
+            root_paths(&manifest),
+            vec![("main.tex", false), ("figures/plot.tex", false), ("second.tex", true)]
+        );
         // Written down, not just returned: the next read agrees.
         assert_eq!(root_paths(&read_manifest(&fixture.root).unwrap()), root_paths(&manifest));
         // Re-recording the current default neither duplicates nor reorders.

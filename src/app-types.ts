@@ -260,6 +260,11 @@ export type BuildResult = {
   diagnostics: CompileDiagnostic[];
   /** Project-relative path of the document the build actually compiled. */
   rootDocument: string;
+  /**
+   * The document compiled this once (a standalone figure, a subfiles chapter)
+   * and is not the project's root document, which stays as it was.
+   */
+  oneOff?: boolean;
   /** The conference template that document loaded ("NeurIPS"), read from the build's log. */
   venue?: string;
   /** The passes it ran, in order; none when latexmk found the PDF up to date. */

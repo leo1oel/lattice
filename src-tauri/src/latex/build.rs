@@ -5,9 +5,10 @@ use super::build_log::{
     parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
 };
 use super::build_steps::BuildSteps;
+use super::compile_root::{choose_compile_root, is_one_off_root};
 use super::preamble_format::{self, Prepared};
 use super::{
-    arxiv, bib_log, default_root_document, diagnostic_paths, engine_mismatch, latexmk, prewarm,
+    arxiv, bib_log, compiled_document, diagnostic_paths, engine_mismatch, latexmk, prewarm,
     shown_pdf, synctex_missing,
 };
 use crate::commands;
@@ -133,9 +134,9 @@ fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps) -> Vec<u8> {
 
 pub fn clean(root: &Path) -> Result<String, String> {
     let manifest = project::read_manifest(root)?;
-    let document = default_root_document(&manifest)?;
+    let document = compiled_document(root, &manifest)?;
     let output =
-        latexmk(root).arg("-c").arg(&document.path).output().map_err(|error| {
+        latexmk(root).arg("-c").arg(&document).output().map_err(|error| {
             format!("Could not start latexmk. Install MacTeX or TeX Live. {error}")
         })?;
     let log = trim_log(&commands::combined_output(&output));
@@ -173,6 +174,7 @@ pub fn build(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
     let mut result = build_passes(root, force, active, open_document, steps)?;
+    result.one_off = is_one_off_root(root);
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
     if shown_pdf::settle(root, &result.root_document, result.has_pdf) {
@@ -210,15 +212,7 @@ fn build_passes(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>, steps: &BuildSteps,
 ) -> Result<BuildResult, String> {
     wide_event::record("force", force);
-    // Overleaf's compile rule: the file open in the editor wins when it is a
-    // compilable root itself (\documentclass) or names one via `% !TEX root`.
-    // The winner is written back as the manifest default before latexmk runs,
-    // so a chapter opened next still compiles this document, and everything
-    // that resolves the default root (PDF preview, SyncTeX, clean) agrees on
-    // what was built.
-    if let Some(target) = open_document.and_then(|open| project::resolve_compile_root(root, open)) {
-        project::set_compile_root(root, &target)?;
-    }
+    choose_compile_root(root, open_document)?;
     // A Clean rebuild starts the preamble format over too. The reruns below
     // that force latexmk keep it: they are not about the preamble.
     if force {
@@ -319,22 +313,20 @@ fn run_latexmk_with(
     root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps, use_format: bool,
 ) -> Result<BuildResult, String> {
     let manifest = project::read_manifest(root)?;
-    let document = default_root_document(&manifest)?;
-    let root_document = project::safe_path(root, &document.path)?;
+    let document = compiled_document(root, &manifest)?;
+    let root_document = project::safe_path(root, &document)?;
     if !root_document.exists() {
-        return Err(format!("Root document not found: {}", document.path));
+        return Err(format!("Root document not found: {document}"));
     }
     let prepared = if use_format {
-        preamble_format::prepare(root, &manifest, &document.path, &root_document, active, steps)
+        preamble_format::prepare(root, &manifest, &document, &root_document, active, steps)
     } else {
         Prepared::Plain
     };
     let format = match prepared {
         Prepared::Ready(format) => Some(format),
         Prepared::Plain => None,
-        Prepared::Cancelled(log) => {
-            return Ok(cancelled_build(steps.started(), &log, &document.path))
-        }
+        Prepared::Cancelled(log) => return Ok(cancelled_build(steps.started(), &log, &document)),
     };
 
     let mut command = latexmk(root);
@@ -347,7 +339,7 @@ fn run_latexmk_with(
     if force {
         command.arg("-g");
     }
-    command.arg(&document.path);
+    command.arg(&document);
     wide_event::record("engine", manifest.engine.as_str());
     wide_event::add("latexmk_runs", 1);
 
@@ -362,7 +354,7 @@ fn run_latexmk_with(
     drop(step);
     let log = commands::combined_output(&output);
     if cancelled {
-        return Ok(cancelled_build(steps.started(), &log, &document.path));
+        return Ok(cancelled_build(steps.started(), &log, &document));
     }
 
     let success = output.status.success();
@@ -396,7 +388,7 @@ fn run_latexmk_with(
     };
     diagnostics.extend(bib_log::bibliography_diagnostics(&root_document));
     super::cjk_text::mark_ctex_missing(&mut diagnostics, crate::doctor::tex_file_installed);
-    diagnostic_paths::locate_in_project(root, &document.path, &mut diagnostics);
+    diagnostic_paths::locate_in_project(root, &document, &mut diagnostics);
     // latexmk's output is TeX's terminal, which leaves out what fontspec
     // notes only in the log file.
     let mut tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
@@ -406,7 +398,7 @@ fn run_latexmk_with(
     if let Some(mut warning) =
         pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &tex_log, &log))
     {
-        warning.file = Some(document.path.clone());
+        warning.file = Some(document.clone());
         diagnostics.push(warning);
     }
     Ok(BuildResult {
@@ -415,7 +407,8 @@ fn run_latexmk_with(
         diagnostics,
         log: trim_log(&log),
         duration_ms: steps.started().elapsed().as_millis(),
-        root_document: document.path.clone(),
+        root_document: document.clone(),
+        one_off: false,
         venue: log_conference_template(&tex_log).or_else(|| log_conference_template(&log)),
         steps: Vec::new(),
         pages: pages_written(&tex_log),
@@ -475,6 +468,7 @@ pub(super) fn cancelled_build(
         },
         duration_ms: elapsed.as_millis(),
         root_document: root_document.to_string(),
+        one_off: false,
         venue: None,
         steps: Vec::new(),
         pages: None,

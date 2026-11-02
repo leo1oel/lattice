@@ -122,6 +122,8 @@ type CanvasBibliography = Readonly<{
   compiledBuild?: CompiledBuild;
   projectPaths: string[];
   graphicsRoots: string[];
+  /** The project's root document, whose folder TeX reads `\input` paths from. */
+  rootDocumentPath?: string;
 }>;
 
 /** Jumps into the document and out of it: requests, view state, symbols, the outline and its dialogs. */

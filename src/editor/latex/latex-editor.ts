@@ -79,6 +79,8 @@ export type LatexEditorLiveData = {
   localMacros: LocalMacro[];
   graphicsRoots: string[];
   projectPaths: string[];
+  /** The project's root document, whose folder TeX reads `\input` paths from. */
+  rootDocumentPath?: string;
   onOpenCitation?: (key: string) => void;
   canOpenCitation?: (key: string) => boolean;
   /** The library, for a citation card's Crossref health; matched by citation key. */
@@ -369,7 +371,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
   const gotoDefinition = (view: EditorView, position: number): boolean => {
     const data = live();
     const text = view.state.doc.toString();
-    const target = onGotoDefinition && definitionTargetAt(text, position, data.references, data.projectPaths, data.graphicsRoots);
+    const target = onGotoDefinition && definitionTargetAt(text, position, data.references, data.projectPaths, data.graphicsRoots, data.rootDocumentPath);
     if (target) {
       onGotoDefinition(target);
       return true;
