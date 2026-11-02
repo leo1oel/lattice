@@ -570,17 +570,17 @@ resolving them would make this file differ per machine. They are recorded
 as declared specs; each is published by, and carries the license of, the
 parent package listed beside it.
 
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-android-arm64@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-darwin-arm64@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-darwin-x64@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-arm-gnueabihf@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-arm64-gnu@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-arm64-musl@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-riscv64-gnu@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-x64-gnu@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-linux-x64-musl@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-win32-arm64-msvc@1.0.10`
-- `@napi-rs/canvas@1.0.10 → @napi-rs/canvas-win32-x64-msvc@1.0.10`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-android-arm64@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-darwin-arm64@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-darwin-x64@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-arm-gnueabihf@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-arm64-gnu@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-arm64-musl@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-riscv64-gnu@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-x64-gnu@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-linux-x64-musl@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-win32-arm64-msvc@1.1.0`
+- `@napi-rs/canvas@1.1.0 → @napi-rs/canvas-win32-x64-msvc@1.1.0`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-android-arm64@4.3.3`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-darwin-arm64@4.3.3`
 - `@tailwindcss/oxide@4.3.3 → @tailwindcss/oxide-darwin-x64@4.3.3`
@@ -633,17 +633,17 @@ parent package listed beside it.
 
 </details>
 
-### License texts (64 distinct texts across 587 packages)
+### License texts (65 distinct texts across 587 packages)
 
-#### 1. MIT (+1 other declarations) — 236 package(s), from `LICENSE`
+#### 1. MIT (+1 other declarations) — 235 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@napi-rs/canvas@1.0.10`, `@oxc-project/types@0.144.0`, `@pdfslick/core@4.0.2`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@tiptap/core@3.32.2`, `@tiptap/extension-blockquote@3.32.2`, `@tiptap/extension-bold@3.32.2`, `@tiptap/extension-bubble-menu@3.32.2`, `@tiptap/extension-bullet-list@3.32.2`, `@tiptap/extension-code-block@3.32.2`, `@tiptap/extension-code@3.32.2`, `@tiptap/extension-document@3.32.2`, `@tiptap/extension-dropcursor@3.32.2`, `@tiptap/extension-floating-menu@3.32.2`, `@tiptap/extension-gapcursor@3.32.2`, `@tiptap/extension-hard-break@3.32.2`, `@tiptap/extension-heading@3.32.2`, `@tiptap/extension-highlight@3.32.2`, `@tiptap/extension-horizontal-rule@3.32.2`, `@tiptap/extension-image@3.32.2`, `@tiptap/extension-italic@3.32.2`, `@tiptap/extension-link@3.32.2`, `@tiptap/extension-list-item@3.32.2`, `@tiptap/extension-list-keymap@3.32.2`, `@tiptap/extension-list@3.32.2`, `@tiptap/extension-ordered-list@3.32.2`, `@tiptap/extension-paragraph@3.32.2`, `@tiptap/extension-strike@3.32.2`, `@tiptap/extension-table@3.32.2`, `@tiptap/extension-text@3.32.2`, `@tiptap/extension-underline@3.32.2`, `@tiptap/extensions@3.32.2`, `@tiptap/pm@3.32.2`, `@tiptap/react@3.32.2`, `@tiptap/starter-kit@3.32.2`, `@tiptap/suggestion@3.32.2`, `@univerjs/icons@1.4.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.21`, `brace-expansion@2.1.7`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `has-flag@4.0.0`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `isarray@1.0.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll-bar@2.3.8`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `scheduler@0.27.0`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyglobby@0.2.17`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@5.0.15`
+`@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@oxc-project/types@0.144.0`, `@pdfslick/core@4.0.2`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@tiptap/core@3.32.2`, `@tiptap/extension-blockquote@3.32.2`, `@tiptap/extension-bold@3.32.2`, `@tiptap/extension-bubble-menu@3.32.2`, `@tiptap/extension-bullet-list@3.32.2`, `@tiptap/extension-code-block@3.32.2`, `@tiptap/extension-code@3.32.2`, `@tiptap/extension-document@3.32.2`, `@tiptap/extension-dropcursor@3.32.2`, `@tiptap/extension-floating-menu@3.32.2`, `@tiptap/extension-gapcursor@3.32.2`, `@tiptap/extension-hard-break@3.32.2`, `@tiptap/extension-heading@3.32.2`, `@tiptap/extension-highlight@3.32.2`, `@tiptap/extension-horizontal-rule@3.32.2`, `@tiptap/extension-image@3.32.2`, `@tiptap/extension-italic@3.32.2`, `@tiptap/extension-link@3.32.2`, `@tiptap/extension-list-item@3.32.2`, `@tiptap/extension-list-keymap@3.32.2`, `@tiptap/extension-list@3.32.2`, `@tiptap/extension-ordered-list@3.32.2`, `@tiptap/extension-paragraph@3.32.2`, `@tiptap/extension-strike@3.32.2`, `@tiptap/extension-table@3.32.2`, `@tiptap/extension-text@3.32.2`, `@tiptap/extension-underline@3.32.2`, `@tiptap/extensions@3.32.2`, `@tiptap/pm@3.32.2`, `@tiptap/react@3.32.2`, `@tiptap/starter-kit@3.32.2`, `@tiptap/suggestion@3.32.2`, `@univerjs/icons@1.4.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.21`, `brace-expansion@2.1.7`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `has-flag@4.0.0`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `isarray@1.0.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll-bar@2.3.8`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `scheduler@0.27.0`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyglobby@0.2.17`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@5.0.15`
 
 </details>
 
-Copyright notices (58):
+Copyright notices (57):
 
 ```text
 Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
@@ -670,7 +670,6 @@ Copyright (c) 2018-present, iamkun
 Copyright (c) 2019 Material-UI SAS
 Copyright (c) 2019 Paul Henschel
 Copyright (c) 2020 Anton Korzunov
-Copyright (c) 2020 lynweklm@gmail.com
 Copyright (c) 2021 Dany Castillo
 Copyright (c) 2021 Pine Wu
 Copyright (c) 2021 Zilong Yao
@@ -936,7 +935,7 @@ THE SOFTWARE.
 
 <details><summary>Packages sharing this text</summary>
 
-`@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@univerjs/core@0.25.1`, `@univerjs/design@0.25.1`, `@univerjs/docs-ui@0.25.1`, `@univerjs/docs@0.25.1`, `@univerjs/drawing@0.25.1`, `@univerjs/engine-formula@0.25.1`, `@univerjs/engine-render@0.25.1`, `@univerjs/network@0.25.1`, `@univerjs/preset-sheets-core@0.25.1`, `@univerjs/protocol@0.25.1`, `@univerjs/rpc@0.25.1`, `@univerjs/sheets-formula-ui@0.25.1`, `@univerjs/sheets-formula@0.25.1`, `@univerjs/sheets-numfmt-ui@0.25.1`, `@univerjs/sheets-numfmt@0.25.1`, `@univerjs/sheets-ui@0.25.1`, `@univerjs/sheets@0.25.1`, `@univerjs/telemetry@0.25.1`, `@univerjs/themes@0.25.1`, `@univerjs/ui@0.25.1`, `pdfjs-dist@6.4.299`
+`@tauri-apps/api@2.11.1` (`Apache-2.0 OR MIT`), `@univerjs/core@0.25.1`, `@univerjs/design@0.25.1`, `@univerjs/docs-ui@0.25.1`, `@univerjs/docs@0.25.1`, `@univerjs/drawing@0.25.1`, `@univerjs/engine-formula@0.25.1`, `@univerjs/engine-render@0.25.1`, `@univerjs/network@0.25.1`, `@univerjs/preset-sheets-core@0.25.1`, `@univerjs/protocol@0.25.1`, `@univerjs/rpc@0.25.1`, `@univerjs/sheets-formula-ui@0.25.1`, `@univerjs/sheets-formula@0.25.1`, `@univerjs/sheets-numfmt-ui@0.25.1`, `@univerjs/sheets-numfmt@0.25.1`, `@univerjs/sheets-ui@0.25.1`, `@univerjs/sheets@0.25.1`, `@univerjs/telemetry@0.25.1`, `@univerjs/themes@0.25.1`, `@univerjs/ui@0.25.1`, `pdfjs-dist@6.5.438`
 
 </details>
 
@@ -3364,7 +3363,81 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 36. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 36. MIT — 1 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`@napi-rs/canvas@1.1.0`
+
+</details>
+
+Copyright notices (3):
+
+```text
+Copyright (c) 2020 lynweklm@gmail.com
+Copyright 2015 The Chromium Authors
+copyright notice, this list of conditions and the following disclaimer
+```
+
+```text
+MIT License
+
+Copyright (c) 2020 lynweklm@gmail.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+src/svg_doc/broken_image.png is Chromium's broken-image icon
+(third_party/blink/public/default_100_percent/blink/broken_image.png),
+used under the Chromium license:
+
+Copyright 2015 The Chromium Authors
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google LLC nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+#### 37. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3410,7 +3483,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 37. MIT — 1 package(s), from `LICENSE.md`
+#### 38. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -5841,7 +5914,7 @@ Repository: https://github.com/sveltejs/zimmerframe
 > SOFTWARE.
 ```
 
-#### 38. BSD-3-Clause — 1 package(s), from `LICENSE.md`
+#### 39. BSD-3-Clause — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -5884,7 +5957,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 39. MIT — 1 package(s), from `LICENSE`
+#### 40. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -5920,7 +5993,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 40. Apache-2.0 — 1 package(s), from `LICENSE`
+#### 41. Apache-2.0 — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6130,7 +6203,7 @@ Apache License
    limitations under the License.
 ```
 
-#### 41. (MIT OR GPL-3.0-or-later) — 1 package(s), from `LICENSE.markdown`
+#### 42. (MIT OR GPL-3.0-or-later) — 1 package(s), from `LICENSE.markdown`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6800,7 +6873,7 @@ copy of the Program in return for a fee.
                      END OF TERMS AND CONDITIONS
 ```
 
-#### 42. MIT — 1 package(s), from `LICENSE`
+#### 43. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6838,7 +6911,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 43. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 44. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6886,7 +6959,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 44. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 45. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6939,7 +7012,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 45. MIT — 1 package(s), from `LICENSE`
+#### 46. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -6981,7 +7054,7 @@ end of terms and conditions
 The licenses of externally maintained libraries from which parts of the Software is derived are listed [here](https://github.com/rolldown/rolldown/blob/main/THIRD-PARTY-LICENSE).
 ```
 
-#### 46. MIT — 1 package(s), from `LICENSE`
+#### 47. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7018,7 +7091,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 47. MIT — 1 package(s), from `LICENSE.md`
+#### 48. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7056,7 +7129,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 48. MIT — 1 package(s), from `LICENSE`
+#### 49. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7091,7 +7164,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 49. ISC — 1 package(s), from `LICENSE`
+#### 50. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7153,7 +7226,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 50. MIT — 1 package(s), from `LICENSE`
+#### 51. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7191,7 +7264,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 51. MIT — 1 package(s), from `LICENSE.md`
+#### 52. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7221,7 +7294,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 52. MIT — 1 package(s), from `LICENSE`
+#### 53. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7280,7 +7353,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-#### 53. ISC — 1 package(s), from `LICENSE`
+#### 54. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7319,7 +7392,7 @@ under a Creative Commons Attribution-ShareAlike 4.0 International License
 https://creativecommons.org/licenses/by-sa/4.0/
 ```
 
-#### 54. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 55. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7363,7 +7436,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 55. MIT — 1 package(s), from `LICENSE`
+#### 56. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7405,7 +7478,7 @@ Commits in this fork are (c) Ziggy Jonsson (ziggy.jonsson.nyc@gmail.com)
 and fall under same licence structure as the original repo (MIT)
 ```
 
-#### 56. MIT — 1 package(s), from `license`
+#### 57. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7445,7 +7518,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 57. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 58. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7501,7 +7574,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 58. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 59. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7551,7 +7624,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 59. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
+#### 60. ISC — 1 package(s), from `licenses/upstream/npm/saxes@5.0.1/LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7635,7 +7708,7 @@ MIT License, as follows:
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 60. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 61. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7682,7 +7755,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 61. MIT — 1 package(s), from `LICENCE.md`
+#### 62. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7721,7 +7794,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 62. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 63. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7749,7 +7822,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 63. MIT — 1 package(s), from `LICENSE.txt`
+#### 64. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -7788,7 +7861,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 64. ISC — 1 package(s), from `LICENSE`
+#### 65. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
