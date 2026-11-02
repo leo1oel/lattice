@@ -47,7 +47,7 @@ On WebKit the composer draws its own caret (`ComposerDrawnCaretPlugin`): WebKit 
 
 The agent panel keeps Claude Code warm only while Lattice shows it. Lattice posts `lattice:agent-panel-visibility` `{visible}` when the frame is ready and on every change (the panel behind another tab, collapsed or hidden), because the frame stays mounted and its own `visibilityState` follows only the window.
 Only a panel that is shown, in a visible window, reports its thread to the server (which keeps that thread out of the idle stop) and starts Claude ahead of Send; a panel hidden for 30 seconds gives its thread up, which stops an unused warm runtime, and the frame treats itself as hidden until Lattice first says otherwise.
-A new chat's warm runtime is adopted by its first send only while every setting Claude Code reads at spawn (`claudeLaunchSettings`: "Load my MCP servers" and process priority) still matches; otherwise the send starts a fresh one, and the panel's next report re-warms the draft under the new settings.
+A new chat's warm runtime is adopted by its first send only while every setting Claude Code reads at spawn (`claudeLaunchSettings`: "Load my MCP servers", process priority and the disabled skills) still matches; otherwise the send starts a fresh one, and the panel's next report re-warms the draft under the new settings.
 
 The panel answers `lattice:composer-prompt` (version 1), which lets Lattice put a prompt in the agent composer or send it, in the active chat or a new one, for Open Slide's in-canvas agent buttons.
 A draft fills an empty composer or goes on a new line under the user's text, and focuses the composer; an empty draft only focuses it.
