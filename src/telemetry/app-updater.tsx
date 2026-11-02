@@ -30,7 +30,8 @@ import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import { spaceMixedScript } from "../trellis/trellis-titles";
-import { loadChoice, persistSetting } from "../settings/app-settings";
+import { loadChoice } from "../settings/app-settings";
+import { sharedSetting, useSharedSetting } from "../settings/shared-setting";
 import {
   addAppLog,
   dismissAppToastByDedupeKey,
@@ -56,8 +57,11 @@ const MODE_KEY = "lattice.update.mode.v1";
 const DEFAULT_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 
 // Storage failures fall back to manual, and a choice that cannot be saved still
-// applies for this session.
-const loadUpdateMode = () => loadChoice<UpdateMode>(MODE_KEY, ["auto"], "manual");
+// applies for this session. Shared by every window (shared-setting.ts): one
+// opened before the writer switched to manual must not go on installing.
+const updateModeSetting = sharedSetting(MODE_KEY, () => loadChoice<UpdateMode>(MODE_KEY, ["auto"], "manual"), {
+  serialize: (mode) => mode,
+});
 
 /** Minimal shape of the object returned by `@tauri-apps/plugin-updater`'s check(). */
 type TauriUpdate = {
@@ -179,7 +183,7 @@ function showRestartOffer(version: string, restart: () => void) {
 }
 
 function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true): UpdaterApi {
-  const [mode, setModeState] = useState<UpdateMode>(loadUpdateMode);
+  const [mode] = useSharedSetting(updateModeSetting);
   const [state, setState] = useState<UpdaterState>(IDLE);
   const pendingRef = useRef<TauriUpdate | null>(null);
   const installingRef = useRef(false);
@@ -331,8 +335,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const install = useCallback(() => installUpdate(true), [installUpdate]);
 
   const setMode = useCallback((next: UpdateMode) => {
-    setModeState(next);
-    persistSetting(MODE_KEY, next);
+    updateModeSetting.set(next);
     // Switching to automatic while an update is already waiting installs it now.
     if (next === "auto" && pendingRef.current && !installingRef.current) {
       void installUpdate(false);

@@ -7,7 +7,9 @@ import { memo, Suspense, type ComponentType, type Dispatch, type SetStateAction 
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { LivePreview } from "../live-preview/use-live-preview";
-import { persistOverleafRemoteDelete, persistOverleafSyncMode, type BuildPreferences } from "../settings/app-settings";
+import type { BuildPreferences } from "../settings/app-settings";
+import { useSharedSetting } from "../settings/shared-setting";
+import { overleafRemoteDeleteSetting, overleafSyncModeSetting } from "../overleaf/overleaf-sync-settings";
 import type { SettingsDialogProps } from "../settings/settings-dialog";
 import type { useAppearance } from "../settings/use-appearance";
 import type { ProjectManifest, ProjectSnapshot, SettingsTab } from "../app-types";
@@ -39,8 +41,7 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
   synara: Pick<SynaraHost, "runtime" | "retry">;
   overleaf: Pick<
     ReturnType<typeof useOverleafWorkspace>,
-    | "overleafSyncMode" | "setOverleafSyncMode" | "overleafRemoteDelete" | "setOverleafRemoteDelete" | "overleafRealtime"
-    | "refreshOverleafLink"
+    "overleafSyncMode" | "overleafRealtime" | "refreshOverleafLink"
   >;
   texSetup: TexSetup;
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanProject" | "cleaning" | "building">;
@@ -51,7 +52,8 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
   livePreview: LivePreview;
 }) {
   const { t } = useLingui();
-  const { overleafSyncMode, setOverleafSyncMode, setOverleafRemoteDelete, overleafRealtime } = overleaf;
+  const { overleafSyncMode, overleafRealtime } = overleaf;
+  const [overleafRemoteDelete, setOverleafRemoteDelete] = useSharedSetting(overleafRemoteDeleteSetting);
   return (<>
     {late && (
       <SettingsLoadingShell label={t`Settings`} message={t`Loading settings…`} backdrop={!open}
@@ -66,18 +68,12 @@ export const AppSettingsDialog = memo(function AppSettingsDialog({
         synaraWorkspaceRoot={project?.root}
         onRetrySynaraRuntime={synara.retry}
         overleafSyncMode={overleafSyncMode}
-        overleafRemoteDelete={overleaf.overleafRemoteDelete}
-        onOverleafRemoteDeleteChange={(mode) => {
-          setOverleafRemoteDelete(mode);
-          persistOverleafRemoteDelete(mode);
-        }}
+        overleafRemoteDelete={overleafRemoteDelete}
+        onOverleafRemoteDeleteChange={setOverleafRemoteDelete}
         overleafChannel={overleafSyncMode === "live" ? overleafRealtime.status : "off"}
         overleafChannelDetail={overleafRealtime.detail}
         onOverleafLinkChanged={overleaf.refreshOverleafLink}
-        onOverleafSyncModeChange={(mode) => {
-          setOverleafSyncMode(mode);
-          persistOverleafSyncMode(mode);
-        }}
+        onOverleafSyncModeChange={overleafSyncModeSetting.set}
         tab={tab}
         setTab={(next) => {
           showTab(next);

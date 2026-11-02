@@ -1,4 +1,5 @@
 import type { PeerColor } from "../../components/ui/collab-colors";
+import { sharedSetting } from "../../settings/shared-setting";
 
 const AUTHOR_ID_KEY = "lattice.editor-comment-author-id.v1";
 
@@ -122,7 +123,7 @@ const [AUTHOR_NAME_KEY, SHARES_AUTHOR_NAME_KEY] = ["lattice.author-name.v1", "la
  * The "Your name" setting. A name typed into the retired Lattice Shares
  * dialog is read until the setting is first saved, so it keeps signing.
  */
-export function loadAuthorNameSetting(): string {
+function loadAuthorNameSetting(): string {
   try {
     return localStorage.getItem(AUTHOR_NAME_KEY) ?? localStorage.getItem(SHARES_AUTHOR_NAME_KEY) ?? "";
   } catch {
@@ -130,13 +131,8 @@ export function loadAuthorNameSetting(): string {
   }
 }
 
-export function persistAuthorNameSetting(name: string): void {
-  try {
-    localStorage.setItem(AUTHOR_NAME_KEY, name.trim());
-  } catch {
-    // Storage can be unavailable; the name then lasts for this session.
-  }
-}
+/** Shared by every window (shared-setting.ts); saved trimmed, while the field keeps what was typed. */
+export const authorNameSetting = sharedSetting(AUTHOR_NAME_KEY, loadAuthorNameSetting, { serialize: (name) => name.trim() });
 
 /**
  * The name comments are signed with: the writer's Git

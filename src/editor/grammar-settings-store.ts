@@ -1,5 +1,5 @@
 import { createStore } from "zustand/vanilla";
-import { persistSetting } from "../settings/app-settings";
+import { sharedSetting } from "../settings/shared-setting";
 
 const GRAMMAR_SETTINGS_KEY = "lattice.grammar.v1";
 
@@ -42,25 +42,30 @@ function loadGrammarSettings(): GrammarSettings {
   }
 }
 
+/** Shared by every window, so a rule switched off in one stays off in all (shared-setting.ts). */
+const grammarSetting = sharedSetting(GRAMMAR_SETTINGS_KEY, loadGrammarSettings);
+
 /**
  * Held outside React because every open editor's Harper linter reads it at
  * lint time and re-lints when it changes (harper-spellcheck.ts), with no
  * component in between to hand it down.
  */
-export const grammarSettingsStore = createStore<GrammarSettings & GrammarSettingsActions>()((set, get) => {
-  const update = (patch: Partial<GrammarSettings>) => {
-    set(patch);
-    const { dialect, profile, rules } = get();
-    persistSetting(GRAMMAR_SETTINGS_KEY, JSON.stringify({ dialect, profile, rules }));
+export const grammarSettingsStore = createStore<GrammarSettings & GrammarSettingsActions>()(() => {
+  // Each change applies to what storage holds now, never to this window's
+  // copy, so it keeps the choices and rules another window made since.
+  const update = (change: (current: GrammarSettings) => Partial<GrammarSettings>) => {
+    grammarSetting.set((current) => ({ ...current, ...change(current) }));
   };
   return {
-    ...loadGrammarSettings(),
-    setDialect: (dialect) => update({ dialect }),
-    setProfile: (profile) => update({ profile }),
-    setRule: (name, enabled) => {
-      const { [name]: _previous, ...rules } = get().rules;
-      update({ rules: enabled === null ? rules : { ...rules, [name]: enabled } });
-    },
-    resetRules: () => update({ rules: {} }),
+    ...grammarSetting.get(),
+    setDialect: (dialect) => update(() => ({ dialect })),
+    setProfile: (profile) => update(() => ({ profile })),
+    setRule: (name, enabled) => update(({ rules: { [name]: _previous, ...rules } }) => (
+      { rules: enabled === null ? rules : { ...rules, [name]: enabled } }
+    )),
+    resetRules: () => update(() => ({ rules: {} })),
   };
 });
+
+// For the window's life: the store follows each change, this window's or another's.
+grammarSetting.subscribe(() => grammarSettingsStore.setState(grammarSetting.get()));
