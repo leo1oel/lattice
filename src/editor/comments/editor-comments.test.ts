@@ -54,7 +54,7 @@ describe("comment author name", () => {
     localStorage.setItem("lattice.collab.name", "Grace");
     expect(authorNameSetting.get()).toBe("Grace");
     authorNameSetting.set("  Ada Lovelace ");
-    expect(localStorage.getItem("lattice.author-name.v1")).toBe("Ada Lovelace");
+    expect(localStorage.getItem("lattice.author-name.v1")).toBe("  Ada Lovelace ");
     authorNameSetting.set("");
     expect(localStorage.getItem("lattice.author-name.v1")).toBe("");
     expect(authorNameSetting.get()).toBe("");

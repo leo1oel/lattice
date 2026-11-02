@@ -131,8 +131,8 @@ function loadAuthorNameSetting(): string {
   }
 }
 
-/** Shared by every window (shared-setting.ts); saved trimmed, while the field keeps what was typed. */
-export const authorNameSetting = sharedSetting(AUTHOR_NAME_KEY, loadAuthorNameSetting, { serialize: (name) => name.trim() });
+/** Shared by every window (shared-setting.ts); saved as typed, and trimmed when it signs (`resolveAuthorName`). */
+export const authorNameSetting = sharedSetting(AUTHOR_NAME_KEY, loadAuthorNameSetting, { serialize: (name) => name });
 
 /**
  * The name comments are signed with: the writer's Git
