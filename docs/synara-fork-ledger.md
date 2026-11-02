@@ -10,7 +10,7 @@ measurements; re-run the commands rather than quoting them.
 
 The fork as a whole is **not** small. Measured on 2026-11-02 against upstream
 `v1.0.9` (`ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`), the current integration changes
-**784 files, +89,717 / −8,638 lines**. It carries embedded-workspace UI, a skills manager,
+**788 files, +90,268 / −8,653 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -47,7 +47,7 @@ On WebKit the composer draws its own caret (`ComposerDrawnCaretPlugin`): WebKit 
 
 The agent panel keeps Claude Code warm only while Lattice shows it. Lattice posts `lattice:agent-panel-visibility` `{visible}` when the frame is ready and on every change (the panel behind another tab, collapsed or hidden), because the frame stays mounted and its own `visibilityState` follows only the window.
 Only a panel that is shown, in a visible window, reports its thread to the server (which keeps that thread out of the idle stop) and starts Claude ahead of Send; a panel hidden for 30 seconds gives its thread up, which stops an unused warm runtime, and the frame treats itself as hidden until Lattice first says otherwise.
-A new chat's warm runtime is adopted by its first send only while every setting Claude Code reads at spawn (`claudeLaunchSettings`: "Load my MCP servers" and process priority) still matches; otherwise the send starts a fresh one, and the panel's next report re-warms the draft under the new settings.
+A new chat's warm runtime is adopted by its first send only while every setting Claude Code reads at spawn (`claudeLaunchSettings`: "Load my MCP servers", process priority and the disabled skills) still matches; otherwise the send starts a fresh one, and the panel's next report re-warms the draft under the new settings.
 
 The panel answers `lattice:composer-prompt` (version 1), which lets Lattice put a prompt in the agent composer or send it, in the active chat or a new one, for Open Slide's in-canvas agent buttons.
 A draft fills an empty composer or goes on a new line under the user's text, and focuses the composer; an empty draft only focuses it.
@@ -66,6 +66,12 @@ Messages go out at most four a second and the trailing one is always the current
 The pin also gives the agent `preview_latex_figure`: it sends a figure's body (with extra preamble lines, the document whose preamble to use, the line width, and optionally the caption, label and placement) to Lattice, which typesets it alone and answers with a PNG that reaches the model as image content (see [the agent tool boundary](synara-runtime.md#agent-tool-boundary)).
 It rides the presentation channel as the action `preview_figure`, since that broker, its result route and the web relay already carry one rendered image back per request, and the broker's timeout message now names a preview rather than the presentation tool.
 The host policy tells the agent to preview every figure it draws or changes, fix what reads badly in the image, and insert the `figure` environment the tool returns with its ordinary file edit.
+
+Claude gets Lattice's bundled skills natively, as Codex already did through `skills/extraRoots/set`. Each Claude session loads a local plugin named `lattice` from `claude-skills-plugin/<hash of the served set>/` under the Synara home (the SDK `plugins` option, with MCP discovery off), which links every enabled skill from `SYNARA_BUNDLED_SKILLS_DIR` and `~/.synara/skills`; nothing is written to `~/.claude` or the project.
+Claude lists them as `lattice:<name>` and can load one itself; the host context's `presentationAuthoring.claudeSkill` names `lattice:authoring-presentations` for that reason, beside the bare `skill` name Codex uses.
+A skill turned off in Settings (`skills.disabled`, so research-writing by default) stays out, and a toggle reaches the next session, not a running one; the disabled set is one of the `claudeLaunchSettings`, so a warm draft spawned before a toggle is not adopted.
+Naming a served skill with `$` adds a short pointer to its `lattice:` name (and its path) instead of pasting the SKILL.md; any other skill is still inlined.
+The listing costs about 555 characters (two skills, about 140 tokens) in the first user message's cached block; the system prompt and tool list are unchanged.
 
 Every embedded frame (the Agent panel, the Git drawer's views, Settings' pages) leaves Lattice's own shortcuts to Lattice. It asks for them with `lattice:request-host-shortcuts`; Lattice answers, and sends again whenever the set changes, `lattice:host-shortcuts` (version 1) with the keys its window's command table can run at that moment, each as `{key, mod, ctrl, shift, alt}`.
 A capture listener installed before the first render stops such a key ahead of every Synara binding and posts it back as `synara:host-shortcut` (`key`, `code` and the four modifier flags); Lattice dispatches it again on that frame's iframe element, so it runs as if pressed beside the frame, and drops one it does not run at that moment.

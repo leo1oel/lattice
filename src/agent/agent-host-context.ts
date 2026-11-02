@@ -75,6 +75,9 @@ const PRESENTATION_AUTHORING_CONTEXT = {
   nativeEntryPattern: "slides/<deck-id>/index.tsx",
   nativeFormat: "open_slide_tsx",
   skill: "authoring-presentations",
+  // Claude Code lists the bundled skills Synara serves it under the `lattice`
+  // plugin, so the bare name above is not in its skill list.
+  claudeSkill: "lattice:authoring-presentations",
   defaultWhenOutputFormatUnspecified: true,
   unsupportedPptx: true,
   supportsHtmlExport: true,
