@@ -1,0 +1,55 @@
+{
+  "version": "0.14.3",
+  "date": "2026-11-02",
+  "highlights": [],
+  "fixes": [
+    {
+      "en": "An open file that is deleted or renamed outside Lattice no longer becomes a tab that never saves: the tab follows a renamed file, closes when nothing is unsaved, or keeps your edits and offers to recreate or save them elsewhere. Restoring an older version of the file now reloads it.",
+      "zh": "在 Lattice 之外删除或重命名的已打开文件，不会再变成一个永远无法保存的标签页：文件被重命名时标签页会跟随它；没有未保存内容时标签页会关闭；有未保存的编辑时会保留它们，并提供重新创建或另存为的选项。恢复该文件的旧版本后也会重新载入。"
+    },
+    {
+      "en": "⌘Z in the source editor undoes only your own typing, not an Overleaf collaborator's or the agent's edits.",
+      "zh": "源码编辑器中的 ⌘Z 现在只撤销你自己的输入，不会撤销 Overleaf 协作者或智能体的编辑。"
+    },
+    {
+      "en": "A project's or your own .latexmkrc can no longer move the PDF out of the preview or keep a build from finishing.",
+      "zh": "项目中或你自己的 .latexmkrc 不再能把 PDF 移出预览，也不会让编译一直无法结束。"
+    },
+    {
+      "en": "\\input and \\include paths now resolve from the root document's folder, so a root in a subfolder finds its files.",
+      "zh": "\\input 和 \\include 的路径现在从主文档所在的文件夹解析，因此位于子文件夹中的主文档也能找到它的文件。"
+    },
+    {
+      "en": "Building a standalone figure or a subfiles chapter compiles it once and no longer makes it the project's main document.",
+      "zh": "编译 standalone 图形或 subfiles 章节时只会编译它一次，不再把它设为项目的主文档。"
+    },
+    {
+      "en": "A .bib file linked from outside the project, such as a Zotero export, now works with citations, search and replace.",
+      "zh": "从项目外部链接进来的 .bib 文件（例如 Zotero 导出的文件）现在可以正常用于引用、搜索和替换。"
+    },
+    {
+      "en": "Enter and Escape in the symbol palette, find and replace, and file rename are left to your input method while it is composing.",
+      "zh": "在符号面板、查找替换和文件重命名中，输入法正在输入时，Enter 和 Escape 会交给输入法处理。"
+    },
+    {
+      "en": "Settings stay in sync across open windows, and the \"Your name\" setting keeps the spaces you type.",
+      "zh": "设置会在所有打开的窗口之间保持同步，“你的名字”设置也会保留你输入的空格。"
+    },
+    {
+      "en": "A hidden agent panel no longer keeps Claude running or warms up new chats.",
+      "zh": "隐藏的智能体面板不再让 Claude 保持运行，也不再预热新对话。"
+    },
+    {
+      "en": "Claude in the agent panel can now pick Lattice's enabled bundled skills, such as making slides, on its own.",
+      "zh": "智能体面板中的 Claude 现在能自行选用 Lattice 已启用的内置技能，例如制作幻灯片。"
+    },
+    {
+      "en": "The remaining error messages from the app now show in Chinese in the Chinese interface.",
+      "zh": "中文界面中，剩余的应用错误信息现在也会以中文显示。"
+    },
+    {
+      "en": "The PDF viewer is updated to pdf.js 6.5.438.",
+      "zh": "PDF 查看器已更新到 pdf.js 6.5.438。"
+    }
+  ]
+}
