@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Dispatch, SetStateAction } from "react";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
@@ -42,7 +43,7 @@ function renderPipeline(
   { openDiagnostic = async () => {}, activeFile = "main.tex", setProject = vi.fn() }: {
     openDiagnostic?: (diagnostic: CompileDiagnostic) => Promise<void>;
     activeFile?: string;
-    setProject?: (update: (current: ProjectSnapshot | null) => ProjectSnapshot | null) => void;
+    setProject?: Mock<Dispatch<SetStateAction<ProjectSnapshot | null>>>;
   } = {},
 ) {
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -203,10 +204,12 @@ describe("the build outcome the Build button reports", () => {
 
 describe("the root document a build compiled", () => {
   const defaultsAfter = async (built: Partial<BuildResult>, activeFile: string) => {
-    const setProject = vi.fn();
+    const setProject = vi.fn<Dispatch<SetStateAction<ProjectSnapshot | null>>>();
     const view = renderPipeline(async () => result({ hasPdf: true, ...built }), { activeFile, setProject });
     await act(() => view.result.current.runBuild(false, { requested: true }));
-    const project = setProject.mock.calls.reduce<ProjectSnapshot | null>((current, [update]) => update(current), PROJECT);
+    const project = setProject.mock.calls.reduce<ProjectSnapshot | null>(
+      (current, [update]) => (typeof update === "function" ? update(current) : update), PROJECT,
+    );
     return { view, defaults: project?.manifest.rootDocuments.filter((document) => document.isDefault).map(({ path }) => path) };
   };
 
