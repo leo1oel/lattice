@@ -13,3 +13,10 @@ src/papers/venues.ts linguist-generated
 src-tauri/templates/*/*.sty linguist-vendored
 src-tauri/templates/*/*.bst linguist-vendored
 src-tauri/templates/*/*.cls linguist-vendored
+
+# The design system's exported copy is generated from its Paper file by
+# design-system/export.mjs (design-system/README.md); edit Paper, not these.
+design-system/tokens.css linguist-generated
+design-system/tokens.json linguist-generated
+design-system/DESIGN.md linguist-generated
+design-system/paper-export.json linguist-generated

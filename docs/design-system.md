@@ -4,6 +4,17 @@ Lattice uses a compact desktop chrome around more comfortable writing and
 reading surfaces. The design system exists to keep those contexts coordinated,
 not to force every surface into one density.
 
+## The Paper file
+
+The design system is drawn and written in the Paper file
+[Lattice design system](https://app.paper.design/file/01M6EKRMTWZ2JD6ZHKF830MAVP),
+which another product can build from. `design-system/` holds its exported copy
+(tokens and rules), and `src/styles/design-system-drift.test.ts` fails when that
+copy and this app's CSS disagree. The app does not import `design-system/tokens.css`:
+`theme.css` and `foundations.css` stay the app's source, and the drift test is
+the contract between them. A design change lands in both, through the review
+loop in `design-system/README.md`.
+
 ## Decisions
 
 - The interface font (`--ui-font`) is Inter Variable, or Timeless Sans in a

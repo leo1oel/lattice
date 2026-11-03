@@ -1,0 +1,1873 @@
+{
+  "fileId": "01M6EKRMTWZ2JD6ZHKF830MAVP",
+  "tokens": [
+    {
+      "name": "--color-window",
+      "type": "color",
+      "value": "#F7F7F6",
+      "description": "The window behind everything; welcome page · app: --surface-window (light)"
+    },
+    {
+      "name": "--color-chrome",
+      "type": "color",
+      "value": "#EFEFF0",
+      "description": "Ground: titlebar gutters and the Project, Papers and Agent navigation · app: --surface-chrome (light)"
+    },
+    {
+      "name": "--color-titlebar",
+      "type": "color",
+      "value": "#F6F6F7",
+      "description": "Titlebar: the shell under a white veil, closed by a hairline · app: --surface-titlebar (light)"
+    },
+    {
+      "name": "--color-panel",
+      "type": "color",
+      "value": "#FAFAFA",
+      "description": "The sheet: docked panels and cards · app: --surface-panel (light)"
+    },
+    {
+      "name": "--color-raised",
+      "type": "color",
+      "value": "#FFFFFF",
+      "description": "The lift: menus, popovers, toasts, dialogs, Settings cards · app: --surface-panel-raised (light)"
+    },
+    {
+      "name": "--color-input",
+      "type": "color",
+      "value": "#FAFAFA",
+      "description": "Fields, selects and search · app: --surface-input (light)"
+    },
+    {
+      "name": "--color-editor",
+      "type": "color",
+      "value": "#FAFAFA",
+      "description": "Source editor and tool panels (Git, History, Overleaf) · app: --editor-bg (light)"
+    },
+    {
+      "name": "--color-pdf-ground",
+      "type": "color",
+      "value": "#EFEFF0",
+      "description": "Behind a PDF page · app: --pdf-bg (light)"
+    },
+    {
+      "name": "--color-text",
+      "type": "color",
+      "value": "#242426",
+      "description": "Primary ink · app: --text-primary (light)"
+    },
+    {
+      "name": "--color-text-secondary",
+      "type": "color",
+      "value": "#5F5F64",
+      "description": "Secondary ink; 5.5:1 on the chrome · app: --text-secondary (light)"
+    },
+    {
+      "name": "--color-line",
+      "type": "color",
+      "value": "rgb(28 28 31 / 9%)",
+      "description": "Hairline: dividers, card edges, segmented track · app: --border-subtle (light)"
+    },
+    {
+      "name": "--color-line-strong",
+      "type": "color",
+      "value": "rgb(28 28 31 / 14%)",
+      "description": "Stronger line: secondary Button edge, switch off track · app: --border-strong (light)"
+    },
+    {
+      "name": "--color-accent",
+      "type": "color",
+      "value": "#303033",
+      "description": "Interaction accent (Graphite = neutral); checkbox and switch on · app: --accent (light)"
+    },
+    {
+      "name": "--color-accent-soft",
+      "type": "color",
+      "value": "rgb(48 48 51 / 8%)",
+      "description": "Accent wash: menu and picker highlight, compact selected chip · app: --accent-soft (light)"
+    },
+    {
+      "name": "--color-accent-contrast",
+      "type": "color",
+      "value": "#FFFFFF",
+      "description": "Ink on a filled accent · app: --accent-contrast (light)"
+    },
+    {
+      "name": "--color-focus",
+      "type": "color",
+      "value": "#3B5BD6",
+      "description": "Keyboard focus ring (weft blue under Graphite; the accent under a preset) · app: --focus (light)"
+    },
+    {
+      "name": "--color-hover",
+      "type": "color",
+      "value": "rgb(36 36 38 / 5%)",
+      "description": "Control hover, 5% of the ink · app: --control-hover-surface (light)"
+    },
+    {
+      "name": "--color-pressed",
+      "type": "color",
+      "value": "rgb(36 36 38 / 8%)",
+      "description": "Control press, 8% of the ink · app: --control-pressed-surface (light)"
+    },
+    {
+      "name": "--color-tinted",
+      "type": "color",
+      "value": "rgb(48 48 51 / 12%)",
+      "description": "Tinted Button rest, accent 12% · app: --control-tinted-surface (light)"
+    },
+    {
+      "name": "--color-chrome-hover",
+      "type": "color",
+      "value": "rgb(36 36 38 / 6%)",
+      "description": "Hover on the darker chrome, 6% of the ink · app: --chrome-hover-surface (light)"
+    },
+    {
+      "name": "--color-row-selected",
+      "type": "color",
+      "value": "rgb(36 36 38 / 8%)",
+      "description": "Selected row, 8% of the ink, with medium weight · app: --navigation-tree-selected-surface (light)"
+    },
+    {
+      "name": "--color-selection",
+      "type": "color",
+      "value": "rgb(61 122 242 / 16%)",
+      "description": "Text selection in the editor · app: --editor-selection-surface (light)"
+    },
+    {
+      "name": "--color-current-line",
+      "type": "color",
+      "value": "rgb(48 48 51 / 4.3%)",
+      "description": "Editor current line, neutral under every accent · app: --editor-active-line-surface (light)"
+    },
+    {
+      "name": "--color-danger",
+      "type": "color",
+      "value": "#BC413E",
+      "description": "Danger status · app: --status-danger (light)"
+    },
+    {
+      "name": "--color-success",
+      "type": "color",
+      "value": "#2C785C",
+      "description": "Success status · app: --status-success (light)"
+    },
+    {
+      "name": "--color-warning",
+      "type": "color",
+      "value": "#8D6400",
+      "description": "Warning status · app: --status-warning (light)"
+    },
+    {
+      "name": "--color-info",
+      "type": "color",
+      "value": "#6488C5",
+      "description": "Info status · app: --status-info (light)"
+    },
+    {
+      "name": "--color-annotation",
+      "type": "color",
+      "value": "#9A5C00",
+      "description": "Open local note · app: --annotation (light)"
+    },
+    {
+      "name": "--color-brand-weft",
+      "type": "color",
+      "value": "#4568F6",
+      "description": "Mark weft thread; identity only, never a control · app: --brand-weft (light)"
+    },
+    {
+      "name": "--color-brand-warp",
+      "type": "color",
+      "value": "#25B4BB",
+      "description": "Mark warp thread; identity only, never a control · app: --brand-warp (light)"
+    },
+    {
+      "name": "--color-glyph-tex",
+      "type": "color",
+      "value": "#3B5BD6",
+      "description": "File glyph hue: tex · app: --glyph-tex (light)"
+    },
+    {
+      "name": "--color-glyph-style",
+      "type": "color",
+      "value": "#7A52C4",
+      "description": "File glyph hue: style · app: --glyph-style (light)"
+    },
+    {
+      "name": "--color-glyph-bib",
+      "type": "color",
+      "value": "#B06A00",
+      "description": "File glyph hue: bib · app: --glyph-bib (light)"
+    },
+    {
+      "name": "--color-glyph-markdown",
+      "type": "color",
+      "value": "#4D6A8A",
+      "description": "File glyph hue: markdown · app: --glyph-markdown (light)"
+    },
+    {
+      "name": "--color-glyph-pdf",
+      "type": "color",
+      "value": "#C4473C",
+      "description": "File glyph hue: pdf · app: --glyph-pdf (light)"
+    },
+    {
+      "name": "--color-glyph-image",
+      "type": "color",
+      "value": "#2E8A55",
+      "description": "File glyph hue: image · app: --glyph-image (light)"
+    },
+    {
+      "name": "--color-glyph-board",
+      "type": "color",
+      "value": "#13878A",
+      "description": "File glyph hue: board · app: --glyph-board (light)"
+    },
+    {
+      "name": "--color-glyph-sheet",
+      "type": "color",
+      "value": "#3A7F2E",
+      "description": "File glyph hue: sheet · app: --glyph-sheet (light)"
+    },
+    {
+      "name": "--color-glyph-slides",
+      "type": "color",
+      "value": "#C2571C",
+      "description": "File glyph hue: slides · app: --glyph-slides (light)"
+    },
+    {
+      "name": "--color-glyph-code",
+      "type": "color",
+      "value": "#A85A12",
+      "description": "File glyph hue: code · app: --glyph-code (light)"
+    },
+    {
+      "name": "--color-glyph-config",
+      "type": "color",
+      "value": "#6A6A70",
+      "description": "File glyph hue: config · app: --glyph-config (light)"
+    },
+    {
+      "name": "--color-glyph-folder",
+      "type": "color",
+      "value": "#8A6A3E",
+      "description": "File glyph hue: folder · app: --glyph-folder (light)"
+    },
+    {
+      "name": "--color-accent-blue",
+      "type": "color",
+      "value": "#096ACB",
+      "description": "Accent preset blue; its wash is 10% and it is also the focus ring · app: [data-accent=\"blue\"] --accent (light)"
+    },
+    {
+      "name": "--color-accent-purple",
+      "type": "color",
+      "value": "#884FBE",
+      "description": "Accent preset purple; its wash is 10% and it is also the focus ring · app: [data-accent=\"purple\"] --accent (light)"
+    },
+    {
+      "name": "--color-accent-pink",
+      "type": "color",
+      "value": "#B83B76",
+      "description": "Accent preset pink; its wash is 10% and it is also the focus ring · app: [data-accent=\"pink\"] --accent (light)"
+    },
+    {
+      "name": "--color-accent-orange",
+      "type": "color",
+      "value": "#B04D00",
+      "description": "Accent preset orange; its wash is 10% and it is also the focus ring · app: [data-accent=\"orange\"] --accent (light)"
+    },
+    {
+      "name": "--color-accent-green",
+      "type": "color",
+      "value": "#007C34",
+      "description": "Accent preset green; its wash is 10% and it is also the focus ring · app: [data-accent=\"green\"] --accent (light)"
+    },
+    {
+      "name": "--color-accent-teal",
+      "type": "color",
+      "value": "#007777",
+      "description": "Accent preset teal; its wash is 10% and it is also the focus ring · app: [data-accent=\"teal\"] --accent (light)"
+    },
+    {
+      "name": "--color-dark-window",
+      "type": "color",
+      "value": "#171718",
+      "description": "The window behind everything; welcome page · app: --surface-window (dark)"
+    },
+    {
+      "name": "--color-dark-chrome",
+      "type": "color",
+      "value": "#131315",
+      "description": "Ground: titlebar gutters and the Project, Papers and Agent navigation · app: --surface-chrome (dark)"
+    },
+    {
+      "name": "--color-dark-titlebar",
+      "type": "color",
+      "value": "#1B1B1D",
+      "description": "Titlebar: the shell under a white veil, closed by a hairline · app: --surface-titlebar (dark)"
+    },
+    {
+      "name": "--color-dark-panel",
+      "type": "color",
+      "value": "#1A1A1C",
+      "description": "The sheet: docked panels and cards · app: --surface-panel (dark)"
+    },
+    {
+      "name": "--color-dark-raised",
+      "type": "color",
+      "value": "#252528",
+      "description": "The lift: menus, popovers, toasts, dialogs, Settings cards · app: --surface-panel-raised (dark)"
+    },
+    {
+      "name": "--color-dark-input",
+      "type": "color",
+      "value": "#1F1F22",
+      "description": "Fields, selects and search · app: --surface-input (dark)"
+    },
+    {
+      "name": "--color-dark-editor",
+      "type": "color",
+      "value": "#1F1F22",
+      "description": "Source editor and tool panels (Git, History, Overleaf) · app: --editor-bg (dark)"
+    },
+    {
+      "name": "--color-dark-pdf-ground",
+      "type": "color",
+      "value": "#29292A",
+      "description": "Behind a PDF page · app: --pdf-bg (dark)"
+    },
+    {
+      "name": "--color-dark-text",
+      "type": "color",
+      "value": "#E9E9E7",
+      "description": "Primary ink · app: --text-primary (dark)"
+    },
+    {
+      "name": "--color-dark-text-secondary",
+      "type": "color",
+      "value": "#A0A0A7",
+      "description": "Secondary ink; 5.5:1 on the chrome · app: --text-secondary (dark)"
+    },
+    {
+      "name": "--color-dark-line",
+      "type": "color",
+      "value": "rgb(255 255 255 / 7.5%)",
+      "description": "Hairline: dividers, card edges, segmented track · app: --border-subtle (dark)"
+    },
+    {
+      "name": "--color-dark-line-strong",
+      "type": "color",
+      "value": "rgb(255 255 255 / 12%)",
+      "description": "Stronger line: secondary Button edge, switch off track · app: --border-strong (dark)"
+    },
+    {
+      "name": "--color-dark-accent",
+      "type": "color",
+      "value": "#E7E7E4",
+      "description": "Interaction accent (Graphite = neutral); checkbox and switch on · app: --accent (dark)"
+    },
+    {
+      "name": "--color-dark-focus",
+      "type": "color",
+      "value": "#7F97FF",
+      "description": "Keyboard focus ring (weft blue under Graphite; the accent under a preset) · app: --focus (dark)"
+    },
+    {
+      "name": "--color-dark-selection",
+      "type": "color",
+      "value": "rgb(61 122 242 / 19%)",
+      "description": "Text selection in the editor · app: --editor-selection-surface (dark)"
+    },
+    {
+      "name": "--color-dark-danger",
+      "type": "color",
+      "value": "#EE7772",
+      "description": "Danger status · app: --status-danger (dark)"
+    },
+    {
+      "name": "--color-dark-success",
+      "type": "color",
+      "value": "#66BD99",
+      "description": "Success status · app: --status-success (dark)"
+    },
+    {
+      "name": "--color-dark-warning",
+      "type": "color",
+      "value": "#D7A62B",
+      "description": "Warning status · app: --status-warning (dark)"
+    },
+    {
+      "name": "--color-dark-info",
+      "type": "color",
+      "value": "#8FABD8",
+      "description": "Info status · app: --status-info (dark)"
+    },
+    {
+      "name": "--color-dark-accent-soft",
+      "type": "color",
+      "value": "rgb(255 255 255 / 10%)",
+      "description": "Accent wash: menu and picker highlight, compact selected chip · app: --accent-soft (dark)"
+    },
+    {
+      "name": "--color-dark-accent-contrast",
+      "type": "color",
+      "value": "#171718",
+      "description": "Ink on a filled accent · app: --accent-contrast (dark)"
+    },
+    {
+      "name": "--color-dark-hover",
+      "type": "color",
+      "value": "rgb(233 233 231 / 5%)",
+      "description": "Control hover, 5% of the ink · app: --control-hover-surface (dark)"
+    },
+    {
+      "name": "--color-dark-pressed",
+      "type": "color",
+      "value": "rgb(233 233 231 / 8%)",
+      "description": "Control press, 8% of the ink · app: --control-pressed-surface (dark)"
+    },
+    {
+      "name": "--color-dark-tinted",
+      "type": "color",
+      "value": "rgb(231 231 228 / 12%)",
+      "description": "Tinted Button rest, accent 12% · app: --control-tinted-surface (dark)"
+    },
+    {
+      "name": "--color-dark-chrome-hover",
+      "type": "color",
+      "value": "rgb(233 233 231 / 6%)",
+      "description": "Hover on the darker chrome, 6% of the ink · app: --chrome-hover-surface (dark)"
+    },
+    {
+      "name": "--color-dark-row-selected",
+      "type": "color",
+      "value": "rgb(233 233 231 / 8%)",
+      "description": "Selected row, 8% of the ink, with medium weight · app: --navigation-tree-selected-surface (dark)"
+    },
+    {
+      "name": "--color-dark-current-line",
+      "type": "color",
+      "value": "rgb(255 255 255 / 5%)",
+      "description": "Editor current line, neutral under every accent · app: --editor-active-line-surface (dark)"
+    },
+    {
+      "name": "--color-dark-annotation",
+      "type": "color",
+      "value": "#F2B65E",
+      "description": "Open local note · app: --annotation (dark)"
+    },
+    {
+      "name": "--color-dark-brand-weft",
+      "type": "color",
+      "value": "#7F97FF",
+      "description": "Mark weft thread; identity only, never a control · app: --brand-weft (dark)"
+    },
+    {
+      "name": "--color-dark-brand-warp",
+      "type": "color",
+      "value": "#4FD2C6",
+      "description": "Mark warp thread; identity only, never a control · app: --brand-warp (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-tex",
+      "type": "color",
+      "value": "#8FA5FF",
+      "description": "File glyph hue: tex · app: --glyph-tex (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-style",
+      "type": "color",
+      "value": "#BBA3F2",
+      "description": "File glyph hue: style · app: --glyph-style (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-bib",
+      "type": "color",
+      "value": "#F2B65E",
+      "description": "File glyph hue: bib · app: --glyph-bib (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-markdown",
+      "type": "color",
+      "value": "#A7BAD3",
+      "description": "File glyph hue: markdown · app: --glyph-markdown (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-pdf",
+      "type": "color",
+      "value": "#F39087",
+      "description": "File glyph hue: pdf · app: --glyph-pdf (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-image",
+      "type": "color",
+      "value": "#72CF98",
+      "description": "File glyph hue: image · app: --glyph-image (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-board",
+      "type": "color",
+      "value": "#62D1CD",
+      "description": "File glyph hue: board · app: --glyph-board (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-sheet",
+      "type": "color",
+      "value": "#93D07F",
+      "description": "File glyph hue: sheet · app: --glyph-sheet (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-slides",
+      "type": "color",
+      "value": "#F4A06A",
+      "description": "File glyph hue: slides · app: --glyph-slides (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-code",
+      "type": "color",
+      "value": "#EAA565",
+      "description": "File glyph hue: code · app: --glyph-code (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-config",
+      "type": "color",
+      "value": "#9D9DA5",
+      "description": "File glyph hue: config · app: --glyph-config (dark)"
+    },
+    {
+      "name": "--color-dark-glyph-folder",
+      "type": "color",
+      "value": "#D9BC8C",
+      "description": "File glyph hue: folder · app: --glyph-folder (dark)"
+    },
+    {
+      "name": "--color-tinted-hover",
+      "type": "color",
+      "value": "rgb(48 48 51 / 18%)",
+      "description": "Tinted Button hover, accent 18% · app: --control-tinted-hover-surface (light)"
+    },
+    {
+      "name": "--color-dark-tinted-hover",
+      "type": "color",
+      "value": "rgb(231 231 228 / 18%)",
+      "description": "Tinted Button hover, accent 18% · app: --control-tinted-hover-surface (dark)"
+    },
+    {
+      "name": "--color-tinted-pressed",
+      "type": "color",
+      "value": "rgb(48 48 51 / 24%)",
+      "description": "Tinted Button press, accent 24% · app: --control-tinted-pressed-surface (light)"
+    },
+    {
+      "name": "--color-dark-tinted-pressed",
+      "type": "color",
+      "value": "rgb(231 231 228 / 24%)",
+      "description": "Tinted Button press, accent 24% · app: --control-tinted-pressed-surface (dark)"
+    },
+    {
+      "name": "--color-toolbar-active",
+      "type": "color",
+      "value": "rgb(48 48 51 / 14%)",
+      "description": "Toolbar icon that is on, accent 14% · app: --toolbar-active-surface (light)"
+    },
+    {
+      "name": "--color-dark-toolbar-active",
+      "type": "color",
+      "value": "rgb(231 231 228 / 14%)",
+      "description": "Toolbar icon that is on, accent 14% · app: --toolbar-active-surface (dark)"
+    },
+    {
+      "name": "--color-field-border",
+      "type": "color",
+      "value": "#E0E0E1",
+      "description": "Field, select and search border at rest: ink 12% over the input surface · app: --field-control-border-color (light)"
+    },
+    {
+      "name": "--color-dark-field-border",
+      "type": "color",
+      "value": "#37373A",
+      "description": "Field, select and search border at rest: ink 12% over the input surface · app: --field-control-border-color (dark)"
+    },
+    {
+      "name": "--color-field-border-hover",
+      "type": "color",
+      "value": "#C7C7C7",
+      "description": "Field border on hover and focus: ink 24% over the input surface · app: --field-control-interactive-border-color (light)"
+    },
+    {
+      "name": "--color-dark-field-border-hover",
+      "type": "color",
+      "value": "#4F4F51",
+      "description": "Field border on hover and focus: ink 24% over the input surface · app: --field-control-interactive-border-color (dark)"
+    },
+    {
+      "name": "--color-control-hover-border",
+      "type": "color",
+      "value": "rgb(45 45 48 / 51.9%)",
+      "description": "Checkbox border on hover · app: --control-hover-border (light)"
+    },
+    {
+      "name": "--color-dark-control-hover-border",
+      "type": "color",
+      "value": "rgb(234 234 232 / 50.8%)",
+      "description": "Checkbox border on hover · app: --control-hover-border (dark)"
+    },
+    {
+      "name": "--color-control-active-border",
+      "type": "color",
+      "value": "rgb(45 45 48 / 40.9%)",
+      "description": "Border of a selected compact chip or card · app: --control-active-border (light)"
+    },
+    {
+      "name": "--color-dark-control-active-border",
+      "type": "color",
+      "value": "rgb(234 234 231 / 39.8%)",
+      "description": "Border of a selected compact chip or card · app: --control-active-border (dark)"
+    },
+    {
+      "name": "--color-disabled-surface",
+      "type": "color",
+      "value": "rgb(36 36 38 / 4%)",
+      "description": "Disabled Button slab, every variant · app: --control-disabled-surface (light)"
+    },
+    {
+      "name": "--color-dark-disabled-surface",
+      "type": "color",
+      "value": "rgb(233 233 231 / 4%)",
+      "description": "Disabled Button slab, every variant · app: --control-disabled-surface (dark)"
+    },
+    {
+      "name": "--color-disabled-border",
+      "type": "color",
+      "value": "rgb(28 28 31 / 7.2%)",
+      "description": "Disabled Button edge, every variant · app: --control-disabled-border (light)"
+    },
+    {
+      "name": "--color-dark-disabled-border",
+      "type": "color",
+      "value": "rgb(255 255 255 / 6%)",
+      "description": "Disabled Button edge, every variant · app: --control-disabled-border (dark)"
+    },
+    {
+      "name": "--color-disabled-ink",
+      "type": "color",
+      "value": "rgb(95 95 100 / 62%)",
+      "description": "Disabled Button label, every variant · app: --control-disabled-ink (light)"
+    },
+    {
+      "name": "--color-dark-disabled-ink",
+      "type": "color",
+      "value": "rgb(160 160 167 / 62%)",
+      "description": "Disabled Button label, every variant · app: --control-disabled-ink (dark)"
+    },
+    {
+      "name": "--color-success-soft",
+      "type": "color",
+      "value": "rgb(44 120 92 / 12%)",
+      "description": "Success wash: badge, notice · app: --status-success-soft (light)"
+    },
+    {
+      "name": "--color-dark-success-soft",
+      "type": "color",
+      "value": "rgb(102 189 153 / 12%)",
+      "description": "Success wash: badge, notice · app: --status-success-soft (dark)"
+    },
+    {
+      "name": "--color-warning-soft",
+      "type": "color",
+      "value": "rgb(141 100 0 / 12%)",
+      "description": "Warning wash: badge, dialog mark · app: --status-warning-soft (light)"
+    },
+    {
+      "name": "--color-dark-warning-soft",
+      "type": "color",
+      "value": "rgb(215 166 43 / 12%)",
+      "description": "Warning wash: badge, dialog mark · app: --status-warning-soft (dark)"
+    },
+    {
+      "name": "--color-danger-soft",
+      "type": "color",
+      "value": "rgb(188 65 62 / 12%)",
+      "description": "Danger Button rest and danger dialog mark, danger 12% · app: --status-danger-soft (light)"
+    },
+    {
+      "name": "--color-dark-danger-soft",
+      "type": "color",
+      "value": "rgb(238 119 114 / 12%)",
+      "description": "Danger Button rest and danger dialog mark, danger 12% · app: --status-danger-soft (dark)"
+    },
+    {
+      "name": "--color-danger-soft-hover",
+      "type": "color",
+      "value": "rgb(188 65 62 / 18%)",
+      "description": "Danger Button hover, danger 18% · app: --status-danger-soft-hover (light)"
+    },
+    {
+      "name": "--color-dark-danger-soft-hover",
+      "type": "color",
+      "value": "rgb(238 119 114 / 18%)",
+      "description": "Danger Button hover, danger 18% · app: --status-danger-soft-hover (dark)"
+    },
+    {
+      "name": "--color-danger-soft-pressed",
+      "type": "color",
+      "value": "rgb(188 65 62 / 24%)",
+      "description": "Danger Button press, danger 24% · app: --status-danger-soft-pressed (light)"
+    },
+    {
+      "name": "--color-dark-danger-soft-pressed",
+      "type": "color",
+      "value": "rgb(238 119 114 / 24%)",
+      "description": "Danger Button press, danger 24% · app: --status-danger-soft-pressed (dark)"
+    },
+    {
+      "name": "--color-annotation-highlight",
+      "type": "color",
+      "value": "rgb(154 92 0 / 14%)",
+      "description": "Text under an open local note · app: --annotation-highlight (light)"
+    },
+    {
+      "name": "--color-dark-annotation-highlight",
+      "type": "color",
+      "value": "rgb(242 182 94 / 14%)",
+      "description": "Text under an open local note · app: --annotation-highlight (dark)"
+    },
+    {
+      "name": "--color-scrim",
+      "type": "color",
+      "value": "rgb(10 10 12 / 28%)",
+      "description": "Backdrop behind a modal dialog · app: --scrim-dialog-surface (light)"
+    },
+    {
+      "name": "--color-dark-scrim",
+      "type": "color",
+      "value": "rgb(0 0 0 / 50%)",
+      "description": "Backdrop behind a modal dialog · app: --scrim-dialog-surface (dark)"
+    },
+    {
+      "name": "--color-drop-target",
+      "type": "color",
+      "value": "rgb(231 234 246 / 81.6%)",
+      "description": "Trellis drop slot wash; its edge is the focus colour · app: --drop-target-surface (light)"
+    },
+    {
+      "name": "--color-dark-drop-target",
+      "type": "color",
+      "value": "rgb(36 38 50 / 81.6%)",
+      "description": "Trellis drop slot wash; its edge is the focus colour · app: --drop-target-surface (dark)"
+    },
+    {
+      "name": "--color-nav-text-strong",
+      "type": "color",
+      "value": "#404042",
+      "description": "Selected row and typed filter in the navigator, a step under the primary ink · app: --navigation-text-strong (light)"
+    },
+    {
+      "name": "--color-dark-nav-text-strong",
+      "type": "color",
+      "value": "#CBCBCA",
+      "description": "Selected row and typed filter in the navigator, a step under the primary ink · app: --navigation-text-strong (dark)"
+    },
+    {
+      "name": "--color-settings-control-hover",
+      "type": "color",
+      "value": "#F4F4F4",
+      "description": "Settings control hover, ink 5% over the lift · app: --settings-control-hover-surface (light)"
+    },
+    {
+      "name": "--color-dark-settings-control-hover",
+      "type": "color",
+      "value": "#2F2F32",
+      "description": "Settings control hover, ink 5% over the lift · app: --settings-control-hover-surface (dark)"
+    },
+    {
+      "name": "--color-line-number",
+      "type": "color",
+      "value": "#8A8A8E",
+      "description": "Editor gutter line numbers · app: --lattice-code-line-number (light)"
+    },
+    {
+      "name": "--color-dark-line-number",
+      "type": "color",
+      "value": "#7C7C82",
+      "description": "Editor gutter line numbers · app: --lattice-code-line-number (dark)"
+    },
+    {
+      "name": "--color-primary-hover",
+      "type": "color",
+      "value": "#3D3D3F",
+      "description": "Primary Button hover: ink 88% over the app ground · app: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app)) (light)"
+    },
+    {
+      "name": "--color-primary-pressed",
+      "type": "color",
+      "value": "#4A4A4B",
+      "description": "Primary Button press: ink 82% over the app ground · app: color-mix(in srgb, var(--text-primary) 82%, var(--surface-app)) (light)"
+    },
+    {
+      "name": "--color-tab-selected",
+      "type": "color",
+      "value": "#E5E5E5",
+      "description": "Selected panel tab: ink 10% laid opaque on the panel · app: color-mix(in srgb, var(--text-primary) 10%, var(--surface-panel)) (light)"
+    },
+    {
+      "name": "--color-dark-primary-hover",
+      "type": "color",
+      "value": "#D0D0CE",
+      "description": "Primary Button hover: ink 88% over the app ground · app: color-mix(in srgb, var(--text-primary) 88%, var(--surface-app)) (dark)"
+    },
+    {
+      "name": "--color-dark-primary-pressed",
+      "type": "color",
+      "value": "#C3C3C2",
+      "description": "Primary Button press: ink 82% over the app ground · app: color-mix(in srgb, var(--text-primary) 82%, var(--surface-app)) (dark)"
+    },
+    {
+      "name": "--color-dark-tab-selected",
+      "type": "color",
+      "value": "#2F2F30",
+      "description": "Selected panel tab: ink 10% laid opaque on the panel · app: color-mix(in srgb, var(--text-primary) 10%, var(--surface-panel)) (dark)"
+    },
+    {
+      "name": "--color-ring",
+      "type": "color",
+      "value": "rgb(0 0 0 / 5%)",
+      "description": "Edge ring of every raised and floating surface · app: --shadow-ring (light)"
+    },
+    {
+      "name": "--color-dark-ring",
+      "type": "color",
+      "value": "rgb(255 255 255 / 10%)",
+      "description": "Edge ring of every raised and floating surface · app: --shadow-ring (dark)"
+    },
+    {
+      "name": "--color-pdf-page",
+      "type": "color",
+      "value": "#F9F9FA",
+      "description": "A compiled PDF page; paper-coloured in both themes · app: --pdf-page-surface"
+    },
+    {
+      "name": "--color-match",
+      "type": "color",
+      "value": "rgb(255 208 0 / 34%)",
+      "description": "Search hit on document content, both themes · app: --highlight-match-surface"
+    },
+    {
+      "name": "--color-match-current",
+      "type": "color",
+      "value": "rgb(255 142 0 / 48%)",
+      "description": "Current search hit, both themes · app: --highlight-match-current-surface"
+    },
+    {
+      "name": "--color-dark-accent-blue",
+      "type": "color",
+      "value": "#4D8FE0",
+      "description": "Accent preset blue; its wash is 14% and it is also the focus ring · app: [data-accent=\"blue\"] --accent (dark)"
+    },
+    {
+      "name": "--color-dark-accent-purple",
+      "type": "color",
+      "value": "#A679D5",
+      "description": "Accent preset purple; its wash is 14% and it is also the focus ring · app: [data-accent=\"purple\"] --accent (dark)"
+    },
+    {
+      "name": "--color-dark-accent-pink",
+      "type": "color",
+      "value": "#D56B97",
+      "description": "Accent preset pink; its wash is 14% and it is also the focus ring · app: [data-accent=\"pink\"] --accent (dark)"
+    },
+    {
+      "name": "--color-dark-accent-orange",
+      "type": "color",
+      "value": "#D37438",
+      "description": "Accent preset orange; its wash is 14% and it is also the focus ring · app: [data-accent=\"orange\"] --accent (dark)"
+    },
+    {
+      "name": "--color-dark-accent-green",
+      "type": "color",
+      "value": "#3DA05A",
+      "description": "Accent preset green; its wash is 14% and it is also the focus ring · app: [data-accent=\"green\"] --accent (dark)"
+    },
+    {
+      "name": "--color-dark-accent-teal",
+      "type": "color",
+      "value": "#139D9E",
+      "description": "Accent preset teal; its wash is 14% and it is also the focus ring · app: [data-accent=\"teal\"] --accent (dark)"
+    },
+    {
+      "name": "--color-syntax-keyword",
+      "type": "color",
+      "value": "#3349C4",
+      "description": "Weft & Warp syntax: keyword · app: --lattice-syntax-keyword (light)"
+    },
+    {
+      "name": "--color-dark-syntax-keyword",
+      "type": "color",
+      "value": "#93A6FF",
+      "description": "Weft & Warp syntax: keyword · app: --lattice-syntax-keyword (dark)"
+    },
+    {
+      "name": "--color-syntax-function",
+      "type": "color",
+      "value": "#4553AD",
+      "description": "Weft & Warp syntax: function · app: --lattice-syntax-function (light)"
+    },
+    {
+      "name": "--color-dark-syntax-function",
+      "type": "color",
+      "value": "#AAB3EE",
+      "description": "Weft & Warp syntax: function · app: --lattice-syntax-function (dark)"
+    },
+    {
+      "name": "--color-syntax-type",
+      "type": "color",
+      "value": "#006A6E",
+      "description": "Weft & Warp syntax: type · app: --lattice-syntax-type (light)"
+    },
+    {
+      "name": "--color-dark-syntax-type",
+      "type": "color",
+      "value": "#5CD0C8",
+      "description": "Weft & Warp syntax: type · app: --lattice-syntax-type (dark)"
+    },
+    {
+      "name": "--color-syntax-variable",
+      "type": "color",
+      "value": "#006A6E",
+      "description": "Weft & Warp syntax: variable · app: --lattice-syntax-variable (light)"
+    },
+    {
+      "name": "--color-dark-syntax-variable",
+      "type": "color",
+      "value": "#5CD0C8",
+      "description": "Weft & Warp syntax: variable · app: --lattice-syntax-variable (dark)"
+    },
+    {
+      "name": "--color-syntax-string",
+      "type": "color",
+      "value": "#45454B",
+      "description": "Weft & Warp syntax: string · app: --lattice-syntax-string (light)"
+    },
+    {
+      "name": "--color-dark-syntax-string",
+      "type": "color",
+      "value": "#D2D2D6",
+      "description": "Weft & Warp syntax: string · app: --lattice-syntax-string (dark)"
+    },
+    {
+      "name": "--color-syntax-comment",
+      "type": "color",
+      "value": "#626268",
+      "description": "Weft & Warp syntax: comment · app: --lattice-syntax-comment (light)"
+    },
+    {
+      "name": "--color-dark-syntax-comment",
+      "type": "color",
+      "value": "#9E9EA5",
+      "description": "Weft & Warp syntax: comment · app: --lattice-syntax-comment (dark)"
+    },
+    {
+      "name": "--color-syntax-number",
+      "type": "color",
+      "value": "#7D5100",
+      "description": "Weft & Warp syntax: number · app: --lattice-syntax-number (light)"
+    },
+    {
+      "name": "--color-dark-syntax-number",
+      "type": "color",
+      "value": "#E8B25C",
+      "description": "Weft & Warp syntax: number · app: --lattice-syntax-number (dark)"
+    },
+    {
+      "name": "--color-syntax-operator",
+      "type": "color",
+      "value": "#7D5100",
+      "description": "Weft & Warp syntax: operator · app: --lattice-syntax-operator (light)"
+    },
+    {
+      "name": "--color-dark-syntax-operator",
+      "type": "color",
+      "value": "#E8B25C",
+      "description": "Weft & Warp syntax: operator · app: --lattice-syntax-operator (dark)"
+    },
+    {
+      "name": "--color-syntax-citation",
+      "type": "color",
+      "value": "#8D472F",
+      "description": "Weft & Warp syntax: citation · app: --lattice-syntax-citation (light)"
+    },
+    {
+      "name": "--color-dark-syntax-citation",
+      "type": "color",
+      "value": "#DFA27D",
+      "description": "Weft & Warp syntax: citation · app: --lattice-syntax-citation (dark)"
+    },
+    {
+      "name": "--color-syntax-reference",
+      "type": "color",
+      "value": "#7A3FA8",
+      "description": "Weft & Warp syntax: reference · app: --lattice-syntax-reference (light)"
+    },
+    {
+      "name": "--color-dark-syntax-reference",
+      "type": "color",
+      "value": "#D59BF0",
+      "description": "Weft & Warp syntax: reference · app: --lattice-syntax-reference (dark)"
+    },
+    {
+      "name": "--color-tint-paper-window",
+      "type": "color",
+      "value": "#FBF6EF",
+      "description": "Tint paper: window · app: [data-tint=\"paper\"] --bg (light)"
+    },
+    {
+      "name": "--color-tint-paper-chrome",
+      "type": "color",
+      "value": "#F3EEE7",
+      "description": "Tint paper: chrome · app: [data-tint=\"paper\"] --chrome-surface (light)"
+    },
+    {
+      "name": "--color-tint-paper-panel",
+      "type": "color",
+      "value": "#FEFAF5",
+      "description": "Tint paper: panel · app: [data-tint=\"paper\"] --panel (light)"
+    },
+    {
+      "name": "--color-tint-paper-raised",
+      "type": "color",
+      "value": "#FCF9F4",
+      "description": "Tint paper: raised · app: [data-tint=\"paper\"] --panel-strong (light)"
+    },
+    {
+      "name": "--color-dark-tint-paper-window",
+      "type": "color",
+      "value": "#191713",
+      "description": "Tint paper: window · app: [data-tint=\"paper\"] --bg (dark)"
+    },
+    {
+      "name": "--color-dark-tint-paper-chrome",
+      "type": "color",
+      "value": "#171410",
+      "description": "Tint paper: chrome · app: [data-tint=\"paper\"] --chrome-surface (dark)"
+    },
+    {
+      "name": "--color-dark-tint-paper-panel",
+      "type": "color",
+      "value": "#1D1B18",
+      "description": "Tint paper: panel · app: [data-tint=\"paper\"] --panel (dark)"
+    },
+    {
+      "name": "--color-dark-tint-paper-raised",
+      "type": "color",
+      "value": "#22201D",
+      "description": "Tint paper: raised · app: [data-tint=\"paper\"] --panel-strong (dark)"
+    },
+    {
+      "name": "--color-tint-sage-window",
+      "type": "color",
+      "value": "#F2F9F3",
+      "description": "Tint sage: window · app: [data-tint=\"sage\"] --bg (light)"
+    },
+    {
+      "name": "--color-tint-sage-chrome",
+      "type": "color",
+      "value": "#EAF1EB",
+      "description": "Tint sage: chrome · app: [data-tint=\"sage\"] --chrome-surface (light)"
+    },
+    {
+      "name": "--color-tint-sage-panel",
+      "type": "color",
+      "value": "#F8FDF8",
+      "description": "Tint sage: panel · app: [data-tint=\"sage\"] --panel (light)"
+    },
+    {
+      "name": "--color-tint-sage-raised",
+      "type": "color",
+      "value": "#F6FBF6",
+      "description": "Tint sage: raised · app: [data-tint=\"sage\"] --panel-strong (light)"
+    },
+    {
+      "name": "--color-dark-tint-sage-window",
+      "type": "color",
+      "value": "#141915",
+      "description": "Tint sage: window · app: [data-tint=\"sage\"] --bg (dark)"
+    },
+    {
+      "name": "--color-dark-tint-sage-chrome",
+      "type": "color",
+      "value": "#111612",
+      "description": "Tint sage: chrome · app: [data-tint=\"sage\"] --chrome-surface (dark)"
+    },
+    {
+      "name": "--color-dark-tint-sage-panel",
+      "type": "color",
+      "value": "#191C1A",
+      "description": "Tint sage: panel · app: [data-tint=\"sage\"] --panel (dark)"
+    },
+    {
+      "name": "--color-dark-tint-sage-raised",
+      "type": "color",
+      "value": "#1E211F",
+      "description": "Tint sage: raised · app: [data-tint=\"sage\"] --panel-strong (dark)"
+    },
+    {
+      "name": "--color-tint-mist-window",
+      "type": "color",
+      "value": "#F0F8FF",
+      "description": "Tint mist: window · app: [data-tint=\"mist\"] --bg (light)"
+    },
+    {
+      "name": "--color-tint-mist-chrome",
+      "type": "color",
+      "value": "#E8F0F8",
+      "description": "Tint mist: chrome · app: [data-tint=\"mist\"] --chrome-surface (light)"
+    },
+    {
+      "name": "--color-tint-mist-panel",
+      "type": "color",
+      "value": "#F6FCFF",
+      "description": "Tint mist: panel · app: [data-tint=\"mist\"] --panel (light)"
+    },
+    {
+      "name": "--color-tint-mist-raised",
+      "type": "color",
+      "value": "#F4FAFF",
+      "description": "Tint mist: raised · app: [data-tint=\"mist\"] --panel-strong (light)"
+    },
+    {
+      "name": "--color-dark-tint-mist-window",
+      "type": "color",
+      "value": "#12181D",
+      "description": "Tint mist: window · app: [data-tint=\"mist\"] --bg (dark)"
+    },
+    {
+      "name": "--color-dark-tint-mist-chrome",
+      "type": "color",
+      "value": "#0F151A",
+      "description": "Tint mist: chrome · app: [data-tint=\"mist\"] --chrome-surface (dark)"
+    },
+    {
+      "name": "--color-dark-tint-mist-panel",
+      "type": "color",
+      "value": "#181C1F",
+      "description": "Tint mist: panel · app: [data-tint=\"mist\"] --panel (dark)"
+    },
+    {
+      "name": "--color-dark-tint-mist-raised",
+      "type": "color",
+      "value": "#1D2125",
+      "description": "Tint mist: raised · app: [data-tint=\"mist\"] --panel-strong (dark)"
+    },
+    {
+      "name": "--color-tint-dusk-window",
+      "type": "color",
+      "value": "#F8F5FF",
+      "description": "Tint dusk: window · app: [data-tint=\"dusk\"] --bg (light)"
+    },
+    {
+      "name": "--color-tint-dusk-chrome",
+      "type": "color",
+      "value": "#F0EDF7",
+      "description": "Tint dusk: chrome · app: [data-tint=\"dusk\"] --chrome-surface (light)"
+    },
+    {
+      "name": "--color-tint-dusk-panel",
+      "type": "color",
+      "value": "#FCFAFF",
+      "description": "Tint dusk: panel · app: [data-tint=\"dusk\"] --panel (light)"
+    },
+    {
+      "name": "--color-tint-dusk-raised",
+      "type": "color",
+      "value": "#FAF8FF",
+      "description": "Tint dusk: raised · app: [data-tint=\"dusk\"] --panel-strong (light)"
+    },
+    {
+      "name": "--color-dark-tint-dusk-window",
+      "type": "color",
+      "value": "#18161D",
+      "description": "Tint dusk: window · app: [data-tint=\"dusk\"] --bg (dark)"
+    },
+    {
+      "name": "--color-dark-tint-dusk-chrome",
+      "type": "color",
+      "value": "#15131A",
+      "description": "Tint dusk: chrome · app: [data-tint=\"dusk\"] --chrome-surface (dark)"
+    },
+    {
+      "name": "--color-dark-tint-dusk-panel",
+      "type": "color",
+      "value": "#1C1A1F",
+      "description": "Tint dusk: panel · app: [data-tint=\"dusk\"] --panel (dark)"
+    },
+    {
+      "name": "--color-dark-tint-dusk-raised",
+      "type": "color",
+      "value": "#211F24",
+      "description": "Tint dusk: raised · app: [data-tint=\"dusk\"] --panel-strong (dark)"
+    },
+    {
+      "name": "--font-ui",
+      "type": "fontFamily",
+      "value": "\"Inter\"",
+      "description": "Interface font; release builds put Timeless Sans (Grotesk) first; Chinese sets in PingFang SC. Paper draws the first open face it has · stack: \"Inter Variable\", Inter, \"PingFang SC\", \"Avenir Next\", \"Segoe UI\", sans-serif · app: --ui-font-fallback"
+    },
+    {
+      "name": "--font-display",
+      "type": "fontFamily",
+      "value": "\"Instrument Serif\"",
+      "description": "The one serif voice: Display and Title only, regular weight. Release builds put Timeless Serif first; Chinese falls to Songti SC · stack: \"Instrument Serif\", \"Songti SC\", \"Noto Serif SC\", \"Source Han Serif SC\", Georgia, serif · app: --display-font-fallback"
+    },
+    {
+      "name": "--font-editor",
+      "type": "fontFamily",
+      "value": "\"Menlo\"",
+      "description": "Code, diffs, logs and every monospace surface. Ioskeley Mono (OFL, bundled with the app) is not installed for Paper, so Paper draws Menlo, the first fallback · stack: \"Ioskeley Mono\", Menlo, \"SF Mono\", ui-monospace, monospace · app: --editor-font"
+    },
+    {
+      "name": "--font-zh",
+      "type": "fontFamily",
+      "value": "\"PingFang SC\"",
+      "description": "Chinese interface face, the third family in --font-ui · app: none (inside --ui-font)"
+    },
+    {
+      "name": "--font-zh-serif",
+      "type": "fontFamily",
+      "value": "\"Songti SC\"",
+      "description": "Chinese serif, the second family in --font-display · app: none (inside --display-font)"
+    },
+    {
+      "name": "--font-reading",
+      "type": "fontFamily",
+      "value": "\"Inter\"",
+      "description": "Long-form prose: the visual Markdown surface and a paper's title in the reader. The interface stack in open builds; Timeless Serif Text in release builds · stack: \"Inter Variable\", Inter, \"PingFang SC\", \"Avenir Next\", \"Segoe UI\", sans-serif · app: --reading-font"
+    },
+    {
+      "name": "--text-micro",
+      "type": "fontSize",
+      "value": "11px",
+      "description": "Type role micro: size · app: --type-micro-size"
+    },
+    {
+      "name": "--text-caption",
+      "type": "fontSize",
+      "value": "12px",
+      "description": "Type role caption: size · app: --type-caption-size"
+    },
+    {
+      "name": "--text-body-compact",
+      "type": "fontSize",
+      "value": "12px",
+      "description": "Type role body-compact: size · app: --type-body-compact-size"
+    },
+    {
+      "name": "--text-body",
+      "type": "fontSize",
+      "value": "13px",
+      "description": "Type role body: size · app: --type-body-size"
+    },
+    {
+      "name": "--text-subtitle",
+      "type": "fontSize",
+      "value": "13px",
+      "description": "Type role subtitle: size · app: --type-subtitle-size"
+    },
+    {
+      "name": "--text-typeset",
+      "type": "fontSize",
+      "value": "14px",
+      "description": "Type role typeset: size · app: --type-typeset-size"
+    },
+    {
+      "name": "--text-title",
+      "type": "fontSize",
+      "value": "18px",
+      "description": "Type role title: size · app: --type-title-size"
+    },
+    {
+      "name": "--text-display",
+      "type": "fontSize",
+      "value": "30px",
+      "description": "Type role display: size · app: --type-display-size"
+    },
+    {
+      "name": "--text-settings-caption",
+      "type": "fontSize",
+      "value": "12px",
+      "description": "Settings step: caption · app: .settings-modal --type-caption-size"
+    },
+    {
+      "name": "--text-settings-micro",
+      "type": "fontSize",
+      "value": "12px",
+      "description": "Settings step: micro · app: .settings-modal --type-micro-size"
+    },
+    {
+      "name": "--text-settings-body-compact",
+      "type": "fontSize",
+      "value": "13px",
+      "description": "Settings step: body compact · app: .settings-modal --type-body-compact-size"
+    },
+    {
+      "name": "--text-settings-subtitle",
+      "type": "fontSize",
+      "value": "14px",
+      "description": "Settings step: subtitle · app: .settings-modal --type-subtitle-size"
+    },
+    {
+      "name": "--text-settings-body",
+      "type": "fontSize",
+      "value": "14px",
+      "description": "Settings step: body · app: .settings-modal --type-body-size"
+    },
+    {
+      "name": "--text-settings-typeset",
+      "type": "fontSize",
+      "value": "15px",
+      "description": "Settings step: typeset · app: .settings-modal --type-typeset-size"
+    },
+    {
+      "name": "--text-settings-title",
+      "type": "fontSize",
+      "value": "24px",
+      "description": "Settings step: title · app: .settings-modal --type-title-size"
+    },
+    {
+      "name": "--font-weight-regular",
+      "type": "fontWeight",
+      "value": "400",
+      "description": "Weight role · app: --weight-regular"
+    },
+    {
+      "name": "--font-weight-medium",
+      "type": "fontWeight",
+      "value": "500",
+      "description": "Weight role · app: --weight-medium"
+    },
+    {
+      "name": "--font-weight-semibold",
+      "type": "fontWeight",
+      "value": "600",
+      "description": "Weight role · app: --weight-semibold"
+    },
+    {
+      "name": "--font-weight-bold",
+      "type": "fontWeight",
+      "value": "700",
+      "description": "Weight role · app: --weight-bold"
+    },
+    {
+      "name": "--tracking-normal",
+      "type": "letterSpacing",
+      "value": "0em",
+      "description": "Every interface role · app: none (default)"
+    },
+    {
+      "name": "--tracking-caps",
+      "type": "letterSpacing",
+      "value": "0.04em",
+      "description": "An uppercase micro label (venue kind, colour picker hex) · app: none (feature CSS)"
+    },
+    {
+      "name": "--leading-micro",
+      "type": "lineHeight",
+      "value": "14px",
+      "description": "Type role micro: line height · app: --type-micro-line-height"
+    },
+    {
+      "name": "--leading-caption",
+      "type": "lineHeight",
+      "value": "16px",
+      "description": "Type role caption: line height · app: --type-caption-line-height"
+    },
+    {
+      "name": "--leading-body-compact",
+      "type": "lineHeight",
+      "value": "16px",
+      "description": "Type role body-compact: line height · app: --type-body-compact-line-height"
+    },
+    {
+      "name": "--leading-subtitle",
+      "type": "lineHeight",
+      "value": "18px",
+      "description": "Type role subtitle: line height · app: --type-subtitle-line-height"
+    },
+    {
+      "name": "--leading-body",
+      "type": "lineHeight",
+      "value": "20px",
+      "description": "Type role body: line height · app: --type-body-line-height"
+    },
+    {
+      "name": "--leading-typeset",
+      "type": "lineHeight",
+      "value": "22px",
+      "description": "Type role typeset: line height · app: --type-typeset-line-height"
+    },
+    {
+      "name": "--leading-title",
+      "type": "lineHeight",
+      "value": "24px",
+      "description": "Type role title: line height · app: --type-title-line-height"
+    },
+    {
+      "name": "--leading-display",
+      "type": "lineHeight",
+      "value": "36px",
+      "description": "Type role display: line height · app: --type-display-line-height"
+    },
+    {
+      "name": "--leading-settings-micro",
+      "type": "lineHeight",
+      "value": "16px",
+      "description": "Settings step: micro · app: .settings-modal --type-micro-line-height"
+    },
+    {
+      "name": "--leading-diff-code",
+      "type": "lineHeight",
+      "value": "18px",
+      "description": "Diff code, editor font at caption size · app: --type-diff-code-line-height"
+    },
+    {
+      "name": "--leading-settings-caption",
+      "type": "lineHeight",
+      "value": "18px",
+      "description": "Settings step: caption · app: .settings-modal --type-caption-line-height"
+    },
+    {
+      "name": "--leading-settings-body-compact",
+      "type": "lineHeight",
+      "value": "18px",
+      "description": "Settings step: body compact · app: .settings-modal --type-body-compact-line-height"
+    },
+    {
+      "name": "--leading-settings-subtitle",
+      "type": "lineHeight",
+      "value": "20px",
+      "description": "Settings step: subtitle · app: .settings-modal --type-subtitle-line-height"
+    },
+    {
+      "name": "--leading-settings-body",
+      "type": "lineHeight",
+      "value": "22px",
+      "description": "Settings step: body · app: .settings-modal --type-body-line-height"
+    },
+    {
+      "name": "--leading-settings-typeset",
+      "type": "lineHeight",
+      "value": "24px",
+      "description": "Settings step: typeset · app: .settings-modal --type-typeset-line-height"
+    },
+    {
+      "name": "--leading-settings-title",
+      "type": "lineHeight",
+      "value": "30px",
+      "description": "Settings step: title · app: .settings-modal --type-title-line-height"
+    },
+    {
+      "name": "--opacity-hover",
+      "type": "opacity",
+      "value": "5%",
+      "description": "Control hover: ink at this strength · app: --control-hover-surface"
+    },
+    {
+      "name": "--opacity-chrome-hover",
+      "type": "opacity",
+      "value": "6%",
+      "description": "Hover on the darker chrome · app: --chrome-hover-surface"
+    },
+    {
+      "name": "--opacity-pressed",
+      "type": "opacity",
+      "value": "8%",
+      "description": "Press and selected row · app: --control-pressed-surface"
+    },
+    {
+      "name": "--opacity-tab-selected",
+      "type": "opacity",
+      "value": "10%",
+      "description": "Selected panel tab: ink at this strength laid opaque on the panel surface · app: none (trellis.css --trellis-tab-selected)"
+    },
+    {
+      "name": "--opacity-tinted",
+      "type": "opacity",
+      "value": "12%",
+      "description": "Tinted and danger Button rest, status washes · app: --control-tinted-surface"
+    },
+    {
+      "name": "--opacity-tinted-hover",
+      "type": "opacity",
+      "value": "18%",
+      "description": "Tinted and danger Button hover · app: --control-tinted-hover-surface"
+    },
+    {
+      "name": "--opacity-tinted-pressed",
+      "type": "opacity",
+      "value": "24%",
+      "description": "Tinted and danger Button press · app: --control-tinted-pressed-surface"
+    },
+    {
+      "name": "--opacity-disabled",
+      "type": "opacity",
+      "value": "42%",
+      "description": "Icon buttons, switches and checkboxes when disabled (Buttons use the disabled slab instead) · app: --control-disabled-opacity"
+    },
+    {
+      "name": "--opacity-field-disabled",
+      "type": "opacity",
+      "value": "45%",
+      "description": "Disabled field, select and search · app: --form-control-disabled-opacity"
+    },
+    {
+      "name": "--opacity-menu-disabled",
+      "type": "opacity",
+      "value": "50%",
+      "description": "Disabled menu item · app: none (menu-surface.ts)"
+    },
+    {
+      "name": "--breakpoint-narrow",
+      "type": "breakpoint",
+      "value": "480px",
+      "description": "Narrow window: secondary footer hints and two-column forms fold · app: @media (max-width: 480px)"
+    },
+    {
+      "name": "--breakpoint-compact",
+      "type": "breakpoint",
+      "value": "680px",
+      "description": "Compact window; a Papers list this wide moves its flags into a right-hand column · app: @media (max-width: 680px)"
+    },
+    {
+      "name": "--container-settings-control",
+      "type": "container",
+      "value": "170px",
+      "description": "Width of the one control on a Settings row · app: --settings-control-width"
+    },
+    {
+      "name": "--container-settings-nav",
+      "type": "container",
+      "value": "200px",
+      "description": "Settings navigation column · app: --settings-nav-width"
+    },
+    {
+      "name": "--container-titlebar-title",
+      "type": "container",
+      "value": "260px",
+      "description": "Longest project name in the titlebar switcher · app: --titlebar-project-title-max-width"
+    },
+    {
+      "name": "--container-toast",
+      "type": "container",
+      "value": "320px",
+      "description": "Toast card width · app: none (.app-toast)"
+    },
+    {
+      "name": "--container-menu",
+      "type": "container",
+      "value": "352px",
+      "description": "Widest a menu or tooltip grows before wrapping (22rem) · app: --menu-max-width"
+    },
+    {
+      "name": "--container-dialog",
+      "type": "container",
+      "value": "390px",
+      "description": "Small dialog width · app: none (.modal)"
+    },
+    {
+      "name": "--container-dialog-create",
+      "type": "container",
+      "value": "440px",
+      "description": "Create project dialog · app: none (.create-project-modal)"
+    },
+    {
+      "name": "--container-dialog-confirm-wide",
+      "type": "container",
+      "value": "520px",
+      "description": "Confirmation with a destructive alternative · app: none (.confirm-action-modal)"
+    },
+    {
+      "name": "--container-settings-content",
+      "type": "container",
+      "value": "720px",
+      "description": "Settings page column · app: --settings-content-max-width"
+    },
+    {
+      "name": "--container-dialog-sheet",
+      "type": "container",
+      "value": "720px",
+      "description": "Sheet dialog (Add papers) · app: --dialog-sheet-width"
+    },
+    {
+      "name": "--container-dialog-large",
+      "type": "container",
+      "value": "860px",
+      "description": "Large dialog: Settings, Open from Overleaf, Check references · app: --dialog-large-width"
+    },
+    {
+      "name": "--spacing-1",
+      "type": "spacing",
+      "value": "2px",
+      "description": "Space scale step · app: --space-1"
+    },
+    {
+      "name": "--spacing-2",
+      "type": "spacing",
+      "value": "4px",
+      "description": "Space scale step · app: --space-2"
+    },
+    {
+      "name": "--spacing-3",
+      "type": "spacing",
+      "value": "6px",
+      "description": "Space scale step · app: --space-3"
+    },
+    {
+      "name": "--spacing-4",
+      "type": "spacing",
+      "value": "8px",
+      "description": "Space scale step · app: --space-4"
+    },
+    {
+      "name": "--spacing-5",
+      "type": "spacing",
+      "value": "10px",
+      "description": "Space scale step · app: --space-5"
+    },
+    {
+      "name": "--spacing-6",
+      "type": "spacing",
+      "value": "12px",
+      "description": "Space scale step · app: --space-6"
+    },
+    {
+      "name": "--spacing-8",
+      "type": "spacing",
+      "value": "16px",
+      "description": "Space scale step · app: --space-8"
+    },
+    {
+      "name": "--spacing-10",
+      "type": "spacing",
+      "value": "20px",
+      "description": "Space scale step · app: --space-10"
+    },
+    {
+      "name": "--spacing-12",
+      "type": "spacing",
+      "value": "24px",
+      "description": "Space scale step · app: --space-12"
+    },
+    {
+      "name": "--spacing-16",
+      "type": "spacing",
+      "value": "32px",
+      "description": "Space scale step · app: --space-16"
+    },
+    {
+      "name": "--spacing-control-compact",
+      "type": "spacing",
+      "value": "28px",
+      "description": "Compact control: dense chrome, panel headers, toolbars, titlebar · app: --control-height-compact"
+    },
+    {
+      "name": "--spacing-control-default",
+      "type": "spacing",
+      "value": "32px",
+      "description": "Default control: forms, dialogs, Settings · app: --control-height-default"
+    },
+    {
+      "name": "--spacing-titlebar",
+      "type": "spacing",
+      "value": "40px",
+      "description": "Titlebar height · app: --titlebar-height"
+    },
+    {
+      "name": "--spacing-tab-strip",
+      "type": "spacing",
+      "value": "40px",
+      "description": "Every panel tab strip · app: --tab-strip-height"
+    },
+    {
+      "name": "--spacing-px",
+      "type": "spacing",
+      "value": "1px",
+      "description": "Seam between adjacent segments in one track · app: --gap-hairline"
+    },
+    {
+      "name": "--spacing-focus-ring",
+      "type": "spacing",
+      "value": "2px",
+      "description": "Focus ring width, drawn 2px off the control (offset = same value) · app: --focus-ring-width"
+    },
+    {
+      "name": "--spacing-dirty-dot",
+      "type": "spacing",
+      "value": "5px",
+      "description": "Unsaved-changes dot cut out of a tab's file glyph · app: --tab-dirty-dot-size"
+    },
+    {
+      "name": "--spacing-icon-sm",
+      "type": "spacing",
+      "value": "12px",
+      "description": "Icon in a meta row (status bar) and a disclosure chevron beside a label · app: none (Lucide size)"
+    },
+    {
+      "name": "--spacing-switch-thumb",
+      "type": "spacing",
+      "value": "12px",
+      "description": "Switch thumb · app: --control-size-switch-thumb"
+    },
+    {
+      "name": "--spacing-icon",
+      "type": "spacing",
+      "value": "14px",
+      "description": "Icon in the chrome: titlebar, panel tabs and headers, compact controls · app: --search-control-icon-size"
+    },
+    {
+      "name": "--spacing-checkbox",
+      "type": "spacing",
+      "value": "14px",
+      "description": "Checkbox box · app: --control-size-checkbox"
+    },
+    {
+      "name": "--spacing-tab-inset",
+      "type": "spacing",
+      "value": "14px",
+      "description": "A panel tab's side padding; puts its icon on the panel's 20px icon gutter · app: --tab-inset-inline"
+    },
+    {
+      "name": "--spacing-icon-lg",
+      "type": "spacing",
+      "value": "16px",
+      "description": "Icon on a default control, in a dialog or a toast mark · app: none (Lucide size)"
+    },
+    {
+      "name": "--spacing-switch-height",
+      "type": "spacing",
+      "value": "16px",
+      "description": "Switch track height · app: --control-height-switch"
+    },
+    {
+      "name": "--spacing-badge-compact",
+      "type": "spacing",
+      "value": "16px",
+      "description": "Compact badge height · app: --badge-height-compact"
+    },
+    {
+      "name": "--spacing-badge",
+      "type": "spacing",
+      "value": "20px",
+      "description": "Badge height · app: --badge-height"
+    },
+    {
+      "name": "--spacing-hit-area",
+      "type": "spacing",
+      "value": "24px",
+      "description": "Smallest pointer target, whatever is painted · app: --hit-area-min"
+    },
+    {
+      "name": "--spacing-icon-button-compact",
+      "type": "spacing",
+      "value": "24px",
+      "description": "Row or field action: toast dismiss, search clear, tab close · app: --control-size-icon-compact"
+    },
+    {
+      "name": "--spacing-switch-width",
+      "type": "spacing",
+      "value": "28px",
+      "description": "Switch track width · app: --control-width-switch"
+    },
+    {
+      "name": "--spacing-row-tree",
+      "type": "spacing",
+      "value": "28px",
+      "description": "Project tree row · app: --row-height-tree"
+    },
+    {
+      "name": "--spacing-row-compact",
+      "type": "spacing",
+      "value": "32px",
+      "description": "Compact list row · app: --row-height-compact"
+    },
+    {
+      "name": "--spacing-dialog-mark",
+      "type": "spacing",
+      "value": "36px",
+      "description": "A risky dialog's tone mark · app: none (.modal-icon)"
+    },
+    {
+      "name": "--spacing-row-default",
+      "type": "spacing",
+      "value": "40px",
+      "description": "Data row · app: --row-height-default"
+    },
+    {
+      "name": "--spacing-toolbar",
+      "type": "spacing",
+      "value": "40px",
+      "description": "Toolbar height · app: --toolbar-height"
+    },
+    {
+      "name": "--spacing-row-comfortable",
+      "type": "spacing",
+      "value": "44px",
+      "description": "Store row · app: --row-height-comfortable"
+    },
+    {
+      "name": "--spacing-settings-row",
+      "type": "spacing",
+      "value": "52px",
+      "description": "Minimum height of a Settings row · app: --settings-row-min-height"
+    },
+    {
+      "name": "--radius-compact",
+      "type": "radius",
+      "value": "4px",
+      "description": "Chip, keycap, checkbox · app: --radius-compact"
+    },
+    {
+      "name": "--radius-control",
+      "type": "radius",
+      "value": "6px",
+      "description": "Anything a pointer lands on: control, row, tab, icon button · app: --radius-control"
+    },
+    {
+      "name": "--radius-panel",
+      "type": "radius",
+      "value": "10px",
+      "description": "Surface: panel, popover, menu, toast, card · app: --radius-panel"
+    },
+    {
+      "name": "--radius-dialog",
+      "type": "radius",
+      "value": "14px",
+      "description": "Dialog · app: --radius-dialog"
+    },
+    {
+      "name": "--radius-pill",
+      "type": "radius",
+      "value": "999px",
+      "description": "Pill, switch, avatar · app: --radius-pill"
+    },
+    {
+      "name": "--radius-surface",
+      "type": "radius",
+      "value": "var(--radius-panel)",
+      "description": "Popover, menu, toast and card corner (same step as a panel) · app: --radius-surface"
+    },
+    {
+      "name": "--radius-icon",
+      "type": "radius",
+      "value": "var(--radius-control)",
+      "description": "Icon button, row and tab corner (same step as a control) · app: --radius-icon"
+    }
+  ],
+  "specs": {
+    "motion": "--duration-fast: 80ms;\n--duration-moderate: 160ms;\n--duration-slow: 240ms;\n--duration-fast-exit: 60ms;\n--duration-moderate-exit: 120ms;\n--duration-slow-exit: 160ms;\n--duration-draw: 560ms;\n--duration-flourish: 720ms;\n--ease-fast: linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1);\n--ease-moderate: linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1);\n--ease-slow: linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1);\n--ease-fast-cubic: cubic-bezier(0.25, 0.85, 0.35, 1);\n--ease-moderate-cubic: cubic-bezier(0.25, 0.85, 0.35, 1);\n--ease-slow-cubic: cubic-bezier(0.3, 0.8, 0.3, 1.02);\n--ease-exit: ease-out;",
+    "shadow": "--shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);\n--shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.04), 0 9.4px 12.5px rgba(0, 0, 0, 0.03), 0 5.25px 7px rgba(0, 0, 0, 0.02), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.01), 0 1.2px 1.5px rgba(0, 0, 0, 0.01);\n--shadow-floating: 0 25px 50px rgba(0, 0, 0, 0.05), 0 12px 24px rgba(0, 0, 0, 0.04), 0 6px 12px rgba(0, 0, 0, 0.03), 0 3px 6px rgba(0, 0, 0, 0.02), 0 1.5px 3px rgba(0, 0, 0, 0.02);\n--shadow-dialog: 0 40px 80px rgba(0, 0, 0, 0.06), 0 20px 40px rgba(0, 0, 0, 0.05), 0 10px 20px rgba(0, 0, 0, 0.04), 0 5px 10px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);\n--shadow-pdf-page: 0 8px 24px rgba(22, 22, 24, 0.08);\n--shadow-dark-raised: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.16);\n--shadow-dark-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.16), 0 9.4px 12.5px rgba(0, 0, 0, 0.12), 0 5.25px 7px rgba(0, 0, 0, 0.08), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.04), 0 1.2px 1.5px rgba(0, 0, 0, 0.04);\n--shadow-dark-floating: 0 25px 50px rgba(0, 0, 0, 0.2), 0 12px 24px rgba(0, 0, 0, 0.16), 0 6px 12px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08), 0 1.5px 3px rgba(0, 0, 0, 0.08);\n--shadow-dark-dialog: 0 40px 80px rgba(0, 0, 0, 0.24), 0 20px 40px rgba(0, 0, 0, 0.2), 0 10px 20px rgba(0, 0, 0, 0.16), 0 5px 10px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);\n--shadow-dark-pdf-page: 0 10px 28px rgba(0, 0, 0, 0.28);"
+  },
+  "guidelines": {
+    "start": "## Start here\n\nRead this page, then Guidelines, before building anything from this file. Rules marked Lattice are specific to Lattice; everything else carries to a new product.\n\n### What this file is\n\nThe design system for Lattice and anything built beside it: the app, the website, and new software another agent builds from it. It captures the app as it ships; improvements arrive through review comments on the product, one at a time.\n\n- Paper is the source of truth. The copy in the Lattice repository (design-system/) is exported from here and never edited by hand.\n- Pages: Foundations (colour, type, space, radius, elevation, motion, icons), Components (each at real geometry with its states), Patterns (empty, loading, error, forms, Settings) and Guidelines (these rules).\n- Every value on the canvas is a design token. Use the tokens, never the hex or pixel value they hold.\n\n### Tokens\n\nTailwind v4 namespaces: --color-*, --spacing-*, --container-*, --breakpoint-*, --opacity-*, --font-*, --font-weight-*, --text-*, --leading-*, --tracking-*, --radius-*.\n\n- Paper has no light and dark modes, so a colour has two tokens: --color-name for light and --color-dark-name for dark. Build both themes from the same names.\n- **[Lattice]** A token’s description names the app variable it mirrors (app: --surface-chrome). The drift check compares them.\n- Font tokens hold the face Paper can draw; the full fallback stack is in the description after stack: and is what the export writes.\n- Durations, easing curves and shadows have no Paper token type. They live in the spec:motion and spec:shadow blocks on Foundations → Motion, elevation, borders, icons, and the export turns them into tokens.\n\n### Working loop\n\nReview the product, fix it, update the system, then build new work from it.\n\n- Comments go on the surface under review (the review page or board for the website, a film, or app screens), not in this file. The agent fixes that surface; when a comment implies a rule or token change, the agent updates this file and re-exports design-system/.\n- **[Lattice]** A value changes here and in the app's CSS in the same change. The app keeps its own CSS; the drift check fails until both agree.",
+    "rules": "## Guidelines\n\nWhen to use what, what never to do, and the contrast every surface owes its text. Rules marked Lattice are specific to Lattice; the rest are written to carry to a new product.\n\n### Principles\n\n- Compact chrome around comfortable reading and writing surfaces. Density is a property of the surface, not of the product.\n- One of each: one accent, one serif voice, one focus ring, one elevation ladder, one motion system. A second of anything is a missing decision.\n- State runs one way: hover is lighter than pressed, and hover lighter than selected lighter than active, so two states never read the same.\n- Colour carries meaning, not decoration: status, the accent and file kinds. Everything else is ink on neutral surfaces.\n\n### Colour\n\nSurfaces, two inks, one accent, four statuses.\n\n- Three neutral surfaces: the chrome is the ground (titlebar gutters and navigation), the sheet holds panels, editors and fields, and the lift holds everything that floats.\n- Two inks only. Text is primary or secondary. A status colour belongs to an icon or a state, never to a third grey.\n- Contrast: body text and every accent used as text reach 4.5:1 on every surface they stand on (the accent presets clear 4.6:1); secondary text clears 5.5:1 on the chrome; icons, file glyphs and control edges clear 3:1.\n- **[Lattice]** The accent is neutral (Graphite) by default. A preset or custom accent also becomes the focus ring; the editor’s current line stays neutral under any accent.\n- Status colours mean success, warning, danger and info. They are never substitutes for the accent.\n- Never put a fixed light-theme hex in a reusable component; take the semantic token so dark follows.\n- **[Lattice]** Tints (Paper, Sage, Mist, Dusk) move only the neutral surfaces to one hue: chrome takes the full tint, panels 70%. Text and lines stay neutral.\n- **[Lattice]** The mark’s weft (blue) and warp (teal) are identity: the logo and one accent stroke of an illustration, never a control.\n\n### Typography\n\nSix roles, each a size with its own leading. Take both.\n\n- Display 30/36 and Title 18/24 are the serif voice at regular weight, for titles only. Everything else is the interface font: Subtitle 13/18 semibold, Body 13/20, Caption 12/16, Micro 11/14 medium.\n- Body compact (12/16 medium) is the text inside a control. A compact (28px) control drops to caption size.\n- Typeset (14/22) is prose: long-form reading and the source editor. Code and diffs stay on the editor font.\n- Nothing in the interface is set below 11px; metadata is 12px.\n- Chinese sets in PingFang SC; a serif title falls to Songti SC, so it stays a serif in either language.\n- A region that is read rather than scanned (Settings) runs every role one step up; Display does not step up.\n- **[Lattice]** Release builds set Timeless Sans and Serif first. Those fonts never ship outside the app: the repository and public pages use the open faces.\n\n### Space and geometry\n\n- A 2px grid; layout lands on its 4px steps. 2 and 6 are for distances inside a control.\n- Controls stand on two heights: compact 28px (dense chrome, toolbars, popover forms) and default 32px (forms, dialogs, Settings). Width belongs to the layout.\n- Radius has four steps and the pill: 4 for a chip, 6 for anything a pointer lands on, 10 for a surface, 14 for a dialog. Pick a step, never a value between.\n- A surface nested flush in another takes the outer radius less the inset, so the curves stay parallel.\n- A pointer target is at least 24px, however small the control is painted.\n- **[Lattice]** The titlebar and every panel tab strip are 40px; tabs stand on the compact height 6px in.\n\n### Elevation\n\n- One ladder: page, panel, raised, popover, floating, dialog. Menus and tooltips are popovers; toasts and drawers float; modals are dialogs.\n- A floating surface stands on the lift with a ring for its edge and the level’s shadow. It never adds a border on top of the ring.\n- A level’s shadow does not change with nesting. Shadows deepen in dark, where a faint one disappears.\n\n### States and focus\n\n- Hover is 5% of the ink, pressed 8%, a selected row 8% with medium weight; the darker chrome hovers at 6%.\n- Keyboard focus is one ring, 2px at a 2px offset in the focus colour. Components never add a second ring, and pointer focus draws none.\n- Text entry answers focus with its border, not the ring. Selection is a fill, never an outline.\n- A disabled Button keeps a faint slab with stepped-back ink; icon buttons, switches and checkboxes fade to 42%.\n\n### Motion\n\n- Three spring tiers: fast 80 ms (hover, focus, fades), moderate 160 ms (menus, popovers, switches, rows), slow 240 ms with a small bounce (dialogs, drawers, panes). The bigger the thing, the slower the tier.\n- Exits are one tier quicker and plain ease-out tweens, so a dismissal reads as final.\n- Take a tier whole, duration and curve together. Off-tier moments are draw (560 ms) and flourish (720 ms), each played once.\n- Animate transform, opacity and stroke-dashoffset only. Nothing animates in the writing surface. Under reduced motion a one-shot finishes at once.\n\n### Icons\n\n- Lucide line glyphs: 14px in the chrome, 16px on a default control or a dialog or toast mark, 12px in a meta row or beside a label as a chevron.\n- A 1.5 stroke beside regular-weight text (menus) and 2 where an icon stands alone.\n- Secondary ink at rest, primary when on, hovered or current. Colour is for status, the accent and file glyphs.\n- **[Lattice]** A file glyph is one icon per kind, a page for what you write and an object for what you collect, stroked in its hue over a 16% tint (20% in dark).\n\n### Which component\n\n- Button: primary is the one answer of a dialog (at most one dark slab per dialog); tinted leads everywhere else; secondary is the default; ghost dismisses; danger confirms what destroys.\n- Checkbox for an immediate choice inside a form; Switch for a persistent setting that applies on its own.\n- Select for a value from a list; SegmentedControl for two to four mutually exclusive views; tabs for sections.\n- Every notification is a toast. A reversible action happens at once and its toast offers Undo; confirm only what cannot be undone.\n- A small dialog has one anatomy: serif title, one line of copy, fields 12px apart, actions 24px below. A 36px mark only when it asks something risky. Escape, the backdrop and Cancel close it; it draws no X.\n- Panel and drawer headers close with an icon-only X with an accessible label.\n\n### Copy\n\n- Compact interface copy (titles, descriptions, empty states, helper text) ends without a full stop.\n- Labels do the explaining. A control whose label needs a sentence under it gets a better label. No taglines, no eyebrows over titles in the product.\n- Secondary copy only says what the writer would otherwise miss: why something is disabled, a warning before something irreversible, an error and its way out.\n- A space before a unit (1.2 s), none before % (184%). Counts are grouped; in Chinese 万 and 亿 from 10,000.\n- **[Lattice]** Shortcuts are drawn from the command table everywhere they appear, never typed beside a label.\n\n### Empty, loading and error\n\n- An empty region says what would be there in a short title and offers the next step. No paragraph explaining the feature.\n- A load shows one indicator, and a quick one shows none: every indicator waits 150 ms. Where the view has a known shape, the indicator is a skeleton of it.\n- An error names what failed and offers the way out; it fails alone and leaves the rest of the window working.\n- An action asked for by name always answers, even when there is nothing to do.\n\n### Never\n\n- Never introduce a colour, size, radius, duration or shadow that is not a token. A second use of a raw value is a missing token.\n- Never set text in a status colour to make it grey or quiet, and never use the accent as decoration.\n- Never add a second focus ring, an outline for selection, or a border on a floating surface.\n- Never use the serif for anything but titles, and never set interface text below 11px.\n- Never animate layout, loop motion near the writing surface, or replay a moment on remount.\n- **[Lattice]** Never style inside the embedded Agent (Synara) from the host; the bridge carries theme and accent.\n- **[Lattice]** Never commit or publish the Timeless font files."
+  }
+}
