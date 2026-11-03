@@ -10,8 +10,10 @@ The design system is drawn and written in the Paper file
 [Lattice design system](https://app.paper.design/file/01M6EKRMTWZ2JD6ZHKF830MAVP),
 which another product can build from. `design-system/` holds its exported copy
 (tokens and rules), and `src/styles/design-system-drift.test.ts` fails when that
-copy and this app's CSS disagree. A design change lands in both, through the
-comment loop in `design-system/README.md`.
+copy and this app's CSS disagree. The app does not import `design-system/tokens.css`:
+`theme.css` and `foundations.css` stay the app's source, and the drift test is
+the contract between them. A design change lands in both, through the comment
+loop in `design-system/README.md`.
 
 ## Decisions
 

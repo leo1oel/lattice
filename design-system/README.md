@@ -36,6 +36,15 @@ Paper has no theme modes, so a dark value is its own token there
 light twin. A font token holds the face Paper can draw and its description
 carries the real stack after `stack:`, which is what the export writes.
 
+## Who reads these files
+
+The Lattice app does not import `tokens.css`. Its own CSS stays its source:
+`src/styles/theme.css` and `foundations.css` also declare scopes this export
+does not cover (the theme and tint previews in Settings), and the drift check
+below is the contract that keeps the app and this copy equal. `tokens.css`,
+`tokens.json` and `DESIGN.md` are for everything else: the website, new
+software built from the system, and agents without Paper.
+
 ## The drift check
 
 `src/styles/design-system-drift.test.ts` resolves every token whose

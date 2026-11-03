@@ -229,6 +229,8 @@ function designMd(source, tokens) {
     "",
     "Use `tokens.css` (or `tokens.json`) for every value. Light is the default; `data-theme=\"dark\"` on the root, or a `.dark` ancestor, switches colours and shadows. Rules marked **[Lattice]** are specific to Lattice; the rest carry to a new product.",
     "",
+    "The Lattice app itself does not import `tokens.css`: its own CSS (`src/styles/theme.css`, `foundations.css`) stays its source, and `src/styles/design-system-drift.test.ts` keeps the two equal.",
+    "",
     source.guidelines.start,
     "",
     source.guidelines.rules,
