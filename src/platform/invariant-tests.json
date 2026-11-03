@@ -11,6 +11,7 @@
   "src/pdf/pdf-viewer.test.ts": "viewer and live-preview stylesheets applied in jsdom (Vitest empties CSS imports), and the selection tint's theme tokens",
   "src/pdf/pdf-text-layer-selection.test.ts": "text-layer selection stylesheet, likewise",
   "src/styles/tokens.test.ts": "the design-token contract (CLAUDE.md)",
+  "src/styles/design-system-drift.test.ts": "design-system/tokens.json (exported from the Paper file) matches theme.css and foundations.css",
   "src/styles/surfaces.test.ts": "shared surfaces owned by one stylesheet",
   "src/styles/pointer-focus-rings.test.ts": "every focus ring in a stylesheet skips focus a pointer caused",
   "src/components/ui/activity-icons.test.tsx": "busy reload buttons share one surface",
