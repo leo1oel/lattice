@@ -1,0 +1,32 @@
+{
+  "version": "0.15.0",
+  "date": "2026-11-03",
+  "highlights": [
+    {
+      "title": {
+        "en": "Synara 1.1.0 in the Agent panel",
+        "zh": "智能体面板升级到 Synara 1.1.0"
+      },
+      "body": {
+        "en": "The Agent panel is updated to Synara 1.1.0 and follows Lattice's language, with its Chinese now drawn from Synara's own translations. A new \"Resume after usage limits\" setting is off by default, and quitting Lattice mid-reply no longer makes the agent carry on by itself on the next launch.",
+        "zh": "智能体面板已升级到 Synara 1.1.0，并跟随 Lattice 的界面语言，中文译文现在主要来自 Synara 自身。新增“用量限额重置后继续”设置，默认关闭；在回复中途退出 Lattice 后，下次启动时智能体也不会再自行继续。"
+      }
+    },
+    {
+      "title": {
+        "en": "The app moves more fluidly",
+        "zh": "应用动效更流畅"
+      },
+      "body": {
+        "en": "Menus and popups spring in, the Polish card unrolls and its edits arrive in turn, Accept strikes the old words and settles the new ones, lines the agent writes into an open file briefly wash green, new Overleaf comment threads ring as they arrive, switching files and views fades, and paper counts roll. Everything settles at once with Reduce Motion on.",
+        "zh": "菜单和弹出框会弹性出现，润色卡片会向下展开，修改逐条呈现；接受修改时旧文字被划去，新文字随之落定；智能体写入已打开文件的行会短暂泛绿；新的 Overleaf 评论线程出现时会有一圈提示；切换文件和视图时会淡入，论文计数会滚动变化。开启“减少动态效果”后，一切都会立即落定。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Pasting an arXiv:<id> such as arXiv:1706.03762 into Add papers, or importing one, now finds the paper instead of failing after a long title search.",
+      "zh": "在“添加论文”中粘贴或导入 arXiv:<id>（例如 arXiv:1706.03762）现在能找到对应论文，不会在漫长的标题搜索后失败。"
+    }
+  ]
+}
