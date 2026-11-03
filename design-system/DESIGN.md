@@ -96,10 +96,11 @@ Six roles, each a size with its own leading. Take both.
 
 ### Motion
 
-- Three spring tiers: fast 80 ms (hover, focus, fades), moderate 160 ms (menus, popovers, switches, rows), slow 240 ms with a small bounce (dialogs, drawers, panes). The bigger the thing, the slower the tier.
+- Three spring tiers and a pop tier: fast 80 ms (hover, focus, fades), moderate 160 ms (tab indicators, switches, rows, a view switch’s fade), slow 240 ms with a small bounce (dialogs, drawers, panes, a card unrolling), pop 220 ms with a soft bounce (menus, selects, popovers, toolbars, completions, hover cards, a count rolling). The bigger the thing, the slower the tier.
 - Exits are one tier quicker and plain ease-out tweens, so a dismissal reads as final.
-- Take a tier whole, duration and curve together. Off-tier moments are draw (560 ms) and flourish (720 ms), each played once.
-- Animate transform, opacity and stroke-dashoffset only. Nothing animates in the writing surface. Under reduced motion a one-shot finishes at once.
+- A popup springs out of its trigger’s side: 6px of travel from 95% scale, most of the way there within a few frames so it reads at once. It leaves where it stands on the 120 ms exit.
+- Take a tier whole, duration and curve together (--motion-fast, --motion-pop-exit). Off-tier moments are draw (560 ms), flourish (720 ms) and linger (1.6 s: a mark held on what just changed, then faded), each played once. Things that arrive in turn wait 40 ms each, eight turns at most.
+- Animate transform, opacity and stroke-dashoffset only. Nothing the writer types animates; what changes the text for them (an accepted suggestion, an edit that landed) gets one moment, as decoration, while the document changes at once. Under reduced motion a one-shot finishes at once.
 
 ### Icons
 
@@ -138,7 +139,7 @@ Six roles, each a size with its own leading. Take both.
 - Never set text in a status colour to make it grey or quiet, and never use the accent as decoration.
 - Never add a second focus ring, an outline for selection, or a border on a floating surface.
 - Never use the serif for anything but titles, and never set interface text below 11px.
-- Never animate layout, loop motion near the writing surface, or replay a moment on remount.
+- Never animate layout, animate what the writer types, loop motion near the writing surface, or replay a moment on remount.
 - **[Lattice]** Never style inside the embedded Agent (Synara) from the host; the bridge carries theme and accent.
 - **[Lattice]** Never commit or publish the Timeless font files.
 
@@ -454,11 +455,15 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--duration-fast` | `80ms` |  |
 | `--duration-moderate` | `160ms` |  |
 | `--duration-slow` | `240ms` |  |
+| `--duration-pop` | `220ms` |  |
 | `--duration-fast-exit` | `60ms` |  |
 | `--duration-moderate-exit` | `120ms` |  |
 | `--duration-slow-exit` | `160ms` |  |
+| `--duration-pop-exit` | `120ms` |  |
+| `--duration-stagger` | `40ms` |  |
 | `--duration-draw` | `560ms` |  |
 | `--duration-flourish` | `720ms` |  |
+| `--duration-linger` | `1600ms` |  |
 
 ### Easing
 
@@ -467,10 +472,28 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--ease-fast` | `linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1)` |  |
 | `--ease-moderate` | `linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1)` |  |
 | `--ease-slow` | `linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1)` |  |
+| `--ease-pop` | `linear(0, 0.067, 0.215, 0.387, 0.55, 0.69, 0.8, 0.881, 0.938, 0.975, 0.997, 1.009, 1.014, 1.015, 1.014, 1.011, 1.009, 1.006, 1.004, 1.003, 1.002, 1.001, 1)` |  |
 | `--ease-fast-cubic` | `cubic-bezier(0.25, 0.85, 0.35, 1)` | Fallback curve where linear() is unsupported |
 | `--ease-moderate-cubic` | `cubic-bezier(0.25, 0.85, 0.35, 1)` | Fallback curve where linear() is unsupported |
 | `--ease-slow-cubic` | `cubic-bezier(0.3, 0.8, 0.3, 1.02)` | Fallback curve where linear() is unsupported |
+| `--ease-pop-cubic` | `cubic-bezier(0.3, 0.85, 0.3, 1.04)` | Fallback curve where linear() is unsupported |
 | `--ease-exit` | `ease-out` |  |
+
+### Motion (duration and curve together)
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--motion-fast` | `var(--duration-fast) var(--ease-fast)` |  |
+| `--motion-moderate` | `var(--duration-moderate) var(--ease-moderate)` |  |
+| `--motion-slow` | `var(--duration-slow) var(--ease-slow)` |  |
+| `--motion-pop` | `var(--duration-pop) var(--ease-pop)` |  |
+| `--motion-fast-exit` | `var(--duration-fast-exit) var(--ease-exit)` |  |
+| `--motion-moderate-exit` | `var(--duration-moderate-exit) var(--ease-exit)` |  |
+| `--motion-slow-exit` | `var(--duration-slow-exit) var(--ease-exit)` |  |
+| `--motion-pop-exit` | `var(--duration-pop-exit) var(--ease-exit)` |  |
+| `--motion-draw` | `var(--duration-draw) var(--ease-moderate)` |  |
+| `--motion-flourish` | `var(--duration-flourish) var(--ease-moderate)` |  |
+| `--motion-linger` | `var(--duration-linger) var(--ease-exit)` |  |
 
 ### Shadows
 
