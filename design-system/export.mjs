@@ -67,7 +67,8 @@ function describe(description = "") {
 
 function specTokens(text, type) {
   return [...text.matchAll(/^(--[\w-]+):\s*(.+?);\s*$/gm)].map(([, name, value]) => {
-    const kind = type ?? (name.startsWith("--duration") ? "duration" : "easing");
+    // --motion-* pairs a duration with its curve, as feature CSS takes a tier.
+    const kind = type ?? (name.startsWith("--duration") ? "duration" : name.startsWith("--motion") ? "transition" : "easing");
     // A sampled spring needs linear(); --ease-*-cubic is its fallback for
     // WebKit before Safari 17.2, which the app declares first and overrides.
     const app = name.endsWith("-cubic") ? name.replace(/-cubic$/, "") : name.replace(DARK, "--$1-");
@@ -157,11 +158,11 @@ function guidelineMarkdown(jsx) {
 function tokenTables(tokens) {
   const groups = new Map();
   for (const [name, token] of Object.entries(tokens)) {
-    const group = name.match(/^--(color-tint|color-syntax|color-glyph|color-accent-|color|spacing|container|breakpoint|opacity|font-weight|font|text|leading|tracking|radius|duration|ease|shadow)/)?.[1] ?? "other";
+    const group = name.match(/^--(color-tint|color-syntax|color-glyph|color-accent-|color|spacing|container|breakpoint|opacity|font-weight|font|text|leading|tracking|radius|duration|ease|motion|shadow)/)?.[1] ?? "other";
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push([name, token]);
   }
-  const titles = { color: "Colour", "color-accent-": "Accent presets", "color-glyph": "File glyphs", "color-syntax": "Weft & Warp syntax", "color-tint": "Tints", spacing: "Spacing and sizes", container: "Containers", breakpoint: "Breakpoints", opacity: "Opacity", font: "Font families", "font-weight": "Font weights", text: "Font sizes", leading: "Line heights", tracking: "Letter spacing", radius: "Radius", duration: "Durations", ease: "Easing", shadow: "Shadows" };
+  const titles = { color: "Colour", "color-accent-": "Accent presets", "color-glyph": "File glyphs", "color-syntax": "Weft & Warp syntax", "color-tint": "Tints", spacing: "Spacing and sizes", container: "Containers", breakpoint: "Breakpoints", opacity: "Opacity", font: "Font families", "font-weight": "Font weights", text: "Font sizes", leading: "Line heights", tracking: "Letter spacing", radius: "Radius", duration: "Durations", ease: "Easing", motion: "Motion (duration and curve together)", shadow: "Shadows" };
   const cell = (value) => (value === undefined ? "" : `\`${String(value).replace(/\|/g, "\\|")}\``);
   return [...groups].map(([group, rows]) => {
     const hasDark = rows.some(([, token]) => token.dark !== undefined);

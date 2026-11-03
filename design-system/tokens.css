@@ -228,15 +228,31 @@
   --duration-fast: 80ms;
   --duration-moderate: 160ms;
   --duration-slow: 240ms;
+  --duration-pop: 220ms;
   --duration-fast-exit: 60ms;
   --duration-moderate-exit: 120ms;
   --duration-slow-exit: 160ms;
+  --duration-pop-exit: 120ms;
+  --duration-stagger: 40ms;
   --duration-draw: 560ms;
   --duration-flourish: 720ms;
+  --duration-linger: 1600ms;
   --ease-fast: cubic-bezier(0.25, 0.85, 0.35, 1);
   --ease-moderate: cubic-bezier(0.25, 0.85, 0.35, 1);
   --ease-slow: cubic-bezier(0.3, 0.8, 0.3, 1.02);
+  --ease-pop: cubic-bezier(0.3, 0.85, 0.3, 1.04);
   --ease-exit: ease-out;
+  --motion-fast: var(--duration-fast) var(--ease-fast);
+  --motion-moderate: var(--duration-moderate) var(--ease-moderate);
+  --motion-slow: var(--duration-slow) var(--ease-slow);
+  --motion-pop: var(--duration-pop) var(--ease-pop);
+  --motion-fast-exit: var(--duration-fast-exit) var(--ease-exit);
+  --motion-moderate-exit: var(--duration-moderate-exit) var(--ease-exit);
+  --motion-slow-exit: var(--duration-slow-exit) var(--ease-exit);
+  --motion-pop-exit: var(--duration-pop-exit) var(--ease-exit);
+  --motion-draw: var(--duration-draw) var(--ease-moderate);
+  --motion-flourish: var(--duration-flourish) var(--ease-moderate);
+  --motion-linger: var(--duration-linger) var(--ease-exit);
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.04), 0 9.4px 12.5px rgba(0, 0, 0, 0.03), 0 5.25px 7px rgba(0, 0, 0, 0.02), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.01), 0 1.2px 1.5px rgba(0, 0, 0, 0.01);
   --shadow-floating: 0 25px 50px rgba(0, 0, 0, 0.05), 0 12px 24px rgba(0, 0, 0, 0.04), 0 6px 12px rgba(0, 0, 0, 0.03), 0 3px 6px rgba(0, 0, 0, 0.02), 0 1.5px 3px rgba(0, 0, 0, 0.02);
@@ -369,5 +385,6 @@
     --ease-fast: linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1);
     --ease-moderate: linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1);
     --ease-slow: linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1);
+    --ease-pop: linear(0, 0.067, 0.215, 0.387, 0.55, 0.69, 0.8, 0.881, 0.938, 0.975, 0.997, 1.009, 1.014, 1.015, 1.014, 1.011, 1.009, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
   }
 }

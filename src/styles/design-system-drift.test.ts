@@ -192,10 +192,13 @@ function appValue(theme: "light" | "dark", app: string, fallback: boolean): stri
   if (app.startsWith("color-mix(")) return resolve(app, map);
   const name = /(--[\w-]+)$/.exec(app)?.[1];
   if (!name) throw new Error(`cannot read the mapping "${app}"`);
+  // Where linear() is supported the sampled springs replace the cubic curves,
+  // also inside a --motion-* pair that refers to them.
   const springs = scope(SPRINGS);
-  const raw = springs.has(name) && !fallback ? springs.get(name)! : map.get(name);
+  const live = fallback ? map : new Map([...map, ...springs]);
+  const raw = live.get(name);
   if (raw === undefined) throw new Error(`the app declares no ${name}`);
-  return resolve(raw, map);
+  return resolve(raw, live);
 }
 
 function drift(): string[] {

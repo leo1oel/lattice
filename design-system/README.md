@@ -28,8 +28,9 @@ pnpm vitest run src/styles/design-system-drift.test.ts
 
 The exporter starts Paper's MCP server (`paper mcp`; set `PAPER_BIN` if
 `paper` is not on `PATH` or in `~/.paper/bin`), reads the design tokens, the
-`spec:motion` and `spec:shadow` blocks on Foundations (durations, curves and
-shadows have no Paper token type), and the Start here and Guidelines
+`spec:motion` and `spec:shadow` blocks on Foundations (durations, curves,
+the `--motion-*` pairs of the two, and shadows have no Paper token type),
+and the Start here and Guidelines
 artboards, saves that pull as `paper-export.json`, and renders the rest from it.
 `node design-system/export.mjs --from design-system/paper-export.json`
 re-renders without Paper.
