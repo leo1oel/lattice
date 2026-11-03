@@ -102,7 +102,7 @@
   background: var(--surface-elevated);
   box-shadow: var(--elevation-popover);
 }
-.margin-review-popover.popup-motion { --popup-motion-from: translateX(4px); --popup-motion-origin: top right; }
+.margin-review-popover.popup-motion { --popup-motion-from: translateX(6px); --popup-motion-origin: top right; }
 .margin-review-popover > :is(.overleaf-thread, .overleaf-change) { border: 0; background: transparent; }
 .margin-review-popover > .overleaf-change { padding: var(--space-4) var(--space-5) var(--space-5) var(--space-6); }
 

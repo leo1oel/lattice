@@ -55,13 +55,13 @@ describe("shared popup motion", () => {
     expect(copies).toEqual([])
   })
 
-  it("styles nothing but its own class, with a moderate-tier entrance and faster exit with subtle travel", () => {
+  it("styles nothing but its own class, with a pop-tier entrance and faster exit with subtle travel", () => {
     const { source } = stylesheets().find(({ name }) => name === "components/ui/popup-motion.css")!
     expect([...new Set(source.match(/\.[a-z][a-z0-9-]*/g))]).toEqual([".popup-motion"])
-    expect(source).toMatch(/popup-motion-open var\(--motion-moderate\)/)
-    expect(source).toMatch(/popup-motion-close var\(--motion-moderate-exit\)/)
-    expect(source).toContain("--popup-motion-from: translateY(-4px)")
-    expect(source).toContain("transform: var(--popup-motion-from) scale(.97)")
+    expect(source).toMatch(/popup-motion-open var\(--motion-pop\)/)
+    expect(source).toMatch(/popup-motion-close var\(--motion-pop-exit\)/)
+    expect(source).toContain("--popup-motion-from: translateY(-6px)")
+    expect(source).toContain("transform: var(--popup-motion-from) scale(.95)")
     // Durations come off the shared scale, never as a local number.
     expect(source).not.toMatch(/\d+ms/)
   })

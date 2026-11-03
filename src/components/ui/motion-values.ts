@@ -10,12 +10,15 @@ export const spring = {
   fast: { type: "spring", duration: 0.08, bounce: 0 },
   moderate: { type: "spring", duration: 0.16, bounce: 0 },
   slow: { type: "spring", duration: 0.24, bounce: 0.12 },
+  /** A popup springing from what opened it: quick to read, soft to settle. */
+  pop: { type: "spring", duration: 0.22, bounce: 0.2 },
 } satisfies Record<string, Transition>;
 
 export const springExit = {
   fast: { duration: 0.06 },
   moderate: { duration: 0.12 },
   slow: { duration: 0.16 },
+  pop: { duration: 0.12 },
 } satisfies Record<string, Transition>;
 
 /** Snappy press/hover feel for buttons — quick settle, no overshoot wobble. */
@@ -33,8 +36,8 @@ export const MAGNET_SPRING: Transition = {
   mass: 0.5,
 };
 
-/** Entrance spring for popovers/menus/cards, with no overshoot. */
-export const POP_SPRING = spring.moderate;
+/** Entrance spring for popovers/menus/cards: the pop tier, as `.popup-motion` runs it. */
+export const POP_SPRING = spring.pop;
 
 type Tier = keyof typeof spring;
 const tierEasing = new Map<Tier, string>();

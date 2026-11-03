@@ -120,6 +120,16 @@
 }
 .overleaf-thread:hover,
 .overleaf-thread:focus-within { border-color: var(--border-strong); }
+/* A thread started while the list is open (use-arrivals.ts): it comes in on
+   the slow tier, then a ring in the focus color holds a moment and lets go,
+   so the eye finds it among the others. */
+.overleaf-thread[data-fresh] { animation: overleaf-thread-in var(--motion-slow) both, overleaf-thread-ring var(--motion-linger); }
+@keyframes overleaf-thread-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@keyframes overleaf-thread-ring {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  10%, 50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 55%, transparent); }
+  100% { box-shadow: 0 0 0 2px transparent; }
+}
 .overleaf-thread-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

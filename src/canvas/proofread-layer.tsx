@@ -13,6 +13,7 @@ import {
   withReasons,
   type ProofreadContext,
 } from "../agent/proofread-edits";
+import { markAcceptedEdits, type AcceptedEdit } from "../editor/change-marks";
 import { proofreadAnchor, setProofreadAnchorEffect } from "../editor/proofread-anchor";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import type { ProofreadBridge } from "./proofread-bridge";
@@ -208,10 +209,18 @@ function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject
     if (protectedChange(current.original, revised, current.context)) {
       return fail(t`Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again.`);
     }
+    // Where each edit's new words sit once all of them are made, for the
+    // moment that shows the old words fold away into them.
+    let shift = 0;
+    const accepted = [...edits].sort((left, right) => left.from - right.from).map((edit): AcceptedEdit => {
+      const from = anchor.from + edit.from + shift;
+      shift += edit.insert.length - (edit.to - edit.from);
+      return { from, to: from + edit.insert.length, removed: current.original.slice(edit.from, edit.to) };
+    });
     view.dispatch({
       changes: edits.map((edit) => ({ from: anchor.from + edit.from, to: anchor.from + edit.to, insert: edit.insert })),
       selection: { anchor: anchor.from, head: anchor.from + revised.length },
-      effects: setProofreadAnchorEffect.of(null),
+      effects: [setProofreadAnchorEffect.of(null), markAcceptedEdits.of(accepted)],
       // Its own undo step, never merged with typing on either side.
       annotations: isolateHistory.of("full"),
       userEvent: "input.proofread",

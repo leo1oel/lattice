@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview } from "../app-types";
+import { noteLandedText } from "../editor/landed-text";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
 import { PDF_RECHECK_MS, useProjectPdfWatch } from "../pdf/use-project-pdf-watch";
@@ -84,6 +85,8 @@ export function useDocumentDiskSync(
       if (content === saved) return;
       depsRef.current.onDiskEdit(file);
       if (textRef.current !== savedRef.current) return;
+      // Noted first, so the editor marks the lines this changed as it takes the text.
+      noteLandedText(content);
       accept(file, content);
       if (depsRef.current.autoBuild.enabled) depsRef.current.autoBuild.afterDiskEdit();
     };

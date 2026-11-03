@@ -1,4 +1,4 @@
-import { Fragment, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Lock } from "lucide-react";
 import { Tip } from "@/components/icon-tip";
@@ -76,7 +76,10 @@ export function InlineEdits(props: {
   const { text, onToggle } = props;
   const parts: ReactNode[] = [];
   let cursor = 0;
+  let index = 0;
   for (const { edit, from, to, deleted: original, inserted: revised } of inlineEditSpans(text, props.edits)) {
+    // Its place in the passage, for a host that brings the edits in one by one.
+    const order = { "--inline-edit-index": index++ } as CSSProperties;
     parts.push(prose(text.slice(cursor, from), `text:${edit.id}`));
     cursor = to;
     const deleted = visible(original).trim();
@@ -88,7 +91,7 @@ export function InlineEdits(props: {
     if (edit.status === "held") {
       parts.push(
         <Tip key={edit.id} label={edit.detail} side="top">
-          <span className="inline-edit" data-status="held">
+          <span className="inline-edit" data-status="held" style={order}>
             {marked(original, (core) => <span className="inline-edit-original">{core}</span>)}
             {tag}
             <span className="sr-only">{[t`Held back: ${change}`, edit.tag, edit.detail].filter(Boolean).join(". ")}</span>
@@ -109,6 +112,7 @@ export function InlineEdits(props: {
         <span
           className="inline-edit"
           data-status={edit.status}
+          style={order}
           role={toggle ? "button" : undefined}
           tabIndex={toggle ? 0 : undefined}
           aria-pressed={toggle ? applied : undefined}

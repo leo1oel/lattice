@@ -131,3 +131,14 @@ export function removeHighlight(highlight: LatexHighlight): TextEdit[] {
 export function recolorHighlight(highlight: LatexHighlight, color: string): TextEdit {
   return { from: highlight.from, to: highlight.contentFrom, insert: highlightOpening(color) };
 }
+
+/** The highlight colors a source already uses, most used first, for the custom picker's "In this document". */
+export function documentHighlightColors(source: string | undefined): string[] {
+  if (!source) return [];
+  const counts = new Map<string, number>();
+  for (const highlight of latexHighlights(source)) {
+    const hex = highlight.color?.toUpperCase();
+    if (hex && /^#[0-9A-F]{6}$/.test(hex)) counts.set(hex, (counts.get(hex) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([hex]) => hex);
+}

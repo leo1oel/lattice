@@ -1,35 +1,38 @@
-/* CSS counterpart of the moderate spring tier, with a faster exit.
- * The embedded Agent's popups run on the same tier and reduced-motion policy.
+/* CSS counterpart of the pop spring tier, with a faster exit.
+ * The embedded Agent's popups run on the moderate tier and the same
+ * reduced-motion policy.
  *
- * A popup grows from its trigger: the transform origin is the trigger's side,
- * and the few pixels of travel come from that side too, so a menu that flips
- * above its trigger rises instead of dropping. Leaving, it fades where it
- * stands with only a breath of scale rather than replaying its entrance
- * backwards, so the dismissal reads as final. */
+ * A popup springs from its trigger: the transform origin is the trigger's
+ * side, and the few pixels of travel come from that side too, so a menu that
+ * flips above its trigger rises instead of dropping. The spring is most of
+ * the way there within a few frames and settles softly, so the popup reads
+ * at once and never waits on its motion. Leaving, it fades where it stands
+ * with only a breath of scale rather than replaying its entrance backwards,
+ * so the dismissal reads as final. */
 .popup-motion {
-  --popup-motion-from: translateY(-4px);
+  --popup-motion-from: translateY(-6px);
   --popup-motion-origin: top center;
   transform-origin: var(--radix-popper-transform-origin, var(--popup-motion-origin));
-  animation: popup-motion-open var(--motion-moderate) both;
+  animation: popup-motion-open var(--motion-pop) both;
 }
 
 /* A hand-placed popup (the visual editor's floating chrome) names the side it
    landed on itself; Radix's popper origin, when there is one, is exact. */
-.popup-motion[data-side="top"] { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
-.popup-motion[data-side="left"] { --popup-motion-from: translateX(4px); --popup-motion-origin: center right; }
-.popup-motion[data-side="right"] { --popup-motion-from: translateX(-4px); --popup-motion-origin: center left; }
+.popup-motion[data-side="top"] { --popup-motion-from: translateY(6px); --popup-motion-origin: bottom center; }
+.popup-motion[data-side="left"] { --popup-motion-from: translateX(6px); --popup-motion-origin: center right; }
+.popup-motion[data-side="right"] { --popup-motion-from: translateX(-6px); --popup-motion-origin: center left; }
 
 /* A leaving popup no longer takes the pointer, as a leaving dialog does not.
    A popup its owner unmounts leaves as a picture of itself (`useExitPicture`,
    `data-leaving`) on the same exit. */
 .popup-motion[data-state="closed"],
 .popup-motion[data-leaving] {
-  animation: popup-motion-close var(--motion-moderate-exit) both;
+  animation: popup-motion-close var(--motion-pop-exit) both;
   pointer-events: none;
 }
 
 @keyframes popup-motion-open {
-  from { opacity: 0; transform: var(--popup-motion-from) scale(.97); }
+  from { opacity: 0; transform: var(--popup-motion-from) scale(.95); }
   to { opacity: 1; transform: scale(1); }
 }
 
