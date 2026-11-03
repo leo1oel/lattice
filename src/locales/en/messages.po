@@ -14100,6 +14100,10 @@ msgstr "The live preview has stopped."
 msgid "The live preview PDF is not in its build folder."
 msgstr "The live preview PDF is not in its build folder."
 
+#: src/papers/add-papers-sheet.tsx
+msgid "The lookup returned no record."
+msgstr "The lookup returned no record."
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
 msgstr "the network became available"

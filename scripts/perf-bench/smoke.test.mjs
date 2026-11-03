@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const PERF_BENCH = fileURLToPath(new URL("../perf-bench.mjs", import.meta.url));
@@ -12,7 +13,8 @@ const PERF_BENCH = fileURLToPath(new URL("../perf-bench.mjs", import.meta.url));
 /**
  * The real `pnpm perf:bench` end to end: a production build served with
  * --serve --smoke --chrome, smoke checks of that page in each interface
- * language, and the SIGTERM that docs/driving-the-app.md stops it with. TMPDIR
+ * language, a paste into Add papers on its Chrome, and the SIGTERM that
+ * docs/driving-the-app.md stops it with. TMPDIR
  * is a directory of the test's own, so what the run leaves behind there is
  * this run's alone. A production build and three Chrome sessions are too slow
  * for the default suite, so it runs only with LATTICE_E2E=1
@@ -89,6 +91,27 @@ describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --c
     const result = await perfBench(["--smoke", "--url", pageUrl("system"), "--locale", "zh-CN"]);
     expect(result.code, result.stdout + result.stderr).toBe(0);
     expect(result.stdout).toMatch(/Smoke check passed: .*\(interface language: zh-CN\)/);
+  }, 180_000);
+
+  it("shows a card, not the crash page, for an arXiv link pasted into Add papers", async () => {
+    // Regression: the bench answered `resolve_citation_query` with null, and
+    // the sheet's rows read it while rendering, so every pasted identifier
+    // replaced the window with "Lattice couldn’t open this window".
+    const browser = await chromium.connectOverCDP(output.match(/CHROME_DEVTOOLS_AXI_BROWSER_URL=(\S+)/)[1]);
+    try {
+      const page = await (await browser.newContext()).newPage();
+      await page.goto(pageUrl("en"));
+      await page.getByRole("button", { name: "Add papers…" }).click({ timeout: 90_000 });
+      await page.getByRole("textbox", { name: "Paste references" }).fill("https://arxiv.org/abs/2312.00752");
+      const card = page.getByRole("dialog", { name: "Add papers" })
+        .locator("li", { hasText: "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" });
+      await card.locator('.add-papers-state[data-tone="new"]').waitFor({ timeout: 30_000 });
+      expect(await page.evaluate(() => [...globalThis.__latticeBench.unhandled])).not.toContain("resolve_citation_query");
+      expect(await page.getByText("Lattice couldn’t open this window").count()).toBe(0);
+    } finally {
+      // A CDP connection only disconnects; the server's Chrome stays for the SIGTERM check.
+      await browser.close();
+    }
   }, 180_000);
 
   it("leaves neither the build nor the browser profile behind after SIGTERM", async () => {

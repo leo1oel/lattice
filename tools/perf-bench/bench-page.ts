@@ -806,8 +806,7 @@ function answer(command: string, args: Args): unknown {
   if (linked !== NOT_HANDLED) return linked;
   const shell = terminalAnswer(command, args, () => current);
   if (shell !== NOT_HANDLED) return shell;
-  const cited = current.root === TUTORIAL_ROOT || Boolean(scale.bibEntries);
-  const bibliography = bibliographyAnswer(command, { params, files: current.files, cited });
+  const bibliography = bibliographyAnswer(command, args, { params, files: current.files, cited: current.root === TUTORIAL_ROOT || Boolean(scale.bibEntries) });
   if (bibliography !== NOT_HANDLED) return bibliography;
   switch (command) {
     // `?welcome=1` starts on the welcome screen, as a launch with no project does.

@@ -1,10 +1,13 @@
 /**
  * The bench's reads of the project's bibliography, as the backend's citation
  * commands report them: the `.bib` entries, where the `.tex` files cite them,
- * the citation audit's scan, and the files a staged index leaves out.
+ * the citation audit's scan, the files a staged index leaves out, and the
+ * lookup that resolves a pasted reference (bench-citation-lookup.ts).
  */
+import { citationLookupAnswer } from "./bench-citation-lookup";
 import { NOT_HANDLED } from "./bench-overleaf";
 
+type Args = Record<string, unknown> | undefined;
 type ProjectFiles = Map<string, string | Uint8Array>;
 type Context = {
   params: URLSearchParams;
@@ -25,8 +28,10 @@ const STAGED_SKIPPED_SOURCES = [
 ];
 
 /** The answer to a bibliography command, or `NOT_HANDLED` for any other. */
-export function bibliographyAnswer(command: string, { params, files, cited }: Context): unknown {
+export function bibliographyAnswer(command: string, args: Args, { params, files, cited }: Context): unknown {
   switch (command) {
+    case "resolve_citation_query":
+      return citationLookupAnswer(args, params);
     case "bibliography_audit_scan":
       return bibliographyAuditScan(files);
     case "list_citation_usages":
