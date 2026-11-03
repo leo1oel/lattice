@@ -17,7 +17,7 @@ Read this page, then Guidelines, before building anything from this file. Rules 
 The design system for Lattice and anything built beside it: the app, the website, and new software another agent builds from it. It captures the app as it ships; improvements arrive through review comments on the product, one at a time.
 
 - Paper is the source of truth. The copy in the Lattice repository (design-system/) is exported from here and never edited by hand.
-- Pages: Foundations (colour, type, space, radius, elevation, motion, icons), Components (each at real geometry with its states), Patterns (empty, loading, error, forms, Settings) and Guidelines (these rules).
+- Pages: Foundations (colour, type, space, radius, elevation, motion, icons), Components (each at real geometry with its states), Patterns (empty, loading, error, forms, Settings), App screens (the app's main screens in light and dark, as editable layers on these tokens) and Guidelines (these rules).
 - Every value on the canvas is a design token. Use the tokens, never the hex or pixel value they hold.
 
 ### Tokens
@@ -31,9 +31,9 @@ Tailwind v4 namespaces: --color-*, --spacing-*, --container-*, --breakpoint-*, -
 
 ### Working loop
 
-Review the product, fix it, update the system, then build new work from it.
+Comment on a screen, fix it, update the system, then build what you pick.
 
-- Comments go on the surface under review (the review page or board for the website, a film, or app screens), not in this file. The agent fixes that surface; when a comment implies a rule or token change, the agent updates this file and re-exports design-system/.
+- Comment on the surface under review: for the app, its artboard on App screens; for the website or a film, its review page or board. The agent fixes that surface; when a comment implies a rule or token change, it updates this file and re-exports design-system/. A change to an app screen reaches the app only once you pick it.
 - **[Lattice]** A value changes here and in the app's CSS in the same change. The app keeps its own CSS; the drift check fails until both agree.
 
 ## Guidelines
@@ -274,6 +274,19 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 | `--color-syntax-operator` | `#7D5100` | `#E8B25C` | Weft & Warp syntax: operator |
 | `--color-syntax-citation` | `#8D472F` | `#DFA27D` | Weft & Warp syntax: citation |
 | `--color-syntax-reference` | `#7A3FA8` | `#D59BF0` | Weft & Warp syntax: reference |
+| `--color-syntax-github-ink` | `#1F2328` | `#E6EDF3` | GitHub code theme (the default): ink: plain code and brackets |
+| `--color-syntax-github-line-number` | `#89929C` | `#6E7681` | GitHub code theme (the default): line numbers in the gutter |
+| `--color-syntax-github-caret` | `#0969DA` | `#2F81F7` | GitHub code theme (the default): the caret |
+| `--color-syntax-github-keyword` | `#CF222E` | `#FF7B72` | GitHub code theme (the default): LaTeX commands, keywords |
+| `--color-syntax-github-operator` | `#CF222E` | `#FF7B72` | GitHub code theme (the default): operators |
+| `--color-syntax-github-function` | `#804DDC` | `#D2A8FF` | GitHub code theme (the default): sectioning, functions |
+| `--color-syntax-github-type` | `#116329` | `#7EE787` | GitHub code theme (the default): environment names, types |
+| `--color-syntax-github-variable` | `#0550AE` | `#79C0FF` | GitHub code theme (the default): math, variables |
+| `--color-syntax-github-string` | `#0A3069` | `#A5D6FF` | GitHub code theme (the default): strings, arguments |
+| `--color-syntax-github-comment` | `#59636E` | `#8B949E` | GitHub code theme (the default): comments |
+| `--color-syntax-github-number` | `#0550AE` | `#79C0FF` | GitHub code theme (the default): numbers, constants |
+| `--color-syntax-github-citation` | `#0A3069` | `#A5D6FF` | GitHub code theme (the default): citation keys |
+| `--color-syntax-github-reference` | `#953800` | `#FFA657` | GitHub code theme (the default): cross-references |
 
 ### Font families
 

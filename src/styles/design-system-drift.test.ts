@@ -3,7 +3,8 @@
  * from the Paper file) against the values the app declares in theme.css and
  * foundations.css. Every token whose description names an app variable
  * (`app: --surface-chrome`) is resolved in the app's own CSS, in the right
- * theme and scope, and must match.
+ * theme and scope, and must match. A code-theme token (`app: code-theme github
+ * --syntax-keyword`) is checked against the palette the editor computes for it.
  *
  * A failure is drift between the two sources of truth. Fix it on purpose: when
  * the app changed, update the Paper file and re-export (design-system/README.md);
@@ -12,6 +13,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { codeThemeProperties, type CodeTheme } from "../settings/code-themes";
 
 // Vitest runs from the repository root, as tokens.test.ts relies on.
 const read = (path: string) => readFileSync(path, "utf8");
@@ -180,6 +182,12 @@ const allCss = (dir: string): string[] => readdirSync(dir, { withFileTypes: true
 
 /** `fallback` reads a curve's cubic declaration instead of the sampled spring that overrides it. */
 function appValue(theme: "light" | "dark", app: string, fallback: boolean): string {
+  const codeTheme = /^code-theme (\S+) (--[\w-]+)$/.exec(app);
+  if (codeTheme) {
+    const value = codeThemeProperties(codeTheme[1] as CodeTheme, theme, theme)[codeTheme[2]];
+    if (value === undefined) throw new Error(`the ${codeTheme[1]} code theme sets no ${codeTheme[2]}`);
+    return value;
+  }
   const map = scopeFor(theme, app);
   if (app.startsWith("color-mix(")) return resolve(app, map);
   const name = /(--[\w-]+)$/.exec(app)?.[1];
