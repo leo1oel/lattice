@@ -1,0 +1,139 @@
+  // ── Lattice design-system App screens (not part of Synara's suite) ──────
+  // Renders the embedded Agent panel as Lattice hosts it (chrome surface, the
+  // host theme Lattice posts) at the Agent slot's size, then serializes it to
+  // Paper HTML with the design-system tokens.
+  for (const screenTheme of ["light", "dark"] as const) {
+    it(`lattice screens agent ${screenTheme}`, async () => {
+      const screenLocale = "en" as const;
+      const turnId = TurnId.makeUnsafe("turn-screen");
+      const userId = MessageId.makeUnsafe("msg-screen-user");
+      const assistantId = MessageId.makeUnsafe("msg-screen-assistant");
+      const ask = "Rewrite the abstract’s first sentence.";
+      const reply = "I rewrote the first sentence of the abstract ([main.tex:23](main.tex#L23)) so it opens with what the reader will learn:\n\n> Readers will learn how attention turns a collection of token representations into context-sensitive representations by learning which pieces of information should interact.\n\nIt’s still one sentence, and the claim is unchanged.";
+      const snapshot: OrchestrationReadModel = {
+        snapshotSequence: nextSnapshotSequence(),
+        spaces: [],
+        projects: [
+          {
+            id: PROJECT_ID,
+            kind: "project",
+            title: "Understanding Attention",
+            workspaceRoot: "/repo/project",
+            defaultModelSelection: { provider: "claudeAgent", model: "claude-opus-5-5" },
+            scripts: [],
+            createdAt: NOW_ISO,
+            updatedAt: NOW_ISO,
+            deletedAt: null,
+          },
+        ],
+        threads: [
+          {
+            id: THREAD_ID,
+            projectId: PROJECT_ID,
+            title: "Rewrite abstract opening",
+            modelSelection: { provider: "claudeAgent", model: "claude-opus-5-5" },
+            interactionMode: "default",
+            runtimeMode: "full-access",
+            envMode: "local",
+            branch: "main",
+            worktreePath: null,
+            latestTurn: {
+              turnId,
+              state: "completed",
+              requestedAt: isoAt(100),
+              startedAt: isoAt(100),
+              completedAt: isoAt(113),
+              assistantMessageId: assistantId,
+            },
+            createdAt: NOW_ISO,
+            updatedAt: isoAt(113),
+            deletedAt: null,
+            handoff: null,
+            messages: [
+              { ...createUserMessage({ id: userId, text: ask, offsetSeconds: 99 }), turnId },
+              {
+                turnId,
+                id: assistantId,
+                role: "assistant",
+                text: reply,
+                createdAt: isoAt(112),
+                updatedAt: isoAt(113),
+                completedAt: isoAt(113),
+                streaming: false,
+                source: "native",
+              },
+            ],
+            activities: [
+              {
+                id: EventId.makeUnsafe("activity-screen-read"),
+                createdAt: isoAt(102),
+                kind: "tool.completed" as const,
+                summary: "Read main.tex",
+                tone: "tool" as const,
+                turnId,
+                payload: { itemType: "dynamic_tool_call", toolName: "Read" },
+              },
+              {
+                id: EventId.makeUnsafe("activity-screen-edit"),
+                createdAt: isoAt(108),
+                kind: "tool.completed" as const,
+                summary: "Edited main.tex",
+                tone: "tool" as const,
+                turnId,
+                payload: { itemType: "dynamic_tool_call", toolName: "Edit" },
+              },
+            ],
+            proposedPlans: [],
+            checkpoints: [
+              {
+                turnId,
+                checkpointTurnCount: 1,
+                checkpointRef: CheckpointRef.makeUnsafe("checkpoint-screen"),
+                status: "ready",
+                files: [{ path: "main.tex", kind: "modified", additions: 1, deletions: 1 }],
+                assistantMessageId: assistantId,
+                completedAt: isoAt(113),
+              },
+            ],
+            session: {
+              threadId: THREAD_ID,
+              status: "ready",
+              providerName: "claudeAgent",
+              runtimeMode: "full-access",
+              activeTurnId: null,
+              lastError: null,
+              updatedAt: isoAt(113),
+            },
+          },
+        ],
+        updatedAt: isoAt(113),
+      };
+      const { commands } = await import("vitest/browser");
+      const slot = JSON.parse(await commands.readFile("lattice-screens/slot.json")) as { w: number; h: number };
+      const hostTheme = await commands.readFile(`lattice-screens/host-theme-${screenTheme}.json`);
+      const embedConfig = { workspaceRoot: "/repo/project", theme: screenTheme, surface: "chrome", hostOrigin: null, locale: screenLocale };
+      sessionStorage.setItem("synara.poc.embed-mode", JSON.stringify(embedConfig));
+      sessionStorage.setItem("synara.poc.embed-host-theme", hostTheme);
+      const { applyEmbedTheme, readEmbedMode } = await import("../embedMode");
+      const config = readEmbedMode();
+      if (config) applyEmbedTheme(config);
+      const { setLanguagePreference } = await import("../i18n");
+      setLanguagePreference("en");
+      const mounted = await mountChatView({ viewport: { name: "lattice-agent", width: Math.round(slot.w), height: Math.round(slot.h) }, snapshot });
+      try {
+        await waitForLayout();
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const fn = await commands.readFile("lattice-screens/serialize.js");
+        const opts = JSON.parse(await commands.readFile(`lattice-screens/opts-${screenTheme}.json`));
+        // eslint-disable-next-line no-new-func
+        const serialize = new Function(`return (${fn})`)() as (o: unknown) => { html: string; background: string | null; images: Array<{ id: string; data: string }>; stats: unknown };
+        const result = serialize(opts);
+        await commands.writeFile(`lattice-screens/agent-${screenTheme}.json`, JSON.stringify(result));
+      } finally {
+        await mounted.cleanup();
+      }
+    });
+  }
+

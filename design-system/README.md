@@ -2,7 +2,8 @@
 
 The design system lives in the Paper file
 [Lattice design system](https://app.paper.design/file/01M6EKRMTWZ2JD6ZHKF830MAVP):
-Guidelines (start there), Foundations, Components and Patterns. This folder
+Guidelines (start there), Foundations, Components, Patterns and App screens.
+This folder
 is its exported copy, for code and for agents that cannot reach Paper.
 
 | File | What it is | Edit it? |
@@ -12,6 +13,8 @@ is its exported copy, for code and for agents that cannot reach Paper.
 | `DESIGN.md` | The written rules from the Guidelines page, then every token in tables | No, generated |
 | `paper-export.json` | The raw pull from Paper the three files above are rendered from | No, generated |
 | `export.mjs` | The exporter | Yes |
+| `paper.mjs` | The Paper file's id and a client for Paper's MCP server | Yes |
+| `screens/` | Draws the App screens page from the running app (below) | Yes |
 | `README.md` | This file | Yes |
 
 ## Regenerate from Paper
@@ -50,7 +53,9 @@ software built from the system, and agents without Paper.
 `src/styles/design-system-drift.test.ts` resolves every token whose
 description names an app variable (`app: --surface-chrome`) in the app's own
 `theme.css` and `foundations.css`, in the right theme, tint, accent or Settings
-scope, and fails on any difference. It never changes either side: when it fails,
+scope, and fails on any difference. A code-theme token (`app: code-theme github
+--syntax-keyword`) is checked against the palette the editor computes for that
+theme (`codeThemeProperties` in `src/settings/code-themes.ts`). It never changes either side: when it fails,
 decide which one is right, change that one at its source (the Paper file, or
 the app's CSS), and re-export. Tokens with `app: none` are documentation only.
 
@@ -66,17 +71,50 @@ the app's CSS), and re-export. Tokens with `app: none` are documentation only.
 
 ## The review loop
 
-The captain does not comment in the Paper file. Review happens on the product.
+The captain reviews the product, never the system pages: the app on the Paper
+file's App screens page, the website and films on their own review pages or
+boards.
 
-1. The captain comments on the surface under review: the review page or board
-   for the website, a film, or app screens.
-2. The agent working on that surface fixes it.
+1. The captain comments on what is under review. For the app, that is a
+   comment pinned to a screen's artboard in Paper.
+2. The agent reads the open threads (`list_comment_threads`, then
+   `get_comment_thread` for each in full) and fixes the screen in Paper, or the
+   website or film on its own surface.
 3. When a comment implies a rule or a value of the system (a colour, a spacing
    step, a motion curve, a rule on the Guidelines page), that agent, not the
    captain, updates the Paper file: the token or rule, and the components and
-   patterns that show it. It changes the app's CSS in the same change when the
-   value is one the app uses.
-4. It runs `node design-system/export.mjs` and the drift check, and opens the
-   change for review, naming the comment it answers.
+   patterns that show it. It runs `node design-system/export.mjs` and the drift
+   check.
+4. An app screen's change reaches the app's code only once the captain picks
+   it; the drift check then holds the app and the exported copy together. The
+   agent resolves the thread (`set_comment_thread_status`) when its change is
+   in, and names the thread in the pull request.
 
-New work then follows the updated system.
+## App screens
+
+The App screens page holds the app's main screens (main window, Agent panel,
+references, Markdown, HTML and slides viewers, Settings, welcome) in light and
+dark, as editable layers whose colours, fonts and radii are the file's tokens.
+They are drawn from the app as it runs, not from screenshots, by `screens/`:
+each screen is staged on the mock-backend page over the tutorial project and
+its built PDF (`scenes.mjs`), every rendered element becomes a Paper layer at
+its measured place (`serialize.js`), and `draw.mjs` writes it to the artboard
+of that name. Redraw a screen this way after the app changes rather than
+editing it by hand to match:
+
+```bash
+pnpm perf:bench --serve --dev --port 0     # prints the page's URL; keep it running
+BENCH_URL=<url> node design-system/screens/agent.mjs <synara checkout>   # the Agent panel, first
+BENCH_URL=<url> node design-system/screens/draw.mjs [screen…]            # --dry-run to only write HTML
+```
+
+The Agent panel is Synara's own chat view at the pinned revision, rendered by
+`agent.mjs` in Synara's browser test harness in Lattice's embed mode and host
+theme. Slides come from the Open Slide runtime over a throwaway copy of the
+deck (`pnpm --dir tools/open-slide-runtime install` first). Colours that match
+no token are counted; inside the app's own chrome every colour is a token, or a
+token at reduced opacity.
+
+Builds that embed the private Timeless family set the interface, reading and
+display roles in its faces; the screens bind those roles to the font tokens,
+which Paper draws in the open fallbacks (Inter, Instrument Serif).
