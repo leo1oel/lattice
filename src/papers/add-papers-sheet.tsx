@@ -153,12 +153,16 @@ export function AddPapersSheet(props: {
         pending.delete(reference.id);
         if (mounted.current) setLookups((current) => ({ ...current, [reference.id]: lookup }));
       };
+      // The rows read the answer while rendering, where a throw takes down the
+      // whole window; an answer that is not a record is a failed lookup.
       onResolve(reference.input).then(
-        (resolved) => answer({ state: "done", resolved }),
+        (resolved: unknown) => answer(resolved && typeof resolved === "object"
+          ? { state: "done", resolved: resolved as ResolvedCitationDraft }
+          : { state: "failed", error: t`The lookup returned no record.` }),
         (reason: unknown) => answer({ state: "failed", error: hostErrorMessage(reason) }),
       );
     }
-  }, [onResolve, rows]);
+  }, [onResolve, rows, t]);
 
   const queued = queue.length > 0;
   const importingElsewhere = props.importing && !addQueueRunning();
