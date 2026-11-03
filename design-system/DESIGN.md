@@ -70,7 +70,7 @@ Six roles, each a size with its own leading. Take both.
 - Nothing in the interface is set below 11px; metadata is 12px.
 - Chinese sets in PingFang SC; a serif title falls to Songti SC, so it stays a serif in either language.
 - A region that is read rather than scanned (Settings) runs every role one step up; Display does not step up.
-- **[Lattice]** Release builds set Timeless Sans and Serif first. Those fonts never ship outside the app: the repository and public pages use the open faces.
+- **[Lattice]** Release builds set Timeless Sans and Serif first. Those fonts never ship outside the app: the repository and public pages use the open faces, and this file draws the closest faces it has (Inter, Lora, Libre Caslon Text, Roboto Mono).
 
 ### Space and geometry
 
@@ -292,12 +292,12 @@ A raised, popover, floating or dialog surface stands on `--color-raised` with `b
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--font-ui` | `"Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif` | Interface font; release builds put Timeless Sans (Grotesk) first; Chinese sets in PingFang SC. Paper draws the first open face it has |
-| `--font-display` | `"Instrument Serif", "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif` | The one serif voice: Display and Title only, regular weight. Release builds put Timeless Serif first; Chinese falls to Songti SC |
-| `--font-editor` | `"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace` | Code, diffs, logs and every monospace surface. Ioskeley Mono (OFL, bundled with the app) is not installed for Paper, so Paper draws Menlo, the first fallback |
+| `--font-ui` | `"Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif` | Interface font; release builds put Timeless Sans (Grotesk) first; Chinese sets in PingFang SC. Paper cannot draw Timeless and draws Inter, the closest face it has (glyph overlap 0.73, same width and x-height at the app's 1.04 size-adjust) |
+| `--font-display` | `"Instrument Serif", "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif` | The one serif voice: Display and Title only, regular weight. Release builds put Timeless Serif first; Chinese falls to Songti SC. Paper draws Lora, the closest face it has to Timeless Serif (same width, x-height 0.98); open builds draw Instrument Serif |
+| `--font-editor` | `"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace` | Code, diffs, logs and every monospace surface. Ioskeley Mono (OFL, bundled with the app) is not installed for Paper, so Paper draws Roboto Mono, the closest face it has (same advance, x-height 1.02) |
 | `--font-zh` | `"PingFang SC"` | Chinese interface face, the third family in --font-ui |
 | `--font-zh-serif` | `"Songti SC"` | Chinese serif, the second family in --font-display |
-| `--font-reading` | `"Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif` | Long-form prose: the visual Markdown surface and a paper's title in the reader. The interface stack in open builds; Timeless Serif Text in release builds |
+| `--font-reading` | `"Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif` | Long-form prose: the visual Markdown surface and a paper's title in the reader. Release builds set it in Timeless Serif Text; Paper draws Libre Caslon Text, the closest serif it has (same width and x-height; regular and bold only); open builds use the interface stack |
 
 ### Font sizes
 

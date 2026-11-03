@@ -116,5 +116,8 @@ no token are counted; inside the app's own chrome every colour is a token, or a
 token at reduced opacity.
 
 Builds that embed the private Timeless family set the interface, reading and
-display roles in its faces; the screens bind those roles to the font tokens,
-which Paper draws in the open fallbacks (Inter, Instrument Serif).
+display roles in its faces; the screens bind those roles to the font tokens.
+Paper cannot draw Timeless (or the bundled Ioskeley Mono), so each font token
+holds the closest face Paper has, chosen by glyph overlap and set width against
+the app's own face: Inter (interface), Libre Caslon Text (reading), Lora
+(display), Roboto Mono (code). The export still writes the app's stacks.
