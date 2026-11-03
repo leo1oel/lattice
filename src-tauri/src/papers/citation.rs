@@ -244,10 +244,22 @@ mod tests {
             ("https://doi.org/10.1234/ab", a, false),
             ("https://doi.org/10.1234/A", a, true),
             ("https://arxiv.org/pdf/2510.14979v2", a, true),
+            ("arXiv:2510.14979", a, true),
+            ("arXiv:2605.28820", a, false),
             ("2510.14979", "@misc{x,title={No identity}}", false),
             ("", "@misc{x,title={Incomplete}", false),
         ] {
             assert_eq!(validate_resolved_identity(query, raw).is_ok(), valid, "{query}: {raw}");
         }
+    }
+
+    #[test]
+    fn an_arxiv_prefixed_id_is_an_identifier_not_a_title_to_verify() {
+        // Lookup and import both run this check. The prefixed id used to fall
+        // through to the title comparison and fail with "The resolved title
+        // differs from the requested title", after a title search.
+        let raw = "@misc{gu2023mamba,title={Mamba: Linear-Time Sequence Modeling with Selective State Spaces},author={Gu, Albert and Dao, Tri},year={2023},eprint={2312.00752}}";
+        assert_eq!(verify_title_citation("arXiv:2312.00752", raw), Ok(()));
+        assert!(verify_title_citation("Mamba", raw).is_err());
     }
 }

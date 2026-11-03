@@ -14,10 +14,13 @@ static WHOLE_ID: LazyLock<Regex> =
 /// asking bibcite to resolve the DOI.
 static ID_IN_TEXT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(&format!(r"(?i)\b({ARXIV_ID})\b")).unwrap());
-/// A bare id or an arXiv abs/pdf/html URL, and nothing else.
+/// A bare id, an `arXiv:`-prefixed id, or an arXiv abs/pdf/html URL, and
+/// nothing else. The prefix is how papers cite each other (and what the Add
+/// papers box suggests pasting); src/papers/arxiv-id.ts reads the same forms,
+/// so the sheet and the backend agree on what is an arXiv id.
 static EXPLICIT_ID: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
-        r"(?i)^(?:https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:{ARXIV_ID})(?:\.pdf)?(?:[?#].*)?$"
+        r"(?i)^(?:arxiv:\s*|https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf|html)/)?(?:{ARXIV_ID})(?:\.pdf)?(?:[?#].*)?$"
     ))
     .unwrap()
 });
@@ -62,8 +65,8 @@ pub(super) fn parse_arxiv_id(input: &str) -> Option<String> {
     ID_IN_TEXT.captures(input.trim()).map(|capture| capture[1].to_string())
 }
 
-/// The arXiv id of an input that names nothing but an arXiv work: a bare id,
-/// an arXiv URL, or arXiv's own DOI. `parse_arxiv_id` also extracts ids from
+/// The arXiv id of an input that names nothing but an arXiv work: a bare or
+/// `arXiv:`-prefixed id, an arXiv URL, or arXiv's own DOI. `parse_arxiv_id` also extracts ids from
 /// arbitrary text, and this must not mistake a title or an unrelated publisher
 /// URL for that paper.
 pub(crate) fn explicit_arxiv_id(query: &str) -> Option<String> {
@@ -98,6 +101,27 @@ mod tests {
             ("https://arxiv.org/abs/math.GT/0211159v2", Some("math.GT/0211159v2")),
         ] {
             assert_eq!(parse_arxiv_id(input).as_deref(), expected, "{input}");
+        }
+    }
+
+    #[test]
+    fn explicit_ids_include_the_arxiv_prefix_but_never_a_title_or_sentence() {
+        for (input, expected) in [
+            ("2401.12345", Some("2401.12345")),
+            ("https://arxiv.org/pdf/2401.12345v3", Some("2401.12345v3")),
+            ("10.48550/arXiv.2401.12345", Some("2401.12345")),
+            // Regression: the prefixed form was read as a title, so a lookup
+            // waited on a title search and then failed its title check.
+            ("arXiv:2401.12345", Some("2401.12345")),
+            ("  arxiv: 2401.12345v2 ", Some("2401.12345v2")),
+            ("ARXIV:math.GT/0211159", Some("math.GT/0211159")),
+            ("arXiv:", None),
+            ("arXiv:2401.12345 and its follow-up", None),
+            ("see arXiv:2401.12345", None),
+            ("Attention Is All You Need", None),
+            ("10.1145/3292500.3330701", None),
+        ] {
+            assert_eq!(explicit_arxiv_id(input).as_deref(), expected, "{input}");
         }
     }
 }
