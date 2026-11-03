@@ -64,14 +64,19 @@ the app's CSS), and re-export. Tokens with `app: none` are documentation only.
   `tokens.json`. Rules marked **[Lattice]** are specific to Lattice; the rest
   are meant for a new product too.
 
-## The comment loop
+## The review loop
 
-1. The captain comments in Paper on the node that is wrong.
-2. An agent lists the open threads (`list_comment_threads`) and reads each in
-   full (`get_comment_thread`).
-3. It fixes the app and the Paper file together (the components and, if a value
-   changed, the token), runs the exporter, and checks there is no drift.
-4. It opens the change for review and resolves the thread
-   (`set_comment_thread_status`), saying in the PR which thread it answers.
+The captain does not comment in the Paper file. Review happens on the product.
+
+1. The captain comments on the surface under review: the review page or board
+   for the website, a film, or app screens.
+2. The agent working on that surface fixes it.
+3. When a comment implies a rule or a value of the system (a colour, a spacing
+   step, a motion curve, a rule on the Guidelines page), that agent, not the
+   captain, updates the Paper file: the token or rule, and the components and
+   patterns that show it. It changes the app's CSS in the same change when the
+   value is one the app uses.
+4. It runs `node design-system/export.mjs` and the drift check, and opens the
+   change for review, naming the comment it answers.
 
 New work then follows the updated system.

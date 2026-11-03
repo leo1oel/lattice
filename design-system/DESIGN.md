@@ -14,7 +14,7 @@ Read this page, then Guidelines, before building anything from this file. Rules 
 
 ### What this file is
 
-The design system for Lattice and anything built beside it: the app, the website, and new software another agent builds from it. It captures the app as it ships; improvements arrive through comments, one at a time.
+The design system for Lattice and anything built beside it: the app, the website, and new software another agent builds from it. It captures the app as it ships; improvements arrive through review comments on the product, one at a time.
 
 - Paper is the source of truth. The copy in the Lattice repository (design-system/) is exported from here and never edited by hand.
 - Pages: Foundations (colour, type, space, radius, elevation, motion, icons), Components (each at real geometry with its states), Patterns (empty, loading, error, forms, Settings) and Guidelines (these rules).
@@ -31,10 +31,10 @@ Tailwind v4 namespaces: --color-*, --spacing-*, --container-*, --breakpoint-*, -
 
 ### Working loop
 
-Comment in Paper, fix, update the system, then build new work from it.
+Review the product, fix it, update the system, then build new work from it.
 
-- Leave a comment on the node that is wrong. An agent reads open threads through the Paper MCP (list_comment_threads, get_comment_thread), fixes the app and this file together, re-exports, and resolves the thread.
-- **[Lattice]** Change a value here first, then in the app. The drift check fails until both agree.
+- Comments go on the surface under review (the review page or board for the website, a film, or app screens), not in this file. The agent fixes that surface; when a comment implies a rule or token change, the agent updates this file and re-exports design-system/.
+- **[Lattice]** A value changes here and in the app's CSS in the same change. The app keeps its own CSS; the drift check fails until both agree.
 
 ## Guidelines
 
