@@ -38,6 +38,36 @@ describe("ProofreadCard", () => {
     expect(onAccept).toHaveBeenCalledOnce();
   });
 
+  it("holds the answer's place with a skeleton line for about each line of the selection while the agent works", () => {
+    renderCard("polish", { status: "loading" }, "A short sentence.");
+    const card = screen.getByRole("group", { name: "Polish suggestion" });
+    expect(card.querySelector(".proofread-card-placeholder")?.children).toHaveLength(1);
+    cleanup();
+    renderCard("polish", { status: "loading" }, "word ".repeat(200));
+    const longer = screen.getByRole("group", { name: "Polish suggestion" }).querySelector(".proofread-card-placeholder");
+    expect(longer).toHaveAttribute("aria-hidden", "true");
+    expect(longer?.children).toHaveLength(3);
+  });
+
+  it("numbers each edit in the passage so they arrive in turn, and shows no skeleton once answered", () => {
+    const original = "We utilize a novel method.";
+    renderCard("polish", {
+      status: "ready",
+      review: {
+        edits: [
+          { id: 0, from: 3, to: 10, insert: "use" },
+          { id: 1, from: 13, to: 19, insert: "new" },
+        ],
+        held: [],
+      },
+      rejected: new Set(),
+    }, original);
+    const card = screen.getByRole("group", { name: "Polish suggestion" });
+    expect(card.querySelector(".proofread-card-placeholder")).toBeNull();
+    const order = [...card.querySelectorAll<HTMLElement>(".inline-edit")].map((edit) => edit.style.getPropertyValue("--inline-edit-index"));
+    expect(order).toEqual(["0", "1"]);
+  });
+
   it("says a failed rewrite could not rewrite", () => {
     renderCard({ instruction: "Shorten" }, { status: "error", message: "The agent could not rewrite the selection.", retryable: true });
     expect(screen.getByRole("status")).toHaveTextContent("Could not rewrite");

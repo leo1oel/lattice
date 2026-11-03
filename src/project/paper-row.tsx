@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { CopyButton } from "../components/copy-button";
+import { RollingValue } from "../components/ui/rolling-value";
 import { paperKey } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { formatCount } from "../i18n";
@@ -191,7 +192,7 @@ export function PaperRow(props: PaperRowProps) {
       <span className="paper-cell paper-cell-year" aria-hidden="true">{year}</span>
       <span className="paper-cell paper-cell-venue" aria-hidden="true">{venue}</span>
       <span className="paper-uses" data-zero={uses === 0 || undefined} aria-hidden="true">
-        {uses === null ? null : uses ? `${formatCount(uses)}×` : "—"}
+        {uses === null ? null : <RollingValue value={uses} of={paperKey(paper)}>{uses ? `${formatCount(uses)}×` : "—"}</RollingValue>}
       </span>
       {/* The line under the title is the byline at rest. Hovered,
           focused or open, the row's citation key (a button that

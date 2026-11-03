@@ -12,6 +12,7 @@ import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } f
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { withoutAppShortcuts } from "../editor-app-shortcuts";
+import { changeMarksExtension } from "../change-marks";
 import { centerMatch, revealExtension } from "../editor-reveal";
 import { harperSpellcheck, type GrammarIgnores, type HarperProse, type IgnoreGrammar } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
@@ -238,18 +239,36 @@ export function selectionVisibilityExtension(): Extension {
 }
 
 /**
- * CodeMirror's tooltips (completions, hover cards, diagnostics) arrive as
- * every popup does, on `.popup-motion`. CodeMirror makes and removes their
- * elements itself and takes no class for the host its hover cards share, so
- * each is marked as it lands in the editor; a card joining a host already
- * shown does not replay it. They still leave at once: CodeMirror removes a
- * tooltip the moment it closes.
+ * CodeMirror's tooltips (completions, hover cards, diagnostics) arrive and
+ * leave as every popup does, on `.popup-motion`. CodeMirror makes and removes
+ * their elements itself and takes no class for the host its hover cards
+ * share, so each is marked as it lands in the editor; a card joining a host
+ * already shown does not replay it. CodeMirror removes a closed tooltip at
+ * once, so a picture of it (a copy: CodeMirror may show the element itself
+ * again) takes its place for the exit, inert, and goes when that ends.
  */
 const popupMotionTooltips = ViewPlugin.define((view) => {
+  const leave = (tooltip: HTMLElement, parent: Node, next: Node | null) => {
+    if (!parent.isConnected || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const picture = tooltip.cloneNode(true) as HTMLElement;
+    picture.inert = true;
+    picture.removeAttribute("role");
+    for (const named of [picture, ...picture.querySelectorAll("[id]")]) named.removeAttribute("id");
+    picture.setAttribute("data-leaving", "");
+    parent.insertBefore(picture, next?.parentNode === parent ? next : null);
+    const animations = picture.getAnimations?.() ?? [];
+    if (!animations.length) picture.remove();
+    else void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => picture.remove());
+  };
   const observer = new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node instanceof HTMLElement && node.classList.contains("cm-tooltip")) node.classList.add(popupMotionClassName);
+      }
+      for (const node of record.removedNodes) {
+        if (node instanceof HTMLElement && node.classList.contains(popupMotionClassName) && !node.hasAttribute("data-leaving")) {
+          leave(node, record.target, record.nextSibling);
+        }
       }
     }
   });
@@ -277,6 +296,7 @@ export function textEditorExtensions(
     syntaxHighlighting(latexHighlightStyle),
     search({ top: true, scrollToMatch: centerMatch }),
     revealExtension(),
+    changeMarksExtension(),
     compactSearchPanel(),
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),

@@ -211,9 +211,40 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
   white-space: normal;
   user-select: text;
-  animation: proofread-card-in var(--motion-moderate);
+  animation: proofread-card-unroll var(--motion-slow) backwards;
 }
-@keyframes proofread-card-in { from { opacity: 0; translate: 0 -4px; } }
+/* The card unrolls downward from the selection it answers. The clip reaches
+   past its edges, so its shadow comes with it; the clip is gone once it has. */
+@keyframes proofread-card-unroll {
+  from { opacity: 0; clip-path: inset(-24px -24px 100% -24px); }
+  to { opacity: 1; clip-path: inset(-24px); }
+}
+/* While the agent works: skeleton lines, the last one short, as a paragraph
+   ends (loading-status.css draws the sheen). */
+.proofread-card-placeholder {
+  --loading-sheen-surface: var(--surface-elevated);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--gap-tight);
+  border-radius: var(--radius-compact);
+}
+.proofread-card-placeholder > span {
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+}
+.proofread-card-placeholder > span:last-child:not(:first-child) { width: 62%; }
+.proofread-card-placeholder > span:nth-child(2):not(:last-child) { width: 90%; }
+/* The answer: the passage comes up first, then each edit arrives on it in
+   turn, a few at most waiting their turn. */
+.proofread-card-text { animation: proofread-text-in var(--motion-moderate) both; }
+.proofread-card-text .inline-edit {
+  --inline-edit-index: 0; /* Each edit's own, set inline (inline-edits.tsx). */
+  animation: proofread-edit-in var(--motion-moderate) both;
+  animation-delay: calc(var(--duration-fast) + min(var(--inline-edit-index), 8) * var(--duration-stagger));
+}
+@keyframes proofread-text-in { from { opacity: 0; } }
+@keyframes proofread-edit-in { from { opacity: .15; } }
 .proofread-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; }
 .proofread-card-summary {
   display: flex;
@@ -577,11 +608,58 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-activeLineGutter { background: transparent; }
 /* A jump's target (editor-reveal.ts): held, then faded, in the find-match color.
    An animated fill outranks the active-line and selection rules above. */
-.source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s ease-out; }
+.source-editor .cm-line.cm-reveal-flash { animation: reveal-flash var(--motion-linger); }
 @keyframes reveal-flash {
   0%, 55% { background-color: var(--highlight-match-surface); }
   100% { background-color: transparent; }
 }
+/* What changed under the writer (change-marks.ts). An outside edit's lines
+   (the agent's, another app's) come up on the success wash, hold it, and
+   let it go, as a jump's target does. */
+.source-editor .cm-line.cm-landed-line { animation: change-wash var(--motion-linger); }
+@keyframes change-wash {
+  0% { background-color: transparent; }
+  8%, 45% { background-color: var(--status-success-soft); }
+  100% { background-color: transparent; }
+}
+/* An accepted suggestion, one edit after another: the old words are struck
+   through, then fold away (a picture: the document already reads the new
+   ones), then the new words settle in on the wash. The fold runs from the
+   words' width, measured once drawn (`data-measured`). */
+.source-editor .cm-accept-ghost {
+  --change-mark-width: none; /* The words' drawn width, set once measured. */
+  --change-mark-delay: calc(var(--change-mark-order, 0) * var(--duration-stagger));
+  display: inline-block;
+  max-width: var(--change-mark-width);
+  overflow: hidden;
+  vertical-align: bottom;
+  color: var(--text-secondary);
+  white-space: pre;
+}
+.source-editor .cm-accept-ghost > span { position: relative; }
+.source-editor .cm-accept-ghost > span::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 55%;
+  height: 1px;
+  background: var(--status-danger);
+  transform-origin: left center;
+  animation: accept-strike var(--motion-moderate) both;
+  animation-delay: var(--change-mark-delay);
+}
+.source-editor .cm-accept-ghost[data-measured] {
+  animation: accept-fold var(--motion-moderate) both;
+  animation-delay: calc(var(--duration-moderate) + var(--change-mark-delay));
+}
+.source-editor .cm-accept-insert {
+  border-radius: 2px;
+  animation: accept-settle var(--motion-moderate) both, change-wash var(--motion-linger) both;
+  animation-delay: calc(var(--duration-moderate) + var(--duration-fast) + var(--change-mark-order, 0) * var(--duration-stagger));
+}
+@keyframes accept-strike { from { transform: scaleX(0); } }
+@keyframes accept-fold { to { max-width: 0; opacity: 0; } }
+@keyframes accept-settle { from { opacity: 0; } }
 .source-editor .cm-focused { outline: none; }
 .source-editor .cm-editor .cm-panels { z-index: var(--z-editor-overlay); background: var(--surface-panel-raised); border-color: var(--border-subtle); color: var(--text-secondary); }
 .source-editor .cm-panels.cm-panels-top { border-bottom: 1px solid var(--border-subtle); }
@@ -747,7 +825,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-citation-option .cm-completionDetail { grid-column: 2; margin-left: 0; max-width: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* A tooltip CodeMirror placed above its anchor rises from it (see
    `popupMotionTooltips` in latex-editor.ts). */
-.source-editor .cm-tooltip-above.popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
+.source-editor .cm-tooltip-above.popup-motion { --popup-motion-from: translateY(6px); --popup-motion-origin: bottom center; }
 /* Readable by default: a transparent host leaves any card without its own
    background sitting directly on the document, with the prose showing through.
    The cards that genuinely draw their own chrome strip it below. Its edge is
@@ -778,7 +856,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   flex: 0 1 auto;
 }
 /* Above its line, the card rises into place instead of dropping. */
-.cm-tooltip-above .cm-editor-comment-card-host > .popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
+.cm-tooltip-above .cm-editor-comment-card-host > .popup-motion { --popup-motion-from: translateY(6px); --popup-motion-origin: bottom center; }
 /* Lint diagnostics (e.g. "Unused label …") hover in a tooltip that carries
    .cm-tooltip-lint. Match it on its own (not only combined with
    .cm-tooltip-hover): hovering the gutter marker puts both classes on one
@@ -1117,7 +1195,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 }
 /* It grows out of the marks at its top right corner, as the review card grows
    out of its pip. */
-.latex-outline-rail-panel.popup-motion { --popup-motion-from: translateX(4px); --popup-motion-origin: top right; }
+.latex-outline-rail-panel.popup-motion { --popup-motion-from: translateX(6px); --popup-motion-origin: top right; }
 .latex-outline-rail-header { display: flex; flex: none; align-items: baseline; justify-content: space-between; gap: var(--gap-inline); padding: var(--space-3) var(--pad-inline-control-tight) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .latex-outline-rail-header > span:first-child { flex: none; }
 .latex-outline-rail-document { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

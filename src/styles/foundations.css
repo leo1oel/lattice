@@ -133,6 +133,9 @@
    *                                popovers, tab indicators, switches, rows
    *   slow      240ms, bounce .12  large surfaces: dialogs, drawers, panels,
    *                                whole-window changes such as a theme switch
+   *   pop       220ms, bounce .2   a popup springing from what opened it:
+   *                                menus, selects, popovers, the editor's
+   *                                toolbars, cards and completions
    *
    * Each tier's curve is the spring itself, sampled into `linear()` from
    * motion's own spring solver (tokens.test.ts recomputes it, so CSS and JS
@@ -145,10 +148,13 @@
    * final rather than replaying the entrance backwards (`--motion-*-exit`,
    * motion-values' `springExit`).
    *
-   * Two moments sit outside the tiers because they are not interface motion:
-   * a line drawing itself and a one-time flourish. Ambient loops (loaders,
-   * skeleton sheens, the welcome screen) time themselves and are not on any
-   * scale.
+   * Three moments sit outside the tiers because they are not interface
+   * motion: a line drawing itself, a one-time flourish, and a mark that
+   * lingers on what just changed (an edit that landed, a new thread) and
+   * fades so the eye finds it. Things that arrive one after another
+   * (a suggestion's edits) wait `--duration-stagger` each. Ambient loops
+   * (loaders, skeleton sheens, the welcome screen) time themselves and are
+   * not on any scale.
    */
   --duration-fast: 80ms;
   --duration-moderate: 160ms;
@@ -156,23 +162,32 @@
   --duration-fast-exit: 60ms;
   --duration-moderate-exit: 120ms;
   --duration-slow-exit: 160ms;
+  --duration-pop: 220ms;
+  --duration-pop-exit: 120ms;
+  --duration-stagger: 40ms; /* Between things that arrive one after another, never a tier's duration. */
   --duration-draw: 560ms; /* A stroke drawing itself (the Lattice mark, a finished build's check) or an icon turning once. */
   --duration-flourish: 720ms; /* A ripple or burst marking a moment, never a loop. */
+  --duration-linger: 1600ms; /* A mark held on what just changed, then faded. */
   /* WebKit before Safari 17.2 (macOS 14.0 and 14.1) has no linear(); it gets
      the nearest cubic curves until the block below replaces them. */
   --ease-fast: cubic-bezier(0.25, 0.85, 0.35, 1);
   --ease-moderate: cubic-bezier(0.25, 0.85, 0.35, 1);
   --ease-slow: cubic-bezier(0.3, 0.8, 0.3, 1.02);
+  --ease-pop: cubic-bezier(0.3, 0.85, 0.3, 1.04);
   --ease-exit: ease-out; /* motion's default tween, which `springExit` runs on */
   --motion-fast: var(--duration-fast) var(--ease-fast);
   --motion-moderate: var(--duration-moderate) var(--ease-moderate);
   --motion-slow: var(--duration-slow) var(--ease-slow);
+  --motion-pop: var(--duration-pop) var(--ease-pop);
   --motion-fast-exit: var(--duration-fast-exit) var(--ease-exit);
   --motion-moderate-exit: var(--duration-moderate-exit) var(--ease-exit);
   --motion-slow-exit: var(--duration-slow-exit) var(--ease-exit);
+  --motion-pop-exit: var(--duration-pop-exit) var(--ease-exit);
   /* Critically damped, so a drawn stroke or a ripple lands without overshoot. */
   --motion-draw: var(--duration-draw) var(--ease-moderate);
   --motion-flourish: var(--duration-flourish) var(--ease-moderate);
+  /* Held, then let go: the keyframes hold the mark, and the tween fades it. */
+  --motion-linger: var(--duration-linger) var(--ease-exit);
 
   /* Radius: four steps and the pill. 4 for a chip, 6 for anything a pointer
      lands on (a control, a row, a tab, an icon button), 10 for a surface (a
@@ -669,6 +684,7 @@
   :root {
     --ease-fast: linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1);
     --ease-moderate: linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1);
+    --ease-pop: linear(0, 0.067, 0.215, 0.387, 0.55, 0.69, 0.8, 0.881, 0.938, 0.975, 0.997, 1.009, 1.014, 1.015, 1.014, 1.011, 1.009, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
     --ease-slow: linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1);
   }
 }

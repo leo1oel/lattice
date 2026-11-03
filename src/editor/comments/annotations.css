@@ -557,7 +557,7 @@
 /* An annotation's card and its preview, above the passage on its page (pdf-annotations.tsx). */
 .pdf-comment-popup { position: absolute; z-index: 7; display: flex; flex-direction: column; }
 .pdf-comment-popup > .comment-card { width: 100%; max-width: none; min-height: 0; flex: 0 1 auto; }
-.pdf-comment-popup[data-side="top"] > .popup-motion { --popup-motion-from: translateY(4px); --popup-motion-origin: bottom center; }
+.pdf-comment-popup[data-side="top"] > .popup-motion { --popup-motion-from: translateY(6px); --popup-motion-origin: bottom center; }
 /* The preview never stands in the pointer's way, and fades in on the fast tier. */
 .pdf-comment-preview { pointer-events: none; animation: pdf-comment-preview-in var(--motion-fast) both; }
 @keyframes pdf-comment-preview-in {

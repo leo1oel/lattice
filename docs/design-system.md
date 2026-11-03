@@ -734,13 +734,15 @@ all take it.
 ## Motion
 
 One motion system: Fluid Functionalism's three spring tiers, the same in CSS
-and in `motion/react`. The bigger the thing that moves, the slower the tier.
+and in `motion/react`, and the pop tier for popups. The bigger the thing that
+moves, the slower the tier.
 
 | Tier | Enter | Exit | Use |
 | --- | --- | --- | --- |
 | fast | 80ms spring, no bounce | 60ms tween | hover, focus, fades, tooltips, selection marks |
-| moderate | 160ms spring, no bounce | 120ms tween | travel and small expansion: menus, selects, popovers, tab indicators, switches, rows |
-| slow | 240ms spring, bounce 0.12 | 160ms tween | large surfaces: dialogs, drawers, split panes, the guided tour, a theme switch |
+| moderate | 160ms spring, no bounce | 120ms tween | travel and small expansion: tab indicators, switches, rows, a view switch's fade |
+| slow | 240ms spring, bounce 0.12 | 160ms tween | large surfaces: dialogs, drawers, split panes, the guided tour, a theme switch, the Polish card unrolling |
+| pop | 220ms spring, bounce 0.2 | 120ms tween | a popup springing from what opened it (`.popup-motion`): menus, selects, popovers, the selection toolbar, completions, hover cards; a count rolling to its next value |
 
 - **CSS takes a tier whole:** `transition: opacity var(--motion-fast)`,
   `animation: x var(--motion-slow) both`. Each `--motion-*` token pairs a
@@ -768,9 +770,18 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   tab fills, close buttons, divider grips and drop slots fade on the fast one.
   A closed panel leaves at once, since its neighbours take its room in the
   same frame.
-- **Two moments sit off the tiers:** `--motion-draw` (560ms, a stroke drawing
-  itself or an icon turning once) and `--motion-flourish` (720ms, a ripple or
-  burst). Ambient loops time themselves.
+- **Popups spring and leave.** A popup grows 6px and from 95% scale out of
+  its trigger's side on the pop tier, most of the way there within a few
+  frames, so it reads at once; it leaves on the pop exit. CodeMirror's
+  tooltips (completions, hover cards, diagnostics) leave as a picture of
+  themselves, since CodeMirror removes them at once.
+- **Three moments sit off the tiers:** `--motion-draw` (560ms, a stroke
+  drawing itself or an icon turning once), `--motion-flourish` (720ms, a
+  ripple or burst) and `--motion-linger` (1600ms: a mark held on what just
+  changed, then faded, as a jump's target, an edit that landed or a new
+  comment thread). Things that arrive in turn (a suggestion's edits, an
+  accepted suggestion's strikes) wait `--duration-stagger` (40ms) each, at
+  most eight turns. Ambient loops time themselves.
 - `tokens.test.ts` fails on a raw time or curve in a transition, a bare
   duration where a tier belongs, and a sampled curve that no longer matches
   its spring.
@@ -846,9 +857,14 @@ Motion follows three rules:
   welcome screen, which is never on screen while writing, loading
   placeholders such as the PDF skeleton, which last only until content arrives,
   and the comments empty state's typing dots, which run only while hovered.
-- **Never in the writing surface.** Nothing animates in the editor, and nothing
-  near it repeats while the writer works. A flourish that a remount could
-  replay is guarded, as the Build button's `isFreshOutcome` is.
+- **Never under the writer's own typing.** Nothing the writer types animates,
+  and nothing near the editor repeats while they work. What changes the text
+  for them gets one moment (`editor/change-marks.ts`): an accepted
+  suggestion's old words are struck and fold away, then its new words settle
+  in on the success wash; an outside edit that landed (the agent's, another
+  app's) washes the lines it wrote. The document changes at once; the moment
+  is decoration only. A flourish that a remount could replay is guarded, as
+  the Build button's `isFreshOutcome` is.
 - **Paint-cheap and layout-free.** Animate `transform`, `opacity`, and
   `stroke-dashoffset`; never geometry. Times come from the tiers under Motion
   (`--motion-draw` for a line drawing itself, `--motion-flourish` for a

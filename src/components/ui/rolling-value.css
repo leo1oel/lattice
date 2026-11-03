@@ -1,0 +1,7 @@
+/* A count rolling to its next value (rolling-value.tsx), on the pop tier:
+   most of the way in a few frames, so the number reads at once. */
+.ui-rolling-value { display: inline-block; }
+.ui-rolling-value[data-roll] { animation: ui-rolling-value-in var(--motion-pop) both; }
+.ui-rolling-value[data-roll="up"] { --ui-rolling-from: 60%; }
+.ui-rolling-value[data-roll="down"] { --ui-rolling-from: -60%; }
+@keyframes ui-rolling-value-in { from { opacity: 0; transform: translateY(var(--ui-rolling-from)); } }

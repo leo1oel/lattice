@@ -37,6 +37,7 @@ import { IconButton } from "../components/ui/icon-button";
 import { ResearchArt } from "../components/ui/research-art";
 import { MARGIN_NOTES } from "../components/ui/research-art-margin-notes";
 import { Textarea } from "../components/ui/textarea";
+import { useArrivals } from "../components/ui/use-arrivals";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
 import { formatCount } from "../i18n";
 import { personColor, type PeopleHues } from "./overleaf-collab-people";
@@ -120,6 +121,8 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
   /** Put the caret on the commented span, opening its file first if that is not the one on screen. */
   onReveal: (path: string, position: number) => void;
   variant?: "panel" | "margin";
+  /** Started while the list was on screen: it arrives with a moment's ring. */
+  fresh?: boolean;
   ref?: Ref<HTMLElement>;
 }) {
   const { i18n, t } = useLingui();
@@ -231,6 +234,7 @@ export function OverleafThreadCard({ ref, ...props }: OverleafThreadActions & {
     <article
       className={`overleaf-thread${thread.resolved ? " resolved" : ""}`}
       data-variant={margin ? "margin" : undefined}
+      data-fresh={props.fresh ? "" : undefined}
       ref={ref}
     >
       {thread.resolved ? (
@@ -369,6 +373,7 @@ export function OverleafCommentsPanel(props: OverleafThreadActions & {
   }, [props.focusThreadId, props.threads]);
 
   const visible = props.threads.filter((thread) => showResolved || !thread.resolved);
+  const arrived = useArrivals(props.threads.map((thread) => thread.id), !props.loading);
   const threadsById = new Map(visible.map((thread) => [thread.id, thread]));
   const groups = groupThreadsByFile(visible.map((thread) => thread.id), props.anchors, props.activeDocId, props.pathForDoc, {
     currentFile: t`In this file`,
@@ -382,6 +387,7 @@ export function OverleafCommentsPanel(props: OverleafThreadActions & {
       <OverleafThreadCard
         key={thread.id}
         ref={thread.id === props.focusThreadId ? focusRef : undefined}
+        fresh={arrived.has(thread.id)}
         thread={thread}
         anchor={anchor}
         path={anchor ? props.pathForDoc(anchor.docId) : null}

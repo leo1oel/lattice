@@ -12,14 +12,15 @@ import type { EditorView } from "@codemirror/view";
 import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
 import { restoreViewportAround } from "./viewport-restore";
+import { landWhenReady } from "./land-when-ready";
+import { useViewFade } from "./view-fade";
 import { wrapEnvironment } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
-import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES } from "../editor/latex/latex-selection-toolbar";
 import { selectionToolbarPlacement, type SelectionToolbarPlacement } from "../editor/latex/selection-toolbar-placement";
-import { latexHighlights } from "../editor/latex/latex-highlights";
+import { documentHighlightColors } from "../editor/latex/latex-highlights";
 import { applySourceSelectionEdit, editAndFocus, type SourceSelectionAction } from "./source-selection-edits";
 import { MarkdownSourceToolbar } from "./markdown-source-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -93,34 +94,6 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
   } catch {
     return null;
   }
-}
-
-/** How long a jump waits for its source view to be ready before landing as best it can. */
-const LANDING_WAIT_MS = 1000;
-
-/**
- * Run `land` in the source view once a jump can land there, a frame at a time
- * until then; the returned function cancels it. Ready means two things:
- * - the view holds `source`: codemirror-host holds an external value back
- *   while someone is typing, so the view can still carry the previous file's
- *   text when a jump arrives;
- * - its surface is shown (focus-when-shown.ts): opening a comment from the
- *   panel over the document moves the canvas into a Trellis tab that shows a
- *   frame or more later. Landed before then, the browser refused the editor
- *   focus and the writer's typing after the jump went nowhere.
- * Neither waits forever: a best-effort landing beats a request nobody answers.
- */
-function landWhenReady(targetView: () => EditorView | null, source: string, land: (view: EditorView) => void): () => void {
-  const deadline = performance.now() + LANDING_WAIT_MS;
-  const [schedule, cancel] = frameCoalescer(() => {
-    const view = targetView();
-    if (!view) return;
-    const ready = view.state.doc.toString() === source && surfaceShown(view.dom);
-    if (!ready && performance.now() < deadline) schedule();
-    else land(view);
-  });
-  schedule();
-  return cancel;
 }
 
 /** Hand App `value` through `register` while this canvas is mounted with both. */
@@ -292,6 +265,8 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     onPaperPdfOpenChange(paperPdfOpen);
     return () => onPaperPdfOpenChange(false);
   }, [onPaperPdfOpenChange, paperPdfOpen]);
+  // Another file, a Paper's other reading or its PDF, or another layout comes in on a fade.
+  useViewFade(props.hosts.editorHost, [activeFile, props.document.activeAsset?.path, props.document.mode, paperPdfOpen].join("\n"));
   const markdownPreviewPersistenceCleanupRef = useRef<(() => void) | null>(null);
   const markdownScrollSyncSuppressedRef = useRef(false);
   const markdownPreviewViewportLockRef = useRef(0);
@@ -1289,15 +1264,4 @@ export function DocumentCanvas(props: DocumentCanvasProps) {
     </>
   );
 
-}
-
-/** The highlight colors a source already uses, most used first, for the custom picker's "In this document". */
-function documentHighlightColors(source: string | undefined): string[] {
-  if (!source) return [];
-  const counts = new Map<string, number>();
-  for (const highlight of latexHighlights(source)) {
-    const hex = highlight.color?.toUpperCase();
-    if (hex && /^#[0-9A-F]{6}$/.test(hex)) counts.set(hex, (counts.get(hex) ?? 0) + 1);
-  }
-  return [...counts].sort((a, b) => b[1] - a[1]).map(([hex]) => hex);
 }

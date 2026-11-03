@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { ArrowDownUp, Check, ListFilter, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { ListTool } from "../components/ui/list-tool";
+import { RollingValue } from "../components/ui/rolling-value";
 import { formatCount } from "../i18n";
 import type { PaperFilter, PaperGroup, PaperSort } from "./paper-library-view";
 
@@ -48,6 +49,7 @@ export function PaperListToolbar({ shown: shownCount, total, filter: shownFilter
         it is set; an active filter is also a chip that clears it. */}
     <div className="paper-list-toolbar">
         <p className="paper-list-count">
+          <RollingValue value={total * 1e6 + shownCount}>
           <span className="paper-count-long">
             {shownCount !== total
               ? shownCount === 1
@@ -60,6 +62,7 @@ export function PaperListToolbar({ shown: shownCount, total, filter: shownFilter
           <span className="paper-count-short" aria-hidden="true">
             {shownCount !== total ? `${shown}/${totalText}` : totalText}
           </span>
+          </RollingValue>
         </p>
         {/* Not modal, as the app's other menus are: a modal menu hides the
             whole window from assistive tech and locks its scrolling as it

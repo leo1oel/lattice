@@ -141,6 +141,7 @@ export function ProofreadCard(props: {
           {ready?.model && <span className="proofread-card-model">{ready.model}</span>}
         </span>
       </div>
+      {state.status === "loading" && <ProofreadPlaceholder length={original.length} />}
       {edits.length > 0 && (
         <InlineEdits
           className="proofread-card-text"
@@ -176,6 +177,24 @@ export function ProofreadCard(props: {
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** About how many characters of the selection one line of the card holds. */
+const PLACEHOLDER_LINE_CHARACTERS = 90;
+
+/**
+ * Where the answer will be, while the agent works: a line for about each
+ * line the selection will take, at most three, under the skeleton's sheen.
+ * It holds the card near its answered height, so the text below moves
+ * less when the edits arrive.
+ */
+function ProofreadPlaceholder(props: { length: number }) {
+  const lines = Math.min(3, Math.max(1, Math.ceil(props.length / PLACEHOLDER_LINE_CHARACTERS)));
+  return (
+    <div className="proofread-card-placeholder loading-sheen" data-lines={lines} aria-hidden="true">
+      {Array.from({ length: lines }, (_, index) => <span key={index} />)}
     </div>
   );
 }

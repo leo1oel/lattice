@@ -109,6 +109,20 @@ describe("Overleaf comments panel", () => {
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith("t2"));
   });
 
+  it("rings a thread started while the list is open, never the ones it loaded with", () => {
+    const { container, rerender } = render(panel({ loading: true, threads: [] }));
+    rerender(panel({ threads: [thread({ id: "t1" })] }));
+    expect(container.querySelectorAll(".overleaf-thread[data-fresh]")).toHaveLength(0);
+
+    rerender(panel({
+      threads: [thread({ id: "t1" }), thread({ id: "t2", messages: [message({ id: "c2", content: "Second thought" })] })],
+      anchors: anchorsByThreadId([anchor({ threadId: "t1" }), anchor({ threadId: "t2", position: 80, quote: "another span" })]),
+    }));
+    const fresh = container.querySelectorAll(".overleaf-thread[data-fresh]");
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0]).toHaveTextContent("Second thought");
+  });
+
   it("hides resolved threads until asked to include them", () => {
     const props = {
       threads: [thread({ id: "t2", resolved: true, resolvedBy: "Robin" })],
