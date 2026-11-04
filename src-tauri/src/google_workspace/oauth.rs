@@ -131,6 +131,10 @@ fn finish(dir: &Path, state: &GoogleState, flow: Flow) -> Result<(), String> {
             }
             Err(_) => return Err(API_ERROR.into()),
         };
+        // Accepted sockets can inherit the listener's nonblocking flag on
+        // macOS. A fragmented browser request must wait for its remaining
+        // headers, rather than treating WouldBlock as a closed callback.
+        stream.set_nonblocking(false).map_err(|_| API_ERROR.to_string())?;
         let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
         let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
         let Some(code) = callback(&mut stream, &redirect, &expected_state)? else { continue };
@@ -144,7 +148,7 @@ fn finish(dir: &Path, state: &GoogleState, flow: Flow) -> Result<(), String> {
         if !client.client_secret.is_empty() {
             fields.push(("client_secret", &client.client_secret));
         }
-        let http = account::client()?;
+        let http = account::client_for(&token_url)?;
         let response = http
             .post(&token_url)
             .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")

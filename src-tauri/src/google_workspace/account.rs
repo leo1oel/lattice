@@ -106,6 +106,20 @@ pub(super) fn client() -> Result<Client, String> {
         .build()
         .map_err(|_| API_ERROR.into())
 }
+pub(super) fn client_for(url: &str) -> Result<Client, String> {
+    // Provider fixtures are loopback services, which must never enter an OS
+    // proxy or send even fake credentials outside the test process.
+    if reqwest::Url::parse(url)
+        .ok()
+        .is_some_and(|url| url.scheme() == "http" && url.host_str() == Some("127.0.0.1"))
+    {
+        return crate::http::loopback(Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|_| API_ERROR.into());
+    }
+    client()
+}
 pub(super) fn load(dir: &Path) -> Result<Credentials, String> {
     let path = dir.join(ACCOUNT_FILE);
     let metadata =
@@ -174,7 +188,7 @@ pub(super) fn access(
     if !credentials.client.client_secret.is_empty() {
         fields.push(("client_secret", &credentials.client.client_secret));
     }
-    let response = client()?
+    let response = client_for(token_url)?
         .post(token_url)
         .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(form(&fields))

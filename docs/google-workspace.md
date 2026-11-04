@@ -56,6 +56,10 @@ to read or patch one. Calendar writes accept summary, description, location,
 start/end, status, transparency, visibility, color and reminders. Attendees,
 invitations and conference provisioning are deliberately rejected, and writes
 set `sendUpdates=none`.
+Writes force private visibility. Before updating, the host reads the current
+event, rejects meetings with attendees, and uses its ETag in `If-Match` so a
+concurrent change cannot bypass that check. Use Google's full Calendar editor
+for meetings and invitations.
 
 File listing uses Drive's `drive.file` scope, so it lists files created or
 authorized for this app, not every file in your Drive. Reading an existing
@@ -113,4 +117,5 @@ Protocol references:
 [Slides batchUpdate](https://developers.google.com/workspace/slides/api/reference/rest/v1/presentations/batchUpdate),
 [Forms API](https://developers.google.com/workspace/forms/api/reference/rest),
 [Calendar events](https://developers.google.com/workspace/calendar/api/v3/reference/events),
+[Calendar resource versions](https://developers.google.com/workspace/calendar/api/guides/version-resources),
 [Drive export](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/export).

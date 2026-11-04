@@ -5,7 +5,7 @@ use super::{
 };
 use serde_json::{json, Value};
 use std::{
-    io::Write,
+    io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -30,6 +30,7 @@ struct Seen {
     method: String,
     url: String,
     authorization: String,
+    if_match: String,
     body: Value,
     raw: String,
 }
@@ -58,6 +59,12 @@ impl Provider {
                         .headers()
                         .iter()
                         .find(|header| header.field.equiv("Authorization"))
+                        .map(|header| header.value.as_str().to_owned())
+                        .unwrap_or_default(),
+                    if_match: request
+                        .headers()
+                        .iter()
+                        .find(|header| header.field.equiv("If-Match"))
                         .map(|header| header.value.as_str().to_owned())
                         .unwrap_or_default(),
                     body: serde_json::from_str(&raw).unwrap_or(Value::Null),
@@ -118,7 +125,9 @@ fn five_products_use_real_authenticated_api_consumer_for_read_create_and_update(
     let fixture = Fixture::new();
     account::save(&fixture.0, &credentials()).unwrap();
     let state = GoogleState::default();
-    let provider = Provider::new(vec![(200, json!({"providerResult":true})); 15]);
+    let mut responses = vec![(200, json!({"providerResult":true})); 15];
+    responses.insert(14, (200, json!({"etag":"\"event-v1\"","attendees":[]})));
+    let provider = Provider::new(responses);
     for product in
         [Product::Docs, Product::Sheets, Product::Slides, Product::Forms, Product::Calendar]
     {
@@ -146,7 +155,7 @@ fn five_products_use_real_authenticated_api_consumer_for_read_create_and_update(
         }
     }
     let seen = provider.seen.lock().unwrap();
-    assert_eq!(seen.len(), 15);
+    assert_eq!(seen.len(), 16);
     assert!(seen.iter().all(|request| request.authorization == "Bearer private-access"));
     assert_eq!(seen[0].url, "/v1/documents/fixture-resource");
     assert_eq!(seen[1].body, json!({"title":"Experiment"}));
@@ -154,8 +163,43 @@ fn five_products_use_real_authenticated_api_consumer_for_read_create_and_update(
     assert!(seen[5].url.contains("/values/A1%3AB2?valueInputOption=RAW"));
     assert_eq!(seen[7].url, "/v1/presentations");
     assert_eq!(seen[10].body, json!({"info":{"title":"Experiment"}}));
-    assert!(seen[14].url.ends_with("/events/fixture-event?sendUpdates=none"));
-    assert_eq!(seen[14].method, "PATCH");
+    assert!(seen[15].url.ends_with("/events/fixture-event?sendUpdates=none"));
+    assert_eq!(seen[15].method, "PATCH");
+    assert_eq!(seen[15].if_match, "\"event-v1\"");
+    assert_eq!(seen[13].body.get("visibility"), Some(&json!("private")));
+    assert_eq!(seen[15].body.get("visibility"), Some(&json!("private")));
+}
+
+#[test]
+fn calendar_private_updates_refuse_meetings_and_stale_versions() {
+    let fixture = Fixture::new();
+    account::save(&fixture.0, &credentials()).unwrap();
+    let state = GoogleState::default();
+    let provider = Provider::new(vec![(
+        200,
+        json!({"etag":"\"v1\"","attendees":[{"email":"other@example.edu"}]}),
+    )]);
+    let error = api::request_using(
+        &fixture.0,
+        &state,
+        request(Product::Calendar, "update", json!({"summary":"Changed"})),
+        &provider.base,
+        Some(&provider.base),
+    )
+    .unwrap_err();
+    assert!(error.contains("attendees"));
+    assert_eq!(provider.seen.lock().unwrap().len(), 1);
+    let provider =
+        Provider::new(vec![(200, json!({"etag":"\"v1\""})), (412, json!({"error":"changed"}))]);
+    assert!(api::request_using(
+        &fixture.0,
+        &state,
+        request(Product::Calendar, "update", json!({"summary":"Changed"})),
+        &provider.base,
+        Some(&provider.base)
+    )
+    .is_err());
+    assert_eq!(provider.seen.lock().unwrap()[1].if_match, "\"v1\"");
 }
 #[test]
 fn expired_token_refreshes_privately_then_real_request_uses_new_authorization() {
@@ -325,15 +369,30 @@ fn browser_callback_exchanges_pkce_code_and_failed_reconnect_preserves_previous_
             url.query_pairs().map(|(key, value)| (key.into_owned(), value.into_owned())).collect();
         let redirect = reqwest::Url::parse(query.get("redirect_uri").unwrap()).unwrap();
         let mut browser = TcpStream::connect(("127.0.0.1", redirect.port().unwrap())).unwrap();
-        write!(browser,"GET /oauth2callback?state={}&code=one-time-code HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",query.get("state").unwrap(),redirect.port().unwrap()).unwrap();
-        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        write!(
+            browser,
+            "GET /oauth2callback?state={}&code=one-time-code HTTP/1.1\r\n",
+            query.get("state").unwrap()
+        )
+        .unwrap();
+        std::thread::sleep(Duration::from_millis(150));
+        write!(browser, "Host: 127.0.0.1:{}\r\n\r\n", redirect.port().unwrap()).unwrap();
+        browser.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let mut callback_response = [0; 2048];
+        let count = browser.read(&mut callback_response).unwrap();
+        assert!(String::from_utf8_lossy(&callback_response[..count]).starts_with("HTTP/1.1 200"));
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
         while super::status(&fixture.0, &state).unwrap().pending
             && std::time::Instant::now() < deadline
         {
             std::thread::sleep(Duration::from_millis(10));
         }
         let status = super::status(&fixture.0, &state).unwrap();
-        assert!(!status.pending);
+        assert!(
+            !status.pending,
+            "OAuth fixture did not settle; accepted={accepted}, received requests={}",
+            provider.seen.lock().unwrap().len()
+        );
         assert!(status.connected);
         assert_eq!(status.error, !accepted);
         let saved = account::load(&fixture.0).unwrap();

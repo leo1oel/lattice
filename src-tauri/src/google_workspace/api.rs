@@ -161,6 +161,11 @@ fn plan(request: &WorkspaceRequest) -> Result<Plan, String> {
         }
         _ => return Err("This Google Workspace operation is not supported.".into()),
     }
+    if *product == Product::Calendar && matches!(operation.as_str(), "create" | "update") {
+        if let Some(object) = plan.body.as_mut().and_then(Value::as_object_mut) {
+            object.insert("visibility".into(), json!("private"));
+        }
+    }
     Ok(plan)
 }
 /// This panel deliberately manages private events, not invitations or conference provisioning.
@@ -180,6 +185,9 @@ fn validate_event(body: &Value) -> Result<(), String> {
     ];
     if object.is_empty() || object.keys().any(|key| !fields.contains(&key.as_str())) {
         return Err("Calendar supports private event fields only; attendees and invitations are unavailable.".into());
+    }
+    if object.get("visibility").is_some_and(|value| value.as_str() != Some("private")) {
+        return Err("Calendar supports private events only.".into());
     }
     Ok(())
 }
@@ -228,19 +236,56 @@ pub(super) fn request_using(
     } else {
         plan.url
     };
+    let client = account::client_for(&url)?;
+    let mut etag = None;
+    if request.product == Product::Calendar && request.operation == "update" {
+        let mut read_url = reqwest::Url::parse(&url).map_err(|_| API_ERROR.to_string())?;
+        read_url.set_query(None);
+        let existing = execute(
+            &client,
+            read_url.as_str(),
+            &credentials.access_token,
+            Method::GET,
+            None,
+            false,
+            None,
+        )?;
+        if existing
+            .get("attendees")
+            .and_then(Value::as_array)
+            .is_some_and(|attendees| !attendees.is_empty())
+        {
+            return Err("This event has attendees. Use Google Calendar to manage meetings.".into());
+        }
+        etag = Some(
+            existing
+                .get("etag")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .ok_or(
+                    "Could not verify the Calendar event version. Read it again before updating.",
+                )?
+                .to_owned(),
+        );
+    }
     execute(
-        &account::client()?,
+        &client,
         &url,
         &credentials.access_token,
         plan.method,
         plan.body,
         plan.export,
+        etag.as_deref(),
     )
 }
 fn execute(
     client: &Client, url: &str, token: &str, method: Method, body: Option<Value>, export: bool,
+    if_match: Option<&str>,
 ) -> Result<Value, String> {
     let mut request = client.request(method, url).bearer_auth(token);
+    if let Some(etag) = if_match {
+        request = request.header(reqwest::header::IF_MATCH, etag);
+    }
     if let Some(body) = body {
         request = request.json(&body);
     }
