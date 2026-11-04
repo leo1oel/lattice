@@ -129,6 +129,34 @@ function setupCards() {
   }
 }
 
+/* ── A section arrives in reading order ───────────────────────────────────────────────────── */
+// What style.css hides until its section is in. Each gets its delay (--d) from where it sits:
+// top to bottom, and left to right along a row, one short step apart, so at any width nothing
+// arrives before what is above it.
+const ARRIVALS = '.progress, .ch-title span, .caption, .points, .byo-title, .body, .film-title, .player, .formats-title, .card, .credit, .more-title, .index-cards li, .faq-title, .faq-more, .qa details, .source-end, .download-title, .download-go';
+export function arrive(section) {
+  const items = [...section.querySelectorAll(ARRIVALS)]
+    .map((el) => ({ el, box: el.getBoundingClientRect() }))
+    .filter(({ box }) => box.width && box.height)
+    .sort((a, b) => a.box.top - b.box.top);
+  // Items whose tops are within 12 px of a row's first share its row.
+  const rows = [];
+  for (const item of items) {
+    const row = rows.at(-1);
+    if (row && item.box.top - row[0].box.top < 12) row.push(item);
+    else rows.push([item]);
+  }
+  let delay = 0;
+  rows.forEach((row, r) => {
+    if (r) delay += 60;
+    row.sort((a, b) => a.box.left - b.box.left).forEach(({ el }, i) => {
+      if (i) delay += 30;
+      el.style.setProperty('--d', `${Math.min(delay, 600)}ms`);
+    });
+  });
+  section.classList.add('in');
+}
+
 /* ── A short note at the foot of the screen ───────────────────────────────────────────────── */
 function toast(text) {
   const el = document.querySelector('[data-toast]');
@@ -137,13 +165,14 @@ function toast(text) {
   clearTimeout(el.timer);
   el.timer = setTimeout(() => el.classList.remove('on'), 1800);
 }
+
 function arriveAgain(section) {
   if (!root.classList.contains('motion') || !section.classList.contains('stage')) return;
   const replay = () => {
     section.querySelectorAll('.card, .index-cards li').forEach((el) => el.classList.remove('settled'));
     section.classList.remove('in');
     void section.offsetWidth;
-    section.classList.add('in');
+    arrive(section);
     section.querySelectorAll('.card video[src]').forEach((video) => { video.currentTime = 0; });
     setTimeout(() => section.querySelectorAll('.card').forEach((el) => el.classList.add('settled')), 1600);
   };
@@ -238,11 +267,13 @@ function setupBuild() {
     pill = document.createElement('div');
     pill.className = 'build-pill';
     pill.setAttribute('role', 'status');
-    pill.innerHTML = '<span class="bp-icon" aria-hidden="true">'
+    // Two faces in one cell, each centred: play or the loader with "Build", then the check and the time.
+    pill.innerHTML = '<span class="bp-face bp-go" aria-hidden="true"><span class="bp-icon">'
       + '<svg class="bp-play" viewBox="0 0 24 24"><path d="M6 3 20 12 6 21z"/></svg>'
       + '<svg class="bp-load" viewBox="0 0 100 100"><path transform="translate(10 10) scale(.8)" d="M24.3 30C11.4 30 5 43.3 5 50s6.4 20 19.3 20c19.3 0 32.1-40 51.4-40C88.6 30 95 43.3 95 50s-6.4 20-19.3 20C56.4 70 43.6 30 24.3 30z"/></svg>'
-      + '<svg class="bp-check" viewBox="0 0 24 24"><path pathLength="1" d="M20 6 9 17l-5-5"/></svg></span>'
-      + '<span class="bp-label" aria-hidden="true"><span class="bp-build">Build</span><span class="bp-time">1.2 s</span></span><span class="sr"></span>';
+      + '</span>Build</span>'
+      + '<span class="bp-face bp-done" aria-hidden="true"><span class="bp-icon"><svg class="bp-check" viewBox="0 0 24 24"><path pathLength="1" d="M20 6 9 17l-5-5"/></svg></span>1.2 s</span>'
+      + '<span class="sr"></span>';
     document.body.append(pill);
     return pill;
   };
