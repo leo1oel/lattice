@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { bibTextToPlain } from "./bib-document";
 import type { ResolvedCitationDraft } from "./bib-entry-dialog";
 import { readableAuthors, recordVenue } from "./paper-add";
+import { joinPhrases } from "../i18n";
 
 /** A record with no venue, or an arXiv one, is the preprint; anything else was published. */
 const isPreprint = (venue: string) => !venue || /arxiv|preprint/i.test(venue);
@@ -49,7 +50,7 @@ export function CitationCandidates(props: {
             <span className="bib-candidate-body">
               <strong>{bibTextToPlain(candidate.title)}</strong>
               <span className="bib-candidate-byline">
-                {[authors || t`Authors unavailable`, candidate.year || t`Year unavailable`].join(", ")}
+                {joinPhrases([authors || t`Authors unavailable`, candidate.year || t`Year unavailable`])}
               </span>
               <em>{venue || t`Venue unavailable`}</em>
               <span className="bib-candidate-evidence">

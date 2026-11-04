@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ArrowRight, Check, ChevronDown, ExternalLink, Plus, Quote, Search } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
-import { formatCount } from "../i18n";
+import { formatCount, joinPhrases } from "../i18n";
 import { baseArxivId } from "./arxiv-id";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
@@ -81,9 +81,7 @@ function sourceName(work: LiteratureHit): string {
 
 /** Where a result came from and how it ranks there, in full ("9,214 cites"). */
 function hitDetails(work: LiteratureHit, rank: string | null): string {
-  return [sourceName(work), rank, work.arxivId ? `arXiv:${work.arxivId}` : work.doi]
-    .filter(Boolean)
-    .join(", ");
+  return joinPhrases([sourceName(work), rank, work.arxivId ? `arXiv:${work.arxivId}` : work.doi]);
 }
 
 /**
@@ -380,7 +378,7 @@ export function LiteratureDiscoveryPanel(props: {
                     {work.authors.length > 0 && (
                       <div><dt>{t`Authors`}</dt><dd>{work.authors.join(", ")}</dd></div>
                     )}
-                    <div><dt>{t({ message: "Source", context: "where a literature result came from" })}</dt><dd>{[sourceName(work), rank].filter(Boolean).join(", ")}</dd></div>
+                    <div><dt>{t({ message: "Source", context: "where a literature result came from" })}</dt><dd>{joinPhrases([sourceName(work), rank])}</dd></div>
                     {work.arxivId
                       ? <div><dt>arXiv</dt><dd>{work.arxivId}</dd></div>
                       : work.doi ? <div><dt>DOI</dt><dd>{work.doi}</dd></div> : null}
