@@ -74,6 +74,32 @@ Errors are JSON on stderr and return a nonzero exit status. The same command
 names and argument casing are used by desktop IPC and HTTP. `literature_request`
 also accepts the existing agent literature `{tool,params}` protocol.
 
+The shared project command set also covers SyncTeX forward/inverse navigation
+and outline/body page counts; history entry/file revert and deletion; binary
+asset writes; annotation saves, snapshots and restoration; deadline, submission,
+spelling and grammar settings; project replacement and symbol rename; citation
+usages; moved-file lookup; and source ZIP import/export. These call the same
+domain functions as desktop IPC. Mutations share the selected project's lock,
+and explicit `projectRoot` pins reject a request for another project.
+
+For example, after building a document with SyncTeX enabled:
+
+```sh
+printf '%s\n' '{"path":"main.tex","line":3,"column":1}' | \
+  server/target/release/lattice-server invoke synctex_view \
+    --project /srv/lattice/projects/paper --state-dir /srv/lattice/state
+```
+
+The result gives a page and PDF coordinates accepted by `synctex_edit`.
+`synctex_heading_pages` and `synctex_body_pages` use the desktop argument shapes.
+ZIP exports require a `.zip` destination inside the selected project, exclude
+private app/VCS state and build outputs using the native source-pack rules, and
+refuse project symlinks. An invalid destination cannot replace manuscript or
+control files. Import paths and the destination parent must be inside the CLI's
+configured project root; use the workspace root for a CLI import that creates a
+new sibling project. This expanded project command set does not imply parity
+with native windows, operating-system integration, or every desktop service.
+
 Import an Overleaf session through `overleaf_connect_session` with
 `{"host":"https://www.overleaf.com","cookie":"..."}` on **stdin**, never in
 command-line arguments or shell history. Obtain the cookie from your own
@@ -156,6 +182,9 @@ cargo build --locked --manifest-path server/Cargo.toml
 env -u DISPLAY -u WAYLAND_DISPLAY \
   LATTICE_SERVER_BINARY="$PWD/server/target/debug/lattice-server" \
   LATTICE_TEST_LATEX=1 python3 server/tests/terminal_smoke.py
+env -u DISPLAY -u WAYLAND_DISPLAY \
+  LATTICE_SERVER_BINARY="$PWD/server/target/debug/lattice-server" \
+  LATTICE_TEST_LATEX=1 python3 server/tests/core_parity.py
 ```
 
 These production-binary tests exercise authentication, cross-origin rejection,
@@ -169,3 +198,6 @@ it, checks ordered callback envelopes and replay, isolates same-cookie tabs and
 assets, enforces terminal limits, and verifies logout, disconnect and SIGTERM
 cleanup. Native terminal regressions continue to cover the same shared session
 implementation.
+The core parity suite exercises the real CLI and HTTP API: history and settings,
+annotation restoration, binary files, replacement, ZIP round-trip and refused
+destinations, plus a real LaTeX build followed by forward and inverse SyncTeX.

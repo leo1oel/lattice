@@ -67,7 +67,9 @@ pub const COMMANDS: &[&str] = &[
 ];
 
 pub fn capabilities() -> Value {
-    json!({"protocolVersion":1,"headless":true,"commands":COMMANDS,
+    let commands =
+        COMMANDS.iter().chain(crate::core_commands::COMMANDS).copied().collect::<Vec<_>>();
+    json!({"protocolVersion":1,"headless":true,"commands":commands,
         "events":["build-progress","project-fs-changed"],
         "unavailable":["native_windows","native_file_dialogs","system_keychain","embedded_login_webview","agent_sidecar","texlab","terminal","synara"],
         "projectModel":"workspace-confined projects; independent active project per browser session; projectRoot pins mutations"})
@@ -117,13 +119,16 @@ impl Core {
         }
     }
     fn invoke_inner(self: &Arc<Self>, command: &str, args: Value) -> Result<Value, String> {
-        if !COMMANDS.contains(&command) {
+        if !COMMANDS.contains(&command) && !crate::core_commands::COMMANDS.contains(&command) {
             return Err(format!("unsupported_command: {command} is unavailable in headless mode. See /api/capabilities."));
         }
         if let Some(root) = args.get("projectRoot").and_then(Value::as_str) {
             if self.confined(root)? != self.root {
                 return Err("This service is bound to a different project.".into());
             }
+        }
+        if crate::core_commands::COMMANDS.contains(&command) {
+            return crate::core_commands::invoke(self, command, &args);
         }
         let _mutation = if matches!(
             command,
