@@ -378,7 +378,9 @@ pub fn run() {
         // this lifecycle entirely.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_filter(|label| !label.starts_with("browser-"))
+                .with_filter(|label| {
+                    !label.starts_with("browser-") && desktop_pet::window_state_tracks(label)
+                })
                 .build(),
         )
         .on_window_event(on_window_event)
@@ -386,6 +388,7 @@ pub fn run() {
         .on_menu_event(|app, event| native_locale::handle_menu_event(app, &event))
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
+            desktop_pet::desktop_pet_ready,
             desktop_pet::desktop_pet_status,
             desktop_pet::desktop_pet_asset,
             desktop_pet::desktop_pet_import,
@@ -642,7 +645,17 @@ pub fn run() {
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),
-        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => reopen(app_handle),
+        tauri::RunEvent::Reopen { has_visible_windows, .. }
+            if desktop_pet::reopen_needed(
+                has_visible_windows,
+                app_handle
+                    .webview_windows()
+                    .iter()
+                    .map(|(label, window)| (label.as_str(), window.is_visible().unwrap_or(false))),
+            ) =>
+        {
+            reopen(app_handle)
+        }
         // `code` is None only when the last window closed; ⌘Q and a restart
         // exit with a code.
         tauri::RunEvent::ExitRequested { code: None, api, .. }

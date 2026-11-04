@@ -57,3 +57,29 @@ it("preserves the old enabled pet when importing fails and permits retry after c
   expect(screen.getByRole("switch", { name: "Show desktop companion" })).toBeChecked();
   expect(screen.getByText("Existing pet")).toBeInTheDocument();
 });
+
+it("waits for native readiness before checking the switch and keeps a timed-out attempt off until a successful retry", async () => {
+  let enabled = false;
+  let finish!: () => void;
+  let fail!: (reason: Error) => void;
+  vi.mocked(invoke).mockImplementation(async (command) => {
+    if (command === "desktop_pet_status") return { enabled, name: "Existing pet" };
+    if (command === "desktop_pet_set_enabled") return new Promise<void>((resolve, reject) => {
+      finish = () => { enabled = true; resolve(); }; fail = reject;
+    });
+  });
+  render(<DesktopPetSettings />);
+  await screen.findByText("Existing pet");
+  const toggle = screen.getByRole("switch", { name: "Show desktop companion" });
+  fireEvent.click(toggle);
+  expect(toggle).not.toBeChecked();
+  expect(toggle).toBeDisabled();
+  fail(new Error("The desktop companion did not finish loading. Try enabling it again."));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("did not finish loading"));
+  expect(toggle).not.toBeChecked();
+  expect(toggle).toBeEnabled();
+  fireEvent.click(toggle);
+  finish();
+  await waitFor(() => expect(toggle).toBeChecked());
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

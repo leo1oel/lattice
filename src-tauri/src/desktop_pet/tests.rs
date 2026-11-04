@@ -31,6 +31,7 @@ fn imports_legacy_and_v2_packages_into_owned_artwork() {
     let storage = DesktopPet {
         config: Mutex::new(Config::default()),
         path: dir.as_ref().join("settings.json"),
+        launches: Mutex::default(),
     };
     storage.save(Config { enabled: true, pet: Some(legacy), locale: "en".into() }).unwrap();
     // Once imported, removing the source never makes the saved pet disappear.
@@ -96,4 +97,68 @@ fn pet_state_tracks_real_builds_ahead_of_agent_turns_then_returns_to_idle() {
     assert_eq!(activity(1, 2), "building");
     assert_eq!(activity(0, 2), "working");
     assert_eq!(activity(0, 0), "idle");
+}
+
+#[test]
+fn repeated_enable_requests_share_readiness_and_a_failed_load_can_be_retried() {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+    runtime.block_on(async {
+        let mut launches = super::launch::Launches::default();
+        let mut first = launches.begin();
+        let mut duplicate = launches.begin();
+        assert_eq!(first.generation, duplicate.generation);
+        assert!(launches.loading(&first.generation));
+        assert!(launches.finish(&first.generation, Ok(())));
+        assert_eq!(first.wait().await, Ok(()));
+        assert_eq!(duplicate.wait().await, Ok(()));
+        assert!(!launches.finish(&first.generation, Err("late failure".into())));
+        assert!(launches.abandon(&first.generation, super::launch::ARTWORK_FAILED, true));
+        assert_eq!(launches.error.as_deref(), Some(super::launch::ARTWORK_FAILED));
+        let mut retry = launches.begin();
+        assert_ne!(first.generation, retry.generation);
+        assert!(launches.error.is_none());
+        assert!(!launches.finish(&first.generation, Ok(())));
+        assert!(launches.loading(&retry.generation));
+        launches.finish(&retry.generation, Ok(()));
+        assert_eq!(retry.wait().await, Ok(()));
+    });
+}
+
+#[test]
+fn cancellation_and_timeout_never_let_an_old_page_show_a_new_window() {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+    runtime.block_on(async {
+        let mut launches = super::launch::Launches::default();
+        let mut cancelled = launches.begin();
+        launches.cancel();
+        assert_eq!(cancelled.wait().await, Err(super::launch::CANCELLED.into()));
+        let mut pending = launches.begin();
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(1), pending.wait())
+            .await
+            .is_err());
+        assert!(launches.abandon(&pending.generation, super::launch::TIMED_OUT, true));
+        assert_eq!(pending.wait().await, Err(super::launch::TIMED_OUT.into()));
+        assert!(!launches.finish(&cancelled.generation, Ok(())));
+        assert!(!launches.finish(&pending.generation, Ok(())));
+        assert_eq!(launches.error.as_deref(), Some(super::launch::TIMED_OUT));
+    });
+}
+
+#[test]
+fn the_fixed_companion_does_not_restore_generic_window_state_or_focus() {
+    assert!(!super::window_state_tracks("desktop-pet"));
+    assert!(super::window_state_tracks("main"));
+    assert!(super::window_state_tracks("project-1"));
+}
+
+#[test]
+fn a_visible_pet_does_not_block_reopening_the_workspace_after_its_last_window_closes() {
+    use super::reopen_needed;
+    assert!(!reopen_needed(true, [("main", true), ("desktop-pet", true)]));
+    // Closing the workspace changes Cocoa's key window, but a pet still makes
+    // has_visible_windows true. The app must handle the user's next Dock open.
+    assert!(reopen_needed(true, [("main", false), ("desktop-pet", true)]));
+    assert!(reopen_needed(true, [("browser-1", false), ("desktop-pet", true)]));
+    assert!(!reopen_needed(true, [("site-content-1", true), ("desktop-pet", true)]));
+    assert!(reopen_needed(false, [("main", false)]));
 }

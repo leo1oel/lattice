@@ -14052,6 +14052,18 @@ msgstr "The correct idiom is “{idiom}”."
 msgid "The correct plural is “{plural}”."
 msgstr "The correct plural is “{plural}”."
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion could not load its artwork. Import its package again."
+msgstr "The desktop companion could not load its artwork. Import its package again."
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion did not finish loading. Try enabling it again."
+msgstr "The desktop companion did not finish loading. Try enabling it again."
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion request was cancelled."
+msgstr "The desktop companion request was cancelled."
+
 #: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
 msgstr "The disk is full."

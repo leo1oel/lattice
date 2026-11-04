@@ -9,11 +9,11 @@ import { Button } from "../components/ui/button";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { toMessage } from "../app-utils";
 
-type Snapshot = { enabled: boolean; name: string | null };
+type Snapshot = { enabled: boolean; name: string | null; error?: string | null };
 type State = { snapshot: Snapshot | null; busy: boolean; error: string | null };
 type Action = { type: "loaded" | "synced"; snapshot: Snapshot } | { type: "busy" } | { type: "failed"; error: string };
 function reduce(state: State, action: Action): State {
-  if (action.type === "loaded" || action.type === "synced") return { snapshot: action.snapshot, busy: action.type === "synced" ? state.busy : false, error: null };
+  if (action.type === "loaded" || action.type === "synced") return { snapshot: action.snapshot, busy: action.type === "synced" ? state.busy : false, error: action.snapshot?.error ? toMessage(action.snapshot.error) : null };
   if (action.type === "busy") return { ...state, busy: true, error: null };
   if (action.type === "failed") return { ...state, busy: false, error: action.error };
   return state;

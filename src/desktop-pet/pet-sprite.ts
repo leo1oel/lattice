@@ -8,20 +8,21 @@ const ROWS: Record<PetActivity, { row: number; durations: number[] }> = {
   wave: { row: 3, durations: [140, 140, 140, 280] },
 };
 
-function spriteFrame(activity: PetActivity, elapsed: number, reduced: boolean): { column: number; row: number } {
-  if (reduced) return { column: 0, row: 0 };
+function spriteFrame(activity: PetActivity, elapsed: number, reduced: boolean): { column: number; row: number; remaining: number } {
+  if (reduced) return { column: 0, row: 0, remaining: 0 };
   const { row, durations } = ROWS[activity];
   let time = Math.max(0, elapsed) % durations.reduce((sum, value) => sum + value, 0);
   for (let column = 0; column < durations.length; column++) {
-    if (time < durations[column]) return { row, column };
+    if (time < durations[column]) return { row, column, remaining: durations[column] - time };
     time -= durations[column];
   }
-  return { row, column: 0 };
+  return { row, column: 0, remaining: durations[0] };
 }
 
 export function paintSprite(element: HTMLElement, version: number, activity: PetActivity, elapsed: number, reduced: boolean) {
-  const { column, row } = spriteFrame(activity, elapsed, reduced);
+  const { column, row, remaining } = spriteFrame(activity, elapsed, reduced);
   const rows = version === 2 ? 11 : 9;
   element.style.backgroundSize = `800% ${rows * 100}%`;
   element.style.backgroundPosition = `${column * 100 / 7}% ${row * 100 / (rows - 1)}%`;
+  return remaining;
 }

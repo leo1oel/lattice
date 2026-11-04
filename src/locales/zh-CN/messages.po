@@ -14052,6 +14052,18 @@ msgstr "正确的习语是 “{idiom}”。"
 msgid "The correct plural is “{plural}”."
 msgstr "正确的复数形式是 “{plural}”。"
 
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion could not load its artwork. Import its package again."
+msgstr "桌面宠物无法加载图像，请重新导入宠物包。"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion did not finish loading. Try enabling it again."
+msgstr "桌面宠物未能完成加载，请重新启用。"
+
+#: src/platform/host-errors-desktop-pet.ts
+msgid "The desktop companion request was cancelled."
+msgstr "桌面宠物请求已取消。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "The disk is full."
 msgstr "磁盘空间已满"
