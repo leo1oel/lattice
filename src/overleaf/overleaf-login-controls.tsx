@@ -5,6 +5,8 @@ import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { InlineMessage } from "../components/ui/inline-message";
 import { MotionButton } from "../components/ui/motion";
+import type { OverleafStatus } from "../app-types";
+import { OverleafBrowserLogin } from "./overleaf-browser-login";
 
 /** Shared state from the native sign-in loop, consumed in Settings and the picker. */
 interface OverleafLogin {
@@ -14,6 +16,7 @@ interface OverleafLogin {
   hint: string | null;
   begin: () => void;
   cancel: () => void;
+  accept: (session: OverleafStatus) => void;
 }
 
 /** How the last sign-in attempt ended, when that needs saying. */
@@ -27,7 +30,7 @@ export function LoginMessages({ login }: { login: OverleafLogin }) {
 }
 
 /** The sign-in button, or the wait for the sign-in window, plus how the last attempt ended. */
-export function LoginControls(props: { login: OverleafLogin; label: string; hint?: string }) {
+export function LoginControls(props: { login: OverleafLogin; label: string; hint?: string; host?: string }) {
   const { t } = useLingui();
   const { login } = props;
   const button = (
@@ -53,6 +56,7 @@ export function LoginControls(props: { login: OverleafLogin; label: string; hint
         </div>
       ) : button}
       <LoginMessages login={login} />
+      {!login.pending && <OverleafBrowserLogin host={props.host ?? "https://www.overleaf.com"} onConnected={login.accept} />}
     </>
   );
 }

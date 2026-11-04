@@ -453,6 +453,22 @@ mod tests {
     }
 
     #[test]
+    fn rejected_browser_import_preserves_the_previous_valid_session() {
+        let server = Mock::default().serve();
+        let config = TempDir::new("preserve-session");
+        let cookie = "overleaf_session2=previous-valid-session";
+        store_session_cookie(&config, &server.base, cookie).unwrap();
+        let before = fs::read(session_path(&config)).unwrap();
+        let rejected = crate::overleaf_rt::mock_server::serve_http(|request| {
+            let _ =
+                request.respond(tiny_http::Response::from_string("Sign in").with_status_code(401));
+        });
+        assert!(store_session_cookie(&config, &rejected, "overleaf_session2=rejected").is_err());
+        assert_eq!(fs::read(session_path(&config)).unwrap(), before);
+        assert_eq!(load_session(&config).unwrap().cookie, cookie);
+    }
+
+    #[test]
     fn overleaf_list_projects_parses_and_sorts() {
         let server = Mock::default().serve();
         let config = signed_in(&server.base);

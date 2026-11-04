@@ -11,9 +11,12 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State, Window};
+use tauri_plugin_opener::OpenerExt;
 use tokio::time::Instant;
 
 const LOGIN_WINDOW: &str = "overleaf-login";
+// Account writes must not let an old native poll overwrite an explicit import.
+static LOGIN_SESSION: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 const TASK: &str = "The Overleaf task";
 const CHAT: &str = "The Overleaf chat task";
 const COMMENTS: &str = "The Overleaf comment task";
@@ -125,9 +128,10 @@ pub async fn overleaf_status(app: AppHandle) -> Result<overleaf::OverleafStatus,
 /// then captures the session cookie — no manual copying for the common case.
 /// `title` is the window title in the interface language.
 #[tauri::command]
-pub fn overleaf_begin_login(
+pub async fn overleaf_begin_login(
     app: AppHandle, host: Option<String>, title: String,
 ) -> Result<(), String> {
+    let _login = LOGIN_SESSION.lock().await;
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW) {
         let _ = existing.set_focus();
         return Ok(());
@@ -148,6 +152,7 @@ pub fn overleaf_begin_login(
 pub async fn overleaf_poll_login(
     app: AppHandle, host: Option<String>,
 ) -> Result<overleaf::OverleafLoginPoll, String> {
+    let _login = LOGIN_SESSION.lock().await;
     let Some(window) = app.get_webview_window(LOGIN_WINDOW) else {
         return Ok(overleaf::OverleafLoginPoll::cancelled());
     };
@@ -190,6 +195,7 @@ pub async fn overleaf_poll_login(
 
 #[tauri::command]
 pub async fn overleaf_disconnect(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let _login = LOGIN_SESSION.lock().await;
     if let Some(window) = app.get_webview_window(LOGIN_WINDOW) {
         let _ = window.close();
     }
@@ -197,6 +203,86 @@ pub async fn overleaf_disconnect(app: AppHandle, state: State<'_, AppState>) -> 
     state.shutdown_all_realtime();
     let config = overleaf_config_dir(&app)?;
     run_blocking("Overleaf disconnect", move || overleaf::disconnect(&config)).await
+}
+
+/// Only an explicit, validated session import connects an external browser.
+/// Browser profiles and their cookie databases are never inspected by Lattice.
+#[tauri::command]
+pub fn overleaf_open_login_in_browser(app: AppHandle, host: Option<String>) -> Result<(), String> {
+    let url = browser_login_url(host.as_deref().unwrap_or(""))?;
+    app.opener()
+        .open_url(url.as_str(), None::<&str>)
+        .map_err(|_| "Could not open the default browser.".to_string())
+}
+
+#[tauri::command]
+pub async fn overleaf_connect_session(
+    app: AppHandle, state: State<'_, AppState>, host: String, cookie: String,
+) -> Result<overleaf::OverleafStatus, String> {
+    const REJECTED: &str = "Could not validate the Overleaf browser session.";
+    let _login = LOGIN_SESSION.lock().await;
+    browser_login_url(&host).map_err(|_| REJECTED.to_string())?;
+    if cookie.len() > 16_384 {
+        return Err(REJECTED.to_string());
+    }
+    if let Some(window) = app.get_webview_window(LOGIN_WINDOW) {
+        let _ = window.close();
+    }
+    let config = overleaf_config_dir(&app)?;
+    // The inner error may contain an HTTP diagnostic. Never log or return it:
+    // callers must not accidentally expose a session credential in a toast.
+    let result = run_quietly("The Overleaf browser session task", move || {
+        Ok(overleaf::store_session_cookie(&config, &host, &cookie))
+    })
+    .await?;
+    let session = result.map_err(|_| REJECTED.to_string())?;
+    state.shutdown_all_realtime();
+    let _ = app.emit(SESSION_EVENT, ());
+    Ok(session)
+}
+
+fn browser_login_url(host: &str) -> Result<tauri::Url, String> {
+    if host.split_once("://").is_some_and(|(scheme, _)| {
+        !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https")
+    }) {
+        return Err("Invalid Overleaf browser login address.".to_string());
+    }
+    let mut url: tauri::Url = overleaf::normalize_host(host)
+        .parse()
+        .map_err(|_| "Invalid Overleaf browser login address.".to_string())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err("Invalid Overleaf browser login address.".to_string());
+    }
+    url.set_path(&format!("{}/login", url.path().trim_end_matches('/')));
+    Ok(url)
+}
+
+#[cfg(test)]
+mod browser_login_tests {
+    use super::browser_login_url;
+
+    #[test]
+    fn browser_login_addresses_keep_credentials_out_and_preserve_self_hosted_base_paths() {
+        assert_eq!(browser_login_url("").unwrap().as_str(), "https://www.overleaf.com/login");
+        assert_eq!(
+            browser_login_url("https://latex.example.edu/overleaf/").unwrap().as_str(),
+            "https://latex.example.edu/overleaf/login"
+        );
+        for host in [
+            "https://user:secret@example.edu",
+            "https://example.edu/?token=secret",
+            "https://example.edu/#secret",
+            "file:///etc/passwd",
+        ] {
+            assert!(browser_login_url(host).is_err(), "{host}");
+        }
+    }
 }
 
 #[tauri::command]

@@ -559,6 +559,8 @@ pub fn run() {
             ipc::history::delete_history_entry,
             ipc::overleaf::overleaf_status,
             ipc::overleaf::overleaf_begin_login,
+            ipc::overleaf::overleaf_open_login_in_browser,
+            ipc::overleaf::overleaf_connect_session,
             ipc::overleaf::overleaf_poll_login,
             ipc::overleaf::overleaf_disconnect,
             ipc::overleaf::overleaf_list_projects,

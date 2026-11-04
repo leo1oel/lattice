@@ -4125,6 +4125,14 @@ msgstr "无法打开新的 Lattice 窗口：{error}"
 msgid "Could not open the article in your browser"
 msgstr "浏览器打不开原文"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not open the default browser."
+msgstr "无法打开默认浏览器。"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Could not open the default browser. Open Overleaf in your browser and continue with the session import below."
+msgstr "无法打开默认浏览器。请在浏览器中打开 Overleaf，再通过下方表单导入会话。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
 msgstr "无法打开日志文件夹：{error}"
@@ -4322,6 +4330,14 @@ msgstr "上传失败"
 #: src/platform/host-errors-overleaf.ts
 msgid "Could not upload the project to Overleaf: {error}"
 msgstr "无法把项目上传到 Overleaf：{error}"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Could not validate that session. Copy a fresh session cookie from a signed-in browser and try again."
+msgstr "无法验证此会话。请从已登录的浏览器复制新的会话 Cookie 后重试。"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not validate the Overleaf browser session."
+msgstr "无法验证 Overleaf 浏览器会话。"
 
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
@@ -6618,6 +6634,10 @@ msgstr "蕴含"
 msgid "Import"
 msgstr "导入"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Import browser session"
+msgstr "导入浏览器会话"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
@@ -6764,6 +6784,10 @@ msgstr "本文中"
 #: src/settings/theme-settings.tsx
 msgid "In use"
 msgstr "实际使用"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "In your browser's developer tools, open Storage or Application → Cookies. Copy the Overleaf session cookie as name=value (overleaf_session2 or sharelatex.sid). Treat it like a password; Lattice validates it before storing it privately."
+msgstr "在浏览器开发者工具中，打开“存储”或“应用”→ Cookie。以 name=value 格式复制 Overleaf 会话 Cookie（overleaf_session2 或 sharelatex.sid）。请像密码一样保护它；Lattice 会先验证，再私密保存。"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -7115,6 +7139,10 @@ msgstr "年份应是四位数"
 #: src/platform/host-errors-setup.ts
 msgid "Invalid missing TeX dependency name."
 msgstr "缺失的 TeX 组件名称无效"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Invalid Overleaf browser login address."
+msgstr "Overleaf 浏览器登录地址无效。"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Invalid Overleaf host: {error}"
@@ -9639,6 +9667,10 @@ msgstr "新手教程"
 msgid "Open in browser"
 msgstr "在浏览器中打开"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Open in default browser"
+msgstr "在默认浏览器中打开"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Open in History"
 msgstr "在历史中打开"
@@ -10039,6 +10071,10 @@ msgstr "Overleaf 传来的版本是空的或小很多，无法确认，所以保
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf 发送了版本 {version}，但此文档当前为版本 {current}。"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Overleaf session cookie"
+msgstr "Overleaf 会话 Cookie"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf session expired. Reconnect in Settings → Overleaf."
@@ -12853,6 +12889,10 @@ msgstr "并排分栏块"
 msgid "Sigma"
 msgstr "西格马"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Sign in in your browser, then import its session below. Opening the browser alone does not connect Lattice."
+msgstr "请在浏览器中登录，再在下方导入会话。仅打开浏览器不会连接 Lattice。"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to {linkedHost} to resume syncing"
 msgstr "登录 {linkedHost} 后继续同步"
@@ -12862,7 +12902,7 @@ msgid "Sign in to {linkedHost}, then resume"
 msgstr "登录 {linkedHost} 后继续"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
 
@@ -12878,7 +12918,7 @@ msgstr "退出 Overleaf？\n"
 "\n"
 "关联的项目会停止同步，直到重新登录。已下载的文件仍在这台 Mac 上"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign-in was cancelled"
 msgstr "登录已取消"
 
@@ -13234,7 +13274,7 @@ msgid "Status"
 msgstr "状态"
 
 #. placeholder {0}: result.detail
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
 msgstr "仍未连接：{0}"
 
@@ -13242,7 +13282,7 @@ msgstr "仍未连接：{0}"
 msgid "Still on Overleaf"
 msgstr "Overleaf 上仍在"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "还在等。请取消、关掉 Overleaf 窗口后再连一次"
 

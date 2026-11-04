@@ -348,3 +348,5 @@
   .overleaf-picker-lede { flex-wrap: wrap; }
   .overleaf-picker-account { max-width: 100%; }
 }
+.overleaf-browser-login, .overleaf-browser-login form { display: grid; gap: var(--space-3); }
+.overleaf-browser-login { margin-top: var(--space-4); }

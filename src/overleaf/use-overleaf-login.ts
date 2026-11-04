@@ -84,6 +84,7 @@ export function useOverleafLogin(onConnected: (session: OverleafStatus) => void)
     }, (reason) => dispatch({ type: "error", value: toMessage(reason) }));
   }, [poll, t]);
 
-  return { pending, error, notice, hint, begin, cancel };
+  const accept = (session: OverleafStatus) => { stop(); connectedRef.current(session); };
+  return { pending, error, notice, hint, begin, cancel, accept };
 }
 

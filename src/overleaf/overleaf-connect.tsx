@@ -7,7 +7,7 @@
  * sign-in window, loading, empty, error, downloading) carries plain-language
  * guidance about what is happening and what to do next.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Cloud, CloudAlert, CloudOff, FileText, Link2, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
@@ -218,6 +218,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
             <div className="overleaf-connect-card-body">
               <LoginControls
                 login={login}
+                host={known.host}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
                 hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />
@@ -539,6 +540,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
               {known.expired && <p className="overleaf-stage-text">{t`Your Overleaf session expired`}</p>}
               <LoginControls
                 login={login}
+                host={known.host}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
                 hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />

@@ -28,6 +28,10 @@ export const OVERLEAF_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["ipc/overleaf.rs", "Could not open the Overleaf sign-in window: {error}", ([error]) => t`Could not open the Overleaf sign-in window: ${error}`],
   ["overleaf_rt/codec.rs", "No Overleaf host configured.", () => t`No Overleaf host configured.`],
 
+  ["ipc/overleaf.rs", "Could not open the default browser.", () => t`Could not open the default browser.`],
+  ["ipc/overleaf.rs", "Could not validate the Overleaf browser session.", () => t`Could not validate the Overleaf browser session.`],
+  ["ipc/overleaf.rs", "Invalid Overleaf browser login address.", () => t`Invalid Overleaf browser login address.`],
+
   // Linking and syncing (overleaf/link.rs, overleaf/sync.rs, overleaf/upload.rs)
   ["overleaf/link.rs", "Syncing is paused for this project. Resume it in Settings → Overleaf.", () => t`Syncing is paused for this project. Resume it in Settings → Overleaf.`],
   ["overleaf/link.rs", "Overleaf is still preparing file uploads. Try syncing again in a moment.", () => t`Overleaf is still preparing file uploads. Try syncing again in a moment.`],

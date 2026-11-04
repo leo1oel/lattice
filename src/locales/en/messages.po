@@ -4125,6 +4125,14 @@ msgstr "Could not open a new Lattice window: {error}"
 msgid "Could not open the article in your browser"
 msgstr "Could not open the article in your browser"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not open the default browser."
+msgstr "Could not open the default browser."
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Could not open the default browser. Open Overleaf in your browser and continue with the session import below."
+msgstr "Could not open the default browser. Open Overleaf in your browser and continue with the session import below."
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
 msgstr "Could not open the log folder: {error}"
@@ -4322,6 +4330,14 @@ msgstr "Could not upload the project to Overleaf"
 #: src/platform/host-errors-overleaf.ts
 msgid "Could not upload the project to Overleaf: {error}"
 msgstr "Could not upload the project to Overleaf: {error}"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Could not validate that session. Copy a fresh session cookie from a signed-in browser and try again."
+msgstr "Could not validate that session. Copy a fresh session cookie from a signed-in browser and try again."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Could not validate the Overleaf browser session."
+msgstr "Could not validate the Overleaf browser session."
 
 #: src/platform/host-errors-setup.ts
 msgid "Could not verify {file}: {error}"
@@ -6618,6 +6634,10 @@ msgstr "Implies"
 msgid "Import"
 msgstr "Import"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Import browser session"
+msgstr "Import browser session"
+
 #. placeholder {0}: result.title
 #: src/app/use-reference-import.ts
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
@@ -6764,6 +6784,10 @@ msgstr "In this paper"
 #: src/settings/theme-settings.tsx
 msgid "In use"
 msgstr "In use"
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "In your browser's developer tools, open Storage or Application → Cookies. Copy the Overleaf session cookie as name=value (overleaf_session2 or sharelatex.sid). Treat it like a password; Lattice validates it before storing it privately."
+msgstr "In your browser's developer tools, open Storage or Application → Cookies. Copy the Overleaf session cookie as name=value (overleaf_session2 or sharelatex.sid). Treat it like a password; Lattice validates it before storing it privately."
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -7115,6 +7139,10 @@ msgstr "Invalid literal year; expected four digits."
 #: src/platform/host-errors-setup.ts
 msgid "Invalid missing TeX dependency name."
 msgstr "Invalid missing TeX dependency name."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Invalid Overleaf browser login address."
+msgstr "Invalid Overleaf browser login address."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Invalid Overleaf host: {error}"
@@ -9639,6 +9667,10 @@ msgstr "Open guided tutorial"
 msgid "Open in browser"
 msgstr "Open in browser"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Open in default browser"
+msgstr "Open in default browser"
+
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Open in History"
 msgstr "Open in History"
@@ -10039,6 +10071,10 @@ msgstr "Overleaf sent these empty or much smaller, but its history does not conf
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf sent version {version} while this document is at {current}."
+
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Overleaf session cookie"
+msgstr "Overleaf session cookie"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf session expired. Reconnect in Settings → Overleaf."
@@ -12853,6 +12889,10 @@ msgstr "Side-by-side column block"
 msgid "Sigma"
 msgstr "Sigma"
 
+#: src/overleaf/overleaf-browser-login.tsx
+msgid "Sign in in your browser, then import its session below. Opening the browser alone does not connect Lattice."
+msgstr "Sign in in your browser, then import its session below. Opening the browser alone does not connect Lattice."
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to {linkedHost} to resume syncing"
 msgstr "Sign in to {linkedHost} to resume syncing"
@@ -12862,7 +12902,7 @@ msgid "Sign in to {linkedHost}, then resume"
 msgstr "Sign in to {linkedHost}, then resume"
 
 #: src/app/use-overleaf-workspace.ts
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign in to Overleaf"
 msgstr "Sign in to Overleaf"
 
@@ -12878,7 +12918,7 @@ msgstr "Sign out of Overleaf?\n"
 "\n"
 "Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac."
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Sign-in was cancelled"
 msgstr "Sign-in was cancelled"
 
@@ -13234,7 +13274,7 @@ msgid "Status"
 msgstr "Status"
 
 #. placeholder {0}: result.detail
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still not connected: {0}"
 msgstr "Still not connected: {0}"
 
@@ -13242,7 +13282,7 @@ msgstr "Still not connected: {0}"
 msgid "Still on Overleaf"
 msgstr "Still on Overleaf"
 
-#: src/overleaf/overleaf-connect.tsx
+#: src/overleaf/use-overleaf-login.ts
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
