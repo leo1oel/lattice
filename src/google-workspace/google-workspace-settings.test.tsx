@@ -5,11 +5,16 @@ import {
   screen,
   waitFor,
   cleanup,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { invokeCalls, mockInvoke } from "../platform/tauri-test-mocks";
 import { GoogleWorkspaceSettings } from "./google-workspace-settings";
 import { WorkspaceOperations } from "./workspace-operations";
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const disconnected = {
   connected: false,
@@ -42,6 +47,7 @@ it("keeps a newer browser sign-in pending when the initial account lookup resolv
     google_workspace_begin: undefined,
   });
   render(<GoogleWorkspaceSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
   fireEvent.change(screen.getByLabelText("Desktop OAuth client ID"), {
     target: { value: "fixture.apps.googleusercontent.com" },
   });
@@ -69,6 +75,7 @@ it("requires explicit client/product setup before system-browser consent and nev
     },
   });
   render(<GoogleWorkspaceSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
   const button = await screen.findByRole("button", {
     name: "Sign in with default browser",
   });
@@ -105,6 +112,7 @@ it("creates a document through the workspace consumer, then reads and explicitly
     },
   });
   render(<GoogleWorkspaceSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
   fireEvent.change(await screen.findByLabelText("New resource title"), {
     target: { value: "Experiments" },
   });
@@ -169,6 +177,7 @@ it("never renders provider credential errors or treats failed JSON writes as suc
 it("does not advertise API operations when Google grants no product scopes", async () => {
   mockInvoke({ google_workspace_status: { ...connected, products: [] } });
   render(<GoogleWorkspaceSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
   await screen.findByText(
     "No product permissions were granted. Reconnect and approve the products you want to use.",
   );
@@ -214,4 +223,48 @@ it("does not reveal a completed request after its account workspace unmounts", a
   expect(document.body.textContent).not.toContain(
     "Old account private content",
   );
+});
+it("opens all five official websites without client setup or Google IPC", async () => {
+  mockInvoke({});
+  render(<GoogleWorkspaceSettings />);
+  expect(screen.queryByLabelText("Desktop OAuth client ID")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Advanced: Google API access" })).toHaveAttribute("aria-expanded", "false");
+  for (const button of screen.getAllByRole("button", { name: "Open in default browser" })) {
+    fireEvent.click(button);
+  }
+  await waitFor(() => expect(openUrl).toHaveBeenCalledTimes(5));
+  expect(vi.mocked(openUrl).mock.calls.map(([url]) => url)).toEqual([
+    "https://docs.google.com/document/",
+    "https://docs.google.com/spreadsheets/",
+    "https://docs.google.com/presentation/",
+    "https://docs.google.com/forms/",
+    "https://calendar.google.com/",
+  ]);
+  expect(invokeCalls("google_workspace_status")).toHaveLength(0);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("opens in Lattice when supported and falls back to the browser when the command is absent", async () => {
+  mockInvoke({ web_browser_open: undefined });
+  render(<GoogleWorkspaceSettings />);
+  const docs = screen.getByText("Google Docs").closest(".google-web-product") as HTMLElement;
+  fireEvent.click(within(docs).getByRole("button", { name: "Open in Lattice" }));
+  await waitFor(() => expect(invokeCalls("web_browser_open")).toEqual([{ url: "https://docs.google.com/document/" }]));
+  expect(openUrl).not.toHaveBeenCalled();
+  mockInvoke({});
+  fireEvent.click(within(docs).getByRole("button", { name: "Open in Lattice" }));
+  await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://docs.google.com/document/"));
+});
+
+it("keeps web access available after optional API setup fails on a host without Google commands", async () => {
+  mockInvoke({});
+  render(<GoogleWorkspaceSettings />);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
+  expect(await screen.findByLabelText("Desktop OAuth client ID")).toBeInTheDocument();
+  await screen.findByText(/Google Workspace could not complete that action/);
+  fireEvent.click(screen.getByRole("button", { name: "Advanced: Google API access" }));
+  expect(screen.queryByLabelText("Desktop OAuth client ID")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Google Workspace could not complete that action/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole("button", { name: "Open in default browser" })[4]);
+  await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://calendar.google.com/"));
 });

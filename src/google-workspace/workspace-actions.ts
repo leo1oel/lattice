@@ -1,7 +1,7 @@
 /** Network workflows own their try/finally cleanup outside React render compilation. */
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch } from "react";
-import type { AccountAction, AccountStatus } from "./google-workspace-settings";
+import type { AccountAction, AccountStatus } from "./google-workspace-advanced";
 import type { WorkspaceState, WorkspaceAction } from "./workspace-operations";
 type Mutable<T> = { current: T };
 export async function runAccountAction(

@@ -1593,6 +1593,10 @@ msgstr "已调整，链接和选中文字的对比度为 {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "已取消管理员授权，未安装任何内容。"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Advanced: Google API access"
+msgstr "高级：Google API 访问"
+
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
@@ -2733,7 +2737,7 @@ msgstr "找不到 {0}。它可能已被移动或重命名，或所在的磁盘�
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 #: src/history/conflict-resolver.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
@@ -3493,7 +3497,7 @@ msgstr "清空终端"
 msgid "Click to keep the original"
 msgstr "点击保留原文"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Client secret (optional)"
 msgstr "客户端密钥（可选）"
 
@@ -3874,7 +3878,7 @@ msgstr "冲突"
 msgid "Congruent"
 msgstr "全等"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Connect another Google account"
 msgstr "连接其他 Google 账号"
 
@@ -3886,16 +3890,12 @@ msgstr "请先连接 Google Workspace。"
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
 
-#: src/google-workspace/google-workspace-settings.tsx
-msgid "Connect your own Google Desktop OAuth client to read, create and edit research documents, spreadsheets, presentations, forms and private calendar events."
-msgstr "使用你自己的 Google 桌面 OAuth 客户端，读取、创建和编辑研究文档、电子表格、演示文稿、表单和私人日程。"
-
 #. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "已登录：{0}"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Connected to Google Workspace"
 msgstr "已连接 Google Workspace"
 
@@ -4181,6 +4181,10 @@ msgstr "无法打开默认浏览器进行 Google 登录。"
 #: src/platform/host-errors-google.ts
 msgid "Could not open the Google sign-in callback."
 msgstr "无法创建 Google 登录回调监听。"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Could not open the Google website. Try again with your default browser."
+msgstr "无法打开 Google 网站，请尝试使用默认浏览器。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -4800,7 +4804,7 @@ msgstr "德尔塔"
 msgid "Description"
 msgstr "图片说明"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Desktop OAuth client ID"
 msgstr "桌面 OAuth 客户端 ID"
 
@@ -4874,7 +4878,7 @@ msgstr "放弃"
 msgid "Discard and close"
 msgstr "不保存"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Disconnect Google Workspace"
 msgstr "断开 Google Workspace"
 
@@ -5377,7 +5381,7 @@ msgstr "空集"
 msgid "Empty set (variant)"
 msgstr "空集（变体）"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Enable the selected APIs in your Google Cloud project and add your account as a test user if the consent screen is in testing. Authorization opens in your default browser. Passwords and access tokens never enter this page."
 msgstr "请在 Google Cloud 项目中启用所选 API；如果授权应用处于测试状态，还需将你的账号添加为测试用户。授权会在默认浏览器中打开，此页面不会接收 Google 密码或访问令牌。"
 
@@ -6384,7 +6388,11 @@ msgstr "Google 登录授权被拒绝。"
 msgid "Google Workspace"
 msgstr "Google Workspace"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
+msgid "Google Workspace API"
+msgstr "Google Workspace API 接口"
+
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Google Workspace could not complete that action. Check your client configuration, consent and network connection. Existing account credentials are preserved after a failed sign-in."
 msgstr "Google Workspace 未能完成此操作。请检查客户端配置、授权和网络连接。登录失败会保留原有账号凭据。"
 
@@ -9196,7 +9204,7 @@ msgstr "还没有论文"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "No product permissions were granted. Reconnect and approve the products you want to use."
 msgstr "未获得任何产品权限。请重新连接并授权你希望使用的产品。"
 
@@ -9772,6 +9780,10 @@ msgstr "在浏览器打开原文"
 msgid "Open by default"
 msgstr "默认展开"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open Docs, Sheets, Slides, Forms and Calendar on Google’s website. Use your browser’s existing Google account or sign in there. No client ID or Google Cloud setup is needed."
+msgstr "打开 Google 官方网站上的文档、表格、幻灯片、表单和日历。使用浏览器中已有的 Google 账号，或直接在网站登录。无需客户端 ID 或配置 Google Cloud。"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Open entry"
 msgstr "打开条目"
@@ -9803,6 +9815,10 @@ msgstr "新手教程"
 msgid "Open in browser"
 msgstr "在浏览器中打开"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in default browser"
+msgstr "在默认浏览器中打开"
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Open in Google"
 msgstr "在 Google 中打开"
@@ -9811,10 +9827,18 @@ msgstr "在 Google 中打开"
 msgid "Open in History"
 msgstr "在历史中打开"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in Lattice"
+msgstr "在 Lattice 中打开"
+
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Lattice app"
 msgstr "在 Lattice 中打开"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in Lattice uses the built-in browser when available, with the system browser as a fallback. Google may require sign-in in your default browser; browser accounts and API authorization are separate."
+msgstr "“在 Lattice 中打开”会使用可用的内置浏览器，否则转到系统浏览器。Google 可能要求在默认浏览器中登录；网页登录与 API 授权相互独立。"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
@@ -9992,6 +10016,10 @@ msgstr "正在打开窗口…"
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"
 msgstr "操作记录"
+
+#: src/google-workspace/google-workspace-advanced.tsx
+msgid "Optional: connect your own Desktop OAuth client only if you need programmatic reads and writes through Google APIs. Signing in on Google’s website does not grant Lattice API access."
+msgstr "可选：仅在需要通过 Google API 编程读写时，连接你自己的桌面 OAuth 客户端。在 Google 网站登录不会授予 Lattice API 访问权限。"
 
 #: src/app/shortcut-sheet.tsx
 msgid "or"
@@ -13079,7 +13107,7 @@ msgstr "登录 {linkedHost} 后继续"
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Sign in with default browser"
 msgstr "使用默认浏览器登录"
 
@@ -16031,7 +16059,7 @@ msgstr "等待中"
 msgid "Waiting for administrator approval…"
 msgstr "等待你输入 Mac 密码…"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Waiting for Google authorization…"
 msgstr "正在等待 Google 授权…"
 

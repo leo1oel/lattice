@@ -61,3 +61,21 @@
 .google-api-workspace textarea {
   font-family: var(--editor-font);
 }
+
+.google-web-products {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+.google-web-product {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.google-workspace-advanced {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  margin-top: var(--space-3);
+}

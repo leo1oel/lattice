@@ -1,13 +1,26 @@
 # Google Workspace
 
-Settings → Integrations → Google Workspace connects a user-owned **Desktop app**
-OAuth client. This integration provides native API operations for Docs, Sheets,
-Slides, Forms and Calendar. It is an API editing workbench, not an embedded copy
-of Google's complete web editors. It currently runs in the desktop host; the
-standalone headless server must explicitly add these commands before offering
-them remotely.
+Settings → Integrations → Google Workspace opens the official Google Docs,
+Sheets, Slides, Forms and Calendar websites. Choose **Open in default browser**
+to reuse your existing browser account or sign in directly on Google's website.
+No client ID, Google Cloud project or API setup is needed for this workflow.
+The web entry points work independently of Lattice's Google API commands,
+including on a headless host that does not register them.
 
-## Configure your client
+**Open in Lattice** optionally opens the same website in the built-in browser
+when that separate feature is available. Otherwise Lattice falls back to the
+system browser. Google can restrict sign-in in embedded browsers; use the
+system browser when prompted. Lattice does not bypass Google's login policies,
+copy browser cookies or promise shared sessions between these browsers.
+
+The normal website editors provide Google's full editing experience. Ordinary
+website sign-in does **not** grant Lattice permission to call Google APIs.
+**Advanced: Google API access** is collapsed by default and is only needed for
+programmatic reads and writes. The following client setup and API workbench are
+optional. Native API commands currently run in the desktop host; the standalone
+headless server must explicitly add them before offering API access remotely.
+
+## Optional advanced API client setup
 
 1. Create or select a project in Google Cloud Console.
 2. Enable the Google Docs, Sheets, Slides, Forms, Calendar and Drive APIs for the
@@ -32,11 +45,11 @@ a server's loopback address. Pending sign-in can be cancelled. An unsuccessful
 or cancelled attempt preserves an existing account.
 
 Google does not issue a generic OAuth client for arbitrary open-source clones.
-Without a client ID and actual consent, the integration cannot be considered
-connected. Browser cookies or credentials from another application are never
-imported.
+Without a client ID and actual API consent, the advanced API workbench cannot
+connect. This does not affect the ordinary website buttons above. Browser
+cookies or credentials from another application are never imported.
 
-## Operations
+## Advanced API operations
 
 | Product | Supported operations |
 | --- | --- |
@@ -105,8 +118,8 @@ you can also remove the app's access in your Google Account permissions page.
 
 The Rust fixture server exercises all five products through the actual API
 consumer, authorization headers, refresh, provider rejection, scope refusal,
-private storage, PKCE and callback guards. React consumer tests exercise explicit
-configuration, create/read/update, redacted failures and stale-result disposal.
+private storage, PKCE and callback guards. React consumer tests exercise client-free website entry points, optional native
+browser fallback, collapsed advanced settings, explicit API configuration, create/read/update, redacted failures and stale-result disposal.
 These tests use fake accounts and do not modify Google data. Live authorization
 still requires a configured client and the user's direct consent.
 

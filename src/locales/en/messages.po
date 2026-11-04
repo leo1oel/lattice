@@ -1593,6 +1593,10 @@ msgstr "Adjusted so links and selected text read at {ratio}:1"
 msgid "Administrator approval was cancelled, so nothing was installed."
 msgstr "Administrator approval was cancelled, so nothing was installed."
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Advanced: Google API access"
+msgstr "Advanced: Google API access"
+
 #: src/agent/agent-environment.ts
 #: src/agent/agent-visual-save.ts
 #: src/app/use-synara-host.ts
@@ -2733,7 +2737,7 @@ msgstr "Can't find {0}. It may have been moved or renamed, or its drive is not c
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 #: src/history/conflict-resolver.tsx
 #: src/history/export-changes-dialog.tsx
 #: src/history/versions-timeline.tsx
@@ -3493,7 +3497,7 @@ msgstr "Clear terminal"
 msgid "Click to keep the original"
 msgstr "Click to keep the original"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Client secret (optional)"
 msgstr "Client secret (optional)"
 
@@ -3874,7 +3878,7 @@ msgstr "Conflicts"
 msgid "Congruent"
 msgstr "Congruent"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Connect another Google account"
 msgstr "Connect another Google account"
 
@@ -3886,16 +3890,12 @@ msgstr "Connect Google Workspace first."
 msgid "Connect to Overleaf"
 msgstr "Connect to Overleaf"
 
-#: src/google-workspace/google-workspace-settings.tsx
-msgid "Connect your own Google Desktop OAuth client to read, create and edit research documents, spreadsheets, presentations, forms and private calendar events."
-msgstr "Connect your own Google Desktop OAuth client to read, create and edit research documents, spreadsheets, presentations, forms and private calendar events."
-
 #. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "Connected as {0}"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Connected to Google Workspace"
 msgstr "Connected to Google Workspace"
 
@@ -4181,6 +4181,10 @@ msgstr "Could not open the default browser for Google sign-in."
 #: src/platform/host-errors-google.ts
 msgid "Could not open the Google sign-in callback."
 msgstr "Could not open the Google sign-in callback."
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Could not open the Google website. Try again with your default browser."
+msgstr "Could not open the Google website. Try again with your default browser."
 
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the log folder: {error}"
@@ -4800,7 +4804,7 @@ msgstr "Delta"
 msgid "Description"
 msgstr "Description"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Desktop OAuth client ID"
 msgstr "Desktop OAuth client ID"
 
@@ -4874,7 +4878,7 @@ msgstr "Discard"
 msgid "Discard and close"
 msgstr "Discard and close"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Disconnect Google Workspace"
 msgstr "Disconnect Google Workspace"
 
@@ -5377,7 +5381,7 @@ msgstr "Empty set"
 msgid "Empty set (variant)"
 msgstr "Empty set (variant)"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Enable the selected APIs in your Google Cloud project and add your account as a test user if the consent screen is in testing. Authorization opens in your default browser. Passwords and access tokens never enter this page."
 msgstr "Enable the selected APIs in your Google Cloud project and add your account as a test user if the consent screen is in testing. Authorization opens in your default browser. Passwords and access tokens never enter this page."
 
@@ -6384,7 +6388,11 @@ msgstr "Google sign-in was declined."
 msgid "Google Workspace"
 msgstr "Google Workspace"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
+msgid "Google Workspace API"
+msgstr "Google Workspace API"
+
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Google Workspace could not complete that action. Check your client configuration, consent and network connection. Existing account credentials are preserved after a failed sign-in."
 msgstr "Google Workspace could not complete that action. Check your client configuration, consent and network connection. Existing account credentials are preserved after a failed sign-in."
 
@@ -9196,7 +9204,7 @@ msgstr "No papers yet"
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "No product permissions were granted. Reconnect and approve the products you want to use."
 msgstr "No product permissions were granted. Reconnect and approve the products you want to use."
 
@@ -9772,6 +9780,10 @@ msgstr "Open article in browser"
 msgid "Open by default"
 msgstr "Open by default"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open Docs, Sheets, Slides, Forms and Calendar on Google’s website. Use your browser’s existing Google account or sign in there. No client ID or Google Cloud setup is needed."
+msgstr "Open Docs, Sheets, Slides, Forms and Calendar on Google’s website. Use your browser’s existing Google account or sign in there. No client ID or Google Cloud setup is needed."
+
 #: src/papers/bibliography-audit.tsx
 msgid "Open entry"
 msgstr "Open entry"
@@ -9803,6 +9815,10 @@ msgstr "Open guided tutorial"
 msgid "Open in browser"
 msgstr "Open in browser"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in default browser"
+msgstr "Open in default browser"
+
 #: src/google-workspace/workspace-operations.tsx
 msgid "Open in Google"
 msgstr "Open in Google"
@@ -9811,10 +9827,18 @@ msgstr "Open in Google"
 msgid "Open in History"
 msgstr "Open in History"
 
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in Lattice"
+msgstr "Open in Lattice"
+
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Lattice app"
 msgstr "Open in Lattice app"
+
+#: src/google-workspace/google-workspace-settings.tsx
+msgid "Open in Lattice uses the built-in browser when available, with the system browser as a fallback. Google may require sign-in in your default browser; browser accounts and API authorization are separate."
+msgstr "Open in Lattice uses the built-in browser when available, with the system browser as a fallback. Google may require sign-in in your default browser; browser accounts and API authorization are separate."
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
@@ -9992,6 +10016,10 @@ msgstr "Opening window…"
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"
 msgstr "Operation metadata"
+
+#: src/google-workspace/google-workspace-advanced.tsx
+msgid "Optional: connect your own Desktop OAuth client only if you need programmatic reads and writes through Google APIs. Signing in on Google’s website does not grant Lattice API access."
+msgstr "Optional: connect your own Desktop OAuth client only if you need programmatic reads and writes through Google APIs. Signing in on Google’s website does not grant Lattice API access."
 
 #: src/app/shortcut-sheet.tsx
 msgid "or"
@@ -13079,7 +13107,7 @@ msgstr "Sign in to {linkedHost}, then resume"
 msgid "Sign in to Overleaf"
 msgstr "Sign in to Overleaf"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Sign in with default browser"
 msgstr "Sign in with default browser"
 
@@ -16031,7 +16059,7 @@ msgstr "Waiting"
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 
-#: src/google-workspace/google-workspace-settings.tsx
+#: src/google-workspace/google-workspace-advanced.tsx
 msgid "Waiting for Google authorization…"
 msgstr "Waiting for Google authorization…"
 
