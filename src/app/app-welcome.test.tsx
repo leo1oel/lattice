@@ -117,7 +117,7 @@ describe("welcome screen", () => {
     renderApp();
     fireEvent.click(await screen.findByRole("button", { name: /new project/i }));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
+    expect(screen.getByLabelText("Project name")).toHaveAttribute("placeholder", "Untitled research");
     expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS 2026 · preprint");
   });
 

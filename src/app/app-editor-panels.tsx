@@ -106,8 +106,9 @@ export function AppEditorPanels({ comments, annotationRounds, renderCommentsSurf
   const [figuresOpen, setFiguresOpen] = useState(false);
   const { openProjectFile, project, todoHits, tools, unusedSymbols, activeFile, activeSource } = props;
   const [figureUndo, setFigureUndo] = useProjectFigureUndo(project.root);
-  const sourceFor = (path: string) => path === activeFile ? activeSource : undefined;
   const trellis = useTrellisController();
+  // Another file's last text this session, so its notes keep their lines and sections while it is not in front.
+  const sourceFor = (path: string) => path === activeFile ? activeSource : trellis?.texts.get(path);
   // The budgets, the deadline and the items each read the manifest, change it
   // and write it back, so they run one after the other: two in flight at once
   // (a quick tick while the deadline saves) could each read the file before

@@ -75,8 +75,12 @@ describe("tex setup wizard helpers", () => {
     const { onClose } = renderWizard(report(...TEX_TOOLS, check("conference-fonts"), check("uv", false), check("uvx", false)));
 
     expect(screen.getAllByRole("button")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Install required tools · 45 MB" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Install paper tools" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Install later" })).toBeEnabled();
+    // It names the tool, what needs it, and that writing and compiling do not.
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it.",
+    );
     const uvMissing = report(check("uv", false), check("uvx", false));
     expect(isRequiredSetupMissing(uvMissing)).toBe(true);
     expect(missingPaperToolNames(uvMissing)).toEqual(["uv", "uvx"]);
@@ -87,7 +91,7 @@ describe("tex setup wizard helpers", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
 
-    fireEvent.click(screen.getByRole("button", { name: "Install required tools · 45 MB" }));
+    fireEvent.click(screen.getByRole("button", { name: "Install paper tools" }));
     expect(tauri.invoke).toHaveBeenCalledWith("start_tex_install", { mode: "toolsOnly", onProgress: expect.anything() });
   });
 

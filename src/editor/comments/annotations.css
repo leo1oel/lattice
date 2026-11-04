@@ -124,23 +124,16 @@
 .annotations-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "title actions" "tabs tabs" "filter filter" "search search";
+  /* No title of its own: the panel's tab names it. The first control takes the row the actions end. */
+  grid-template-areas: "filter actions" "search search";
   align-items: center;
   gap: var(--space-4) var(--space-2);
   padding: var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
-.annotations-title-row { grid-area: title; display: flex; align-items: baseline; gap: var(--space-4); min-width: 0; }
+.annotations-head:has(> .annotations-tabs) { grid-template-areas: "tabs actions" "filter filter" "search search"; }
 .annotations-filter { grid-area: filter; }
 .annotations-search { grid-area: search; }
-.annotations-title {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  font: var(--type-title-weight) var(--type-title-size)/var(--type-title-line-height) var(--type-title-font);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .annotations-head-actions { grid-area: actions; display: flex; align-items: center; gap: var(--gap-tight); }
 .annotations-filter { justify-self: start; max-width: 100%; min-width: 0; }
 .annotations-filter .ui-segmented-tab { display: inline-flex; align-items: center; gap: var(--gap-inline-tight); min-width: 0; }
@@ -276,6 +269,9 @@
 }
 .annotation-card-body > .annotation-pin { margin-top: var(--gap-tight); }
 .annotation-card-author-dot { width: 8px; height: 8px; margin: var(--space-2) auto 0; border-radius: var(--radius-pill); background: var(--text-secondary); }
+/* A quoted formula stays on one line; its scripts keep the line's height. */
+.annotation-card-math { white-space: nowrap; }
+.annotation-card-math :is(sub, sup) { line-height: 0; }
 .annotation-card-quote {
   min-width: 0;
   display: -webkit-box;

@@ -1,6 +1,10 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { bibTextToPlain } from "./bib-document";
+
+/** A reference's title as LaTeX sets it ("{BERT}: Pre-training…" reads "BERT: Pre-training…"), else its key. */
+export const auditEntryTitle = (entry: { title: string; key: string }) => bibTextToPlain(entry.title) || entry.key;
 
 /** A local bibliography finding as `scan` reports it (`AuditIssue` in citation_audit.rs). */
 export type CodedAuditIssue = {

@@ -196,6 +196,11 @@
 /* Signed out there is no list to frame yet: the same geometry, without the
    empty box around a sign-in prompt. */
 .overleaf-stage[data-plain] { border-color: transparent; background: transparent; }
+/* Signed out the dialog holds one action and a sentence: it is a small
+   dialog then, not the browser's frame around an empty stage. */
+.overleaf-picker-modal:has(.overleaf-stage[data-plain]) { width: min(440px, calc(100vw - 40px)); height: auto; }
+.overleaf-picker-modal:has(.overleaf-stage[data-plain]) .overleaf-stage { min-height: 0; padding-block: var(--space-8) var(--space-4); }
+.overleaf-stage-message .overleaf-hint { font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .overleaf-stage-message {
   flex: 1 1 auto;
   padding: var(--space-12) var(--space-16);

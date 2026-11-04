@@ -1117,7 +1117,7 @@ describe("Overleaf sync", () => {
     await waitFor(() => expect(document.querySelector(".overleaf-collab-drawer")).toBeNull());
     fireEvent.click(document.querySelector<HTMLButtonElement>(".status-comments")!);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /^Comments/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("save_annotations", expect.anything());
     fireEvent.click(screen.getByRole("tab", { name: /^Lattice only/ }));
@@ -1333,11 +1333,11 @@ describe("project tree and projects", () => {
     const sections = () => [...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent);
 
     fireEvent.change(await palette(), { target: { value: "intro" } });
-    expect(sections()).toContain("Files");
+    screen.getByRole("option", { name: /intro/ });
     fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
     await waitForSelectedTab("chapters/intro.tex");
 
-    // The file shown before this one leads its group; the open one is not offered.
+    // The file shown before leads its group; the open one is not offered.
     await palette();
     expect(sections()).toContain("Recent files");
     expect(screen.getByRole("option", { name: "main.tex" })).toBeInTheDocument();

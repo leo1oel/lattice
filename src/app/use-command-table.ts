@@ -22,8 +22,6 @@ import { PANEL_TITLES, spaceMixedScript } from "../trellis/trellis-titles";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import type { PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { isProjectAssetFilePath } from "../app-utils";
-import { logAction } from "../telemetry/app-notify";
-import { showError } from "./notify";
 import { annotationRounds, revisable } from "./annotation-rounds";
 import type { PaletteChoice } from "./command-palette";
 import { paletteSurface } from "./command-palette-leading";
@@ -50,7 +48,7 @@ import type { useSyncTexNavigation } from "./use-synctex-navigation";
 import type { ToolDrawers } from "./use-tool-drawers";
 import type { useWhatsNew } from "./use-whats-new";
 
-const loadTexlabLanguage = () => import("../build/texlab-language");
+const loadFormatDocument = () => import("./format-document");
 
 /** What File ▸ Close Tab (⌘W) sends the window it was used in (native_locale.rs). */
 const CLOSE_TAB_EVENT = "close-tab";
@@ -135,26 +133,7 @@ export function useCommandTable({
     { kind: "palette"; recentCommands: string[]; recentFiles: string[] } | { kind: "shortcuts" } | null
   >(null);
 
-  const formatFocusedDocument = () => {
-    const path = activeFile;
-    const text = source;
-    if (!path.endsWith(".tex")) {
-      showError(t`Open a .tex file before formatting.`, t`Format`);
-      return;
-    }
-    const trace = logAction(t`Format`, t`Format document`, path);
-    void loadTexlabLanguage()
-      .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
-      .then((formatted) => {
-        if (formatted === text) {
-          trace.ok(t`Document is already formatted.`);
-          return;
-        }
-        editFile(formatted);
-        trace.ok(t`Formatted with latexindent.`);
-      })
-      .catch((reason) => trace.fail(reason));
-  };
+  const formatFocusedDocument = () => void loadFormatDocument().then(({ formatDocument }) => formatDocument(activeFile, source, editFile));
   const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
   // The welcome screen keeps the shortcuts listening, so a command that needs
   // a project, a text editor or LaTeX source says so and is neither listed
@@ -282,9 +261,10 @@ export function useCommandTable({
     { id: "cite", when: latexSource, label: t`Insert citation`, group: "edit", key: "k", shift: true, run: () => setSearchDialog("cite") },
     { id: "ref", when: latexSource, label: t`Insert reference`, group: "edit", key: "l", shift: true, run: () => setSearchDialog("ref") },
     // The editor's own ⌘⌥P proofreads a selection; from here, the one the editor still holds.
-    ...(["proofread", "polish"] as const).map((mode): AppCommand => ({
+    // Rewrite asks for an instruction: the canvas shows the selection toolbar again, whose menu takes it.
+    ...(["proofread", "polish", "rewrite"] as const).map((mode): AppCommand => ({
       id: mode, when: latexSource && editorSelected, group: "edit",
-      label: mode === "proofread" ? t`Proofread selection` : t`Polish selection`,
+      label: { proofread: t`Proofread selection`, polish: t`Polish selection`, rewrite: t`Rewrite selection…` }[mode],
       shortcut: mode === "proofread" ? { key: "p", mod: true, alt: true } : undefined,
       run: () => updateCanvasRequest("proofread", { mode, id: crypto.randomUUID() }),
     })),

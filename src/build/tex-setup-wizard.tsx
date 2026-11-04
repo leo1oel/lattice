@@ -100,7 +100,7 @@ export function TexSetupWizard(props: {
     >
       {installing && <InfinityLoader className="tex-setup-install-loader" size={16} />}
       {/* The download's size is the one fact the dialog adds to its title. */}
-      {paperToolsOnly ? t`Install required tools · 45 MB` : t`Install Basic TeX · ${TEX_INSTALL_SIZE_HINT}`}
+      {paperToolsOnly ? t`Install paper tools` : t`Install Basic TeX · ${TEX_INSTALL_SIZE_HINT}`}
     </MotionButton>
   );
 
@@ -108,6 +108,11 @@ export function TexSetupWizard(props: {
     <TexInstallDialog
       label={t`Install LaTeX tools`}
       title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
+      // Which tools, what they are for, and that nothing else waits on them:
+      // without this line the dialog reads as a gate on opening the project.
+      description={paperToolsOnly
+        ? t`Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it.`
+        : undefined}
       closeDisabled={!paperToolsOnly || installing}
       onClose={props.onClose}
       progress={installing ? {

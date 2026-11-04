@@ -210,7 +210,7 @@ function Glyph(props: { tone?: "accent" | "success" | "warning" | "danger" | "ne
 function StageMessage(props: { glyph: ReactNode; tone?: "accent" | "warning" | "danger" | "neutral"; children: ReactNode }) {
   return (
     <div className="overleaf-stage-message">
-      <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>
+      {props.glyph && <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>}
       {props.children}
     </div>
   );
@@ -421,7 +421,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
               <LoginControls
                 login={login}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
-                hint={t`You sign in on Overleaf. Lattice never sees your password`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password.`}
               />
             </div>
           </div>
@@ -737,12 +737,12 @@ Files that differ are kept side by side. Nothing is overwritten`,
         )}
         {known && !known.connected && (
           <div className="overleaf-stage" data-plain="">
-            <StageMessage glyph={known.expired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={known.expired ? "warning" : "accent"}>
+            <StageMessage glyph={known.expired && <CloudAlert size={20} />} tone="warning">
               {known.expired && <p className="overleaf-stage-text">{t`Your Overleaf session expired`}</p>}
               <LoginControls
                 login={login}
                 label={known.expired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
-                hint={t`You sign in on Overleaf. Lattice never sees your password`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password.`}
               />
             </StageMessage>
           </div>

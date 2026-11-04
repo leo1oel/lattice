@@ -148,6 +148,26 @@ describe("EditorCommentsPanel", () => {
     });
   });
 
+  it("names itself only by its tab, sets a quote's math and LaTeX as the PDF does, and places a note by its source line", () => {
+    const source = "Intro.\n\nThe factor $1/\\sqrt{d_k}$ controls score magnitude~\\cite{vaswani}.";
+    const from = source.indexOf("The");
+    const comment = createEditorComment({
+      path: "main.tex", source, from, to: source.length, body: "Why?", authorId: "ada", authorName: "Ada",
+    })!;
+    render(
+      <EditorCommentsPanel
+        comments={[{ ...comment, number: 5, pdf: { page: 1, rects: [] } as never }]} activePath="notes.md" currentAuthorId="ada"
+        sourceFor={(path) => (path === "main.tex" ? source : undefined)}
+        onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()} onUpdateBody={vi.fn()} onReply={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("heading", { name: "Annotations" })).toBeNull();
+    const quote = document.querySelector(".annotation-card-quote")!;
+    expect(quote.textContent).toBe("The factor 1/√dk controls score magnitude [vaswani].");
+    expect(quote.querySelector(".annotation-card-math sub")).toHaveTextContent("k");
+    expect(document.querySelector(".annotation-card-where")).toHaveTextContent("main.tex:3");
+  });
+
   it("no longer says where annotations are stored", () => {
     const comment = createEditorComment({
       path: "main.tex", source: "Hello bold world", from: 6, to: 10, body: "Tighten this", authorId: "ada", authorName: "Ada",

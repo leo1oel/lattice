@@ -376,8 +376,8 @@ export type CanvasRequests = {
   cite: { key: string; command: InsertSymbolCommand; id: string } | null;
   /** Insert imported figures where they were dropped (or at the caret). */
   figure: FigureDropRequest | null;
-  /** Proofread or polish the source editor's selection, as its ⌘⌥P and selection toolbar do. */
-  proofread: { mode: "proofread" | "polish"; id: string } | null;
+  /** Proofread or polish the source editor's selection, as its ⌘⌥P and selection toolbar do; rewrite opens the toolbar's menu. */
+  proofread: { mode: "proofread" | "polish" | "rewrite"; id: string } | null;
   /** Replace `token` on a line of `path` (a failed build's suggested fix). */
   replace: { path: string; line: number; token: string; replacement: string; id: string } | null;
 };

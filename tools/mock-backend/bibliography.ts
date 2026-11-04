@@ -52,7 +52,8 @@ export function bibliographyCitations(files: ProjectFiles) {
 export function bibliographyAuditScan(files: ProjectFiles) {
   const entries = bibEntries(files).flatMap(({ path, bibtex }) => {
     const key = entryKey(bibtex);
-    const title = /\btitle\s*=\s*\{([^}]*)\}/i.exec(bibtex)?.[1] ?? "";
+    // The field's raw value, inner braces kept, as the backend sends it ("{BERT}: Pre-training…").
+    const title = /\btitle\s*=\s*\{((?:[^{}]|\{[^{}]*\})*)\}/i.exec(bibtex)?.[1] ?? "";
     return key ? [{ path, key, title, bibtex: bibtex.trim(), issues: [] }] : [];
   });
   const coverage = [...files].flatMap(([path, content]) => (

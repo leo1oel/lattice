@@ -24,7 +24,7 @@ import { comboKeys, parseKeyName } from "../app/key-combos";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { useProgressiveRows } from "../hooks/use-progressive-rows";
 import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
-import { auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
+import { auditEntryTitle, auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
 import { REFERENCE_CHECK_SHORTCUTS, referenceCheckAction } from "./reference-check-keys";
 import { correctedBibitem, typesetBibFix, typesetInlineFix, wordDifference, type TypesetFix } from "./reference-typeset";
 import "./bibliography-audit.css";
@@ -871,7 +871,7 @@ export function BibliographyAudit(props: {
             aria-current={queue && open ? "true" : undefined}
             onClick={() => openFinding(open && !queue ? null : index)}
           >
-            <span className="bibliography-audit-title" title={entry.title || entry.key}>{entry.title || entry.key}</span>
+            <span className="bibliography-audit-title" title={auditEntryTitle(entry)}>{auditEntryTitle(entry)}</span>
             <span className="bibliography-audit-meta">
               <code>{entry.key}</code> · {entry.path}{entry.line !== undefined ? `:${entry.line}` : ""}
               {entry.inline && <span className="bibliography-audit-tag">{BIBITEM}</span>}
@@ -896,7 +896,7 @@ export function BibliographyAudit(props: {
     {queue && <section className="bibliography-audit-pane" aria-label={t`Open finding`}>
       {current !== null && scan ? <>
         <p className="bibliography-audit-pane-step">{bucketNames[buckets[current]]}</p>
-        <h3 className="bibliography-audit-pane-title">{scan.entries[current].title || scan.entries[current].key}</h3>
+        <h3 className="bibliography-audit-pane-title">{auditEntryTitle(scan.entries[current])}</h3>
         <p className="bibliography-audit-meta"><code>{scan.entries[current].key}</code> · {scan.entries[current].path}{scan.entries[current].line !== undefined ? `:${scan.entries[current].line}` : ""}</p>
         {detailFor(current)}
       </> : cleanNote || (scan && total > 0 && <p className="bibliography-audit-pane-empty">{t`No reference selected`}</p>)}

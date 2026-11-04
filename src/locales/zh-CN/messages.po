@@ -1581,6 +1581,10 @@ msgstr "正在添加第 {0} / {1} 篇"
 msgid "Adding paper"
 msgstr "正在添加论文"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
+msgstr "添加论文和查找引用需要 uv（一个 45 MB 的 Python 工具）。写作和编译不需要它"
+
 #: src/papers/add-papers-sheet.tsx
 msgid "Adding…"
 msgstr "正在添加…"
@@ -1682,8 +1686,9 @@ msgid "All"
 msgstr "全部"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "All ({threadCount})"
-msgstr "全部（{threadCount}）"
+msgctxt "comment filter"
+msgid "All"
+msgstr "全部"
 
 #: src/papers/bibliography-audit.tsx
 msgid "All {total} references verified"
@@ -1892,7 +1897,6 @@ msgstr "已删除批注"
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
-#: src/editor/comments/editor-comments-panel.tsx
 #: src/pdf/pdf-annotations.tsx
 #: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -4856,7 +4860,7 @@ msgstr "文档作者"
 msgid "Document date"
 msgstr "文档日期"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Document is already formatted."
 msgstr "格式已经整齐"
 
@@ -5138,6 +5142,10 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
+#: src/history/history-drawer.tsx
+msgid "Edit {editedName}"
+msgstr "编辑 {editedName}"
+
 #: src/app/use-command-table.ts
 msgid "Edit and preview HTML"
 msgstr "边写边看"
@@ -5341,10 +5349,6 @@ msgstr "请输入要删除的引用名"
 #: src/platform/host-errors-workspace.ts
 msgid "Enter a DOI, arXiv id, or paper title."
 msgstr "请输入 DOI、arXiv 编号或论文标题"
-
-#: src/app/use-project-lifecycle.ts
-msgid "Enter a project name."
-msgstr "请输入项目名称"
 
 #: src/settings/literature-settings.tsx
 msgid "Enter a replacement key"
@@ -5994,7 +5998,7 @@ msgstr "任意"
 msgid "For each item already here"
 msgstr "对每个同名项目"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Format"
 msgstr "排版"
 
@@ -6002,6 +6006,7 @@ msgstr "排版"
 msgid "Format currently supports .tex, .cls, and .sty files."
 msgstr "格式化目前只支持 .tex、.cls 和 .sty 文件"
 
+#: src/app/format-document.ts
 #: src/app/use-command-table.ts
 msgid "Format document"
 msgstr "整理排版"
@@ -6010,7 +6015,7 @@ msgstr "整理排版"
 msgid "Format selected LaTeX"
 msgstr "格式"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Formatted with latexindent."
 msgstr "已整理排版"
 
@@ -6991,16 +6996,16 @@ msgid "Install package for {0}"
 msgstr "安装 {0} 所需的组件"
 
 #: src/build/tex-setup-wizard.tsx
+msgid "Install paper tools"
+msgstr "安装论文工具"
+
+#: src/build/tex-setup-wizard.tsx
 msgid "Install required paper tools"
-msgstr "安装工具"
+msgstr "安装论文工具"
 
 #: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "安装所需工具"
-
-#: src/build/tex-setup-wizard.tsx
-msgid "Install required tools · 45 MB"
-msgstr "安装所需工具 · 45 MB"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
@@ -9541,7 +9546,7 @@ msgstr "打开{title}"
 msgid "Open {title} in browser"
 msgstr "在浏览器中打开 {title}"
 
-#: src/app/use-command-table.ts
+#: src/app/format-document.ts
 msgid "Open a .tex file before formatting."
 msgstr "请先打开 .tex 文件"
 
@@ -11997,6 +12002,10 @@ msgstr "重写"
 msgctxt "selection instruction"
 msgid "Rewrite"
 msgstr "改写"
+
+#: src/app/use-command-table.ts
+msgid "Rewrite selection…"
+msgstr "按指令改写…"
 
 #: src/canvas/proofread-card.tsx
 msgid "Rewrite suggestion"
@@ -15411,6 +15420,7 @@ msgid "Untitled"
 msgstr "无标题"
 
 #: src/app/use-project-lifecycle.ts
+#: src/project/project-dialogs.tsx
 msgid "Untitled research"
 msgstr "未命名"
 
@@ -16104,7 +16114,7 @@ msgid "You read the publisher's notice and kept citing it"
 msgstr "你读过出版方公告，仍保留引用"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "You sign in on Overleaf. Lattice never sees your password"
+msgid "You sign in on Overleaf. Lattice never sees your password."
 msgstr "在 Overleaf 官网登录，Lattice 看不到密码"
 
 #: src/settings/settings-dialog.tsx
