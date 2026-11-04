@@ -23,7 +23,9 @@ it("shows a refused writeback without claiming that edits were applied", async (
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The agent project changed."));
 });
 it("keeps message origins canonical while the frame uses its authenticated proxy prefix", () => {
-  const origin = window.location.origin;
+  const agentOrigin = new URL(window.location.origin);
+  agentOrigin.port = agentOrigin.port === "19644" ? "19645" : "19644";
+  const origin = agentOrigin.origin;
   registerHeadlessAgentProxy(`${origin}/api/agent/client-1234567890/`);
   const normalized = normalizeSynaraOrigin(`${origin}/api/agent/client-1234567890/`)!;
   expect(normalized).toBe(origin);

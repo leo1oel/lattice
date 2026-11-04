@@ -12320,6 +12320,10 @@ msgstr "保存可视化内容"
 msgid "Save visual as HTML"
 msgstr "将可视化内容另存为 HTML"
 
+#: src/app/use-synara-host.ts
+msgid "Save visual is unavailable in staged mode. Use Apply checked changes for text files."
+msgstr "副本编辑模式暂不支持保存图形。文本文件请使用“检查并应用修改”。"
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Save your edits before exporting."
 msgstr "请先保存修改再导出。"

@@ -43,7 +43,7 @@ class HeadlessSmoke(unittest.TestCase):
         environment = dict(os.environ)
         environment.pop("DISPLAY", None)
         environment.pop("WAYLAND_DISPLAY", None)
-        cls.server = subprocess.Popen([BINARY, "serve", "--workspace-root", str(cls.workspace), "--project", str(cls.workspace / "alpha"), "--state-dir", str(cls.base / "state"), "--token-file", str(cls.token_file), "--listen", f"127.0.0.1:{cls.port}", "--assets", str(cls.assets)], env=environment, stdout=cls.log, stderr=cls.log)
+        cls.server = subprocess.Popen([BINARY, "serve", "--workspace-root", str(cls.workspace), "--project", str(cls.workspace / "alpha"), "--state-dir", str(cls.base / "state"), "--token-file", str(cls.token_file), "--listen", f"127.0.0.1:{cls.port}", "--assets", str(cls.assets)] + json.loads(os.environ.get("LATTICE_TEST_SERVER_ARGS", "[]")), env=environment, stdout=cls.log, stderr=cls.log)
         for _ in range(200):
             if cls.server.poll() is not None:
                 cls.log.seek(0)
@@ -67,8 +67,8 @@ class HeadlessSmoke(unittest.TestCase):
         cls.temp.cleanup()
 
     @classmethod
-    def request(cls, method, path, value=None, cookie=None, bearer=False, origin=None):
-        connection = http.client.HTTPConnection("127.0.0.1", cls.port, timeout=90)
+    def request(cls, method, path, value=None, cookie=None, bearer=False, origin=None, port=None, extra_headers=None):
+        connection = http.client.HTTPConnection("127.0.0.1", port or cls.port, timeout=90)
         headers = {}
         if value is not None:
             headers["Content-Type"] = "application/json"
@@ -78,6 +78,7 @@ class HeadlessSmoke(unittest.TestCase):
             headers["Authorization"] = "Bearer " + cls.token
         if origin:
             headers["Origin"] = origin
+        headers.update(extra_headers or {})
         connection.request(method, path, json.dumps(value) if value is not None else None, headers)
         response = connection.getresponse()
         data = response.read()

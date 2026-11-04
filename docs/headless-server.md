@@ -169,3 +169,8 @@ it, checks ordered callback envelopes and replay, isolates same-cookie tabs and
 assets, enforces terminal limits, and verifies logout, disconnect and SIGTERM
 cleanup. Native terminal regressions continue to cover the same shared session
 implementation.
+
+The optional [Linux Codex agent](headless-agent.md) adds a supervised pinned Synara
+runtime, an independent authenticated agent origin, NDJSON CLI transport and
+explicitly checked text writeback. Its Linux containment requirements and staged
+workspace limitations are separate from the ordinary server's capabilities.

@@ -12320,6 +12320,10 @@ msgstr "Save visual"
 msgid "Save visual as HTML"
 msgstr "Save visual as HTML"
 
+#: src/app/use-synara-host.ts
+msgid "Save visual is unavailable in staged mode. Use Apply checked changes for text files."
+msgstr "Save visual is unavailable in staged mode. Use Apply checked changes for text files."
+
 #: src/project/arxiv-export-dialog.tsx
 msgid "Save your edits before exporting."
 msgstr "Save your edits before exporting."

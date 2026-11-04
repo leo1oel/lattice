@@ -1,3 +1,4 @@
+use crate::server_session::*;
 use crate::dispatch::{self, Core};
 use axum::{
     extract::{DefaultBodyLimit, Query, State},
@@ -31,6 +32,10 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Bridge newline-delimited JSON to the sandboxed agent RPC socket. EOF stops the process.
+    AgentBridge {#[arg(long)] runtime:PathBuf,#[arg(long)] project:PathBuf,#[arg(long)] state_dir:PathBuf,#[arg(long,default_value="/ws/bootstrap")] path:String},
+    #[command(hide=true)]
+    AgentSandbox {#[arg(long)] policy:PathBuf,#[arg(long)] program:PathBuf,#[arg(last=true)] args:Vec<String>},
     /// Print the supported commands and explicit desktop-only limitations.
     Capabilities,
     /// Execute one command. JSON arguments are read from stdin; secrets never enter argv.
@@ -58,23 +63,30 @@ enum Command {
         /// Require HTTPS for the authentication cookie behind a TLS reverse proxy.
         #[arg(long)]
         secure_cookies: bool,
+        #[arg(long)] agent_runtime:Option<PathBuf>,
+        #[arg(long)] public_origin:Option<String>,
+        #[arg(long)] agent_public_origin:Option<String>,
+        #[arg(long,default_value="127.0.0.1:18583")] agent_listen:SocketAddr,
     },
 }
 #[derive(Clone)]
-struct Session {
-    expires: Instant,
-    project: PathBuf,
-    projects: HashMap<String, PathBuf>,
+pub(crate) struct Session {
+    pub(crate) expires: Instant,
+    pub(crate) project: PathBuf,
+    pub(crate) projects: HashMap<String, PathBuf>,
 }
 #[derive(Clone)]
-struct Server {
-    core: Arc<Core>,
-    initial: PathBuf,
-    cores: Arc<Mutex<HashMap<PathBuf, Arc<Core>>>>,
-    token: Arc<String>,
-    sessions: Arc<Mutex<HashMap<String, Session>>>,
-    secure_cookies: bool,
-    terminals: Arc<crate::terminal_transport::TerminalHub>,
+pub(crate) struct Server {
+    pub(crate) core: Arc<Core>,
+    pub(crate) initial: PathBuf,
+    pub(crate) cores: Arc<Mutex<HashMap<PathBuf, Arc<Core>>>>,
+    pub(crate) token: Arc<String>,
+    pub(crate) sessions: Arc<Mutex<HashMap<String, Session>>>,
+    pub(crate) secure_cookies: bool,
+    pub(crate) public_origin:String,
+    pub(crate) agent_origin:String,
+    pub(crate) agents:Arc<crate::agent_runtime::Hub>,
+    pub(crate) terminals: Arc<crate::terminal_transport::TerminalHub>,
 }
 #[derive(Deserialize)]
 struct Invoke {
@@ -89,8 +101,13 @@ struct Login {
 
 pub fn main() {
     let cli = Cli::parse();
+    if let Command::AgentSandbox {policy,program,args}=&cli.command {
+        if let Err(error)=crate::agent_sandbox::execute(policy.clone(),program.clone(),args.clone()){eprintln!("{error}");std::process::exit(1);}return;
+    }
     let runtime = tokio::runtime::Runtime::new().expect("Could not start async runtime");
     let result = match cli.command {
+        Command::AgentSandbox{..}=>unreachable!(),
+        Command::AgentBridge{runtime:agent_runtime,project,state_dir,path}=>runtime.block_on(crate::agent_cli::run(agent_runtime,project,state_dir,path)),
         Command::Capabilities => { println!("{}", dispatch::capabilities()); Ok(()) }
         Command::Invoke { command, project, state_dir } => {
             // Domain code includes blocking HTTP and process execution. Keep it outside async tasks.
@@ -105,15 +122,23 @@ pub fn main() {
                 Ok(())
             })()
         }
-        Command::Serve { workspace_root, state_dir, token_file, listen, assets, project, secure_cookies } => {
+        Command::Serve { workspace_root, state_dir, token_file, listen, assets, project, secure_cookies, agent_runtime, public_origin, agent_public_origin, agent_listen } => {
             runtime.block_on(async {
                 if !listen.ip().is_loopback() { return Err("Refusing a non-loopback listener. Use an HTTPS reverse proxy or Tailscale Serve.".into()); }
+                let listener=tokio::net::TcpListener::bind(listen).await.map_err(|e|e.to_string())?;
+                let bound=listener.local_addr().map_err(|e|e.to_string())?;
                 let core = Core::new(&workspace_root,&state_dir)?;
                 let token = read_token(&token_file)?;
                 let initial = match project { Some(path)=>core.confined(&path.to_string_lossy())?,None=>core.root.clone() };
-                let state = Server { core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies, terminals:Default::default() };
+                if secure_cookies&&agent_runtime.is_some()&&public_origin.is_none(){return Err("Configure --public-origin and --agent-public-origin for HTTPS agent deployments".into());}
+                let public_origin=crate::agent_listener::origin(&public_origin.unwrap_or_else(||format!("http://{bound}")))?;
+                let agent_listener=if agent_runtime.is_some(){Some(crate::agent_listener::bind(agent_listen).await?)}else{None};
+                let agent_origin=crate::agent_listener::origin(&agent_public_origin.unwrap_or_else(||format!("http://{}",agent_listener.as_ref().and_then(|listener|listener.local_addr().ok()).unwrap_or(agent_listen))))?;
+                if agent_runtime.is_some()&&(public_origin==agent_origin||reqwest::Url::parse(&public_origin).unwrap().scheme()!=reqwest::Url::parse(&agent_origin).unwrap().scheme()||reqwest::Url::parse(&public_origin).unwrap().host_str()!=reqwest::Url::parse(&agent_origin).unwrap().host_str()){return Err("The agent needs a different port with the same hostname and HTTP/HTTPS scheme".into());}
+                let agents=Arc::new(crate::agent_runtime::Hub::new(agent_runtime,state_dir.clone())?);
+                let state = Server { public_origin, agent_origin, agents, core, initial, cores:Default::default(), token:Arc::new(token), sessions:Default::default(), secure_cookies, terminals:Default::default() };
                 let reaper=state.clone();
-                tokio::spawn(async move {loop {tokio::time::sleep(Duration::from_secs(1)).await;reaper.terminals.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));}});
+                tokio::spawn(async move {loop {tokio::time::sleep(Duration::from_secs(1)).await;reaper.agents.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));reaper.terminals.reap(|session|reaper.sessions.lock().unwrap().get(session).is_some_and(|session|session.expires>Instant::now()));}});
                 let shutdown_state=state.clone();
                 let _watcher = watch_projects(&state)?;
                 let mut app = Router::new().route("/api/session", get(session).post(login).delete(logout))
@@ -125,16 +150,21 @@ pub fn main() {
                     let index_copy=index.clone();
                     app = app.route("/",get(move || {let index=index.clone();async move { axum::response::Html(index) }})).route("/index.html",get(move || {let index=index_copy.clone();async move { axum::response::Html(index) }})).fallback_service(ServeDir::new(assets).append_index_html_on_directories(true));
                 }
-                let listener = tokio::net::TcpListener::bind(listen).await.map_err(|e|e.to_string())?;
+                let (agent_stop,mut agent_stopping)=tokio::sync::watch::channel(false);
+                let agent_task=agent_listener.map(|listener|{let router=crate::agent_listener::router(shutdown_state.clone());tokio::spawn(async move{axum::serve(listener,router).with_graceful_shutdown(async move{let _=agent_stopping.wait_for(|stopped|*stopped).await;}).await})});
                 eprintln!("Lattice headless listening on http://{} (workspace {}; token file {})",listener.local_addr().map_err(|e|e.to_string())?,workspace_root.display(),token_file.display());
-                axum::serve(listener,app).with_graceful_shutdown(async move {
+                let result=axum::serve(listener,app).with_graceful_shutdown(async move {
                     let mut terminate=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("Could not handle SIGTERM");
                     tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{}}
                     shutdown_state.sessions.lock().unwrap().clear();
                     shutdown_state.terminals.close_all();
+                    shutdown_state.agents.close_all();
                     let _=crate::latex::abort(&shutdown_state.core.active);
                     for core in shutdown_state.cores.lock().unwrap().values() {let _=crate::latex::abort(&core.active);}
-                }).await.map_err(|e|e.to_string())
+                }).await.map_err(|e|e.to_string());
+                let _=agent_stop.send(true);
+                if let Some(task)=agent_task {let _=tokio::time::timeout(Duration::from_secs(5),task).await;}
+                result
             })
         }
     };
@@ -188,70 +218,16 @@ fn read_token(path: &std::path::Path) -> Result<String, String> {
     }
     Ok(token)
 }
-fn equal(a: &str, b: &str) -> bool {
-    let mut difference = a.len() ^ b.len();
-    for (i, byte) in a.bytes().enumerate() {
-        difference |= usize::from(byte ^ b.as_bytes().get(i).copied().unwrap_or(0));
-    }
-    difference == 0
-}
-fn authenticated(state: &Server, headers: &HeaderMap) -> bool {
-    if let Some(token) = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-    {
-        if equal(token, &state.token) {
-            return true;
-        }
-    }
-    let cookie = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()).unwrap_or("");
-    let Some(id) =
-        cookie.split(';').map(str::trim).find_map(|v| v.strip_prefix("lattice_session="))
-    else {
-        return false;
-    };
-    state.sessions.lock().unwrap().get(id).is_some_and(|session| session.expires > Instant::now())
-}
-fn same_origin(headers: &HeaderMap) -> bool {
-    let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else {
-        return true;
-    };
-    let Some(host) = headers.get(header::HOST).and_then(|v| v.to_str().ok()) else {
-        return false;
-    };
-    origin == format!("http://{host}") || origin == format!("https://{host}")
-}
-fn failure(status: StatusCode, code: &str, message: &str) -> Response {
-    (status, Json(json!({"error":{"code":code,"message":message}}))).into_response()
-}
-fn authorize(state: &Server, headers: &HeaderMap) -> Result<(), Response> {
-    if !same_origin(headers) {
-        return Err(failure(
-            StatusCode::FORBIDDEN,
-            "origin_forbidden",
-            "Cross-origin requests are not accepted.",
-        ));
-    }
-    if !authenticated(state, headers) {
-        return Err(failure(
-            StatusCode::UNAUTHORIZED,
-            "unauthorized",
-            "Sign in using the server token.",
-        ));
-    }
-    Ok(())
-}
 async fn session(State(state): State<Server>, headers: HeaderMap) -> Json<Value> {
     let auth = authenticated(&state, &headers);
     Json(
-        json!({"headless":true,"authenticated":auth,"capabilities":if auth {web_capabilities()} else {Value::Null}}),
+        json!({"headless":true,"authenticated":auth,"capabilities":if auth {web_capabilities(&state)} else {Value::Null}}),
     )
 }
 async fn login(
     State(state): State<Server>, headers: HeaderMap, Json(login): Json<Login>,
 ) -> Response {
-    if !same_origin(&headers) || !equal(&login.token, &state.token) {
+    if !same_origin(&state,&headers) || !equal(&login.token, &state.token) {
         return failure(
             StatusCode::UNAUTHORIZED,
             "unauthorized",
@@ -285,7 +261,7 @@ async fn login(
             (header::SET_COOKIE, HeaderValue::from_str(&cookie).unwrap()),
             (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
         ],
-        Json(json!({"headless":true,"authenticated":true,"capabilities":web_capabilities()})),
+        Json(json!({"headless":true,"authenticated":true,"capabilities":web_capabilities(&state)})),
     )
         .into_response()
 }
@@ -299,6 +275,7 @@ async fn logout(State(state): State<Server>, headers: HeaderMap) -> Response {
         {
             state.sessions.lock().unwrap().remove(id);
             state.terminals.close_session(id);
+            state.agents.close_session(id);
         }
     }
     (
@@ -311,36 +288,7 @@ async fn capabilities(State(state): State<Server>, headers: HeaderMap) -> Respon
     if let Err(error) = authorize(&state, &headers) {
         return error;
     }
-    Json(web_capabilities()).into_response()
-}
-fn web_capabilities() -> Value {
-    let mut value = dispatch::capabilities();
-    if let Some(commands) = value["commands"].as_array_mut() {
-        commands.extend(crate::terminal_transport::COMMANDS.iter().map(|command| json!(command)));
-    }
-    if let Some(unavailable) = value["unavailable"].as_array_mut() {
-        unavailable.retain(|item| item != "terminal");
-    }
-    value["terminalLimits"] =
-        json!({"perTab":4,"global":32,"reconnectLeaseSeconds":10,"requiresBrowserSession":true});
-    value["projectModel"] =
-        json!("Independent project per authenticated browser tab; Bearer clients pin projectRoot.");
-    if let Some(events) = value["events"].as_array_mut() {
-        events.push(json!("server-ready"));
-    }
-    value
-}
-fn client_id(headers: &HeaderMap) -> Option<&str> {
-    headers.get("x-lattice-client").and_then(|value| value.to_str().ok()).filter(|client| {
-        (16..=64).contains(&client.len())
-            && client.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-    })
-}
-fn selected_project(state: &Server, headers: &HeaderMap, client: Option<&str>) -> Option<PathBuf> {
-    let id = session_id(headers)?;
-    let sessions = state.sessions.lock().unwrap();
-    let session = sessions.get(&id)?;
-    Some(client.and_then(|client| session.projects.get(client)).unwrap_or(&session.project).clone())
+    Json(web_capabilities(&state)).into_response()
 }
 async fn invoke(
     State(state): State<Server>, headers: HeaderMap, Json(request): Json<Invoke>,
@@ -360,6 +308,7 @@ async fn invoke(
             None => state.initial.clone(),
         },
     };
+    if crate::agent_runtime::COMMANDS.contains(&request.command.as_str()) {return crate::agent_transport::invoke(&state,&headers,&root,&request.command,&request.args).await;}
     if crate::terminal_transport::COMMANDS.contains(&request.command.as_str()) {
         let owner = match id
             .as_deref()
@@ -450,7 +399,7 @@ async fn invoke(
                     root: core.root.clone(),
                     state_dir: core.state_dir.clone(),
                     active: core.active.clone(),
-                    mutations: Default::default(),
+                    mutations: core.mutations.clone(),
                     events: state.core.events.clone(),
                 });
                 entry.insert(core).clone()
@@ -694,15 +643,6 @@ async fn events(
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(1))).into_response()
 }
 
-fn session_id(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get(header::COOKIE)?
-        .to_str()
-        .ok()?
-        .split(';')
-        .map(str::trim)
-        .find_map(|v| v.strip_prefix("lattice_session=").map(str::to_owned))
-}
 async fn projects(State(state): State<Server>, headers: HeaderMap) -> Response {
     if let Err(error) = authorize(&state, &headers) {
         return error;

@@ -1,3 +1,4 @@
+import { stagedHostMessage } from "../agent/headless-host-policy";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -149,7 +150,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   useSynaraConfirmationBridge({ frameRef: sourceControlFrameRef, origin });
   useSynaraPopupDismissalBridge({ frameRef, origin });
   useSynaraPopupDismissalBridge({ frameRef: sourceControlFrameRef, origin });
-  useSynaraHostShortcuts(origin);
+  useSynaraHostShortcuts(runtime.workspaceMode === "staged-explicit-writeback" ? null : origin);
   const [frameMounted, setFrameMounted] = useState(false);
   /** Part of the agent frame's key: Retry remounts a frame that never said it was ready. */
   const [frameAttempt, setFrameAttempt] = useState(0);
@@ -164,6 +165,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   const projectRootRef = useLatestRef(project?.root ?? null);
   const latest = useRef({
     bridge,
+    staged: runtime.workspaceMode === "staged-explicit-writeback",
     agentVisible,
     frameKey,
     hostContext: null as AgentHostContextSnapshot | null,
@@ -171,7 +173,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
     hostTheme: null as AgentHostThemeSnapshot | null,
   });
   useLayoutEffect(() => {
-    Object.assign(latest.current, { bridge, agentVisible, frameKey });
+    Object.assign(latest.current, { bridge, agentVisible, frameKey, staged: runtime.workspaceMode === "staged-explicit-writeback" });
   });
 
   /** Start the runtime and mount the agent frame (both stay up once started). */
@@ -326,7 +328,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
           workspaceRoot: data.workspaceRoot,
           context,
           commentsOptions: () => {
-            host.bridge.flushVisualMarkdown();
+            if (!host.staged) host.bridge.flushVisualMarkdown();
             return host.bridge.agentCommentsOptions();
           },
           readComments: (options, current) => loadAgentEditorComments().then(({ readAgentCommentsSnapshot }) => (
@@ -352,7 +354,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
             request,
             () => projectRootRef.current,
             async (commentsRequest) => {
-              host.bridge.flushVisualMarkdown();
+              if (!host.staged) host.bridge.flushVisualMarkdown();
               const options = host.bridge.agentCommentsOptions();
               if (!options) throw new Error("editor_comments_host_unavailable");
               return tools.readAgentCommentsSnapshot({ ...options, ...commentsRequest.args });
@@ -409,6 +411,14 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
       if (event.source !== frameRef.current?.contentWindow || event.origin !== origin) return;
       const data = event.data as MessageData | null;
       const host = latest.current;
+      if (host.staged) {
+        const decision = stagedHostMessage(data);
+        if (!decision.allowed) {
+          if (decision.response) post(decision.response);
+          if (data?.type === SYNARA_SAVE_VISUAL) showWarning(i18n._(msg`Save visual is unavailable in staged mode. Use Apply checked changes for text files.`));
+          return;
+        }
+      }
       const handler = typeof data?.type === "string" ? handlers[data.type] : undefined;
       if (data && handler) {
         handler(data, host);

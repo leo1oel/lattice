@@ -56,6 +56,90 @@ impl ProjectDir {
         Ok(Self { root: open_directory(fs::CWD, &root).map_err(err)? })
     }
 
+    /// Open a root whose final component must itself be a real directory.
+    #[allow(dead_code, reason = "Used by the standalone headless server sharing this module")]
+    pub fn open_nofollow(root: &Path) -> Result<Self, String> {
+        Ok(Self { root: open_directory(fs::CWD, root).map_err(err)? })
+    }
+
+    /// A descriptor-relative snapshot: never follows a swapped parent/final
+    /// symlink, never reads non-regular entries, and bounds the bytes actually
+    /// read from each opened descriptor rather than trusting path metadata.
+    #[allow(dead_code, reason = "Used by the standalone headless server sharing this module")]
+    pub fn read_tree(
+        &self, limit: u64, count_limit: usize,
+    ) -> Result<std::collections::BTreeMap<String, Vec<u8>>, String> {
+        fn walk(
+            directory: &OwnedFd, prefix: &str, depth: usize, limit: u64, budget: &mut (u64, usize),
+            count_limit: usize, result: &mut std::collections::BTreeMap<String, Vec<u8>>,
+        ) -> Result<(), String> {
+            use std::io::Read;
+            use std::os::unix::fs::MetadataExt;
+            if depth > 64 {
+                return Err("Project nesting exceeds the snapshot limit.".into());
+            }
+            let entries =
+                fs::Dir::read_from(open_directory(directory, ".").map_err(err)?).map_err(err)?;
+            for entry in entries {
+                let entry = entry.map_err(err)?;
+                let name = entry.file_name().to_string_lossy();
+                if name.starts_with('.') {
+                    continue;
+                }
+                budget.1 += 1;
+                if budget.1 > count_limit {
+                    return Err("Project snapshot has too many entries.".into());
+                }
+                let relative =
+                    if prefix.is_empty() { name.to_string() } else { format!("{prefix}/{name}") };
+                let fd = fs::openat(
+                    directory,
+                    entry.file_name(),
+                    OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .map_err(|_| {
+                    "Snapshot refuses symbolic links or unreadable entries.".to_string()
+                })?;
+                let metadata = fs::fstat(&fd).map_err(err)?;
+                let kind = FileType::from_raw_mode(metadata.st_mode);
+                if kind == FileType::Directory {
+                    walk(&fd, &relative, depth + 1, limit, budget, count_limit, result)?;
+                    continue;
+                }
+                if kind != FileType::RegularFile {
+                    return Err("Only regular files can enter an agent snapshot.".into());
+                }
+                let mut file = std::fs::File::from(fd);
+                let before = file.metadata().map_err(err)?;
+                if before.len() > limit.saturating_sub(budget.0) {
+                    return Err("Project snapshot exceeds its byte limit.".into());
+                }
+                let mut bytes = Vec::new();
+                std::io::Read::by_ref(&mut file)
+                    .take(limit.saturating_sub(budget.0) + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(err)?;
+                if bytes.len() as u64 > limit.saturating_sub(budget.0) {
+                    return Err("Project snapshot exceeds its byte limit.".into());
+                }
+                let after = file.metadata().map_err(err)?;
+                if before.len() != after.len()
+                    || before.mtime() != after.mtime()
+                    || before.mtime_nsec() != after.mtime_nsec()
+                {
+                    return Err("A snapshot file changed while it was being read.".into());
+                }
+                budget.0 += bytes.len() as u64;
+                result.insert(relative, bytes);
+            }
+            Ok(())
+        }
+        let mut result = std::collections::BTreeMap::new();
+        walk(&self.root, "", 0, limit, &mut (0, 0), count_limit, &mut result)?;
+        Ok(result)
+    }
+
     /// The (descriptor of the) folder holding `relative`, and its final name.
     fn open_parent(&self, relative: &str, create: bool) -> Result<(OwnedFd, OsString), String> {
         let mut parts = components(relative)?;
@@ -75,6 +159,40 @@ impl ProjectDir {
             };
         }
         Ok((directory, name))
+    }
+
+    /// A stable descriptor for a regular file/directory beneath this root.
+    #[allow(dead_code, reason = "Used by the standalone headless server sharing this module")]
+    pub fn metadata_file(&self, relative: &str) -> Result<std::fs::File, String> {
+        let (parent, name) = self.open_parent(relative, false)?;
+        let descriptor = fs::openat(
+            &parent,
+            &name,
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(err)?;
+        let file = std::fs::File::from(descriptor);
+        let metadata = file.metadata().map_err(err)?;
+        if !metadata.is_file() && !metadata.is_dir() {
+            return Err("Only regular files and directories are supported.".into());
+        }
+        Ok(file)
+    }
+
+    /// Reserve a new file without replacing any existing entry, including a
+    /// symlink or a file another device created since the caller last checked.
+    #[allow(dead_code, reason = "Used by the standalone headless server sharing this module")]
+    pub fn create_empty(&self, relative: &str) -> Result<(), String> {
+        let (parent, name) = self.open_parent(relative, true)?;
+        fs::openat(
+            &parent,
+            &name,
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::from_bits_truncate(0o600),
+        )
+        .map_err(err)?;
+        Ok(())
     }
 
     pub fn atomic_write(&self, relative: &str, bytes: &[u8]) -> Result<(), String> {

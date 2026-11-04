@@ -54,6 +54,7 @@ pub const COMMANDS: &[&str] = &[
     "overleaf_publish_project",
     "overleaf_clone_project",
     "list_annotations",
+    "agent_bibliography_mutation",
     "list_citations",
     "read_bib_entry",
     "save_bib_entry",
@@ -77,7 +78,7 @@ pub struct Core {
     pub root: PathBuf,
     pub state_dir: PathBuf,
     pub active: latex::ActiveBuild,
-    pub mutations: std::sync::Mutex<()>,
+    pub mutations: Arc<std::sync::Mutex<()>>,
     pub events: tokio::sync::broadcast::Sender<Value>,
 }
 impl Core {
@@ -89,13 +90,8 @@ impl Core {
             return Err("Keep the private state directory outside the project workspace.".into());
         }
         let (events, _) = tokio::sync::broadcast::channel(256);
-        Ok(Arc::new(Self {
-            root,
-            state_dir,
-            active: Default::default(),
-            mutations: Default::default(),
-            events,
-        }))
+        let mutations = crate::project_locks::mutation(&root);
+        Ok(Arc::new(Self { root, state_dir, active: Default::default(), mutations, events }))
     }
     pub fn confined(&self, path: &str) -> Result<PathBuf, String> {
         let path = Path::new(path);
@@ -144,6 +140,7 @@ impl Core {
                 | "fetch_paper"
                 | "fetch_web_reference"
                 | "literature_request"
+                | "agent_bibliography_mutation"
         ) {
             Some(
                 self.mutations
@@ -178,6 +175,7 @@ impl Core {
                 word_budget:if flag("clearWordBudget"){Some(None)}else{args.get("wordBudget").and_then(Value::as_u64).map(|v|Some(v as u32))},
                 page_budget:if flag("clearPageBudget"){Some(None)}else{args.get("pageBudget").and_then(Value::as_u64).map(|v|Some(v as u32))},
             }))?,
+            "agent_bibliography_mutation" => serde_json::from_value::<crate::agent_literature::AgentBibliographyMutation>(args.get("mutation").cloned().ok_or("Missing mutation")?).map_err(|e|e.to_string())?.into_request()?.run(root)?,
             "list_citations" => value(project::citations(root))?,
             "read_bib_entry" => value(project::read_bib_entry(root,string("key")?))?,
             "save_bib_entry" => value(project::save_bib_entry(root,string("key")?,string("bibtex")?))?,
