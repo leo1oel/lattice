@@ -4,7 +4,7 @@
  * `{"exit": code}` when the shell ends by itself.
  */
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenInThisWindow } from "../app/window-events";
 import type { TerminalBackend } from "./terminal-sessions";
 
 /** A paste goes over in pieces: the host takes at most 256 KB of typing per request. */
@@ -55,7 +55,7 @@ export const tauriTerminalBackend: TerminalBackend = {
       // terminal looking runnable. Successful reconnects replay their output.
       let unlisten: () => void;
       try {
-        unlisten = await listen("server-ready", () => {
+        unlisten = await listenInThisWindow("server-ready", () => {
           void invoke("terminal_running_command", { id: opened.id }).catch(() => finish(null));
         });
       } catch (reason) {
