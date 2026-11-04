@@ -323,6 +323,11 @@ fn web_capabilities() -> Value {
     }
     value["terminalLimits"] =
         json!({"perTab":4,"global":32,"reconnectLeaseSeconds":10,"requiresBrowserSession":true});
+    value["projectModel"] =
+        json!("Independent project per authenticated browser tab; Bearer clients pin projectRoot.");
+    if let Some(events) = value["events"].as_array_mut() {
+        events.push(json!("server-ready"));
+    }
     value
 }
 fn client_id(headers: &HeaderMap) -> Option<&str> {

@@ -4,12 +4,14 @@
  * `{"exit": code}` when the shell ends by itself.
  */
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { TerminalBackend } from "./terminal-sessions";
 
 /** A paste goes over in pieces: the host takes at most 256 KB of typing per request. */
 const WRITE_CHARS = 32 * 1024;
 
 const writing = new Map<number, Promise<void>>();
+const reconnectSubscriptions = new Map<number, () => void>();
 
 /** `data` in pieces of at most WRITE_CHARS, never splitting a surrogate pair. */
 function pieces(data: string): string[] {
@@ -31,14 +33,40 @@ function isExit(message: unknown): message is { exit: number | null } {
 
 export const tauriTerminalBackend: TerminalBackend = {
   open: async ({ projectRoot, cols, rows, onOutput, onExit }) => {
+    let ended = false;
+    let unsubscribe = () => {};
+    const finish = (code: number | null) => {
+      if (ended) return;
+      ended = true;
+      unsubscribe();
+      onExit(code);
+    };
     const channel = new Channel<ArrayBuffer | { exit: number | null }>();
     channel.onmessage = (message) => {
       if (message instanceof ArrayBuffer) onOutput(new Uint8Array(message));
       else if (ArrayBuffer.isView(message)) onOutput(new Uint8Array(message.buffer, message.byteOffset, message.byteLength));
       else if (Array.isArray(message)) onOutput(Uint8Array.from(message as number[]));
-      else if (isExit(message)) onExit(typeof message.exit === "number" ? message.exit : null);
+      else if (isExit(message)) finish(typeof message.exit === "number" ? message.exit : null);
     };
-    return invoke<{ id: number; shell: string }>("terminal_open", { projectRoot, cols, rows, onOutput: channel });
+    const opened = await invoke<{ id: number; shell: string }>("terminal_open", { projectRoot, cols, rows, onOutput: channel });
+    if (!ended && (window as Window & { __LATTICE_HEADLESS_TERMINAL__?: boolean }).__LATTICE_HEADLESS_TERMINAL__ === true) {
+      // A lease can expire while the page is offline. On reconnect the old
+      // channel has no server process; end its UI instead of leaving a dead
+      // terminal looking runnable. Successful reconnects replay their output.
+      let unlisten: () => void;
+      try {
+        unlisten = await listen("server-ready", () => {
+          void invoke("terminal_running_command", { id: opened.id }).catch(() => finish(null));
+        });
+      } catch (reason) {
+        await invoke("terminal_close", { id: opened.id }).catch(() => {});
+        throw reason;
+      }
+      unsubscribe = () => { unlisten(); reconnectSubscriptions.delete(opened.id); };
+      if (ended) unsubscribe();
+      else reconnectSubscriptions.set(opened.id, unsubscribe);
+    }
+    return opened;
   },
   // Each terminal's writes go one after another, so a long paste's pieces
   // and the keys typed after it reach the shell in order.
@@ -56,5 +84,8 @@ export const tauriTerminalBackend: TerminalBackend = {
   resize: (id, cols, rows) => invoke("terminal_resize", { id, cols, rows }),
   ack: (id, bytes) => invoke("terminal_ack", { id, bytes }),
   runningCommand: (id) => invoke<string | null>("terminal_running_command", { id }),
-  close: (id) => invoke("terminal_close", { id }),
+  close: (id) => {
+    reconnectSubscriptions.get(id)?.();
+    return invoke("terminal_close", { id });
+  },
 };
