@@ -6,16 +6,16 @@
 
 <h1>Lattice</h1>
 
-macOS 上的本地优先 LaTeX 工作区：论文、文献、合作者和 AI 智能体在同一个窗口里。
+macOS 上的本地优先 LaTeX 工作区：论文、文献、合作者和 AI 智能体在同一个窗口里
 
-[下载](https://github.com/leo1oel/lattice/releases/latest) · [官网](https://leo1oel.github.io/lattice/) · [文档](docs/README.md) · [反馈](https://github.com/leo1oel/lattice/issues) · [English](README.md)
+[下载](https://github.com/leo1oel/lattice/releases/latest)&emsp;[官网](https://leo1oel.github.io/lattice/)&emsp;[观看短片](https://leo1oel.github.io/lattice/#film)&emsp;[文档](docs/README.md)&emsp;[反馈](https://github.com/leo1oel/lattice/issues)&emsp;[English](README.md)
 
 </div>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.webp" />
-    <img src="docs/images/hero-light.webp" alt="Lattice 打开一篇 LaTeX 论文：左侧 Agent 面板汇报对摘要的修改，中间是源码，右侧是编译后的 PDF" width="900" />
+    <img src="docs/images/hero-light.webp" alt="Lattice 打开一篇 LaTeX 论文：左侧是项目文件树和文献库，中间是源码，右侧是编译后的 PDF" width="900" />
   </picture>
 </p>
 

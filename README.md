@@ -6,20 +6,20 @@
 
 <h1>Lattice</h1>
 
-A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window.
+A local-first LaTeX workspace for macOS, with your papers, your co-authors and an AI agent in the same window
 
-[Download](https://github.com/leo1oel/lattice/releases/latest) · [Website](https://leo1oel.github.io/lattice/) · [Docs](docs/README.md) · [Issues](https://github.com/leo1oel/lattice/issues) · [中文](README.zh-CN.md)
+[Download](https://github.com/leo1oel/lattice/releases/latest)&emsp;[Website](https://leo1oel.github.io/lattice/)&emsp;[Watch the film](https://leo1oel.github.io/lattice/#film)&emsp;[Docs](docs/README.md)&emsp;[Issues](https://github.com/leo1oel/lattice/issues)&emsp;[中文](README.zh-CN.md)
 
-[![Release](https://img.shields.io/github/v/release/leo1oel/lattice?style=flat-square&label=release&color=4568f6)](https://github.com/leo1oel/lattice/releases/latest)
+[![Release](https://img.shields.io/github/v/release/leo1oel/lattice?style=flat-square&label=release&color=556324)](https://github.com/leo1oel/lattice/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/leo1oel/lattice/ci.yml?branch=main&style=flat-square&label=checks)](https://github.com/leo1oel/lattice/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-4568f6?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-556324?style=flat-square)](LICENSE)
 
 </div>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.webp" />
-    <img src="docs/images/hero-light.webp" alt="Lattice with a LaTeX paper open: the Agent panel reporting an edit to the abstract on the left, the source in the middle, the compiled PDF on the right" width="900" />
+    <img src="docs/images/hero-light.webp" alt="Lattice with a LaTeX paper open: the Project tree and Papers library on the left, the source in the middle, the compiled PDF on the right" width="900" />
   </picture>
 </p>
 
