@@ -1,0 +1,27 @@
+{
+  "version": "0.15.1",
+  "date": "2026-11-04",
+  "highlights": [
+    {
+      "title": {
+        "en": "A new app icon",
+        "zh": "全新的应用图标"
+      },
+      "body": {
+        "en": "Lattice's icon is now olive on cream.",
+        "zh": "Lattice 的图标换成了奶油底色上的橄榄绿。"
+      }
+    },
+    {
+      "title": {
+        "en": "Try Lattice in your browser",
+        "zh": "在浏览器中试用 Lattice"
+      },
+      "body": {
+        "en": "The website now has a live demo of the real Lattice workspace at https://leo1oel.github.io/lattice/demo/, so you can try it before you download.",
+        "zh": "网站上新增了真实 Lattice 工作区的在线演示（https://leo1oel.github.io/lattice/demo/），下载前即可先试用。"
+      }
+    }
+  ],
+  "fixes": []
+}
